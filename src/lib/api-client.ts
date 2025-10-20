@@ -12,9 +12,18 @@ export const apiClient = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Read token from Zustand's persisted storage
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      try {
+        const { state } = JSON.parse(authStorage);
+        const token = state?.token;
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (error) {
+        console.error('Error parsing auth storage:', error);
+      }
     }
     return config;
   },
@@ -32,6 +41,20 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
+    // Extract error message from response
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      const errorMessage = errorData.error || errorData.message || error.message;
+      
+      // Create a more detailed error with status and message
+      const enhancedError = new Error(errorMessage);
+      (enhancedError as Error & { status: number; data: unknown }).status = error.response.status;
+      (enhancedError as Error & { status: number; data: unknown }).data = errorData;
+      
+      return Promise.reject(enhancedError);
+    }
+    
     return Promise.reject(error);
   }
 );

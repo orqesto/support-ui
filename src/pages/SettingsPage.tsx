@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Settings, FolderTree, FileText, Shield } from 'lucide-react';
+import { Settings, FolderTree, FileText, Shield, Plug } from 'lucide-react';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
 import { PromptsSettings } from '../components/settings/PromptsSettings';
 import { SpamRulesSettings } from '../components/settings/SpamRulesSettings';
+import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
 
-type TabType = 'categories' | 'prompts' | 'spam-rules';
+type TabType = 'categories' | 'prompts' | 'spam-rules' | 'integrations';
 
 export const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>('categories');
@@ -29,6 +30,12 @@ export const SettingsPage = () => {
       label: 'Spam Rules',
       icon: Shield,
       description: 'Configure spam detection rules',
+    },
+    {
+      id: 'integrations' as TabType,
+      label: 'Integrations',
+      icon: Plug,
+      description: 'Configure Email, Jira, Telegram, Slack',
     },
   ];
 
@@ -80,6 +87,7 @@ export const SettingsPage = () => {
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
               {activeTab === 'spam-rules' && <SpamRulesSettings />}
+              {activeTab === 'integrations' && <IntegrationsSettings />}
             </div>
           </CardContent>
         </Card>

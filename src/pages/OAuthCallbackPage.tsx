@@ -1,0 +1,81 @@
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+
+export const OAuthCallbackPage = () => {
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
+  const [message, setMessage] = useState('Processing OAuth callback...');
+
+  useEffect(() => {
+    const code = searchParams.get('code');
+    const error = searchParams.get('error');
+
+    if (error) {
+      setStatus('error');
+      setMessage(`OAuth error: ${error}`);
+      return;
+    }
+
+    if (code) {
+      // Store code in localStorage for parent window
+      try {
+        localStorage.setItem('gmail_oauth_code', code);
+        setStatus('success');
+        setMessage('Authorization successful! This window will close automatically.');
+        
+        // Auto-close after 1 second
+        setTimeout(() => {
+          window.close();
+        }, 1000);
+      } catch (e) {
+        setStatus('error');
+        setMessage('Failed to save authorization code. Please try again.');
+      }
+    } else {
+      setStatus('error');
+      setMessage('No authorization code received.');
+    }
+  }, [searchParams]);
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="p-8 max-w-md w-full bg-white rounded-lg shadow-lg">
+        {status === 'processing' && (
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-green-100 rounded-full">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
+            <p className="mt-2 text-sm text-gray-500">This window will close automatically.</p>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-red-100 rounded-full">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <p className="mt-4 text-lg font-medium text-red-600">{message}</p>
+            <button
+              onClick={() => window.close()}
+              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Close Window
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

@@ -1,17 +1,42 @@
+import { useState } from 'react';
 import type { Message } from '../types';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from './ui/Dialog';
 import { formatDate } from '../lib/utils';
-import { Mail, MessageSquare, Send, Check, X, Trash2, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Mail, MessageSquare, Send, Check, X, Trash2, AlertTriangle, CheckCircle, Info, ExternalLink, RotateCcw } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 type MessageDetailProps = {
   message: Message;
   onApprove?: () => void;
   onReject?: () => void;
+  onReopen?: () => void;
   onDelete?: () => void;
 };
 
-export const MessageDetail = ({ message, onApprove, onReject, onDelete }: MessageDetailProps) => {
+export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete }: MessageDetailProps) => {
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+
+  const handleRejectClick = () => {
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectConfirm = () => {
+    setRejectDialogOpen(false);
+    onReject?.();
+  };
+
+  const handleReopenClick = () => {
+    setReopenDialogOpen(true);
+  };
+
+  const handleReopenConfirm = () => {
+    setReopenDialogOpen(false);
+    onReopen?.();
+  };
+
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'email':
@@ -75,6 +100,25 @@ export const MessageDetail = ({ message, onApprove, onReject, onDelete }: Messag
           <p className="text-sm text-muted-foreground">Received</p>
           <p className="text-sm">{formatDate(message.createdAt)}</p>
         </div>
+
+        {/* Link to Ticket */}
+        {message.ticketId && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-900">Linked Ticket</p>
+                <p className="text-xs text-blue-700">Ticket #{message.ticketId}</p>
+              </div>
+              <Link 
+                to={`/tickets?id=${message.ticketId}`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors"
+              >
+                View Ticket
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Message Content */}
@@ -234,30 +278,54 @@ export const MessageDetail = ({ message, onApprove, onReject, onDelete }: Messag
       )}
 
       {/* Metadata */}
-      {message.metadata && (
-        <div className="border-t pt-6">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-3">Additional Information</h3>
-          <div className="bg-gray-50 rounded-lg p-4">
-            <pre className="text-xs overflow-auto">
-              {JSON.stringify(message.metadata, null, 2)}
-            </pre>
+      {message.metadata && (() => {
+        // Filter out embedding fields and already-displayed analysis/spamCheck
+        const { embedding, embeddingString, analysis, spamCheck, ...displayMetadata } = message.metadata;
+        return Object.keys(displayMetadata).length > 0 ? (
+          <div className="border-t pt-6">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3">Additional Information</h3>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <pre className="text-xs overflow-auto">
+                {JSON.stringify(displayMetadata, null, 2)}
+              </pre>
+            </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       {/* Actions */}
       <div className="border-t pt-6 flex gap-2">
-        {!message.processed && onApprove && (
-          <Button onClick={onApprove} className="flex-1">
-            <Check className="h-4 w-4 mr-2" />
-            Create Ticket
-          </Button>
-        )}
-        {!message.processed && onReject && (
-          <Button onClick={onReject} variant="outline" className="flex-1">
-            <X className="h-4 w-4 mr-2" />
-            Mark as Processed
-          </Button>
+        {!message.processed ? (
+          <>
+            {onApprove && (
+              <Button onClick={onApprove} className="flex-1">
+                <Check className="h-4 w-4 mr-2" />
+                Create Ticket
+              </Button>
+            )}
+            {onReject && (
+              <Button onClick={handleRejectClick} variant="outline" className="flex-1">
+                <X className="h-4 w-4 mr-2" />
+                Mark as Processed
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            {!message.ticketId && onReopen && (
+              <Button onClick={handleReopenClick} variant="outline" className="flex-1">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reopen Message
+              </Button>
+            )}
+            {message.ticketId && (
+              <div className="flex-1 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-900 font-medium">
+                  Ticket already created - Cannot reopen
+                </p>
+              </div>
+            )}
+          </>
         )}
         {onDelete && (
           <Button onClick={onDelete} variant="destructive">
@@ -266,6 +334,48 @@ export const MessageDetail = ({ message, onApprove, onReject, onDelete }: Messag
           </Button>
         )}
       </div>
+
+      {/* Reject Confirmation Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Processed?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to mark this message as processed without creating a ticket?
+            This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRejectConfirm}>
+              Mark as Processed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reopen Confirmation Dialog */}
+      <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reopen Message?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to reopen this message? It will be marked as unprocessed and 
+            will appear in your unprocessed messages list again.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReopenDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReopenConfirm}>
+              Reopen Message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
