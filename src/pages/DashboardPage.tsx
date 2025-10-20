@@ -8,7 +8,7 @@ import { ingestionService } from '../services/ingestion.service';
 import { messageService } from '../services/message.service';
 import { ticketService } from '../services/ticket.service';
 import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
-import type { Message, Ticket } from '../types';
+import { useSystemHealth } from '../hooks/useSystemHealth';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -20,30 +20,51 @@ export const DashboardPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [ingesting, setIngesting] = useState<string | null>(null);
+  
+  // Get real-time system health
+  const { health, isWebSocketConnected } = useSystemHealth();
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [messagesResponse, ticketsResponse] = await Promise.all([
-          messageService.getAll(),
-          ticketService.getAll(),
+        // Fetch all data without pagination limits to get accurate counts
+        const [
+          allMessagesResponse,
+          unprocessedMessagesResponse,
+          allTicketsResponse,
+          pendingTicketsResponse,
+        ] = await Promise.all([
+          messageService.getAll(undefined, 1, 9999), // Get total count from pagination
+          messageService.getAll({ processed: 'false' }, 1, 9999),
+          ticketService.getAll(undefined, 1, 9999),
+          ticketService.getAll({ status: 'pending' }, 1, 9999),
         ]);
 
-        if (messagesResponse.success && messagesResponse.data) {
-          const messages = messagesResponse.data;
+        if (allMessagesResponse.success) {
           setStats(prev => ({
             ...prev,
-            totalMessages: messages.length,
-            unprocessedMessages: messages.filter((m: Message) => !m.processed).length,
+            totalMessages: allMessagesResponse.pagination.total,
           }));
         }
 
-        if (ticketsResponse.success && ticketsResponse.data) {
-          const tickets = ticketsResponse.data;
+        if (unprocessedMessagesResponse.success) {
           setStats(prev => ({
             ...prev,
-            totalTickets: tickets.length,
-            pendingTickets: tickets.filter((t: Ticket) => t.status === 'pending').length,
+            unprocessedMessages: unprocessedMessagesResponse.pagination.total,
+          }));
+        }
+
+        if (allTicketsResponse.success) {
+          setStats(prev => ({
+            ...prev,
+            totalTickets: allTicketsResponse.pagination.total,
+          }));
+        }
+
+        if (pendingTicketsResponse.success) {
+          setStats(prev => ({
+            ...prev,
+            pendingTickets: pendingTicketsResponse.pagination.total,
           }));
         }
       } catch (error) {
@@ -247,27 +268,117 @@ export const DashboardPage = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex gap-2 items-center">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-sm font-medium">Email Service</span>
+                {/* Database Status */}
+                {health?.services.database && (
+                  <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                    health.services.database.status === 'active' 
+                      ? 'bg-green-50 border-green-200' 
+                      : health.services.database.status === 'error'
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className="flex gap-2 items-center">
+                      <div className={`w-2 h-2 rounded-full ${
+                        health.services.database.status === 'active' 
+                          ? 'bg-green-500 animate-pulse' 
+                          : health.services.database.status === 'error'
+                          ? 'bg-red-500'
+                          : 'bg-gray-400'
+                      }`} />
+                      <span className="text-sm font-medium">Database</span>
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      health.services.database.status === 'active' 
+                        ? 'text-green-700' 
+                        : health.services.database.status === 'error'
+                        ? 'text-red-700'
+                        : 'text-gray-600'
+                    }`}>
+                      {health.services.database.status === 'active' ? 'Connected' : health.services.database.status === 'error' ? 'Error' : 'Inactive'}
+                    </span>
                   </div>
-                  <span className="text-xs font-medium text-green-700">Active</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                )}
+
+                {/* Email Service Status */}
+                {health?.services.email && (
+                  <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                    health.services.email.status === 'active' 
+                      ? 'bg-green-50 border-green-200' 
+                      : health.services.email.status === 'error'
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className="flex gap-2 items-center">
+                      <div className={`w-2 h-2 rounded-full ${
+                        health.services.email.status === 'active' 
+                          ? 'bg-green-500 animate-pulse' 
+                          : health.services.email.status === 'error'
+                          ? 'bg-red-500'
+                          : 'bg-gray-400'
+                      }`} />
+                      <span className="text-sm font-medium">Email Service</span>
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      health.services.email.status === 'active' 
+                        ? 'text-green-700' 
+                        : health.services.email.status === 'error'
+                        ? 'text-red-700'
+                        : 'text-gray-600'
+                    }`}>
+                      {health.services.email.message || health.services.email.status}
+                    </span>
+                  </div>
+                )}
+
+                {/* WebSocket Status */}
+                <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                  isWebSocketConnected 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : 'bg-gray-50 border-gray-200'
+                }`}>
                   <div className="flex gap-2 items-center">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <div className={`w-2 h-2 rounded-full ${
+                      isWebSocketConnected ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'
+                    }`} />
                     <span className="text-sm font-medium">WebSocket</span>
                   </div>
-                  <span className="text-xs font-medium text-blue-700">Connected</span>
+                  <span className={`text-xs font-medium ${
+                    isWebSocketConnected ? 'text-blue-700' : 'text-gray-600'
+                  }`}>
+                    {isWebSocketConnected ? 'Connected' : 'Disconnected'}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex gap-2 items-center">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full" />
-                    <span className="text-sm font-medium">AI Processing</span>
+
+                {/* AI Service Status */}
+                {health?.services.ai && (
+                  <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                    health.services.ai.status === 'active' 
+                      ? 'bg-purple-50 border-purple-200' 
+                      : health.services.ai.status === 'error'
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className="flex gap-2 items-center">
+                      <div className={`w-2 h-2 rounded-full ${
+                        health.services.ai.status === 'active' 
+                          ? 'bg-purple-500 animate-pulse' 
+                          : health.services.ai.status === 'error'
+                          ? 'bg-red-500'
+                          : 'bg-gray-400'
+                      }`} />
+                      <span className="text-sm font-medium">AI Processing</span>
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      health.services.ai.status === 'active' 
+                        ? 'text-purple-700' 
+                        : health.services.ai.status === 'error'
+                        ? 'text-red-700'
+                        : 'text-gray-600'
+                    }`}>
+                      {health.services.ai.message || health.services.ai.status}
+                    </span>
                   </div>
-                  <span className="text-xs font-medium text-gray-600">Ready</span>
-                </div>
+                )}
               </div>
               <Button
                 variant="outline"

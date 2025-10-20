@@ -1,26 +1,46 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useAuthStore } from './stores/authStore';
+
+// Eager load critical routes
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { MessagesPage } from './pages/MessagesPage';
-import { TicketsPage } from './pages/TicketsPage';
-import { CreateTicketPage } from './pages/CreateTicketPage';
-import { EditTicketPage } from './pages/EditTicketPage';
-import { SettingsPage } from './pages/SettingsPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+
+// Lazy load non-critical routes
+const MessagesPage = lazy(() => import('./pages/MessagesPage').then(m => ({ default: m.MessagesPage })));
+const TicketsPage = lazy(() => import('./pages/TicketsPage').then(m => ({ default: m.TicketsPage })));
+const CreateTicketPage = lazy(() => import('./pages/CreateTicketPage').then(m => ({ default: m.CreateTicketPage })));
+const EditTicketPage = lazy(() => import('./pages/EditTicketPage').then(m => ({ default: m.EditTicketPage })));
+const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then(m => ({ default: m.StatisticsPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   return (
     <Routes>
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />}
+      />
+      <Route
+        path="/oauth/gmail/callback"
+        element={<OAuthCallbackPage />}
       />
       <Route
         path="/dashboard"
@@ -34,7 +54,9 @@ const AppRoutes = () => {
         path="/messages"
         element={
           <PrivateRoute>
-            <MessagesPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <MessagesPage />
+            </Suspense>
           </PrivateRoute>
         }
       />
@@ -42,7 +64,9 @@ const AppRoutes = () => {
         path="/tickets"
         element={
           <PrivateRoute>
-            <TicketsPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <TicketsPage />
+            </Suspense>
           </PrivateRoute>
         }
       />
@@ -50,7 +74,9 @@ const AppRoutes = () => {
         path="/tickets/create"
         element={
           <PrivateRoute>
-            <CreateTicketPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <CreateTicketPage />
+            </Suspense>
           </PrivateRoute>
         }
       />
@@ -58,7 +84,19 @@ const AppRoutes = () => {
         path="/tickets/edit/:id"
         element={
           <PrivateRoute>
-            <EditTicketPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <EditTicketPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/statistics"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <StatisticsPage />
+            </Suspense>
           </PrivateRoute>
         }
       />
@@ -66,7 +104,9 @@ const AppRoutes = () => {
         path="/settings"
         element={
           <PrivateRoute>
-            <SettingsPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <SettingsPage />
+            </Suspense>
           </PrivateRoute>
         }
       />
@@ -79,9 +119,7 @@ const AppRoutes = () => {
 const App = () => {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <AppRoutes />
     </BrowserRouter>
   );
 };

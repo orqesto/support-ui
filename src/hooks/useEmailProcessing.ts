@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
+import { getSocket, subscribeToEvent, unsubscribeFromEvent, releaseSocket } from '@/lib/socketManager';
 
 type ProcessingStatus = 'idle' | 'started' | 'processing' | 'complete' | 'error';
 
@@ -41,22 +42,11 @@ export const useEmailProcessing = () => {
   });
 
   useEffect(() => {
-    // Connect to WebSocket server
-    const socketInstance = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
-      transports: ['websocket', 'polling'],
-    });
+    // Get singleton socket instance
+    const socketInstance = getSocket();
+    setSocket(socketInstance);
 
-    socketInstance.on('connect', () => {
-      console.log('✅ WebSocket connected');
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('❌ WebSocket disconnected');
-    });
-
-    socketInstance.on('email:processing', (event: EmailProcessingEvent) => {
-      console.log('📧 Email processing event:', event);
-
+    const handleProcessing = (event: EmailProcessingEvent) => {
       switch (event.type) {
         case 'started':
           setState({
@@ -113,12 +103,14 @@ export const useEmailProcessing = () => {
           }));
           break;
       }
-    });
+    };
 
-    setSocket(socketInstance);
+    // Subscribe to events with automatic deduplication
+    subscribeToEvent('email:processing', handleProcessing);
 
     return () => {
-      socketInstance.disconnect();
+      unsubscribeFromEvent('email:processing', handleProcessing);
+      releaseSocket();
     };
   }, []);
 

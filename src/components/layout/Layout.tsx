@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
+import { WebSocketStatus } from '@/components/WebSocketStatus';
+import { WebSocketDebug } from '@/components/WebSocketDebug';
 import {
   LayoutDashboard,
   Mail,
   Ticket,
+  BarChart3,
   Settings,
   LogOut,
   Menu,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const isDevelopment = import.meta.env.DEV;
 
 type LayoutProps = {
   children: ReactNode;
@@ -21,11 +26,13 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Messages', href: '/messages', icon: Mail },
   { name: 'Tickets', href: '/tickets', icon: Ticket },
+  { name: 'Statistics', href: '/statistics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export const Layout = ({ children }: LayoutProps) => {
-  const { user, logout } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,23 +43,26 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-row">
-      {/* Mobile sidebar */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile sidebar backdrop */}
       <div
         className={cn(
-          'fixed inset-0 z-50 bg-gray-900/80 lg:hidden',
+          'fixed inset-0 z-40 bg-gray-900/80 lg:hidden',
           sidebarOpen ? 'block' : 'hidden'
         )}
         onClick={() => setSidebarOpen(false)}
       />
       
-      <div
-        className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform lg:translate-x-0 lg:static lg:inset-auto',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        <div className="flex flex-col h-full w-64">
+      <div className="flex flex-row">
+        {/* Sidebar - Hidden on mobile, visible on desktop */}
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform duration-300',
+            'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          )}
+        >
+        <div className="flex flex-col h-full overflow-hidden">
           <div className="flex items-center justify-between h-16 px-4 border-b">
             <h1 className="text-xl font-bold">Support System</h1>
             <button
@@ -63,7 +73,7 @@ export const Layout = ({ children }: LayoutProps) => {
             </button>
           </div>
 
-          <nav className="flex-1 px-4 py-4 space-y-1">
+          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -86,7 +96,7 @@ export const Layout = ({ children }: LayoutProps) => {
             })}
           </nav>
 
-          <div className="p-4 border-t fixed bottom-0 right-0 left-0">
+          <div className="p-4 border-t">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
@@ -107,12 +117,12 @@ export const Layout = ({ children }: LayoutProps) => {
             </button>
           </div>
         </div>
-      </div>
+        </aside>
 
-      {/* Main content */}
-      <div className="flex-1 w-full">
-        {/* Mobile header only */}
-        <header className="lg:hidden h-14 bg-white border-b flex items-center px-4">
+        {/* Main content */}
+        <div className="flex-1 w-full lg:ml-0">
+        {/* Mobile header with hamburger menu */}
+        <header className="lg:hidden h-14 bg-white border-b flex items-center px-4 sticky top-0 z-50">
           <button
             className="mr-4"
             onClick={() => setSidebarOpen(true)}
@@ -123,10 +133,18 @@ export const Layout = ({ children }: LayoutProps) => {
             {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
           </h2>
         </header>
-        <main className="p-4 lg:p-6 lg:pt-6 w-full">
+        
+        <main className="p-4 lg:p-6 w-full">
           {children}
         </main>
+        </div>
       </div>
+      
+      {/* WebSocket Status Indicator */}
+      <WebSocketStatus />
+      
+      {/* WebSocket Debug Panel (Development Only) */}
+      {isDevelopment && <WebSocketDebug />}
     </div>
   );
 };

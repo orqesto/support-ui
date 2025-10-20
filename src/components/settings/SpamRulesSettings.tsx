@@ -115,7 +115,7 @@ export const SpamRulesSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">Spam Detection Rules</h3>
           <p className="text-sm text-muted-foreground">
@@ -123,22 +123,22 @@ export const SpamRulesSettings = () => {
           </p>
         </div>
         <Button onClick={handleCreate} disabled={isCreating}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="mr-2 w-4 h-4" />
           Add Rule
         </Button>
       </div>
 
       {/* Info Banner */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
         <p className="text-sm text-yellow-900">
-          <strong>Pattern Matching:</strong> Use regex or keywords separated by <code className="bg-yellow-100 px-1 rounded">|</code> (pipe).
+          <strong>Pattern Matching:</strong> Use regex or keywords separated by <code className="px-1 bg-yellow-100 rounded">|</code> (pipe).
           Higher severity scores (0-100) have more impact on spam detection.
         </p>
       </div>
 
       {/* New Rule Form */}
       {isCreating && (
-        <div className="border rounded-lg p-4 bg-red-50 space-y-4">
+        <div className="p-4 space-y-4 bg-red-50 rounded-lg border">
           <h4 className="font-semibold">New Spam Rule</h4>
           <div className="grid gap-4">
             <div>
@@ -147,7 +147,7 @@ export const SpamRulesSettings = () => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md"
+                className="px-3 py-2 w-full rounded-md border"
                 placeholder="e.g., phishing_indicators"
               />
             </div>
@@ -157,7 +157,7 @@ export const SpamRulesSettings = () => {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md"
+                className="px-3 py-2 w-full rounded-md border"
                 placeholder="What this rule detects"
               />
             </div>
@@ -167,7 +167,7 @@ export const SpamRulesSettings = () => {
                 type="text"
                 value={formData.pattern}
                 onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
                 placeholder="verify your account|confirm identity|suspended"
               />
             </div>
@@ -177,7 +177,7 @@ export const SpamRulesSettings = () => {
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
+                  className="px-3 py-2 w-full rounded-md border"
                 >
                   <option value="sender">Sender</option>
                   <option value="subject">Subject</option>
@@ -192,11 +192,11 @@ export const SpamRulesSettings = () => {
                   max="100"
                   value={formData.severity}
                   onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border rounded-md"
+                  className="px-3 py-2 w-full rounded-md border"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2 items-center">
               <input
                 type="checkbox"
                 id="active-new"
@@ -211,11 +211,11 @@ export const SpamRulesSettings = () => {
           </div>
           <div className="flex gap-2">
             <Button onClick={handleSave} disabled={!formData.name || !formData.description}>
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="mr-2 w-4 h-4" />
               Save
             </Button>
             <Button variant="outline" onClick={handleCancel}>
-              <X className="h-4 w-4 mr-2" />
+              <X className="mr-2 w-4 h-4" />
               Cancel
             </Button>
           </div>
@@ -227,9 +227,8 @@ export const SpamRulesSettings = () => {
         {rules.map((rule) => (
           <div
             key={rule.id}
-            className={`border rounded-lg p-4 ${
-              editingRule?.id === rule.id ? 'bg-red-50' : 'bg-white'
-            }`}
+            className={`border rounded-lg p-4 ${editingRule?.id === rule.id ? 'bg-red-50' : 'bg-white'
+              }`}
           >
             {editingRule?.id === rule.id ? (
               <div className="space-y-4">
@@ -241,7 +240,7 @@ export const SpamRulesSettings = () => {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
+                      className="px-3 py-2 w-full rounded-md border"
                     />
                   </div>
                   <div>
@@ -250,7 +249,7 @@ export const SpamRulesSettings = () => {
                       type="text"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
+                      className="px-3 py-2 w-full rounded-md border"
                     />
                   </div>
                   <div>
@@ -259,7 +258,7 @@ export const SpamRulesSettings = () => {
                       type="text"
                       value={formData.pattern}
                       onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -268,7 +267,7 @@ export const SpamRulesSettings = () => {
                       <select
                         value={formData.category}
                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md"
+                        className="px-3 py-2 w-full rounded-md border"
                       >
                         <option value="sender">Sender</option>
                         <option value="subject">Subject</option>
@@ -283,11 +282,11 @@ export const SpamRulesSettings = () => {
                         max="100"
                         value={formData.severity}
                         onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
-                        className="w-full px-3 py-2 border rounded-md"
+                        className="px-3 py-2 w-full rounded-md border"
                       />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-2 items-center">
                     <input
                       type="checkbox"
                       id={`active-${rule.id}`}
@@ -302,21 +301,21 @@ export const SpamRulesSettings = () => {
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSave}>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="mr-2 w-4 h-4" />
                     Save
                   </Button>
                   <Button variant="outline" onClick={handleCancel}>
-                    <X className="h-4 w-4 mr-2" />
+                    <X className="mr-2 w-4 h-4" />
                     Cancel
                   </Button>
                 </div>
               </div>
             ) : (
               <>
-                <div className="flex items-start justify-between">
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="font-semibold text-lg">{rule.name}</h4>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <h4 className="text-lg font-semibold">{rule.name}</h4>
                       <Badge variant={rule.active ? 'success' : 'default'}>
                         {rule.active ? 'Active' : 'Inactive'}
                       </Badge>
@@ -327,15 +326,15 @@ export const SpamRulesSettings = () => {
                         {rule.category}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {rule.description}
                     </p>
                     {rule.pattern && (
                       <div className="mt-2">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">
                           Pattern:
                         </p>
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                        <code className="px-2 py-1 font-mono text-xs bg-gray-100 rounded">
                           {rule.pattern}
                         </code>
                       </div>
@@ -349,21 +348,23 @@ export const SpamRulesSettings = () => {
                       title={rule.active ? 'Deactivate' : 'Activate'}
                     >
                       {rule.active ? (
-                        <EyeOff className="h-3 w-3" />
+                        <EyeOff className="w-3 h-3" />
                       ) : (
-                        <Eye className="h-3 w-3" />
+                        <Eye className="w-3 h-3" />
                       )}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(rule)}>
-                      <Edit2 className="h-3 w-3 mr-1" />
+                      <Edit2 className="mr-1 w-3 h-3" />
                       Edit
                     </Button>
                     <Button
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDeleteClick(rule)}
+                      aria-label="Delete spam rule"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="mr-2 w-4 h-4" />
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -382,9 +383,9 @@ export const SpamRulesSettings = () => {
         <DialogContent>
           <p>Are you sure you want to delete this spam detection rule?</p>
           {ruleToDelete && (
-            <div className="mt-4 p-4 bg-gray-50 rounded">
+            <div className="p-4 mt-4 bg-gray-50 rounded">
               <p className="text-sm font-medium">{ruleToDelete.name}</p>
-              <p className="text-xs text-muted-foreground mt-1">{ruleToDelete.description}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{ruleToDelete.description}</p>
             </div>
           )}
         </DialogContent>

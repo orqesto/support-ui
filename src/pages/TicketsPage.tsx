@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -7,13 +7,35 @@ import { Drawer } from '@/components/ui/Drawer';
 import { TicketDetail } from '@/components/TicketDetail';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ticketService } from '@/services/ticket.service';
+import { Pagination } from '@/components/ui/Pagination';
+import { ticketService, type PaginationMeta } from '@/services/ticket.service';
+import { integrationsService, type Integration } from '@/services/integrations.service';
+import { useTicketsStore } from '@/stores/ticketsStore';
+import { useAuthStore } from '@/stores/authStore';
+import { PAGINATION } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
-import { Ticket, ExternalLink, Send, RefreshCw, Edit2, Trash2, Filter } from 'lucide-react';
+import { Ticket, ExternalLink as ExternalLinkIcon, Send, RefreshCw, Edit2, Trash2, Filter, X } from 'lucide-react';
+import { ExternalLink } from '@/components/ui/ExternalLink';
 import type { Ticket as TicketType, TicketStatus, TicketPriority } from '@/types';
-import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent, DialogFooter } from '@/components/ui/Dialog';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+} from '@/components/ui/Dialog';
+import {
+  getSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+  releaseSocket,
+} from '@/lib/socketManager';
 
-const statusColors: Record<TicketStatus, 'default' | 'success' | 'warning' | 'danger' | 'secondary'> = {
+const statusColors: Record<
+  TicketStatus,
+  'default' | 'success' | 'warning' | 'danger' | 'secondary'
+> = {
   pending: 'warning',
   open: 'default',
   in_progress: 'default',
@@ -30,76 +52,259 @@ const priorityColors: Record<TicketPriority, 'default' | 'success' | 'warning' |
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tickets, setTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending'>(
-    (searchParams.get('filter') as 'all' | 'pending') || 'all'
-  );
   const [syncing, setSyncing] = useState<number | null>(null);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState<TicketType | null>(null);
+  const [jiraIntegrations, setJiraIntegrations] = useState<Integration[]>([]);
+  const [selectedJiraId, setSelectedJiraId] = useState<number | undefined>(undefined);
+
+  // Zustand stores
+  const filters = useTicketsStore((state) => state.filters);
+  const sorting = useTicketsStore((state) => state.sorting);
+  const setFiltersStore = useTicketsStore((state) => state.setFilters);
+  const setSortingStore = useTicketsStore((state) => state.setSorting);
+  const clearFiltersStore = useTicketsStore((state) => state.clearFilters);
+  const setTicketsCache = useTicketsStore((state) => state.setTickets);
+  const getCached = useTicketsStore((state) => state.getCached);
+  const clearCache = useTicketsStore((state) => state.clearCache);
+
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === 'admin';
+
+  // Local state for current view
+  const [tickets, setTickets] = useState<TicketType[]>([]);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: PAGINATION.DEFAULT_PAGE,
+    limit: PAGINATION.DEFAULT_LIMIT,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  });
   const [deleting, setDeleting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
 
-  const handleFilterChange = (newFilter: 'all' | 'pending') => {
-    setFilter(newFilter);
-    setSearchParams(newFilter === 'pending' ? { filter: 'pending' } : {});
-  };
+  // Auto-open ticket from query param
+  useEffect(() => {
+    const ticketIdParam = searchParams.get('id');
+    if (ticketIdParam && !selectedTicket) {
+      const fetchAndOpenTicket = async () => {
+        try {
+          const response = await ticketService.getById(parseInt(ticketIdParam));
+          if (response.success && response.data) {
+            setSelectedTicket(response.data);
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('id');
+            setSearchParams(newParams);
+          }
+        } catch (error) {
+          console.error('Failed to fetch ticket:', error);
+        }
+      };
+      fetchAndOpenTicket();
+    }
+  }, [searchParams, selectedTicket, setSearchParams]);
+
+  const fetchTickets = useCallback(
+    async (page = 1, force = false) => {
+      // Check cache first
+      if (!force) {
+        const cached = getCached(page);
+        if (cached) {
+          console.log('✅ Using cached tickets for page', page);
+          setTickets(cached.tickets);
+          setPagination(cached.pagination);
+          setLoading(false); // ← FIX: Set loading to false on cache hit
+          return;
+        }
+      }
+
+      console.log('🔄 Fetching tickets from API for page', page);
+      setLoading(true);
+      try {
+        // Build API filters - capture current filters
+        const currentFilters = filters;
+        const apiFilters: Record<string, string> = {};
+
+        if (currentFilters.status !== 'all') {
+          apiFilters.status = currentFilters.status;
+        }
+        if (currentFilters.priority !== 'all') {
+          apiFilters.priority = currentFilters.priority;
+        }
+        if (currentFilters.categoryId !== 'all') {
+          apiFilters.categoryId = currentFilters.categoryId;
+        }
+
+        const response = await ticketService.getAll(
+          Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
+          page,
+          PAGINATION.DEFAULT_LIMIT,
+          sorting.sortBy,
+          sorting.sortOrder
+        );
+
+        if (response.success && response.data) {
+          // Update cache
+          setTicketsCache(response.data, response.pagination);
+          // Update local state
+          setTickets(response.data);
+          setPagination(response.pagination);
+
+          // If current page exceeds total pages, reset to page 1
+          if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
+            fetchTickets(1);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch tickets:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters, sorting, getCached, setTicketsCache]
+  );
 
   useEffect(() => {
-    fetchTickets();
+    fetchTickets(1);
+  }, [fetchTickets]);
+
+  useEffect(() => {
+    const fetchJiraIntegrations = async () => {
+      try {
+        const response = await integrationsService.getAll();
+        if (response.success && response.data) {
+          const jiras = response.data.filter((i) => i.type === 'jira' && i.enabled);
+          setJiraIntegrations(jiras);
+          // Auto-select if only one Jira instance
+          if (jiras.length === 1) {
+            setSelectedJiraId(jiras[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Jira integrations:', error);
+      }
+    };
+    fetchJiraIntegrations();
   }, []);
 
-  const fetchTickets = async () => {
-    setLoading(true);
-    try {
-      const response = await ticketService.getAll();
-      if (response.success && response.data) {
-        setTickets(response.data);
+  // Listen for real-time ticket updates from Jira webhooks
+  useEffect(() => {
+    getSocket(); // Initialize WebSocket connection
+
+    const handleTicketUpdate = (data: unknown) => {
+      const ticketUpdate = data as { ticketId: number; jiraKey: string; changedFields?: string[] };
+      console.log('🔄 Ticket updated from Jira:', ticketUpdate);
+
+      // Show notification
+      const fields = ticketUpdate.changedFields?.join(', ') || 'fields';
+      console.log(`✅ ${ticketUpdate.jiraKey} synced from Jira (updated: ${fields})`);
+
+      // Refresh tickets to show latest data
+      fetchTickets(pagination.page, true);
+
+      // If the updated ticket is currently open, refresh it
+      if (selectedTicket && selectedTicket.id === ticketUpdate.ticketId) {
+        ticketService.getById(ticketUpdate.ticketId).then((response) => {
+          if (response.success && response.data) {
+            setSelectedTicket(response.data);
+          }
+        });
       }
-    } catch (error) {
-      console.error('Failed to fetch tickets:', error);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    subscribeToEvent('ticket:updated', handleTicketUpdate);
+
+    return () => {
+      unsubscribeFromEvent('ticket:updated', handleTicketUpdate);
+      releaseSocket();
+    };
+  }, [pagination.page, selectedTicket, fetchTickets]);
+
+  const handlePageChange = (page: number) => {
+    fetchTickets(page);
+  };
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFiltersStore({ ...filters, [key]: value });
+  };
+
+  const clearFilters = () => {
+    clearFiltersStore();
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTickets(pagination.page, true); // Force refetch
+    setRefreshing(false);
   };
 
   const handlePushToJira = async (ticketId: number) => {
+    if (jiraIntegrations.length === 0) {
+      alert('No Jira integrations configured. Please add a Jira integration in Settings.');
+      return;
+    }
+
+    if (jiraIntegrations.length > 1 && !selectedJiraId) {
+      alert('Please select a Jira instance first.');
+      return;
+    }
+
     setSyncing(ticketId);
     try {
-      const response = await ticketService.pushToJira(ticketId);
+      const response = await ticketService.pushToJira(ticketId, selectedJiraId);
       if (response.success) {
-        alert(`Ticket pushed to Jira: ${response.data?.jiraKey}`);
-        fetchTickets();
+        alert(`✅ Ticket pushed to Jira: ${response.data?.jiraKey}`);
+        clearCache(); // Clear all cached data
+        fetchTickets(1, true);
+      } else {
+        alert(`❌ Failed to push to Jira: ${response.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to push to Jira:', error);
-      alert('Failed to push ticket to Jira');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`❌ Failed to push ticket to Jira: ${errorMessage}`);
     } finally {
       setSyncing(null);
     }
   };
 
   const handleSyncAll = async () => {
+    if (!isAdmin) {
+      alert('⚠️ Only administrators can sync tickets to Jira. Please contact your admin.');
+      return;
+    }
+
+    if (jiraIntegrations.length === 0) {
+      alert('No Jira integrations configured. Please add a Jira integration in Settings.');
+      return;
+    }
+
+    if (jiraIntegrations.length > 1 && !selectedJiraId) {
+      alert('Please select a Jira instance first.');
+      return;
+    }
+
     if (!confirm('Sync all unsynced tickets to Jira?')) return;
-    
+
+    setIsSyncingAll(true);
     try {
-      const response = await ticketService.syncAllToJira();
+      const response = await ticketService.syncAllToJira(selectedJiraId);
       if (response.success) {
         alert(response.message || 'Sync completed');
-        fetchTickets();
+        fetchTickets(1, true);
+      } else {
+        alert(`Sync failed: ${response.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to sync tickets:', error);
-      alert('Failed to sync tickets to Jira');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to sync tickets to Jira: ${errorMessage}`);
+    } finally {
+      setIsSyncingAll(false);
     }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchTickets();
-    setRefreshing(false);
   };
 
   const handleDeleteClick = (ticket: TicketType) => {
@@ -109,13 +314,15 @@ export const TicketsPage = () => {
 
   const handleDeleteConfirm = async () => {
     if (!ticketToDelete) return;
-    
+
     setDeleting(true);
     try {
       await ticketService.delete(ticketToDelete.id);
+      clearCache(); // Clear all cached data
+      setSelectedTicket(null); // Close the drawer
       setDeleteDialogOpen(false);
       setTicketToDelete(null);
-      fetchTickets();
+      fetchTickets(1, true); // Force refresh
     } catch (error) {
       console.error('Failed to delete ticket:', error);
       alert('Failed to delete ticket');
@@ -124,56 +331,183 @@ export const TicketsPage = () => {
     }
   };
 
+  const activeFilterCount =
+    (filters.status !== 'all' ? 1 : 0) +
+    (filters.priority !== 'all' ? 1 : 0) +
+    (filters.categoryId !== 'all' ? 1 : 0);
+  console.log('tickets', tickets);
+
   return (
     <Layout>
       <div className="space-y-4 w-full">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold">Tickets</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-2xl font-bold sm:text-3xl">Tickets</h1>
+            <p className="mt-2 text-sm sm:text-base text-muted-foreground">
               Manage and track support tickets
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              isLoading={refreshing}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Button
-              variant={filter === 'all' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('all')}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              All ({tickets.length})
-            </Button>
-            <Button
-              variant={filter === 'pending' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('pending')}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Pending ({tickets.filter(t => t.status === 'pending').length})
-            </Button>
-            <Button onClick={handleSyncAll} size="sm">
-              <Send className="h-4 w-4 mr-2" />
-              Sync All to Jira
-            </Button>
-          </div>
+          <Button onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto">
+            <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
+
+        {/* Filters Card */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {/* Header */}
+              <div className="flex flex-wrap gap-2 justify-between items-center min-h-[32px]">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex gap-2 items-center">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filters</span>
+                    <Badge variant="default" className="text-xs">
+                      {activeFilterCount}
+                    </Badge>
+                  </div>
+                  {pagination.total > 0 && (
+                    <span className="text-xs whitespace-nowrap text-muted-foreground">
+                      {(pagination.page - 1) * pagination.limit + 1}-
+                      {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                      {pagination.total}
+                    </span>
+                  )}
+                </div>
+                {activeFilterCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
+                    <X className="mr-1 w-3 h-3" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+
+              {/* Filter Controls */}
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Group 1: Status & Priority */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
+                    Status:
+                  </span>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
+                    Priority:
+                  </span>
+                  <select
+                    value={filters.priority}
+                    onChange={(e) => handleFilterChange('priority', e.target.value)}
+                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+                {/* Group 2: Sorting */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
+                    Sort:
+                  </span>
+                  <select
+                    value={sorting.sortBy}
+                    onChange={(e) =>
+                      setSortingStore({
+                        ...sorting,
+                        sortBy: e.target.value as 'createdAt' | 'updatedAt',
+                      })
+                    }
+                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="createdAt">Created Date</option>
+                    <option value="updatedAt">Updated Date</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
+                    Order:
+                  </span>
+                  <select
+                    value={sorting.sortOrder}
+                    onChange={(e) =>
+                      setSortingStore({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
+                    }
+                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                </div>
+                {/* Group 3: Jira & Sync */}
+                {jiraIntegrations.length > 1 && (
+                  <>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
+                        Jira:
+                      </span>
+                      <select
+                        value={selectedJiraId || ''}
+                        onChange={(e) =>
+                          setSelectedJiraId(e.target.value ? Number(e.target.value) : undefined)
+                        }
+                        className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Instance</option>
+                        {jiraIntegrations.map((jira) => (
+                          <option key={jira.id} value={jira.id}>
+                            {((jira.config as Record<string, Record<string, unknown>>)?.jira
+                              ?.projectKey as string) || jira.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                <Button
+                  onClick={handleSyncAll}
+                  size="sm"
+                  className="ml-auto"
+                  disabled={
+                    !isAdmin ||
+                    jiraIntegrations.length === 0 ||
+                    (jiraIntegrations.length > 1 && !selectedJiraId)
+                  }
+                  isLoading={isSyncingAll}
+                  title={!isAdmin ? 'Only administrators can sync tickets to Jira' : ''}
+                >
+                  <Send className="mr-2 w-4 h-4" />
+                  Sync to Jira
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {loading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4" />
-                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                  <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                  <div className="w-1/2 h-4 bg-gray-200 rounded" />
                 </CardContent>
               </Card>
             ))}
@@ -181,70 +515,77 @@ export const TicketsPage = () => {
         ) : tickets.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <Ticket className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No tickets found</h3>
-              <p className="text-muted-foreground">
-                Create a ticket from unprocessed messages
-              </p>
+              <Ticket className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-semibold">No tickets found</h3>
+              <p className="text-muted-foreground">Create a ticket from unprocessed messages</p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 w-full">
-            {tickets
-              .filter(ticket => filter === 'all' || ticket.status === 'pending')
-              .map((ticket) => (
+            {tickets.map((ticket) => (
               <ListCard
                 key={ticket.id}
-                onClick={() => setSelectedTicket(ticket)}
                 header={
                   <>
-                    <h3 className="font-semibold text-lg">{ticket.title}</h3>
-                    <Badge variant={statusColors[ticket.status]}>
-                      {ticket.status}
-                    </Badge>
-                    <Badge variant={priorityColors[ticket.priority]}>
-                      {ticket.priority}
-                    </Badge>
-                    {ticket.externalId && (
-                      <a
-                        href={ticket.externalUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    <h3 className="text-lg font-semibold">{ticket.title}</h3>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs font-medium text-muted-foreground">Status:</span>
+                      <Badge variant={statusColors[ticket.status]}>{ticket.status}</Badge>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs font-medium text-muted-foreground">Priority:</span>
+                      <Badge variant={priorityColors[ticket.priority]}>{ticket.priority}</Badge>
+                    </div>
+                    {ticket.categoryName && (
+                      <div className="flex gap-2 items-center">
+                        <span className="text-xs font-medium text-muted-foreground">Category:</span>
+                        <Badge variant="default">{ticket.categoryName}</Badge>
+                      </div>
+                    )}
+                    {ticket.externalId && ticket.externalUrl && (
+                      <ExternalLink
+                        href={ticket.externalUrl}
+                        className="text-xs"
+                        onClick={() => {
+                          console.log('Opening Jira URL:', ticket.externalUrl);
+                        }}
                       >
-                        <ExternalLink className="h-3 w-3" />
                         {ticket.externalId}
-                      </a>
+                      </ExternalLink>
                     )}
                   </>
                 }
                 content={
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {ticket.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{ticket.description}</p>
                 }
                 metadata={
                   <>
-                    <span>From: {ticket.sender}</span>
+                    <span className="break-all">From: {ticket.sender}</span>
                     {ticket.categoryName && <span>• {ticket.categoryName}</span>}
-                    <span>• {formatDate(ticket.createdAt)}</span>
+                    <span className="whitespace-nowrap">• {formatDate(ticket.createdAt)}</span>
                   </>
                 }
                 actions={
                   <>
-                    <Link to={`/tickets/edit/${ticket.id}`}>
-                      <Button size="sm" variant="outline">
-                        <Edit2 className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                    </Link>
+                    <Button size="sm" variant="outline" onClick={() => setSelectedTicket(ticket)}>
+                      <ExternalLinkIcon className="mr-1 w-3 h-3" />
+                      Open
+                    </Button>
+                    {!ticket.externalId && (
+                      <Link to={`/tickets/edit/${ticket.id}`}>
+                        <Button size="sm" variant="outline">
+                          <Edit2 className="mr-1 w-3 h-3" />
+                          Edit
+                        </Button>
+                      </Link>
+                    )}
                     {!ticket.externalId && (
                       <Button
                         size="sm"
                         onClick={() => handlePushToJira(ticket.id)}
                         isLoading={syncing === ticket.id}
                       >
-                        <Send className="h-3 w-3 mr-1" />
+                        <Send className="mr-1 w-3 h-3" />
                         Push
                       </Button>
                     )}
@@ -252,14 +593,28 @@ export const TicketsPage = () => {
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDeleteClick(ticket)}
+                      aria-label="Delete ticket"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="mr-2 w-4 h-4" />
+                      Delete
                     </Button>
                   </>
                 }
               />
             ))}
           </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && tickets.length > 0 && (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            limit={pagination.limit}
+            onPageChange={handlePageChange}
+            loading={loading}
+          />
         )}
       </div>
 
@@ -271,27 +626,19 @@ export const TicketsPage = () => {
         <DialogContent>
           <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
           {ticketToDelete && (
-            <div className="mt-4 p-4 bg-gray-50 rounded">
+            <div className="p-4 mt-4 bg-gray-50 rounded">
               <p className="text-sm font-medium">{ticketToDelete.title}</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Status: {ticketToDelete.status} | Priority: {ticketToDelete.priority}
               </p>
             </div>
           )}
         </DialogContent>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setDeleteDialogOpen(false)}
-            disabled={deleting}
-          >
+          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDeleteConfirm}
-            isLoading={deleting}
-          >
+          <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
             Delete
           </Button>
         </DialogFooter>

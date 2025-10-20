@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { PAGINATION } from '@/lib/constants';
 import type {
   Ticket,
   CreateTicketRequest,
@@ -6,10 +7,42 @@ import type {
   ApiResponse,
 } from '@/types';
 
+export type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+};
+
+export type PaginatedResponse<T> = {
+  success: boolean;
+  data: T;
+  pagination: PaginationMeta;
+};
+
 export const ticketService = {
-  getAll: async (filters?: Record<string, string>) => {
-    const params = new URLSearchParams(filters);
-    const response = await apiClient.get<ApiResponse<Ticket[]>>(
+  getAll: async (
+    filters?: Record<string, string>, 
+    page = PAGINATION.DEFAULT_PAGE, 
+    limit = PAGINATION.DEFAULT_LIMIT,
+    sortBy?: 'createdAt' | 'updatedAt',
+    sortOrder?: 'asc' | 'desc'
+  ) => {
+    const params = new URLSearchParams({
+      ...filters,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (sortBy) {
+      params.append('sortBy', sortBy);
+    }
+    if (sortOrder) {
+      params.append('sortOrder', sortOrder);
+    }
+    
+    const response = await apiClient.get<PaginatedResponse<Ticket[]>>(
       `/api/tickets?${params}`
     );
     return response.data;
@@ -33,19 +66,23 @@ export const ticketService = {
     return response.data;
   },
 
-  pushToJira: async (id: number) => {
-    const response = await apiClient.post<ApiResponse<{ jiraKey: string; jiraUrl: string }>>(
-      `/api/tickets/${id}/jira`
-    );
+  pushToJira: async (id: number, integrationId?: number) => {
+    const url = integrationId 
+      ? `/api/tickets/${id}/jira?integrationId=${integrationId}`
+      : `/api/tickets/${id}/jira`;
+    const response = await apiClient.post<ApiResponse<{ jiraKey: string; jiraUrl: string }>>(url);
     return response.data;
   },
 
-  syncAllToJira: async () => {
+  syncAllToJira: async (integrationId?: number) => {
+    const url = integrationId
+      ? `/api/tickets/sync/jira?integrationId=${integrationId}`
+      : '/api/tickets/sync/jira';
     const response = await apiClient.post<ApiResponse<{
       synced: number;
       failed: number;
       total: number;
-    }>>('/api/tickets/sync/jira');
+    }>>(url);
     return response.data;
   },
 
