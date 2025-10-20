@@ -74,9 +74,13 @@ export const IntegrationsSettings = () => {
         console.log('📊 Fetched integrations:', response.data);
         // Force React to recognize the state change with fresh array
         setIntegrations(response.data.map(i => ({ ...i })));
+      } else {
+        console.error('Failed to fetch integrations:', response.error);
+        throw new Error(response.error || 'Failed to fetch integrations');
       }
     } catch (error) {
       console.error('Failed to fetch integrations:', error);
+      throw error; // Re-throw to let caller handle it
     } finally {
       setLoading(false);
     }
@@ -190,17 +194,26 @@ export const IntegrationsSettings = () => {
       );
 
       if (response.success) {
-        // Refresh integrations list
-        console.log('✅ Gmail connected, refreshing integrations list...');
-        await fetchIntegrations();
+        console.log('✅ Gmail connected successfully:', response.data);
+        
+        // Hide the form immediately
         resetForm('gmail');
-
-        // Delay to ensure state updates and UI re-renders
-        setTimeout(() => {
-          alert(`✅ Gmail account connected successfully!\n\n${response.data?.email || 'Account'} has been added.`);
-        }, 300);
+        
+        // Show success message
+        alert(`✅ Gmail account connected successfully!\n\n${response.data?.email || 'Account'} has been added.`);
+        
+        // Try to refresh integrations list
+        try {
+          await fetchIntegrations();
+        } catch (fetchError) {
+          console.error('Failed to refresh integrations list:', fetchError);
+          // If fetch fails, reload the page to ensure fresh data
+          console.log('Reloading page to show new integration...');
+          window.location.reload();
+        }
       } else {
-        alert(`❌ Failed to connect Gmail: ${response.error || 'Unknown error'}`);
+        console.error('Gmail OAuth failed:', response);
+        alert(`❌ Failed to connect Gmail: ${response.error || 'Unknown error'}\n\nPlease check if you're logged in with a valid account.`);
       }
     } catch (error) {
       console.error('Failed to connect Gmail:', error);

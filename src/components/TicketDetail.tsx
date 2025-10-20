@@ -7,6 +7,7 @@ import { formatDate } from '../lib/utils';
 import { ExternalLink as ExternalLinkIcon, Edit2, Send, Trash2, User, Calendar, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { messageService } from '../services/message.service';
+import { TicketComments } from './TicketComments';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -204,6 +205,11 @@ export const TicketDetail = ({
             </div>
           ) : null;
         })()}
+
+      {/* Comments */}
+      <div className="pt-6 border-t">
+        <TicketComments ticketId={ticket.id} hasJiraLink={!!ticket.externalId} />
+      </div>
 
       {/* Actions */}
       <div className="flex gap-2 pt-6 border-t">

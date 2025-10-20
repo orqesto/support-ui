@@ -44,7 +44,7 @@ export const PromptsSettings = () => {
 
   const handleCreate = () => {
     setIsCreating(true);
-    setFormData({ name: '',description: '', prompt: '', active: true });
+    setFormData({ name: '', description: '', prompt: '', active: true });
   };
 
   const handleSave = async () => {
@@ -85,7 +85,7 @@ export const PromptsSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">AI Prompt Templates</h3>
           <p className="text-sm text-muted-foreground">
@@ -93,25 +93,26 @@ export const PromptsSettings = () => {
           </p>
         </div>
         <Button onClick={handleCreate} disabled={isCreating}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="mr-2 w-4 h-4" />
           Add Prompt
         </Button>
       </div>
 
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
         <p className="text-sm text-blue-900">
-          <strong>Template Variables:</strong> Use <code className="bg-blue-100 px-1 rounded">{'{{variable}}'}</code> for dynamic content.
-          Available: <code className="bg-blue-100 px-1 rounded">{'{{subject}}'}</code>,{' '}
-          <code className="bg-blue-100 px-1 rounded">{'{{sender}}'}</code>,{' '}
-          <code className="bg-blue-100 px-1 rounded">{'{{content}}'}</code>,{' '}
-          <code className="bg-blue-100 px-1 rounded">{'{{spam_rules}}'}</code>
+          <strong>Template Variables:</strong> Use{' '}
+          <code className="px-1 bg-blue-100 rounded">{'{{variable}}'}</code> for dynamic content.
+          Available: <code className="px-1 bg-blue-100 rounded">{'{{subject}}'}</code>,{' '}
+          <code className="px-1 bg-blue-100 rounded">{'{{sender}}'}</code>,{' '}
+          <code className="px-1 bg-blue-100 rounded">{'{{content}}'}</code>,{' '}
+          <code className="px-1 bg-blue-100 rounded">{'{{spam_rules}}'}</code>
         </p>
       </div>
 
       {/* New Prompt Form */}
       {isCreating && (
-        <div className="border rounded-lg p-4 bg-green-50 space-y-4">
+        <div className="p-4 space-y-4 bg-green-50 rounded-lg border">
           <h4 className="font-semibold">New Prompt Template</h4>
           <div className="grid gap-4">
             <div>
@@ -120,7 +121,7 @@ export const PromptsSettings = () => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
                 placeholder="e.g., message_analysis"
               />
             </div>
@@ -130,7 +131,7 @@ export const PromptsSettings = () => {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md"
+                className="px-3 py-2 w-full rounded-md border"
                 placeholder="What this prompt is used for"
               />
             </div>
@@ -139,12 +140,12 @@ export const PromptsSettings = () => {
               <textarea
                 value={formData.prompt}
                 onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
                 rows={12}
                 placeholder="Your prompt here... Use {{variable}} for dynamic content"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2 items-center">
               <input
                 type="checkbox"
                 id="active-new"
@@ -159,11 +160,11 @@ export const PromptsSettings = () => {
           </div>
           <div className="flex gap-2">
             <Button onClick={handleSave} disabled={!formData.name || !formData.prompt}>
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="mr-2 w-4 h-4" />
               Save
             </Button>
             <Button variant="outline" onClick={handleCancel}>
-              <X className="h-4 w-4 mr-2" />
+              <X className="mr-2 w-4 h-4" />
               Cancel
             </Button>
           </div>
@@ -184,21 +185,33 @@ export const PromptsSettings = () => {
                 <h4 className="font-semibold">Edit Prompt Template</h4>
                 <div className="grid gap-4">
                   <div>
-                    <label className="text-sm font-medium">Name</label>
+                    <label className="text-sm font-medium">
+                      Name
+                      {editingPrompt?.type === 'system' && (
+                        <span className="ml-2 text-xs text-muted-foreground">(System template - readonly)</span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                      disabled={editingPrompt?.type === 'system'}
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Description</label>
+                    <label className="text-sm font-medium">
+                      Description
+                      {editingPrompt?.type === 'system' && (
+                        <span className="ml-2 text-xs text-muted-foreground">(System template - readonly)</span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
+                      disabled={editingPrompt?.type === 'system'}
+                      className="px-3 py-2 w-full rounded-md border disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
                     />
                   </div>
                   <div>
@@ -206,14 +219,14 @@ export const PromptsSettings = () => {
                     <textarea
                       value={formData.prompt}
                       onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border"
                       rows={12}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Characters: {formData.prompt.length}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-2 items-center">
                     <input
                       type="checkbox"
                       id={`active-${prompt.id}`}
@@ -228,29 +241,30 @@ export const PromptsSettings = () => {
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSave}>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="mr-2 w-4 h-4" />
                     Save
                   </Button>
                   <Button variant="outline" onClick={handleCancel}>
-                    <X className="h-4 w-4 mr-2" />
+                    <X className="mr-2 w-4 h-4" />
                     Cancel
                   </Button>
                 </div>
               </div>
             ) : (
               <>
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-lg font-mono">{prompt.name}</h4>
+                    <div className="flex gap-2 items-center">
+                      <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
+                      {prompt.type === 'system' && (
+                        <Badge variant="default">System</Badge>
+                      )}
                       <Badge variant={prompt.active ? 'success' : 'default'}>
                         {prompt.active ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
                     {prompt.description && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {prompt.description}
-                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">{prompt.description}</p>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -260,24 +274,20 @@ export const PromptsSettings = () => {
                       onClick={() => toggleActive(prompt)}
                       title={prompt.active ? 'Deactivate' : 'Activate'}
                     >
-                      {prompt.active ? (
-                        <EyeOff className="h-3 w-3" />
-                      ) : (
-                        <Eye className="h-3 w-3" />
-                      )}
+                      {prompt.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(prompt)}>
-                      <Edit2 className="h-3 w-3 mr-1" />
+                      <Edit2 className="mr-1 w-3 h-3" />
                       Edit
                     </Button>
                   </div>
                 </div>
                 <details className="group">
-                  <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                  <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
                     View Prompt Template ({prompt.prompt.length} characters)
                   </summary>
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-                    <pre className="text-xs whitespace-pre-wrap font-mono overflow-auto max-h-96">
+                  <div className="p-3 mt-3 bg-gray-50 rounded-lg border">
+                    <pre className="overflow-auto max-h-96 font-mono text-xs whitespace-pre-wrap">
                       {prompt.prompt}
                     </pre>
                   </div>

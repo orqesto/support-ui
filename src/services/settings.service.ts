@@ -12,6 +12,7 @@ export type Category = {
 
 export type PromptTemplate = {
   id: number;
+  type: 'system' | 'custom';
   name: string;
   description: string | null;
   prompt: string;

@@ -100,10 +100,12 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-                  {user?.name.charAt(0).toUpperCase()}
+                  {user?.firstName?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{user?.name}</p>
+                  <p className="text-sm font-medium">
+                    {user?.firstName} {user?.lastName}
+                  </p>
                   <p className="text-xs text-muted-foreground">{user?.role}</p>
                 </div>
               </div>

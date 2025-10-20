@@ -9,6 +9,7 @@ import { messageService } from '../services/message.service';
 import { ticketService } from '../services/ticket.service';
 import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
 import { useSystemHealth } from '../hooks/useSystemHealth';
+import { useMessagesStore } from '../stores/messagesStore';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -23,57 +24,60 @@ export const DashboardPage = () => {
   
   // Get real-time system health
   const { health, isWebSocketConnected } = useSystemHealth();
+  
+  // Get messages store cache clear function
+  const clearMessagesCache = useMessagesStore((state) => state.clearCache);
+
+  const fetchStats = async () => {
+    try {
+      // Fetch all data without pagination limits to get accurate counts
+      const [
+        allMessagesResponse,
+        unprocessedMessagesResponse,
+        allTicketsResponse,
+        pendingTicketsResponse,
+      ] = await Promise.all([
+        messageService.getAll(undefined, 1, 9999), // Get total count from pagination
+        messageService.getAll({ processed: 'false' }, 1, 9999),
+        ticketService.getAll(undefined, 1, 9999),
+        ticketService.getAll({ status: 'pending' }, 1, 9999),
+      ]);
+
+      if (allMessagesResponse.success) {
+        setStats(prev => ({
+          ...prev,
+          totalMessages: allMessagesResponse.pagination.total,
+        }));
+      }
+
+      if (unprocessedMessagesResponse.success) {
+        setStats(prev => ({
+          ...prev,
+          unprocessedMessages: unprocessedMessagesResponse.pagination.total,
+        }));
+      }
+
+      if (allTicketsResponse.success) {
+        setStats(prev => ({
+          ...prev,
+          totalTickets: allTicketsResponse.pagination.total,
+        }));
+      }
+
+      if (pendingTicketsResponse.success) {
+        setStats(prev => ({
+          ...prev,
+          pendingTickets: pendingTicketsResponse.pagination.total,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Fetch all data without pagination limits to get accurate counts
-        const [
-          allMessagesResponse,
-          unprocessedMessagesResponse,
-          allTicketsResponse,
-          pendingTicketsResponse,
-        ] = await Promise.all([
-          messageService.getAll(undefined, 1, 9999), // Get total count from pagination
-          messageService.getAll({ processed: 'false' }, 1, 9999),
-          ticketService.getAll(undefined, 1, 9999),
-          ticketService.getAll({ status: 'pending' }, 1, 9999),
-        ]);
-
-        if (allMessagesResponse.success) {
-          setStats(prev => ({
-            ...prev,
-            totalMessages: allMessagesResponse.pagination.total,
-          }));
-        }
-
-        if (unprocessedMessagesResponse.success) {
-          setStats(prev => ({
-            ...prev,
-            unprocessedMessages: unprocessedMessagesResponse.pagination.total,
-          }));
-        }
-
-        if (allTicketsResponse.success) {
-          setStats(prev => ({
-            ...prev,
-            totalTickets: allTicketsResponse.pagination.total,
-          }));
-        }
-
-        if (pendingTicketsResponse.success) {
-          setStats(prev => ({
-            ...prev,
-            pendingTickets: pendingTicketsResponse.pagination.total,
-          }));
-        }
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStats();
   }, []);
 
@@ -99,11 +103,28 @@ export const DashboardPage = () => {
         const message = response.message || 'Ingestion started successfully';
         const note = (response as { note?: string }).note;
         
+        // Clear Messages page cache so it shows fresh data
+        clearMessagesCache();
+        
+        // Show success message first
         if (note) {
           alert(`${message}\n\n${note}`);
         } else {
           alert(message);
         }
+        
+        // Refresh stats after a delay to allow background processing
+        // Poll stats every 2 seconds for up to 30 seconds
+        let attempts = 0;
+        const maxAttempts = 15;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          await fetchStats();
+          
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+          }
+        }, 2000);
       }
     } catch (error) {
       console.error('Failed to start ingestion:', error);
