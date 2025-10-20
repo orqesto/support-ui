@@ -6,10 +6,12 @@ export type UserRole = 'admin' | 'agent' | 'user';
 export type User = {
   id: number;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string | null;
+  position: string | null;
   role: UserRole;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 };
 
 export type Message = {

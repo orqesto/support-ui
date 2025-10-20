@@ -14,7 +14,16 @@ import { useTicketsStore } from '@/stores/ticketsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { PAGINATION } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
-import { Ticket, ExternalLink as ExternalLinkIcon, Send, RefreshCw, Edit2, Trash2, Filter, X } from 'lucide-react';
+import {
+  Ticket,
+  ExternalLink as ExternalLinkIcon,
+  Send,
+  RefreshCw,
+  Edit2,
+  Trash2,
+  Filter,
+  X,
+} from 'lucide-react';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import type { Ticket as TicketType, TicketStatus, TicketPriority } from '@/types';
 import {
@@ -201,6 +210,9 @@ export const TicketsPage = () => {
       // Show notification
       const fields = ticketUpdate.changedFields?.join(', ') || 'fields';
       console.log(`✅ ${ticketUpdate.jiraKey} synced from Jira (updated: ${fields})`);
+
+      // Clear cache to ensure fresh data
+      clearCache();
 
       // Refresh tickets to show latest data
       fetchTickets(pagination.page, true);

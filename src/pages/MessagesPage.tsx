@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ListCard } from '@/components/ui/ListCard';
@@ -42,7 +42,6 @@ export const MessagesPage = () => {
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const navigate = useNavigate();
 
   // Zustand store
   const filters = useMessagesStore((state) => state.filters);
@@ -131,6 +130,7 @@ export const MessagesPage = () => {
   // Fetch on mount and when filters or sorting change
   useEffect(() => {
     fetchMessages(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.processed,
     filters.channel,
@@ -138,7 +138,6 @@ export const MessagesPage = () => {
     filters.showWorthy,
     filters.showNeedsInfo,
     sorting.sortOrder,
-    fetchMessages,
   ]);
 
   const handlePageChange = (page: number) => {
@@ -174,11 +173,11 @@ export const MessagesPage = () => {
 
   const clearFilters = () => {
     clearFiltersStore();
+    fetchMessages(pagination.page, true); // Keep current page, force refresh
   };
 
   const handleApprove = (message: Message) => {
-    // Navigate to create ticket page with message data
-    navigate(`/tickets/create?messageId=${message.id}`);
+    setSelectedMessage(message);
   };
 
   const handleReject = async (message: Message) => {
@@ -186,7 +185,7 @@ export const MessagesPage = () => {
       await messageService.markAsProcessed(message.id);
       clearCache(); // Clear all cached data
       setSelectedMessage(null); // Close the drawer
-      fetchMessages(1, true); // Force refresh to bypass cache
+      fetchMessages(pagination.page, true); // Keep current page, force refresh
     } catch (error) {
       console.error('Failed to mark message as processed:', error);
     }
@@ -197,17 +196,17 @@ export const MessagesPage = () => {
       await messageService.markAsUnprocessed(message.id);
       clearCache(); // Clear all cached data
       setSelectedMessage(null); // Close the drawer
-      fetchMessages(1, true); // Force refresh to bypass cache
+      fetchMessages(pagination.page, true); // Keep current page, force refresh
     } catch (error: any) {
       console.error('Failed to reopen message:', error);
       // Show error to user if backend validation fails
-      alert(error?.response?.data?.error || 'Failed to reopen message');
+      alert(error.response?.data?.error || 'Failed to reopen message');
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchMessages(pagination.page, true); // Force refetch
+    await fetchMessages(pagination.page, true); // Keep current page, force refresh
     setRefreshing(false);
   };
 
@@ -542,7 +541,7 @@ export const MessagesPage = () => {
                       {getChannelIcon(message.channel)}
                       <Badge variant="secondary">{message.channel}</Badge>
                       {message.processed && <Badge variant="success">Processed</Badge>}
-                      
+
                       {/* AI Analysis Badges */}
                       {spamCheck?.isSpam === true && (
                         <Badge variant="danger" title={spamCheck.category}>
@@ -550,15 +549,14 @@ export const MessagesPage = () => {
                         </Badge>
                       )}
                       {!spamCheck?.isSpam && analysis?.isTicketWorthy && (
-                        <Badge variant="default" title={`Confidence: ${Math.round((analysis.confidence || 0) * 100)}%`}>
+                        <Badge
+                          variant="default"
+                          title={`Confidence: ${Math.round((analysis.confidence || 0) * 100)}%`}
+                        >
                           🎫 Ticket Worthy
                         </Badge>
                       )}
-                      {analysis?.needsMoreInfo && (
-                        <Badge variant="warning">
-                          ⚠️ Needs Info
-                        </Badge>
-                      )}
+                      {analysis?.needsMoreInfo && <Badge variant="warning">⚠️ Needs Info</Badge>}
                       {analysis?.suggestedPriority && (
                         <Badge
                           variant={
@@ -573,11 +571,12 @@ export const MessagesPage = () => {
                           Priority: {analysis.suggestedPriority}
                         </Badge>
                       )}
-                      {analysis?.suggestedCategory && getCategoryDisplay(analysis.suggestedCategory) && (
-                        <Badge variant="secondary" title="AI Suggested Category">
-                          📁 {getCategoryDisplay(analysis.suggestedCategory)}
-                        </Badge>
-                      )}
+                      {analysis?.suggestedCategory &&
+                        getCategoryDisplay(analysis.suggestedCategory) && (
+                          <Badge variant="secondary" title="AI Suggested Category">
+                            📁 {getCategoryDisplay(analysis.suggestedCategory)}
+                          </Badge>
+                        )}
                     </>
                   }
                   content={
