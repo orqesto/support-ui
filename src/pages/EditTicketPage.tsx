@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ticketService } from '@/services/ticket.service';
 import { categoryService } from '@/services/category.service';
-import type { Category, TicketPriority, TicketStatus } from '@/types';
+import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
+import { AlertCircle, ExternalLink } from 'lucide-react';
 
 export const EditTicketPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +38,7 @@ export const EditTicketPage = () => {
     try {
       const response = await ticketService.getById(ticketId);
       if (response.success && response.data) {
+        setTicket(response.data);
         setFormData({
           title: response.data.title,
           description: response.data.description,
@@ -106,26 +109,70 @@ export const EditTicketPage = () => {
           </p>
         </div>
 
+        {ticket?.externalId && (
+          <Card className="border-yellow-500 bg-yellow-50">
+            <CardContent className="pt-6">
+              <div className="flex gap-3 items-start">
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-yellow-900 mb-1">This ticket is synced with Jira</h3>
+                  <p className="text-sm text-yellow-800 mb-3">
+                    This ticket has been pushed to Jira and should be edited there to maintain consistency.
+                    Changes made here will not sync back to Jira.
+                  </p>
+                  {ticket.externalUrl && (
+                    <a
+                      href={ticket.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Open in Jira
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/tickets')}
+                    >
+                      Back to Tickets
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Ticket Details</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {ticket?.externalId && (
+                <div className="p-3 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                  ⚠️ Warning: This form is disabled because the ticket is synced with Jira.
+                </div>
+              )}
               <Input
                 label="Title"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                disabled={!!ticket?.externalId}
                 required
               />
 
               <div>
                 <label className="block text-sm font-medium mb-2">Description</label>
                 <textarea
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   rows={6}
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  disabled={!!ticket?.externalId}
                   required
                 />
               </div>
@@ -133,9 +180,10 @@ export const EditTicketPage = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.status}
                   onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as TicketStatus }))}
+                  disabled={!!ticket?.externalId}
                 >
                   <option value="pending">Pending</option>
                   <option value="open">Open</option>
@@ -148,9 +196,10 @@ export const EditTicketPage = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Priority</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.priority}
                   onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as TicketPriority }))}
+                  disabled={!!ticket?.externalId}
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -162,9 +211,10 @@ export const EditTicketPage = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Category</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.categoryId}
                   onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
+                  disabled={!!ticket?.externalId}
                 >
                   <option value="">Select a category</option>
                   {categories.map(cat => (
@@ -174,7 +224,7 @@ export const EditTicketPage = () => {
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button type="submit" isLoading={saving}>
+                <Button type="submit" isLoading={saving} disabled={!!ticket?.externalId}>
                   Save Changes
                 </Button>
                 <Button

@@ -20,14 +20,14 @@ export const ListCard = ({
 }: ListCardProps) => {
   return (
     <Card
-      className="transition-shadow hover:shadow-md"
+      className="transition-shadow hover:shadow-md overflow-hidden"
       onClick={onClick}
     >
       <CardContent className="p-4">
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0">
           {/* Header Section (badges, status, etc) */}
           {header && (
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center min-w-0">
               {header}
             </div>
           )}
@@ -42,14 +42,14 @@ export const ListCard = ({
 
           {/* Default Footer with Metadata and Actions */}
           {(metadata || actions) && (
-            <div className="flex flex-col gap-3 pt-2 border-t">
+            <div className="flex flex-col gap-3 pt-2 border-t min-w-0">
               {metadata && (
-                <div className="flex flex-wrap gap-2 items-center text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-2 items-center text-xs text-muted-foreground min-w-0">
                   {metadata}
                 </div>
               )}
               {actions && (
-                <div className="flex flex-wrap gap-2 items-center justify-end">
+                <div className="flex flex-wrap gap-2 items-center justify-end min-w-0">
                   {actions}
                 </div>
               )}

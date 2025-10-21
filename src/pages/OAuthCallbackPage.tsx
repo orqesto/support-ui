@@ -17,9 +17,21 @@ export const OAuthCallbackPage = () => {
     }
 
     if (code) {
-      // Store code in localStorage for parent window
       try {
-        localStorage.setItem('gmail_oauth_code', code);
+        // Check if opened in popup (has window.opener) or new tab
+        if (window.opener && !window.opener.closed) {
+          // Popup case: Use postMessage to communicate with parent
+          console.log('📤 Sending code to parent window via postMessage');
+          window.opener.postMessage(
+            { type: 'GMAIL_OAUTH_SUCCESS', code },
+            window.location.origin
+          );
+        } else {
+          // New tab case: Use localStorage as fallback
+          console.log('📤 Storing code in localStorage (new tab)');
+          localStorage.setItem('gmail_oauth_code', code);
+        }
+        
         setStatus('success');
         setMessage('Authorization successful! This window will close automatically.');
         
@@ -28,6 +40,7 @@ export const OAuthCallbackPage = () => {
           window.close();
         }, 1000);
       } catch (e) {
+        console.error('Failed to communicate OAuth code:', e);
         setStatus('error');
         setMessage('Failed to save authorization code. Please try again.');
       }

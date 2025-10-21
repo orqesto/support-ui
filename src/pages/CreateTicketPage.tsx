@@ -8,12 +8,16 @@ import { Input } from '@/components/ui/Input';
 import { ticketService } from '@/services/ticket.service';
 import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
+import { useTicketsStore } from '@/stores/ticketsStore';
+import { useMessagesStore } from '@/stores/messagesStore';
 import type { Message, Category, TicketPriority } from '@/types';
 
 export const CreateTicketPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const messageId = searchParams.get('messageId');
+  const clearTicketsCache = useTicketsStore((state) => state.clearCache);
+  const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 
   const [message, setMessage] = useState<Message | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -72,9 +76,12 @@ export const CreateTicketPage = () => {
         categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
       });
 
-      if (response.success) {
+      if (response.success && response.data) {
         alert('Ticket created successfully');
-        navigate('/tickets');
+        clearTicketsCache(); // Clear tickets cache to show new ticket
+        clearMessagesCache(); // Clear messages cache since message is now processed
+        // Navigate to the newly created ticket
+        navigate(`/tickets?id=${response.data.id}`);
       }
     } catch (error) {
       console.error('Failed to create ticket:', error);
