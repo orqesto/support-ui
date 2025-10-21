@@ -107,16 +107,57 @@ export const gmailOAuthService = {
           return;
         }
 
-        // Use localStorage instead of postMessage due to CORS issues
+        // Use localStorage and postMessage for communication
         const storageKey = 'gmail_oauth_code';
         localStorage.removeItem(storageKey);
 
-        // Poll for OAuth code in localStorage
+        // Listen for postMessage from popup/tab
+        const messageHandler = async (event: MessageEvent) => {
+          // Verify origin for security
+          if (event.origin !== window.location.origin) {
+            return;
+          }
+
+          if (event.data?.type === 'GMAIL_OAUTH_SUCCESS' && event.data?.code) {
+            console.log('📥 Received OAuth code via postMessage');
+            clearInterval(checkAuth);
+            clearInterval(checkClosed);
+            window.removeEventListener('message', messageHandler);
+
+            try {
+              // Close popup if still open
+              if (popup && !popup.closed) {
+                popup.close();
+              }
+            } catch (e) {
+              // Ignore errors closing popup
+            }
+
+            // Exchange code for tokens
+            const callbackResponse = await gmailOAuthService.handleCallback({
+              code: event.data.code,
+              clientId,
+              clientSecret,
+              redirectUri,
+              searchQuery,
+              maxResults,
+            });
+
+            resolve(callbackResponse);
+          }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Poll for OAuth code in localStorage (fallback for new tabs)
         const checkAuth = setInterval(async () => {
           const code = localStorage.getItem(storageKey);
 
           if (code) {
+            console.log('📥 Received OAuth code via localStorage');
             clearInterval(checkAuth);
+            clearInterval(checkClosed);
+            window.removeEventListener('message', messageHandler);
             localStorage.removeItem(storageKey);
 
             try {
@@ -148,6 +189,7 @@ export const gmailOAuthService = {
             if (popup.closed) {
               clearInterval(checkClosed);
               clearInterval(checkAuth);
+              window.removeEventListener('message', messageHandler);
 
               const code = localStorage.getItem(storageKey);
               if (!code) {

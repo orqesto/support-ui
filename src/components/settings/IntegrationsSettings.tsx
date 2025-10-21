@@ -3,7 +3,17 @@ import { integrationsService, type Integration } from '@/services/integrations.s
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Mail, ExternalLink, Zap, MessageSquare, Save, TestTube, Plus, Trash2, Edit } from 'lucide-react';
+import {
+  Mail,
+  ExternalLink,
+  Zap,
+  MessageSquare,
+  Save,
+  TestTube2,
+  Plus,
+  Trash2,
+  Edit,
+} from 'lucide-react';
 
 export const IntegrationsSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -73,7 +83,7 @@ export const IntegrationsSettings = () => {
       if (response.success && response.data) {
         console.log('📊 Fetched integrations:', response.data);
         // Force React to recognize the state change with fresh array
-        setIntegrations(response.data.map(i => ({ ...i })));
+        setIntegrations(response.data.map((i) => ({ ...i })));
       } else {
         console.error('Failed to fetch integrations:', response.error);
         throw new Error(response.error || 'Failed to fetch integrations');
@@ -108,19 +118,21 @@ export const IntegrationsSettings = () => {
 
   const loadForEdit = (integration: Integration) => {
     setEditingId(integration.id);
-    const config = integration.config as Record<string, Record<string, string | number | boolean>>;
-    
-    if (integration.type === 'email' && config?.email) {
-      setEmailConfig(config.email as typeof emailConfig);
+    const config = integration.config;
+    if (integration.type === 'email') {
+      setEmailConfig(config as typeof emailConfig);
       setShowEmailForm(true);
-    } else if (integration.type === 'jira' && config?.jira) {
-      setJiraConfig(config.jira as typeof jiraConfig);
+    } else if (integration.type === 'gmail') {
+      setGmailConfig(config as typeof gmailConfig);
+      setShowGmailForm(true);
+    } else if (integration.type === 'jira') {
+      setJiraConfig(config as typeof jiraConfig);
       setShowJiraForm(true);
-    } else if (integration.type === 'telegram' && config?.telegram) {
-      setTelegramConfig(config.telegram as typeof telegramConfig);
+    } else if (integration.type === 'telegram') {
+      setTelegramConfig(config as typeof telegramConfig);
       setShowTelegramForm(true);
-    } else if (integration.type === 'slack' && config?.slack) {
-      setSlackConfig(config.slack as typeof slackConfig);
+    } else if (integration.type === 'slack') {
+      setSlackConfig(config as typeof slackConfig);
       setShowSlackForm(true);
     }
   };
@@ -136,7 +148,7 @@ export const IntegrationsSettings = () => {
         name,
         type,
         enabled: true,
-        config: { [type]: config },
+        config,
       });
 
       if (response.success) {
@@ -195,25 +207,33 @@ export const IntegrationsSettings = () => {
 
       if (response.success) {
         console.log('✅ Gmail connected successfully:', response.data);
-        
-        // Hide the form immediately
-        resetForm('gmail');
-        
-        // Show success message
-        alert(`✅ Gmail account connected successfully!\n\n${response.data?.email || 'Account'} has been added.`);
-        
-        // Try to refresh integrations list
+
+        // Refresh integrations list FIRST (before hiding form)
         try {
           await fetchIntegrations();
+          console.log('📊 Integrations refreshed successfully');
+          console.log('Current integrations count:', integrations.length);
         } catch (fetchError) {
           console.error('Failed to refresh integrations list:', fetchError);
-          // If fetch fails, reload the page to ensure fresh data
-          console.log('Reloading page to show new integration...');
-          window.location.reload();
         }
+
+        // Small delay to ensure state update propagates
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Hide the form
+        resetForm('gmail');
+
+        // Show success message (non-blocking)
+        setTimeout(() => {
+          alert(
+            `✅ Gmail account connected successfully!\n\n${response.data?.email || 'Account'} has been added.`
+          );
+        }, 50);
       } else {
         console.error('Gmail OAuth failed:', response);
-        alert(`❌ Failed to connect Gmail: ${response.error || 'Unknown error'}\n\nPlease check if you're logged in with a valid account.`);
+        alert(
+          `❌ Failed to connect Gmail: ${response.error || 'Unknown error'}\n\nPlease check if you're logged in with a valid account.`
+        );
       }
     } catch (error) {
       console.error('Failed to connect Gmail:', error);
@@ -245,11 +265,11 @@ export const IntegrationsSettings = () => {
     return <div className="py-12 text-center">Loading integrations...</div>;
   }
 
-  const emailIntegrations = integrations.filter(i => i.type === 'email');
-  const gmailIntegrations = integrations.filter(i => i.type === 'gmail');
-  const jiraIntegrations = integrations.filter(i => i.type === 'jira');
-  const telegramIntegrations = integrations.filter(i => i.type === 'telegram');
-  const slackIntegrations = integrations.filter(i => i.type === 'slack');
+  const emailIntegrations = integrations.filter((i) => i.type === 'email');
+  const gmailIntegrations = integrations.filter((i) => i.type === 'gmail');
+  const jiraIntegrations = integrations.filter((i) => i.type === 'jira');
+  const telegramIntegrations = integrations.filter((i) => i.type === 'telegram');
+  const slackIntegrations = integrations.filter((i) => i.type === 'slack');
 
   return (
     <div className="space-y-6">
@@ -278,13 +298,20 @@ export const IntegrationsSettings = () => {
           {emailIntegrations.length > 0 && (
             <div className="space-y-2">
               {emailIntegrations.map((integration) => (
-                <div key={integration.id} className="flex justify-between items-center p-3 rounded-lg border">
+                <div
+                  key={integration.id}
+                  className="flex justify-between items-center p-3 rounded-lg border"
+                >
                   <div className="flex gap-3 items-center">
-                    <div className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                    />
                     <div>
-                      <p className="font-medium">{((integration.config as Record<string, Record<string, unknown>>)?.email?.user as string) || integration.name}</p>
+                      <p className="font-medium">
+                        {(integration.config as { user?: string }).user || integration.name}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {((integration.config as Record<string, Record<string, unknown>>)?.email?.host as string) || 'Not configured'}
+                        {(integration.config as { host?: string }).host || 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -304,7 +331,8 @@ export const IntegrationsSettings = () => {
                       isLoading={testing === integration.id}
                       disabled={!integration.hasCredentials}
                     >
-                      <TestTube className="w-4 h-4" />
+                      <TestTube2 className="w-4 h-4" />
+                      Poke
                     </Button>
                     <Button
                       variant="outline"
@@ -324,7 +352,9 @@ export const IntegrationsSettings = () => {
           {/* Add/Edit form */}
           {showEmailForm && (
             <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">{editingId ? 'Edit Email Account' : 'Add New Email Account'}</h4>
+              <h4 className="font-medium">
+                {editingId ? 'Edit Email Account' : 'Add New Email Account'}
+              </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">IMAP Host</label>
@@ -341,7 +371,9 @@ export const IntegrationsSettings = () => {
                   <input
                     type="number"
                     value={emailConfig.port}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, port: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setEmailConfig({ ...emailConfig, port: parseInt(e.target.value) })
+                    }
                     className="px-3 py-2 w-full rounded-md border"
                     placeholder="993"
                   />
@@ -378,17 +410,20 @@ export const IntegrationsSettings = () => {
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={() => saveIntegration(editingId ? `Email-${editingId}` : `Email-${emailConfig.user}`, 'email', emailConfig)}
+                  onClick={() =>
+                    saveIntegration(
+                      editingId ? `Email-${editingId}` : `Email-${emailConfig.user}`,
+                      'email',
+                      emailConfig
+                    )
+                  }
                   isLoading={saving === 'email'}
                   disabled={!emailConfig.host || !emailConfig.user || !emailConfig.password}
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Email
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => resetForm('email')}
-                >
+                <Button variant="outline" onClick={() => resetForm('email')}>
                   Cancel
                 </Button>
               </div>
@@ -396,7 +431,9 @@ export const IntegrationsSettings = () => {
           )}
 
           {emailIntegrations.length === 0 && !showEmailForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">No email accounts configured</p>
+            <p className="py-4 text-sm text-center text-muted-foreground">
+              No email accounts configured
+            </p>
           )}
         </CardContent>
       </Card>
@@ -426,13 +463,21 @@ export const IntegrationsSettings = () => {
           {gmailIntegrations.length > 0 && (
             <div className="space-y-2">
               {gmailIntegrations.map((integration) => (
-                <div key={integration.id} className="flex justify-between items-center p-3 rounded-lg border">
+                <div
+                  key={integration.id}
+                  className="flex justify-between items-center p-3 rounded-lg border"
+                >
                   <div className="flex gap-3 items-center">
-                    <div className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                    />
                     <div>
-                      <p className="font-medium">{((integration.config as Record<string, Record<string, unknown>>)?.gmail?.user as string) || integration.name}</p>
+                      <p className="font-medium">
+                        {(integration.config as { user?: string }).user || integration.name}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        OAuth2 • {((integration.config as Record<string, Record<string, unknown>>)?.gmail?.searchQuery as string) || 'is:unread'}
+                        OAuth2 •{' '}
+                        {(integration.config as { searchQuery?: string }).searchQuery || 'is:unread'}
                       </p>
                     </div>
                   </div>
@@ -444,8 +489,8 @@ export const IntegrationsSettings = () => {
                       isLoading={testing === integration.id}
                       disabled={!integration.hasCredentials}
                     >
-                      <TestTube className="mr-1.5 w-4 h-4" />
-                      Test
+                      <TestTube2 className="mr-1.5 w-4 h-4" />
+                      Poke
                     </Button>
                     <Button
                       variant="outline"
@@ -485,7 +530,9 @@ export const IntegrationsSettings = () => {
                   <input
                     type="password"
                     value={gmailConfig.clientSecret}
-                    onChange={(e) => setGmailConfig({ ...gmailConfig, clientSecret: e.target.value })}
+                    onChange={(e) =>
+                      setGmailConfig({ ...gmailConfig, clientSecret: e.target.value })
+                    }
                     className="px-3 py-2 w-full rounded-md border"
                     placeholder="GOCSPX-..."
                   />
@@ -497,8 +544,10 @@ export const IntegrationsSettings = () => {
                   <label className="text-sm font-medium">Search Query</label>
                   <select
                     value={gmailConfig.searchQuery}
-                    onChange={(e) => setGmailConfig({ ...gmailConfig, searchQuery: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-white"
+                    onChange={(e) =>
+                      setGmailConfig({ ...gmailConfig, searchQuery: e.target.value })
+                    }
+                    className="px-3 py-2 w-full bg-white rounded-md border"
                   >
                     {searchQueryOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -515,7 +564,9 @@ export const IntegrationsSettings = () => {
                   <input
                     type="number"
                     value={gmailConfig.maxResults}
-                    onChange={(e) => setGmailConfig({ ...gmailConfig, maxResults: parseInt(e.target.value) || 10 })}
+                    onChange={(e) =>
+                      setGmailConfig({ ...gmailConfig, maxResults: parseInt(e.target.value) || 10 })
+                    }
                     className="px-3 py-2 w-full rounded-md border"
                     placeholder="10"
                     min="1"
@@ -546,10 +597,7 @@ export const IntegrationsSettings = () => {
                   <Save className="mr-2 w-4 h-4" />
                   Connect with Google
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => resetForm('gmail')}
-                >
+                <Button variant="outline" onClick={() => resetForm('gmail')}>
                   Cancel
                 </Button>
               </div>
@@ -557,7 +605,9 @@ export const IntegrationsSettings = () => {
           )}
 
           {gmailIntegrations.length === 0 && !showGmailForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">No Gmail accounts connected</p>
+            <p className="py-4 text-sm text-center text-muted-foreground">
+              No Gmail accounts connected
+            </p>
           )}
         </CardContent>
       </Card>
@@ -587,13 +637,20 @@ export const IntegrationsSettings = () => {
           {jiraIntegrations.length > 0 && (
             <div className="space-y-2">
               {jiraIntegrations.map((integration) => (
-                <div key={integration.id} className="flex justify-between items-center p-3 rounded-lg border">
+                <div
+                  key={integration.id}
+                  className="flex justify-between items-center p-3 rounded-lg border"
+                >
                   <div className="flex gap-3 items-center">
-                    <div className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                    />
                     <div>
-                      <p className="font-medium">{((integration.config as Record<string, Record<string, unknown>>)?.jira?.projectKey as string) || integration.name}</p>
+                      <p className="font-medium">
+                        {(integration.config as { projectKey?: string }).projectKey || integration.name}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {((integration.config as Record<string, Record<string, unknown>>)?.jira?.apiUrl as string) || 'Not configured'}
+                        {(integration.config as { apiUrl?: string }).apiUrl || 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -613,7 +670,8 @@ export const IntegrationsSettings = () => {
                       isLoading={testing === integration.id}
                       disabled={!integration.hasCredentials}
                     >
-                      <TestTube className="w-4 h-4" />
+                      <TestTube2 className="w-4 h-4" />
+                      Poke
                     </Button>
                     <Button
                       variant="outline"
@@ -633,7 +691,9 @@ export const IntegrationsSettings = () => {
           {/* Add/Edit form */}
           {showJiraForm && (
             <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">{editingId ? 'Edit Jira Instance' : 'Add New Jira Instance'}</h4>
+              <h4 className="font-medium">
+                {editingId ? 'Edit Jira Instance' : 'Add New Jira Instance'}
+              </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Jira URL</label>
@@ -678,17 +738,20 @@ export const IntegrationsSettings = () => {
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={() => saveIntegration(editingId ? `Jira-${editingId}` : `Jira-${jiraConfig.projectKey}`, 'jira', jiraConfig)}
+                  onClick={() =>
+                    saveIntegration(
+                      editingId ? `Jira-${editingId}` : `Jira-${jiraConfig.projectKey}`,
+                      'jira',
+                      jiraConfig
+                    )
+                  }
                   isLoading={saving === 'jira'}
-                  disabled={!jiraConfig.apiUrl || !jiraConfig.email || !jiraConfig.apiToken}
+                  disabled={!jiraConfig.apiUrl || !jiraConfig.email || !jiraConfig.apiToken || !jiraConfig.projectKey}
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Jira
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => resetForm('jira')}
-                >
+                <Button variant="outline" onClick={() => resetForm('jira')}>
                   Cancel
                 </Button>
               </div>
@@ -696,7 +759,9 @@ export const IntegrationsSettings = () => {
           )}
 
           {jiraIntegrations.length === 0 && !showJiraForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">No Jira instances configured</p>
+            <p className="py-4 text-sm text-center text-muted-foreground">
+              No Jira instances configured
+            </p>
           )}
         </CardContent>
       </Card>
@@ -726,13 +791,20 @@ export const IntegrationsSettings = () => {
           {telegramIntegrations.length > 0 && (
             <div className="space-y-2">
               {telegramIntegrations.map((integration) => (
-                <div key={integration.id} className="flex justify-between items-center p-3 rounded-lg border">
+                <div
+                  key={integration.id}
+                  className="flex justify-between items-center p-3 rounded-lg border"
+                >
                   <div className="flex gap-3 items-center">
-                    <div className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                    />
                     <div>
                       <p className="font-medium">{integration.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(integration.config as Record<string, Record<string, unknown>>)?.telegram?.botToken ? 'Token configured' : 'Not configured'}
+                        {(integration.config as { botToken?: string }).botToken
+                          ? 'Token configured'
+                          : 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -752,7 +824,8 @@ export const IntegrationsSettings = () => {
                       isLoading={testing === integration.id}
                       disabled={!integration.hasCredentials}
                     >
-                      <TestTube className="w-4 h-4" />
+                      <TestTube2 className="w-4 h-4" />
+                      Poke
                     </Button>
                     <Button
                       variant="outline"
@@ -772,33 +845,48 @@ export const IntegrationsSettings = () => {
           {/* Add/Edit form */}
           {showTelegramForm && (
             <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">{editingId ? 'Edit Telegram Bot' : 'Add New Telegram Bot'}</h4>
+              <h4 className="font-medium">
+                {editingId ? 'Edit Telegram Bot' : 'Add New Telegram Bot'}
+              </h4>
               <div>
                 <label className="text-sm font-medium">Bot Token</label>
                 <input
                   type="password"
                   value={telegramConfig.botToken}
-                  onChange={(e) => setTelegramConfig({ ...telegramConfig, botToken: e.target.value })}
+                  onChange={(e) =>
+                    setTelegramConfig({ ...telegramConfig, botToken: e.target.value })
+                  }
                   className="px-3 py-2 w-full rounded-md border"
                   placeholder="123456789:ABCdefGhiJklMnoPqrsTuvWxyZ"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Get your bot token from <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-blue-600">@BotFather</a>
+                  Get your bot token from{' '}
+                  <a
+                    href="https://t.me/BotFather"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600"
+                  >
+                    @BotFather
+                  </a>
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={() => saveIntegration(editingId ? `Telegram-${editingId}` : 'Telegram Bot', 'telegram', telegramConfig)}
+                  onClick={() =>
+                    saveIntegration(
+                      editingId ? `Telegram-${editingId}` : 'Telegram Bot',
+                      'telegram',
+                      telegramConfig
+                    )
+                  }
                   isLoading={saving === 'telegram'}
                   disabled={!telegramConfig.botToken}
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Telegram
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => resetForm('telegram')}
-                >
+                <Button variant="outline" onClick={() => resetForm('telegram')}>
                   Cancel
                 </Button>
               </div>
@@ -806,7 +894,9 @@ export const IntegrationsSettings = () => {
           )}
 
           {telegramIntegrations.length === 0 && !showTelegramForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">No Telegram bots configured</p>
+            <p className="py-4 text-sm text-center text-muted-foreground">
+              No Telegram bots configured
+            </p>
           )}
         </CardContent>
       </Card>
@@ -836,13 +926,20 @@ export const IntegrationsSettings = () => {
           {slackIntegrations.length > 0 && (
             <div className="space-y-2">
               {slackIntegrations.map((integration) => (
-                <div key={integration.id} className="flex justify-between items-center p-3 rounded-lg border">
+                <div
+                  key={integration.id}
+                  className="flex justify-between items-center p-3 rounded-lg border"
+                >
                   <div className="flex gap-3 items-center">
-                    <div className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                    />
                     <div>
                       <p className="font-medium">{integration.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(integration.config as Record<string, Record<string, unknown>>)?.slack?.botToken ? 'Token configured' : 'Not configured'}
+                        {(integration.config as { botToken?: string }).botToken
+                          ? 'Token configured'
+                          : 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -862,7 +959,8 @@ export const IntegrationsSettings = () => {
                       isLoading={testing === integration.id}
                       disabled={!integration.hasCredentials}
                     >
-                      <TestTube className="w-4 h-4" />
+                      <TestTube2 className="w-4 h-4" />
+                      Poke
                     </Button>
                     <Button
                       variant="outline"
@@ -882,7 +980,9 @@ export const IntegrationsSettings = () => {
           {/* Add/Edit form */}
           {showSlackForm && (
             <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">{editingId ? 'Edit Slack Workspace' : 'Add New Slack Workspace'}</h4>
+              <h4 className="font-medium">
+                {editingId ? 'Edit Slack Workspace' : 'Add New Slack Workspace'}
+              </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Bot Token</label>
@@ -899,28 +999,41 @@ export const IntegrationsSettings = () => {
                   <input
                     type="password"
                     value={slackConfig.signingSecret}
-                    onChange={(e) => setSlackConfig({ ...slackConfig, signingSecret: e.target.value })}
+                    onChange={(e) =>
+                      setSlackConfig({ ...slackConfig, signingSecret: e.target.value })
+                    }
                     className="px-3 py-2 w-full rounded-md border"
                     placeholder="•••••••••"
                   />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Create a Slack app at <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600">api.slack.com/apps</a>
+                Create a Slack app at{' '}
+                <a
+                  href="https://api.slack.com/apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600"
+                >
+                  api.slack.com/apps
+                </a>
               </p>
               <div className="flex gap-2">
                 <Button
-                  onClick={() => saveIntegration(editingId ? `Slack-${editingId}` : 'Slack Workspace', 'slack', slackConfig)}
+                  onClick={() =>
+                    saveIntegration(
+                      editingId ? `Slack-${editingId}` : 'Slack Workspace',
+                      'slack',
+                      slackConfig
+                    )
+                  }
                   isLoading={saving === 'slack'}
                   disabled={!slackConfig.botToken || !slackConfig.signingSecret}
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Slack
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => resetForm('slack')}
-                >
+                <Button variant="outline" onClick={() => resetForm('slack')}>
                   Cancel
                 </Button>
               </div>
@@ -928,7 +1041,9 @@ export const IntegrationsSettings = () => {
           )}
 
           {slackIntegrations.length === 0 && !showSlackForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">No Slack workspaces configured</p>
+            <p className="py-4 text-sm text-center text-muted-foreground">
+              No Slack workspaces configured
+            </p>
           )}
         </CardContent>
       </Card>
@@ -937,15 +1052,11 @@ export const IntegrationsSettings = () => {
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md bg-white rounded-lg shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">
-              Delete Integration?
-            </h3>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete Integration?</h3>
             <p className="mb-4 text-gray-600">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
-            <p className="mb-6 text-sm text-red-600">
-              This action cannot be undone.
-            </p>
+            <p className="mb-6 text-sm text-red-600">This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"

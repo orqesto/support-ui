@@ -1,7 +1,8 @@
+import type { GlobalRole, OrganizationRole } from './roles';
+
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
-export type UserRole = 'admin' | 'agent' | 'user';
 
 export type User = {
   id: number;
@@ -9,7 +10,9 @@ export type User = {
   firstName: string;
   lastName: string | null;
   position: string | null;
-  role: UserRole;
+  role: GlobalRole; // Global role (admin, user)
+  organizationRole?: OrganizationRole; // Role in current organization
+  organizationId?: number; // Current organization ID
   createdAt: string;
   updatedAt?: string;
 };

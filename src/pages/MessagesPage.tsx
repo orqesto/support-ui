@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ListCard } from '@/components/ui/ListCard';
@@ -10,6 +10,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
 import { messageService } from '@/services/message.service';
 import { useMessagesStore } from '@/stores/messagesStore';
+import { useAuthStore } from '@/stores/authStore';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { Permission } from '@/types/roles';
 import { formatDate } from '@/lib/utils';
 import {
   Mail,
@@ -36,6 +39,7 @@ import {
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -43,7 +47,8 @@ export const MessagesPage = () => {
   const [deleting, setDeleting] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
-  // Zustand store
+  // Zustand stores
+  const token = useAuthStore((state) => state.token);
   const filters = useMessagesStore((state) => state.filters);
   const sorting = useMessagesStore((state) => state.sorting);
   const setMessages = useMessagesStore((state) => state.setMessages);
@@ -177,7 +182,7 @@ export const MessagesPage = () => {
   };
 
   const handleApprove = (message: Message) => {
-    setSelectedMessage(message);
+    navigate(`/tickets/create?messageId=${message.id}`);
   };
 
   const handleReject = async (message: Message) => {
@@ -211,13 +216,18 @@ export const MessagesPage = () => {
   };
 
   const handleSyncEmails = async () => {
+    if (!token) {
+      alert('You must be logged in to sync emails');
+      return;
+    }
+    
     try {
       setRefreshing(true);
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/check-emails`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -239,6 +249,11 @@ export const MessagesPage = () => {
   };
 
   const handleBulkImport = async () => {
+    if (!token) {
+      alert('You must be logged in to bulk import');
+      return;
+    }
+    
     const days = prompt('How many days of emails to import? (1-365)', '30');
     if (!days) return;
 
@@ -254,7 +269,7 @@ export const MessagesPage = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ days: daysNum, maxResults: 500 }),
       });
@@ -320,23 +335,25 @@ export const MessagesPage = () => {
 
   return (
     <Layout>
-      <div className="space-y-4 w-full">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold">Messages</h2>
             <p className="text-sm text-muted-foreground">Manage and process incoming messages</p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleBulkImport} disabled={refreshing} variant="outline">
-              <Download className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Bulk Import
-            </Button>
-            <Button onClick={handleSyncEmails} disabled={refreshing} variant="outline">
-              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Sync New
-            </Button>
-            <Button onClick={handleRefresh} disabled={refreshing}>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
+              <Button onClick={handleBulkImport} disabled={refreshing} variant="outline" className="flex-1 sm:flex-none">
+                <Download className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Bulk Import
+              </Button>
+              <Button onClick={handleSyncEmails} disabled={refreshing} variant="outline" className="flex-1 sm:flex-none">
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Sync New
+              </Button>
+            </PermissionGuard>
+            <Button onClick={handleRefresh} disabled={refreshing} className="flex-1 sm:flex-none">
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
@@ -503,7 +520,7 @@ export const MessagesPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 w-full">
+          <div className="grid gap-4">
             {messages.map((message) => {
               const analysis = message.metadata?.analysis as
                 | {
@@ -611,33 +628,37 @@ export const MessagesPage = () => {
                         <ExternalLink className="mr-1 w-3 h-3" />
                         Open
                       </Button>
-                      {!message.processed ? (
-                        <>
-                          <Button size="sm" onClick={() => handleApprove(message)}>
-                            <Check className="mr-1 w-3 h-3" />
-                            Approve
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleReject(message)}>
-                            <X className="mr-1 w-3 h-3" />
-                            Reject
-                          </Button>
-                        </>
-                      ) : (
-                        !message.ticketId && (
-                          <Button size="sm" variant="outline" onClick={() => handleReopen(message)}>
-                            <RotateCcw className="mr-1 w-3 h-3" />
-                            Reopen
-                          </Button>
-                        )
-                      )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteClick(message)}
-                      >
-                        <Trash2 className="mr-1 w-3 h-3" />
-                        Delete
-                      </Button>
+                      <PermissionGuard permission={Permission.PROCESS_MESSAGES}>
+                        {!message.processed ? (
+                          <>
+                            <Button size="sm" onClick={() => handleApprove(message)}>
+                              <Check className="mr-1 w-3 h-3" />
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleReject(message)}>
+                              <X className="mr-1 w-3 h-3" />
+                              Reject
+                            </Button>
+                          </>
+                        ) : (
+                          !message.ticketId && (
+                            <Button size="sm" variant="outline" onClick={() => handleReopen(message)}>
+                              <RotateCcw className="mr-1 w-3 h-3" />
+                              Reopen
+                            </Button>
+                          )
+                        )}
+                      </PermissionGuard>
+                      <PermissionGuard permissions={[Permission.DELETE_MESSAGES, Permission.MANAGE_ORGANIZATION]}>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteClick(message)}
+                        >
+                          <Trash2 className="mr-1 w-3 h-3" />
+                          Delete
+                        </Button>
+                      </PermissionGuard>
                     </>
                   }
                 />
@@ -694,10 +715,7 @@ export const MessagesPage = () => {
         >
           <MessageDetail
             message={selectedMessage}
-            onApprove={() => {
-              handleApprove(selectedMessage);
-              setSelectedMessage(null);
-            }}
+            onApprove={() => handleApprove(selectedMessage)}
             onReject={async () => {
               await handleReject(selectedMessage);
               setSelectedMessage(null);

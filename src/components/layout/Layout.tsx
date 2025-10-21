@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission, roleDisplayNames } from '@/types/roles';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
 import { WebSocketDebug } from '@/components/WebSocketDebug';
 import {
@@ -13,6 +15,7 @@ import {
   LogOut,
   Menu,
   X,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,12 +25,13 @@ type LayoutProps = {
   children: ReactNode;
 };
 
-const navigation = [
+const allNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Messages', href: '/messages', icon: Mail },
-  { name: 'Tickets', href: '/tickets', icon: Ticket },
-  { name: 'Statistics', href: '/statistics', icon: BarChart3 },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Messages', href: '/messages', icon: Mail, permission: Permission.VIEW_MESSAGES },
+  { name: 'Tickets', href: '/tickets', icon: Ticket, permission: Permission.VIEW_TICKETS },
+  { name: 'Statistics', href: '/statistics', icon: BarChart3, permission: Permission.VIEW_STATISTICS },
+  { name: 'Settings', href: '/settings', icon: Settings, permission: Permission.VIEW_ORGANIZATION_SETTINGS },
+  { name: 'Users', href: '/users', icon: Users, permission: Permission.MANAGE_USERS },
 ];
 
 export const Layout = ({ children }: LayoutProps) => {
@@ -36,6 +40,15 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { hasPermission, orgRole } = usePermissions();
+
+  // Filter navigation based on permissions
+  const navigation = useMemo(() => {
+    return allNavigation.filter(item => {
+      if (!item.permission) return true; // No permission required (like Dashboard)
+      return hasPermission(item.permission);
+    });
+  }, [hasPermission]);
 
   const handleLogout = () => {
     logout();
@@ -102,11 +115,13 @@ export const Layout = ({ children }: LayoutProps) => {
                 <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
                   {user?.firstName?.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <p className="text-sm font-medium">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-xs text-muted-foreground">{user?.role}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {orgRole ? roleDisplayNames[orgRole] : roleDisplayNames[user?.role || 'user']}
+                  </p>
                 </div>
               </div>
             </div>
@@ -122,7 +137,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main content */}
-        <div className="flex-1 w-full lg:ml-0">
+        <div className="flex-1 w-full lg:ml-0 overflow-x-hidden">
         {/* Mobile header with hamburger menu */}
         <header className="lg:hidden h-14 bg-white border-b flex items-center px-4 sticky top-0 z-50">
           <button
@@ -136,7 +151,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </h2>
         </header>
         
-        <main className="p-4 lg:p-6 w-full">
+        <main className="p-4 lg:p-6 w-full max-w-full overflow-x-hidden">
           {children}
         </main>
         </div>

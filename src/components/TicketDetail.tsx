@@ -8,6 +8,7 @@ import { ExternalLink as ExternalLinkIcon, Edit2, Send, Trash2, User, Calendar, 
 import { Link } from 'react-router-dom';
 import { messageService } from '../services/message.service';
 import { TicketComments } from './TicketComments';
+import { TicketAttachments } from './TicketAttachments';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -206,6 +207,9 @@ export const TicketDetail = ({
           ) : null;
         })()}
 
+      {/* Attachments (from Jira, Email, or Uploads) */}
+      <TicketAttachments ticketId={ticket.id} />
+
       {/* Comments */}
       <div className="pt-6 border-t">
         <TicketComments ticketId={ticket.id} hasJiraLink={!!ticket.externalId} />
@@ -213,12 +217,24 @@ export const TicketDetail = ({
 
       {/* Actions */}
       <div className="flex gap-2 pt-6 border-t">
-        <Link to={`/tickets/edit/${ticket.id}`} className="flex-1">
-          <Button variant="outline" className="w-full">
-            <Edit2 className="mr-2 w-4 h-4" />
-            Edit Ticket
-          </Button>
-        </Link>
+        {!ticket.externalId ? (
+          <Link to={`/tickets/edit/${ticket.id}`} className="flex-1">
+            <Button variant="outline" className="w-full">
+              <Edit2 className="mr-2 w-4 h-4" />
+              Edit Ticket
+            </Button>
+          </Link>
+        ) : (
+          <div className="flex-1">
+            <Button variant="outline" className="w-full" disabled title="This ticket is synced with Jira. Edit it in Jira instead.">
+              <Edit2 className="mr-2 w-4 h-4" />
+              Edit Ticket
+            </Button>
+            <p className="mt-1 text-xs text-center text-muted-foreground">
+              Synced with Jira - Edit in Jira
+            </p>
+          </div>
+        )}
         {!ticket.externalId && onPushToJira && (
           <Button onClick={onPushToJira} isLoading={isPushingToJira} className="flex-1">
             <Send className="mr-2 w-4 h-4" />

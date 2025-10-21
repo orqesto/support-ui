@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { Permission } from './types/roles';
 
 // Eager load critical routes
 import { LoginPage } from './pages/LoginPage';
@@ -14,6 +16,7 @@ const CreateTicketPage = lazy(() => import('./pages/CreateTicketPage').then(m =>
 const EditTicketPage = lazy(() => import('./pages/EditTicketPage').then(m => ({ default: m.EditTicketPage })));
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then(m => ({ default: m.StatisticsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const UsersPage = lazy(() => import('./pages/UsersPage').then(m => ({ default: m.UsersPage })));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -107,6 +110,18 @@ const AppRoutes = () => {
             <Suspense fallback={<LoadingFallback />}>
               <SettingsPage />
             </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.MANAGE_USERS}>
+              <Suspense fallback={<LoadingFallback />}>
+                <UsersPage />
+              </Suspense>
+            </ProtectedRoute>
           </PrivateRoute>
         }
       />

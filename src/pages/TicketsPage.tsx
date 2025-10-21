@@ -9,9 +9,11 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
-import { integrationsService, type Integration } from '@/services/integrations.service';
+import { integrationsService, type JiraIntegration } from '@/services/integrations.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
-import { useAuthStore } from '@/stores/authStore';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { Permission } from '@/types/roles';
 import { PAGINATION } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
 import {
@@ -67,7 +69,7 @@ export const TicketsPage = () => {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState<TicketType | null>(null);
-  const [jiraIntegrations, setJiraIntegrations] = useState<Integration[]>([]);
+  const [jiraIntegrations, setJiraIntegrations] = useState<JiraIntegration[]>([]);
   const [selectedJiraId, setSelectedJiraId] = useState<number | undefined>(undefined);
 
   // Zustand stores
@@ -80,8 +82,7 @@ export const TicketsPage = () => {
   const getCached = useTicketsStore((state) => state.getCached);
   const clearCache = useTicketsStore((state) => state.clearCache);
 
-  const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.role === 'admin';
+  const { isOrgAdmin } = usePermissions();
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
@@ -185,7 +186,7 @@ export const TicketsPage = () => {
       try {
         const response = await integrationsService.getAll();
         if (response.success && response.data) {
-          const jiras = response.data.filter((i) => i.type === 'jira' && i.enabled);
+          const jiras = response.data.filter((i) => i.type === 'jira' && i.enabled) as JiraIntegration[];
           setJiraIntegrations(jiras);
           // Auto-select if only one Jira instance
           if (jiras.length === 1) {
@@ -284,8 +285,8 @@ export const TicketsPage = () => {
   };
 
   const handleSyncAll = async () => {
-    if (!isAdmin) {
-      alert('⚠️ Only administrators can sync tickets to Jira. Please contact your admin.');
+    if (!isOrgAdmin) {
+      alert('⚠️ Only organization administrators can sync tickets to Jira. Please contact your admin.');
       return;
     }
 
@@ -347,17 +348,15 @@ export const TicketsPage = () => {
     (filters.status !== 'all' ? 1 : 0) +
     (filters.priority !== 'all' ? 1 : 0) +
     (filters.categoryId !== 'all' ? 1 : 0);
-  console.log('tickets', tickets);
 
   return (
     <Layout>
-      <div className="space-y-4 w-full">
-        <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center">
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold sm:text-3xl">Tickets</h1>
-            <p className="mt-2 text-sm sm:text-base text-muted-foreground">
-              Manage and track support tickets
-            </p>
+            <h2 className="text-2xl font-bold">Tickets</h2>
+            <p className="text-sm text-muted-foreground">Manage and track support tickets</p>
           </div>
           <Button onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto">
             <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -484,8 +483,7 @@ export const TicketsPage = () => {
                         <option value="">Select Instance</option>
                         {jiraIntegrations.map((jira) => (
                           <option key={jira.id} value={jira.id}>
-                            {((jira.config as Record<string, Record<string, unknown>>)?.jira
-                              ?.projectKey as string) || jira.name}
+                            {jira.config.projectKey || jira.name}
                           </option>
                         ))}
                       </select>
@@ -498,12 +496,12 @@ export const TicketsPage = () => {
                   size="sm"
                   className="ml-auto"
                   disabled={
-                    !isAdmin ||
+                    !isOrgAdmin ||
                     jiraIntegrations.length === 0 ||
                     (jiraIntegrations.length > 1 && !selectedJiraId)
                   }
                   isLoading={isSyncingAll}
-                  title={!isAdmin ? 'Only administrators can sync tickets to Jira' : ''}
+                  title={!isOrgAdmin ? 'Only organization administrators can sync tickets to Jira' : ''}
                 >
                   <Send className="mr-2 w-4 h-4" />
                   Sync to Jira
@@ -533,13 +531,13 @@ export const TicketsPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 w-full">
+          <div className="grid gap-4">
             {tickets.map((ticket) => (
               <ListCard
                 key={ticket.id}
                 header={
                   <>
-                    <h3 className="text-lg font-semibold">{ticket.title}</h3>
+                    <h3 className="text-lg font-semibold break-words w-full">{ticket.title}</h3>
                     <div className="flex gap-2 items-center">
                       <span className="text-xs font-medium text-muted-foreground">Status:</span>
                       <Badge variant={statusColors[ticket.status]}>{ticket.status}</Badge>
@@ -583,33 +581,37 @@ export const TicketsPage = () => {
                       <ExternalLinkIcon className="mr-1 w-3 h-3" />
                       Open
                     </Button>
-                    {!ticket.externalId && (
-                      <Link to={`/tickets/edit/${ticket.id}`}>
-                        <Button size="sm" variant="outline">
-                          <Edit2 className="mr-1 w-3 h-3" />
-                          Edit
+                    <PermissionGuard permission={Permission.MANAGE_TICKETS}>
+                      {!ticket.externalId && (
+                        <Link to={`/tickets/edit/${ticket.id}`}>
+                          <Button size="sm" variant="outline">
+                            <Edit2 className="mr-1 w-3 h-3" />
+                            Edit
+                          </Button>
+                        </Link>
+                      )}
+                      {!ticket.externalId && (
+                        <Button
+                          size="sm"
+                          onClick={() => handlePushToJira(ticket.id)}
+                          isLoading={syncing === ticket.id}
+                        >
+                          <Send className="mr-1 w-3 h-3" />
+                          Push
                         </Button>
-                      </Link>
-                    )}
-                    {!ticket.externalId && (
+                      )}
+                    </PermissionGuard>
+                    <PermissionGuard permissions={[Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION]}>
                       <Button
                         size="sm"
-                        onClick={() => handlePushToJira(ticket.id)}
-                        isLoading={syncing === ticket.id}
+                        variant="destructive"
+                        onClick={() => handleDeleteClick(ticket)}
+                        aria-label="Delete ticket"
                       >
-                        <Send className="mr-1 w-3 h-3" />
-                        Push
+                        <Trash2 className="mr-2 w-4 h-4" />
+                        Delete
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteClick(ticket)}
-                      aria-label="Delete ticket"
-                    >
-                      <Trash2 className="mr-2 w-4 h-4" />
-                      Delete
-                    </Button>
+                    </PermissionGuard>
                   </>
                 }
               />
