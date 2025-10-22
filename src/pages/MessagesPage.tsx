@@ -11,6 +11,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { messageService } from '@/services/message.service';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useAuthStore } from '@/stores/authStore';
+import { apiClient } from '@/lib/api-client';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Permission } from '@/types/roles';
 import { formatDate } from '@/lib/utils';
@@ -25,7 +26,6 @@ import {
   Filter,
   ExternalLink,
   RotateCcw,
-  Download,
 } from 'lucide-react';
 import type { Message } from '@/types';
 import {
@@ -220,75 +220,20 @@ export const MessagesPage = () => {
       alert('You must be logged in to sync emails');
       return;
     }
-    
+
     try {
       setRefreshing(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/check-emails`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        // Wait a bit for emails to be processed, then refresh
-        setTimeout(() => {
-          fetchMessages(1, true);
-          setRefreshing(false);
-        }, 2000);
-      } else {
+      await apiClient.post('/api/messages/check-emails');
+      
+      // Wait a bit for emails to be processed, then refresh
+      setTimeout(() => {
+        fetchMessages(1, true);
         setRefreshing(false);
-        alert('Failed to trigger email sync');
-      }
+      }, 2000);
     } catch (error) {
       console.error('Failed to sync emails:', error);
       setRefreshing(false);
       alert('Failed to sync emails');
-    }
-  };
-
-  const handleBulkImport = async () => {
-    if (!token) {
-      alert('You must be logged in to bulk import');
-      return;
-    }
-    
-    const days = prompt('How many days of emails to import? (1-365)', '30');
-    if (!days) return;
-
-    const daysNum = parseInt(days);
-    if (isNaN(daysNum) || daysNum < 1 || daysNum > 365) {
-      alert('Please enter a valid number between 1 and 365');
-      return;
-    }
-
-    try {
-      setRefreshing(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/bulk-import`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ days: daysNum, maxResults: 500 }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        alert(
-          `Bulk import completed!\nTotal: ${data.data?.total || 0}\nProcessed: ${data.data?.processed || 0}\nTickets Created: ${data.data?.ticketsCreated || 0}`
-        );
-        fetchMessages(1, true);
-        setRefreshing(false);
-      } else {
-        setRefreshing(false);
-        alert('Failed to bulk import emails');
-      }
-    } catch (error) {
-      console.error('Failed to bulk import:', error);
-      setRefreshing(false);
-      alert('Failed to bulk import emails');
     }
   };
 
@@ -335,20 +280,21 @@ export const MessagesPage = () => {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center mb-6">
+        <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-2xl font-bold">Messages</h2>
             <p className="text-sm text-muted-foreground">Manage and process incoming messages</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
-              <Button onClick={handleBulkImport} disabled={refreshing} variant="outline" className="flex-1 sm:flex-none">
-                <Download className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Bulk Import
-              </Button>
-              <Button onClick={handleSyncEmails} disabled={refreshing} variant="outline" className="flex-1 sm:flex-none">
+              <Button
+                onClick={handleSyncEmails}
+                disabled={refreshing}
+                variant="outline"
+                className="flex-1 sm:flex-none"
+              >
                 <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Sync New
               </Button>
@@ -635,21 +581,31 @@ export const MessagesPage = () => {
                               <Check className="mr-1 w-3 h-3" />
                               Approve
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleReject(message)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReject(message)}
+                            >
                               <X className="mr-1 w-3 h-3" />
                               Reject
                             </Button>
                           </>
                         ) : (
                           !message.ticketId && (
-                            <Button size="sm" variant="outline" onClick={() => handleReopen(message)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReopen(message)}
+                            >
                               <RotateCcw className="mr-1 w-3 h-3" />
                               Reopen
                             </Button>
                           )
                         )}
                       </PermissionGuard>
-                      <PermissionGuard permissions={[Permission.DELETE_MESSAGES, Permission.MANAGE_ORGANIZATION]}>
+                      <PermissionGuard
+                        permissions={[Permission.DELETE_MESSAGES, Permission.MANAGE_ORGANIZATION]}
+                      >
                         <Button
                           size="sm"
                           variant="destructive"

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
-import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog';
+import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent, DialogFooter } from './ui/Dialog';
 import { formatDate } from '../lib/utils';
 import {
   getSocket,
@@ -23,6 +23,7 @@ import {
   unsubscribeFromEvent,
   releaseSocket,
 } from '../lib/socketManager';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
 
 type TicketCommentsProps = {
   ticketId: number;
@@ -42,6 +43,8 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
+  const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchComments = async () => {
@@ -59,8 +62,8 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   };
 
   useEffect(() => {
-    // Get current user from localStorage
-    const token = localStorage.getItem('token');
+    // Get current user from token
+    const token = getAuthToken();
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
@@ -223,12 +226,19 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     }
   };
 
-  const handleDeleteAttachment = async (attachmentId: number) => {
-    if (!confirm('Are you sure you want to delete this attachment?')) return;
+  const confirmDeleteAttachment = (attachmentId: number) => {
+    setAttachmentToDelete(attachmentId);
+    setDeleteAttachmentDialogOpen(true);
+  };
+
+  const handleDeleteAttachment = async () => {
+    if (!attachmentToDelete) return;
 
     try {
-      await commentsService.deleteAttachment(attachmentId);
+      await commentsService.deleteAttachment(attachmentToDelete);
       await fetchComments(); // Refresh immediately
+      setDeleteAttachmentDialogOpen(false);
+      setAttachmentToDelete(null);
     } catch (error: any) {
       console.error('Failed to delete attachment:', error);
       alert(error.message || 'Failed to delete attachment. Please try again.');
@@ -379,7 +389,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                             </p>
                           </div>
                           <a
-                            href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${attachment.url}`}
+                            href={`${API_BASE_URL}${attachment.url}`}
                             download={attachment.originalFilename}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -389,7 +399,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                           </a>
                           {canEditComment(comment) && (
                             <button
-                              onClick={() => handleDeleteAttachment(attachment.id)}
+                              onClick={() => confirmDeleteAttachment(attachment.id)}
                               className="p-1 text-red-600 rounded hover:bg-red-50"
                             >
                               <X className="w-4 h-4" />
@@ -528,6 +538,37 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* Delete Attachment Confirmation Dialog */}
+      <Dialog open={deleteAttachmentDialogOpen} onOpenChange={setDeleteAttachmentDialogOpen}>
+        <DialogHeader>
+          <DialogTitle>Delete Attachment</DialogTitle>
+          <DialogClose onClose={() => setDeleteAttachmentDialogOpen(false)} />
+        </DialogHeader>
+        <DialogContent>
+          <p className="text-sm text-gray-700">
+            Are you sure you want to delete this attachment?
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            This action cannot be undone.
+          </p>
+        </DialogContent>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setDeleteAttachmentDialogOpen(false);
+              setAttachmentToDelete(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleDeleteAttachment}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
+          </Button>
+        </DialogFooter>
       </Dialog>
     </div>
   );

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { apiClient } from '@/lib/api-client';
 
 export type Attachment = {
   id: number;
@@ -44,25 +44,13 @@ type ApiResponse<T> = {
   message?: string;
 };
 
-const getAuthToken = () => {
-  return localStorage.getItem('token');
-};
 
 export const commentsService = {
   getAll: async (ticketId: number): Promise<ApiResponse<Comment[]>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/comments`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch comments');
-    }
-
-    return response.json();
+    const response = await apiClient.get<ApiResponse<Comment[]>>(
+      `/api/tickets/${ticketId}/comments`
+    );
+    return response.data;
   },
 
   create: async (
@@ -70,133 +58,66 @@ export const commentsService = {
     content: string,
     isInternal: boolean = false
   ): Promise<ApiResponse<Comment>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/comments`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content, isInternal }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to create comment');
-    }
-
-    return response.json();
+    const response = await apiClient.post<ApiResponse<Comment>>(
+      `/api/tickets/${ticketId}/comments`,
+      { content, isInternal }
+    );
+    return response.data;
   },
 
   update: async (commentId: number, content: string): Promise<ApiResponse<Comment>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/comments/${commentId}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update comment');
-    }
-
-    return response.json();
+    const response = await apiClient.put<ApiResponse<Comment>>(
+      `/api/comments/${commentId}`,
+      { content }
+    );
+    return response.data;
   },
 
   delete: async (commentId: number): Promise<ApiResponse<void>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/comments/${commentId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete comment');
-    }
-
-    return response.json();
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/api/comments/${commentId}`
+    );
+    return response.data;
   },
 
   uploadAttachments: async (commentId: number, files: File[]): Promise<ApiResponse<Attachment[]>> => {
-    const token = getAuthToken();
     const formData = new FormData();
     
     files.forEach(file => {
       formData.append('files', file);
     });
 
-    const response = await fetch(`${API_BASE_URL}/api/comments/${commentId}/attachments`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
+    const response = await apiClient.post<ApiResponse<Attachment[]>>(
+      `/api/comments/${commentId}/attachments`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload attachments');
-    }
-
-    return response.json();
+    return response.data;
   },
 
   deleteAttachment: async (attachmentId: number): Promise<ApiResponse<void>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/attachments/${attachmentId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete attachment');
-    }
-
-    return response.json();
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/api/attachments/${attachmentId}`
+    );
+    return response.data;
   },
 
   getTicketAttachments: async (ticketId: number): Promise<ApiResponse<Attachment[]>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/attachments`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch ticket attachments');
-    }
-
-    return response.json();
+    const response = await apiClient.get<ApiResponse<Attachment[]>>(
+      `/api/tickets/${ticketId}/attachments`
+    );
+    return response.data;
   },
 
   syncFromJira: async (ticketId: number): Promise<ApiResponse<Comment[]>> => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/comments/sync`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to sync comments from Jira');
-    }
-
-    return response.json();
+    const response = await apiClient.post<ApiResponse<Comment[]>>(
+      `/api/tickets/${ticketId}/comments/sync`
+    );
+    return response.data;
   },
 };

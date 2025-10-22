@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { API_BASE_URL } from './config';
 
 type EventCallback = (data: unknown) => void;
 
@@ -16,7 +17,7 @@ export const getSocket = (): Socket => {
 
   if (!socket) {
     console.log('🔌 Creating new WebSocket connection');
-    socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+    socket = io(API_BASE_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
