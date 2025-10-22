@@ -69,6 +69,7 @@ export const TicketsPage = () => {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState<TicketType | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [jiraIntegrations, setJiraIntegrations] = useState<JiraIntegration[]>([]);
   const [selectedJiraId, setSelectedJiraId] = useState<number | undefined>(undefined);
 
@@ -300,8 +301,11 @@ export const TicketsPage = () => {
       return;
     }
 
-    if (!confirm('Sync all unsynced tickets to Jira?')) return;
+    setSyncDialogOpen(true);
+  };
 
+  const confirmSyncAll = async () => {
+    setSyncDialogOpen(false);
     setIsSyncingAll(true);
     try {
       const response = await ticketService.syncAllToJira(selectedJiraId);
@@ -351,7 +355,7 @@ export const TicketsPage = () => {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center mb-6">
           <div>
@@ -654,6 +658,31 @@ export const TicketsPage = () => {
           </Button>
           <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
             Delete
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Sync All Confirmation Dialog */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogHeader>
+          <DialogTitle>Sync All Tickets to Jira</DialogTitle>
+          <DialogClose onClose={() => setSyncDialogOpen(false)} />
+        </DialogHeader>
+        <DialogContent>
+          <p className="text-sm text-gray-700">
+            Are you sure you want to sync all unsynced tickets to Jira?
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            This will create Jira issues for all tickets that haven't been synced yet.
+          </p>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={confirmSyncAll}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Sync All
           </Button>
         </DialogFooter>
       </Dialog>

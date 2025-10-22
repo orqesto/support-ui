@@ -16,6 +16,8 @@ import {
   Menu,
   X,
   Users,
+  Building2,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,9 +31,26 @@ const allNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Messages', href: '/messages', icon: Mail, permission: Permission.VIEW_MESSAGES },
   { name: 'Tickets', href: '/tickets', icon: Ticket, permission: Permission.VIEW_TICKETS },
-  { name: 'Statistics', href: '/statistics', icon: BarChart3, permission: Permission.VIEW_STATISTICS },
-  { name: 'Settings', href: '/settings', icon: Settings, permission: Permission.VIEW_ORGANIZATION_SETTINGS },
+  {
+    name: 'Statistics',
+    href: '/statistics',
+    icon: BarChart3,
+    permission: Permission.VIEW_STATISTICS,
+  },
+  { name: 'Organization', href: '/organization', icon: Building2 },
+  {
+    name: 'Settings',
+    href: '/settings',
+    icon: Settings,
+    permission: Permission.VIEW_ORGANIZATION_SETTINGS,
+  },
   { name: 'Users', href: '/users', icon: Users, permission: Permission.MANAGE_USERS },
+  { 
+    name: 'Email Templates', 
+    href: '/email-templates', 
+    icon: FileText, 
+    adminOnly: true // Only visible to global admins
+  },
 ];
 
 export const Layout = ({ children }: LayoutProps) => {
@@ -44,11 +63,14 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Filter navigation based on permissions
   const navigation = useMemo(() => {
-    return allNavigation.filter(item => {
+    return allNavigation.filter((item) => {
+      // Check if admin-only and user is global admin
+      if (item.adminOnly && user?.role !== 'admin') return false;
+      // Check permissions
       if (!item.permission) return true; // No permission required (like Dashboard)
       return hasPermission(item.permission);
     });
-  }, [hasPermission]);
+  }, [hasPermission, user?.role]);
 
   const handleLogout = () => {
     logout();
@@ -65,101 +87,95 @@ export const Layout = ({ children }: LayoutProps) => {
         )}
         onClick={() => setSidebarOpen(false)}
       />
-      
+
       <div className="flex flex-row">
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform duration-300',
+            'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transition-transform duration-300 transform',
             'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
         >
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between h-16 px-4 border-b">
-            <h1 className="text-xl font-bold">Support System</h1>
-            <button
-              className="lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
+          <div className="flex overflow-hidden flex-col h-full">
+            <div className="flex justify-between items-center px-4 h-16 border-b">
+              <h1 className="text-xl font-bold">Support System</h1>
+              <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  )}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              );
-            })}
-          </nav>
+            <nav className="overflow-y-auto flex-1 px-4 py-4 space-y-1">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      'flex gap-3 items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    )}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
 
-          <div className="p-4 border-t">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-                  {user?.firstName?.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {orgRole ? roleDisplayNames[orgRole] : roleDisplayNames[user?.role || 'user']}
-                  </p>
+            <div className="p-4 border-t">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex gap-2 items-center">
+                  <div className="flex justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+                    {user?.firstName?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-xs truncate text-muted-foreground">
+                      {orgRole ? roleDisplayNames[orgRole] : roleDisplayNames[user?.role || 'user']}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <button
+                onClick={handleLogout}
+                className="flex gap-2 items-center px-3 py-2 w-full text-sm text-gray-700 rounded-md transition-colors hover:bg-gray-100"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
           </div>
-        </div>
         </aside>
 
         {/* Main content */}
-        <div className="flex-1 w-full lg:ml-0 overflow-x-hidden">
-        {/* Mobile header with hamburger menu */}
-        <header className="lg:hidden h-14 bg-white border-b flex items-center px-4 sticky top-0 z-50">
-          <button
-            className="mr-4"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          <h2 className="text-lg font-semibold">
-            {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
-          </h2>
-        </header>
-        
-        <main className="p-4 lg:p-6 w-full max-w-full overflow-x-hidden">
-          {children}
-        </main>
+        <div className="overflow-x-hidden flex-1 w-full lg:ml-0">
+          {/* Mobile header with hamburger menu */}
+          <header className="flex fixed top-0 right-0 left-0 z-50 items-center px-4 h-14 bg-white border-b lg:hidden">
+            <button className="mr-4" onClick={() => setSidebarOpen(true)}>
+              <Menu className="w-6 h-6" />
+            </button>
+            <h2 className="text-lg font-semibold">
+              {navigation.find((item) => item.href === location.pathname)?.name || 'Dashboard'}
+            </h2>
+          </header>
+          {/* Spacer for fixed header */}
+          <div className="h-14"></div>
+
+          <main className="overflow-x-hidden p-4 w-full max-w-full lg:p-6">{children}</main>
         </div>
       </div>
-      
+
       {/* WebSocket Status Indicator */}
       <WebSocketStatus />
-      
+
       {/* WebSocket Debug Panel (Development Only) */}
       {isDevelopment && <WebSocketDebug />}
     </div>

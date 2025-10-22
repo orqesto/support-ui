@@ -10,6 +10,8 @@ import {
 } from '../lib/socketManager';
 import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog';
 import { Button } from './ui/Button';
+import { apiClient } from '@/lib/api-client';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
 
 type TicketAttachmentsProps = {
   ticketId: number;
@@ -76,15 +78,15 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   }
 
   const getAttachmentUrl = (attachment: Attachment) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
 
     // If it's a Jira attachment (has externalId AND starts with https://), use the proxy endpoint
     if (attachment.externalId && attachment.url.startsWith('http')) {
-      return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/attachments/jira/${attachment.id}/download?token=${token}`;
+      return `${API_BASE_URL}/api/attachments/jira/${attachment.id}/download?token=${token}`;
     }
 
     // Otherwise, it's a local file (from email or app) - serve directly
-    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${attachment.url}`;
+    return `${API_BASE_URL}${attachment.url}`;
   };
 
   const isImage = (mimeType: string) => {
@@ -111,27 +113,21 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
     try {
       setIsUploading(true);
-      const token = localStorage.getItem('token');
       const formData = new FormData();
 
       selectedFiles.forEach((file) => {
         formData.append('files', file);
       });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/tickets/${ticketId}/attachments`,
+      await apiClient.post(
+        `/api/tickets/${ticketId}/attachments`,
+        formData,
         {
-          method: 'POST',
           headers: {
-            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
           },
-          body: formData,
         }
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to upload attachments');
-      }
 
       setSelectedFiles([]);
       await fetchAttachments(); // Refresh list
@@ -154,28 +150,8 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     console.log('Deleting attachment:', attachmentToDelete);
 
     try {
-      const token = localStorage.getItem('token');
-      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/attachments/${attachmentToDelete.id}`;
-      console.log('DELETE request to:', url);
-
-      const response = await fetch(url, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error response:', errorData);
-        throw new Error(errorData.error || 'Failed to delete attachment');
-      }
-
-      const result = await response.json();
-      console.log('Delete successful:', result);
+      await apiClient.delete(`/api/attachments/${attachmentToDelete.id}`);
+      console.log('Delete successful');
 
       setDeleteDialogOpen(false);
       setAttachmentToDelete(null);

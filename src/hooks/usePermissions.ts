@@ -39,6 +39,7 @@ export const usePermissions = () => {
       isOrgAdmin: isOrgAdminOrHigher(userRole, orgRole),
       canManageUsers: canManageUsers(userRole, orgRole),
       canAccessSettings: canAccessSettings(userRole, orgRole),
+      canManageOrganization: isOrgAdminOrHigher(userRole, orgRole),
 
       // User info
       userRole,

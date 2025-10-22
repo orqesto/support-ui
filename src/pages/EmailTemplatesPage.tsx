@@ -1,0 +1,214 @@
+import { useState, useEffect } from 'react';
+import { Layout } from '@/components/layout/Layout';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Mail, Eye, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+
+type TemplateType = 'invitation' | 'verification';
+
+type Template = {
+  type: TemplateType;
+  name: string;
+  description: string;
+};
+
+const TEMPLATES: Template[] = [
+  {
+    type: 'invitation',
+    name: 'User Invitation',
+    description: 'Email sent when admins invite new users to join an organization',
+  },
+  {
+    type: 'verification',
+    name: 'Email Verification',
+    description: 'Email sent to verify user email addresses after registration',
+  },
+];
+
+export const EmailTemplatesPage = () => {
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | null>(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPreview = async (templateType: TemplateType) => {
+    setIsLoadingPreview(true);
+    setError(null);
+    try {
+      const response = await apiClient.get(`/api/email-templates/${templateType}/render`, {
+        responseType: 'text',
+      });
+      setPreviewHtml(response.data);
+      setSelectedTemplate(templateType);
+    } catch (error) {
+      console.error('Error loading template preview:', error);
+      setError('Failed to load template preview. Please make sure you are logged in as an admin.');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const refreshPreview = () => {
+    if (selectedTemplate) {
+      loadPreview(selectedTemplate);
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="mx-auto space-y-6 max-w-7xl">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Mail className="w-7 h-7" />
+              Email Templates
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Preview and customize email templates (Admin only)
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Template List */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Templates</CardTitle>
+                <CardDescription>
+                  Select a template to preview
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {TEMPLATES.map((template) => (
+                    <button
+                      key={template.type}
+                      onClick={() => loadPreview(template.type)}
+                      className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
+                        selectedTemplate === template.type ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Mail className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                          selectedTemplate === template.type ? 'text-blue-600' : 'text-gray-400'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm">{template.name}</h3>
+                          <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {selectedTemplate && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="text-sm">Template Variables</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-xs">
+                    <p className="text-gray-600">Available variables for {selectedTemplate}:</p>
+                    <div className="bg-gray-50 p-3 rounded font-mono text-xs space-y-1">
+                      <div><span className="text-blue-600">{'{{appName}}'}</span> - Application name</div>
+                      <div><span className="text-blue-600">{'{{year}}'}</span> - Current year</div>
+                      {selectedTemplate === 'invitation' && (
+                        <>
+                          <div><span className="text-blue-600">{'{{organizationName}}'}</span> - Organization</div>
+                          <div><span className="text-blue-600">{'{{role}}'}</span> - User role</div>
+                          <div><span className="text-blue-600">{'{{signupUrl}}'}</span> - Signup link</div>
+                        </>
+                      )}
+                      {selectedTemplate === 'verification' && (
+                        <>
+                          <div><span className="text-blue-600">{'{{verificationUrl}}'}</span> - Verification link</div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Preview Area */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="w-5 h-5" />
+                      Preview
+                    </CardTitle>
+                    <CardDescription>
+                      {selectedTemplate 
+                        ? `Preview of ${TEMPLATES.find(t => t.type === selectedTemplate)?.name}`
+                        : 'Select a template to preview'
+                      }
+                    </CardDescription>
+                  </div>
+                  {selectedTemplate && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={refreshPreview}
+                      disabled={isLoadingPreview}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingPreview ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!selectedTemplate && (
+                  <div className="py-12 text-center text-gray-500">
+                    <Mail className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p>Select a template from the list to preview it</p>
+                  </div>
+                )}
+                
+                {isLoadingPreview && (
+                  <div className="py-12 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading preview...</p>
+                  </div>
+                )}
+                
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-red-900">Error</h4>
+                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedTemplate && !isLoadingPreview && !error && previewHtml && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 px-4 py-2 text-xs text-gray-600 border-b">
+                      Preview with sample data
+                    </div>
+                    <iframe
+                      srcDoc={previewHtml}
+                      title="Email Preview"
+                      className="w-full h-[600px] bg-white"
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+};

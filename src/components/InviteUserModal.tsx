@@ -1,0 +1,174 @@
+import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
+import { X, Mail, UserPlus } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { organizationService, type Organization } from '@/services/organization.service';
+
+type InviteUserModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onInvite: (email: string, role: string, organizationId: number) => Promise<void>;
+};
+
+export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalProps) => {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<string>('support');
+  const [organizationId, setOrganizationId] = useState<number | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadOrganizations = async () => {
+      try {
+        const orgs = await organizationService.getAll();
+        setOrganizations(orgs);
+        if (orgs.length > 0 && !organizationId) {
+          setOrganizationId(orgs[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to load organizations:', err);
+      }
+    };
+
+    if (isOpen) {
+      loadOrganizations();
+    }
+  }, [isOpen, organizationId]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!organizationId) {
+      setError('Please select an organization');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await onInvite(email, role, organizationId);
+      setEmail('');
+      setRole('support');
+      setOrganizationId(organizations[0]?.id || null);
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to send invitation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold">Invite User</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              We'll send an invitation link to this email
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Organization
+            </label>
+            <select
+              value={organizationId || ''}
+              onChange={(e) => setOrganizationId(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select organization...</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-sm text-gray-500 mt-1">
+              User will be added to this organization
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Role
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="member">Member - Basic access</option>
+              <option value="associate">Associate - Read-only with request permissions</option>
+              <option value="support">Support - Manage tickets and messages</option>
+              <option value="moderator">Moderator - Manage integrations, categories, AI</option>
+              <option value="org_admin">Organization Admin - Full control</option>
+            </select>
+            <p className="text-sm text-gray-500 mt-1">
+              Select the role for this user in your organization
+            </p>
+          </div>
+
+          {error && (
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1"
+              isLoading={isLoading}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Invitation
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};

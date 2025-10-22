@@ -6,6 +6,8 @@ import { Permission } from './types/roles';
 
 // Eager load critical routes
 import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 
@@ -17,6 +19,8 @@ const EditTicketPage = lazy(() => import('./pages/EditTicketPage').then(m => ({ 
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then(m => ({ default: m.StatisticsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const UsersPage = lazy(() => import('./pages/UsersPage').then(m => ({ default: m.UsersPage })));
+const OrganizationPage = lazy(() => import('./pages/OrganizationPage').then(m => ({ default: m.OrganizationPage })));
+const EmailTemplatesPage = lazy(() => import('./pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -40,6 +44,14 @@ const AppRoutes = () => {
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />}
+      />
+      <Route
+        path="/signup"
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />}
+      />
+      <Route
+        path="/verify-email"
+        element={<VerifyEmailPage />}
       />
       <Route
         path="/oauth/gmail/callback"
@@ -122,6 +134,26 @@ const AppRoutes = () => {
                 <UsersPage />
               </Suspense>
             </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/organization"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <OrganizationPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/email-templates"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <EmailTemplatesPage />
+            </Suspense>
           </PrivateRoute>
         }
       />

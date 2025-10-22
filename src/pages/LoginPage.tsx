@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth.service';
 import { Button } from '@/components/ui/Button';
@@ -11,9 +11,20 @@ export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Show info message from redirect (e.g., from signup page)
+    if (location.state?.message) {
+      setInfo(location.state.message);
+      // Clear the state to prevent message from persisting on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -62,6 +73,11 @@ export const LoginPage = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {info && (
+              <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-md">
+                {info}
+              </div>
+            )}
             {error && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
                 {error}
@@ -70,6 +86,9 @@ export const LoginPage = () => {
             <Button type="submit" className="w-full" isLoading={isLoading}>
               Sign in
             </Button>
+            <div className="text-sm text-center text-muted-foreground">
+              Don't have an account? Contact your administrator for an invitation.
+            </div>
             <div className="text-sm text-muted-foreground text-center mt-4">
               <p>Demo credentials:</p>
               <p className="font-medium">ecttet@gmail.com / password123</p>
