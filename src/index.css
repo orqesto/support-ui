@@ -65,6 +65,56 @@
   #root {
     @apply min-h-screen bg-background;
   }
+
+  /* Custom Scrollbar Styles */
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  *::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 6px;
+    border: 3px solid hsl(var(--background));
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  /* Scrollbar corner (where horizontal and vertical scrollbars meet) */
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Dark theme specific adjustments */
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+    border: 3px solid hsl(var(--background));
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--muted-foreground) / 0.7);
+  }
 }
 
 @layer utilities {
@@ -83,5 +133,33 @@
 
   .animate-slide-in {
     animation: slide-in 0.3s ease-out;
+  }
+
+  /* Scrollbar utility classes */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-default {
+    scrollbar-width: auto;
+  }
+
+  .scrollbar-default::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
   }
 }

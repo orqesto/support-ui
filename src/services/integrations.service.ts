@@ -32,12 +32,38 @@ export type SlackConfig = {
   signingSecret: string;
 };
 
+export type OpenAIConfig = {
+  apiKey: string;
+  baseUrl?: string;
+  organization?: string;
+  defaultChatModel?: string;
+  defaultEmbeddingModel?: string;
+};
+
+export type AnthropicConfig = {
+  apiKey: string;
+  baseUrl?: string;
+  defaultModel?: string;
+};
+
+export type DeepSeekConfig = {
+  apiKey: string;
+  baseUrl?: string;
+  defaultModel?: string;
+};
+
+export type PerplexityConfig = {
+  apiKey: string;
+  baseUrl?: string;
+  defaultModel?: string;
+};
+
 // Base integration type
 export type BaseIntegration = {
   id: number;
   organizationId: number;
   name: string;
-  type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack';
+  type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack' | 'openai' | 'anthropic' | 'deepseek' | 'perplexity';
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -70,12 +96,36 @@ export type SlackIntegration = BaseIntegration & {
   config: SlackConfig;
 };
 
+export type OpenAIIntegration = BaseIntegration & {
+  type: 'openai';
+  config: OpenAIConfig;
+};
+
+export type AnthropicIntegration = BaseIntegration & {
+  type: 'anthropic';
+  config: AnthropicConfig;
+};
+
+export type DeepSeekIntegration = BaseIntegration & {
+  type: 'deepseek';
+  config: DeepSeekConfig;
+};
+
+export type PerplexityIntegration = BaseIntegration & {
+  type: 'perplexity';
+  config: PerplexityConfig;
+};
+
 export type Integration =
   | EmailIntegration
   | GmailIntegration
   | JiraIntegration
   | TelegramIntegration
-  | SlackIntegration;
+  | SlackIntegration
+  | OpenAIIntegration
+  | AnthropicIntegration
+  | DeepSeekIntegration
+  | PerplexityIntegration;
 
 export type ApiResponse<T> = {
   success: boolean;
