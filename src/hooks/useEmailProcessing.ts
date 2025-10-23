@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Socket } from 'socket.io-client';
-import { getSocket, subscribeToEvent, unsubscribeFromEvent, releaseSocket } from '@/lib/socketManager';
+import type { Socket } from 'socket.io-client';
+import {
+  getSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+  releaseSocket,
+} from '@/lib/socketManager';
 
 type ProcessingStatus = 'idle' | 'started' | 'processing' | 'complete' | 'error';
 
@@ -68,7 +73,7 @@ export const useEmailProcessing = (enabled = true) => {
           break;
 
         case 'found':
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             status: 'processing',
             total: event.data?.total || 0,
@@ -76,7 +81,7 @@ export const useEmailProcessing = (enabled = true) => {
           break;
 
         case 'processing':
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             status: 'processing',
             current: event.data?.current || 0,
@@ -85,14 +90,14 @@ export const useEmailProcessing = (enabled = true) => {
           break;
 
         case 'processed':
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             processed: prev.processed + 1,
           }));
           break;
 
         case 'complete':
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             status: 'complete',
             processed: event.data?.processed || prev.processed,
@@ -102,7 +107,7 @@ export const useEmailProcessing = (enabled = true) => {
           break;
 
         case 'error':
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             status: 'error',
             error: event.data?.error,

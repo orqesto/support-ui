@@ -168,9 +168,7 @@ export const hasAnyPermission = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined,
   permissions: Permission[]
-): boolean => {
-  return permissions.some((permission) => hasPermission(userRole, orgRole, permission));
-};
+): boolean => permissions.some((permission) => hasPermission(userRole, orgRole, permission));
 
 /**
  * Check if user has ALL of the specified permissions
@@ -179,9 +177,7 @@ export const hasAllPermissions = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined,
   permissions: Permission[]
-): boolean => {
-  return permissions.every((permission) => hasPermission(userRole, orgRole, permission));
-};
+): boolean => permissions.every((permission) => hasPermission(userRole, orgRole, permission));
 
 /**
  * Get user's effective role for display
@@ -226,9 +222,7 @@ export const roleDescriptions: Record<UserRole, string> = {
 export const isOrgAdminOrHigher = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined
-): boolean => {
-  return userRole === 'admin' || orgRole === 'org_admin';
-};
+): boolean => userRole === 'admin' || orgRole === 'org_admin';
 
 /**
  * Check if user can manage users
@@ -236,9 +230,8 @@ export const isOrgAdminOrHigher = (
 export const canManageUsers = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined
-): boolean => {
-  return hasAnyPermission(userRole, orgRole, [Permission.MANAGE_USERS, Permission.CREATE_USERS]);
-};
+): boolean =>
+  hasAnyPermission(userRole, orgRole, [Permission.MANAGE_USERS, Permission.CREATE_USERS]);
 
 /**
  * Check if user can access settings
@@ -246,11 +239,10 @@ export const canManageUsers = (
 export const canAccessSettings = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined
-): boolean => {
-  return hasAnyPermission(userRole, orgRole, [
+): boolean =>
+  hasAnyPermission(userRole, orgRole, [
     Permission.MANAGE_INTEGRATIONS,
     Permission.MANAGE_CATEGORIES,
     Permission.MANAGE_AI_PROMPTS,
     Permission.VIEW_ORGANIZATION_SETTINGS,
   ]);
-};

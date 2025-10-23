@@ -19,7 +19,7 @@
     "ecmaFeatures": {
       "jsx": true
     },
-    "project": "./tsconfig.json"
+    "project": "./tsconfig.app.json"
   },
   "plugins": [
     "@typescript-eslint",
@@ -70,24 +70,20 @@
       {
         "selector": "variable",
         "format": ["camelCase", "UPPER_CASE", "PascalCase"],
-        "leadingUnderscore": "allow",
-        "minLength": 2
+        "leadingUnderscore": "allow"
       },
       {
         "selector": "function",
-        "format": ["camelCase", "PascalCase"],
-        "minLength": 2
+        "format": ["camelCase", "PascalCase"]
       },
       {
         "selector": "parameter",
         "format": ["camelCase"],
-        "leadingUnderscore": "allow",
-        "minLength": 1
+        "leadingUnderscore": "allow"
       },
       {
         "selector": "typeLike",
-        "format": ["PascalCase"],
-        "minLength": 2
+        "format": ["PascalCase"]
       }
     ],
 

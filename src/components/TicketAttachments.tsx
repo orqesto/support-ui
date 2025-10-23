@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { commentsService } from '../services/comments.service';
-import type { Attachment } from '../services/comments.service';
 import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import {
   getSocket,
   subscribeToEvent,
   unsubscribeFromEvent,
   releaseSocket,
 } from '../lib/socketManager';
-import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog';
+import { commentsService } from '../services/comments.service';
+import type { Attachment } from '../services/comments.service';
 import { Button } from './ui/Button';
-import { apiClient } from '@/lib/api-client';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
+import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog';
 
 type TicketAttachmentsProps = {
   ticketId: number;
@@ -64,8 +64,12 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   }, [ticketId]);
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024) {
+      return bytes + ' B';
+    }
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
@@ -89,15 +93,17 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     return `${API_BASE_URL}${attachment.url}`;
   };
 
-  const isImage = (mimeType: string) => {
-    return mimeType.startsWith('image/');
-  };
+  const isImage = (mimeType: string) => mimeType.startsWith('image/');
 
   const getAttachmentSource = (attachment: Attachment) => {
     // If URL is external (Jira URL), it came from Jira originally
-    if (attachment.url.startsWith('http')) return 'Jira';
+    if (attachment.url.startsWith('http')) {
+      return 'Jira';
+    }
     // If local file with email- prefix, came from email
-    if (attachment.url.includes('email-')) return 'Email';
+    if (attachment.url.includes('email-')) {
+      return 'Email';
+    }
     // Otherwise, uploaded via app
     return 'Uploaded';
   };
@@ -109,7 +115,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0) {
+      return;
+    }
 
     try {
       setIsUploading(true);
@@ -119,15 +127,11 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         formData.append('files', file);
       });
 
-      await apiClient.post(
-        `/api/tickets/${ticketId}/attachments`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+      await apiClient.post(`/api/tickets/${ticketId}/attachments`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       setSelectedFiles([]);
       await fetchAttachments(); // Refresh list
@@ -145,7 +149,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!attachmentToDelete) return;
+    if (!attachmentToDelete) {
+      return;
+    }
 
     console.log('Deleting attachment:', attachmentToDelete);
 
@@ -295,7 +301,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       {/* Only show delete for non-Jira attachments (local uploads and email) */}
                       {!attachment.url.startsWith('http') && (
                         <button
-                          onClick={() => handleDeleteClick(attachment.id, attachment.originalFilename)}
+                          onClick={() =>
+                            handleDeleteClick(attachment.id, attachment.originalFilename)
+                          }
                           className="p-1.5 text-red-600 hover:bg-red-50 rounded"
                           title="Delete"
                         >
@@ -319,11 +327,12 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         <div className="p-6">
           <p className="mb-4 text-sm text-gray-600">
             Are you sure you want to delete "{attachmentToDelete?.name}"?
-            {attachmentToDelete && attachments.find(a => a.id === attachmentToDelete.id)?.externalId && (
-              <span className="block mt-2 text-red-600 font-medium">
-                This will also delete the file from Jira.
-              </span>
-            )}
+            {attachmentToDelete &&
+              attachments.find((a) => a.id === attachmentToDelete.id)?.externalId && (
+                <span className="block mt-2 text-red-600 font-medium">
+                  This will also delete the file from Jira.
+                </span>
+              )}
           </p>
           <div className="flex justify-end gap-3">
             <Button
@@ -335,10 +344,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-            >
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
               Delete
             </Button>
           </div>

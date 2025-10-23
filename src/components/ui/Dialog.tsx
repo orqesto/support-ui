@@ -9,14 +9,13 @@ type DialogProps = {
 };
 
 export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50"
-        onClick={() => onOpenChange(false)}
-      />
+      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
       <div className="relative bg-card rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {children}
       </div>
@@ -24,7 +23,13 @@ export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
   );
 };
 
-export const DialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => (
+export const DialogHeader = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) => (
   <div className={cn('flex items-center justify-between p-6 border-b border-border', className)}>
     {children}
   </div>
@@ -35,19 +40,26 @@ export const DialogTitle = ({ children }: { children: ReactNode }) => (
 );
 
 export const DialogClose = ({ onClose }: { onClose: () => void }) => (
-  <button
-    onClick={onClose}
-    className="rounded-sm opacity-70 hover:opacity-100 transition-opacity"
-  >
+  <button onClick={onClose} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
     <X className="h-4 w-4" />
   </button>
 );
 
-export const DialogContent = ({ className, children }: { className?: string; children: ReactNode }) => (
-  <div className={cn('p-6', className)}>{children}</div>
-);
+export const DialogContent = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) => <div className={cn('p-6', className)}>{children}</div>;
 
-export const DialogFooter = ({ className, children }: { className?: string; children: ReactNode }) => (
+export const DialogFooter = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) => (
   <div className={cn('flex items-center justify-end gap-2 p-6 border-t border-border', className)}>
     {children}
   </div>

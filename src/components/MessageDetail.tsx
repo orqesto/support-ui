@@ -1,11 +1,25 @@
 import { useState } from 'react';
+import {
+  Mail,
+  MessageSquare,
+  Send,
+  Check,
+  X,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  ExternalLink,
+  RotateCcw,
+  Paperclip,
+  Download,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { formatDate } from '../lib/utils';
 import type { Message } from '../types';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from './ui/Dialog';
-import { formatDate } from '../lib/utils';
-import { Mail, MessageSquare, Send, Check, X, Trash2, AlertTriangle, CheckCircle, Info, ExternalLink, RotateCcw, Paperclip, Download } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 type MessageDetailProps = {
   message: Message;
@@ -15,7 +29,13 @@ type MessageDetailProps = {
   onDelete?: () => void;
 };
 
-export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete }: MessageDetailProps) => {
+export const MessageDetail = ({
+  message,
+  onApprove,
+  onReject,
+  onReopen,
+  onDelete,
+}: MessageDetailProps) => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
 
@@ -50,34 +70,46 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
   };
 
   // Extract AI analysis from metadata (actual backend structure)
-  const analysis = message.metadata?.analysis as {
-    isTicketWorthy?: boolean;
-    needsMoreInfo?: boolean;
-    suggestedCategory?: string;
-    suggestedPriority?: string;
-    confidence?: number;
-    summary?: string;
-  } | undefined;
+  const analysis = message.metadata?.analysis as
+    | {
+        isTicketWorthy?: boolean;
+        needsMoreInfo?: boolean;
+        suggestedCategory?: string;
+        suggestedPriority?: string;
+        confidence?: number;
+        summary?: string;
+      }
+    | undefined;
 
-  const spamCheck = message.metadata?.spamCheck as {
-    isSpam?: boolean;
-    confidence?: number;
-    category?: string;
-    reason?: string;
-    redFlags?: string[];
-  } | undefined;
+  const spamCheck = message.metadata?.spamCheck as
+    | {
+        isSpam?: boolean;
+        confidence?: number;
+        category?: string;
+        reason?: string;
+        redFlags?: string[];
+      }
+    | undefined;
 
   // Extract attachments from rawData (for emails)
-  const emailAttachments = message.rawData?.attachments as Array<{
-    filename: string;
-    contentType: string;
-    size?: number;
-  }> | undefined;
+  const emailAttachments = message.rawData?.attachments as
+    | Array<{
+        filename: string;
+        contentType: string;
+        size?: number;
+      }>
+    | undefined;
 
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown size';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (!bytes) {
+      return 'Unknown size';
+    }
+    if (bytes < 1024) {
+      return bytes + ' B';
+    }
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
@@ -112,7 +144,9 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
 
         <div>
           <p className="text-sm text-muted-foreground">Received</p>
-          <p className="text-sm">{formatDate((message.metadata as any)?.receivedAt || message.createdAt)}</p>
+          <p className="text-sm">
+            {formatDate((message.metadata as any)?.receivedAt || message.createdAt)}
+          </p>
           {(message.metadata as any)?.receivedAt && message.createdAt && (
             <p className="text-xs text-muted-foreground mt-1">
               Imported: {formatDate(message.createdAt)}
@@ -125,10 +159,14 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
           <div className="p-3 bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Linked Ticket</p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">Ticket #{message.ticketId}</p>
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                  Linked Ticket
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  Ticket #{message.ticketId}
+                </p>
               </div>
-              <Link 
+              <Link
                 to={`/tickets?id=${message.ticketId}`}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors"
               >
@@ -196,7 +234,8 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
           {!message.ticketId && (
             <div className="mt-3 p-3 bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                ℹ️ Attachments will be available for download once a ticket is created from this message.
+                ℹ️ Attachments will be available for download once a ticket is created from this
+                message.
               </p>
             </div>
           )}
@@ -212,13 +251,15 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
             <div className="grid grid-cols-2 gap-3">
               {/* Spam Check */}
               {spamCheck && (
-                <div className={`p-3 rounded-lg border ${
-                  spamCheck.isSpam === false 
-                    ? 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20' 
-                    : spamCheck.isSpam === true 
-                    ? 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20' 
-                    : 'bg-muted border-border'
-                }`}>
+                <div
+                  className={`p-3 rounded-lg border ${
+                    spamCheck.isSpam === false
+                      ? 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
+                      : spamCheck.isSpam === true
+                        ? 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20'
+                        : 'bg-muted border-border'
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     {spamCheck.isSpam === false ? (
                       <CheckCircle className="h-4 w-4 text-green-600" />
@@ -230,21 +271,29 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
                     <span className="text-xs font-semibold">Spam Check</span>
                   </div>
                   <p className="text-sm font-medium">
-                    {spamCheck.isSpam === false ? 'Not Spam' : spamCheck.isSpam === true ? 'Spam Detected' : 'Unknown'}
+                    {spamCheck.isSpam === false
+                      ? 'Not Spam'
+                      : spamCheck.isSpam === true
+                        ? 'Spam Detected'
+                        : 'Unknown'}
                   </p>
                   {spamCheck.category && (
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">{spamCheck.category}</p>
+                    <p className="text-xs text-muted-foreground mt-1 capitalize">
+                      {spamCheck.category}
+                    </p>
                   )}
                 </div>
               )}
 
               {/* Ticket Worthy */}
               {analysis && (
-                <div className={`p-3 rounded-lg border ${
-                  analysis.isTicketWorthy 
-                    ? 'bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20' 
-                    : 'bg-muted border-border'
-                }`}>
+                <div
+                  className={`p-3 rounded-lg border ${
+                    analysis.isTicketWorthy
+                      ? 'bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20'
+                      : 'bg-muted border-border'
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     {analysis.isTicketWorthy ? (
                       <CheckCircle className="h-4 w-4 text-blue-600" />
@@ -253,9 +302,7 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
                     )}
                     <span className="text-xs font-semibold">Ticket Worthy</span>
                   </div>
-                  <p className="text-sm font-medium">
-                    {analysis.isTicketWorthy ? 'Yes' : 'No'}
-                  </p>
+                  <p className="text-sm font-medium">{analysis.isTicketWorthy ? 'Yes' : 'No'}</p>
                   {analysis.confidence !== undefined && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Confidence: {Math.round(analysis.confidence * 100)}%
@@ -266,11 +313,13 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
 
               {/* Needs More Info */}
               {analysis?.needsMoreInfo !== undefined && (
-                <div className={`p-3 rounded-lg border ${
-                  analysis.needsMoreInfo 
-                    ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20' 
-                    : 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
-                }`}>
+                <div
+                  className={`p-3 rounded-lg border ${
+                    analysis.needsMoreInfo
+                      ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20'
+                      : 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     {analysis.needsMoreInfo ? (
                       <AlertTriangle className="h-4 w-4 text-yellow-600" />
@@ -339,7 +388,10 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
                 </div>
                 <ul className="space-y-1">
                   {spamCheck.redFlags.map((flag: string, index: number) => (
-                    <li key={index} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
+                    <li
+                      key={index}
+                      className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2"
+                    >
                       <span className="mt-1">•</span>
                       <span>{flag}</span>
                     </li>
@@ -352,20 +404,24 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
       )}
 
       {/* Metadata */}
-      {message.metadata && (() => {
-        // Filter out embedding fields and already-displayed analysis/spamCheck
-        const { embedding, embeddingString, analysis, spamCheck, ...displayMetadata } = message.metadata;
-        return Object.keys(displayMetadata).length > 0 ? (
-          <div className="border-t pt-6">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">Additional Information</h3>
-            <div className="bg-muted rounded-lg p-4">
-              <pre className="text-xs overflow-auto">
-                {JSON.stringify(displayMetadata, null, 2)}
-              </pre>
+      {message.metadata &&
+        (() => {
+          // Filter out embedding fields and already-displayed analysis/spamCheck
+          const { embedding, embeddingString, analysis, spamCheck, ...displayMetadata } =
+            message.metadata;
+          return Object.keys(displayMetadata).length > 0 ? (
+            <div className="border-t pt-6">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                Additional Information
+              </h3>
+              <div className="bg-muted rounded-lg p-4">
+                <pre className="text-xs overflow-auto">
+                  {JSON.stringify(displayMetadata, null, 2)}
+                </pre>
+              </div>
             </div>
-          </div>
-        ) : null;
-      })()}
+          ) : null;
+        })()}
 
       {/* Actions */}
       <div className="border-t pt-6 flex gap-2">
@@ -416,16 +472,14 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
             <DialogTitle>Mark as Processed?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to mark this message as processed without creating a ticket?
-            This action cannot be undone.
+            Are you sure you want to mark this message as processed without creating a ticket? This
+            action cannot be undone.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRejectConfirm}>
-              Mark as Processed
-            </Button>
+            <Button onClick={handleRejectConfirm}>Mark as Processed</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -437,16 +491,14 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
             <DialogTitle>Reopen Message?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to reopen this message? It will be marked as unprocessed and 
-            will appear in your unprocessed messages list again.
+            Are you sure you want to reopen this message? It will be marked as unprocessed and will
+            appear in your unprocessed messages list again.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReopenDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleReopenConfirm}>
-              Reopen Message
-            </Button>
+            <Button onClick={handleReopenConfirm}>Reopen Message</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

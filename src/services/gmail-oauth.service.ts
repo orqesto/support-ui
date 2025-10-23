@@ -30,7 +30,9 @@ export const gmailOAuthService = {
    * Get OAuth configuration
    */
   getConfig: async (): Promise<ApiResponse<GmailOAuthConfig>> => {
-    const response = await apiClient.get<{ success: boolean; data: GmailOAuthConfig }>('/api/oauth/gmail/config');
+    const response = await apiClient.get<{ success: boolean; data: GmailOAuthConfig }>(
+      '/api/oauth/gmail/config'
+    );
     return { success: response.data.success, data: response.data.data };
   },
 
@@ -51,11 +53,14 @@ export const gmailOAuthService = {
   /**
    * Handle OAuth callback
    */
-  handleCallback: async (request: GmailOAuthCallbackRequest): Promise<ApiResponse<{ email: string; id: number }>> => {
-    const response = await apiClient.post<{ success: boolean; data: { email: string; id: number }; message: string }>(
-      '/api/oauth/gmail/callback',
-      request
-    );
+  handleCallback: async (
+    request: GmailOAuthCallbackRequest
+  ): Promise<ApiResponse<{ email: string; id: number }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { email: string; id: number };
+      message: string;
+    }>('/api/oauth/gmail/callback', request);
     return {
       success: response.data.success,
       data: response.data.data,
@@ -71,8 +76,8 @@ export const gmailOAuthService = {
     clientSecret: string,
     searchQuery?: string,
     maxResults?: number
-  ): Promise<ApiResponse<{ email: string; id: number }>> => {
-    return new Promise(async (resolve) => {
+  ): Promise<ApiResponse<{ email: string; id: number }>> =>
+    new Promise(async (resolve) => {
       try {
         // Get redirect URI from config
         const configResponse = await gmailOAuthService.getConfig();
@@ -84,7 +89,11 @@ export const gmailOAuthService = {
         const redirectUri = configResponse.data.redirectUri;
 
         // Initiate OAuth flow
-        const initResponse = await gmailOAuthService.initiateOAuth(clientId, clientSecret, redirectUri);
+        const initResponse = await gmailOAuthService.initiateOAuth(
+          clientId,
+          clientSecret,
+          redirectUri
+        );
         if (!initResponse.success || !initResponse.data) {
           resolve({ success: false, error: 'Failed to initiate OAuth flow' });
           return;
@@ -193,7 +202,10 @@ export const gmailOAuthService = {
 
               const code = localStorage.getItem(storageKey);
               if (!code) {
-                resolve({ success: false, error: 'OAuth popup was closed without completing authentication' });
+                resolve({
+                  success: false,
+                  error: 'OAuth popup was closed without completing authentication',
+                });
               }
             }
           } catch (e) {
@@ -204,6 +216,5 @@ export const gmailOAuthService = {
         console.error('OAuth error:', error);
         resolve({ success: false, error: 'An error occurred during OAuth flow' });
       }
-    });
-  },
+    }),
 };

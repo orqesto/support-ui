@@ -46,7 +46,9 @@ export type ApiResponse<T> = {
 
 export const statisticsService = {
   getAll: async (): Promise<ApiResponse<StatisticsData>> => {
-    const response = await apiClient.get<{ success: boolean; data: StatisticsData }>('/api/statistics');
+    const response = await apiClient.get<{ success: boolean; data: StatisticsData }>(
+      '/api/statistics'
+    );
     return { success: response.data.success, data: response.data.data };
   },
 };

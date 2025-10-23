@@ -1,4 +1,11 @@
 import { useState, useEffect } from 'react';
+import { usePermissions } from '@/hooks/usePermissions';
+import { organizationService, type Organization } from '@/services/organization.service';
+import { useAuthStore } from '@/stores/authStore';
+import type { User } from '@/types';
+import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
+import { Button } from './ui/Button';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import {
   Dialog,
   DialogHeader,
@@ -7,13 +14,6 @@ import {
   DialogContent,
   DialogFooter,
 } from './ui/Dialog';
-import { Button } from './ui/Button';
-import { ConfirmDialog } from './ui/ConfirmDialog';
-import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
-import type { User } from '@/types';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useAuthStore } from '@/stores/authStore';
-import { organizationService, type Organization } from '@/services/organization.service';
 
 type EditUserModalProps = {
   isOpen: boolean;
@@ -111,7 +111,9 @@ export const EditUserModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     // Handle organization change (admin only) - show confirmation first
     if (isAdmin && selectedOrgId && selectedOrgId !== user.organizationId) {
@@ -124,7 +126,9 @@ export const EditUserModal = ({
   };
 
   const performUpdate = async () => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -149,7 +153,9 @@ export const EditUserModal = ({
   };
 
   const handleOrgChangeConfirm = async () => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -170,7 +176,9 @@ export const EditUserModal = ({
     }
   };
 
-  if (!user) return null;
+  if (!user) {
+    return null;
+  }
 
   return (
     <>

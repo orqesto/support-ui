@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Button } from '../ui/Button';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import { settingsService, type Category } from '@/services/settings.service';
-import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, DialogClose } from '../ui/Dialog';
+import { Button } from '../ui/Button';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+  DialogClose,
+} from '../ui/Dialog';
 
 export const CategoriesSettings = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -75,7 +82,9 @@ export const CategoriesSettings = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!categoryToDelete) return;
+    if (!categoryToDelete) {
+      return;
+    }
     try {
       await settingsService.deleteCategory(categoryToDelete.id);
       await fetchCategories();
@@ -216,21 +225,14 @@ export const CategoriesSettings = () => {
                   <div className="flex-1">
                     <h4 className="text-lg font-semibold">{category.name}</h4>
                     {category.description && (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {category.description}
-                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
                     )}
                     {category.keywords && (
                       <div className="mt-2">
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">
-                          Keywords:
-                        </p>
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">Keywords:</p>
                         <div className="flex flex-wrap gap-1">
                           {category.keywords.split(',').map((keyword, index) => (
-                            <span
-                              key={index}
-                              className="px-2 py-1 text-xs bg-muted rounded"
-                            >
+                            <span key={index} className="px-2 py-1 text-xs bg-muted rounded">
                               {keyword.trim()}
                             </span>
                           ))}

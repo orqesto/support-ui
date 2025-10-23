@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { CreateOrganizationModal } from '@/components/CreateOrganizationModal';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { SearchInput } from '@/components/ui/SearchInput';
 import { Badge } from '@/components/ui/Badge';
-import { useOrganizationsStore } from '@/stores/organizationsStore';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import {
   Dialog,
   DialogHeader,
@@ -13,11 +13,11 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { usePermissions } from '@/hooks/usePermissions';
-import { organizationService } from '@/services/organization.service';
-import { CreateOrganizationModal } from '@/components/CreateOrganizationModal';
 import { formatDate } from '@/lib/utils';
-import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { organizationService } from '@/services/organization.service';
+import { useOrganizationsStore } from '@/stores/organizationsStore';
 
 export const OrganizationPage = () => {
   const { canManageOrganization, isAdmin } = usePermissions();
@@ -45,7 +45,9 @@ export const OrganizationPage = () => {
   const organization = useOrganizationsStore((state) => state.currentOrganization);
   const setOrganization = useOrganizationsStore((state) => state.setCurrentOrganization);
   const allOrganizationsFromStore = useOrganizationsStore((state) => state.allOrganizations);
-  const allOrganizations = Array.isArray(allOrganizationsFromStore) ? allOrganizationsFromStore : [];
+  const allOrganizations = Array.isArray(allOrganizationsFromStore)
+    ? allOrganizationsFromStore
+    : [];
   const searchOrg = useOrganizationsStore((state) => state.searchQuery);
   const setSearchOrg = useOrganizationsStore((state) => state.setSearchQuery);
   const setAllOrganizations = useOrganizationsStore((state) => state.setAllOrganizations);
@@ -70,8 +72,10 @@ export const OrganizationPage = () => {
   };
 
   const fetchAllOrganizations = async () => {
-    if (!isAdmin) return;
-    
+    if (!isAdmin) {
+      return;
+    }
+
     try {
       const result = await organizationService.getAll(searchOrg || undefined);
       setAllOrganizations(result.data); // Extract data array from response
@@ -84,17 +88,19 @@ export const OrganizationPage = () => {
   useEffect(() => {
     fetchCurrentOrganization();
   }, []);
-  
+
   // Fetch all organizations on mount (for admins)
   useEffect(() => {
     if (isAdmin) {
       fetchAllOrganizations();
     }
   }, []);
-  
+
   // Re-fetch only all organizations when search changes (not current org)
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      return;
+    }
     fetchAllOrganizations();
   }, [searchOrg]);
 
@@ -125,7 +131,9 @@ export const OrganizationPage = () => {
   };
 
   const handleSave = async () => {
-    if (!organization) return;
+    if (!organization) {
+      return;
+    }
 
     setSaving(true);
     try {
@@ -156,7 +164,9 @@ export const OrganizationPage = () => {
   };
 
   const handleDeleteOrg = async () => {
-    if (!deleteDialog.orgId) return;
+    if (!deleteDialog.orgId) {
+      return;
+    }
 
     try {
       await organizationService.delete(deleteDialog.orgId);
@@ -195,7 +205,7 @@ export const OrganizationPage = () => {
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary"></div>
+            <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
             <p className="text-muted-foreground">Loading organization...</p>
           </div>
         </div>
@@ -280,9 +290,7 @@ export const OrganizationPage = () => {
                         <div key={org.id} className="p-4 bg-blue-500/10 dark:bg-blue-500/10">
                           <div className="space-y-3">
                             <div>
-                              <label className="block mb-1 text-sm font-medium">
-                                Name
-                              </label>
+                              <label className="block mb-1 text-sm font-medium">Name</label>
                               <input
                                 type="text"
                                 value={editOrgForm.name}
@@ -293,9 +301,7 @@ export const OrganizationPage = () => {
                               />
                             </div>
                             <div>
-                              <label className="block mb-1 text-sm font-medium">
-                                Description
-                              </label>
+                              <label className="block mb-1 text-sm font-medium">Description</label>
                               <input
                                 type="text"
                                 value={editOrgForm.description}
@@ -350,7 +356,9 @@ export const OrganizationPage = () => {
                               <div className="flex-1 min-w-0">
                                 <h3 className="text-sm font-semibold">{org.name}</h3>
                                 {org.description && (
-                                  <p className="mt-1 text-sm text-muted-foreground">{org.description}</p>
+                                  <p className="mt-1 text-sm text-muted-foreground">
+                                    {org.description}
+                                  </p>
                                 )}
                               </div>
                               <div className="flex flex-shrink-0 gap-1">
@@ -385,7 +393,9 @@ export const OrganizationPage = () => {
                               <code className="px-2 py-1 text-muted-foreground bg-muted rounded">
                                 {org.slug}
                               </code>
-                              <span className="text-muted-foreground">{formatDate(org.createdAt)}</span>
+                              <span className="text-muted-foreground">
+                                {formatDate(org.createdAt)}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -423,9 +433,7 @@ export const OrganizationPage = () => {
                                 <td colSpan={5} className="px-6 py-4">
                                   <div className="space-y-3">
                                     <div>
-                                      <label className="block mb-1 text-sm font-medium">
-                                        Name
-                                      </label>
+                                      <label className="block mb-1 text-sm font-medium">Name</label>
                                       <input
                                         type="text"
                                         value={editOrgForm.name}
@@ -491,11 +499,11 @@ export const OrganizationPage = () => {
                             ) : (
                               <tr key={org.id} className="hover:bg-accent transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium">
-                                    {org.name}
-                                  </div>
+                                  <div className="text-sm font-medium">{org.name}</div>
                                   {org.description && (
-                                    <div className="text-sm text-muted-foreground">{org.description}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {org.description}
+                                    </div>
                                   )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -579,9 +587,7 @@ export const OrganizationPage = () => {
             {isEditing ? (
               <>
                 <div>
-                  <label className="block mb-1 text-sm font-medium">
-                    Organization Name
-                  </label>
+                  <label className="block mb-1 text-sm font-medium">Organization Name</label>
                   <input
                     type="text"
                     value={editForm.name}
@@ -591,9 +597,7 @@ export const OrganizationPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-sm font-medium">
-                    Description
-                  </label>
+                  <label className="block mb-1 text-sm font-medium">Description</label>
                   <textarea
                     value={editForm.description}
                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
@@ -692,7 +696,9 @@ export const OrganizationPage = () => {
                 <li>All categories and settings</li>
               </ul>
             </div>
-            <p className="text-sm font-semibold text-red-600 dark:text-red-400">This action cannot be undone.</p>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+              This action cannot be undone.
+            </p>
           </div>
         </DialogContent>
         <DialogFooter>

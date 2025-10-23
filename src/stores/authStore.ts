@@ -19,15 +19,15 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       selectedOrganizationId: null,
-      
+
       login: (token: string, user: User) => {
         set({ token, user, isAuthenticated: true });
       },
-      
+
       logout: () => {
         set({ token: null, user: null, isAuthenticated: false, selectedOrganizationId: null });
       },
-      
+
       setSelectedOrganization: (organizationId: number) => {
         set({ selectedOrganizationId: organizationId });
       },

@@ -18,8 +18,8 @@ export type PaginatedResponse<T> = {
 
 export const messageService = {
   getAll: async (
-    filters?: Record<string, string>, 
-    page = PAGINATION.DEFAULT_PAGE, 
+    filters?: Record<string, string>,
+    page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
     sortOrder?: 'asc' | 'desc'
   ) => {
@@ -28,14 +28,12 @@ export const messageService = {
       page: page.toString(),
       limit: limit.toString(),
     });
-    
+
     if (sortOrder) {
       params.append('sortOrder', sortOrder);
     }
-    
-    const response = await apiClient.get<PaginatedResponse<Message[]>>(
-      `/api/messages?${params}`
-    );
+
+    const response = await apiClient.get<PaginatedResponse<Message[]>>(`/api/messages?${params}`);
     return response.data;
   },
 

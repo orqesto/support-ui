@@ -27,18 +27,18 @@ export type OrganizationMember = {
 export const organizationService = {
   getAll: async (search?: string, page: number = 1, limit: number = 10) => {
     const params = new URLSearchParams();
-    if (search && search.trim()) {
+    if (search?.trim()) {
       params.append('search', search.trim());
     }
     params.append('page', page.toString());
     params.append('limit', limit.toString());
-    
-    const response = await apiClient.get<ApiResponse<Organization[]> & { pagination: PaginationMeta }>(
-      `/api/organizations?${params}`
-    );
+
+    const response = await apiClient.get<
+      ApiResponse<Organization[]> & { pagination: PaginationMeta }
+    >(`/api/organizations?${params}`);
     return {
-      data: response.data.data || [],
-      pagination: response.data.pagination || {
+      data: response.data.data ?? [],
+      pagination: response.data.pagination ?? {
         page,
         limit,
         total: 0,
@@ -49,17 +49,11 @@ export const organizationService = {
   },
 
   getCurrent: async () => {
-    const response = await apiClient.get<ApiResponse<Organization>>(
-      '/api/organizations/current'
-    );
+    const response = await apiClient.get<ApiResponse<Organization>>('/api/organizations/current');
     return response.data.data!;
   },
 
-  update: async (data: {
-    name?: string;
-    description?: string;
-    active?: boolean;
-  }) => {
+  update: async (data: { name?: string; description?: string; active?: boolean }) => {
     const response = await apiClient.patch<ApiResponse<Organization>>(
       '/api/organizations/current',
       data
@@ -71,26 +65,22 @@ export const organizationService = {
     const response = await apiClient.get<ApiResponse<OrganizationMember[]>>(
       '/api/organizations/members'
     );
-    return response.data.data || [];
+    return response.data.data ?? [];
   },
 
-  create: async (data: {
-    name: string;
-    slug: string;
-    description?: string;
-  }) => {
-    const response = await apiClient.post<ApiResponse<Organization>>(
-      '/api/organizations',
-      data
-    );
+  create: async (data: { name: string; slug: string; description?: string }) => {
+    const response = await apiClient.post<ApiResponse<Organization>>('/api/organizations', data);
     return response.data.data;
   },
 
-  updateById: async (id: number, data: {
-    name?: string;
-    description?: string;
-    active?: boolean;
-  }) => {
+  updateById: async (
+    id: number,
+    data: {
+      name?: string;
+      description?: string;
+      active?: boolean;
+    }
+  ) => {
     const response = await apiClient.patch<ApiResponse<Organization>>(
       `/api/organizations/${id}`,
       data
@@ -99,9 +89,7 @@ export const organizationService = {
   },
 
   delete: async (id: number) => {
-    const response = await apiClient.delete<ApiResponse<void>>(
-      `/api/organizations/${id}`
-    );
+    const response = await apiClient.delete<ApiResponse<void>>(`/api/organizations/${id}`);
     return response.data;
   },
 

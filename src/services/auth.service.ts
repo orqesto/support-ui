@@ -18,10 +18,9 @@ export const authService = {
     position?: string;
     invitationToken: string;
   }) => {
-    const response = await apiClient.post<ApiResponse<{ email: string; firstName: string; lastName: string }>>(
-      '/api/auth/register',
-      data
-    );
+    const response = await apiClient.post<
+      ApiResponse<{ email: string; firstName: string; lastName: string }>
+    >('/api/auth/register', data);
     return response.data;
   },
 
@@ -33,10 +32,9 @@ export const authService = {
   },
 
   resendVerification: async (email: string) => {
-    const response = await apiClient.post<ApiResponse<null>>(
-      '/api/auth/resend-verification',
-      { email }
-    );
+    const response = await apiClient.post<ApiResponse<null>>('/api/auth/resend-verification', {
+      email,
+    });
     return response.data;
   },
 };

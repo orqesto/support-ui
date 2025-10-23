@@ -18,8 +18,8 @@ export const ProtectedRoute = ({
   requiredPermission,
   fallbackPath = '/dashboard',
 }: ProtectedRouteProps) => {
-  const user = useAuthStore(state => state.user);
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   // Not authenticated - redirect to login
   if (!isAuthenticated || !user) {

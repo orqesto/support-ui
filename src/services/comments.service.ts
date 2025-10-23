@@ -44,7 +44,6 @@ type ApiResponse<T> = {
   message?: string;
 };
 
-
 export const commentsService = {
   getAll: async (ticketId: number): Promise<ApiResponse<Comment[]>> => {
     const response = await apiClient.get<ApiResponse<Comment[]>>(
@@ -66,24 +65,24 @@ export const commentsService = {
   },
 
   update: async (commentId: number, content: string): Promise<ApiResponse<Comment>> => {
-    const response = await apiClient.put<ApiResponse<Comment>>(
-      `/api/comments/${commentId}`,
-      { content }
-    );
+    const response = await apiClient.put<ApiResponse<Comment>>(`/api/comments/${commentId}`, {
+      content,
+    });
     return response.data;
   },
 
   delete: async (commentId: number): Promise<ApiResponse<void>> => {
-    const response = await apiClient.delete<ApiResponse<void>>(
-      `/api/comments/${commentId}`
-    );
+    const response = await apiClient.delete<ApiResponse<void>>(`/api/comments/${commentId}`);
     return response.data;
   },
 
-  uploadAttachments: async (commentId: number, files: File[]): Promise<ApiResponse<Attachment[]>> => {
+  uploadAttachments: async (
+    commentId: number,
+    files: File[]
+  ): Promise<ApiResponse<Attachment[]>> => {
     const formData = new FormData();
-    
-    files.forEach(file => {
+
+    files.forEach((file) => {
       formData.append('files', file);
     });
 
@@ -101,9 +100,7 @@ export const commentsService = {
   },
 
   deleteAttachment: async (attachmentId: number): Promise<ApiResponse<void>> => {
-    const response = await apiClient.delete<ApiResponse<void>>(
-      `/api/attachments/${attachmentId}`
-    );
+    const response = await apiClient.delete<ApiResponse<void>>(`/api/attachments/${attachmentId}`);
     return response.data;
   },
 

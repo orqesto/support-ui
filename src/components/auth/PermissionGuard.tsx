@@ -11,22 +11,22 @@ type PermissionGuardProps = {
 
 /**
  * Component that conditionally renders children based on user permissions
- * 
+ *
  * @example
  * // Single permission
  * <PermissionGuard permission={Permission.MANAGE_TICKETS}>
  *   <Button>Delete Ticket</Button>
  * </PermissionGuard>
- * 
+ *
  * @example
  * // Multiple permissions (ANY)
  * <PermissionGuard permissions={[Permission.MANAGE_TICKETS, Permission.MANAGE_ORGANIZATION]}>
  *   <Button>Edit</Button>
  * </PermissionGuard>
- * 
+ *
  * @example
  * // Multiple permissions (ALL)
- * <PermissionGuard 
+ * <PermissionGuard
  *   permissions={[Permission.MANAGE_TICKETS, Permission.DELETE_TICKETS]}
  *   requireAll
  * >
@@ -49,9 +49,7 @@ export const PermissionGuard = ({
     hasAccess = hasPermission(permission);
   } else if (permissions && permissions.length > 0) {
     // Multiple permissions check
-    hasAccess = requireAll
-      ? hasAllPermissions(permissions)
-      : hasAnyPermission(permissions);
+    hasAccess = requireAll ? hasAllPermissions(permissions) : hasAnyPermission(permissions);
   } else {
     // No permissions specified - always show
     hasAccess = true;

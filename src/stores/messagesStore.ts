@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Message } from '@/types';
 import type { PaginationMeta } from '@/services/message.service';
+import type { Message } from '@/types';
 
 type FilterState = {
   processed?: 'all' | 'true' | 'false';
@@ -46,9 +46,8 @@ const defaultFilters: FilterState = {
   hasAttachments: false,
 };
 
-const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string => {
-  return JSON.stringify({ filters, sorting, page });
-};
+const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
+  JSON.stringify({ filters, sorting, page });
 
 export const useMessagesStore = create<MessagesState>((set, get) => ({
   cache: {},

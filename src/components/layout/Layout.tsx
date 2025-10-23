@@ -1,13 +1,5 @@
 import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/stores/authStore';
-import { usePermissions } from '@/hooks/usePermissions';
-import { Permission, roleDisplayNames } from '@/types/roles';
-import { WebSocketStatus } from '@/components/WebSocketStatus';
-import { WebSocketDebug } from '@/components/WebSocketDebug';
-import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   LayoutDashboard,
   Mail,
@@ -21,7 +13,15 @@ import {
   Building2,
   FileText,
 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { WebSocketDebug } from '@/components/WebSocketDebug';
+import { WebSocketStatus } from '@/components/WebSocketStatus';
+import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
+import { Permission, roleDisplayNames } from '@/types/roles';
 
 const isDevelopment = import.meta.env.DEV;
 
@@ -64,15 +64,21 @@ export const Layout = ({ children }: LayoutProps) => {
   const { hasPermission, orgRole } = usePermissions();
 
   // Filter navigation based on permissions
-  const navigation = useMemo(() => {
-    return allNavigation.filter((item) => {
-      // Check if admin-only and user is global admin
-      if (item.adminOnly && user?.role !== 'admin') return false;
-      // Check permissions
-      if (!item.permission) return true; // No permission required (like Dashboard)
-      return hasPermission(item.permission);
-    });
-  }, [hasPermission, user?.role]);
+  const navigation = useMemo(
+    () =>
+      allNavigation.filter((item) => {
+        // Check if admin-only and user is global admin
+        if (item.adminOnly && user?.role !== 'admin') {
+          return false;
+        }
+        // Check permissions
+        if (!item.permission) {
+          return true;
+        } // No permission required (like Dashboard)
+        return hasPermission(item.permission);
+      }),
+    [hasPermission, user?.role]
+  );
 
   const handleLogout = () => {
     logout();
@@ -133,7 +139,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="p-4 border-t">
               {/* Organization Switcher for Global Admins */}
               <OrganizationSwitcher />
-              
+
               <div className="flex justify-between items-center mb-3">
                 <div className="flex gap-2 items-center">
                   <div className="flex justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
@@ -176,9 +182,11 @@ export const Layout = ({ children }: LayoutProps) => {
             <ThemeToggle />
           </header>
           {/* Spacer for fixed header */}
-          <div className="h-14 lg:hidden"></div>
+          <div className="h-14 lg:hidden" />
 
-          <main className="overflow-x-hidden p-4 w-full max-w-full lg:p-6 bg-background">{children}</main>
+          <main className="overflow-x-hidden p-4 w-full max-w-full lg:p-6 bg-background">
+            {children}
+          </main>
         </div>
       </div>
 

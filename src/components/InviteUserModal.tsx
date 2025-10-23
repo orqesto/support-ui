@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { X, Mail, UserPlus } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
+import { organizationService, type Organization } from '@/services/organization.service';
+import { useAuthStore } from '@/stores/authStore';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { organizationService, type Organization } from '@/services/organization.service';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useAuthStore } from '@/stores/authStore';
 
 type InviteUserModalProps = {
   isOpen: boolean;
@@ -82,7 +82,9 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -120,9 +122,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Organization
-            </label>
+            <label className="block text-sm font-medium mb-1">Organization</label>
             <select
               value={organizationId || ''}
               onChange={(e) => setOrganizationId(Number(e.target.value))}
@@ -131,7 +131,9 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               required
             >
               {organizations.length === 0 && <option value="">Loading organizations...</option>}
-              {isAdmin && organizations.length > 0 && <option value="">Select organization...</option>}
+              {isAdmin && organizations.length > 0 && (
+                <option value="">Select organization...</option>
+              )}
               {organizations.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.name}
@@ -139,16 +141,14 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               ))}
             </select>
             <p className="text-sm text-muted-foreground mt-1">
-              {isAdmin 
-                ? 'Select the organization to invite this user to' 
+              {isAdmin
+                ? 'Select the organization to invite this user to'
                 : 'User will be added to your organization'}
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Role
-            </label>
+            <label className="block text-sm font-medium mb-1">Role</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
@@ -158,21 +158,17 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               <option value="associate">Associate - Read-only with request permissions</option>
               <option value="support">Support - Manage tickets and messages</option>
               <option value="moderator">Moderator - Manage integrations, categories, AI</option>
-              {isAdmin && (
-                <option value="org_admin">Organization Admin - Full control</option>
-              )}
+              {isAdmin && <option value="org_admin">Organization Admin - Full control</option>}
             </select>
             <p className="text-sm text-muted-foreground mt-1">
-              {isAdmin 
-                ? 'Select the role for this user in the organization' 
+              {isAdmin
+                ? 'Select the role for this user in the organization'
                 : 'Org admins cannot invite other org admins'}
             </p>
           </div>
 
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
           )}
 
           {/* Actions */}
@@ -186,11 +182,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              isLoading={isLoading}
-            >
+            <Button type="submit" className="flex-1" isLoading={isLoading}>
               <Mail className="w-4 h-4 mr-2" />
               Send Invitation
             </Button>

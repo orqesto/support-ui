@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { commentsService, type Comment } from '../services/comments.service';
 import {
   MessageSquare,
   Send,
@@ -13,17 +12,25 @@ import {
   File,
   RefreshCw,
 } from 'lucide-react';
-import { Button } from './ui/Button';
-import { Badge } from './ui/Badge';
-import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent, DialogFooter } from './ui/Dialog';
-import { formatDate } from '../lib/utils';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import {
   getSocket,
   subscribeToEvent,
   unsubscribeFromEvent,
   releaseSocket,
 } from '../lib/socketManager';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
+import { formatDate } from '../lib/utils';
+import { commentsService, type Comment } from '../services/comments.service';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+} from './ui/Dialog';
 
 type TicketCommentsProps = {
   ticketId: number;
@@ -113,12 +120,16 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       unsubscribeFromEvent('comment:deleted', handleCommentEvent);
       unsubscribeFromEvent('ticket:comments:updated', handleCommentEvent);
       releaseSocket();
-      if (pollInterval) clearInterval(pollInterval);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
   }, [ticketId, hasJiraLink]);
 
   const handleAddComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -167,7 +178,9 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   };
 
   const handleEditSave = async (commentId: number) => {
-    if (!editContent.trim()) return;
+    if (!editContent.trim()) {
+      return;
+    }
 
     try {
       const response = await commentsService.update(commentId, editContent.trim());
@@ -188,7 +201,9 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   };
 
   const handleDeleteConfirm = async () => {
-    if (!commentToDelete) return;
+    if (!commentToDelete) {
+      return;
+    }
 
     try {
       await commentsService.delete(commentToDelete);
@@ -232,7 +247,9 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   };
 
   const handleDeleteAttachment = async () => {
-    if (!attachmentToDelete) return;
+    if (!attachmentToDelete) {
+      return;
+    }
 
     try {
       await commentsService.deleteAttachment(attachmentToDelete);
@@ -246,17 +263,25 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024) {
+      return bytes + ' B';
+    }
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   // Check if current user can edit/delete a comment
   const canEditComment = (comment: Comment) => {
     // Jira comments cannot be edited or deleted from the app
-    if (comment.source === 'jira') return false;
+    if (comment.source === 'jira') {
+      return false;
+    }
     // Admins can edit/delete any app comment
-    if (currentUserRole === 'admin') return true;
+    if (currentUserRole === 'admin') {
+      return true;
+    }
     // Users can only edit/delete their own comments
     return comment.userId === currentUserId;
   };
@@ -299,7 +324,9 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
             <div
               key={comment.id}
               className={`p-4 rounded-lg border ${
-                comment.isInternal ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20' : 'bg-card border-border'
+                comment.isInternal
+                  ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20'
+                  : 'bg-card border-border'
               }`}
             >
               {/* Comment Header */}
@@ -547,12 +574,8 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
           <DialogClose onClose={() => setDeleteAttachmentDialogOpen(false)} />
         </DialogHeader>
         <DialogContent>
-          <p className="text-sm text-gray-700">
-            Are you sure you want to delete this attachment?
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            This action cannot be undone.
-          </p>
+          <p className="text-sm text-gray-700">Are you sure you want to delete this attachment?</p>
+          <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
         </DialogContent>
         <DialogFooter>
           <Button

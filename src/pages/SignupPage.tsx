@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { authService } from '@/services/auth.service';
-import { apiClient } from '@/lib/api-client';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Check } from 'lucide-react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { apiClient } from '@/lib/api-client';
+import { authService } from '@/services/auth.service';
 
 export const SignupPage = () => {
   const [searchParams] = useSearchParams();
@@ -30,8 +30,11 @@ export const SignupPage = () => {
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
-        navigate('/login', { 
-          state: { message: 'You need an invitation to create an account. Please contact your administrator.' }
+        navigate('/login', {
+          state: {
+            message:
+              'You need an invitation to create an account. Please contact your administrator.',
+          },
         });
         return;
       }
@@ -45,8 +48,8 @@ export const SignupPage = () => {
         if (!data.success || !data.data?.valid) {
           setError(data.data?.error || 'Invalid or expired invitation');
           setTimeout(() => {
-            navigate('/login', { 
-              state: { message: 'Invalid or expired invitation. Please request a new one.' }
+            navigate('/login', {
+              state: { message: 'Invalid or expired invitation. Please request a new one.' },
             });
           }, 3000);
           return;
@@ -145,10 +148,7 @@ export const SignupPage = () => {
               <p className="font-medium mb-2">You're all set!</p>
               <p>Your account is ready to use. You can now log in with your credentials.</p>
             </div>
-            <Button
-              onClick={() => navigate('/login')}
-              className="w-full"
-            >
+            <Button onClick={() => navigate('/login')} className="w-full">
               Continue to Login
             </Button>
           </CardContent>
@@ -162,7 +162,7 @@ export const SignupPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50 px-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Validating invitation...</p>
           </CardContent>
         </Card>
@@ -176,7 +176,8 @@ export const SignupPage = () => {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
-            You've been invited to join <strong>{organizationName}</strong> as a <strong>{invitationRole}</strong>
+            You've been invited to join <strong>{organizationName}</strong> as a{' '}
+            <strong>{invitationRole}</strong>
           </CardDescription>
         </CardHeader>
         <CardContent>

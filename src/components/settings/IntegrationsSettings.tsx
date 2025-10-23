@@ -1,8 +1,4 @@
 import { useEffect, useState } from 'react';
-import { integrationsService, type Integration } from '@/services/integrations.service';
-import { gmailOAuthService } from '@/services/gmail-oauth.service';
-import { Button } from '../ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import {
   Mail,
   ExternalLink,
@@ -14,6 +10,10 @@ import {
   Trash2,
   Edit,
 } from 'lucide-react';
+import { gmailOAuthService } from '@/services/gmail-oauth.service';
+import { integrationsService, type Integration } from '@/services/integrations.service';
+import { Button } from '../ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 
 export const IntegrationsSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -169,7 +169,9 @@ export const IntegrationsSettings = () => {
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {
+      return;
+    }
 
     const { id, name } = deleteConfirm;
     setDeleting(id);
@@ -477,7 +479,8 @@ export const IntegrationsSettings = () => {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         OAuth2 •{' '}
-                        {(integration.config as { searchQuery?: string }).searchQuery || 'is:unread'}
+                        {(integration.config as { searchQuery?: string }).searchQuery ||
+                          'is:unread'}
                       </p>
                     </div>
                   </div>
@@ -647,7 +650,8 @@ export const IntegrationsSettings = () => {
                     />
                     <div>
                       <p className="font-medium">
-                        {(integration.config as { projectKey?: string }).projectKey || integration.name}
+                        {(integration.config as { projectKey?: string }).projectKey ||
+                          integration.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {(integration.config as { apiUrl?: string }).apiUrl || 'Not configured'}
@@ -746,7 +750,12 @@ export const IntegrationsSettings = () => {
                     )
                   }
                   isLoading={saving === 'jira'}
-                  disabled={!jiraConfig.apiUrl || !jiraConfig.email || !jiraConfig.apiToken || !jiraConfig.projectKey}
+                  disabled={
+                    !jiraConfig.apiUrl ||
+                    !jiraConfig.email ||
+                    !jiraConfig.apiToken ||
+                    !jiraConfig.projectKey
+                  }
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Jira

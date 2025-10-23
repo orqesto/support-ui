@@ -5,7 +5,7 @@ type UsersState = {
   users: User[];
   searchQuery: string;
   lastFetch: number | null;
-  
+
   setUsers: (users: User[]) => void;
   setSearchQuery: (query: string) => void;
   clearCache: () => void;
@@ -33,7 +33,9 @@ export const useUsersStore = create<UsersState>((set, get) => ({
 
   shouldRefetch: () => {
     const state = get();
-    if (!state.lastFetch) return true;
+    if (!state.lastFetch) {
+      return true;
+    }
     return Date.now() - state.lastFetch > CACHE_TTL;
   },
 }));

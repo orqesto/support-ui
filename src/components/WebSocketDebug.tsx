@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { Activity, X } from 'lucide-react';
+import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 export const WebSocketDebug = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { socket, status, total, current, processed, failed, isProcessing } = useEmailProcessing(false); // Disabled by default
+  const { socket, status, total, current, processed, failed, isProcessing } =
+    useEmailProcessing(false); // Disabled by default
 
   const connectionState = socket?.connected ? 'Connected ✅' : 'Disconnected ❌';
   const socketId = socket?.id || 'N/A';

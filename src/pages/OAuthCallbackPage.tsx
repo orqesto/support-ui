@@ -22,19 +22,16 @@ export const OAuthCallbackPage = () => {
         if (window.opener && !window.opener.closed) {
           // Popup case: Use postMessage to communicate with parent
           console.log('📤 Sending code to parent window via postMessage');
-          window.opener.postMessage(
-            { type: 'GMAIL_OAUTH_SUCCESS', code },
-            window.location.origin
-          );
+          window.opener.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code }, window.location.origin);
         } else {
           // New tab case: Use localStorage as fallback
           console.log('📤 Storing code in localStorage (new tab)');
           localStorage.setItem('gmail_oauth_code', code);
         }
-        
+
         setStatus('success');
         setMessage('Authorization successful! This window will close automatically.');
-        
+
         // Auto-close after 1 second
         setTimeout(() => {
           window.close();
@@ -63,8 +60,18 @@ export const OAuthCallbackPage = () => {
         {status === 'success' && (
           <div className="text-center">
             <div className="mx-auto w-16 h-16 flex items-center justify-center bg-green-100 rounded-full">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
@@ -75,8 +82,18 @@ export const OAuthCallbackPage = () => {
         {status === 'error' && (
           <div className="text-center">
             <div className="mx-auto w-16 h-16 flex items-center justify-center bg-red-100 rounded-full">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </div>
             <p className="mt-4 text-lg font-medium text-red-600">{message}</p>

@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
+import {
+  BarChart3,
+  TrendingUp,
+  Mail,
+  MessageSquare,
+  Send,
+  AlertTriangle,
+  Inbox,
+  RefreshCw,
+  ShieldAlert,
+} from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
+import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { statisticsService, type StatisticsData } from '../services/statistics.service';
-import { BarChart3, TrendingUp, Mail, MessageSquare, Send, AlertTriangle, Inbox, RefreshCw, ShieldAlert } from 'lucide-react';
-import { Button } from '../components/ui/Button';
 
 export const StatisticsPage = () => {
   const [stats, setStats] = useState<StatisticsData | null>(null);
@@ -89,12 +99,7 @@ export const StatisticsPage = () => {
               Comprehensive insights across channels, categories, and tickets
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            isLoading={refreshing}
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh} isLoading={refreshing}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -152,7 +157,7 @@ export const StatisticsPage = () => {
         </div>
 
         {/* Spam/Scam Alert Section */}
-        {stats.topCategories.some(cat => isSpamOrScam(cat.categoryName)) && (
+        {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (
           <Card className="border-red-200 bg-red-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-700">
@@ -163,13 +168,18 @@ export const StatisticsPage = () => {
             <CardContent>
               <div className="space-y-3">
                 {stats.topCategories
-                  .filter(cat => isSpamOrScam(cat.categoryName))
+                  .filter((cat) => isSpamOrScam(cat.categoryName))
                   .map((category) => (
-                    <div key={category.categoryId} className="p-3 bg-red-500/10 dark:bg-red-500/10 rounded-lg border border-red-500/20">
+                    <div
+                      key={category.categoryId}
+                      className="p-3 bg-red-500/10 dark:bg-red-500/10 rounded-lg border border-red-500/20"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <ShieldAlert className="h-4 w-4 text-red-600" />
-                          <span className="font-medium text-red-600 dark:text-red-400">{category.categoryName}</span>
+                          <span className="font-medium text-red-600 dark:text-red-400">
+                            {category.categoryName}
+                          </span>
                         </div>
                         <div className="text-sm text-red-600 dark:text-red-400 font-medium">
                           {category.totalMessages} messages detected
@@ -193,45 +203,49 @@ export const StatisticsPage = () => {
           <CardContent>
             <div className="space-y-4">
               {stats.topCategories
-                .filter(category => category.categoryName !== 'Uncategorized')
+                .filter((category) => category.categoryName !== 'Uncategorized')
                 .slice(0, 10)
                 .map((category) => {
-                const total = category.totalMessages;
-                const ticketRate = total > 0 ? (category.totalTickets / total) * 100 : 0;
-                const isSpamCategory = isSpamOrScam(category.categoryName);
+                  const total = category.totalMessages;
+                  const ticketRate = total > 0 ? (category.totalTickets / total) * 100 : 0;
+                  const isSpamCategory = isSpamOrScam(category.categoryName);
 
-                return (
-                  <div key={category.categoryId} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {isSpamCategory && (
-                          <ShieldAlert className="h-4 w-4 text-red-500" />
-                        )}
-                        <div className={`font-medium text-sm ${isSpamCategory ? 'text-red-600' : ''}`}>
-                          {category.categoryName}
+                  return (
+                    <div key={category.categoryId} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          {isSpamCategory && <ShieldAlert className="h-4 w-4 text-red-500" />}
+                          <div
+                            className={`font-medium text-sm ${isSpamCategory ? 'text-red-600' : ''}`}
+                          >
+                            {category.categoryName}
+                          </div>
+                          {isSpamCategory && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full border border-red-300">
+                              ⚠️ Spam/Scam
+                            </span>
+                          )}
+                          <div className="text-xs text-muted-foreground">
+                            {category.totalMessages} messages • {category.totalTickets} tickets
+                          </div>
                         </div>
-                        {isSpamCategory && (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full border border-red-300">
-                            ⚠️ Spam/Scam
-                          </span>
-                        )}
-                        <div className="text-xs text-muted-foreground">
-                          {category.totalMessages} messages • {category.totalTickets} tickets
+                        <div
+                          className={`text-sm font-medium ${isSpamCategory ? 'text-red-600' : 'text-green-600'}`}
+                        >
+                          {ticketRate.toFixed(0)}% conversion
                         </div>
                       </div>
-                      <div className={`text-sm font-medium ${isSpamCategory ? 'text-red-600' : 'text-green-600'}`}>
-                        {ticketRate.toFixed(0)}% conversion
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${isSpamCategory ? 'bg-red-500' : 'bg-primary'}`}
+                          style={{
+                            width: `${Math.min((category.totalMessages / stats.overview.totalMessages) * 100, 100)}%`,
+                          }}
+                        />
                       </div>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${isSpamCategory ? 'bg-red-500' : 'bg-primary'}`}
-                        style={{ width: `${Math.min((category.totalMessages / stats.overview.totalMessages) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </CardContent>
         </Card>
@@ -251,37 +265,52 @@ export const StatisticsPage = () => {
                   .sort((a, b) => b.count - a.count)
                   .slice(0, 10)
                   .map((item, index) => {
-                  const isMatch = item.suggestedCategoryName === item.actualCategoryName;
-                  return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="text-sm">
-                          <span className="font-medium">AI Suggested:</span>{' '}
-                          <span className={isMatch ? 'text-green-600 dark:text-green-400 font-medium' : 'text-muted-foreground'}>
-                            {item.suggestedCategoryName}
-                          </span>
+                    const isMatch = item.suggestedCategoryName === item.actualCategoryName;
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="text-sm">
+                            <span className="font-medium">AI Suggested:</span>{' '}
+                            <span
+                              className={
+                                isMatch
+                                  ? 'text-green-600 dark:text-green-400 font-medium'
+                                  : 'text-muted-foreground'
+                              }
+                            >
+                              {item.suggestedCategoryName}
+                            </span>
+                          </div>
+                          <span className="text-muted-foreground">→</span>
+                          <div className="text-sm">
+                            <span className="font-medium">User Selected:</span>{' '}
+                            <span
+                              className={
+                                isMatch
+                                  ? 'text-green-600 dark:text-green-400 font-medium'
+                                  : 'text-primary font-medium'
+                              }
+                            >
+                              {item.actualCategoryName}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-muted-foreground">→</span>
-                        <div className="text-sm">
-                          <span className="font-medium">User Selected:</span>{' '}
-                          <span className={isMatch ? 'text-green-600 dark:text-green-400 font-medium' : 'text-primary font-medium'}>
-                            {item.actualCategoryName}
+                        <div className="flex items-center gap-2">
+                          {isMatch && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
+                              ✓ Match
+                            </span>
+                          )}
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {item.count} {item.count === 1 ? 'ticket' : 'tickets'}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isMatch && (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
-                            ✓ Match
-                          </span>
-                        )}
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {item.count} {item.count === 1 ? 'ticket' : 'tickets'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </CardContent>
           </Card>
@@ -290,9 +319,10 @@ export const StatisticsPage = () => {
         {/* Channel Statistics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {stats.byChannel.map((channelStats) => {
-            const conversionRate = channelStats.totalMessages > 0 
-              ? (channelStats.totalTickets / channelStats.totalMessages) * 100 
-              : 0;
+            const conversionRate =
+              channelStats.totalMessages > 0
+                ? (channelStats.totalTickets / channelStats.totalMessages) * 100
+                : 0;
 
             return (
               <Card key={channelStats.channel}>
@@ -318,7 +348,9 @@ export const StatisticsPage = () => {
                   {/* Conversion Rate */}
                   <div className="p-3 bg-purple-500/10 dark:bg-purple-500/10 rounded-lg border border-purple-500/20">
                     <div className="text-xs text-muted-foreground mb-1">Ticket Conversion Rate</div>
-                    <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{conversionRate.toFixed(1)}%</div>
+                    <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                      {conversionRate.toFixed(1)}%
+                    </div>
                   </div>
 
                   {/* Status Breakdown */}
@@ -329,7 +361,9 @@ export const StatisticsPage = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Ticket Worthy</span>
-                      <span className="font-medium text-green-600">{channelStats.ticketWorthyCount}</span>
+                      <span className="font-medium text-green-600">
+                        {channelStats.ticketWorthyCount}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Spam</span>
@@ -337,36 +371,47 @@ export const StatisticsPage = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Needs Info</span>
-                      <span className="font-medium text-yellow-600">{channelStats.needsInfoCount}</span>
+                      <span className="font-medium text-yellow-600">
+                        {channelStats.needsInfoCount}
+                      </span>
                     </div>
                   </div>
 
                   {/* Top Categories for Channel */}
                   {channelStats.categories.length > 0 && (
                     <div className="pt-4 border-t">
-                      <div className="text-xs font-medium text-muted-foreground mb-2">Top Categories</div>
+                      <div className="text-xs font-medium text-muted-foreground mb-2">
+                        Top Categories
+                      </div>
                       <div className="space-y-2">
                         {channelStats.categories
-                          .filter(cat => cat.categoryName !== 'Uncategorized')
+                          .filter((cat) => cat.categoryName !== 'Uncategorized')
                           .slice(0, 5)
                           .map((cat) => {
-                          const isCategorySpam = isSpamOrScam(cat.categoryName);
-                          return (
-                            <div key={cat.categoryId} className="flex justify-between items-center text-sm">
-                              <div className="flex items-center gap-1 truncate flex-1">
-                                {isCategorySpam && (
-                                  <ShieldAlert className="h-3 w-3 text-red-500 flex-shrink-0" />
-                                )}
-                                <span className={`truncate ${isCategorySpam ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                                  {cat.categoryName}
+                            const isCategorySpam = isSpamOrScam(cat.categoryName);
+                            return (
+                              <div
+                                key={cat.categoryId}
+                                className="flex justify-between items-center text-sm"
+                              >
+                                <div className="flex items-center gap-1 truncate flex-1">
+                                  {isCategorySpam && (
+                                    <ShieldAlert className="h-3 w-3 text-red-500 flex-shrink-0" />
+                                  )}
+                                  <span
+                                    className={`truncate ${isCategorySpam ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
+                                  >
+                                    {cat.categoryName}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`font-medium ml-2 flex-shrink-0 ${isCategorySpam ? 'text-red-600' : ''}`}
+                                >
+                                  {cat.messageCount}msg / {cat.ticketCount}tkts
                                 </span>
                               </div>
-                              <span className={`font-medium ml-2 flex-shrink-0 ${isCategorySpam ? 'text-red-600' : ''}`}>
-                                {cat.messageCount}msg / {cat.ticketCount}tkts
-                              </span>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       </div>
                     </div>
                   )}
