@@ -37,7 +37,9 @@ export const ticketService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<Ticket[]>>(`/api/tickets?${params}`);
+    const response = await apiClient.get<PaginatedResponse<Ticket[]>>(
+      `/api/tickets?${params.toString()}`
+    );
     return response.data;
   },
 

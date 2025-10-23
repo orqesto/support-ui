@@ -1,6 +1,7 @@
-import { useState } from 'react';
 import { Settings, FolderTree, FileText, Shield, Plug } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
 import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
@@ -10,7 +11,15 @@ import { SpamRulesSettings } from '../components/settings/SpamRulesSettings';
 type TabType = 'categories' | 'prompts' | 'spam-rules' | 'integrations';
 
 export const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('categories');
+  const location = useLocation();
+  
+  // Get active tab from URL hash, default to 'categories'
+  const activeTab = (location.hash.replace('#', '') || 'categories') as TabType;
+  
+  // Handle tab change by updating URL hash
+  const handleTabChange = (tabId: TabType) => {
+    window.location.hash = tabId;
+  };
 
   const tabs = [
     {
@@ -41,12 +50,12 @@ export const SettingsPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-6 w-full">
+      <div className="mx-auto space-y-6 w-full max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 dark:bg-purple-500/10 rounded-lg">
-              <Settings className="h-6 w-6 text-purple-600" />
+        <div className="flex justify-between items-center">
+          <div className="flex gap-3 items-center">
+            <div className="p-2 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">
+              <Settings className="w-6 h-6 text-purple-600" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">AI Settings</h1>
@@ -65,18 +74,19 @@ export const SettingsPage = () => {
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
-                    <button
+                    <Button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+                      variant="ghost"
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`h-auto rounded-none items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
                         activeTab === tab.id
                           ? 'border-primary text-primary bg-primary/10'
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="w-4 h-4" />
                       <span className="font-medium">{tab.label}</span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

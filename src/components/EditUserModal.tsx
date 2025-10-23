@@ -4,6 +4,7 @@ import { organizationService, type Organization } from '@/services/organization.
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
+import { AlertDialog } from './ui/AlertDialog';
 import { Button } from './ui/Button';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import {
@@ -60,6 +61,14 @@ export const EditUserModal = ({
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
   const [orgChangeDialog, setOrgChangeDialog] = useState({ open: false, newOrgId: 0 });
 
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
+
   // Check if user is editing their own profile
   const isEditingSelf = currentUser && user && currentUser.id === user.id;
   const canEditRoles = isAdmin || (canManageUsers && !isEditingSelf);
@@ -97,14 +106,14 @@ export const EditUserModal = ({
 
   useEffect(() => {
     if (user) {
-      setFirstName(user.firstName || '');
-      setLastName(user.lastName || '');
-      setPosition(user.position || '');
-      setTelegram(user.telegram || '');
-      setSlack(user.slack || '');
-      setPhone(user.phone || '');
-      setGlobalRole((user.role as GlobalRole) || 'user');
-      setOrganizationRole((user.organizationRole as OrganizationRole) || 'associate');
+      setFirstName(user.firstName ?? '');
+      setLastName(user.lastName ?? '');
+      setPosition(user.position ?? '');
+      setTelegram(user.telegram ?? '');
+      setSlack(user.slack ?? '');
+      setPhone(user.phone ?? '');
+      setGlobalRole((user.role as GlobalRole) ?? 'user');
+      setOrganizationRole((user.organizationRole as OrganizationRole) ?? 'associate');
       setSelectedOrgId(user.organizationId);
     }
   }, [user]);
@@ -146,7 +155,12 @@ export const EditUserModal = ({
       onClose();
     } catch (error) {
       console.error('Failed to update user:', error);
-      alert('Failed to update user. Please try again.');
+      setAlertDialog({
+        open: true,
+        title: 'Update Failed',
+        description: 'Failed to update user. Please try again.',
+        variant: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -171,7 +185,12 @@ export const EditUserModal = ({
       await performUpdate();
     } catch (error) {
       console.error('Failed to change organization:', error);
-      alert('Failed to change organization. Please try again.');
+      setAlertDialog({
+        open: true,
+        title: 'Organization Change Failed',
+        description: 'Failed to change organization. Please try again.',
+        variant: 'error',
+      });
       setIsSubmitting(false);
     }
   };
@@ -221,7 +240,9 @@ export const EditUserModal = ({
               </div>
 
               <div>
-                <label className="block mb-2 text-sm font-medium">Email</label>
+                <label htmlFor="email" className="block mb-2 text-sm font-medium">
+                  Email
+                </label>
                 <div className="px-3 py-2 text-sm rounded-md bg-muted">{user.email}</div>
                 <p className="mt-1 text-xs text-muted-foreground">Email cannot be changed</p>
               </div>
@@ -250,7 +271,7 @@ export const EditUserModal = ({
                     value={slack}
                     onChange={(e) => setSlack(e.target.value)}
                     placeholder="@username"
-                    className="w-full px-3 py-2 rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -335,7 +356,7 @@ export const EditUserModal = ({
                   </label>
                   <select
                     id="organization"
-                    value={selectedOrgId || ''}
+                    value={selectedOrgId ?? ''}
                     onChange={(e) => setSelectedOrgId(parseInt(e.target.value))}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
@@ -346,7 +367,7 @@ export const EditUserModal = ({
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Change user's organization membership
+                    Change user&apos;s organization membership
                   </p>
                 </div>
               )}
@@ -368,7 +389,9 @@ export const EditUserModal = ({
               )}
               {!canEditPosition && position && (
                 <div>
-                  <label className="block mb-2 text-sm font-medium">Position</label>
+                  <label htmlFor="position" className="block mb-2 text-sm font-medium">
+                    Position
+                  </label>
                   <div className="px-3 py-2 text-sm rounded-md bg-muted">{position || '—'}</div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Position can only be changed by administrators
@@ -394,9 +417,9 @@ export const EditUserModal = ({
       <ConfirmDialog
         open={orgChangeDialog.open}
         onOpenChange={(open) => setOrgChangeDialog({ open, newOrgId: 0 })}
-        onConfirm={() => {
+        onConfirm={async () => {
           setOrgChangeDialog({ open: false, newOrgId: 0 });
-          handleOrgChangeConfirm();
+          await handleOrgChangeConfirm();
         }}
         title="Change Organization"
         description={
@@ -407,6 +430,14 @@ export const EditUserModal = ({
         confirmText="Move User"
         cancelText="Cancel"
         variant="warning"
+      />
+
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
       />
     </>
   );

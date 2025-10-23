@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -21,8 +20,9 @@ export const LoginPage = () => {
 
   useEffect(() => {
     // Show info message from redirect (e.g., from signup page)
-    if (location.state?.message) {
-      setInfo(location.state.message);
+    const state = location.state as { message?: string } | null;
+    if (state?.message) {
+      setInfo(state.message);
       // Clear the state to prevent message from persisting on refresh
       window.history.replaceState({}, document.title);
     }
@@ -44,6 +44,7 @@ export const LoginPage = () => {
         if (response.data.user.organizationId) {
           // Non-admin user - use their assigned organization
           setSelectedOrganization(response.data.user.organizationId);
+          // eslint-disable-next-line no-console
           console.log(
             `✅ [LOGIN] Auto-selected user's organization (ID: ${response.data.user.organizationId})`
           );
@@ -53,6 +54,7 @@ export const LoginPage = () => {
             const orgsResponse = await organizationService.getAll('', 1, 100);
             if (orgsResponse.data.length > 0) {
               setSelectedOrganization(orgsResponse.data[0].id);
+              // eslint-disable-next-line no-console
               console.log(
                 `✅ [LOGIN] Auto-selected organization: ${orgsResponse.data[0].name} (ID: ${orgsResponse.data[0].id})`
               );
@@ -64,7 +66,7 @@ export const LoginPage = () => {
 
         navigate('/dashboard');
       } else {
-        setError(response.message || 'Login failed');
+        setError(response.message ?? 'Login failed');
       }
     } catch {
       setError('Invalid credentials. Please try again.');
@@ -74,7 +76,7 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
@@ -98,9 +100,9 @@ export const LoginPage = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            {info && <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-md">{info}</div>}
+            {info && <div className="p-3 text-sm text-blue-700 bg-blue-50 rounded-md">{info}</div>}
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
                 {error}
               </div>
             )}
@@ -108,9 +110,9 @@ export const LoginPage = () => {
               Sign in
             </Button>
             <div className="text-sm text-center text-muted-foreground">
-              Don't have an account? Contact your administrator for an invitation.
+              Don&apos;t have an account? Contact your administrator for an invitation.
             </div>
-            <div className="text-sm text-muted-foreground text-center mt-4">
+            <div className="mt-4 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
               <p className="font-medium">ecttet@gmail.com / password123</p>
             </div>

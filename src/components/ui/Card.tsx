@@ -12,8 +12,10 @@ export const CardHeader = ({ className, ...props }: HTMLAttributes<HTMLDivElemen
   <div className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
 );
 
-export const CardTitle = ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
-  <h3 className={cn('text-2xl font-semibold leading-none tracking-tight', className)} {...props} />
+export const CardTitle = ({ className, children, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
+  <h3 className={cn('text-2xl font-semibold leading-none tracking-tight', className)} {...props}>
+    {children}
+  </h3>
 );
 
 export const CardDescription = ({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) => (

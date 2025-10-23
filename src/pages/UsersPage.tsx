@@ -1,9 +1,11 @@
+/* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
 import { Users, Edit2, Shield, RefreshCw, Mail, Trash2 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { EditUserModal } from '@/components/EditUserModal';
 import { InviteUserModal } from '@/components/InviteUserModal';
 import { Layout } from '@/components/layout/Layout';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -30,6 +32,14 @@ export const UsersPage = () => {
     open: false,
     user: null,
   });
+
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
 
   // Use users store
   const usersFromStore = useUsersStore((state) => state.users);
@@ -66,7 +76,9 @@ export const UsersPage = () => {
 
   useEffect(() => {
     if (canViewUsers) {
-      fetchUsers();
+      fetchUsers().catch((error) => {
+        console.error('Failed to fetch users:', error);
+      });
     }
   }, [canViewUsers, fetchUsers]);
 
@@ -83,7 +95,9 @@ export const UsersPage = () => {
   };
 
   const handleRefresh = () => {
-    fetchUsers(true);
+    fetchUsers(true).catch((error) => {
+      console.error('Failed to fetch users:', error);
+    });
   };
 
   const handleInviteUser = async (email: string, role: string, organizationId: number) => {
@@ -136,7 +150,12 @@ export const UsersPage = () => {
       await fetchUsers();
     } catch (error) {
       console.error('❌ Failed to delete user:', error);
-      alert('Failed to delete user. Please try again.');
+      setAlertDialog({
+        open: true,
+        title: 'Delete Failed',
+        description: 'Failed to delete user. Please try again.',
+        variant: 'error',
+      });
       setDeleteDialog({ open: false, user: null });
     }
   };
@@ -193,7 +212,7 @@ export const UsersPage = () => {
           <Shield className="mb-4 w-16 h-16 text-gray-400" />
           <h2 className="mb-2 text-2xl font-bold">Access Denied</h2>
           <p className="max-w-md text-center text-muted-foreground">
-            You don't have permission to manage users. Please contact your organization
+            You don&apos;t have permission to manage users. Please contact your organization
             administrator.
           </p>
         </div>
@@ -263,7 +282,7 @@ export const UsersPage = () => {
                 <div className="xl:hidden">
                   <div className="divide-y divide-border overflow-auto max-h-[600px]">
                     {users.map((user) => (
-                      <div key={user.id} className="p-4 hover:bg-accent transition-colors">
+                      <div key={user.id} className="p-4 transition-colors hover:bg-accent">
                         <div className="flex gap-3 items-start">
                           <div className="flex flex-shrink-0 justify-center items-center w-12 h-12 text-sm font-medium rounded-full bg-primary text-primary-foreground">
                             {user.firstName?.charAt(0).toUpperCase()}
@@ -275,7 +294,7 @@ export const UsersPage = () => {
                                 <h3 className="text-sm font-semibold truncate">
                                   {user.firstName} {user.lastName}
                                 </h3>
-                                <p className="text-sm text-muted-foreground truncate">
+                                <p className="text-sm truncate text-muted-foreground">
                                   {user.email}
                                 </p>
                               </div>
@@ -336,31 +355,31 @@ export const UsersPage = () => {
                 <div className="hidden xl:block">
                   <div className="overflow-auto max-h-[600px]">
                     <table className="w-full table-auto">
-                      <thead className="sticky top-0 z-10 bg-muted border-b border-border">
+                      <thead className="sticky top-0 z-10 border-b bg-muted border-border">
                         <tr>
-                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             User
                           </th>
-                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Role
                           </th>
-                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Org Role
                           </th>
-                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Position
                           </th>
-                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Joined
                           </th>
-                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-muted-foreground uppercase">
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-right uppercase text-muted-foreground">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-card divide-y divide-border">
+                      <tbody className="divide-y bg-card divide-border">
                         {users.map((user) => (
-                          <tr key={user.id} className="hover:bg-accent transition-colors">
+                          <tr key={user.id} className="transition-colors hover:bg-accent">
                             <td className="px-4 py-3">
                               <div className="flex items-center min-w-0">
                                 <div className="flex justify-center items-center w-10 h-10 text-sm font-medium rounded-full bg-primary text-primary-foreground">
@@ -371,7 +390,7 @@ export const UsersPage = () => {
                                   <div className="text-sm font-medium truncate">
                                     {user.firstName} {user.lastName}
                                   </div>
-                                  <div className="text-sm text-muted-foreground truncate">
+                                  <div className="text-sm truncate text-muted-foreground">
                                     {user.email}
                                   </div>
                                 </div>
@@ -392,7 +411,7 @@ export const UsersPage = () => {
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-500">
-                              {user.position || '—'}
+                              {user.position ?? '—'}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-500">
                               {formatDate(user.createdAt)}
@@ -522,6 +541,15 @@ export const UsersPage = () => {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
       />
     </Layout>
   );

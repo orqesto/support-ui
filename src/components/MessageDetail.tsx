@@ -145,9 +145,12 @@ export const MessageDetail = ({
         <div>
           <p className="text-sm text-muted-foreground">Received</p>
           <p className="text-sm">
-            {formatDate((message.metadata as any)?.receivedAt || message.createdAt)}
+            {formatDate(
+              (message.metadata as { receivedAt?: string })?.receivedAt ??
+                message.createdAt
+            )}
           </p>
-          {(message.metadata as any)?.receivedAt && message.createdAt && (
+          {(message.metadata as { receivedAt?: string })?.receivedAt && message.createdAt && (
             <p className="text-xs text-muted-foreground mt-1">
               Imported: {formatDate(message.createdAt)}
             </p>
@@ -199,7 +202,7 @@ export const MessageDetail = ({
           <div className="space-y-2">
             {emailAttachments.map((attachment, index) => (
               <div
-                key={index}
+                key={`attachment-${attachment.filename || index}`}
                 className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border hover:bg-muted transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -243,7 +246,7 @@ export const MessageDetail = ({
       )}
 
       {/* AI Analysis */}
-      {(analysis || spamCheck) && (
+      {(analysis ?? spamCheck) && (
         <div className="border-t pt-6">
           <h3 className="text-sm font-semibold text-muted-foreground mb-4">AI Analysis</h3>
           <div className="space-y-4">
@@ -389,7 +392,7 @@ export const MessageDetail = ({
                 <ul className="space-y-1">
                   {spamCheck.redFlags.map((flag: string, index: number) => (
                     <li
-                      key={index}
+                      key={`flag-${flag}-${index}`}
                       className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2"
                     >
                       <span className="mt-1">•</span>

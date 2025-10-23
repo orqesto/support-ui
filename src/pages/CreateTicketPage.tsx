@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -30,22 +30,35 @@ export const CreateTicketPage = () => {
     categoryId: '',
   });
 
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
+
   useEffect(() => {
     if (messageId) {
-      fetchMessage(parseInt(messageId));
+      fetchMessage(parseInt(messageId)).catch((error) => {
+        console.error('Failed to fetch message:', error);
+      });
     }
-    fetchCategories();
+    fetchCategories().catch((error) => {
+      console.error('Failed to fetch categories:', error);
+    });
   }, [messageId]);
 
   const fetchMessage = async (id: number) => {
     try {
       const response = await messageService.getById(id);
       if (response.success && response.data) {
-        setMessage(response.data);
+        const data = response.data;
+        setMessage(data);
         setFormData((prev) => ({
           ...prev,
-          title: response.data!.subject || `Message from ${response.data!.sender}`,
-          description: response.data!.content,
+          title: data.subject ?? `Message from ${data.sender}`,
+          description: data.content,
         }));
       }
     } catch (error) {
@@ -79,15 +92,26 @@ export const CreateTicketPage = () => {
       });
 
       if (response.success && response.data) {
-        alert('Ticket created successfully');
+        const ticketId = response.data.id;
+        setAlertDialog({
+          open: true,
+          title: 'Success',
+          description: 'Ticket created successfully',
+          variant: 'success',
+        });
         clearTicketsCache(); // Clear tickets cache to show new ticket
         clearMessagesCache(); // Clear messages cache since message is now processed
-        // Navigate to the newly created ticket
-        navigate(`/tickets?id=${response.data.id}`);
+        // Navigate to the newly created ticket after a short delay
+        setTimeout(() => navigate(`/tickets/${ticketId}`), 1500);
       }
     } catch (error) {
       console.error('Failed to create ticket:', error);
-      alert('Failed to create ticket');
+      setAlertDialog({
+        open: true,
+        title: 'Creation Failed',
+        description: 'Failed to create ticket',
+        variant: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -95,10 +119,10 @@ export const CreateTicketPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="mx-auto space-y-6 max-w-3xl">
         <div>
           <h1 className="text-3xl font-bold">Create Ticket</h1>
-          <p className="text-muted-foreground mt-2">Convert message into a support ticket</p>
+          <p className="mt-2 text-muted-foreground">Convert message into a support ticket</p>
         </div>
 
         {message && (
@@ -140,9 +164,11 @@ export const CreateTicketPage = () => {
               />
 
               <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
+                <label htmlFor="description" className="block mb-2 text-sm font-medium">
+                  Description
+                </label>
                 <textarea
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex px-3 py-2 w-full text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   rows={6}
                   value={formData.description}
                   onChange={(e) =>
@@ -153,9 +179,11 @@ export const CreateTicketPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Priority</label>
+                <label htmlFor="priority" className="block mb-2 text-sm font-medium">
+                  Priority
+                </label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={formData.priority}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
@@ -169,9 +197,11 @@ export const CreateTicketPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Category</label>
+                <label htmlFor="categoryId" className="block mb-2 text-sm font-medium">
+                  Category
+                </label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={formData.categoryId}
                   onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
                 >
@@ -196,6 +226,15 @@ export const CreateTicketPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </Layout>
   );
 };

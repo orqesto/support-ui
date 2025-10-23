@@ -23,7 +23,9 @@ export const EmailProcessingProgress = () => {
       }
     };
 
-    checkIntegrations();
+    checkIntegrations().catch((error) => {
+      console.error('Failed to check integrations:', error);
+    });
   }, []); // Only check once on mount, not on org change
 
   // Show widget if admin and has email integrations (any org)

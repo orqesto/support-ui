@@ -41,7 +41,9 @@ export const SpamRulesSettings = () => {
   };
 
   useEffect(() => {
-    fetchRules();
+    fetchRules().catch((error) => {
+      console.error('Failed to fetch rules:', error);
+    });
   }, []);
 
   const handleEdit = (rule: SpamRule) => {
@@ -49,7 +51,7 @@ export const SpamRulesSettings = () => {
     setFormData({
       name: rule.name,
       description: rule.description,
-      pattern: rule.pattern || '',
+      pattern: rule.pattern ?? '',
       category: rule.category,
       severity: rule.severity,
       active: rule.active,
@@ -177,7 +179,9 @@ export const SpamRulesSettings = () => {
           <h4 className="font-semibold">New Spam Rule</h4>
           <div className="grid gap-4">
             <div>
-              <label className="text-sm font-medium">Rule Name</label>
+              <label htmlFor="name" className="text-sm font-medium">
+                Rule Name
+              </label>
               <input
                 type="text"
                 value={formData.name}
@@ -187,7 +191,9 @@ export const SpamRulesSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label htmlFor="description" className="text-sm font-medium">
+                Description
+              </label>
               <input
                 type="text"
                 value={formData.description}
@@ -197,7 +203,9 @@ export const SpamRulesSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Pattern (regex or keywords)</label>
+              <label htmlFor="pattern" className="text-sm font-medium">
+                Pattern (regex or keywords)
+              </label>
               <input
                 type="text"
                 value={formData.pattern}
@@ -208,7 +216,9 @@ export const SpamRulesSettings = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Category</label>
+                <label htmlFor="category" className="text-sm font-medium">
+                  Category
+                </label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -220,7 +230,9 @@ export const SpamRulesSettings = () => {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium">Severity (0-100)</label>
+                <label htmlFor="severity" className="text-sm font-medium">
+                  Severity (0-100)
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -271,7 +283,9 @@ export const SpamRulesSettings = () => {
                 <h4 className="font-semibold">Edit Spam Rule</h4>
                 <div className="grid gap-4">
                   <div>
-                    <label className="text-sm font-medium">Rule Name</label>
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Rule Name
+                    </label>
                     <input
                       type="text"
                       value={formData.name}
@@ -280,7 +294,9 @@ export const SpamRulesSettings = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Description</label>
+                    <label htmlFor="description" className="text-sm font-medium">
+                      Description
+                    </label>
                     <input
                       type="text"
                       value={formData.description}
@@ -289,7 +305,9 @@ export const SpamRulesSettings = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Pattern</label>
+                    <label htmlFor="pattern" className="text-sm font-medium">
+                      Pattern
+                    </label>
                     <input
                       type="text"
                       value={formData.pattern}
@@ -299,7 +317,9 @@ export const SpamRulesSettings = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium">Category</label>
+                      <label htmlFor="category" className="text-sm font-medium">
+                        Category
+                      </label>
                       <select
                         value={formData.category}
                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -311,7 +331,9 @@ export const SpamRulesSettings = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Severity</label>
+                      <label htmlFor="severity" className="text-sm font-medium">
+                        Severity
+                      </label>
                       <input
                         type="number"
                         min="0"
@@ -384,7 +406,7 @@ export const SpamRulesSettings = () => {
                       {rule.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(rule)}>
-                      <Edit2 className="mr-1 w-3 h-3" />
+                      <Edit2 className="mr-2 w-4 h-4" />
                       Edit
                     </Button>
                     <Button

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { create } from 'zustand';
 import type { Ticket } from '@/types';
 
@@ -116,6 +117,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   },
 
   clearCache: () => {
+    // eslint-disable-next-line no-console
     console.log('🧹 Clearing tickets cache');
     set({ cache: new Map() });
   },

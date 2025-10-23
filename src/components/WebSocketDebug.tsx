@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Activity, X } from 'lucide-react';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
+import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 export const WebSocketDebug = () => {
@@ -9,45 +10,45 @@ export const WebSocketDebug = () => {
     useEmailProcessing(false); // Disabled by default
 
   const connectionState = socket?.connected ? 'Connected ✅' : 'Disconnected ❌';
-  const socketId = socket?.id || 'N/A';
+  const socketId = socket?.id ?? 'N/A';
 
   return (
     <>
       {/* Floating Button */}
       {!isOpen && (
-        <button
+        <Button
           onClick={() => setIsOpen(true)}
-          className="fixed left-0 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg transition-all z-50 group"
+          className="fixed left-0 top-1/2 z-50 p-2 text-white bg-blue-600 rounded-r-lg shadow-lg transition-all -translate-y-1/2 hover:bg-blue-700 group"
           title="Open WebSocket Debug"
         >
-          <Activity className="h-5 w-5" />
-          <span className="absolute left-full ml-2 bg-popover text-popover-foreground border border-border text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
+          <Activity className="w-5 h-5" />
+          <span className="absolute left-full px-2 py-1 ml-2 text-xs whitespace-nowrap rounded border shadow-md opacity-0 transition-opacity pointer-events-none bg-popover text-popover-foreground border-border group-hover:opacity-100">
             Debug Panel
           </span>
-        </button>
+        </Button>
       )}
 
       {/* Expandable Panel */}
       {isOpen && (
-        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-80">
+        <div className="fixed left-0 top-1/2 z-50 w-80 -translate-y-1/2">
           <Card className="shadow-xl">
-            <CardHeader className="bg-blue-600 text-white">
-              <CardTitle className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4" />
+            <CardHeader className="text-white bg-blue-600">
+              <CardTitle className="flex justify-between items-center text-sm">
+                <div className="flex gap-2 items-center">
+                  <Activity className="w-4 h-4" />
                   <span>WebSocket Debug</span>
                 </div>
-                <button
+                <Button
                   onClick={() => setIsOpen(false)}
-                  className="hover:bg-blue-700 p-1 rounded transition-colors"
+                  className="p-1 rounded transition-colors hover:bg-blue-700"
                   title="Close"
                 >
-                  <X className="h-4 w-4" />
-                </button>
+                  <X className="w-4 h-4" />
+                </Button>
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="text-xs space-y-2 max-h-96 overflow-y-auto">
+            <CardContent className="overflow-y-auto space-y-2 max-h-96 text-xs">
               <div className="grid grid-cols-2 gap-2">
                 <div className="font-medium text-muted-foreground">Status:</div>
                 <div className="font-mono">{connectionState}</div>
@@ -77,8 +78,8 @@ export const WebSocketDebug = () => {
               </div>
 
               <div className="pt-2 border-t border-border">
-                <div className="font-medium text-muted-foreground mb-1">Events:</div>
-                <div className="bg-muted p-2 rounded text-xs font-mono h-32 overflow-y-auto">
+                <div className="mb-1 font-medium text-muted-foreground">Events:</div>
+                <div className="overflow-y-auto p-2 h-32 font-mono text-xs rounded bg-muted">
                   Open browser console to see WebSocket events:
                   <br />
                   • ✅ WebSocket connected

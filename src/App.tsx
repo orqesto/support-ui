@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
@@ -39,9 +38,9 @@ const EmailTemplatesPage = lazy(() =>
 );
 
 const LoadingFallback = () => (
-  <div className="flex items-center justify-center min-h-screen bg-background">
+  <div className="flex justify-center items-center min-h-screen bg-background">
     <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+      <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
       <p className="text-muted-foreground">Loading...</p>
     </div>
   </div>

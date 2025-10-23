@@ -189,7 +189,7 @@ export const getEffectiveRole = (
   if (globalRole === 'admin') {
     return 'admin';
   }
-  return orgRole || 'user';
+  return orgRole ?? 'user';
 };
 
 /**

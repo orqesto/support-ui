@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
+import { Button } from './Button';
 
 type SearchInputProps = {
   value: string;
@@ -22,7 +23,7 @@ export const SearchInput = ({
   showSearchButton = false,
   onBlur,
 }: SearchInputProps) => {
-  const sizeClasses = size === 'sm' ? 'px-3 py-1 pr-8 text-xs' : 'px-3 py-2 pr-9 text-sm';
+  const sizeClasses = size === 'sm' ? 'px-3 py-2 pr-8 text-xs' : 'px-3 py-2 pr-9 text-sm';
 
   const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
 
@@ -89,12 +90,13 @@ export const SearchInput = ({
             onBlur();
           }
         }}
-        className={`${sizeClasses} w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground`}
+        className={`w-full rounded-md border ${sizeClasses} bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground`}
       />
 
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 items-center">
+      <div className="flex absolute right-2 top-1/2 gap-1 items-center -translate-y-1/2">
         {value && (
-          <button
+          <Button
+            variant="ghost"
             onClick={() => {
               onChange('');
               // Keep focus on input after clearing
@@ -103,26 +105,26 @@ export const SearchInput = ({
               }
             }}
             onMouseDown={(e) => e.preventDefault()} // Prevent stealing focus from input
-            className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent transition-colors"
+            className="h-auto min-h-[44px] min-w-[44px] p-2 rounded-full transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
             title="Clear search"
             type="button"
             aria-label="Clear search"
           >
             <X className={iconSize} />
-          </button>
+          </Button>
         )}
 
         {showSearchButton && onSearch && (
-          <button
+          <Button
+            variant="ghost"
             onClick={onSearch}
             onMouseDown={(e) => e.preventDefault()}
-            className="p-1 text-primary hover:text-primary/80 rounded-full hover:bg-primary/10 transition-colors"
+            className="h-auto min-h-[44px] min-w-[44px] p-2 rounded-full transition-colors text-primary hover:text-primary/80 hover:bg-primary/10"
             title="Search"
-            type="button"
             aria-label="Search"
           >
             <Search className={iconSize} />
-          </button>
+          </Button>
         )}
       </div>
     </div>

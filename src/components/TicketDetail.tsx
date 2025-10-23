@@ -57,7 +57,7 @@ export const TicketDetail = ({
       try {
         setLoadingMessages(true);
         const response = await messageService.getAll({ ticketId: ticket.id.toString() });
-        setLinkedMessages(response.data || []);
+        setLinkedMessages(response.data ?? []);
       } catch (error) {
         console.error('Error fetching linked messages:', error);
         setLinkedMessages([]);
@@ -66,7 +66,9 @@ export const TicketDetail = ({
       }
     };
 
-    fetchLinkedMessages();
+    fetchLinkedMessages().catch((error) => {
+      console.error('Failed to fetch linked messages:', error);
+    });
   }, [ticket.id]);
 
   return (
@@ -94,6 +96,7 @@ export const TicketDetail = ({
               <ExternalLink
                 href={ticket.externalUrl}
                 onClick={() => {
+                  // eslint-disable-next-line no-console
                   console.log('Opening Jira URL:', ticket.externalUrl);
                 }}
               >
@@ -102,8 +105,8 @@ export const TicketDetail = ({
             )}
           </div>
           {ticket.externalId && (
-            <div className="flex gap-2 items-center p-3 mt-3 text-sm bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
-              <ExternalLinkIcon className="w-4 h-4 text-blue-600" />
+            <div className="flex gap-2 items-center p-3 mt-3 text-sm rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+              <ExternalLinkIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <p className="text-blue-600 dark:text-blue-400">
                 <strong>Synced with Jira.</strong> This ticket is managed in Jira. Changes made in
                 Jira will automatically sync here.
@@ -160,11 +163,11 @@ export const TicketDetail = ({
             {linkedMessages.map((message) => (
               <div
                 key={message.id}
-                className="p-3 bg-muted rounded-lg border border-border transition-colors hover:bg-accent"
+                className="p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent"
               >
                 <div className="flex gap-3 justify-between items-start">
                   <div className="flex flex-1 gap-3 items-start min-w-0">
-                    <div className="p-2 bg-blue-500/10 dark:bg-blue-500/10 rounded">
+                    <div className="p-2 rounded bg-blue-500/10 dark:bg-blue-500/10">
                       <Mail className="w-4 h-4 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -184,7 +187,7 @@ export const TicketDetail = ({
                   </div>
                   <Link
                     to={`/messages?id=${message.id}`}
-                    className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 whitespace-nowrap rounded transition-colors hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10"
+                    className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 whitespace-nowrap rounded transition-colors dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10"
                   >
                     View
                     <ExternalLinkIcon className="w-3 h-3" />
@@ -206,7 +209,7 @@ export const TicketDetail = ({
               <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
                 Additional Information
               </h3>
-              <div className="p-4 bg-muted rounded-lg">
+              <div className="p-4 rounded-lg bg-muted">
                 <pre className="overflow-auto text-xs">
                   {JSON.stringify(displayMetadata, null, 2)}
                 </pre>

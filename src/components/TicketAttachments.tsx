@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable no-console */
+import { useState, useEffect, useCallback } from 'react';
 import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL, getAuthToken } from '@/lib/config';
@@ -8,8 +9,8 @@ import {
   unsubscribeFromEvent,
   releaseSocket,
 } from '../lib/socketManager';
-import { commentsService } from '../services/comments.service';
-import type { Attachment } from '../services/comments.service';
+import { commentsService, type Attachment } from '../services/comments.service';
+import { AlertDialog } from './ui/AlertDialog';
 import { Button } from './ui/Button';
 import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog';
 
@@ -27,7 +28,15 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     null
   );
 
-  const fetchAttachments = async () => {
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
+
+  const fetchAttachments = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await commentsService.getTicketAttachments(ticketId);
@@ -39,10 +48,12 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [ticketId]);
 
   useEffect(() => {
-    fetchAttachments();
+    fetchAttachments().catch((error) => {
+      console.error('Failed to fetch attachments:', error);
+    });
 
     // Set up WebSocket to listen for updates
     getSocket();
@@ -50,8 +61,11 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     const handleUpdate = (data: unknown) => {
       const eventData = data as { ticketId: number };
       if (eventData.ticketId === ticketId) {
+        // eslint-disable-next-line no-console
         console.log('📎 Attachments updated via WebSocket');
-        fetchAttachments();
+        fetchAttachments().catch((error) => {
+          console.error('Failed to fetch attachments:', error);
+        });
       }
     };
 
@@ -61,7 +75,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       unsubscribeFromEvent('ticket:comments:updated', handleUpdate);
       releaseSocket();
     };
-  }, [ticketId]);
+  }, [ticketId, fetchAttachments]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) {
@@ -137,7 +151,12 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       await fetchAttachments(); // Refresh list
     } catch (error) {
       console.error('Failed to upload attachments:', error);
-      alert('Failed to upload attachments. Please try again.');
+      setAlertDialog({
+        open: true,
+        title: 'Upload Failed',
+        description: 'Failed to upload attachments. Please try again.',
+        variant: 'error',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -162,9 +181,16 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       setDeleteDialogOpen(false);
       setAttachmentToDelete(null);
       await fetchAttachments(); // Refresh list
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete attachment:', error);
-      alert(error.message || 'Failed to delete attachment. Please try again.');
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to delete attachment. Please try again.';
+      setAlertDialog({
+        open: true,
+        title: 'Delete Failed',
+        description: errorMsg,
+        variant: 'error',
+      });
       setDeleteDialogOpen(false);
       setAttachmentToDelete(null);
     }
@@ -210,13 +236,13 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         <div className="p-3 mb-3 bg-blue-50 rounded-md border border-blue-200">
           <div className="flex justify-between items-center">
             <span className="text-sm text-blue-900">{selectedFiles.length} file(s) selected</span>
-            <button
+            <Button
               onClick={handleUpload}
               disabled={isUploading}
               className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
             >
               {isUploading ? 'Uploading...' : 'Upload'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -281,13 +307,13 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-end items-center">
                       {isImage(attachment.mimeType) && (
-                        <button
+                        <Button
                           onClick={() => window.open(getAttachmentUrl(attachment), '_blank')}
                           className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
                           title="View"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
+                        </Button>
                       )}
                       <a
                         href={getAttachmentUrl(attachment)}
@@ -300,7 +326,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
                       {/* Only show delete for non-Jira attachments (local uploads and email) */}
                       {!attachment.url.startsWith('http') && (
-                        <button
+                        <Button
                           onClick={() =>
                             handleDeleteClick(attachment.id, attachment.originalFilename)
                           }
@@ -308,7 +334,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </td>
@@ -326,15 +352,15 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         </DialogHeader>
         <div className="p-6">
           <p className="mb-4 text-sm text-gray-600">
-            Are you sure you want to delete "{attachmentToDelete?.name}"?
+            Are you sure you want to delete &quot;{attachmentToDelete?.name}&quot;?
             {attachmentToDelete &&
               attachments.find((a) => a.id === attachmentToDelete.id)?.externalId && (
-                <span className="block mt-2 text-red-600 font-medium">
+                <span className="block mt-2 font-medium text-red-600">
                   This will also delete the file from Jira.
                 </span>
               )}
           </p>
-          <div className="flex justify-end gap-3">
+          <div className="flex gap-3 justify-end">
             <Button
               variant="outline"
               onClick={() => {
@@ -350,6 +376,15 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
           </div>
         </div>
       </Dialog>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </div>
   );
 };

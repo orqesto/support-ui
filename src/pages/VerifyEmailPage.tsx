@@ -24,18 +24,25 @@ export const VerifyEmailPage = () => {
         const response = await authService.verifyEmail(token);
         if (response.success) {
           setStatus('success');
-          setMessage(response.message || 'Email verified successfully');
+          setMessage(response.message ?? 'Email verified successfully');
         } else {
           setStatus('error');
-          setMessage(response.message || 'Verification failed');
+          setMessage(response.message ?? 'Verification failed');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error');
-        setMessage(err.response?.data?.message || 'An error occurred during verification');
+        const errorMessage =
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
+              'An error occurred during verification'
+            : 'An error occurred during verification';
+        setMessage(errorMessage);
       }
     };
 
-    verifyEmail();
+    verifyEmail().catch((error) => {
+      console.error('Failed to verify email:', error);
+    });
   }, [token]);
 
   const renderIcon = () => {
@@ -83,7 +90,7 @@ export const VerifyEmailPage = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg text-sm text-gray-700">
-                <p className="font-medium mb-2">You're all set!</p>
+                <p className="font-medium mb-2">You&apos;re all set!</p>
                 <p>
                   Your email has been successfully verified. You can now log in to your account.
                 </p>

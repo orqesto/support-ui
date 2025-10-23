@@ -36,7 +36,7 @@ export const EmailTemplatesPage = () => {
     setIsLoadingPreview(true);
     setError(null);
     try {
-      const response = await apiClient.get(`/api/email-templates/${templateType}/render`, {
+      const response = await apiClient.get<string>(`/api/email-templates/${templateType}/render`, {
         responseType: 'text',
       });
       setPreviewHtml(response.data);
@@ -49,9 +49,9 @@ export const EmailTemplatesPage = () => {
     }
   };
 
-  const refreshPreview = () => {
+  const refreshPreview = async () => {
     if (selectedTemplate) {
-      loadPreview(selectedTemplate);
+      await loadPreview(selectedTemplate);
     }
   };
 
@@ -61,17 +61,17 @@ export const EmailTemplatesPage = () => {
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
+            <h2 className="flex gap-2 items-center text-2xl font-bold">
               <Mail className="w-7 h-7" />
               Email Templates
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 text-sm text-muted-foreground">
               Preview and customize email templates (Admin only)
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Template List */}
           <div className="lg:col-span-1">
             <Card>
@@ -82,16 +82,17 @@ export const EmailTemplatesPage = () => {
               <CardContent className="p-0">
                 <div className="divide-y">
                   {TEMPLATES.map((template) => (
-                    <button
+                    <Button
                       key={template.type}
+                      variant="ghost"
                       onClick={() => loadPreview(template.type)}
-                      className={`w-full text-left p-4 hover:bg-accent transition-colors ${
+                      className={`h-auto rounded-none justify-start w-full text-left p-4 hover:bg-accent transition-colors ${
                         selectedTemplate === template.type
                           ? 'bg-blue-500/10 dark:bg-blue-500/10 border-l-4 border-primary'
                           : ''
                       }`}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex gap-3 items-start">
                         <Mail
                           className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
                             selectedTemplate === template.type
@@ -100,13 +101,13 @@ export const EmailTemplatesPage = () => {
                           }`}
                         />
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm">{template.name}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <h3 className="text-sm font-medium">{template.name}</h3>
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {template.description}
                           </p>
                         </div>
                       </div>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </CardContent>
@@ -122,7 +123,7 @@ export const EmailTemplatesPage = () => {
                     <p className="text-muted-foreground">
                       Available variables for {selectedTemplate}:
                     </p>
-                    <div className="bg-muted p-3 rounded font-mono text-xs space-y-1">
+                    <div className="p-3 space-y-1 font-mono text-xs rounded bg-muted">
                       <div>
                         <span className="text-primary">{'{{appName}}'}</span> - Application name
                       </div>
@@ -164,7 +165,7 @@ export const EmailTemplatesPage = () => {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex gap-2 items-center">
                       <Eye className="w-5 h-5" />
                       Preview
                     </CardTitle>
@@ -192,31 +193,31 @@ export const EmailTemplatesPage = () => {
               <CardContent>
                 {!selectedTemplate && (
                   <div className="py-12 text-center text-gray-500">
-                    <Mail className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <Mail className="mx-auto mb-4 w-16 h-16 text-gray-300" />
                     <p>Select a template from the list to preview it</p>
                   </div>
                 )}
 
                 {isLoadingPreview && (
                   <div className="py-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+                    <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
                     <p className="text-gray-500">Loading preview...</p>
                   </div>
                 )}
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                  <div className="flex gap-3 items-start p-4 bg-red-50 rounded-lg border border-red-200">
                     <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-sm font-medium text-red-900">Error</h4>
-                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                      <p className="mt-1 text-sm text-red-700">{error}</p>
                     </div>
                   </div>
                 )}
 
                 {selectedTemplate && !isLoadingPreview && !error && previewHtml && (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="bg-gray-100 px-4 py-2 text-xs text-gray-600 border-b">
+                  <div className="overflow-hidden rounded-lg border">
+                    <div className="px-4 py-2 text-xs text-gray-600 bg-gray-100 border-b">
                       Preview with sample data
                     </div>
                     <iframe

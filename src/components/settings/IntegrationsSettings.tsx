@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
+import { AlertDialog } from '../ui/AlertDialog';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 
@@ -28,6 +29,14 @@ export const IntegrationsSettings = () => {
   const [showGmailForm, setShowGmailForm] = useState(false);
   const [showJiraForm, setShowJiraForm] = useState(false);
   const [showTelegramForm, setShowTelegramForm] = useState(false);
+
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
   const [showSlackForm, setShowSlackForm] = useState(false);
 
   // Delete confirmation state
@@ -74,19 +83,22 @@ export const IntegrationsSettings = () => {
   ];
 
   useEffect(() => {
-    fetchIntegrations();
+    fetchIntegrations().catch((error) => {
+      console.error('Failed to fetch integrations:', error);
+    });
   }, []);
 
   const fetchIntegrations = async () => {
     try {
       const response = await integrationsService.getAll();
       if (response.success && response.data) {
+        // eslint-disable-next-line no-console
         console.log('📊 Fetched integrations:', response.data);
         // Force React to recognize the state change with fresh array
         setIntegrations(response.data.map((i) => ({ ...i })));
       } else {
         console.error('Failed to fetch integrations:', response.error);
-        throw new Error(response.error || 'Failed to fetch integrations');
+        throw new Error(response.error ?? 'Failed to fetch integrations');
       }
     } catch (error) {
       console.error('Failed to fetch integrations:', error);
@@ -154,11 +166,21 @@ export const IntegrationsSettings = () => {
       if (response.success) {
         await fetchIntegrations();
         resetForm(type);
-        alert(`${name} integration saved successfully!`);
+        setAlertDialog({
+          open: true,
+          title: 'Success',
+          description: `${name} integration saved successfully!`,
+          variant: 'success',
+        });
       }
     } catch (error) {
       console.error(`Failed to save ${name} integration:`, error);
-      alert(`Failed to save ${name} integration`);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: `Failed to save ${name} integration`,
+        variant: 'error',
+      });
     } finally {
       setSaving(null);
     }
@@ -183,11 +205,21 @@ export const IntegrationsSettings = () => {
       if (response.success) {
         await fetchIntegrations();
       } else {
-        alert(`Failed to delete ${name}: ${response.error || 'Unknown error'}`);
+        setAlertDialog({
+          open: true,
+          title: 'Error',
+          description: `Failed to delete ${name}: ${response.error ?? 'Unknown error'}`,
+          variant: 'error',
+        });
       }
     } catch (error) {
       console.error(`Failed to delete ${name}:`, error);
-      alert(`Failed to delete ${name}. Check console for details.`);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: `Failed to delete ${name}. Check console for details.`,
+        variant: 'error',
+      });
     } finally {
       setDeleting(null);
     }
@@ -208,12 +240,15 @@ export const IntegrationsSettings = () => {
       );
 
       if (response.success) {
+        // eslint-disable-next-line no-console
         console.log('✅ Gmail connected successfully:', response.data);
 
         // Refresh integrations list FIRST (before hiding form)
         try {
           await fetchIntegrations();
+          // eslint-disable-next-line no-console
           console.log('📊 Integrations refreshed successfully');
+          // eslint-disable-next-line no-console
           console.log('Current integrations count:', integrations.length);
         } catch (fetchError) {
           console.error('Failed to refresh integrations list:', fetchError);
@@ -225,22 +260,31 @@ export const IntegrationsSettings = () => {
         // Hide the form
         resetForm('gmail');
 
-        // Show success message (non-blocking)
-        setTimeout(() => {
-          alert(
-            `✅ Gmail account connected successfully!\n\n${response.data?.email || 'Account'} has been added.`
-          );
-        }, 50);
+        // Show success message
+        setAlertDialog({
+          open: true,
+          title: 'Success',
+          description: `Gmail account connected successfully!\n\n${response.data?.email ?? 'Account'} has been added.`,
+          variant: 'success',
+        });
       } else {
         console.error('Gmail OAuth failed:', response);
-        alert(
-          `❌ Failed to connect Gmail: ${response.error || 'Unknown error'}\n\nPlease check if you're logged in with a valid account.`
-        );
+        setAlertDialog({
+          open: true,
+          title: 'Gmail Connection Failed',
+          description: `Failed to connect Gmail: ${response.error ?? 'Unknown error'}\n\nPlease check if you're logged in with a valid account.`,
+          variant: 'error',
+        });
       }
     } catch (error) {
       console.error('Failed to connect Gmail:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      alert(`❌ Failed to connect Gmail: ${errorMsg}`);
+      setAlertDialog({
+        open: true,
+        title: 'Gmail Connection Failed',
+        description: `Failed to connect Gmail: ${errorMsg}`,
+        variant: 'error',
+      });
     } finally {
       setSaving(null);
     }
@@ -251,13 +295,28 @@ export const IntegrationsSettings = () => {
     try {
       const response = await integrationsService.test(id);
       if (response.success) {
-        alert(`${name} connection test successful!`);
+        setAlertDialog({
+          open: true,
+          title: 'Test Successful',
+          description: `${name} connection test successful!`,
+          variant: 'success',
+        });
       } else {
-        alert(`${name} connection test failed: ${response.message}`);
+        setAlertDialog({
+          open: true,
+          title: 'Test Failed',
+          description: `${name} connection test failed: ${response.message}`,
+          variant: 'error',
+        });
       }
     } catch (error) {
       console.error(`Failed to test ${name} connection:`, error);
-      alert(`Failed to test ${name} connection`);
+      setAlertDialog({
+        open: true,
+        title: 'Test Failed',
+        description: `Failed to test ${name} connection`,
+        variant: 'error',
+      });
     } finally {
       setTesting(null);
     }
@@ -310,10 +369,10 @@ export const IntegrationsSettings = () => {
                     />
                     <div>
                       <p className="font-medium">
-                        {(integration.config as { user?: string }).user || integration.name}
+                        {(integration.config as { user?: string }).user ?? integration.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {(integration.config as { host?: string }).host || 'Not configured'}
+                        {(integration.config as { host?: string }).host ?? 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -359,7 +418,9 @@ export const IntegrationsSettings = () => {
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">IMAP Host</label>
+                  <label htmlFor="host" className="text-sm font-medium">
+                    IMAP Host
+                  </label>
                   <input
                     type="text"
                     value={emailConfig.host}
@@ -369,7 +430,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Port</label>
+                  <label htmlFor="port" className="text-sm font-medium">
+                    Port
+                  </label>
                   <input
                     type="number"
                     value={emailConfig.port}
@@ -381,7 +444,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Email</label>
+                  <label htmlFor="user" className="text-sm font-medium">
+                    Email
+                  </label>
                   <input
                     type="email"
                     value={emailConfig.user}
@@ -391,7 +456,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Password / App Password</label>
+                  <label htmlFor="password" className="text-sm font-medium">
+                    Password / App Password
+                  </label>
                   <input
                     type="password"
                     value={emailConfig.password}
@@ -408,7 +475,9 @@ export const IntegrationsSettings = () => {
                   onChange={(e) => setEmailConfig({ ...emailConfig, secure: e.target.checked })}
                   className="rounded"
                 />
-                <label className="text-sm">Use SSL/TLS</label>
+                <label htmlFor="secure" className="text-sm">
+                  Use SSL/TLS
+                </label>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -475,11 +544,11 @@ export const IntegrationsSettings = () => {
                     />
                     <div>
                       <p className="font-medium">
-                        {(integration.config as { user?: string }).user || integration.name}
+                        {(integration.config as { user?: string }).user ?? integration.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         OAuth2 •{' '}
-                        {(integration.config as { searchQuery?: string }).searchQuery ||
+                        {(integration.config as { searchQuery?: string }).searchQuery ??
                           'is:unread'}
                       </p>
                     </div>
@@ -516,7 +585,9 @@ export const IntegrationsSettings = () => {
               <h4 className="font-medium">Add Gmail Account via OAuth2</h4>
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium">Google OAuth2 Client ID</label>
+                  <label htmlFor="clientId" className="text-sm font-medium">
+                    Google OAuth2 Client ID
+                  </label>
                   <input
                     type="text"
                     value={gmailConfig.clientId}
@@ -529,7 +600,9 @@ export const IntegrationsSettings = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Google OAuth2 Client Secret</label>
+                  <label htmlFor="clientSecret" className="text-sm font-medium">
+                    Google OAuth2 Client Secret
+                  </label>
                   <input
                     type="password"
                     value={gmailConfig.clientSecret}
@@ -544,13 +617,15 @@ export const IntegrationsSettings = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Search Query</label>
+                  <label htmlFor="searchQuery" className="text-sm font-medium">
+                    Search Query
+                  </label>
                   <select
                     value={gmailConfig.searchQuery}
                     onChange={(e) =>
                       setGmailConfig({ ...gmailConfig, searchQuery: e.target.value })
                     }
-                    className="px-3 py-2 w-full bg-input text-foreground rounded-md border border-border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
                   >
                     {searchQueryOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -563,7 +638,9 @@ export const IntegrationsSettings = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Max Results per Sync</label>
+                  <label htmlFor="maxResults" className="text-sm font-medium">
+                    Max Results per Sync
+                  </label>
                   <input
                     type="number"
                     value={gmailConfig.maxResults}
@@ -650,11 +727,11 @@ export const IntegrationsSettings = () => {
                     />
                     <div>
                       <p className="font-medium">
-                        {(integration.config as { projectKey?: string }).projectKey ||
+                        {(integration.config as { projectKey?: string }).projectKey ??
                           integration.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {(integration.config as { apiUrl?: string }).apiUrl || 'Not configured'}
+                        {(integration.config as { apiUrl?: string }).apiUrl ?? 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -700,7 +777,9 @@ export const IntegrationsSettings = () => {
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Jira URL</label>
+                  <label htmlFor="apiUrl" className="text-sm font-medium">
+                    Jira URL
+                  </label>
                   <input
                     type="url"
                     value={jiraConfig.apiUrl}
@@ -710,7 +789,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Project Key</label>
+                  <label htmlFor="projectKey" className="text-sm font-medium">
+                    Project Key
+                  </label>
                   <input
                     type="text"
                     value={jiraConfig.projectKey}
@@ -720,7 +801,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Email</label>
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </label>
                   <input
                     type="email"
                     value={jiraConfig.email}
@@ -730,7 +813,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">API Token</label>
+                  <label htmlFor="apiToken" className="text-sm font-medium">
+                    API Token
+                  </label>
                   <input
                     type="password"
                     value={jiraConfig.apiToken}
@@ -858,7 +943,9 @@ export const IntegrationsSettings = () => {
                 {editingId ? 'Edit Telegram Bot' : 'Add New Telegram Bot'}
               </h4>
               <div>
-                <label className="text-sm font-medium">Bot Token</label>
+                <label htmlFor="botToken" className="text-sm font-medium">
+                  Bot Token
+                </label>
                 <input
                   type="password"
                   value={telegramConfig.botToken}
@@ -994,7 +1081,9 @@ export const IntegrationsSettings = () => {
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Bot Token</label>
+                  <label htmlFor="botToken" className="text-sm font-medium">
+                    Bot Token
+                  </label>
                   <input
                     type="password"
                     value={slackConfig.botToken}
@@ -1004,7 +1093,9 @@ export const IntegrationsSettings = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Signing Secret</label>
+                  <label htmlFor="signingSecret" className="text-sm font-medium">
+                    Signing Secret
+                  </label>
                   <input
                     type="password"
                     value={slackConfig.signingSecret}
@@ -1060,7 +1151,7 @@ export const IntegrationsSettings = () => {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
-          <div className="p-6 mx-4 w-full max-w-md bg-card rounded-lg shadow-xl">
+          <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
             <h3 className="mb-2 text-lg font-semibold">Delete Integration?</h3>
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
@@ -1085,6 +1176,15 @@ export const IntegrationsSettings = () => {
           </div>
         </div>
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </div>
   );
 };

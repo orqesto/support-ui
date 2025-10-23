@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import {
   LayoutDashboard,
   Mail,
@@ -14,14 +13,15 @@ import {
   FileText,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { WebSocketDebug } from '@/components/WebSocketDebug';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission, roleDisplayNames } from '@/types/roles';
+import { OrganizationSwitcher } from '../OrganizationSwitcher';
+import { ThemeToggle } from '../ThemeToggle';
+import { Button } from '../ui/Button';
 
 const isDevelopment = import.meta.env.DEV;
 
@@ -88,7 +88,8 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile sidebar backdrop */}
-      <div
+      <Button
+        variant="ghost"
         className={cn(
           'fixed inset-0 z-40 bg-gray-900/80 lg:hidden',
           sidebarOpen ? 'block' : 'hidden'
@@ -100,7 +101,7 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transition-transform duration-300 transform',
+            'fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 transform bg-card',
             'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
@@ -108,9 +109,9 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex overflow-hidden flex-col h-full">
             <div className="flex justify-between items-center px-4 h-16 border-b">
               <h1 className="text-xl font-bold">Support System</h1>
-              <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+              <Button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
             </div>
 
             <nav className="overflow-y-auto flex-1 px-4 py-4 space-y-1">
@@ -150,19 +151,20 @@ export const Layout = ({ children }: LayoutProps) => {
                       {user?.firstName} {user?.lastName}
                     </p>
                     <p className="text-xs truncate text-muted-foreground">
-                      {orgRole ? roleDisplayNames[orgRole] : roleDisplayNames[user?.role || 'user']}
+                      {orgRole ? roleDisplayNames[orgRole] : roleDisplayNames[user?.role ?? 'user']}
                     </p>
                   </div>
                 </div>
                 <ThemeToggle />
               </div>
-              <button
+              <Button
+                variant="ghost"
                 onClick={handleLogout}
-                className="flex gap-2 items-center px-3 py-2 w-full text-sm rounded-md transition-colors text-foreground/70 hover:bg-accent hover:text-accent-foreground"
+                className="justify-start gap-2 w-full text-sm text-foreground/70 hover:bg-accent hover:text-accent-foreground"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         </aside>
@@ -170,13 +172,13 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Main content */}
         <div className="overflow-x-hidden flex-1 w-full lg:ml-0 bg-background">
           {/* Mobile header with hamburger menu */}
-          <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 bg-card border-b lg:hidden">
+          <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 border-b bg-card lg:hidden">
             <div className="flex items-center">
-              <button className="mr-4" onClick={() => setSidebarOpen(true)}>
+              <Button className="mr-4" onClick={() => setSidebarOpen(true)}>
                 <Menu className="w-6 h-6" />
-              </button>
+              </Button>
               <h2 className="text-lg font-semibold">
-                {navigation.find((item) => item.href === location.pathname)?.name || 'Dashboard'}
+                {navigation.find((item) => item.href === location.pathname)?.name ?? 'Dashboard'}
               </h2>
             </div>
             <ThemeToggle />
