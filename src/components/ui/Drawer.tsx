@@ -11,42 +11,30 @@ type DrawerProps = {
 };
 
 export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) => {
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={onClose} />
 
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-background shadow-xl z-50 overflow-hidden flex flex-col animate-slide-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border bg-muted">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0"
-          >
+          <Button variant="outline" size="sm" onClick={onClose} className="h-8 w-8 p-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
 
         {/* Footer */}
-        {footer && (
-          <div className="border-t border-border p-4 bg-muted">
-            {footer}
-          </div>
-        )}
+        {footer && <div className="border-t border-border p-4 bg-muted">{footer}</div>}
       </div>
     </>
   );

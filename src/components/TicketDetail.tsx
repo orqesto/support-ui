@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
+import {
+  ExternalLink as ExternalLinkIcon,
+  Edit2,
+  Send,
+  Trash2,
+  User,
+  Calendar,
+  Mail,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { formatDate } from '../lib/utils';
+import { messageService } from '../services/message.service';
 import type { Ticket, TicketStatus, TicketPriority, Message } from '../types';
+import { TicketAttachments } from './TicketAttachments';
+import { TicketComments } from './TicketComments';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { ExternalLink } from './ui/ExternalLink';
-import { formatDate } from '../lib/utils';
-import { ExternalLink as ExternalLinkIcon, Edit2, Send, Trash2, User, Calendar, Mail } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { messageService } from '../services/message.service';
-import { TicketComments } from './TicketComments';
-import { TicketAttachments } from './TicketAttachments';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -226,7 +234,12 @@ export const TicketDetail = ({
           </Link>
         ) : (
           <div className="flex-1">
-            <Button variant="outline" className="w-full" disabled title="This ticket is synced with Jira. Edit it in Jira instead.">
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled
+              title="This ticket is synced with Jira. Edit it in Jira instead."
+            >
               <Edit2 className="mr-2 w-4 h-4" />
               Edit Ticket
             </Button>

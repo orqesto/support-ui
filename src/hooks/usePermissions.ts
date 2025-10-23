@@ -16,7 +16,7 @@ import {
  * Hook for checking user permissions
  */
 export const usePermissions = () => {
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
 
   const userRole: GlobalRole = user?.role || 'user';
   const orgRole: OrganizationRole | undefined = user?.organizationRole;

@@ -1,16 +1,16 @@
-import { useEmailProcessing } from '../hooks/useEmailProcessing';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
+import { useState, useEffect } from 'react';
 import { Mail, CheckCircle, XCircle, Loader2, Globe } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useAuthStore } from '@/stores/authStore';
-import { useState, useEffect } from 'react';
 import { integrationsService } from '@/services/integrations.service';
+import { useAuthStore } from '@/stores/authStore';
+import { useEmailProcessing } from '../hooks/useEmailProcessing';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 export const EmailProcessingProgress = () => {
   const { isAdmin } = usePermissions();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
-  
+
   // Check if ANY organization has email integrations (system-wide)
   useEffect(() => {
     const checkIntegrations = async () => {
@@ -22,25 +22,17 @@ export const EmailProcessingProgress = () => {
         setHasEmailIntegrations(false);
       }
     };
-    
+
     checkIntegrations();
   }, []); // Only check once on mount, not on org change
-  
+
   // Show widget if admin and has email integrations (any org)
   // Subscribe to events if admin (to see progress even when org is selected)
   const shouldShow = isAdmin && hasEmailIntegrations;
   const shouldSubscribe = isAdmin && hasEmailIntegrations;
-  
-  const {
-    status,
-    total,
-    current,
-    processed,
-    failed,
-    error,
-    progress,
-    isProcessing,
-  } = useEmailProcessing(shouldSubscribe);
+
+  const { status, total, current, processed, failed, error, progress, isProcessing } =
+    useEmailProcessing(shouldSubscribe);
 
   // Don't render if no integrations or status is idle
   if (!shouldShow || status === 'idle') {
@@ -58,7 +50,8 @@ export const EmailProcessingProgress = () => {
           ) : (
             <XCircle className="h-5 w-5 text-red-500" />
           )}
-          Email Processing {isProcessing ? 'In Progress' : status === 'complete' ? 'Complete' : 'Failed'}
+          Email Processing{' '}
+          {isProcessing ? 'In Progress' : status === 'complete' ? 'Complete' : 'Failed'}
           {selectedOrganizationId && (
             <span className="ml-auto" title="System-wide stats (all organizations)">
               <Globe className="h-4 w-4 text-muted-foreground" />
@@ -77,7 +70,9 @@ export const EmailProcessingProgress = () => {
           {total > 0 && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Processing: {current} / {total}</span>
+                <span>
+                  Processing: {current} / {total}
+                </span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2.5">

@@ -1,21 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent } from '@/components/ui/Card';
-import { ListCard } from '@/components/ui/ListCard';
-import { Drawer } from '@/components/ui/Drawer';
-import { MessageDetail } from '@/components/MessageDetail';
-import { Button } from '@/components/ui/Button';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Badge } from '@/components/ui/Badge';
-import { Pagination } from '@/components/ui/Pagination';
-import { messageService } from '@/services/message.service';
-import { useMessagesStore } from '@/stores/messagesStore';
-import { useAuthStore } from '@/stores/authStore';
-import { apiClient } from '@/lib/api-client';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Permission } from '@/types/roles';
-import { formatDate } from '@/lib/utils';
 import {
   Mail,
   MessageSquare,
@@ -29,7 +12,13 @@ import {
   RotateCcw,
   Paperclip,
 } from 'lucide-react';
-import type { Message } from '@/types';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { Layout } from '@/components/layout/Layout';
+import { MessageDetail } from '@/components/MessageDetail';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
 import {
   Dialog,
   DialogHeader,
@@ -38,6 +27,17 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { Drawer } from '@/components/ui/Drawer';
+import { ListCard } from '@/components/ui/ListCard';
+import { Pagination } from '@/components/ui/Pagination';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/utils';
+import { messageService } from '@/services/message.service';
+import { useAuthStore } from '@/stores/authStore';
+import { useMessagesStore } from '@/stores/messagesStore';
+import type { Message } from '@/types';
+import { Permission } from '@/types/roles';
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,7 +109,7 @@ export const MessagesPage = () => {
         if (currentFilters.hasAttachments) {
           apiFilters.hasAttachments = 'true';
         }
-        if (currentFilters.search && currentFilters.search.trim()) {
+        if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
 
@@ -191,7 +191,7 @@ export const MessagesPage = () => {
       setFilters({ ...filters, [key]: value });
     }
   };
-  
+
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
     setFilters({ ...filters, search: pendingSearch });
@@ -253,7 +253,7 @@ export const MessagesPage = () => {
     try {
       setRefreshing(true);
       await apiClient.post('/api/messages/check-emails');
-      
+
       // Wait a bit for emails to be processed, then refresh
       setTimeout(() => {
         fetchMessages(1, true);
@@ -272,7 +272,9 @@ export const MessagesPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!messageToDelete) return;
+    if (!messageToDelete) {
+      return;
+    }
 
     setDeleting(true);
     try {
@@ -307,7 +309,7 @@ export const MessagesPage = () => {
     (filters.channel !== 'all' ? 1 : 0) +
     (filters.showSpam || filters.showNeedsInfo || filters.showWorthy ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0) +
-    (filters.search && filters.search.trim() ? 1 : 0);
+    (filters.search?.trim() ? 1 : 0);
 
   return (
     <Layout>
@@ -380,7 +382,7 @@ export const MessagesPage = () => {
                   className="w-[300px]"
                   size="sm"
                 />
-                
+
                 {/* Group 1: Status */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
@@ -543,7 +545,9 @@ export const MessagesPage = () => {
 
               // Get category display name (handle both ID and name formats)
               const getCategoryDisplay = (suggestedCat?: string) => {
-                if (!suggestedCat) return null;
+                if (!suggestedCat) {
+                  return null;
+                }
                 // If it's a numeric ID, just show "Category #X", otherwise show the name
                 if (/^\d+$/.test(suggestedCat)) {
                   return `Category #${suggestedCat}`;
@@ -553,8 +557,9 @@ export const MessagesPage = () => {
               };
 
               // Check if message has attachments
-              const hasAttachments = message.rawData?.attachments && 
-                Array.isArray(message.rawData.attachments) && 
+              const hasAttachments =
+                message.rawData?.attachments &&
+                Array.isArray(message.rawData.attachments) &&
                 message.rawData.attachments.length > 0;
 
               return (
@@ -566,8 +571,8 @@ export const MessagesPage = () => {
                       <Badge variant="secondary">{message.channel}</Badge>
                       {message.processed && <Badge variant="success">Processed</Badge>}
                       {hasAttachments && (
-                        <Badge 
-                          variant="default" 
+                        <Badge
+                          variant="default"
                           title={`${(message.rawData?.attachments as any[])?.length || 0} attachment(s)`}
                           className="flex items-center gap-1"
                         >
@@ -639,7 +644,10 @@ export const MessagesPage = () => {
                           {(message.rawData?.attachments as any[])?.length || 0} file(s)
                         </span>
                       )}
-                      <span className="whitespace-nowrap" title={`Imported: ${formatDate(message.createdAt)}`}>
+                      <span
+                        className="whitespace-nowrap"
+                        title={`Imported: ${formatDate(message.createdAt)}`}
+                      >
                         • {formatDate((message.metadata as any)?.receivedAt || message.createdAt)}
                       </span>
                     </>

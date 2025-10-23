@@ -1,6 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './Dialog';
-import { Button } from './Button';
 import { AlertTriangle } from 'lucide-react';
+import { Button } from './Button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './Dialog';
 
 type ConfirmDialogProps = {
   open: boolean;

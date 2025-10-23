@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Check, X, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { authService } from '@/services/auth.service';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { Check, X, Loader2 } from 'lucide-react';
+import { authService } from '@/services/auth.service';
 
 export const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
@@ -31,9 +31,7 @@ export const VerifyEmailPage = () => {
         }
       } catch (err: any) {
         setStatus('error');
-        setMessage(
-          err.response?.data?.message || 'An error occurred during verification'
-        );
+        setMessage(err.response?.data?.message || 'An error occurred during verification');
       }
     };
 
@@ -71,9 +69,7 @@ export const VerifyEmailPage = () => {
             <CardHeader className="text-center">
               {renderIcon()}
               <CardTitle className="text-2xl">Verifying Your Email</CardTitle>
-              <CardDescription>
-                Please wait while we verify your email address...
-              </CardDescription>
+              <CardDescription>Please wait while we verify your email address...</CardDescription>
             </CardHeader>
           </>
         );
@@ -88,7 +84,9 @@ export const VerifyEmailPage = () => {
             <CardContent className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg text-sm text-gray-700">
                 <p className="font-medium mb-2">You're all set!</p>
-                <p>Your email has been successfully verified. You can now log in to your account.</p>
+                <p>
+                  Your email has been successfully verified. You can now log in to your account.
+                </p>
               </div>
               <Button onClick={() => navigate('/login')} className="w-full">
                 Continue to Login

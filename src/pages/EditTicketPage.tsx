@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
+import { AlertCircle, ExternalLink } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ticketService } from '@/services/ticket.service';
 import { categoryService } from '@/services/category.service';
+import { ticketService } from '@/services/ticket.service';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
-import { AlertCircle, ExternalLink } from 'lucide-react';
 
 export const EditTicketPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -68,7 +68,9 @@ export const EditTicketPage = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!id) return;
+    if (!id) {
+      return;
+    }
 
     setSaving(true);
     try {
@@ -104,9 +106,7 @@ export const EditTicketPage = () => {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Edit Ticket</h1>
-          <p className="text-muted-foreground mt-2">
-            Update ticket details
-          </p>
+          <p className="text-muted-foreground mt-2">Update ticket details</p>
         </div>
 
         {ticket?.externalId && (
@@ -115,10 +115,12 @@ export const EditTicketPage = () => {
               <div className="flex gap-3 items-start">
                 <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-yellow-900 mb-1">This ticket is synced with Jira</h3>
+                  <h3 className="font-semibold text-yellow-900 mb-1">
+                    This ticket is synced with Jira
+                  </h3>
                   <p className="text-sm text-yellow-800 mb-3">
-                    This ticket has been pushed to Jira and should be edited there to maintain consistency.
-                    Changes made here will not sync back to Jira.
+                    This ticket has been pushed to Jira and should be edited there to maintain
+                    consistency. Changes made here will not sync back to Jira.
                   </p>
                   {ticket.externalUrl && (
                     <a
@@ -132,11 +134,7 @@ export const EditTicketPage = () => {
                     </a>
                   )}
                   <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate('/tickets')}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => navigate('/tickets')}>
                       Back to Tickets
                     </Button>
                   </div>
@@ -160,7 +158,7 @@ export const EditTicketPage = () => {
               <Input
                 label="Title"
                 value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                 disabled={!!ticket?.externalId}
                 required
               />
@@ -171,7 +169,9 @@ export const EditTicketPage = () => {
                   className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   rows={6}
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, description: e.target.value }))
+                  }
                   disabled={!!ticket?.externalId}
                   required
                 />
@@ -182,7 +182,9 @@ export const EditTicketPage = () => {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as TicketStatus }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, status: e.target.value as TicketStatus }))
+                  }
                   disabled={!!ticket?.externalId}
                 >
                   <option value="pending">Pending</option>
@@ -198,7 +200,9 @@ export const EditTicketPage = () => {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.priority}
-                  onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as TicketPriority }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                  }
                   disabled={!!ticket?.externalId}
                 >
                   <option value="low">Low</option>
@@ -213,12 +217,14 @@ export const EditTicketPage = () => {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.categoryId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
                   disabled={!!ticket?.externalId}
                 >
                   <option value="">Select a category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -227,11 +233,7 @@ export const EditTicketPage = () => {
                 <Button type="submit" isLoading={saving} disabled={!!ticket?.externalId}>
                   Save Changes
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/tickets')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/tickets')}>
                   Cancel
                 </Button>
               </div>

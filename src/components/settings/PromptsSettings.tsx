@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button } from '../ui/Button';
 import { Plus, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 
 export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
@@ -187,7 +187,9 @@ export const PromptsSettings = () => {
                     <label className="text-sm font-medium">
                       Name
                       {editingPrompt?.type === 'system' && (
-                        <span className="ml-2 text-xs text-muted-foreground">(System template - readonly)</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (System template - readonly)
+                        </span>
                       )}
                     </label>
                     <input
@@ -202,7 +204,9 @@ export const PromptsSettings = () => {
                     <label className="text-sm font-medium">
                       Description
                       {editingPrompt?.type === 'system' && (
-                        <span className="ml-2 text-xs text-muted-foreground">(System template - readonly)</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (System template - readonly)
+                        </span>
                       )}
                     </label>
                     <input
@@ -255,9 +259,7 @@ export const PromptsSettings = () => {
                   <div className="flex-1">
                     <div className="flex gap-2 items-center">
                       <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
-                      {prompt.type === 'system' && (
-                        <Badge variant="default">System</Badge>
-                      )}
+                      {prompt.type === 'system' && <Badge variant="default">System</Badge>}
                       <Badge variant={prompt.active ? 'success' : 'default'}>
                         {prompt.active ? 'Active' : 'Inactive'}
                       </Badge>

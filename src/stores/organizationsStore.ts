@@ -7,7 +7,7 @@ type OrganizationsState = {
   searchQuery: string;
   lastFetch: number | null;
   currentOrgLastFetch: number | null;
-  
+
   setCurrentOrganization: (org: Organization | null) => void;
   setAllOrganizations: (orgs: Organization[]) => void;
   setSearchQuery: (query: string) => void;
@@ -38,23 +38,27 @@ export const useOrganizationsStore = create<OrganizationsState>((set, get) => ({
   },
 
   clearCache: () => {
-    set({ 
+    set({
       currentOrganization: null,
-      allOrganizations: [], 
+      allOrganizations: [],
       lastFetch: null,
-      currentOrgLastFetch: null 
+      currentOrgLastFetch: null,
     });
   },
 
   shouldRefetch: () => {
     const state = get();
-    if (!state.lastFetch) return true;
+    if (!state.lastFetch) {
+      return true;
+    }
     return Date.now() - state.lastFetch > CACHE_TTL;
   },
 
   shouldRefetchCurrentOrg: () => {
     const state = get();
-    if (!state.currentOrgLastFetch) return true;
+    if (!state.currentOrgLastFetch) {
+      return true;
+    }
     return Date.now() - state.currentOrgLastFetch > CACHE_TTL;
   },
 }));

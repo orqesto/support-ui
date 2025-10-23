@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ticketService } from '@/services/ticket.service';
-import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
-import { useTicketsStore } from '@/stores/ticketsStore';
+import { messageService } from '@/services/message.service';
+import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
+import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority } from '@/types';
 
 export const CreateTicketPage = () => {
@@ -42,7 +42,7 @@ export const CreateTicketPage = () => {
       const response = await messageService.getById(id);
       if (response.success && response.data) {
         setMessage(response.data);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           title: response.data!.subject || `Message from ${response.data!.sender}`,
           description: response.data!.content,
@@ -66,7 +66,9 @@ export const CreateTicketPage = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!messageId) return;
+    if (!messageId) {
+      return;
+    }
 
     setLoading(true);
     try {
@@ -96,9 +98,7 @@ export const CreateTicketPage = () => {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Create Ticket</h1>
-          <p className="text-muted-foreground mt-2">
-            Convert message into a support ticket
-          </p>
+          <p className="text-muted-foreground mt-2">Convert message into a support ticket</p>
         </div>
 
         {message && (
@@ -107,12 +107,20 @@ export const CreateTicketPage = () => {
               <CardTitle className="text-lg">Original Message</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="text-sm"><strong>From:</strong> {message.sender}</p>
-              <p className="text-sm"><strong>Channel:</strong> {message.channel}</p>
+              <p className="text-sm">
+                <strong>From:</strong> {message.sender}
+              </p>
+              <p className="text-sm">
+                <strong>Channel:</strong> {message.channel}
+              </p>
               {message.subject && (
-                <p className="text-sm"><strong>Subject:</strong> {message.subject}</p>
+                <p className="text-sm">
+                  <strong>Subject:</strong> {message.subject}
+                </p>
               )}
-              <p className="text-sm"><strong>Content:</strong></p>
+              <p className="text-sm">
+                <strong>Content:</strong>
+              </p>
               <p className="text-sm text-muted-foreground">{message.content}</p>
             </CardContent>
           </Card>
@@ -127,7 +135,7 @@ export const CreateTicketPage = () => {
               <Input
                 label="Title"
                 value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                 required
               />
 
@@ -137,7 +145,9 @@ export const CreateTicketPage = () => {
                   className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   rows={6}
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, description: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -147,7 +157,9 @@ export const CreateTicketPage = () => {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={formData.priority}
-                  onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as TicketPriority }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                  }
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -161,11 +173,13 @@ export const CreateTicketPage = () => {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={formData.categoryId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
                 >
                   <option value="">Select a category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -174,11 +188,7 @@ export const CreateTicketPage = () => {
                 <Button type="submit" isLoading={loading}>
                   Create Ticket
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/messages')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/messages')}>
                   Cancel
                 </Button>
               </div>

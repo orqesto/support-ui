@@ -1,22 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Badge } from '@/components/ui/Badge';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { usePermissions } from '@/hooks/usePermissions';
-import { Permission, roleDisplayNames } from '@/types/roles';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { useAuthStore } from '@/stores/authStore';
-import { userService } from '@/services/user.service';
-import { invitationService } from '@/services/invitation.service';
-import { InviteUserModal } from '@/components/InviteUserModal';
-import { useUsersStore } from '@/stores/usersStore';
-import { EditUserModal } from '@/components/EditUserModal';
-import { formatDate } from '@/lib/utils';
-import type { User } from '@/types';
 import { Users, Edit2, Shield, RefreshCw, Mail, Trash2 } from 'lucide-react';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { EditUserModal } from '@/components/EditUserModal';
+import { InviteUserModal } from '@/components/InviteUserModal';
+import { Layout } from '@/components/layout/Layout';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { usePermissions } from '@/hooks/usePermissions';
+import { formatDate } from '@/lib/utils';
+import { invitationService } from '@/services/invitation.service';
+import { userService } from '@/services/user.service';
+import { useAuthStore } from '@/stores/authStore';
+import { useUsersStore } from '@/stores/usersStore';
+import type { User } from '@/types';
+import { Permission, roleDisplayNames } from '@/types/roles';
 
 export const UsersPage = () => {
   const { canManageUsers, isAdmin, hasPermission } = usePermissions();
@@ -41,23 +41,26 @@ export const UsersPage = () => {
   // Local pending search state
   const [pendingSearch, setPendingSearch] = useState(searchUser || '');
 
-  const fetchUsers = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const fetchUsers = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      const result = await userService.getAll(searchUser || undefined);
-      setUsers(result.data); // Extract data array from response
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [searchUser, setUsers]);
+      try {
+        const result = await userService.getAll(searchUser || undefined);
+        setUsers(result.data); // Extract data array from response
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [searchUser, setUsers]
+  );
 
   const canViewUsers = hasPermission(Permission.VIEW_USERS);
 
@@ -96,14 +99,20 @@ export const UsersPage = () => {
   // Check if current user can edit/delete a specific user
   const canManageUser = (user: User) => {
     // Users can always edit their own profile
-    if (currentUser && user.id === currentUser.id) return true;
-    
+    if (currentUser && user.id === currentUser.id) {
+      return true;
+    }
+
     // Global admin can manage everyone
-    if (isAdmin) return true;
-    
+    if (isAdmin) {
+      return true;
+    }
+
     // Org admin cannot manage global admins
-    if (user.role === 'admin') return false;
-    
+    if (user.role === 'admin') {
+      return false;
+    }
+
     // Org admin can manage other users in their organization
     return canManageUsers;
   };
@@ -114,7 +123,9 @@ export const UsersPage = () => {
   };
 
   const confirmDeleteUser = async () => {
-    if (!deleteDialog.user) return;
+    if (!deleteDialog.user) {
+      return;
+    }
 
     console.log('User confirmed deletion, calling API...');
     try {
@@ -139,31 +150,31 @@ export const UsersPage = () => {
       canManageUsers,
       hasDeletePermission: hasPermission(Permission.DELETE_USERS),
     });
-    
+
     // Cannot delete yourself
     if (currentUser && user.id === currentUser.id) {
       console.log('Cannot delete yourself');
       return false;
     }
-    
+
     // Check if user has delete permission
     if (!hasPermission(Permission.DELETE_USERS)) {
       console.log('No DELETE_USERS permission');
       return false;
     }
-    
+
     // Global admin can delete anyone
     if (isAdmin) {
       console.log('Global admin - can delete');
       return true;
     }
-    
+
     // Org admin cannot delete global admins
     if (user.role === 'admin') {
       console.log('Target is global admin - cannot delete');
       return false;
     }
-    
+
     // Org admin can delete other users in their organization
     console.log('Org admin check, canManageUsers:', canManageUsers);
     return canManageUsers;
@@ -237,7 +248,7 @@ export const UsersPage = () => {
           <CardContent className="p-0">
             {loading ? (
               <div className="p-8 text-center">
-                <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary"></div>
+                <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
                 <p className="text-muted-foreground">Loading users...</p>
               </div>
             ) : users.length === 0 ? (
@@ -264,7 +275,9 @@ export const UsersPage = () => {
                                 <h3 className="text-sm font-semibold truncate">
                                   {user.firstName} {user.lastName}
                                 </h3>
-                                <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                <p className="text-sm text-muted-foreground truncate">
+                                  {user.email}
+                                </p>
                               </div>
                               <div className="flex gap-2">
                                 {canManageUser(user) && (
@@ -358,7 +371,9 @@ export const UsersPage = () => {
                                   <div className="text-sm font-medium truncate">
                                     {user.firstName} {user.lastName}
                                   </div>
-                                  <div className="text-sm text-muted-foreground truncate">{user.email}</div>
+                                  <div className="text-sm text-muted-foreground truncate">
+                                    {user.email}
+                                  </div>
                                 </div>
                               </div>
                             </td>

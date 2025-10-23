@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '@/stores/authStore';
+import { Button } from '@/components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
 import { organizationService } from '@/services/organization.service';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { useAuthStore } from '@/stores/authStore';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -37,27 +37,31 @@ export const LoginPage = () => {
       const response = await authService.login({ email, password });
       if (response.success && response.data) {
         login(response.data.token, response.data.user);
-        
+
         // Set user's organization context
         // For non-admins, use their organizationId from the user object
         // For admins, fetch available organizations
         if (response.data.user.organizationId) {
           // Non-admin user - use their assigned organization
           setSelectedOrganization(response.data.user.organizationId);
-          console.log(`✅ [LOGIN] Auto-selected user's organization (ID: ${response.data.user.organizationId})`);
+          console.log(
+            `✅ [LOGIN] Auto-selected user's organization (ID: ${response.data.user.organizationId})`
+          );
         } else if (response.data.user.role === 'admin') {
           // Global admin - fetch organizations
           try {
             const orgsResponse = await organizationService.getAll('', 1, 100);
             if (orgsResponse.data.length > 0) {
               setSelectedOrganization(orgsResponse.data[0].id);
-              console.log(`✅ [LOGIN] Auto-selected organization: ${orgsResponse.data[0].name} (ID: ${orgsResponse.data[0].id})`);
+              console.log(
+                `✅ [LOGIN] Auto-selected organization: ${orgsResponse.data[0].name} (ID: ${orgsResponse.data[0].id})`
+              );
             }
           } catch (orgError) {
             console.error('Failed to load organizations:', orgError);
           }
         }
-        
+
         navigate('/dashboard');
       } else {
         setError(response.message || 'Login failed');
@@ -74,9 +78,7 @@ export const LoginPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>
-            Enter your credentials to access the support system
-          </CardDescription>
+          <CardDescription>Enter your credentials to access the support system</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -96,11 +98,7 @@ export const LoginPage = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            {info && (
-              <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-md">
-                {info}
-              </div>
-            )}
+            {info && <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-md">{info}</div>}
             {error && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
                 {error}

@@ -18,7 +18,7 @@ type ThemeProviderProps = {
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     const root = window.document.documentElement;
-    
+
     // Check localStorage first
     const savedTheme = localStorage.getItem('theme') as Theme;
     if (savedTheme) {
@@ -26,14 +26,14 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
       root.classList.add(savedTheme);
       return savedTheme;
     }
-    
+
     // Check system preference
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       root.classList.remove('light', 'dark');
       root.classList.add('dark');
       return 'dark';
     }
-    
+
     root.classList.remove('light', 'dark');
     root.classList.add('light');
     return 'light';
@@ -41,14 +41,14 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setThemeState(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setThemeState((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
   const setTheme = (newTheme: Theme) => {

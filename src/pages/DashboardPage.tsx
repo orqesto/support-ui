@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
+import { Layout } from '../components/layout/Layout';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { useSystemHealth } from '../hooks/useSystemHealth';
 import { ingestionService } from '../services/ingestion.service';
+import { integrationsService } from '../services/integrations.service';
 import { messageService } from '../services/message.service';
 import { ticketService } from '../services/ticket.service';
-import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
-import { useSystemHealth } from '../hooks/useSystemHealth';
 import { useMessagesStore } from '../stores/messagesStore';
-import { integrationsService } from '../services/integrations.service';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -25,10 +25,10 @@ export const DashboardPage = () => {
   const [hasIntegrations, setHasIntegrations] = useState(false);
   const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
   const [hasTelegramIntegrations, setHasTelegramIntegrations] = useState(false);
-  
+
   // Get real-time system health
   const { health, isWebSocketConnected } = useSystemHealth();
-  
+
   // Get messages store cache clear function
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 
@@ -48,28 +48,28 @@ export const DashboardPage = () => {
       ]);
 
       if (allMessagesResponse.success) {
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           totalMessages: allMessagesResponse.pagination.total,
         }));
       }
 
       if (unprocessedMessagesResponse.success) {
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           unprocessedMessages: unprocessedMessagesResponse.pagination.total,
         }));
       }
 
       if (allTicketsResponse.success) {
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           totalTickets: allTicketsResponse.pagination.total,
         }));
       }
 
       if (pendingTicketsResponse.success) {
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           pendingTickets: pendingTicketsResponse.pagination.total,
         }));
@@ -86,11 +86,13 @@ export const DashboardPage = () => {
     const checkIntegrations = async () => {
       try {
         const response = await integrationsService.getAll();
-        const activeIntegrations = response.data?.filter(i => i.enabled) || [];
-        
-        const emailIntegrations = activeIntegrations.filter(i => i.type === 'email' || i.type === 'gmail');
-        const telegramIntegrations = activeIntegrations.filter(i => i.type === 'telegram');
-        
+        const activeIntegrations = response.data?.filter((i) => i.enabled) || [];
+
+        const emailIntegrations = activeIntegrations.filter(
+          (i) => i.type === 'email' || i.type === 'gmail'
+        );
+        const telegramIntegrations = activeIntegrations.filter((i) => i.type === 'telegram');
+
         setHasIntegrations(activeIntegrations.length > 0);
         setHasEmailIntegrations(emailIntegrations.length > 0);
         setHasTelegramIntegrations(telegramIntegrations.length > 0);
@@ -112,17 +114,23 @@ export const DashboardPage = () => {
   const handleIngestion = async (type: 'all' | 'email' | 'telegram' | 'check-email') => {
     // Check if current org has required integrations before starting
     if (type === 'all' && !hasIntegrations) {
-      alert('No integrations configured for the current organization. Please configure integrations in Settings.');
+      alert(
+        'No integrations configured for the current organization. Please configure integrations in Settings.'
+      );
       return;
     }
-    
+
     if ((type === 'email' || type === 'check-email') && !hasEmailIntegrations) {
-      alert('No email integrations configured for the current organization. Please configure email integration in Settings.');
+      alert(
+        'No email integrations configured for the current organization. Please configure email integration in Settings.'
+      );
       return;
     }
-    
+
     if (type === 'telegram' && !hasTelegramIntegrations) {
-      alert('No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.');
+      alert(
+        'No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.'
+      );
       return;
     }
 
@@ -146,17 +154,17 @@ export const DashboardPage = () => {
       if (response.success) {
         const message = response.message || 'Ingestion started successfully';
         const note = (response as { note?: string }).note;
-        
+
         // Clear Messages page cache so it shows fresh data
         clearMessagesCache();
-        
+
         // Show success message first
         if (note) {
           alert(`${message}\n\n${note}`);
         } else {
           alert(message);
         }
-        
+
         // Refresh stats after a delay to allow background processing
         // Poll stats every 2 seconds for up to 30 seconds
         let attempts = 0;
@@ -164,7 +172,7 @@ export const DashboardPage = () => {
         const pollInterval = setInterval(async () => {
           attempts++;
           await fetchStats();
-          
+
           if (attempts >= maxAttempts) {
             clearInterval(pollInterval);
           }
@@ -248,7 +256,7 @@ export const DashboardPage = () => {
             {statCards.map((stat) => {
               const Icon = stat.icon;
               return (
-                <Card 
+                <Card
                   key={stat.title}
                   onClick={stat.onClick}
                   className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
@@ -258,17 +266,28 @@ export const DashboardPage = () => {
                     <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
                       {stat.title}
                     </CardTitle>
-                    <div className={`${stat.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
+                    <div
+                      className={`${stat.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}
+                    >
                       <Icon className={`h-5 w-5 ${stat.color}`} />
                     </div>
                   </CardHeader>
                   <CardContent className="pb-4">
-                    <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">{stat.value}</div>
+                    <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
+                      {stat.value}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {stat.title === 'Unprocessed Messages' && stats.unprocessedMessages > 0 && '⚠️ Needs attention'}
-                      {stat.title === 'Pending Tickets' && stats.pendingTickets > 0 && '⏳ Awaiting response'}
-                      {(stat.title === 'Total Messages' || stat.title === 'Total Tickets') && '📊 All time'}
-                      <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">→</span>
+                      {stat.title === 'Unprocessed Messages' &&
+                        stats.unprocessedMessages > 0 &&
+                        '⚠️ Needs attention'}
+                      {stat.title === 'Pending Tickets' &&
+                        stats.pendingTickets > 0 &&
+                        '⏳ Awaiting response'}
+                      {(stat.title === 'Total Messages' || stat.title === 'Total Tickets') &&
+                        '📊 All time'}
+                      <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        →
+                      </span>
                     </p>
                   </CardContent>
                 </Card>
@@ -346,111 +365,141 @@ export const DashboardPage = () => {
               <div className="space-y-3">
                 {/* Database Status */}
                 {health?.services.database && (
-                  <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                    health.services.database.status === 'active' 
-                      ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20' 
-                      : health.services.database.status === 'error'
-                      ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
-                      : 'bg-muted border-border'
-                  }`}>
+                  <div
+                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                      health.services.database.status === 'active'
+                        ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20'
+                        : health.services.database.status === 'error'
+                          ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                          : 'bg-muted border-border'
+                    }`}
+                  >
                     <div className="flex gap-2 items-center">
-                      <div className={`w-2 h-2 rounded-full ${
-                        health.services.database.status === 'active' 
-                          ? 'bg-green-500 animate-pulse' 
-                          : health.services.database.status === 'error'
-                          ? 'bg-red-500'
-                          : 'bg-gray-400'
-                      }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          health.services.database.status === 'active'
+                            ? 'bg-green-500 animate-pulse'
+                            : health.services.database.status === 'error'
+                              ? 'bg-red-500'
+                              : 'bg-gray-400'
+                        }`}
+                      />
                       <span className="text-sm font-medium">Database</span>
                     </div>
-                    <span className={`text-xs font-medium ${
-                      health.services.database.status === 'active' 
-                        ? 'text-green-600 dark:text-green-400' 
+                    <span
+                      className={`text-xs font-medium ${
+                        health.services.database.status === 'active'
+                          ? 'text-green-600 dark:text-green-400'
+                          : health.services.database.status === 'error'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
+                      {health.services.database.status === 'active'
+                        ? 'Connected'
                         : health.services.database.status === 'error'
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-muted-foreground'
-                    }`}>
-                      {health.services.database.status === 'active' ? 'Connected' : health.services.database.status === 'error' ? 'Error' : 'Inactive'}
+                          ? 'Error'
+                          : 'Inactive'}
                     </span>
                   </div>
                 )}
 
                 {/* Email Service Status */}
                 {health?.services.email && (
-                  <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                    health.services.email.status === 'active' 
-                      ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20' 
-                      : health.services.email.status === 'error'
-                      ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
-                      : 'bg-muted border-border'
-                  }`}>
+                  <div
+                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                      health.services.email.status === 'active'
+                        ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20'
+                        : health.services.email.status === 'error'
+                          ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                          : 'bg-muted border-border'
+                    }`}
+                  >
                     <div className="flex gap-2 items-center">
-                      <div className={`w-2 h-2 rounded-full ${
-                        health.services.email.status === 'active' 
-                          ? 'bg-green-500 animate-pulse' 
-                          : health.services.email.status === 'error'
-                          ? 'bg-red-500'
-                          : 'bg-gray-400'
-                      }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          health.services.email.status === 'active'
+                            ? 'bg-green-500 animate-pulse'
+                            : health.services.email.status === 'error'
+                              ? 'bg-red-500'
+                              : 'bg-gray-400'
+                        }`}
+                      />
                       <span className="text-sm font-medium">Email Service</span>
                     </div>
-                    <span className={`text-xs font-medium ${
-                      health.services.email.status === 'active' 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : health.services.email.status === 'error'
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`text-xs font-medium ${
+                        health.services.email.status === 'active'
+                          ? 'text-green-600 dark:text-green-400'
+                          : health.services.email.status === 'error'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
                       {health.services.email.message || health.services.email.status}
                     </span>
                   </div>
                 )}
 
                 {/* WebSocket Status */}
-                <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                  isWebSocketConnected 
-                    ? 'bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/10 dark:border-blue-500/20' 
-                    : 'bg-muted border-border'
-                }`}>
+                <div
+                  className={`flex justify-between items-center p-3 rounded-lg border ${
+                    isWebSocketConnected
+                      ? 'bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/10 dark:border-blue-500/20'
+                      : 'bg-muted border-border'
+                  }`}
+                >
                   <div className="flex gap-2 items-center">
-                    <div className={`w-2 h-2 rounded-full ${
-                      isWebSocketConnected ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'
-                    }`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        isWebSocketConnected ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'
+                      }`}
+                    />
                     <span className="text-sm font-medium">WebSocket</span>
                   </div>
-                  <span className={`text-xs font-medium ${
-                    isWebSocketConnected ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'
-                  }`}>
+                  <span
+                    className={`text-xs font-medium ${
+                      isWebSocketConnected
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
                     {isWebSocketConnected ? 'Connected' : 'Disconnected'}
                   </span>
                 </div>
 
                 {/* AI Service Status */}
                 {health?.services.ai && (
-                  <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                    health.services.ai.status === 'active' 
-                      ? 'bg-purple-500/10 border-purple-500/20 dark:bg-purple-500/10 dark:border-purple-500/20' 
-                      : health.services.ai.status === 'error'
-                      ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
-                      : 'bg-muted border-border'
-                  }`}>
+                  <div
+                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                      health.services.ai.status === 'active'
+                        ? 'bg-purple-500/10 border-purple-500/20 dark:bg-purple-500/10 dark:border-purple-500/20'
+                        : health.services.ai.status === 'error'
+                          ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                          : 'bg-muted border-border'
+                    }`}
+                  >
                     <div className="flex gap-2 items-center">
-                      <div className={`w-2 h-2 rounded-full ${
-                        health.services.ai.status === 'active' 
-                          ? 'bg-purple-500 animate-pulse' 
-                          : health.services.ai.status === 'error'
-                          ? 'bg-red-500'
-                          : 'bg-gray-400'
-                      }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          health.services.ai.status === 'active'
+                            ? 'bg-purple-500 animate-pulse'
+                            : health.services.ai.status === 'error'
+                              ? 'bg-red-500'
+                              : 'bg-gray-400'
+                        }`}
+                      />
                       <span className="text-sm font-medium">AI Processing</span>
                     </div>
-                    <span className={`text-xs font-medium ${
-                      health.services.ai.status === 'active' 
-                        ? 'text-purple-600 dark:text-purple-400' 
-                        : health.services.ai.status === 'error'
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`text-xs font-medium ${
+                        health.services.ai.status === 'active'
+                          ? 'text-purple-600 dark:text-purple-400'
+                          : health.services.ai.status === 'error'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
                       {health.services.ai.message || health.services.ai.status}
                     </span>
                   </div>
@@ -471,7 +520,7 @@ export const DashboardPage = () => {
             </CardContent>
           </Card>
         </div>
-                {/* Real-time Email Processing Progress */}
+        {/* Real-time Email Processing Progress */}
         <EmailProcessingProgress />
       </div>
     </Layout>

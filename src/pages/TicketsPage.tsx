@@ -1,22 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent } from '@/components/ui/Card';
-import { ListCard } from '@/components/ui/ListCard';
-import { Drawer } from '@/components/ui/Drawer';
-import { TicketDetail } from '@/components/TicketDetail';
-import { Button } from '@/components/ui/Button';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Badge } from '@/components/ui/Badge';
-import { Pagination } from '@/components/ui/Pagination';
-import { ticketService, type PaginationMeta } from '@/services/ticket.service';
-import { integrationsService, type JiraIntegration } from '@/services/integrations.service';
-import { useTicketsStore } from '@/stores/ticketsStore';
-import { usePermissions } from '@/hooks/usePermissions';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Permission } from '@/types/roles';
-import { PAGINATION } from '@/lib/constants';
-import { formatDate } from '@/lib/utils';
 import {
   Ticket,
   ExternalLink as ExternalLinkIcon,
@@ -27,8 +9,13 @@ import {
   Filter,
   X,
 } from 'lucide-react';
-import { ExternalLink } from '@/components/ui/ExternalLink';
-import type { Ticket as TicketType, TicketStatus, TicketPriority } from '@/types';
+import { Link, useSearchParams } from 'react-router-dom';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { Layout } from '@/components/layout/Layout';
+import { TicketDetail } from '@/components/TicketDetail';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
 import {
   Dialog,
   DialogHeader,
@@ -37,12 +24,25 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { Drawer } from '@/components/ui/Drawer';
+import { ExternalLink } from '@/components/ui/ExternalLink';
+import { ListCard } from '@/components/ui/ListCard';
+import { Pagination } from '@/components/ui/Pagination';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PAGINATION } from '@/lib/constants';
 import {
   getSocket,
   subscribeToEvent,
   unsubscribeFromEvent,
   releaseSocket,
 } from '@/lib/socketManager';
+import { formatDate } from '@/lib/utils';
+import { integrationsService, type JiraIntegration } from '@/services/integrations.service';
+import { ticketService, type PaginationMeta } from '@/services/ticket.service';
+import { useTicketsStore } from '@/stores/ticketsStore';
+import type { Ticket as TicketType, TicketStatus, TicketPriority } from '@/types';
+import { Permission } from '@/types/roles';
 
 const statusColors: Record<
   TicketStatus,
@@ -150,7 +150,7 @@ export const TicketsPage = () => {
         if (currentFilters.categoryId !== 'all') {
           apiFilters.categoryId = currentFilters.categoryId;
         }
-        if (currentFilters.search && currentFilters.search.trim()) {
+        if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
 
@@ -197,7 +197,9 @@ export const TicketsPage = () => {
       try {
         const response = await integrationsService.getAll();
         if (response.success && response.data) {
-          const jiras = response.data.filter((i) => i.type === 'jira' && i.enabled) as JiraIntegration[];
+          const jiras = response.data.filter(
+            (i) => i.type === 'jira' && i.enabled
+          ) as JiraIntegration[];
           setJiraIntegrations(jiras);
           // Auto-select if only one Jira instance
           if (jiras.length === 1) {
@@ -259,7 +261,7 @@ export const TicketsPage = () => {
       setFiltersStore({ ...filters, [key]: value });
     }
   };
-  
+
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
     setFiltersStore({ ...filters, search: pendingSearch });
@@ -365,7 +367,9 @@ export const TicketsPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!ticketToDelete) return;
+    if (!ticketToDelete) {
+      return;
+    }
 
     setDeleting(true);
     try {
@@ -387,7 +391,7 @@ export const TicketsPage = () => {
     (filters.status !== 'all' ? 1 : 0) +
     (filters.priority !== 'all' ? 1 : 0) +
     (filters.categoryId !== 'all' ? 1 : 0) +
-    (filters.search && filters.search.trim() ? 1 : 0);
+    (filters.search?.trim() ? 1 : 0);
 
   return (
     <Layout>
@@ -553,7 +557,11 @@ export const TicketsPage = () => {
                     (jiraIntegrations.length > 1 && !selectedJiraId)
                   }
                   isLoading={isSyncingAll}
-                  title={!hasPermission(Permission.MANAGE_TICKETS) ? 'You need MANAGE_TICKETS permission to sync to Jira' : ''}
+                  title={
+                    !hasPermission(Permission.MANAGE_TICKETS)
+                      ? 'You need MANAGE_TICKETS permission to sync to Jira'
+                      : ''
+                  }
                 >
                   <Send className="mr-2 w-4 h-4" />
                   Sync to Jira
@@ -653,7 +661,9 @@ export const TicketsPage = () => {
                         </Button>
                       )}
                     </PermissionGuard>
-                    <PermissionGuard permissions={[Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION]}>
+                    <PermissionGuard
+                      permissions={[Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION]}
+                    >
                       <Button
                         size="sm"
                         variant="destructive"
@@ -744,17 +754,25 @@ export const TicketsPage = () => {
         >
           <TicketDetail
             ticket={selectedTicket}
-            onPushToJira={hasPermission(Permission.MANAGE_TICKETS) ? async () => {
-              await handlePushToJira(selectedTicket.id);
-              // Refresh to get updated ticket data
-              await fetchTickets();
-              setSelectedTicket(null);
-            } : undefined}
-            onDelete={hasPermission(Permission.MANAGE_TICKETS) ? () => {
-              setTicketToDelete(selectedTicket);
-              setSelectedTicket(null);
-              setDeleteDialogOpen(true);
-            } : undefined}
+            onPushToJira={
+              hasPermission(Permission.MANAGE_TICKETS)
+                ? async () => {
+                    await handlePushToJira(selectedTicket.id);
+                    // Refresh to get updated ticket data
+                    await fetchTickets();
+                    setSelectedTicket(null);
+                  }
+                : undefined
+            }
+            onDelete={
+              hasPermission(Permission.MANAGE_TICKETS)
+                ? () => {
+                    setTicketToDelete(selectedTicket);
+                    setSelectedTicket(null);
+                    setDeleteDialogOpen(true);
+                  }
+                : undefined
+            }
             isPushingToJira={syncing === selectedTicket.id}
           />
         </Drawer>

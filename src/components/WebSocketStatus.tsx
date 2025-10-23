@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { Wifi, WifiOff, X } from 'lucide-react';
+import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 
 export const WebSocketStatus = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -35,9 +35,11 @@ export const WebSocketStatus = () => {
       {/* Expanded Panel */}
       {isExpanded && (
         <div className="fixed right-0 top-1/2 -translate-y-1/2 z-50 w-64">
-          <div className={`shadow-xl rounded-l-lg overflow-hidden ${
-            isConnected ? 'bg-green-600' : 'bg-red-600'
-          }`}>
+          <div
+            className={`shadow-xl rounded-l-lg overflow-hidden ${
+              isConnected ? 'bg-green-600' : 'bg-red-600'
+            }`}
+          >
             {/* Header */}
             <div className="px-4 py-3 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -46,9 +48,7 @@ export const WebSocketStatus = () => {
                 ) : (
                   <WifiOff className="h-5 w-5" />
                 )}
-                <span className="font-semibold">
-                  {isConnected ? 'Connected' : 'Disconnected'}
-                </span>
+                <span className="font-semibold">{isConnected ? 'Connected' : 'Disconnected'}</span>
               </div>
               <button
                 onClick={() => setIsExpanded(false)}
@@ -63,13 +63,15 @@ export const WebSocketStatus = () => {
             <div className="bg-white p-4 text-xs space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600 font-medium">Status:</span>
-                <span className={`font-mono font-semibold ${
-                  isConnected ? 'text-green-600' : 'text-red-600'
-                }`}>
+                <span
+                  className={`font-mono font-semibold ${
+                    isConnected ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
                   {isConnected ? 'Live ✅' : 'Offline ❌'}
                 </span>
               </div>
-              
+
               {isConnected && (
                 <div className="flex justify-between">
                   <span className="text-gray-600 font-medium">Socket ID:</span>
@@ -80,11 +82,7 @@ export const WebSocketStatus = () => {
               )}
 
               <div className="pt-2 border-t text-gray-500 text-xs">
-                {isConnected ? (
-                  <>Real-time updates active</>
-                ) : (
-                  <>Reconnecting...</>
-                )}
+                {isConnected ? <>Real-time updates active</> : <>Reconnecting...</>}
               </div>
             </div>
           </div>

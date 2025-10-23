@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/stores/authStore';
-import { organizationService, type Organization } from '@/services/organization.service';
 import { Building2, ChevronDown, Check } from 'lucide-react';
+import { organizationService, type Organization } from '@/services/organization.service';
+import { useAuthStore } from '@/stores/authStore';
 
 export const OrganizationSwitcher = () => {
   const user = useAuthStore((state) => state.user);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
-  
+
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,9 @@ export const OrganizationSwitcher = () => {
   useEffect(() => {
     if (selectedOrganizationId) {
       const org = organizations.find((o) => o.id === selectedOrganizationId);
-      console.log(`🏢 [ORG SWITCHER] Current Organization: ${org?.name || 'Loading...'} (ID: ${selectedOrganizationId})`);
+      console.log(
+        `🏢 [ORG SWITCHER] Current Organization: ${org?.name || 'Loading...'} (ID: ${selectedOrganizationId})`
+      );
     } else {
       console.warn('⚠️ [ORG SWITCHER] No organization selected!');
     }
@@ -36,7 +38,7 @@ export const OrganizationSwitcher = () => {
     try {
       const result = await organizationService.getAll('', 1, 100);
       setOrganizations(result.data);
-      
+
       // Auto-select first organization if none selected
       if (!selectedOrganizationId && result.data.length > 0) {
         setSelectedOrganization(result.data[0].id);
@@ -51,10 +53,10 @@ export const OrganizationSwitcher = () => {
   const handleSelectOrganization = (orgId: number) => {
     const org = organizations.find((o) => o.id === orgId);
     console.log(`🔄 [ORG SWITCHER] Switching to organization: ${org?.name} (ID: ${orgId})`);
-    
+
     setSelectedOrganization(orgId);
     setIsOpen(false);
-    
+
     // Reload to apply new context
     console.log('🔄 [ORG SWITCHER] Reloading page to apply new organization context...');
     window.location.reload();
@@ -83,10 +85,7 @@ export const OrganizationSwitcher = () => {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
-          />
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
           {/* Dropdown */}
           <div className="absolute left-0 bottom-full z-20 mb-2 w-full bg-card rounded-md shadow-lg border border-border max-h-64 overflow-y-auto">
@@ -94,7 +93,9 @@ export const OrganizationSwitcher = () => {
               {loading ? (
                 <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
               ) : organizations.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">No organizations found</div>
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  No organizations found
+                </div>
               ) : (
                 organizations.map((org) => (
                   <button

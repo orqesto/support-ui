@@ -1,31 +1,47 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './stores/authStore';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { Permission } from './types/roles';
 
 // Eager load critical routes
+import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { SignupPage } from './pages/SignupPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+import { useAuthStore } from './stores/authStore';
+import { Permission } from './types/roles';
 
 // Lazy load non-critical routes
-const MessagesPage = lazy(() => import('./pages/MessagesPage').then(m => ({ default: m.MessagesPage })));
-const TicketsPage = lazy(() => import('./pages/TicketsPage').then(m => ({ default: m.TicketsPage })));
-const CreateTicketPage = lazy(() => import('./pages/CreateTicketPage').then(m => ({ default: m.CreateTicketPage })));
-const EditTicketPage = lazy(() => import('./pages/EditTicketPage').then(m => ({ default: m.EditTicketPage })));
-const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then(m => ({ default: m.StatisticsPage })));
-const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const UsersPage = lazy(() => import('./pages/UsersPage').then(m => ({ default: m.UsersPage })));
-const OrganizationPage = lazy(() => import('./pages/OrganizationPage').then(m => ({ default: m.OrganizationPage })));
-const EmailTemplatesPage = lazy(() => import('./pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
+const MessagesPage = lazy(() =>
+  import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage }))
+);
+const TicketsPage = lazy(() =>
+  import('./pages/TicketsPage').then((m) => ({ default: m.TicketsPage }))
+);
+const CreateTicketPage = lazy(() =>
+  import('./pages/CreateTicketPage').then((m) => ({ default: m.CreateTicketPage }))
+);
+const EditTicketPage = lazy(() =>
+  import('./pages/EditTicketPage').then((m) => ({ default: m.EditTicketPage }))
+);
+const StatisticsPage = lazy(() =>
+  import('./pages/StatisticsPage').then((m) => ({ default: m.StatisticsPage }))
+);
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+);
+const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })));
+const OrganizationPage = lazy(() =>
+  import('./pages/OrganizationPage').then((m) => ({ default: m.OrganizationPage }))
+);
+const EmailTemplatesPage = lazy(() =>
+  import('./pages/EmailTemplatesPage').then((m) => ({ default: m.EmailTemplatesPage }))
+);
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen bg-background">
     <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
       <p className="text-muted-foreground">Loading...</p>
     </div>
   </div>
@@ -49,14 +65,8 @@ const AppRoutes = () => {
         path="/signup"
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />}
       />
-      <Route
-        path="/verify-email"
-        element={<VerifyEmailPage />}
-      />
-      <Route
-        path="/oauth/gmail/callback"
-        element={<OAuthCallbackPage />}
-      />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/oauth/gmail/callback" element={<OAuthCallbackPage />} />
       <Route
         path="/dashboard"
         element={
@@ -163,12 +173,10 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => {
-  return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
-  );
-};
+const App = () => (
+  <BrowserRouter>
+    <AppRoutes />
+  </BrowserRouter>
+);
 
 export default App;

@@ -1,11 +1,11 @@
 import { useState } from 'react';
+import { Settings, FolderTree, FileText, Shield, Plug } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Settings, FolderTree, FileText, Shield, Plug } from 'lucide-react';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
+import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
 import { PromptsSettings } from '../components/settings/PromptsSettings';
 import { SpamRulesSettings } from '../components/settings/SpamRulesSettings';
-import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
 
 type TabType = 'categories' | 'prompts' | 'spam-rules' | 'integrations';
 

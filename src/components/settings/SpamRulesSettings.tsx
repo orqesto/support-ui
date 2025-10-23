@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Button } from '../ui/Button';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 import { Badge } from '../ui/Badge';
-import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, DialogClose } from '../ui/Dialog';
+import { Button } from '../ui/Button';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+  DialogClose,
+} from '../ui/Dialog';
 
 export const SpamRulesSettings = () => {
   const [rules, setRules] = useState<SpamRule[]>([]);
@@ -51,7 +58,14 @@ export const SpamRulesSettings = () => {
 
   const handleCreate = () => {
     setIsCreating(true);
-    setFormData({ name: '', description: '', pattern: '', category: 'content', severity: 10, active: true });
+    setFormData({
+      name: '',
+      description: '',
+      pattern: '',
+      category: 'content',
+      severity: 10,
+      active: true,
+    });
   };
 
   const handleSave = async () => {
@@ -64,7 +78,14 @@ export const SpamRulesSettings = () => {
       await fetchRules();
       setEditingRule(null);
       setIsCreating(false);
-      setFormData({ name: '', description: '', pattern: '', category: 'content', severity: 10, active: true });
+      setFormData({
+        name: '',
+        description: '',
+        pattern: '',
+        category: 'content',
+        severity: 10,
+        active: true,
+      });
     } catch (error) {
       console.error('Error saving rule:', error);
     }
@@ -73,7 +94,14 @@ export const SpamRulesSettings = () => {
   const handleCancel = () => {
     setEditingRule(null);
     setIsCreating(false);
-    setFormData({ name: '', description: '', pattern: '', category: 'content', severity: 10, active: true });
+    setFormData({
+      name: '',
+      description: '',
+      pattern: '',
+      category: 'content',
+      severity: 10,
+      active: true,
+    });
   };
 
   const handleDeleteClick = (rule: SpamRule) => {
@@ -82,7 +110,9 @@ export const SpamRulesSettings = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!ruleToDelete) return;
+    if (!ruleToDelete) {
+      return;
+    }
     try {
       await settingsService.deleteSpamRule(ruleToDelete.id);
       await fetchRules();
@@ -103,8 +133,12 @@ export const SpamRulesSettings = () => {
   };
 
   const getSeverityColor = (severity: number) => {
-    if (severity >= 30) return 'danger';
-    if (severity >= 20) return 'warning';
+    if (severity >= 30) {
+      return 'danger';
+    }
+    if (severity >= 20) {
+      return 'warning';
+    }
     return 'default';
   };
 
@@ -129,16 +163,17 @@ export const SpamRulesSettings = () => {
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 bg-yellow-500/10 dark:bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+      <div className="p-4 rounded-lg border bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20">
         <p className="text-sm text-yellow-600 dark:text-yellow-400">
-          <strong>Pattern Matching:</strong> Use regex or keywords separated by <code className="px-1 bg-yellow-500/20 rounded">|</code> (pipe).
-          Higher severity scores (0-100) have more impact on spam detection.
+          <strong>Pattern Matching:</strong> Use regex or keywords separated by{' '}
+          <code className="px-1 rounded bg-yellow-500/20">|</code> (pipe). Higher severity scores
+          (0-100) have more impact on spam detection.
         </p>
       </div>
 
       {/* New Rule Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 bg-red-500/10 dark:bg-red-500/10 rounded-lg border border-red-500/20">
+        <div className="p-4 space-y-4 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
           <h4 className="font-semibold">New Spam Rule</h4>
           <div className="grid gap-4">
             <div>
@@ -282,7 +317,9 @@ export const SpamRulesSettings = () => {
                         min="0"
                         max="100"
                         value={formData.severity}
-                        onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, severity: parseInt(e.target.value) })
+                        }
                         className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
@@ -327,15 +364,11 @@ export const SpamRulesSettings = () => {
                         {rule.category}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {rule.description}
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{rule.description}</p>
                     {rule.pattern && (
                       <div className="mt-2">
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">
-                          Pattern:
-                        </p>
-                        <code className="px-2 py-1 font-mono text-xs bg-muted rounded">
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">Pattern:</p>
+                        <code className="px-2 py-1 font-mono text-xs rounded bg-muted">
                           {rule.pattern}
                         </code>
                       </div>
@@ -348,11 +381,7 @@ export const SpamRulesSettings = () => {
                       onClick={() => toggleActive(rule)}
                       title={rule.active ? 'Deactivate' : 'Activate'}
                     >
-                      {rule.active ? (
-                        <EyeOff className="w-3 h-3" />
-                      ) : (
-                        <Eye className="w-3 h-3" />
-                      )}
+                      {rule.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(rule)}>
                       <Edit2 className="mr-1 w-3 h-3" />
@@ -384,7 +413,7 @@ export const SpamRulesSettings = () => {
         <DialogContent>
           <p>Are you sure you want to delete this spam detection rule?</p>
           {ruleToDelete && (
-            <div className="p-4 mt-4 bg-muted rounded">
+            <div className="p-4 mt-4 rounded bg-muted">
               <p className="text-sm font-medium">{ruleToDelete.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">{ruleToDelete.description}</p>
             </div>

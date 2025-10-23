@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Layout } from '@/components/layout/Layout';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Mail, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Layout } from '@/components/layout/Layout';
+import { Button } from '@/components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 
 type TemplateType = 'invitation' | 'verification';
@@ -77,9 +77,7 @@ export const EmailTemplatesPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Available Templates</CardTitle>
-                <CardDescription>
-                  Select a template to preview
-                </CardDescription>
+                <CardDescription>Select a template to preview</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y">
@@ -88,16 +86,24 @@ export const EmailTemplatesPage = () => {
                       key={template.type}
                       onClick={() => loadPreview(template.type)}
                       className={`w-full text-left p-4 hover:bg-accent transition-colors ${
-                        selectedTemplate === template.type ? 'bg-blue-500/10 dark:bg-blue-500/10 border-l-4 border-primary' : ''
+                        selectedTemplate === template.type
+                          ? 'bg-blue-500/10 dark:bg-blue-500/10 border-l-4 border-primary'
+                          : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <Mail className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                          selectedTemplate === template.type ? 'text-primary' : 'text-muted-foreground'
-                        }`} />
+                        <Mail
+                          className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                            selectedTemplate === template.type
+                              ? 'text-primary'
+                              : 'text-muted-foreground'
+                          }`}
+                        />
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm">{template.name}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {template.description}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -113,20 +119,36 @@ export const EmailTemplatesPage = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-xs">
-                    <p className="text-muted-foreground">Available variables for {selectedTemplate}:</p>
+                    <p className="text-muted-foreground">
+                      Available variables for {selectedTemplate}:
+                    </p>
                     <div className="bg-muted p-3 rounded font-mono text-xs space-y-1">
-                      <div><span className="text-primary">{'{{appName}}'}</span> - Application name</div>
-                      <div><span className="text-primary">{'{{year}}'}</span> - Current year</div>
+                      <div>
+                        <span className="text-primary">{'{{appName}}'}</span> - Application name
+                      </div>
+                      <div>
+                        <span className="text-primary">{'{{year}}'}</span> - Current year
+                      </div>
                       {selectedTemplate === 'invitation' && (
                         <>
-                          <div><span className="text-primary">{'{{organizationName}}'}</span> - Organization</div>
-                          <div><span className="text-primary">{'{{role}}'}</span> - User role</div>
-                          <div><span className="text-primary">{'{{signupUrl}}'}</span> - Signup link</div>
+                          <div>
+                            <span className="text-primary">{'{{organizationName}}'}</span> -
+                            Organization
+                          </div>
+                          <div>
+                            <span className="text-primary">{'{{role}}'}</span> - User role
+                          </div>
+                          <div>
+                            <span className="text-primary">{'{{signupUrl}}'}</span> - Signup link
+                          </div>
                         </>
                       )}
                       {selectedTemplate === 'verification' && (
                         <>
-                          <div><span className="text-primary">{'{{verificationUrl}}'}</span> - Verification link</div>
+                          <div>
+                            <span className="text-primary">{'{{verificationUrl}}'}</span> -
+                            Verification link
+                          </div>
                         </>
                       )}
                     </div>
@@ -147,10 +169,9 @@ export const EmailTemplatesPage = () => {
                       Preview
                     </CardTitle>
                     <CardDescription>
-                      {selectedTemplate 
-                        ? `Preview of ${TEMPLATES.find(t => t.type === selectedTemplate)?.name}`
-                        : 'Select a template to preview'
-                      }
+                      {selectedTemplate
+                        ? `Preview of ${TEMPLATES.find((t) => t.type === selectedTemplate)?.name}`
+                        : 'Select a template to preview'}
                     </CardDescription>
                   </div>
                   {selectedTemplate && (
@@ -160,7 +181,9 @@ export const EmailTemplatesPage = () => {
                       onClick={refreshPreview}
                       disabled={isLoadingPreview}
                     >
-                      <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingPreview ? 'animate-spin' : ''}`} />
+                      <RefreshCw
+                        className={`w-4 h-4 mr-2 ${isLoadingPreview ? 'animate-spin' : ''}`}
+                      />
                       Refresh
                     </Button>
                   )}
@@ -173,14 +196,14 @@ export const EmailTemplatesPage = () => {
                     <p>Select a template from the list to preview it</p>
                   </div>
                 )}
-                
+
                 {isLoadingPreview && (
                   <div className="py-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
                     <p className="text-gray-500">Loading preview...</p>
                   </div>
                 )}
-                
+
                 {error && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -190,7 +213,7 @@ export const EmailTemplatesPage = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {selectedTemplate && !isLoadingPreview && !error && previewHtml && (
                   <div className="border rounded-lg overflow-hidden">
                     <div className="bg-gray-100 px-4 py-2 text-xs text-gray-600 border-b">

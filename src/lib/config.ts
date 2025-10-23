@@ -9,7 +9,9 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:30
  */
 export const getAuthToken = (): string | null => {
   const authStorage = localStorage.getItem('auth-storage');
-  if (!authStorage) return null;
+  if (!authStorage) {
+    return null;
+  }
 
   try {
     const { state } = JSON.parse(authStorage);

@@ -23,12 +23,11 @@ export const CreateOrganizationModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const generateSlug = (name: string): string => {
-    return name
+  const generateSlug = (name: string): string =>
+    name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-  };
 
   const handleNameChange = (name: string) => {
     setFormData({
@@ -66,7 +65,9 @@ export const CreateOrganizationModal = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50">
@@ -79,7 +80,10 @@ export const CreateOrganizationModal = ({
             </div>
             <h2 className="text-xl font-semibold">Create Organization</h2>
           </div>
-          <button onClick={onClose} className="text-muted-foreground transition-colors hover:text-foreground">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -113,9 +117,7 @@ export const CreateOrganizationModal = ({
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">
-              Description (Optional)
-            </label>
+            <label className="block mb-1 text-sm font-medium">Description (Optional)</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}

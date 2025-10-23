@@ -1,5 +1,5 @@
-import { X, Search } from 'lucide-react';
 import { useRef, useEffect } from 'react';
+import { X, Search } from 'lucide-react';
 
 type SearchInputProps = {
   value: string;
@@ -12,43 +12,44 @@ type SearchInputProps = {
   onBlur?: () => void; // Optional: trigger on focus lost
 };
 
-export const SearchInput = ({ 
-  value, 
-  onChange, 
-  placeholder = 'Search...', 
+export const SearchInput = ({
+  value,
+  onChange,
+  placeholder = 'Search...',
   className = '',
   size = 'md',
   onSearch,
   showSearchButton = false,
-  onBlur
+  onBlur,
 }: SearchInputProps) => {
-  const sizeClasses = size === 'sm' 
-    ? 'px-3 py-1 pr-8 text-xs' 
-    : 'px-3 py-2 pr-9 text-sm';
-  
+  const sizeClasses = size === 'sm' ? 'px-3 py-1 pr-8 text-xs' : 'px-3 py-2 pr-9 text-sm';
+
   const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSearch) {
       onSearch();
     }
   };
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const wasFocusedRef = useRef(false);
-  const cursorPositionRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
-  
+  const cursorPositionRef = useRef<{ start: number | null; end: number | null }>({
+    start: null,
+    end: null,
+  });
+
   // Save cursor position whenever input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (inputRef.current) {
       cursorPositionRef.current = {
         start: inputRef.current.selectionStart,
-        end: inputRef.current.selectionEnd
+        end: inputRef.current.selectionEnd,
       };
     }
     onChange(e.target.value);
   };
-  
+
   // Maintain focus across all re-renders
   useEffect(() => {
     // If input was focused but lost focus due to re-render, restore it
@@ -69,7 +70,7 @@ export const SearchInput = ({
       });
     }
   });
-  
+
   return (
     <div className={`relative ${className}`}>
       <input
@@ -79,14 +80,18 @@ export const SearchInput = ({
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onFocus={() => { wasFocusedRef.current = true; }}
-        onBlur={() => { 
+        onFocus={() => {
+          wasFocusedRef.current = true;
+        }}
+        onBlur={() => {
           wasFocusedRef.current = false;
-          if (onBlur) onBlur();
+          if (onBlur) {
+            onBlur();
+          }
         }}
         className={`${sizeClasses} w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground`}
       />
-      
+
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 items-center">
         {value && (
           <button
@@ -106,7 +111,7 @@ export const SearchInput = ({
             <X className={iconSize} />
           </button>
         )}
-        
+
         {showSearchButton && onSearch && (
           <button
             onClick={onSearch}

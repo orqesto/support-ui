@@ -1,4 +1,6 @@
-import { apiClient } from "@/lib/api-client";
+import type { AxiosResponse } from 'axios';
+import { apiClient } from '@/lib/api-client';
+import type { ApiResponse } from '@/types';
 
 // Types
 export type Category = {
@@ -36,13 +38,13 @@ export type SpamRule = {
 // ==================== Categories ====================
 
 const getCategories = async (): Promise<Category[]> => {
-  const response = await apiClient.get('/api/settings/categories');
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<Category[]>> = await apiClient.get('/api/settings/categories');
+  return response.data.data as Category[];
 };
 
 const getCategoryById = async (id: number): Promise<Category> => {
-  const response = await apiClient.get(`/api/settings/categories/${id}`);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<Category>> = await apiClient.get(`/api/settings/categories/${id}`);
+  return response.data.data as Category;
 };
 
 const createCategory = async (data: {
@@ -50,8 +52,8 @@ const createCategory = async (data: {
   description?: string;
   keywords?: string;
 }): Promise<Category> => {
-  const response = await apiClient.post('/api/settings/categories', data);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<Category>> = await apiClient.post('/api/settings/categories', data);
+  return response.data.data as Category;
 };
 
 const updateCategory = async (
@@ -62,8 +64,8 @@ const updateCategory = async (
     keywords?: string;
   }
 ): Promise<Category> => {
-  const response = await apiClient.put(`/api/settings/categories/${id}`, data);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<Category>> = await apiClient.put(`/api/settings/categories/${id}`, data);
+  return response.data.data as Category;
 };
 
 const deleteCategory = async (id: number): Promise<void> => {
@@ -73,18 +75,18 @@ const deleteCategory = async (id: number): Promise<void> => {
 // ==================== Prompt Templates ====================
 
 const getPromptTemplates = async (): Promise<PromptTemplate[]> => {
-  const response = await apiClient.get('/api/settings/prompts');
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<PromptTemplate[]>> = await apiClient.get('/api/settings/prompts');
+  return response.data.data as PromptTemplate[];
 };
 
 const getPromptTemplateById = async (id: number): Promise<PromptTemplate> => {
-  const response = await apiClient.get(`/api/settings/prompts/${id}`);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<PromptTemplate>> = await apiClient.get(`/api/settings/prompts/${id}`);
+  return response.data.data as PromptTemplate;
 };
 
 const getPromptTemplateByName = async (name: string): Promise<PromptTemplate> => {
-  const response = await apiClient.get(`/api/settings/prompts/name/${name}`);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<PromptTemplate>> = await apiClient.get(`/api/settings/prompts/name/${name}`);
+  return response.data.data as PromptTemplate;
 };
 
 const createPromptTemplate = async (data: {
@@ -93,8 +95,8 @@ const createPromptTemplate = async (data: {
   prompt: string;
   active?: boolean;
 }): Promise<PromptTemplate> => {
-  const response = await apiClient.post('/api/settings/prompts', data);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<PromptTemplate>> = await apiClient.post('/api/settings/prompts', data);
+  return response.data.data as PromptTemplate;
 };
 
 const updatePromptTemplate = async (
@@ -106,8 +108,8 @@ const updatePromptTemplate = async (
     active?: boolean;
   }
 ): Promise<PromptTemplate> => {
-  const response = await apiClient.put(`/api/settings/prompts/${id}`, data);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<PromptTemplate>> = await apiClient.put(`/api/settings/prompts/${id}`, data);
+  return response.data.data as PromptTemplate;
 };
 
 const deletePromptTemplate = async (id: number): Promise<void> => {
@@ -117,13 +119,13 @@ const deletePromptTemplate = async (id: number): Promise<void> => {
 // ==================== Spam Rules ====================
 
 const getSpamRules = async (): Promise<SpamRule[]> => {
-  const response = await apiClient.get('/api/settings/spam-rules');
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<SpamRule[]>> = await apiClient.get('/api/settings/spam-rules');
+  return response.data.data as SpamRule[];
 };
 
 const getSpamRuleById = async (id: number): Promise<SpamRule> => {
-  const response = await apiClient.get(`/api/settings/spam-rules/${id}`);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<SpamRule>> = await apiClient.get(`/api/settings/spam-rules/${id}`);
+  return response.data.data as SpamRule;
 };
 
 const createSpamRule = async (data: {
@@ -134,8 +136,8 @@ const createSpamRule = async (data: {
   severity?: number;
   active?: boolean;
 }): Promise<SpamRule> => {
-  const response = await apiClient.post('/api/settings/spam-rules', data);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<SpamRule>> = await apiClient.post('/api/settings/spam-rules', data);
+  return response.data.data as SpamRule;
 };
 
 const updateSpamRule = async (
@@ -149,8 +151,8 @@ const updateSpamRule = async (
     active?: boolean;
   }
 ): Promise<SpamRule> => {
-  const response = await apiClient.put(`/api/settings/spam-rules/${id}`, data);
-  return response.data.data;
+  const response: AxiosResponse<ApiResponse<SpamRule>> = await apiClient.put(`/api/settings/spam-rules/${id}`, data);
+  return response.data.data as SpamRule;
 };
 
 const deleteSpamRule = async (id: number): Promise<void> => {

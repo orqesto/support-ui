@@ -1,4 +1,5 @@
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { API_BASE_URL } from './config';
 
 type EventCallback = (data: unknown) => void;
@@ -32,10 +33,10 @@ export const getSocket = (): Socket => {
       console.log('❌ WebSocket disconnected:', reason);
     });
   }
-  
+
   connectionCount++;
   console.log(`📊 Active connections: ${connectionCount}`);
-  
+
   return socket;
 };
 
@@ -44,25 +45,25 @@ export const subscribeToEvent = (event: string, callback: EventCallback) => {
   if (!socket) {
     throw new Error('Socket not initialized. Call getSocket() first.');
   }
-  
+
   if (!eventListeners.has(event)) {
     eventListeners.set(event, new Set());
-    
+
     // Add single listener to socket that broadcasts to all subscribers
     socket.on(event, (data: unknown) => {
       console.log(`📧 Event received: ${event}`, data);
-      
+
       const callbacks = eventListeners.get(event);
       if (callbacks) {
         console.log(`  ↳ Broadcasting to ${callbacks.size} subscriber(s)`);
         // Call each unique callback
-        callbacks.forEach(cb => cb(data));
+        callbacks.forEach((cb) => cb(data));
       }
     });
-    
+
     console.log(`🎧 Subscribed to event: ${event}`);
   }
-  
+
   eventListeners.get(event)!.add(callback);
   console.log(`📝 Added callback for ${event} (${eventListeners.get(event)!.size} total)`);
 };
@@ -73,7 +74,7 @@ export const unsubscribeFromEvent = (event: string, callback: EventCallback) => 
   if (callbacks) {
     callbacks.delete(callback);
     console.log(`🗑️  Removed callback for ${event} (${callbacks.size} remaining)`);
-    
+
     // Clean up if no more callbacks
     if (callbacks.size === 0) {
       socket?.off(event);
@@ -86,7 +87,7 @@ export const unsubscribeFromEvent = (event: string, callback: EventCallback) => 
 export const releaseSocket = () => {
   connectionCount--;
   console.log(`📊 Active connections: ${connectionCount}`);
-  
+
   // Delay disconnect to handle React StrictMode double-mounting
   if (connectionCount <= 0 && socket) {
     console.log('⏳ Scheduling disconnect in 1 second...');

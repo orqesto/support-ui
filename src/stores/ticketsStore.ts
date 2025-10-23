@@ -41,9 +41,8 @@ type TicketsState = {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-const getCacheKey = (filters: TicketFilters, sorting: TicketSorting, page: number): string => {
-  return JSON.stringify({ filters, sorting, page });
-};
+const getCacheKey = (filters: TicketFilters, sorting: TicketSorting, page: number): string =>
+  JSON.stringify({ filters, sorting, page });
 
 export const useTicketsStore = create<TicketsState>((set, get) => ({
   filters: {
