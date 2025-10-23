@@ -29,14 +29,16 @@ export const PromptsSettings = () => {
   };
 
   useEffect(() => {
-    fetchPrompts();
+    fetchPrompts().catch((error) => {
+      console.error('Failed to fetch prompts:', error);
+    });
   }, []);
 
   const handleEdit = (prompt: PromptTemplate) => {
     setEditingPrompt(prompt);
     setFormData({
       name: prompt.name,
-      description: prompt.description || '',
+      description: prompt.description ?? '',
       prompt: prompt.prompt,
       active: prompt.active,
     });
@@ -99,24 +101,26 @@ export const PromptsSettings = () => {
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
+      <div className="p-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
         <p className="text-sm text-blue-600 dark:text-blue-400">
           <strong>Template Variables:</strong> Use{' '}
-          <code className="px-1 bg-blue-500/20 rounded">{'{{variable}}'}</code> for dynamic content.
-          Available: <code className="px-1 bg-blue-500/20 rounded">{'{{subject}}'}</code>,{' '}
-          <code className="px-1 bg-blue-500/20 rounded">{'{{sender}}'}</code>,{' '}
-          <code className="px-1 bg-blue-500/20 rounded">{'{{content}}'}</code>,{' '}
-          <code className="px-1 bg-blue-500/20 rounded">{'{{spam_rules}}'}</code>
+          <code className="px-1 rounded bg-blue-500/20">{'{{variable}}'}</code> for dynamic content.
+          Available: <code className="px-1 rounded bg-blue-500/20">{'{{subject}}'}</code>,{' '}
+          <code className="px-1 rounded bg-blue-500/20">{'{{sender}}'}</code>,{' '}
+          <code className="px-1 rounded bg-blue-500/20">{'{{content}}'}</code>,{' '}
+          <code className="px-1 rounded bg-blue-500/20">{'{{spam_rules}}'}</code>
         </p>
       </div>
 
       {/* New Prompt Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 bg-green-500/10 dark:bg-green-500/10 rounded-lg border border-green-500/20">
+        <div className="p-4 space-y-4 rounded-lg border bg-green-500/10 dark:bg-green-500/10 border-green-500/20">
           <h4 className="font-semibold">New Prompt Template</h4>
           <div className="grid gap-4">
             <div>
-              <label className="text-sm font-medium">Name (unique identifier)</label>
+              <label htmlFor="name" className="text-sm font-medium">
+                Name (unique identifier)
+              </label>
               <input
                 type="text"
                 value={formData.name}
@@ -126,7 +130,9 @@ export const PromptsSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label htmlFor="description" className="text-sm font-medium">
+                Description
+              </label>
               <input
                 type="text"
                 value={formData.description}
@@ -136,7 +142,9 @@ export const PromptsSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Prompt Template</label>
+              <label htmlFor="prompt" className="text-sm font-medium">
+                Prompt Template
+              </label>
               <textarea
                 value={formData.prompt}
                 onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
@@ -218,7 +226,9 @@ export const PromptsSettings = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Prompt Template</label>
+                    <label htmlFor="prompt" className="text-sm font-medium">
+                      Prompt Template
+                    </label>
                     <textarea
                       value={formData.prompt}
                       onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
@@ -278,7 +288,7 @@ export const PromptsSettings = () => {
                       {prompt.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(prompt)}>
-                      <Edit2 className="mr-1 w-3 h-3" />
+                      <Edit2 className="mr-2 w-4 h-4" />
                       Edit
                     </Button>
                   </div>
@@ -287,7 +297,7 @@ export const PromptsSettings = () => {
                   <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
                     View Prompt Template ({prompt.prompt.length} characters)
                   </summary>
-                  <div className="p-3 mt-3 bg-muted rounded-lg border border-border">
+                  <div className="p-3 mt-3 rounded-lg border bg-muted border-border">
                     <pre className="overflow-auto max-h-96 font-mono text-xs whitespace-pre-wrap">
                       {prompt.prompt}
                     </pre>

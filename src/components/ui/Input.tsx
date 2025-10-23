@@ -1,5 +1,4 @@
-import { forwardRef } from 'react';
-import type { InputHTMLAttributes } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
@@ -9,12 +8,12 @@ export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, label, error, id, ...props }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+    const inputId = id ?? `input-${Math.random().toString(36).substr(2, 9)}`;
 
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium mb-2">
+          <label htmlFor={inputId} className="block mb-2 text-sm font-medium">
             {label}
           </label>
         )}

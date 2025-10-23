@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { X, Building2, Plus } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -58,8 +57,12 @@ export const CreateOrganizationModal = ({
       await onCreate(formData.name, formData.slug, formData.description || undefined);
       setFormData({ name: '', slug: '', description: '' });
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create organization');
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to create organization');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -71,21 +74,23 @@ export const CreateOrganizationModal = ({
 
   return (
     <div className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50">
-      <div className="w-full max-w-md bg-card rounded-lg shadow-xl">
+      <div className="w-full max-w-md rounded-lg shadow-xl bg-card">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-border">
           <div className="flex gap-2 items-center">
-            <div className="flex justify-center items-center w-10 h-10 bg-purple-500/10 dark:bg-purple-500/10 rounded-lg">
+            <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">
               <Building2 className="w-5 h-5 text-purple-600" />
             </div>
             <h2 className="text-xl font-semibold">Create Organization</h2>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="h-auto p-2 transition-colors text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Form */}
@@ -117,7 +122,9 @@ export const CreateOrganizationModal = ({
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">Description (Optional)</label>
+            <label htmlFor="description" className="block mb-1 text-sm font-medium">
+              Description (Optional)
+            </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}

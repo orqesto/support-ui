@@ -1,5 +1,5 @@
-import type { Socket } from 'socket.io-client';
-import { io } from 'socket.io-client';
+/* eslint-disable no-console */
+import { io, type Socket } from 'socket.io-client';
 import { API_BASE_URL } from './config';
 
 type EventCallback = (data: unknown) => void;
@@ -64,8 +64,8 @@ export const subscribeToEvent = (event: string, callback: EventCallback) => {
     console.log(`🎧 Subscribed to event: ${event}`);
   }
 
-  eventListeners.get(event)!.add(callback);
-  console.log(`📝 Added callback for ${event} (${eventListeners.get(event)!.size} total)`);
+  eventListeners.get(event)?.add(callback);
+  console.log(`📝 Added callback for ${event} (${eventListeners.get(event)?.size} total)`);
 };
 
 // Unsubscribe from events

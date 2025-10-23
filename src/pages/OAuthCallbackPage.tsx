@@ -1,5 +1,7 @@
+/* eslint-disable no-console */
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 
 export const OAuthCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -19,10 +21,11 @@ export const OAuthCallbackPage = () => {
     if (code) {
       try {
         // Check if opened in popup (has window.opener) or new tab
-        if (window.opener && !window.opener.closed) {
+        const opener = window.opener as (Window & { closed: boolean }) | null;
+        if (opener && !opener.closed) {
           // Popup case: Use postMessage to communicate with parent
           console.log('📤 Sending code to parent window via postMessage');
-          window.opener.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code }, window.location.origin);
+          opener.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code }, window.location.origin);
         } else {
           // New tab case: Use localStorage as fallback
           console.log('📤 Storing code in localStorage (new tab)');
@@ -48,18 +51,18 @@ export const OAuthCallbackPage = () => {
   }, [searchParams]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="p-8 max-w-md w-full bg-white rounded-lg shadow-lg">
+    <div className="flex justify-center items-center min-h-screen bg-gray-50">
+      <div className="p-8 w-full max-w-md bg-white rounded-lg shadow-lg">
         {status === 'processing' && (
           <div className="text-center">
-            <div className="mx-auto w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="mx-auto w-16 h-16 rounded-full border-4 border-blue-600 animate-spin border-t-transparent" />
             <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="text-center">
-            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-green-100 rounded-full">
+            <div className="flex justify-center items-center mx-auto w-16 h-16 bg-green-100 rounded-full">
               <svg
                 className="w-8 h-8 text-green-600"
                 fill="none"
@@ -81,7 +84,7 @@ export const OAuthCallbackPage = () => {
 
         {status === 'error' && (
           <div className="text-center">
-            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-red-100 rounded-full">
+            <div className="flex justify-center items-center mx-auto w-16 h-16 bg-red-100 rounded-full">
               <svg
                 className="w-8 h-8 text-red-600"
                 fill="none"
@@ -97,12 +100,12 @@ export const OAuthCallbackPage = () => {
               </svg>
             </div>
             <p className="mt-4 text-lg font-medium text-red-600">{message}</p>
-            <button
+            <Button
               onClick={() => window.close()}
-              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+              className="px-4 py-2 mt-4 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
             >
               Close Window
-            </button>
+            </Button>
           </div>
         )}
       </div>

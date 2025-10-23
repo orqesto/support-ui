@@ -35,7 +35,7 @@ export const organizationService = {
 
     const response = await apiClient.get<
       ApiResponse<Organization[]> & { pagination: PaginationMeta }
-    >(`/api/organizations?${params}`);
+    >(`/api/organizations?${params.toString()}`);
     return {
       data: response.data.data ?? [],
       pagination: response.data.pagination ?? {
@@ -50,7 +50,10 @@ export const organizationService = {
 
   getCurrent: async () => {
     const response = await apiClient.get<ApiResponse<Organization>>('/api/organizations/current');
-    return response.data.data!;
+    if (!response.data.data) {
+      throw new Error('Organization data not found');
+    }
+    return response.data.data;
   },
 
   update: async (data: { name?: string; description?: string; active?: boolean }) => {
@@ -58,7 +61,10 @@ export const organizationService = {
       '/api/organizations/current',
       data
     );
-    return response.data.data!;
+    if (!response.data.data) {
+      throw new Error('Organization data not found');
+    }
+    return response.data.data;
   },
 
   getMembers: async () => {
@@ -85,7 +91,10 @@ export const organizationService = {
       `/api/organizations/${id}`,
       data
     );
-    return response.data.data!;
+    if (!response.data.data) {
+      throw new Error('Organization data not found');
+    }
+    return response.data.data;
   },
 
   delete: async (id: number) => {

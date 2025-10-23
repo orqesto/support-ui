@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { create } from 'zustand';
 import type { PaginationMeta } from '@/services/message.service';
 import type { Message } from '@/types';

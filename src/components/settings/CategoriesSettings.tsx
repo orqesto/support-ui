@@ -37,15 +37,17 @@ export const CategoriesSettings = () => {
   };
 
   useEffect(() => {
-    fetchCategories();
+    fetchCategories().catch((error) => {
+      console.error('Failed to fetch categories:', error);
+    });
   }, []);
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
-      description: category.description || '',
-      keywords: category.keywords || '',
+      description: category.description ?? '',
+      keywords: category.keywords ?? '',
     });
   };
 
@@ -117,11 +119,13 @@ export const CategoriesSettings = () => {
 
       {/* New Category Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
+        <div className="p-4 space-y-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
           <h4 className="font-semibold">New Category</h4>
           <div className="grid gap-4">
             <div>
-              <label className="text-sm font-medium">Name</label>
+              <label htmlFor="name" className="text-sm font-medium">
+                Name
+              </label>
               <input
                 type="text"
                 value={formData.name}
@@ -131,7 +135,9 @@ export const CategoriesSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label htmlFor="description" className="text-sm font-medium">
+                Description
+              </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -141,7 +147,9 @@ export const CategoriesSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Keywords (comma-separated)</label>
+              <label htmlFor="keywords" className="text-sm font-medium">
+                Keywords (comma-separated)
+              </label>
               <textarea
                 value={formData.keywords}
                 onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
@@ -181,7 +189,9 @@ export const CategoriesSettings = () => {
                 <h4 className="font-semibold">Edit Category</h4>
                 <div className="grid gap-4">
                   <div>
-                    <label className="text-sm font-medium">Name</label>
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Name
+                    </label>
                     <input
                       type="text"
                       value={formData.name}
@@ -190,7 +200,9 @@ export const CategoriesSettings = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Description</label>
+                    <label htmlFor="description" className="text-sm font-medium">
+                      Description
+                    </label>
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -199,7 +211,9 @@ export const CategoriesSettings = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Keywords</label>
+                    <label htmlFor="keywords" className="text-sm font-medium">
+                      Keywords
+                    </label>
                     <textarea
                       value={formData.keywords}
                       onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
@@ -231,8 +245,11 @@ export const CategoriesSettings = () => {
                       <div className="mt-2">
                         <p className="mb-1 text-xs font-medium text-muted-foreground">Keywords:</p>
                         <div className="flex flex-wrap gap-1">
-                          {category.keywords.split(',').map((keyword, index) => (
-                            <span key={index} className="px-2 py-1 text-xs bg-muted rounded">
+                          {category.keywords.split(',').map((keyword) => (
+                            <span
+                              key={keyword + category.id}
+                              className="px-2 py-1 text-xs rounded bg-muted"
+                            >
                               {keyword.trim()}
                             </span>
                           ))}
@@ -242,7 +259,7 @@ export const CategoriesSettings = () => {
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(category)}>
-                      <Edit2 className="mr-1 w-3 h-3" />
+                      <Edit2 className="mr-2 w-4 h-4" />
                       Edit
                     </Button>
                     <Button
@@ -271,7 +288,7 @@ export const CategoriesSettings = () => {
         <DialogContent>
           <p>Are you sure you want to delete this category? This action cannot be undone.</p>
           {categoryToDelete && (
-            <div className="p-4 mt-4 bg-muted rounded">
+            <div className="p-4 mt-4 rounded bg-muted">
               <p className="text-sm font-medium">{categoryToDelete.name}</p>
             </div>
           )}

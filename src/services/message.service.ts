@@ -33,7 +33,9 @@ export const messageService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<Message[]>>(`/api/messages?${params}`);
+    const response = await apiClient.get<PaginatedResponse<Message[]>>(
+      `/api/messages?${params.toString()}`
+    );
     return response.data;
   },
 

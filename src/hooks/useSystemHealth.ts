@@ -17,7 +17,7 @@ export const useSystemHealth = (pollInterval = 10000): SystemHealth => {
 
   // Get WebSocket status from email processing hook (disabled to avoid unnecessary subscriptions)
   const { socket } = useEmailProcessing(false);
-  const isWebSocketConnected = socket?.connected || false;
+  const isWebSocketConnected = socket?.connected ?? false;
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -36,13 +36,17 @@ export const useSystemHealth = (pollInterval = 10000): SystemHealth => {
 
   // Initial fetch
   useEffect(() => {
-    fetchHealth();
+    fetchHealth().catch((error) => {
+      console.error('Failed to fetch health:', error);
+    });
   }, [fetchHealth]);
 
   // Poll for updates
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchHealth();
+      fetchHealth().catch((error) => {
+        console.error('Failed to fetch health:', error);
+      });
     }, pollInterval);
 
     return () => clearInterval(interval);

@@ -25,7 +25,7 @@ export const ExternalLink = ({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex gap-1 items-center text-sm text-blue-600 hover:underline ${className}`}
+      className={`inline-flex gap-1 items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline ${className}`}
       onClick={handleClick}
     >
       {showIcon && <ExternalLinkIcon className="w-4 h-4" />}

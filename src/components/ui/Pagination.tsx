@@ -58,29 +58,31 @@ export const Pagination = ({
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card rounded-b-lg">
+    <div className="flex justify-between items-center px-4 py-3 rounded-b-lg border-t border-border bg-card">
       <div className="flex items-center text-sm text-muted-foreground">
-        Showing <span className="font-medium mx-1">{startItem}</span> to{' '}
-        <span className="font-medium mx-1">{endItem}</span> of{' '}
-        <span className="font-medium mx-1">{total}</span> results
+        Showing <span className="mx-1 font-medium">{startItem}</span> to{' '}
+        <span className="mx-1 font-medium">{endItem}</span> of{' '}
+        <span className="mx-1 font-medium">{total}</span> results
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex gap-2 items-center">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1 || loading}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="w-4 h-4" />
           Previous
         </Button>
 
         <div className="flex gap-1">
-          {getPageNumbers().map((page, index) =>
+          {getPageNumbers().map((page) =>
             typeof page === 'number' ? (
-              <button
-                key={index}
+              <Button
+                variant="outline"
+                size="sm"
+                key={page.toString()}
                 onClick={() => onPageChange(page)}
                 disabled={loading}
                 className={`min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors ${
@@ -90,10 +92,10 @@ export const Pagination = ({
                 } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {page}
-              </button>
+              </Button>
             ) : (
               <span
-                key={index}
+                key={page.toString()}
                 className="min-w-[36px] h-9 px-3 flex items-center justify-center text-muted-foreground"
               >
                 {page}
@@ -109,7 +111,7 @@ export const Pagination = ({
           disabled={currentPage === totalPages || loading}
         >
           Next
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
     </div>

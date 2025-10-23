@@ -18,23 +18,27 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 transition-opacity bg-black/50 cursor-pointer"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-background shadow-xl z-50 overflow-hidden flex flex-col animate-slide-in">
+      <div className="flex overflow-hidden fixed inset-y-0 right-0 z-50 flex-col w-full max-w-2xl shadow-xl bg-background animate-slide-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-muted">
+        <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <Button variant="outline" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-            <X className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={onClose} className="p-0 w-8 h-8">
+            <X className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="overflow-y-auto flex-1 p-6">{children}</div>
 
         {/* Footer */}
-        {footer && <div className="border-t border-border p-4 bg-muted">{footer}</div>}
+        {footer && <div className="p-4 border-t border-border bg-muted">{footer}</div>}
       </div>
     </>
   );

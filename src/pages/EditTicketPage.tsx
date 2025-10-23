@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, ExternalLink } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -27,10 +27,22 @@ export const EditTicketPage = () => {
     categoryId: '',
   });
 
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
+
   useEffect(() => {
     if (id) {
-      fetchTicket(parseInt(id));
-      fetchCategories();
+      fetchTicket(parseInt(id)).catch((error) => {
+        console.error('Failed to fetch ticket:', error);
+      });
+      fetchCategories().catch((error) => {
+        console.error('Failed to fetch categories:', error);
+      });
     }
   }, [id]);
 
@@ -44,12 +56,17 @@ export const EditTicketPage = () => {
           description: response.data.description,
           status: response.data.status,
           priority: response.data.priority,
-          categoryId: response.data.categoryId?.toString() || '',
+          categoryId: response.data.categoryId?.toString() ?? '',
         });
       }
     } catch (error) {
       console.error('Failed to fetch ticket:', error);
-      alert('Failed to load ticket');
+      setAlertDialog({
+        open: true,
+        title: 'Load Failed',
+        description: 'Failed to load ticket',
+        variant: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -80,12 +97,22 @@ export const EditTicketPage = () => {
       });
 
       if (response.success) {
-        alert('Ticket updated successfully');
-        navigate(`/tickets`);
+        setAlertDialog({
+          open: true,
+          title: 'Success',
+          description: 'Ticket updated successfully',
+          variant: 'success',
+        });
+        setTimeout(() => navigate(`/tickets`), 1500);
       }
     } catch (error) {
       console.error('Failed to update ticket:', error);
-      alert('Failed to update ticket');
+      setAlertDialog({
+        open: true,
+        title: 'Update Failed',
+        description: 'Failed to update ticket',
+        variant: 'error',
+      });
     } finally {
       setSaving(false);
     }
@@ -94,8 +121,8 @@ export const EditTicketPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div className="flex justify-center items-center h-64">
+          <div className="w-8 h-8 rounded-full border-4 animate-spin border-primary border-t-transparent" />
         </div>
       </Layout>
     );
@@ -103,22 +130,22 @@ export const EditTicketPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="mx-auto space-y-6 max-w-3xl">
         <div>
           <h1 className="text-3xl font-bold">Edit Ticket</h1>
-          <p className="text-muted-foreground mt-2">Update ticket details</p>
+          <p className="mt-2 text-muted-foreground">Update ticket details</p>
         </div>
 
         {ticket?.externalId && (
-          <Card className="border-yellow-500 bg-yellow-50">
+          <Card className="bg-yellow-50 border-yellow-500">
             <CardContent className="pt-6">
               <div className="flex gap-3 items-start">
                 <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-yellow-900 mb-1">
+                  <h3 className="mb-1 font-semibold text-yellow-900">
                     This ticket is synced with Jira
                   </h3>
-                  <p className="text-sm text-yellow-800 mb-3">
+                  <p className="mb-3 text-sm text-yellow-800">
                     This ticket has been pushed to Jira and should be edited there to maintain
                     consistency. Changes made here will not sync back to Jira.
                   </p>
@@ -127,7 +154,7 @@ export const EditTicketPage = () => {
                       href={ticket.externalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="inline-flex gap-2 items-center text-sm font-medium text-blue-600 hover:text-blue-800"
                     >
                       Open in Jira
                       <ExternalLink className="w-4 h-4" />
@@ -151,7 +178,7 @@ export const EditTicketPage = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {ticket?.externalId && (
-                <div className="p-3 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                <div className="p-3 text-sm text-gray-700 bg-gray-100 rounded-md border border-gray-300">
                   ⚠️ Warning: This form is disabled because the ticket is synced with Jira.
                 </div>
               )}
@@ -164,9 +191,11 @@ export const EditTicketPage = () => {
               />
 
               <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
+                <label htmlFor="description" className="block mb-2 text-sm font-medium">
+                  Description
+                </label>
                 <textarea
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex px-3 py-2 w-full text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   rows={6}
                   value={formData.description}
                   onChange={(e) =>
@@ -178,9 +207,11 @@ export const EditTicketPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Status</label>
+                <label htmlFor="status" className="block mb-2 text-sm font-medium">
+                  Status
+                </label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.status}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, status: e.target.value as TicketStatus }))
@@ -196,9 +227,11 @@ export const EditTicketPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Priority</label>
+                <label htmlFor="priority" className="block mb-2 text-sm font-medium">
+                  Priority
+                </label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.priority}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
@@ -213,9 +246,11 @@ export const EditTicketPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Category</label>
+                <label htmlFor="categoryId" className="block mb-2 text-sm font-medium">
+                  Category
+                </label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.categoryId}
                   onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
                   disabled={!!ticket?.externalId}
@@ -241,6 +276,15 @@ export const EditTicketPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </Layout>
   );
 };

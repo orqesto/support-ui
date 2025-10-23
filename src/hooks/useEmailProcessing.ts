@@ -76,7 +76,7 @@ export const useEmailProcessing = (enabled = true) => {
           setState((prev) => ({
             ...prev,
             status: 'processing',
-            total: event.data?.total || 0,
+            total: event.data?.total ?? 0,
           }));
           break;
 
@@ -84,8 +84,8 @@ export const useEmailProcessing = (enabled = true) => {
           setState((prev) => ({
             ...prev,
             status: 'processing',
-            current: event.data?.current || 0,
-            total: event.data?.total || prev.total,
+            current: event.data?.current ?? 0,
+            total: event.data?.total ?? prev.total,
           }));
           break;
 
@@ -100,8 +100,8 @@ export const useEmailProcessing = (enabled = true) => {
           setState((prev) => ({
             ...prev,
             status: 'complete',
-            processed: event.data?.processed || prev.processed,
-            failed: event.data?.failed || 0,
+            processed: event.data?.processed ?? prev.processed,
+            failed: event.data?.failed ?? 0,
             isProcessing: false,
           }));
           break;

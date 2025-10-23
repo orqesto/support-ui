@@ -35,7 +35,9 @@ export const StatisticsPage = () => {
   };
 
   useEffect(() => {
-    fetchStatistics();
+    fetchStatistics().catch((error) => {
+      console.error('Failed to fetch statistics:', error);
+    });
   }, []);
 
   const handleRefresh = async () => {
@@ -51,25 +53,25 @@ export const StatisticsPage = () => {
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'email':
-        return <Mail className="h-5 w-5" />;
+        return <Mail className="w-5 h-5" />;
       case 'telegram':
-        return <MessageSquare className="h-5 w-5" />;
+        return <MessageSquare className="w-5 h-5" />;
       case 'slack':
-        return <MessageSquare className="h-5 w-5" />;
+        return <MessageSquare className="w-5 h-5" />;
       default:
-        return <Send className="h-5 w-5" />;
+        return <Send className="w-5 h-5" />;
     }
   };
 
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-7xl mx-auto space-y-4">
+        <div className="mx-auto space-y-4 max-w-7xl">
           <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-1/4 mb-4" />
+            <div className="mb-4 w-1/4 h-8 rounded bg-muted" />
             <div className="grid grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-muted rounded" />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={`stat-skeleton-${i}`} className="h-32 rounded bg-muted" />
               ))}
             </div>
           </div>
@@ -81,7 +83,7 @@ export const StatisticsPage = () => {
   if (!stats) {
     return (
       <Layout>
-        <div className="max-w-7xl mx-auto text-center py-12">
+        <div className="py-12 mx-auto max-w-7xl text-center">
           <p className="text-muted-foreground">No statistics available</p>
         </div>
       </Layout>
@@ -90,67 +92,67 @@ export const StatisticsPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="mx-auto space-y-6 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Analytics & Statistics</h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="mt-2 text-muted-foreground">
               Comprehensive insights across channels, categories, and tickets
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleRefresh} isLoading={refreshing}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="mr-2 w-4 h-4" />
             Refresh
           </Button>
         </div>
 
         {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Messages</p>
-                  <p className="text-3xl font-bold mt-2">{stats.overview.totalMessages}</p>
+                  <p className="mt-2 text-3xl font-bold">{stats.overview.totalMessages}</p>
                 </div>
-                <Inbox className="h-10 w-10 text-gray-400" />
+                <Inbox className="w-10 h-10 text-gray-400" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Tickets</p>
-                  <p className="text-3xl font-bold mt-2">{stats.overview.totalTickets}</p>
+                  <p className="mt-2 text-3xl font-bold">{stats.overview.totalTickets}</p>
                 </div>
-                <TrendingUp className="h-10 w-10 text-green-400" />
+                <TrendingUp className="w-10 h-10 text-green-400" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Spam Detected</p>
-                  <p className="text-3xl font-bold mt-2">{stats.overview.totalSpam}</p>
+                  <p className="mt-2 text-3xl font-bold">{stats.overview.totalSpam}</p>
                 </div>
-                <AlertTriangle className="h-10 w-10 text-red-400" />
+                <AlertTriangle className="w-10 h-10 text-red-400" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Needs Info</p>
-                  <p className="text-3xl font-bold mt-2">{stats.overview.totalNeedsInfo}</p>
+                  <p className="mt-2 text-3xl font-bold">{stats.overview.totalNeedsInfo}</p>
                 </div>
-                <Mail className="h-10 w-10 text-yellow-400" />
+                <Mail className="w-10 h-10 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
@@ -158,10 +160,10 @@ export const StatisticsPage = () => {
 
         {/* Spam/Scam Alert Section */}
         {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="bg-red-50 border-red-200">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-700">
-                <ShieldAlert className="h-5 w-5" />
+              <CardTitle className="flex gap-2 items-center text-red-700">
+                <ShieldAlert className="w-5 h-5" />
                 ⚠️ Spam & Scam Detection
               </CardTitle>
             </CardHeader>
@@ -172,16 +174,16 @@ export const StatisticsPage = () => {
                   .map((category) => (
                     <div
                       key={category.categoryId}
-                      className="p-3 bg-red-500/10 dark:bg-red-500/10 rounded-lg border border-red-500/20"
+                      className="p-3 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldAlert className="h-4 w-4 text-red-600" />
+                      <div className="flex justify-between items-center">
+                        <div className="flex gap-2 items-center">
+                          <ShieldAlert className="w-4 h-4 text-red-600" />
                           <span className="font-medium text-red-600 dark:text-red-400">
                             {category.categoryName}
                           </span>
                         </div>
-                        <div className="text-sm text-red-600 dark:text-red-400 font-medium">
+                        <div className="text-sm font-medium text-red-600 dark:text-red-400">
                           {category.totalMessages} messages detected
                         </div>
                       </div>
@@ -195,8 +197,8 @@ export const StatisticsPage = () => {
         {/* Top Categories */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+            <CardTitle className="flex gap-2 items-center">
+              <BarChart3 className="w-5 h-5" />
               Top Categories
             </CardTitle>
           </CardHeader>
@@ -212,9 +214,9 @@ export const StatisticsPage = () => {
 
                   return (
                     <div key={category.categoryId} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          {isSpamCategory && <ShieldAlert className="h-4 w-4 text-red-500" />}
+                      <div className="flex justify-between items-center">
+                        <div className="flex flex-1 gap-3 items-center">
+                          {isSpamCategory && <ShieldAlert className="w-4 h-4 text-red-500" />}
                           <div
                             className={`font-medium text-sm ${isSpamCategory ? 'text-red-600' : ''}`}
                           >
@@ -235,7 +237,7 @@ export const StatisticsPage = () => {
                           {ticketRate.toFixed(0)}% conversion
                         </div>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
+                      <div className="w-full h-2 rounded-full bg-muted">
                         <div
                           className={`h-2 rounded-full ${isSpamCategory ? 'bg-red-500' : 'bg-primary'}`}
                           style={{
@@ -254,8 +256,8 @@ export const StatisticsPage = () => {
         {stats.aiAccuracy && stats.aiAccuracy.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+              <CardTitle className="flex gap-2 items-center">
+                <BarChart3 className="w-5 h-5" />
                 AI Category Accuracy
               </CardTitle>
             </CardHeader>
@@ -264,20 +266,20 @@ export const StatisticsPage = () => {
                 {stats.aiAccuracy
                   .sort((a, b) => b.count - a.count)
                   .slice(0, 10)
-                  .map((item, index) => {
+                  .map((item) => {
                     const isMatch = item.suggestedCategoryName === item.actualCategoryName;
                     return (
                       <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                        key={item.suggestedCategoryName}
+                        className="flex justify-between items-center p-3 rounded-lg bg-muted"
                       >
-                        <div className="flex items-center gap-3 flex-1">
+                        <div className="flex flex-1 gap-3 items-center">
                           <div className="text-sm">
                             <span className="font-medium">AI Suggested:</span>{' '}
                             <span
                               className={
                                 isMatch
-                                  ? 'text-green-600 dark:text-green-400 font-medium'
+                                  ? 'font-medium text-green-600 dark:text-green-400'
                                   : 'text-muted-foreground'
                               }
                             >
@@ -290,15 +292,15 @@ export const StatisticsPage = () => {
                             <span
                               className={
                                 isMatch
-                                  ? 'text-green-600 dark:text-green-400 font-medium'
-                                  : 'text-primary font-medium'
+                                  ? 'font-medium text-green-600 dark:text-green-400'
+                                  : 'font-medium text-primary'
                               }
                             >
                               {item.actualCategoryName}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex gap-2 items-center">
                           {isMatch && (
                             <span className="px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
                               ✓ Match
@@ -317,7 +319,7 @@ export const StatisticsPage = () => {
         )}
 
         {/* Channel Statistics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {stats.byChannel.map((channelStats) => {
             const conversionRate =
               channelStats.totalMessages > 0
@@ -327,7 +329,7 @@ export const StatisticsPage = () => {
             return (
               <Card key={channelStats.channel}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 capitalize">
+                  <CardTitle className="flex gap-2 items-center capitalize">
                     {getChannelIcon(channelStats.channel)}
                     {channelStats.channel}
                   </CardTitle>
@@ -335,19 +337,19 @@ export const StatisticsPage = () => {
                 <CardContent className="space-y-4">
                   {/* Channel Overview */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
                       <div className="text-xs text-muted-foreground">Messages</div>
                       <div className="text-2xl font-bold">{channelStats.totalMessages}</div>
                     </div>
-                    <div className="p-3 bg-green-500/10 dark:bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="p-3 rounded-lg border bg-green-500/10 dark:bg-green-500/10 border-green-500/20">
                       <div className="text-xs text-muted-foreground">Tickets</div>
                       <div className="text-2xl font-bold">{channelStats.totalTickets}</div>
                     </div>
                   </div>
 
                   {/* Conversion Rate */}
-                  <div className="p-3 bg-purple-500/10 dark:bg-purple-500/10 rounded-lg border border-purple-500/20">
-                    <div className="text-xs text-muted-foreground mb-1">Ticket Conversion Rate</div>
+                  <div className="p-3 rounded-lg border bg-purple-500/10 dark:bg-purple-500/10 border-purple-500/20">
+                    <div className="mb-1 text-xs text-muted-foreground">Ticket Conversion Rate</div>
                     <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
                       {conversionRate.toFixed(1)}%
                     </div>
@@ -380,7 +382,7 @@ export const StatisticsPage = () => {
                   {/* Top Categories for Channel */}
                   {channelStats.categories.length > 0 && (
                     <div className="pt-4 border-t">
-                      <div className="text-xs font-medium text-muted-foreground mb-2">
+                      <div className="mb-2 text-xs font-medium text-muted-foreground">
                         Top Categories
                       </div>
                       <div className="space-y-2">
@@ -394,12 +396,12 @@ export const StatisticsPage = () => {
                                 key={cat.categoryId}
                                 className="flex justify-between items-center text-sm"
                               >
-                                <div className="flex items-center gap-1 truncate flex-1">
+                                <div className="flex flex-1 gap-1 items-center truncate">
                                   {isCategorySpam && (
-                                    <ShieldAlert className="h-3 w-3 text-red-500 flex-shrink-0" />
+                                    <ShieldAlert className="flex-shrink-0 w-3 h-3 text-red-500" />
                                   )}
                                   <span
-                                    className={`truncate ${isCategorySpam ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
+                                    className={`truncate ${isCategorySpam ? 'font-medium text-red-600' : 'text-muted-foreground'}`}
                                   >
                                     {cat.categoryName}
                                   </span>

@@ -16,6 +16,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/MessageDetail';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -47,6 +48,14 @@ export const MessagesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
   // Zustand stores
@@ -69,7 +78,7 @@ export const MessagesPage = () => {
     totalPages: 0,
     hasMore: false,
   });
-  const [pendingSearch, setPendingSearch] = useState(filters.search || '');
+  const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
@@ -91,10 +100,10 @@ export const MessagesPage = () => {
         const currentFilters = filters; // Capture current filters
 
         if (currentFilters.processed !== 'all') {
-          apiFilters.processed = currentFilters.processed || 'false';
+          apiFilters.processed = currentFilters.processed ?? 'false';
         }
         if (currentFilters.channel !== 'all') {
-          apiFilters.channel = currentFilters.channel || '';
+          apiFilters.channel = currentFilters.channel ?? '';
         }
         // Add metadata-based filters
         if (currentFilters.showSpam) {
@@ -129,7 +138,7 @@ export const MessagesPage = () => {
 
           // If current page exceeds total pages, reset to page 1
           if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
-            fetchMessages(1);
+            await fetchMessages(1);
           }
         }
       } catch (error) {
@@ -143,7 +152,9 @@ export const MessagesPage = () => {
 
   // Fetch on mount and when filters or sorting change
   useEffect(() => {
-    fetchMessages(1);
+    fetchMessages(1).catch((error) => {
+      console.error('Failed to fetch messages:', error);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.processed,
@@ -156,8 +167,8 @@ export const MessagesPage = () => {
     sorting.sortOrder,
   ]);
 
-  const handlePageChange = (page: number) => {
-    fetchMessages(page);
+  const handlePageChange = async (page: number) => {
+    await fetchMessages(page);
   };
 
   // Auto-open message from query param
@@ -179,7 +190,9 @@ export const MessagesPage = () => {
           console.error('Failed to fetch message:', error);
         }
       };
-      fetchAndOpenMessage();
+      fetchAndOpenMessage().catch((error) => {
+        console.error('Failed to fetch message:', error);
+      });
     }
   }, [searchParams, selectedMessage, setSearchParams]);
 
@@ -204,10 +217,10 @@ export const MessagesPage = () => {
     }
   };
 
-  const clearFilters = () => {
+  const clearFilters = async () => {
     clearFiltersStore();
     setPendingSearch('');
-    fetchMessages(pagination.page, true); // Keep current page, force refresh
+    await fetchMessages(pagination.page, true); // Keep current page, force refresh
   };
 
   const handleApprove = (message: Message) => {
@@ -219,7 +232,7 @@ export const MessagesPage = () => {
       await messageService.markAsProcessed(message.id);
       clearCache(); // Clear all cached data
       setSelectedMessage(null); // Close the drawer
-      fetchMessages(pagination.page, true); // Keep current page, force refresh
+      await fetchMessages(pagination.page, true); // Keep current page, force refresh
     } catch (error) {
       console.error('Failed to mark message as processed:', error);
     }
@@ -230,11 +243,20 @@ export const MessagesPage = () => {
       await messageService.markAsUnprocessed(message.id);
       clearCache(); // Clear all cached data
       setSelectedMessage(null); // Close the drawer
-      fetchMessages(pagination.page, true); // Keep current page, force refresh
-    } catch (error: any) {
+      await fetchMessages(pagination.page, true); // Keep current page, force refresh
+    } catch (error: unknown) {
       console.error('Failed to reopen message:', error);
-      // Show error to user if backend validation fails
-      alert(error.response?.data?.error || 'Failed to reopen message');
+      const errorMsg =
+        error && typeof error === 'object' && 'response' in error
+          ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error ??
+            'Failed to reopen message')
+          : 'Failed to reopen message';
+      setAlertDialog({
+        open: true,
+        title: 'Reopen Failed',
+        description: errorMsg,
+        variant: 'error',
+      });
     }
   };
 
@@ -246,7 +268,12 @@ export const MessagesPage = () => {
 
   const handleSyncEmails = async () => {
     if (!token) {
-      alert('You must be logged in to sync emails');
+      setAlertDialog({
+        open: true,
+        title: 'Authentication Required',
+        description: 'You must be logged in to sync emails',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -255,14 +282,19 @@ export const MessagesPage = () => {
       await apiClient.post('/api/messages/check-emails');
 
       // Wait a bit for emails to be processed, then refresh
-      setTimeout(() => {
-        fetchMessages(1, true);
+      setTimeout(async () => {
+        await fetchMessages(1, true);
         setRefreshing(false);
       }, 2000);
     } catch (error) {
       console.error('Failed to sync emails:', error);
       setRefreshing(false);
-      alert('Failed to sync emails');
+      setAlertDialog({
+        open: true,
+        title: 'Sync Failed',
+        description: 'Failed to sync emails',
+        variant: 'error',
+      });
     }
   };
 
@@ -283,10 +315,15 @@ export const MessagesPage = () => {
       setDeleteDialogOpen(false);
       setMessageToDelete(null);
       setSelectedMessage(null); // Close the drawer
-      fetchMessages(1, true); // Force refresh
+      await fetchMessages(1, true); // Force refresh
     } catch (error) {
       console.error('Failed to delete message:', error);
-      alert('Failed to delete message');
+      setAlertDialog({
+        open: true,
+        title: 'Delete Failed',
+        description: 'Failed to delete message',
+        variant: 'error',
+      });
     } finally {
       setDeleting(false);
     }
@@ -307,13 +344,13 @@ export const MessagesPage = () => {
   const activeFilterCount =
     (filters.processed !== 'false' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
-    (filters.showSpam || filters.showNeedsInfo || filters.showWorthy ? 1 : 0) +
+    ((filters.showSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="mx-auto space-y-4 max-w-7xl">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>
@@ -389,36 +426,30 @@ export const MessagesPage = () => {
                     Status:
                   </span>
                   <div className="inline-flex rounded-md shadow-sm">
-                    <button
+                    <Button
+                      variant={filters.processed === 'false' ? 'primary' : 'outline'}
+                      size="sm"
                       onClick={() => handleFilterChange('processed', 'false')}
-                      className={`px-3 py-1 text-xs font-medium border rounded-l-md transition-colors ${
-                        filters.processed === 'false'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-input text-foreground border-border hover:bg-accent'
-                      }`}
+                      className="h-8 text-xs rounded-l-md rounded-r-none border-r-0"
                     >
                       Unprocessed
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'true' ? 'primary' : 'outline'}
+                      size="sm"
                       onClick={() => handleFilterChange('processed', 'true')}
-                      className={`px-3 py-1 text-xs font-medium border-t border-b transition-colors ${
-                        filters.processed === 'true'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-input text-foreground border-border hover:bg-accent'
-                      }`}
+                      className="h-8 text-xs rounded-none border-r-0"
                     >
                       Processed
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                      size="sm"
                       onClick={() => handleFilterChange('processed', 'all')}
-                      className={`px-3 py-1 text-xs font-medium border rounded-r-md transition-colors ${
-                        filters.processed === 'all'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-input text-foreground border-border hover:bg-accent'
-                      }`}
+                      className="h-8 text-xs rounded-r-md rounded-l-none"
                     >
                       All
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -431,6 +462,7 @@ export const MessagesPage = () => {
                     value={filters.channel}
                     onChange={(e) => handleFilterChange('channel', e.target.value)}
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Filter by channel"
                   >
                     <option value="all">All</option>
                     <option value="email">Email</option>
@@ -463,6 +495,7 @@ export const MessagesPage = () => {
                       });
                     }}
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Filter by AI analysis"
                   >
                     <option value="none">None</option>
                     <option value="spam">🔴 Spam Only</option>
@@ -474,9 +507,9 @@ export const MessagesPage = () => {
                 <label className="flex gap-2 items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={filters.hasAttachments || false}
+                    checked={filters.hasAttachments ?? false}
                     onChange={(e) => setFilters({ ...filters, hasAttachments: e.target.checked })}
-                    className="w-4 h-4 text-primary rounded border-border focus:ring-2 focus:ring-primary"
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
                   />
                   <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
                     <Paperclip className="w-3 h-3" />
@@ -492,6 +525,7 @@ export const MessagesPage = () => {
                     value={sorting.sortOrder}
                     onChange={(e) => setSorting({ sortOrder: e.target.value as 'asc' | 'desc' })}
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Sort order"
                   >
                     <option value="desc">Newest First</option>
                     <option value="asc">Oldest First</option>
@@ -504,8 +538,8 @@ export const MessagesPage = () => {
 
         {loading ? (
           <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Card key={`skeleton-${i}`} className="animate-pulse">
                 <CardContent className="p-6">
                   <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
                   <div className="w-1/2 h-4 bg-gray-200 rounded" />
@@ -573,11 +607,11 @@ export const MessagesPage = () => {
                       {hasAttachments && (
                         <Badge
                           variant="default"
-                          title={`${(message.rawData?.attachments as any[])?.length || 0} attachment(s)`}
-                          className="flex items-center gap-1"
+                          title={`${(message.rawData?.attachments as unknown[])?.length || 0} attachment(s)`}
+                          className="flex gap-1 items-center"
                         >
                           <Paperclip className="w-3 h-3" />
-                          {(message.rawData?.attachments as any[])?.length || 0}
+                          {(message.rawData?.attachments as unknown[])?.length || 0}
                         </Badge>
                       )}
 
@@ -590,7 +624,7 @@ export const MessagesPage = () => {
                       {!spamCheck?.isSpam && analysis?.isTicketWorthy && (
                         <Badge
                           variant="default"
-                          title={`Confidence: ${Math.round((analysis.confidence || 0) * 100)}%`}
+                          title={`Confidence: ${Math.round((analysis.confidence ?? 0) * 100)}%`}
                         >
                           🎫 Ticket Worthy
                         </Badge>
@@ -639,16 +673,20 @@ export const MessagesPage = () => {
                       <span className="break-all">• From: {message.sender}</span>
                       {message.channel && <span>• {message.channel}</span>}
                       {hasAttachments && (
-                        <span className="flex items-center gap-1">
+                        <span className="flex gap-1 items-center">
                           • <Paperclip className="w-3 h-3" />
-                          {(message.rawData?.attachments as any[])?.length || 0} file(s)
+                          {(message.rawData?.attachments as unknown[])?.length || 0} file(s)
                         </span>
                       )}
                       <span
                         className="whitespace-nowrap"
                         title={`Imported: ${formatDate(message.createdAt)}`}
                       >
-                        • {formatDate((message.metadata as any)?.receivedAt || message.createdAt)}
+                        •{' '}
+                        {formatDate(
+                          (message.metadata as { receivedAt?: string })?.receivedAt ??
+                            message.createdAt
+                        )}
                       </span>
                     </>
                   }
@@ -775,6 +813,15 @@ export const MessagesPage = () => {
           />
         </Drawer>
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </Layout>
   );
 };

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
 import { CreateOrganizationModal } from '@/components/CreateOrganizationModal';
 import { Layout } from '@/components/layout/Layout';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -36,6 +37,14 @@ export const OrganizationPage = () => {
     orgId: number | null;
     orgName: string;
   }>({ isOpen: false, orgId: null, orgName: '' });
+
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
   const [editForm, setEditForm] = useState({
     name: '',
     description: '',
@@ -55,23 +64,23 @@ export const OrganizationPage = () => {
   // Local pending search state
   const [pendingSearch, setPendingSearch] = useState(searchOrg || '');
 
-  const fetchCurrentOrganization = async () => {
+  const fetchCurrentOrganization = useCallback(async () => {
     setLoading(true);
     try {
       const orgData = await organizationService.getCurrent();
       setOrganization(orgData);
       setEditForm({
         name: orgData.name,
-        description: orgData.description || '',
+        description: orgData.description ?? '',
       });
     } catch (error) {
       console.error('Failed to fetch current organization:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [setOrganization]);
 
-  const fetchAllOrganizations = async () => {
+  const fetchAllOrganizations = useCallback(async () => {
     if (!isAdmin) {
       return;
     }
@@ -82,27 +91,33 @@ export const OrganizationPage = () => {
     } catch (error) {
       console.error('Failed to fetch all organizations:', error);
     }
-  };
+  }, [isAdmin, searchOrg, setAllOrganizations]);
 
   // Fetch current organization once on mount
   useEffect(() => {
-    fetchCurrentOrganization();
-  }, []);
+    fetchCurrentOrganization().catch((error) => {
+      console.error('Failed to fetch current organization:', error);
+    });
+  }, [fetchCurrentOrganization]);
 
   // Fetch all organizations on mount (for admins)
   useEffect(() => {
     if (isAdmin) {
-      fetchAllOrganizations();
+      fetchAllOrganizations().catch((error) => {
+        console.error('Failed to fetch organizations:', error);
+      });
     }
-  }, []);
+  }, [fetchAllOrganizations, isAdmin]);
 
   // Re-fetch only all organizations when search changes (not current org)
   useEffect(() => {
     if (!isAdmin) {
       return;
     }
-    fetchAllOrganizations();
-  }, [searchOrg]);
+    fetchAllOrganizations().catch((error) => {
+      console.error('Failed to fetch organizations:', error);
+    });
+  }, [fetchAllOrganizations, isAdmin, searchOrg]);
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
@@ -124,7 +139,7 @@ export const OrganizationPage = () => {
     if (organization) {
       setEditForm({
         name: organization.name,
-        description: organization.description || '',
+        description: organization.description ?? '',
       });
     }
     setIsEditing(false);
@@ -173,13 +188,21 @@ export const OrganizationPage = () => {
       // Refresh organizations list
       setAllOrganizations(allOrganizations.filter((org) => org.id !== deleteDialog.orgId));
       setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
-    } catch (error: any) {
-      console.error('Failed to delete organization:', error);
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
-        'Failed to delete organization. Please check the console for details.';
-      alert(`Error: ${errorMessage}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('Failed to delete organization:', error);
+        const apiError = error as Error & { response?: { data?: { message?: string } } };
+        const errorMessage =
+          apiError.response?.data?.message ??
+          error.message ??
+          'Failed to delete organization. Please check the console for details.';
+        setAlertDialog({
+          open: true,
+          title: 'Delete Failed',
+          description: `Error: ${errorMessage}`,
+          variant: 'error',
+        });
+      }
       setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
     }
   };
@@ -195,8 +218,20 @@ export const OrganizationPage = () => {
       setAllOrganizations(allOrganizations.map((org) => (org.id === orgId ? updated : org)));
       setEditingOrgId(null);
     } catch (error) {
-      console.error('Failed to update organization:', error);
-      alert('Failed to update organization.');
+      if (error instanceof Error) {
+        console.error('Failed to update organization:', error);
+        const apiError = error as Error & { response?: { data?: { message?: string } } };
+        const errorMessage =
+          apiError.response?.data?.message ??
+          error.message ??
+          'Failed to update organization. Please check the console for details.';
+        setAlertDialog({
+          open: true,
+          title: 'Update Failed',
+          description: `Error: ${errorMessage}`,
+          variant: 'error',
+        });
+      }
     }
   };
 
@@ -290,7 +325,9 @@ export const OrganizationPage = () => {
                         <div key={org.id} className="p-4 bg-blue-500/10 dark:bg-blue-500/10">
                           <div className="space-y-3">
                             <div>
-                              <label className="block mb-1 text-sm font-medium">Name</label>
+                              <label htmlFor="name" className="block mb-1 text-sm font-medium">
+                                Name
+                              </label>
                               <input
                                 type="text"
                                 value={editOrgForm.name}
@@ -301,7 +338,12 @@ export const OrganizationPage = () => {
                               />
                             </div>
                             <div>
-                              <label className="block mb-1 text-sm font-medium">Description</label>
+                              <label
+                                htmlFor="description"
+                                className="block mb-1 text-sm font-medium"
+                              >
+                                Description
+                              </label>
                               <input
                                 type="text"
                                 value={editOrgForm.description}
@@ -350,7 +392,7 @@ export const OrganizationPage = () => {
                           </div>
                         </div>
                       ) : (
-                        <div key={org.id} className="p-4 hover:bg-accent transition-colors">
+                        <div key={org.id} className="p-4 transition-colors hover:bg-accent">
                           <div className="space-y-3">
                             <div className="flex gap-2 justify-between items-start">
                               <div className="flex-1 min-w-0">
@@ -363,13 +405,13 @@ export const OrganizationPage = () => {
                               </div>
                               <div className="flex flex-shrink-0 gap-1">
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => {
                                     setEditingOrgId(org.id);
                                     setEditOrgForm({
                                       name: org.name,
-                                      description: org.description || '',
+                                      description: org.description ?? '',
                                       active: org.active,
                                     });
                                   }}
@@ -377,10 +419,10 @@ export const OrganizationPage = () => {
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => confirmDeleteOrg(org.id, org.name)}
-                                  className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                                  className="text-red-600 hover:text-red-700 hover:border-red-300"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -390,7 +432,7 @@ export const OrganizationPage = () => {
                               <Badge variant={org.active ? 'default' : 'secondary'}>
                                 {org.active ? 'Active' : 'Inactive'}
                               </Badge>
-                              <code className="px-2 py-1 text-muted-foreground bg-muted rounded">
+                              <code className="px-2 py-1 rounded text-muted-foreground bg-muted">
                                 {org.slug}
                               </code>
                               <span className="text-muted-foreground">
@@ -407,33 +449,38 @@ export const OrganizationPage = () => {
                   <div className="hidden xl:block">
                     <div className="overflow-auto max-h-[600px]">
                       <table className="min-w-full">
-                        <thead className="sticky top-0 z-10 bg-gray-50 border-b">
+                        <thead className="sticky top-0 z-10 border-b bg-muted">
                           <tr>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                               Name
                             </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                               Slug
                             </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                               Status
                             </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                               Created
                             </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                               Actions
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="divide-y bg-card divide-border">
                           {allOrganizations.map((org) =>
                             editingOrgId === org.id ? (
                               <tr key={org.id} className="bg-blue-500/10 dark:bg-blue-500/10">
                                 <td colSpan={5} className="px-6 py-4">
                                   <div className="space-y-3">
                                     <div>
-                                      <label className="block mb-1 text-sm font-medium">Name</label>
+                                      <label
+                                        htmlFor="name"
+                                        className="block mb-1 text-sm font-medium"
+                                      >
+                                        Name
+                                      </label>
                                       <input
                                         type="text"
                                         value={editOrgForm.name}
@@ -444,7 +491,10 @@ export const OrganizationPage = () => {
                                       />
                                     </div>
                                     <div>
-                                      <label className="block mb-1 text-sm font-medium">
+                                      <label
+                                        htmlFor="description"
+                                        className="block mb-1 text-sm font-medium"
+                                      >
                                         Description
                                       </label>
                                       <input
@@ -497,7 +547,7 @@ export const OrganizationPage = () => {
                                 </td>
                               </tr>
                             ) : (
-                              <tr key={org.id} className="hover:bg-accent transition-colors">
+                              <tr key={org.id} className="transition-colors hover:bg-accent">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm font-medium">{org.name}</div>
                                   {org.description && (
@@ -514,19 +564,19 @@ export const OrganizationPage = () => {
                                     {org.active ? 'Active' : 'Inactive'}
                                   </Badge>
                                 </td>
-                                <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">
+                                <td className="px-6 py-4 text-sm whitespace-nowrap text-muted-foreground">
                                   {formatDate(org.createdAt)}
                                 </td>
                                 <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
                                   <div className="flex gap-2 justify-end">
                                     <Button
-                                      variant="ghost"
+                                      variant="outline"
                                       size="sm"
                                       onClick={() => {
                                         setEditingOrgId(org.id);
                                         setEditOrgForm({
                                           name: org.name,
-                                          description: org.description || '',
+                                          description: org.description ?? '',
                                           active: org.active,
                                         });
                                       }}
@@ -534,10 +584,10 @@ export const OrganizationPage = () => {
                                       <Edit2 className="w-4 h-4" />
                                     </Button>
                                     <Button
-                                      variant="ghost"
+                                      variant="outline"
                                       size="sm"
                                       onClick={() => confirmDeleteOrg(org.id, org.name)}
-                                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                                      className="text-red-600 hover:text-red-700 hover:border-red-300"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
@@ -587,7 +637,9 @@ export const OrganizationPage = () => {
             {isEditing ? (
               <>
                 <div>
-                  <label className="block mb-1 text-sm font-medium">Organization Name</label>
+                  <label htmlFor="name" className="block mb-1 text-sm font-medium">
+                    Organization Name
+                  </label>
                   <input
                     type="text"
                     value={editForm.name}
@@ -597,7 +649,9 @@ export const OrganizationPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-sm font-medium">Description</label>
+                  <label htmlFor="description" className="block mb-1 text-sm font-medium">
+                    Description
+                  </label>
                   <textarea
                     value={editForm.description}
                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
@@ -620,21 +674,29 @@ export const OrganizationPage = () => {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Name</label>
+                  <label htmlFor="name" className="text-sm font-medium text-gray-500">
+                    Name
+                  </label>
                   <p className="mt-1 text-base font-medium">{organization.name}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Slug</label>
+                  <label htmlFor="slug" className="text-sm font-medium text-gray-500">
+                    Slug
+                  </label>
                   <p className="mt-1 font-mono text-base text-gray-700">{organization.slug}</p>
                 </div>
                 {organization.description && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Description</label>
+                    <label htmlFor="description" className="text-sm font-medium text-gray-500">
+                      Description
+                    </label>
                     <p className="mt-1 text-base text-gray-700">{organization.description}</p>
                   </div>
                 )}
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <label htmlFor="active" className="text-sm font-medium text-gray-500">
+                    Status
+                  </label>
                   <div className="mt-1">
                     <Badge variant={organization.active ? 'default' : 'secondary'}>
                       {organization.active ? 'Active' : 'Inactive'}
@@ -643,13 +705,17 @@ export const OrganizationPage = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Created</label>
+                    <label htmlFor="createdAt" className="text-sm font-medium text-gray-500">
+                      Created
+                    </label>
                     <p className="mt-1 text-sm text-gray-700">
                       {formatDate(organization.createdAt)}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Last Updated</label>
+                    <label htmlFor="updatedAt" className="text-sm font-medium text-gray-500">
+                      Last Updated
+                    </label>
                     <p className="mt-1 text-sm text-gray-700">
                       {formatDate(organization.updatedAt)}
                     </p>
@@ -685,7 +751,7 @@ export const OrganizationPage = () => {
               Are you sure you want to delete{' '}
               <strong className="font-semibold">{deleteDialog.orgName}</strong>?
             </p>
-            <div className="p-4 bg-red-500/10 dark:bg-red-500/10 rounded-md border border-red-500/20">
+            <div className="p-4 rounded-md border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
               <p className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">
                 This will permanently delete:
               </p>
@@ -718,6 +784,15 @@ export const OrganizationPage = () => {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </Layout>
   );
 };

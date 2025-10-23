@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { X, Mail, UserPlus } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService, type Organization } from '@/services/organization.service';
@@ -48,7 +47,9 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     };
 
     if (isOpen) {
-      loadOrganizations();
+      loadOrganizations().catch((error) => {
+        console.error('Failed to load organizations:', error);
+      });
     }
   }, [isOpen, isAdmin, user?.organizationId, organizationId]);
 
@@ -75,8 +76,12 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
         setOrganizationId(organizations[0]?.id || null);
       }
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send invitation');
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to send invitation');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,22 +92,22 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg shadow-xl max-w-md w-full">
+    <div className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50">
+      <div className="w-full max-w-md rounded-lg shadow-xl bg-card">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/10 flex items-center justify-center">
+        <div className="flex justify-between items-center p-6 border-b border-border">
+          <div className="flex gap-2 items-center">
+            <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
               <UserPlus className="w-5 h-5 text-blue-600" />
             </div>
             <h2 className="text-xl font-semibold">Invite User</h2>
           </div>
-          <button
+          <Button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Form */}
@@ -116,17 +121,19 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <p className="text-sm text-muted-foreground mt-1">
-              We'll send an invitation link to this email
+            <p className="mt-1 text-sm text-muted-foreground">
+              We&apos;ll send an invitation link to this email
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Organization</label>
+            <label htmlFor="organization" className="block mb-1 text-sm font-medium">
+              Organization
+            </label>
             <select
-              value={organizationId || ''}
+              value={organizationId ?? ''}
               onChange={(e) => setOrganizationId(Number(e.target.value))}
-              className="w-full px-3 py-2 border bg-input text-foreground border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-muted disabled:cursor-not-allowed"
+              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-muted disabled:cursor-not-allowed"
               disabled={!isAdmin}
               required
             >
@@ -140,7 +147,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
                 </option>
               ))}
             </select>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 text-sm text-muted-foreground">
               {isAdmin
                 ? 'Select the organization to invite this user to'
                 : 'User will be added to your organization'}
@@ -148,11 +155,13 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Role</label>
+            <label htmlFor="role" className="block mb-1 text-sm font-medium">
+              Role
+            </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2 border bg-input text-foreground border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
               required
             >
               <option value="associate">Associate - Read-only with request permissions</option>
@@ -160,7 +169,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               <option value="moderator">Moderator - Manage integrations, categories, AI</option>
               {isAdmin && <option value="org_admin">Organization Admin - Full control</option>}
             </select>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 text-sm text-muted-foreground">
               {isAdmin
                 ? 'Select the role for this user in the organization'
                 : 'Org admins cannot invite other org admins'}
@@ -168,7 +177,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
           </div>
 
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
+            <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
           )}
 
           {/* Actions */}
@@ -183,7 +192,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               Cancel
             </Button>
             <Button type="submit" className="flex-1" isLoading={isLoading}>
-              <Mail className="w-4 h-4 mr-2" />
+              <Mail className="mr-2 w-4 h-4" />
               Send Invitation
             </Button>
           </div>

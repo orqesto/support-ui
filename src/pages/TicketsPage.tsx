@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
 import {
   Ticket,
@@ -13,6 +14,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { TicketDetail } from '@/components/TicketDetail';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -74,9 +76,17 @@ export const TicketsPage = () => {
   const [jiraIntegrations, setJiraIntegrations] = useState<JiraIntegration[]>([]);
   const [selectedJiraId, setSelectedJiraId] = useState<number | undefined>(undefined);
 
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
+
   // Zustand stores
   const filters = useTicketsStore((state) => state.filters);
-  const [pendingSearch, setPendingSearch] = useState(filters.search || '');
+  const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
   const sorting = useTicketsStore((state) => state.sorting);
   const setFiltersStore = useTicketsStore((state) => state.setFilters);
   const setSortingStore = useTicketsStore((state) => state.setSorting);
@@ -116,7 +126,9 @@ export const TicketsPage = () => {
           console.error('Failed to fetch ticket:', error);
         }
       };
-      fetchAndOpenTicket();
+      fetchAndOpenTicket().catch((error) => {
+        console.error('Failed to fetch ticket:', error);
+      });
     }
   }, [searchParams, selectedTicket, setSearchParams]);
 
@@ -171,7 +183,9 @@ export const TicketsPage = () => {
 
           // If current page exceeds total pages, reset to page 1
           if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
-            fetchTickets(1);
+            fetchTickets(1).catch((error) => {
+              console.error('Failed to fetch tickets:', error);
+            });
           }
         }
       } catch (error) {
@@ -184,7 +198,9 @@ export const TicketsPage = () => {
   );
 
   useEffect(() => {
-    fetchTickets(1);
+    fetchTickets(1).catch((error) => {
+      console.error('Failed to fetch tickets:', error);
+    });
   }, [fetchTickets]);
 
   useEffect(() => {
@@ -210,7 +226,9 @@ export const TicketsPage = () => {
         console.error('Failed to fetch Jira integrations:', error);
       }
     };
-    fetchJiraIntegrations();
+    fetchJiraIntegrations().catch((error) => {
+      console.error('Failed to fetch Jira integrations:', error);
+    });
   }, [hasPermission]);
 
   // Listen for real-time ticket updates from Jira webhooks
@@ -222,22 +240,29 @@ export const TicketsPage = () => {
       console.log('🔄 Ticket updated from Jira:', ticketUpdate);
 
       // Show notification
-      const fields = ticketUpdate.changedFields?.join(', ') || 'fields';
+      const fields = ticketUpdate.changedFields?.join(', ') ?? 'fields';
       console.log(`✅ ${ticketUpdate.jiraKey} synced from Jira (updated: ${fields})`);
 
       // Clear cache to ensure fresh data
       clearCache();
 
       // Refresh tickets to show latest data
-      fetchTickets(pagination.page, true);
+      fetchTickets(pagination.page, true).catch((error) => {
+        console.error('Failed to fetch tickets:', error);
+      });
 
       // If the updated ticket is currently open, refresh it
       if (selectedTicket && selectedTicket.id === ticketUpdate.ticketId) {
-        ticketService.getById(ticketUpdate.ticketId).then((response) => {
-          if (response.success && response.data) {
-            setSelectedTicket(response.data);
-          }
-        });
+        ticketService
+          .getById(ticketUpdate.ticketId)
+          .then((response) => {
+            if (response.success && response.data) {
+              setSelectedTicket(response.data);
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to refresh ticket:', error);
+          });
       }
     };
 
@@ -247,10 +272,10 @@ export const TicketsPage = () => {
       unsubscribeFromEvent('ticket:updated', handleTicketUpdate);
       releaseSocket();
     };
-  }, [pagination.page, selectedTicket, fetchTickets]);
+  }, [pagination.page, selectedTicket, fetchTickets, clearCache]);
 
-  const handlePageChange = (page: number) => {
-    fetchTickets(page);
+  const handlePageChange = async (page: number) => {
+    await fetchTickets(page);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -288,17 +313,32 @@ export const TicketsPage = () => {
   const handlePushToJira = async (ticketId: number) => {
     // Check if user has permission to manage tickets
     if (!hasPermission(Permission.MANAGE_TICKETS)) {
-      alert('⚠️ You do not have permission to push tickets to Jira.');
+      setAlertDialog({
+        open: true,
+        title: 'Permission Denied',
+        description: 'You do not have permission to push tickets to Jira.',
+        variant: 'warning',
+      });
       return;
     }
 
     if (jiraIntegrations.length === 0) {
-      alert('No Jira integrations configured. Please add a Jira integration in Settings.');
+      setAlertDialog({
+        open: true,
+        title: 'No Jira Integration',
+        description: 'No Jira integrations configured. Please add a Jira integration in Settings.',
+        variant: 'warning',
+      });
       return;
     }
 
     if (jiraIntegrations.length > 1 && !selectedJiraId) {
-      alert('Please select a Jira instance first.');
+      setAlertDialog({
+        open: true,
+        title: 'Select Jira Instance',
+        description: 'Please select a Jira instance first.',
+        variant: 'info',
+      });
       return;
     }
 
@@ -306,35 +346,67 @@ export const TicketsPage = () => {
     try {
       const response = await ticketService.pushToJira(ticketId, selectedJiraId);
       if (response.success) {
-        alert(`✅ Ticket pushed to Jira: ${response.data?.jiraKey}`);
+        setAlertDialog({
+          open: true,
+          title: 'Success',
+          description: `Ticket pushed to Jira: ${response.data?.jiraKey}`,
+          variant: 'success',
+        });
         clearCache(); // Clear all cached data
-        fetchTickets(1, true);
+        fetchTickets(1, true).catch((error) => {
+          console.error('Failed to fetch tickets:', error);
+        });
       } else {
-        alert(`❌ Failed to push to Jira: ${response.error || 'Unknown error'}`);
+        setAlertDialog({
+          open: true,
+          title: 'Push Failed',
+          description: `Failed to push to Jira: ${response.error ?? 'Unknown error'}`,
+          variant: 'error',
+        });
       }
     } catch (error) {
       console.error('Failed to push to Jira:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`❌ Failed to push ticket to Jira: ${errorMessage}`);
+      setAlertDialog({
+        open: true,
+        title: 'Push Failed',
+        description: `Failed to push ticket to Jira: ${errorMessage}`,
+        variant: 'error',
+      });
     } finally {
       setSyncing(null);
     }
   };
 
-  const handleSyncAll = async () => {
+  const handleSyncAll = () => {
     // Check if user has permission to manage tickets
     if (!hasPermission(Permission.MANAGE_TICKETS)) {
-      alert('⚠️ You do not have permission to sync tickets to Jira.');
+      setAlertDialog({
+        open: true,
+        title: 'Permission Denied',
+        description: 'You do not have permission to sync tickets to Jira.',
+        variant: 'warning',
+      });
       return;
     }
 
     if (jiraIntegrations.length === 0) {
-      alert('No Jira integrations configured. Please add a Jira integration in Settings.');
+      setAlertDialog({
+        open: true,
+        title: 'No Jira Integration',
+        description: 'No Jira integrations configured. Please add a Jira integration in Settings.',
+        variant: 'warning',
+      });
       return;
     }
 
     if (jiraIntegrations.length > 1 && !selectedJiraId) {
-      alert('Please select a Jira instance first.');
+      setAlertDialog({
+        open: true,
+        title: 'Select Jira Instance',
+        description: 'Please select a Jira instance first.',
+        variant: 'info',
+      });
       return;
     }
 
@@ -347,15 +419,32 @@ export const TicketsPage = () => {
     try {
       const response = await ticketService.syncAllToJira(selectedJiraId);
       if (response.success) {
-        alert(response.message || 'Sync completed');
-        fetchTickets(1, true);
+        setAlertDialog({
+          open: true,
+          title: 'Sync Complete',
+          description: response.message ?? 'Sync completed',
+          variant: 'success',
+        });
+        fetchTickets(1, true).catch((error) => {
+          console.error('Failed to fetch tickets:', error);
+        });
       } else {
-        alert(`Sync failed: ${response.error || 'Unknown error'}`);
+        setAlertDialog({
+          open: true,
+          title: 'Sync Failed',
+          description: `Sync failed: ${response.error ?? 'Unknown error'}`,
+          variant: 'error',
+        });
       }
     } catch (error) {
       console.error('Failed to sync tickets:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to sync tickets to Jira: ${errorMessage}`);
+      setAlertDialog({
+        open: true,
+        title: 'Sync Failed',
+        description: `Failed to sync tickets to Jira: ${errorMessage}`,
+        variant: 'error',
+      });
     } finally {
       setIsSyncingAll(false);
     }
@@ -378,10 +467,15 @@ export const TicketsPage = () => {
       setSelectedTicket(null); // Close the drawer
       setDeleteDialogOpen(false);
       setTicketToDelete(null);
-      fetchTickets(1, true); // Force refresh
+      await fetchTickets(1, true); // Force refresh
     } catch (error) {
       console.error('Failed to delete ticket:', error);
-      alert('Failed to delete ticket');
+      setAlertDialog({
+        open: true,
+        title: 'Delete Failed',
+        description: 'Failed to delete ticket',
+        variant: 'error',
+      });
     } finally {
       setDeleting(false);
     }
@@ -395,9 +489,9 @@ export const TicketsPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="mx-auto space-y-4 max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col gap-4 justify-between items-start sm:flex-row sm:items-center mb-6">
+        <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-2xl font-bold">Tickets</h2>
             <p className="text-sm text-muted-foreground">Manage and track support tickets</p>
@@ -461,6 +555,7 @@ export const TicketsPage = () => {
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Filter by status"
                   >
                     <option value="all">All</option>
                     <option value="pending">Pending</option>
@@ -479,6 +574,7 @@ export const TicketsPage = () => {
                     value={filters.priority}
                     onChange={(e) => handleFilterChange('priority', e.target.value)}
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Filter by priority"
                   >
                     <option value="all">All</option>
                     <option value="low">Low</option>
@@ -501,6 +597,7 @@ export const TicketsPage = () => {
                       })
                     }
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Sort by field"
                   >
                     <option value="createdAt">Created Date</option>
                     <option value="updatedAt">Updated Date</option>
@@ -517,6 +614,7 @@ export const TicketsPage = () => {
                       setSortingStore({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
                     }
                     className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Sort order"
                   >
                     <option value="desc">Newest First</option>
                     <option value="asc">Oldest First</option>
@@ -530,11 +628,12 @@ export const TicketsPage = () => {
                         Jira:
                       </span>
                       <select
-                        value={selectedJiraId || ''}
+                        value={selectedJiraId ?? ''}
                         onChange={(e) =>
                           setSelectedJiraId(e.target.value ? Number(e.target.value) : undefined)
                         }
                         className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                        aria-label="Select Jira instance"
                       >
                         <option value="">Select Instance</option>
                         {jiraIntegrations.map((jira) => (
@@ -573,8 +672,8 @@ export const TicketsPage = () => {
 
         {loading ? (
           <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Card key={`ticket-skeleton-${i}`} className="animate-pulse">
                 <CardContent className="p-6">
                   <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
                   <div className="w-1/2 h-4 bg-gray-200 rounded" />
@@ -597,7 +696,7 @@ export const TicketsPage = () => {
                 key={ticket.id}
                 header={
                   <>
-                    <h3 className="text-lg font-semibold break-words w-full">{ticket.title}</h3>
+                    <h3 className="w-full text-lg font-semibold break-words">{ticket.title}</h3>
                     <div className="flex gap-2 items-center">
                       <span className="text-xs font-medium text-muted-foreground">Status:</span>
                       <Badge variant={statusColors[ticket.status]}>{ticket.status}</Badge>
@@ -730,8 +829,8 @@ export const TicketsPage = () => {
           <p className="text-sm text-gray-700">
             Are you sure you want to sync all unsynced tickets to Jira?
           </p>
-          <p className="text-sm text-gray-500 mt-2">
-            This will create Jira issues for all tickets that haven't been synced yet.
+          <p className="mt-2 text-sm text-gray-500">
+            This will create Jira issues for all tickets that haven&apos;t been synced yet.
           </p>
         </DialogContent>
         <DialogFooter>
@@ -739,7 +838,7 @@ export const TicketsPage = () => {
             Cancel
           </Button>
           <Button onClick={confirmSyncAll}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="mr-2 w-4 h-4" />
             Sync All
           </Button>
         </DialogFooter>
@@ -777,6 +876,15 @@ export const TicketsPage = () => {
           />
         </Drawer>
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </Layout>
   );
 };

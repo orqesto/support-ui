@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
+import { Button } from './ui/Button';
 
 export const OrganizationSwitcher = () => {
   const user = useAuthStore((state) => state.user);
@@ -15,25 +16,7 @@ export const OrganizationSwitcher = () => {
   // Only show for global admins
   const isGlobalAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    if (isGlobalAdmin) {
-      loadOrganizations();
-    }
-  }, [isGlobalAdmin]);
-
-  // Log current organization on mount and when it changes
-  useEffect(() => {
-    if (selectedOrganizationId) {
-      const org = organizations.find((o) => o.id === selectedOrganizationId);
-      console.log(
-        `🏢 [ORG SWITCHER] Current Organization: ${org?.name || 'Loading...'} (ID: ${selectedOrganizationId})`
-      );
-    } else {
-      console.warn('⚠️ [ORG SWITCHER] No organization selected!');
-    }
-  }, [selectedOrganizationId, organizations]);
-
-  const loadOrganizations = async () => {
+  const loadOrganizations = useCallback(async () => {
     setLoading(true);
     try {
       const result = await organizationService.getAll('', 1, 100);
@@ -48,16 +31,39 @@ export const OrganizationSwitcher = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedOrganizationId, setSelectedOrganization]);
+
+  useEffect(() => {
+    if (isGlobalAdmin) {
+      loadOrganizations().catch((error) => {
+        console.error('Failed to load organizations:', error);
+      });
+    }
+  }, [isGlobalAdmin, loadOrganizations]);
+
+  // Log current organization on mount and when it changes
+  useEffect(() => {
+    if (selectedOrganizationId) {
+      const org = organizations.find((o) => o.id === selectedOrganizationId);
+      // eslint-disable-next-line no-console
+      console.log(
+        `🏢 [ORG SWITCHER] Current Organization: ${org?.name ?? 'Loading...'} (ID: ${selectedOrganizationId})`
+      );
+    } else {
+      console.warn('⚠️ [ORG SWITCHER] No organization selected!');
+    }
+  }, [selectedOrganizationId, organizations]);
 
   const handleSelectOrganization = (orgId: number) => {
     const org = organizations.find((o) => o.id === orgId);
+    // eslint-disable-next-line no-console
     console.log(`🔄 [ORG SWITCHER] Switching to organization: ${org?.name} (ID: ${orgId})`);
 
     setSelectedOrganization(orgId);
     setIsOpen(false);
 
     // Reload to apply new context
+    // eslint-disable-next-line no-console
     console.log('🔄 [ORG SWITCHER] Reloading page to apply new organization context...');
     window.location.reload();
   };
@@ -70,17 +76,17 @@ export const OrganizationSwitcher = () => {
 
   return (
     <div className="relative mb-3">
-      <button
+      <Button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+        className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium rounded-md border text-foreground bg-card border-border hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
         disabled={loading}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Building2 className="w-4 h-4 flex-shrink-0" />
+        <div className="flex flex-1 gap-2 items-center min-w-0">
+          <Building2 className="flex-shrink-0 w-4 h-4" />
           <span className="truncate">{selectedOrg ? selectedOrg.name : 'Select Organization'}</span>
         </div>
-        <ChevronDown className="w-4 h-4 flex-shrink-0" />
-      </button>
+        <ChevronDown className="flex-shrink-0 w-4 h-4" />
+      </Button>
 
       {isOpen && (
         <>
@@ -88,7 +94,7 @@ export const OrganizationSwitcher = () => {
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
           {/* Dropdown */}
-          <div className="absolute left-0 bottom-full z-20 mb-2 w-full bg-card rounded-md shadow-lg border border-border max-h-64 overflow-y-auto">
+          <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-64 rounded-md border shadow-lg bg-card border-border">
             <div className="p-2">
               {loading ? (
                 <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
@@ -98,23 +104,24 @@ export const OrganizationSwitcher = () => {
                 </div>
               ) : (
                 organizations.map((org) => (
-                  <button
+                  <Button
                     key={org.id}
+                    variant="ghost"
                     onClick={() => handleSelectOrganization(org.id)}
-                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-left rounded-md hover:bg-accent transition-colors"
+                    className="flex justify-between items-center px-3 py-2 w-full h-auto text-sm text-left rounded-md transition-colors hover:bg-accent"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{org.name}</div>
                       {org.description && (
-                        <div className="text-xs text-muted-foreground truncate">
+                        <div className="text-xs truncate text-muted-foreground">
                           {org.description}
                         </div>
                       )}
                     </div>
                     {selectedOrganizationId === org.id && (
-                      <Check className="w-4 h-4 text-primary flex-shrink-0 ml-2" />
+                      <Check className="flex-shrink-0 ml-2 w-4 h-4 text-primary" />
                     )}
-                  </button>
+                  </Button>
                 ))
               )}
             </div>

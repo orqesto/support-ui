@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   MessageSquare,
   Send,
@@ -21,6 +21,7 @@ import {
 } from '../lib/socketManager';
 import { formatDate } from '../lib/utils';
 import { commentsService, type Comment } from '../services/comments.service';
+import { AlertDialog } from './ui/AlertDialog';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import {
@@ -54,7 +55,15 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
   const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const fetchComments = async () => {
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
+
+  const fetchComments = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await commentsService.getAll(ticketId);
@@ -66,14 +75,17 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [ticketId]);
 
   useEffect(() => {
     // Get current user from token
     const token = getAuthToken();
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = JSON.parse(atob(token.split('.')[1])) as {
+          userId: number;
+          role: string;
+        };
         setCurrentUserId(payload.userId);
         setCurrentUserRole(payload.role);
       } catch (e) {
@@ -81,7 +93,9 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       }
     }
 
-    fetchComments();
+    fetchComments().catch((error) => {
+      console.error('Failed to fetch comments:', error);
+    });
 
     // Set up WebSocket connection and listen for comment events
     getSocket();
@@ -90,8 +104,11 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       const eventData = data as { ticketId: number; commentId: number };
       // Only refresh if the event is for this ticket
       if (eventData.ticketId === ticketId) {
+        // eslint-disable-next-line no-console
         console.log('💬 Comment event received, refreshing...');
-        fetchComments();
+        fetchComments().catch((error) => {
+          console.error('Failed to fetch comments:', error);
+        });
       }
     };
 
@@ -104,6 +121,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     let pollInterval: number | null = null;
     if (hasJiraLink) {
       pollInterval = setInterval(async () => {
+        // eslint-disable-next-line no-console
         console.log('🔄 Polling for comment updates from Jira...');
         try {
           await commentsService.syncFromJira(ticketId);
@@ -124,7 +142,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         clearInterval(pollInterval);
       }
     };
-  }, [ticketId, hasJiraLink]);
+  }, [ticketId, hasJiraLink, fetchComments]);
 
   const handleAddComment = async () => {
     if (!newComment.trim()) {
@@ -139,12 +157,15 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         if (selectedFiles.length > 0) {
           try {
             await commentsService.uploadAttachments(response.data.id, selectedFiles);
-          } catch (uploadError: any) {
+          } catch (uploadError: unknown) {
             console.error('Failed to upload attachments:', uploadError);
-            alert(
-              'Comment created but failed to upload attachments: ' +
-                (uploadError.message || 'Unknown error')
-            );
+            const errorMsg = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+            setAlertDialog({
+              open: true,
+              title: 'Attachment Upload Failed',
+              description: `Comment created but failed to upload attachments: ${errorMsg}`,
+              variant: 'warning',
+            });
           }
         }
         setNewComment('');
@@ -154,16 +175,21 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       }
     } catch (error) {
       console.error('Failed to add comment:', error);
-      alert('Failed to add comment. Please try again.');
+      setAlertDialog({
+        open: true,
+        title: 'Comment Failed',
+        description: 'Failed to add comment. Please try again.',
+        variant: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyPress = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      handleAddComment();
+      await handleAddComment();
     }
   };
 
@@ -189,9 +215,16 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         setEditContent('');
         await fetchComments(); // Refresh immediately
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update comment:', error);
-      alert(error.message || 'Failed to update comment. Please try again.');
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to update comment. Please try again.';
+      setAlertDialog({
+        open: true,
+        title: 'Update Failed',
+        description: errorMsg,
+        variant: 'error',
+      });
     }
   };
 
@@ -210,9 +243,16 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       setDeleteDialogOpen(false);
       setCommentToDelete(null);
       await fetchComments(); // Refresh immediately
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete comment:', error);
-      alert(error.message || 'Failed to delete comment. Please try again.');
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to delete comment. Please try again.';
+      setAlertDialog({
+        open: true,
+        title: 'Delete Failed',
+        description: errorMsg,
+        variant: 'error',
+      });
       setDeleteDialogOpen(false);
       setCommentToDelete(null);
     }
@@ -233,9 +273,15 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       setIsSyncing(true);
       await commentsService.syncFromJira(ticketId);
       await fetchComments();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to sync comments:', error);
-      alert(error.message || 'Failed to sync comments from Jira');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to sync comments from Jira';
+      setAlertDialog({
+        open: true,
+        title: 'Sync Failed',
+        description: errorMsg,
+        variant: 'error',
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -256,9 +302,16 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       await fetchComments(); // Refresh immediately
       setDeleteAttachmentDialogOpen(false);
       setAttachmentToDelete(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete attachment:', error);
-      alert(error.message || 'Failed to delete attachment. Please try again.');
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to delete attachment. Please try again.';
+      setAlertDialog({
+        open: true,
+        title: 'Delete Failed',
+        description: errorMsg,
+        variant: 'error',
+      });
     }
   };
 
@@ -404,7 +457,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                       {comment.attachments.map((attachment) => (
                         <div
                           key={attachment.id}
-                          className="flex gap-2 items-center p-2 bg-muted rounded border border-border"
+                          className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
                         >
                           <File className="w-4 h-4 text-gray-500" />
                           <div className="flex-1 min-w-0">
@@ -425,12 +478,14 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                             <Download className="w-4 h-4 text-gray-600" />
                           </a>
                           {canEditComment(comment) && (
-                            <button
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => confirmDeleteAttachment(attachment.id)}
-                              className="p-1 text-red-600 dark:text-red-400 rounded hover:bg-red-500/10"
+                              className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
                             >
                               <X className="w-4 h-4" />
-                            </button>
+                            </Button>
                           )}
                         </div>
                       ))}
@@ -479,19 +534,19 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
           <div className="mt-2 space-y-1">
             {selectedFiles.map((file, index) => (
               <div
-                key={index}
-                className="flex gap-2 items-center p-2 bg-muted rounded border border-border"
+                key={file.name}
+                className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
               >
                 <Paperclip className="w-4 h-4 text-gray-500" />
                 <span className="flex-1 text-sm truncate">{file.name}</span>
                 <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
-                <button
+                <Button
                   onClick={() => handleRemoveFile(index)}
-                  className="p-1 text-red-600 dark:text-red-400 rounded hover:bg-red-500/10"
+                  className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
                   disabled={isSubmitting}
                 >
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -507,10 +562,10 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                 className="rounded"
                 disabled={isSubmitting}
               />
-              <span className="text-muted-foreground">Internal note (won't sync to Jira)</span>
+              <span className="text-muted-foreground">Internal note (won&apos;t sync to Jira)</span>
             </label>
 
-            <label className="flex gap-1 items-center px-3 py-1 text-sm font-medium text-foreground bg-input rounded-md border border-border cursor-pointer hover:bg-accent">
+            <label className="flex gap-1 items-center px-3 py-1 text-sm font-medium rounded-md border cursor-pointer text-foreground bg-input border-border hover:bg-accent">
               <Paperclip className="w-3 h-3" />
               Add Files
               <input
@@ -575,7 +630,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         </DialogHeader>
         <DialogContent>
           <p className="text-sm text-gray-700">Are you sure you want to delete this attachment?</p>
-          <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+          <p className="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
         </DialogContent>
         <DialogFooter>
           <Button
@@ -588,11 +643,20 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
             Cancel
           </Button>
           <Button variant="destructive" onClick={handleDeleteAttachment}>
-            <Trash2 className="w-4 h-4 mr-2" />
+            <Trash2 className="mr-2 w-4 h-4" />
             Delete
           </Button>
         </DialogFooter>
       </Dialog>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </div>
   );
 };

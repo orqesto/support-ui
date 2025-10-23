@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
 import { Layout } from '../components/layout/Layout';
+import { AlertDialog } from '../components/ui/AlertDialog';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useSystemHealth } from '../hooks/useSystemHealth';
@@ -25,6 +26,17 @@ export const DashboardPage = () => {
   const [hasIntegrations, setHasIntegrations] = useState(false);
   const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
   const [hasTelegramIntegrations, setHasTelegramIntegrations] = useState(false);
+
+  // Ref to track polling interval for cleanup
+  const pollingIntervalRef = useRef<number | null>(null);
+
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
 
   // Get real-time system health
   const { health, isWebSocketConnected } = useSystemHealth();
@@ -86,7 +98,7 @@ export const DashboardPage = () => {
     const checkIntegrations = async () => {
       try {
         const response = await integrationsService.getAll();
-        const activeIntegrations = response.data?.filter((i) => i.enabled) || [];
+        const activeIntegrations = response.data?.filter((i) => i.enabled) ?? [];
 
         const emailIntegrations = activeIntegrations.filter(
           (i) => i.type === 'email' || i.type === 'gmail'
@@ -104,33 +116,60 @@ export const DashboardPage = () => {
       }
     };
 
-    checkIntegrations();
-  }, []);
+    checkIntegrations().catch((error) => {
+      console.error('Failed to check integrations:', error);
+    });
+  }, [])
 
   useEffect(() => {
-    fetchStats();
+    fetchStats().catch((error) => {
+      console.error('Failed to fetch stats:', error);
+    });
   }, []);
+
+  // Cleanup polling interval on unmount
+  useEffect(
+    () => () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    },
+    []
+  );
 
   const handleIngestion = async (type: 'all' | 'email' | 'telegram' | 'check-email') => {
     // Check if current org has required integrations before starting
     if (type === 'all' && !hasIntegrations) {
-      alert(
-        'No integrations configured for the current organization. Please configure integrations in Settings.'
-      );
+      setAlertDialog({
+        open: true,
+        title: 'No Integrations',
+        description:
+          'No integrations configured for the current organization. Please configure integrations in Settings.',
+        variant: 'warning',
+      });
       return;
     }
 
     if ((type === 'email' || type === 'check-email') && !hasEmailIntegrations) {
-      alert(
-        'No email integrations configured for the current organization. Please configure email integration in Settings.'
-      );
+      setAlertDialog({
+        open: true,
+        title: 'No Email Integration',
+        description:
+          'No email integrations configured for the current organization. Please configure email integration in Settings.',
+        variant: 'warning',
+      });
       return;
     }
 
     if (type === 'telegram' && !hasTelegramIntegrations) {
-      alert(
-        'No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.'
-      );
+      setAlertDialog({
+        open: true,
+        title: 'No Telegram Integration',
+        description:
+          'No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -152,35 +191,48 @@ export const DashboardPage = () => {
           break;
       }
       if (response.success) {
-        const message = response.message || 'Ingestion started successfully';
+        const message = response.message ?? 'Ingestion started successfully';
         const note = (response as { note?: string }).note;
 
         // Clear Messages page cache so it shows fresh data
         clearMessagesCache();
 
         // Show success message first
-        if (note) {
-          alert(`${message}\n\n${note}`);
-        } else {
-          alert(message);
+        const description = note ? `${message}\n\n${note}` : message;
+        setAlertDialog({
+          open: true,
+          title: 'Ingestion Complete',
+          description,
+          variant: 'success',
+        });
+
+        // Clear any existing polling interval
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
         }
 
         // Refresh stats after a delay to allow background processing
         // Poll stats every 2 seconds for up to 30 seconds
         let attempts = 0;
         const maxAttempts = 15;
-        const pollInterval = setInterval(async () => {
+        pollingIntervalRef.current = setInterval(async () => {
           attempts++;
           await fetchStats();
 
-          if (attempts >= maxAttempts) {
-            clearInterval(pollInterval);
+          if (attempts >= maxAttempts && pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
           }
-        }, 2000);
+        }, 2000) as unknown as number;
       }
     } catch (error) {
       console.error('Failed to start ingestion:', error);
-      alert('Failed to start ingestion');
+      setAlertDialog({
+        open: true,
+        title: 'Ingestion Failed',
+        description: 'Failed to start ingestion',
+        variant: 'error',
+      });
     } finally {
       setIngesting(null);
     }
@@ -223,7 +275,7 @@ export const DashboardPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-5">
+      <div className="mx-auto space-y-5 max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -239,8 +291,8 @@ export const DashboardPage = () => {
 
         {loading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={`skeleton-${i}`} className="animate-pulse">
                 <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
                   <div className="w-24 h-4 bg-gray-200 rounded" />
                   <div className="w-10 h-10 bg-gray-200 rounded" />
@@ -322,7 +374,7 @@ export const DashboardPage = () => {
                 Start All Services
               </Button>
               {!hasIntegrations && (
-                <p className="text-xs text-amber-600 text-center">
+                <p className="text-xs text-center text-amber-600">
                   ⚠️ No integrations configured. Go to Settings to add integrations.
                 </p>
               )}
@@ -436,7 +488,7 @@ export const DashboardPage = () => {
                             : 'text-muted-foreground'
                       }`}
                     >
-                      {health.services.email.message || health.services.email.status}
+                      {health.services.email.message ?? health.services.email.status}
                     </span>
                   </div>
                 )}
@@ -500,7 +552,7 @@ export const DashboardPage = () => {
                             : 'text-muted-foreground'
                       }`}
                     >
-                      {health.services.ai.message || health.services.ai.status}
+                      {health.services.ai.message ?? health.services.ai.status}
                     </span>
                   </div>
                 )}
@@ -523,6 +575,15 @@ export const DashboardPage = () => {
         {/* Real-time Email Processing Progress */}
         <EmailProcessingProgress />
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </Layout>
   );
 };

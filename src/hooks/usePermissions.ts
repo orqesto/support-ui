@@ -18,7 +18,7 @@ import {
 export const usePermissions = () => {
   const user = useAuthStore((state) => state.user);
 
-  const userRole: GlobalRole = user?.role || 'user';
+  const userRole: GlobalRole = user?.role ?? 'user';
   const orgRole: OrganizationRole | undefined = user?.organizationRole;
 
   return useMemo(

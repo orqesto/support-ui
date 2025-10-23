@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Check } from 'lucide-react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -43,10 +42,17 @@ export const SignupPage = () => {
       try {
         // Validate the invitation token and get invitation details
         const response = await apiClient.get(`/api/auth/validate-invitation/${token}`);
-        const data = response.data;
+        const data = response.data as {
+          success: boolean;
+          data: {
+            error?: string;
+            valid: boolean;
+            invitation: { email: string; organizationName: string; role: string };
+          };
+        };
 
         if (!data.success || !data.data?.valid) {
-          setError(data.data?.error || 'Invalid or expired invitation');
+          setError(data.data?.error ?? 'Invalid or expired invitation');
           setTimeout(() => {
             navigate('/login', {
               state: { message: 'Invalid or expired invitation. Please request a new one.' },
@@ -67,7 +73,9 @@ export const SignupPage = () => {
       }
     };
 
-    validateToken();
+    validateToken().catch((error) => {
+      console.error('Failed to validate token:', error);
+    });
   }, [token, navigate]);
 
   const handleChange = (field: string, value: string) => {
@@ -121,10 +129,14 @@ export const SignupPage = () => {
       if (response.success) {
         setSuccess(true);
       } else {
-        setError(response.message || 'Registration failed');
+        setError(response.message ?? 'Registration failed');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred during registration');
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An error occurred during registration');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -132,10 +144,10 @@ export const SignupPage = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50 px-4">
+      <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+            <div className="flex justify-center items-center mx-auto mb-4 w-16 h-16 bg-green-100 rounded-full">
               <Check className="w-10 h-10 text-green-600" />
             </div>
             <CardTitle className="text-2xl">Account Created!</CardTitle>
@@ -144,8 +156,8 @@ export const SignupPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-green-50 p-4 rounded-lg text-sm text-gray-700">
-              <p className="font-medium mb-2">You're all set!</p>
+            <div className="p-4 text-sm text-gray-700 bg-green-50 rounded-lg">
+              <p className="mb-2 font-medium">You&apos;re all set!</p>
               <p>Your account is ready to use. You can now log in with your credentials.</p>
             </div>
             <Button onClick={() => navigate('/login')} className="w-full">
@@ -159,10 +171,10 @@ export const SignupPage = () => {
 
   if (isValidatingToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50 px-4">
+      <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+            <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
             <p className="text-muted-foreground">Validating invitation...</p>
           </CardContent>
         </Card>
@@ -171,12 +183,12 @@ export const SignupPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50 px-4">
+    <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
-            You've been invited to join <strong>{organizationName}</strong> as a{' '}
+            You&apos;ve been invited to join <strong>{organizationName}</strong> as a{' '}
             <strong>{invitationRole}</strong>
           </CardDescription>
         </CardHeader>
@@ -200,8 +212,8 @@ export const SignupPage = () => {
               />
             </div>
 
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-xs font-medium text-gray-700 mb-1">Invitation Email</p>
+            <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+              <p className="mb-1 text-xs font-medium text-gray-700">Invitation Email</p>
               <p className="text-sm font-semibold text-gray-900">{invitationEmail}</p>
             </div>
 
@@ -232,7 +244,7 @@ export const SignupPage = () => {
             />
 
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
                 {error}
               </div>
             )}
@@ -243,7 +255,7 @@ export const SignupPage = () => {
 
             <div className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary hover:underline font-medium">
+              <Link to="/login" className="font-medium text-primary hover:underline">
                 Sign in
               </Link>
             </div>
