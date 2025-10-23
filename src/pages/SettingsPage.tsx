@@ -1,14 +1,16 @@
-import { Settings, FolderTree, FileText, Shield, Plug } from 'lucide-react';
+import { Settings, FolderTree, FileText, Shield, Plug, Brain, Sparkles } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { AIProvidersSettings } from '../components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
+import { EmbeddingSettings } from '../components/settings/EmbeddingSettings';
 import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
 import { PromptsSettings } from '../components/settings/PromptsSettings';
 import { SpamRulesSettings } from '../components/settings/SpamRulesSettings';
 
-type TabType = 'categories' | 'prompts' | 'spam-rules' | 'integrations';
+type TabType = 'categories' | 'prompts' | 'spam-rules' | 'integrations' | 'ai-providers' | 'embeddings';
 
 export const SettingsPage = () => {
   const location = useLocation();
@@ -39,6 +41,18 @@ export const SettingsPage = () => {
       label: 'Spam Rules',
       icon: Shield,
       description: 'Configure spam detection rules',
+    },
+    {
+      id: 'embeddings' as TabType,
+      label: 'Embeddings',
+      icon: Sparkles,
+      description: 'Choose embedding provider (OpenAI or Local)',
+    },
+    {
+      id: 'ai-providers' as TabType,
+      label: 'AI Providers',
+      icon: Brain,
+      description: 'Configure OpenAI, Anthropic and models',
     },
     {
       id: 'integrations' as TabType,
@@ -97,6 +111,8 @@ export const SettingsPage = () => {
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
               {activeTab === 'spam-rules' && <SpamRulesSettings />}
+              {activeTab === 'embeddings' && <EmbeddingSettings />}
+              {activeTab === 'ai-providers' && <AIProvidersSettings />}
               {activeTab === 'integrations' && <IntegrationsSettings />}
             </div>
           </CardContent>
