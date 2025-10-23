@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Mail, Eye, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { Mail, Eye, RefreshCw, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
 type TemplateType = 'invitation' | 'verification';
@@ -87,17 +87,17 @@ export const EmailTemplatesPage = () => {
                     <button
                       key={template.type}
                       onClick={() => loadPreview(template.type)}
-                      className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
-                        selectedTemplate === template.type ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      className={`w-full text-left p-4 hover:bg-accent transition-colors ${
+                        selectedTemplate === template.type ? 'bg-blue-500/10 dark:bg-blue-500/10 border-l-4 border-primary' : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <Mail className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                          selectedTemplate === template.type ? 'text-blue-600' : 'text-gray-400'
+                          selectedTemplate === template.type ? 'text-primary' : 'text-muted-foreground'
                         }`} />
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm">{template.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
                         </div>
                       </div>
                     </button>
@@ -113,20 +113,20 @@ export const EmailTemplatesPage = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-xs">
-                    <p className="text-gray-600">Available variables for {selectedTemplate}:</p>
-                    <div className="bg-gray-50 p-3 rounded font-mono text-xs space-y-1">
-                      <div><span className="text-blue-600">{'{{appName}}'}</span> - Application name</div>
-                      <div><span className="text-blue-600">{'{{year}}'}</span> - Current year</div>
+                    <p className="text-muted-foreground">Available variables for {selectedTemplate}:</p>
+                    <div className="bg-muted p-3 rounded font-mono text-xs space-y-1">
+                      <div><span className="text-primary">{'{{appName}}'}</span> - Application name</div>
+                      <div><span className="text-primary">{'{{year}}'}</span> - Current year</div>
                       {selectedTemplate === 'invitation' && (
                         <>
-                          <div><span className="text-blue-600">{'{{organizationName}}'}</span> - Organization</div>
-                          <div><span className="text-blue-600">{'{{role}}'}</span> - User role</div>
-                          <div><span className="text-blue-600">{'{{signupUrl}}'}</span> - Signup link</div>
+                          <div><span className="text-primary">{'{{organizationName}}'}</span> - Organization</div>
+                          <div><span className="text-primary">{'{{role}}'}</span> - User role</div>
+                          <div><span className="text-primary">{'{{signupUrl}}'}</span> - Signup link</div>
                         </>
                       )}
                       {selectedTemplate === 'verification' && (
                         <>
-                          <div><span className="text-blue-600">{'{{verificationUrl}}'}</span> - Verification link</div>
+                          <div><span className="text-primary">{'{{verificationUrl}}'}</span> - Verification link</div>
                         </>
                       )}
                     </div>

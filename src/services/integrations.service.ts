@@ -86,6 +86,32 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
+  // Check if ANY organization has enabled email integrations (system-wide)
+  hasAnyEmailIntegrations: async (): Promise<boolean> => {
+    try {
+      // Make request without organization context to get all integrations
+      const response = await apiClient.get<{ success: boolean; data: Integration[] }>(
+        '/api/integrations',
+        {
+          headers: {
+            'X-Skip-Org-Context': 'true', // Signal to bypass org filtering
+          },
+        }
+      );
+      
+      const emailIntegrations = response.data.data?.filter(
+        (integration) =>
+          integration.enabled &&
+          (integration.type === 'email' || integration.type === 'gmail')
+      ) || [];
+      
+      return emailIntegrations.length > 0;
+    } catch (error) {
+      console.error('Failed to check for email integrations:', error);
+      return false;
+    }
+  },
+
   getById: async (id: number): Promise<ApiResponse<Integration>> => {
     const response = await apiClient.get<{ success: boolean; data: Integration }>(`/api/integrations/${id}`);
     return { success: response.data.success, data: response.data.data };

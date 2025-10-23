@@ -51,28 +51,15 @@ export const StatisticsPage = () => {
     }
   };
 
-  const getChannelColor = (channel: string) => {
-    switch (channel) {
-      case 'email':
-        return 'blue';
-      case 'telegram':
-        return 'cyan';
-      case 'slack':
-        return 'purple';
-      default:
-        return 'gray';
-    }
-  };
-
   if (loading) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto space-y-4">
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
+            <div className="h-8 bg-muted rounded w-1/4 mb-4" />
             <div className="grid grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded" />
+                <div key={i} className="h-32 bg-muted rounded" />
               ))}
             </div>
           </div>
@@ -178,13 +165,13 @@ export const StatisticsPage = () => {
                 {stats.topCategories
                   .filter(cat => isSpamOrScam(cat.categoryName))
                   .map((category) => (
-                    <div key={category.categoryId} className="p-3 bg-white rounded-lg border border-red-300">
+                    <div key={category.categoryId} className="p-3 bg-red-500/10 dark:bg-red-500/10 rounded-lg border border-red-500/20">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <ShieldAlert className="h-4 w-4 text-red-600" />
-                          <span className="font-medium text-red-700">{category.categoryName}</span>
+                          <span className="font-medium text-red-600 dark:text-red-400">{category.categoryName}</span>
                         </div>
-                        <div className="text-sm text-red-600 font-medium">
+                        <div className="text-sm text-red-600 dark:text-red-400 font-medium">
                           {category.totalMessages} messages detected
                         </div>
                       </div>
@@ -236,9 +223,9 @@ export const StatisticsPage = () => {
                         {ticketRate.toFixed(0)}% conversion
                       </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${isSpamCategory ? 'bg-red-500' : 'bg-blue-600'}`}
+                        className={`h-2 rounded-full ${isSpamCategory ? 'bg-red-500' : 'bg-primary'}`}
                         style={{ width: `${Math.min((category.totalMessages / stats.overview.totalMessages) * 100, 100)}%` }}
                       />
                     </div>
@@ -266,29 +253,29 @@ export const StatisticsPage = () => {
                   .map((item, index) => {
                   const isMatch = item.suggestedCategoryName === item.actualCategoryName;
                   return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-3 flex-1">
                         <div className="text-sm">
-                          <span className="font-medium text-gray-700">AI Suggested:</span>{' '}
-                          <span className={isMatch ? 'text-green-600 font-medium' : 'text-gray-600'}>
+                          <span className="font-medium">AI Suggested:</span>{' '}
+                          <span className={isMatch ? 'text-green-600 dark:text-green-400 font-medium' : 'text-muted-foreground'}>
                             {item.suggestedCategoryName}
                           </span>
                         </div>
-                        <span className="text-gray-400">→</span>
+                        <span className="text-muted-foreground">→</span>
                         <div className="text-sm">
-                          <span className="font-medium text-gray-700">User Selected:</span>{' '}
-                          <span className={isMatch ? 'text-green-600 font-medium' : 'text-blue-600 font-medium'}>
+                          <span className="font-medium">User Selected:</span>{' '}
+                          <span className={isMatch ? 'text-green-600 dark:text-green-400 font-medium' : 'text-primary font-medium'}>
                             {item.actualCategoryName}
                           </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {isMatch && (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                          <span className="px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
                             ✓ Match
                           </span>
                         )}
-                        <span className="text-sm font-medium text-gray-600">
+                        <span className="text-sm font-medium text-muted-foreground">
                           {item.count} {item.count === 1 ? 'ticket' : 'tickets'}
                         </span>
                       </div>
@@ -303,7 +290,6 @@ export const StatisticsPage = () => {
         {/* Channel Statistics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {stats.byChannel.map((channelStats) => {
-            const color = getChannelColor(channelStats.channel);
             const conversionRate = channelStats.totalMessages > 0 
               ? (channelStats.totalTickets / channelStats.totalMessages) * 100 
               : 0;
@@ -319,20 +305,20 @@ export const StatisticsPage = () => {
                 <CardContent className="space-y-4">
                   {/* Channel Overview */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className={`p-3 bg-${color}-50 rounded-lg border border-${color}-200`}>
+                    <div className="p-3 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
                       <div className="text-xs text-muted-foreground">Messages</div>
                       <div className="text-2xl font-bold">{channelStats.totalMessages}</div>
                     </div>
-                    <div className={`p-3 bg-green-50 rounded-lg border border-green-200`}>
+                    <div className="p-3 bg-green-500/10 dark:bg-green-500/10 rounded-lg border border-green-500/20">
                       <div className="text-xs text-muted-foreground">Tickets</div>
                       <div className="text-2xl font-bold">{channelStats.totalTickets}</div>
                     </div>
                   </div>
 
                   {/* Conversion Rate */}
-                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="p-3 bg-purple-500/10 dark:bg-purple-500/10 rounded-lg border border-purple-500/20">
                     <div className="text-xs text-muted-foreground mb-1">Ticket Conversion Rate</div>
-                    <div className="text-xl font-bold text-purple-900">{conversionRate.toFixed(1)}%</div>
+                    <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{conversionRate.toFixed(1)}%</div>
                   </div>
 
                   {/* Status Breakdown */}

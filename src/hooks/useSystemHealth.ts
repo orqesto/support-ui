@@ -15,8 +15,8 @@ export const useSystemHealth = (pollInterval = 10000): SystemHealth => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Get WebSocket status from email processing hook
-  const { socket } = useEmailProcessing();
+  // Get WebSocket status from email processing hook (disabled to avoid unnecessary subscriptions)
+  const { socket } = useEmailProcessing(false);
   const isWebSocketConnected = socket?.connected || false;
 
   const fetchHealth = useCallback(async () => {

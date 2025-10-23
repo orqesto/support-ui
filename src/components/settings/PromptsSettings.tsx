@@ -99,20 +99,20 @@ export const PromptsSettings = () => {
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <p className="text-sm text-blue-900">
+      <div className="p-4 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
+        <p className="text-sm text-blue-600 dark:text-blue-400">
           <strong>Template Variables:</strong> Use{' '}
-          <code className="px-1 bg-blue-100 rounded">{'{{variable}}'}</code> for dynamic content.
-          Available: <code className="px-1 bg-blue-100 rounded">{'{{subject}}'}</code>,{' '}
-          <code className="px-1 bg-blue-100 rounded">{'{{sender}}'}</code>,{' '}
-          <code className="px-1 bg-blue-100 rounded">{'{{content}}'}</code>,{' '}
-          <code className="px-1 bg-blue-100 rounded">{'{{spam_rules}}'}</code>
+          <code className="px-1 bg-blue-500/20 rounded">{'{{variable}}'}</code> for dynamic content.
+          Available: <code className="px-1 bg-blue-500/20 rounded">{'{{subject}}'}</code>,{' '}
+          <code className="px-1 bg-blue-500/20 rounded">{'{{sender}}'}</code>,{' '}
+          <code className="px-1 bg-blue-500/20 rounded">{'{{content}}'}</code>,{' '}
+          <code className="px-1 bg-blue-500/20 rounded">{'{{spam_rules}}'}</code>
         </p>
       </div>
 
       {/* New Prompt Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 bg-green-50 rounded-lg border">
+        <div className="p-4 space-y-4 bg-green-500/10 dark:bg-green-500/10 rounded-lg border border-green-500/20">
           <h4 className="font-semibold">New Prompt Template</h4>
           <div className="grid gap-4">
             <div>
@@ -121,7 +121,7 @@ export const PromptsSettings = () => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="e.g., message_analysis"
               />
             </div>
@@ -131,7 +131,7 @@ export const PromptsSettings = () => {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border"
+                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="What this prompt is used for"
               />
             </div>
@@ -140,9 +140,8 @@ export const PromptsSettings = () => {
               <textarea
                 value={formData.prompt}
                 onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                 rows={12}
-                placeholder="Your prompt here... Use {{variable}} for dynamic content"
               />
             </div>
             <div className="flex gap-2 items-center">
@@ -176,8 +175,8 @@ export const PromptsSettings = () => {
         {prompts.map((prompt) => (
           <div
             key={prompt.id}
-            className={`border rounded-lg p-4 ${
-              editingPrompt?.id === prompt.id ? 'bg-green-50' : 'bg-white'
+            className={`border border-border rounded-lg p-4 ${
+              editingPrompt?.id === prompt.id ? 'bg-green-500/10 dark:bg-green-500/10' : 'bg-card'
             }`}
           >
             {editingPrompt?.id === prompt.id ? (
@@ -196,7 +195,7 @@ export const PromptsSettings = () => {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       disabled={editingPrompt?.type === 'system'}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
                     />
                   </div>
                   <div>
@@ -211,7 +210,7 @@ export const PromptsSettings = () => {
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       disabled={editingPrompt?.type === 'system'}
-                      className="px-3 py-2 w-full rounded-md border disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
                     />
                   </div>
                   <div>
@@ -219,7 +218,7 @@ export const PromptsSettings = () => {
                     <textarea
                       value={formData.prompt}
                       onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={12}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -286,7 +285,7 @@ export const PromptsSettings = () => {
                   <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
                     View Prompt Template ({prompt.prompt.length} characters)
                   </summary>
-                  <div className="p-3 mt-3 bg-gray-50 rounded-lg border">
+                  <div className="p-3 mt-3 bg-muted rounded-lg border border-border">
                     <pre className="overflow-auto max-h-96 font-mono text-xs whitespace-pre-wrap">
                       {prompt.prompt}
                     </pre>

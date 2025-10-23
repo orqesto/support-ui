@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, PaginationMeta } from '@/types';
 
 export type Organization = {
   id: number;
@@ -25,11 +25,27 @@ export type OrganizationMember = {
 };
 
 export const organizationService = {
-  getAll: async () => {
-    const response = await apiClient.get<ApiResponse<Organization[]>>(
-      '/api/organizations'
+  getAll: async (search?: string, page: number = 1, limit: number = 10) => {
+    const params = new URLSearchParams();
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    const response = await apiClient.get<ApiResponse<Organization[]> & { pagination: PaginationMeta }>(
+      `/api/organizations?${params}`
     );
-    return response.data.data || [];
+    return {
+      data: response.data.data || [],
+      pagination: response.data.pagination || {
+        page,
+        limit,
+        total: 0,
+        totalPages: 0,
+        hasMore: false,
+      },
+    };
   },
 
   getCurrent: async () => {
@@ -85,6 +101,21 @@ export const organizationService = {
   delete: async (id: number) => {
     const response = await apiClient.delete<ApiResponse<void>>(
       `/api/organizations/${id}`
+    );
+    return response.data;
+  },
+
+  addMember: async (orgId: number, userId: number, role: string) => {
+    const response = await apiClient.post<ApiResponse<void>>(
+      `/api/organizations/${orgId}/members`,
+      { userId, role }
+    );
+    return response.data;
+  },
+
+  removeMember: async (orgId: number, userId: number) => {
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/api/organizations/${orgId}/members/${userId}`
     );
     return response.data;
   },

@@ -8,13 +8,31 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and organization context
 apiClient.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Add selected organization context for admin
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      try {
+        const parsed = JSON.parse(authStorage);
+        const selectedOrgId = parsed.state?.selectedOrganizationId;
+        if (selectedOrgId) {
+          config.headers['X-Organization-Context'] = selectedOrgId.toString();
+          console.log(`🏢 [API] Organization Context: ${selectedOrgId} | ${config.method?.toUpperCase()} ${config.url}`);
+        } else {
+          console.warn('⚠️ [API] No organization context set!', config.method?.toUpperCase(), config.url);
+        }
+      } catch (e) {
+        console.error('❌ [API] Failed to parse auth storage:', e);
+      }
+    }
+    
     return config;
   },
   (error) => {

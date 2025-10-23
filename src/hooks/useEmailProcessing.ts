@@ -30,7 +30,7 @@ type EmailProcessingState = {
   isProcessing: boolean;
 };
 
-export const useEmailProcessing = () => {
+export const useEmailProcessing = (enabled = true) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [state, setState] = useState<EmailProcessingState>({
     status: 'idle',
@@ -42,11 +42,19 @@ export const useEmailProcessing = () => {
   });
 
   useEffect(() => {
-    // Get singleton socket instance
+    // Always get socket instance (for connection status)
     const socketInstance = getSocket();
     setSocket(socketInstance);
 
-    const handleProcessing = (event: EmailProcessingEvent) => {
+    // Skip event subscription if disabled
+    if (!enabled) {
+      return () => {
+        releaseSocket();
+      };
+    }
+
+    const handleProcessing = (data: unknown) => {
+      const event = data as EmailProcessingEvent;
       switch (event.type) {
         case 'started':
           setState({
@@ -112,7 +120,7 @@ export const useEmailProcessing = () => {
       unsubscribeFromEvent('email:processing', handleProcessing);
       releaseSocket();
     };
-  }, []);
+  }, [enabled]);
 
   const reset = useCallback(() => {
     setState({

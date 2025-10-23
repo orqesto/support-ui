@@ -17,7 +17,7 @@ export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
         className="fixed inset-0 bg-black/50"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-card rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {children}
       </div>
     </div>
@@ -25,7 +25,7 @@ export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
 };
 
 export const DialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => (
-  <div className={cn('flex items-center justify-between p-6 border-b', className)}>
+  <div className={cn('flex items-center justify-between p-6 border-b border-border', className)}>
     {children}
   </div>
 );
@@ -48,7 +48,7 @@ export const DialogContent = ({ className, children }: { className?: string; chi
 );
 
 export const DialogFooter = ({ className, children }: { className?: string; children: ReactNode }) => (
-  <div className={cn('flex items-center justify-end gap-2 p-6 border-t', className)}>
+  <div className={cn('flex items-center justify-end gap-2 p-6 border-t border-border', className)}>
     {children}
   </div>
 );

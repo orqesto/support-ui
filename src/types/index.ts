@@ -13,6 +13,10 @@ export type User = {
   role: GlobalRole; // Global role (admin, user)
   organizationRole?: OrganizationRole; // Role in current organization
   organizationId?: number; // Current organization ID
+  // Optional contact methods
+  telegram?: string | null; // Telegram username (e.g., @username)
+  slack?: string | null; // Slack username or user ID
+  phone?: string | null; // Phone number
   createdAt: string;
   updatedAt?: string;
 };
@@ -61,6 +65,14 @@ export type ApiResponse<T> = {
   data?: T;
   message?: string;
   error?: string;
+};
+
+export type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
 };
 
 export type PaginatedResponse<T> = ApiResponse<{

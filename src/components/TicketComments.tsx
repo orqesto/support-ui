@@ -299,7 +299,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
             <div
               key={comment.id}
               className={`p-4 rounded-lg border ${
-                comment.isInternal ? 'bg-yellow-50 border-yellow-200' : 'bg-white'
+                comment.isInternal ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20' : 'bg-card border-border'
               }`}
             >
               {/* Comment Header */}
@@ -377,7 +377,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                       {comment.attachments.map((attachment) => (
                         <div
                           key={attachment.id}
-                          className="flex gap-2 items-center p-2 bg-gray-50 rounded border border-gray-200"
+                          className="flex gap-2 items-center p-2 bg-muted rounded border border-border"
                         >
                           <File className="w-4 h-4 text-gray-500" />
                           <div className="flex-1 min-w-0">
@@ -393,14 +393,14 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                             download={attachment.originalFilename}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 rounded hover:bg-gray-200"
+                            className="p-1 rounded hover:bg-accent"
                           >
                             <Download className="w-4 h-4 text-gray-600" />
                           </a>
                           {canEditComment(comment) && (
                             <button
                               onClick={() => confirmDeleteAttachment(attachment.id)}
-                              className="p-1 text-red-600 rounded hover:bg-red-50"
+                              className="p-1 text-red-600 dark:text-red-400 rounded hover:bg-red-500/10"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -421,7 +421,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                         size="sm"
                         variant="ghost"
                         onClick={() => handleDeleteClick(comment.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
                       >
                         <Trash2 className="mr-1 w-3 h-3" />
                         Delete
@@ -453,14 +453,14 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
             {selectedFiles.map((file, index) => (
               <div
                 key={index}
-                className="flex gap-2 items-center p-2 bg-gray-50 rounded border border-gray-200"
+                className="flex gap-2 items-center p-2 bg-muted rounded border border-border"
               >
                 <Paperclip className="w-4 h-4 text-gray-500" />
                 <span className="flex-1 text-sm truncate">{file.name}</span>
                 <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                 <button
                   onClick={() => handleRemoveFile(index)}
-                  className="p-1 text-red-600 rounded hover:bg-red-50"
+                  className="p-1 text-red-600 dark:text-red-400 rounded hover:bg-red-500/10"
                   disabled={isSubmitting}
                 >
                   <X className="w-4 h-4" />
@@ -483,7 +483,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
               <span className="text-muted-foreground">Internal note (won't sync to Jira)</span>
             </label>
 
-            <label className="flex gap-1 items-center px-3 py-1 text-sm font-medium text-gray-700 bg-white rounded-md border border-gray-300 cursor-pointer hover:bg-gray-50">
+            <label className="flex gap-1 items-center px-3 py-1 text-sm font-medium text-foreground bg-input rounded-md border border-border cursor-pointer hover:bg-accent">
               <Paperclip className="w-3 h-3" />
               Add Files
               <input

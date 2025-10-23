@@ -362,7 +362,7 @@ export const IntegrationsSettings = () => {
                     type="text"
                     value={emailConfig.host}
                     onChange={(e) => setEmailConfig({ ...emailConfig, host: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="imap.gmail.com"
                   />
                 </div>
@@ -374,7 +374,7 @@ export const IntegrationsSettings = () => {
                     onChange={(e) =>
                       setEmailConfig({ ...emailConfig, port: parseInt(e.target.value) })
                     }
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="993"
                   />
                 </div>
@@ -384,7 +384,7 @@ export const IntegrationsSettings = () => {
                     type="email"
                     value={emailConfig.user}
                     onChange={(e) => setEmailConfig({ ...emailConfig, user: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="support@example.com"
                   />
                 </div>
@@ -394,7 +394,7 @@ export const IntegrationsSettings = () => {
                     type="password"
                     value={emailConfig.password}
                     onChange={(e) => setEmailConfig({ ...emailConfig, password: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
                   />
                 </div>
@@ -518,7 +518,7 @@ export const IntegrationsSettings = () => {
                     type="text"
                     value={gmailConfig.clientId}
                     onChange={(e) => setGmailConfig({ ...gmailConfig, clientId: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="123456789-abc.apps.googleusercontent.com"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -533,7 +533,7 @@ export const IntegrationsSettings = () => {
                     onChange={(e) =>
                       setGmailConfig({ ...gmailConfig, clientSecret: e.target.value })
                     }
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="GOCSPX-..."
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -547,7 +547,7 @@ export const IntegrationsSettings = () => {
                     onChange={(e) =>
                       setGmailConfig({ ...gmailConfig, searchQuery: e.target.value })
                     }
-                    className="px-3 py-2 w-full bg-white rounded-md border"
+                    className="px-3 py-2 w-full bg-input text-foreground rounded-md border border-border"
                   >
                     {searchQueryOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -567,7 +567,7 @@ export const IntegrationsSettings = () => {
                     onChange={(e) =>
                       setGmailConfig({ ...gmailConfig, maxResults: parseInt(e.target.value) || 10 })
                     }
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="10"
                     min="1"
                     max="100"
@@ -701,7 +701,7 @@ export const IntegrationsSettings = () => {
                     type="url"
                     value={jiraConfig.apiUrl}
                     onChange={(e) => setJiraConfig({ ...jiraConfig, apiUrl: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="https://your-domain.atlassian.net"
                   />
                 </div>
@@ -711,7 +711,7 @@ export const IntegrationsSettings = () => {
                     type="text"
                     value={jiraConfig.projectKey}
                     onChange={(e) => setJiraConfig({ ...jiraConfig, projectKey: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="SUP"
                   />
                 </div>
@@ -721,7 +721,7 @@ export const IntegrationsSettings = () => {
                     type="email"
                     value={jiraConfig.email}
                     onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="admin@example.com"
                   />
                 </div>
@@ -731,7 +731,7 @@ export const IntegrationsSettings = () => {
                     type="password"
                     value={jiraConfig.apiToken}
                     onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
                   />
                 </div>
@@ -856,7 +856,7 @@ export const IntegrationsSettings = () => {
                   onChange={(e) =>
                     setTelegramConfig({ ...telegramConfig, botToken: e.target.value })
                   }
-                  className="px-3 py-2 w-full rounded-md border"
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="123456789:ABCdefGhiJklMnoPqrsTuvWxyZ"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -990,7 +990,7 @@ export const IntegrationsSettings = () => {
                     type="password"
                     value={slackConfig.botToken}
                     onChange={(e) => setSlackConfig({ ...slackConfig, botToken: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="xoxb-..."
                   />
                 </div>
@@ -1002,7 +1002,7 @@ export const IntegrationsSettings = () => {
                     onChange={(e) =>
                       setSlackConfig({ ...slackConfig, signingSecret: e.target.value })
                     }
-                    className="px-3 py-2 w-full rounded-md border"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
                   />
                 </div>
@@ -1051,9 +1051,9 @@ export const IntegrationsSettings = () => {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
-          <div className="p-6 mx-4 w-full max-w-md bg-white rounded-lg shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete Integration?</h3>
-            <p className="mb-4 text-gray-600">
+          <div className="p-6 mx-4 w-full max-w-md bg-card rounded-lg shadow-xl">
+            <h3 className="mb-2 text-lg font-semibold">Delete Integration?</h3>
+            <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
             <p className="mb-6 text-sm text-red-600">This action cannot be undone.</p>

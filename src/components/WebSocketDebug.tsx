@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 export const WebSocketDebug = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { socket, status, total, current, processed, failed, isProcessing } = useEmailProcessing();
+  const { socket, status, total, current, processed, failed, isProcessing } = useEmailProcessing(false); // Disabled by default
 
   const connectionState = socket?.connected ? 'Connected ✅' : 'Disconnected ❌';
   const socketId = socket?.id || 'N/A';
@@ -20,7 +20,7 @@ export const WebSocketDebug = () => {
           title="Open WebSocket Debug"
         >
           <Activity className="h-5 w-5" />
-          <span className="absolute left-full ml-2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+          <span className="absolute left-full ml-2 bg-popover text-popover-foreground border border-border text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
             Debug Panel
           </span>
         </button>
@@ -48,36 +48,36 @@ export const WebSocketDebug = () => {
 
             <CardContent className="text-xs space-y-2 max-h-96 overflow-y-auto">
               <div className="grid grid-cols-2 gap-2">
-                <div className="font-medium text-gray-600">Status:</div>
+                <div className="font-medium text-muted-foreground">Status:</div>
                 <div className="font-mono">{connectionState}</div>
 
-                <div className="font-medium text-gray-600">Socket ID:</div>
+                <div className="font-medium text-muted-foreground">Socket ID:</div>
                 <div className="font-mono truncate" title={socketId}>
                   {socketId}
                 </div>
 
-                <div className="font-medium text-gray-600">Processing:</div>
+                <div className="font-medium text-muted-foreground">Processing:</div>
                 <div className="font-mono">{isProcessing ? 'Yes 🔄' : 'No'}</div>
 
-                <div className="font-medium text-gray-600">State:</div>
+                <div className="font-medium text-muted-foreground">State:</div>
                 <div className="font-mono">{status}</div>
 
-                <div className="font-medium text-gray-600">Total:</div>
+                <div className="font-medium text-muted-foreground">Total:</div>
                 <div className="font-mono">{total}</div>
 
-                <div className="font-medium text-gray-600">Current:</div>
+                <div className="font-medium text-muted-foreground">Current:</div>
                 <div className="font-mono">{current}</div>
 
-                <div className="font-medium text-gray-600">Processed:</div>
-                <div className="font-mono text-green-600">{processed}</div>
+                <div className="font-medium text-muted-foreground">Processed:</div>
+                <div className="font-mono text-green-600 dark:text-green-400">{processed}</div>
 
-                <div className="font-medium text-gray-600">Failed:</div>
-                <div className="font-mono text-red-600">{failed}</div>
+                <div className="font-medium text-muted-foreground">Failed:</div>
+                <div className="font-mono text-red-600 dark:text-red-400">{failed}</div>
               </div>
 
-              <div className="pt-2 border-t">
-                <div className="font-medium text-gray-600 mb-1">Events:</div>
-                <div className="bg-gray-100 p-2 rounded text-xs font-mono h-32 overflow-y-auto">
+              <div className="pt-2 border-t border-border">
+                <div className="font-medium text-muted-foreground mb-1">Events:</div>
+                <div className="bg-muted p-2 rounded text-xs font-mono h-32 overflow-y-auto">
                   Open browser console to see WebSocket events:
                   <br />
                   • ✅ WebSocket connected

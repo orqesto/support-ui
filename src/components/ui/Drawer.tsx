@@ -22,9 +22,9 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-xl z-50 overflow-hidden flex flex-col animate-slide-in">
+      <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-background shadow-xl z-50 overflow-hidden flex flex-col animate-slide-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+        <div className="flex items-center justify-between p-4 border-b border-border bg-muted">
           <h2 className="text-lg font-semibold">{title}</h2>
           <Button
             variant="outline"
@@ -43,7 +43,7 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
 
         {/* Footer */}
         {footer && (
-          <div className="border-t p-4 bg-gray-50">
+          <div className="border-t border-border p-4 bg-muted">
             {footer}
           </div>
         )}

@@ -6,6 +6,7 @@ import { ListCard } from '@/components/ui/ListCard';
 import { Drawer } from '@/components/ui/Drawer';
 import { TicketDetail } from '@/components/TicketDetail';
 import { Button } from '@/components/ui/Button';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
@@ -63,7 +64,7 @@ const priorityColors: Record<TicketPriority, 'default' | 'success' | 'warning' |
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState<number | null>(null);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
@@ -75,6 +76,7 @@ export const TicketsPage = () => {
 
   // Zustand stores
   const filters = useTicketsStore((state) => state.filters);
+  const [pendingSearch, setPendingSearch] = useState(filters.search || '');
   const sorting = useTicketsStore((state) => state.sorting);
   const setFiltersStore = useTicketsStore((state) => state.setFilters);
   const setSortingStore = useTicketsStore((state) => state.setSorting);
@@ -83,7 +85,7 @@ export const TicketsPage = () => {
   const getCached = useTicketsStore((state) => state.getCached);
   const clearCache = useTicketsStore((state) => state.clearCache);
 
-  const { isOrgAdmin } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
@@ -148,6 +150,9 @@ export const TicketsPage = () => {
         if (currentFilters.categoryId !== 'all') {
           apiFilters.categoryId = currentFilters.categoryId;
         }
+        if (currentFilters.search && currentFilters.search.trim()) {
+          apiFilters.search = currentFilters.search.trim();
+        }
 
         const response = await ticketService.getAll(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
@@ -184,6 +189,11 @@ export const TicketsPage = () => {
 
   useEffect(() => {
     const fetchJiraIntegrations = async () => {
+      // Only fetch integrations if user has permission
+      if (!hasPermission(Permission.VIEW_INTEGRATIONS)) {
+        return;
+      }
+
       try {
         const response = await integrationsService.getAll();
         if (response.success && response.data) {
@@ -199,7 +209,7 @@ export const TicketsPage = () => {
       }
     };
     fetchJiraIntegrations();
-  }, []);
+  }, [hasPermission]);
 
   // Listen for real-time ticket updates from Jira webhooks
   useEffect(() => {
@@ -242,11 +252,29 @@ export const TicketsPage = () => {
   };
 
   const handleFilterChange = (key: string, value: string) => {
-    setFiltersStore({ ...filters, [key]: value });
+    if (key === 'search') {
+      // Don't trigger auto-fetch for search, just update local state
+      setPendingSearch(value);
+    } else {
+      setFiltersStore({ ...filters, [key]: value });
+    }
+  };
+  
+  const handleSearch = () => {
+    // Trigger actual search when button clicked or Enter pressed
+    setFiltersStore({ ...filters, search: pendingSearch });
+  };
+
+  const handleSearchBlur = () => {
+    // If search is empty on blur, clear the search filter to show all data
+    if (!pendingSearch.trim() && filters.search) {
+      setFiltersStore({ ...filters, search: '' });
+    }
   };
 
   const clearFilters = () => {
     clearFiltersStore();
+    setPendingSearch('');
   };
 
   const handleRefresh = async () => {
@@ -256,6 +284,12 @@ export const TicketsPage = () => {
   };
 
   const handlePushToJira = async (ticketId: number) => {
+    // Check if user has permission to manage tickets
+    if (!hasPermission(Permission.MANAGE_TICKETS)) {
+      alert('⚠️ You do not have permission to push tickets to Jira.');
+      return;
+    }
+
     if (jiraIntegrations.length === 0) {
       alert('No Jira integrations configured. Please add a Jira integration in Settings.');
       return;
@@ -286,8 +320,9 @@ export const TicketsPage = () => {
   };
 
   const handleSyncAll = async () => {
-    if (!isOrgAdmin) {
-      alert('⚠️ Only organization administrators can sync tickets to Jira. Please contact your admin.');
+    // Check if user has permission to manage tickets
+    if (!hasPermission(Permission.MANAGE_TICKETS)) {
+      alert('⚠️ You do not have permission to sync tickets to Jira.');
       return;
     }
 
@@ -351,7 +386,8 @@ export const TicketsPage = () => {
   const activeFilterCount =
     (filters.status !== 'all' ? 1 : 0) +
     (filters.priority !== 'all' ? 1 : 0) +
-    (filters.categoryId !== 'all' ? 1 : 0);
+    (filters.categoryId !== 'all' ? 1 : 0) +
+    (filters.search && filters.search.trim() ? 1 : 0);
 
   return (
     <Layout>
@@ -400,6 +436,18 @@ export const TicketsPage = () => {
 
               {/* Filter Controls */}
               <div className="flex flex-wrap gap-3 items-center">
+                {/* Search Input */}
+                <SearchInput
+                  value={pendingSearch}
+                  onChange={(value) => handleFilterChange('search', value)}
+                  onSearch={handleSearch}
+                  onBlur={handleSearchBlur}
+                  showSearchButton={true}
+                  placeholder="Search by ID, title, description..."
+                  className="w-[300px]"
+                  size="sm"
+                />
+
                 {/* Group 1: Status & Priority */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
@@ -408,7 +456,7 @@ export const TicketsPage = () => {
                   <select
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="all">All</option>
                     <option value="pending">Pending</option>
@@ -426,7 +474,7 @@ export const TicketsPage = () => {
                   <select
                     value={filters.priority}
                     onChange={(e) => handleFilterChange('priority', e.target.value)}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="all">All</option>
                     <option value="low">Low</option>
@@ -448,7 +496,7 @@ export const TicketsPage = () => {
                         sortBy: e.target.value as 'createdAt' | 'updatedAt',
                       })
                     }
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="createdAt">Created Date</option>
                     <option value="updatedAt">Updated Date</option>
@@ -464,7 +512,7 @@ export const TicketsPage = () => {
                     onChange={(e) =>
                       setSortingStore({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
                     }
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="desc">Newest First</option>
                     <option value="asc">Oldest First</option>
@@ -482,7 +530,7 @@ export const TicketsPage = () => {
                         onChange={(e) =>
                           setSelectedJiraId(e.target.value ? Number(e.target.value) : undefined)
                         }
-                        className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">Select Instance</option>
                         {jiraIntegrations.map((jira) => (
@@ -500,12 +548,12 @@ export const TicketsPage = () => {
                   size="sm"
                   className="ml-auto"
                   disabled={
-                    !isOrgAdmin ||
+                    !hasPermission(Permission.MANAGE_TICKETS) ||
                     jiraIntegrations.length === 0 ||
                     (jiraIntegrations.length > 1 && !selectedJiraId)
                   }
                   isLoading={isSyncingAll}
-                  title={!isOrgAdmin ? 'Only organization administrators can sync tickets to Jira' : ''}
+                  title={!hasPermission(Permission.MANAGE_TICKETS) ? 'You need MANAGE_TICKETS permission to sync to Jira' : ''}
                 >
                   <Send className="mr-2 w-4 h-4" />
                   Sync to Jira
@@ -696,17 +744,17 @@ export const TicketsPage = () => {
         >
           <TicketDetail
             ticket={selectedTicket}
-            onPushToJira={async () => {
+            onPushToJira={hasPermission(Permission.MANAGE_TICKETS) ? async () => {
               await handlePushToJira(selectedTicket.id);
               // Refresh to get updated ticket data
               await fetchTickets();
               setSelectedTicket(null);
-            }}
-            onDelete={() => {
+            } : undefined}
+            onDelete={hasPermission(Permission.MANAGE_TICKETS) ? () => {
               setTicketToDelete(selectedTicket);
               setSelectedTicket(null);
               setDeleteDialogOpen(true);
-            }}
+            } : undefined}
             isPushingToJira={syncing === selectedTicket.id}
           />
         </Drawer>
