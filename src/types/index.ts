@@ -32,6 +32,7 @@ export type Message = {
   ticketId: number | null;
   createdAt: string;
   metadata?: Record<string, unknown>;
+  rawData?: Record<string, unknown>;
 };
 
 export type Ticket = {

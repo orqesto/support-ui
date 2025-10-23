@@ -4,7 +4,7 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from './ui/Dialog';
 import { formatDate } from '../lib/utils';
-import { Mail, MessageSquare, Send, Check, X, Trash2, AlertTriangle, CheckCircle, Info, ExternalLink, RotateCcw } from 'lucide-react';
+import { Mail, MessageSquare, Send, Check, X, Trash2, AlertTriangle, CheckCircle, Info, ExternalLink, RotateCcw, Paperclip, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 type MessageDetailProps = {
@@ -66,6 +66,20 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
     reason?: string;
     redFlags?: string[];
   } | undefined;
+
+  // Extract attachments from rawData (for emails)
+  const emailAttachments = message.rawData?.attachments as Array<{
+    filename: string;
+    contentType: string;
+    size?: number;
+  }> | undefined;
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'Unknown size';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   return (
     <div className="space-y-6">
@@ -133,6 +147,61 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
         </div>
       </div>
+
+      {/* Email Attachments */}
+      {emailAttachments && emailAttachments.length > 0 && (
+        <div className="border-t pt-6">
+          <h3 className="flex gap-2 items-center text-sm font-semibold text-muted-foreground mb-3">
+            <Paperclip className="w-4 h-4" />
+            Attachments
+            <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
+              {emailAttachments.length}
+            </span>
+          </h3>
+          <div className="space-y-2">
+            {emailAttachments.map((attachment, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border hover:bg-muted transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-blue-500/10 dark:bg-blue-500/10 rounded">
+                    <Paperclip className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{attachment.filename}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{attachment.contentType}</span>
+                      {attachment.size && (
+                        <>
+                          <span>•</span>
+                          <span>{formatFileSize(attachment.size)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {message.ticketId && (
+                  <Link
+                    to={`/tickets?id=${message.ticketId}`}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
+                  >
+                    <Download className="w-3 h-3" />
+                    View in Ticket
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+          {!message.ticketId && (
+            <div className="mt-3 p-3 bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ℹ️ Attachments will be available for download once a ticket is created from this message.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* AI Analysis */}
       {(analysis || spamCheck) && (

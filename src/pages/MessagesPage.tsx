@@ -27,6 +27,7 @@ import {
   Filter,
   ExternalLink,
   RotateCcw,
+  Paperclip,
 } from 'lucide-react';
 import type { Message } from '@/types';
 import {
@@ -105,6 +106,9 @@ export const MessagesPage = () => {
         if (currentFilters.showNeedsInfo) {
           apiFilters.showNeedsInfo = 'true';
         }
+        if (currentFilters.hasAttachments) {
+          apiFilters.hasAttachments = 'true';
+        }
         if (currentFilters.search && currentFilters.search.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
@@ -147,6 +151,7 @@ export const MessagesPage = () => {
     filters.showSpam,
     filters.showWorthy,
     filters.showNeedsInfo,
+    filters.hasAttachments,
     filters.search,
     sorting.sortOrder,
   ]);
@@ -301,6 +306,7 @@ export const MessagesPage = () => {
     (filters.processed !== 'false' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
     (filters.showSpam || filters.showNeedsInfo || filters.showWorthy ? 1 : 0) +
+    (filters.hasAttachments ? 1 : 0) +
     (filters.search && filters.search.trim() ? 1 : 0);
 
   return (
@@ -462,7 +468,20 @@ export const MessagesPage = () => {
                     <option value="needsInfo">🟡 Needs Info</option>
                   </select>
                 </div>
-                {/* Group 4: Sorting */}
+                {/* Group 4: Attachments */}
+                <label className="flex gap-2 items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.hasAttachments || false}
+                    onChange={(e) => setFilters({ ...filters, hasAttachments: e.target.checked })}
+                    className="w-4 h-4 text-primary rounded border-border focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                    <Paperclip className="w-3 h-3" />
+                    <span>Has Attachments</span>
+                  </div>
+                </label>
+                {/* Group 5: Sorting */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Order:
@@ -533,6 +552,11 @@ export const MessagesPage = () => {
                 return suggestedCat;
               };
 
+              // Check if message has attachments
+              const hasAttachments = message.rawData?.attachments && 
+                Array.isArray(message.rawData.attachments) && 
+                message.rawData.attachments.length > 0;
+
               return (
                 <ListCard
                   key={message.id}
@@ -541,6 +565,16 @@ export const MessagesPage = () => {
                       {getChannelIcon(message.channel)}
                       <Badge variant="secondary">{message.channel}</Badge>
                       {message.processed && <Badge variant="success">Processed</Badge>}
+                      {hasAttachments && (
+                        <Badge 
+                          variant="default" 
+                          title={`${(message.rawData?.attachments as any[])?.length || 0} attachment(s)`}
+                          className="flex items-center gap-1"
+                        >
+                          <Paperclip className="w-3 h-3" />
+                          {(message.rawData?.attachments as any[])?.length || 0}
+                        </Badge>
+                      )}
 
                       {/* AI Analysis Badges */}
                       {spamCheck?.isSpam === true && (
@@ -599,6 +633,12 @@ export const MessagesPage = () => {
                       <span className="font-mono text-xs">ID: {message.id}</span>
                       <span className="break-all">• From: {message.sender}</span>
                       {message.channel && <span>• {message.channel}</span>}
+                      {hasAttachments && (
+                        <span className="flex items-center gap-1">
+                          • <Paperclip className="w-3 h-3" />
+                          {(message.rawData?.attachments as any[])?.length || 0} file(s)
+                        </span>
+                      )}
                       <span className="whitespace-nowrap" title={`Imported: ${formatDate(message.createdAt)}`}>
                         • {formatDate((message.metadata as any)?.receivedAt || message.createdAt)}
                       </span>

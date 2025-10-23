@@ -8,6 +8,7 @@ type FilterState = {
   showSpam?: boolean;
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
+  hasAttachments?: boolean;
   search?: string;
 };
 
@@ -42,6 +43,7 @@ const defaultFilters: FilterState = {
   showSpam: false,
   showNeedsInfo: false,
   showWorthy: false,
+  hasAttachments: false,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string => {
