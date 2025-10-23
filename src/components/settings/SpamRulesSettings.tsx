@@ -129,16 +129,16 @@ export const SpamRulesSettings = () => {
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-        <p className="text-sm text-yellow-900">
-          <strong>Pattern Matching:</strong> Use regex or keywords separated by <code className="px-1 bg-yellow-100 rounded">|</code> (pipe).
+      <div className="p-4 bg-yellow-500/10 dark:bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+          <strong>Pattern Matching:</strong> Use regex or keywords separated by <code className="px-1 bg-yellow-500/20 rounded">|</code> (pipe).
           Higher severity scores (0-100) have more impact on spam detection.
         </p>
       </div>
 
       {/* New Rule Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 bg-red-50 rounded-lg border">
+        <div className="p-4 space-y-4 bg-red-500/10 dark:bg-red-500/10 rounded-lg border border-red-500/20">
           <h4 className="font-semibold">New Spam Rule</h4>
           <div className="grid gap-4">
             <div>
@@ -147,7 +147,7 @@ export const SpamRulesSettings = () => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border"
+                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="e.g., phishing_indicators"
               />
             </div>
@@ -157,7 +157,7 @@ export const SpamRulesSettings = () => {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border"
+                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="What this rule detects"
               />
             </div>
@@ -167,7 +167,7 @@ export const SpamRulesSettings = () => {
                 type="text"
                 value={formData.pattern}
                 onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="verify your account|confirm identity|suspended"
               />
             </div>
@@ -177,7 +177,7 @@ export const SpamRulesSettings = () => {
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="px-3 py-2 w-full rounded-md border"
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="sender">Sender</option>
                   <option value="subject">Subject</option>
@@ -192,7 +192,7 @@ export const SpamRulesSettings = () => {
                   max="100"
                   value={formData.severity}
                   onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
-                  className="px-3 py-2 w-full rounded-md border"
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -227,8 +227,9 @@ export const SpamRulesSettings = () => {
         {rules.map((rule) => (
           <div
             key={rule.id}
-            className={`border rounded-lg p-4 ${editingRule?.id === rule.id ? 'bg-red-50' : 'bg-white'
-              }`}
+            className={`border border-border rounded-lg p-4 ${
+              editingRule?.id === rule.id ? 'bg-red-500/10 dark:bg-red-500/10' : 'bg-card'
+            }`}
           >
             {editingRule?.id === rule.id ? (
               <div className="space-y-4">
@@ -240,7 +241,7 @@ export const SpamRulesSettings = () => {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border"
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
@@ -249,7 +250,7 @@ export const SpamRulesSettings = () => {
                       type="text"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border"
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
@@ -258,7 +259,7 @@ export const SpamRulesSettings = () => {
                       type="text"
                       value={formData.pattern}
                       onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -267,7 +268,7 @@ export const SpamRulesSettings = () => {
                       <select
                         value={formData.category}
                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        className="px-3 py-2 w-full rounded-md border"
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="sender">Sender</option>
                         <option value="subject">Subject</option>
@@ -282,7 +283,7 @@ export const SpamRulesSettings = () => {
                         max="100"
                         value={formData.severity}
                         onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
-                        className="px-3 py-2 w-full rounded-md border"
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -334,7 +335,7 @@ export const SpamRulesSettings = () => {
                         <p className="mb-1 text-xs font-medium text-muted-foreground">
                           Pattern:
                         </p>
-                        <code className="px-2 py-1 font-mono text-xs bg-gray-100 rounded">
+                        <code className="px-2 py-1 font-mono text-xs bg-muted rounded">
                           {rule.pattern}
                         </code>
                       </div>
@@ -383,7 +384,7 @@ export const SpamRulesSettings = () => {
         <DialogContent>
           <p>Are you sure you want to delete this spam detection rule?</p>
           {ruleToDelete && (
-            <div className="p-4 mt-4 bg-gray-50 rounded">
+            <div className="p-4 mt-4 bg-muted rounded">
               <p className="text-sm font-medium">{ruleToDelete.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">{ruleToDelete.description}</p>
             </div>

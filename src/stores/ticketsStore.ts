@@ -5,6 +5,7 @@ type TicketFilters = {
   status: string;
   priority: string;
   categoryId: string;
+  search?: string;
 };
 
 type TicketSorting = {

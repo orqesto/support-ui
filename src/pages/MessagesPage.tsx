@@ -6,6 +6,7 @@ import { ListCard } from '@/components/ui/ListCard';
 import { Drawer } from '@/components/ui/Drawer';
 import { MessageDetail } from '@/components/MessageDetail';
 import { Button } from '@/components/ui/Button';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
 import { messageService } from '@/services/message.service';
@@ -67,6 +68,7 @@ export const MessagesPage = () => {
     totalPages: 0,
     hasMore: false,
   });
+  const [pendingSearch, setPendingSearch] = useState(filters.search || '');
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
@@ -102,6 +104,9 @@ export const MessagesPage = () => {
         }
         if (currentFilters.showNeedsInfo) {
           apiFilters.showNeedsInfo = 'true';
+        }
+        if (currentFilters.search && currentFilters.search.trim()) {
+          apiFilters.search = currentFilters.search.trim();
         }
 
         const response = await messageService.getAll(
@@ -142,6 +147,7 @@ export const MessagesPage = () => {
     filters.showSpam,
     filters.showWorthy,
     filters.showNeedsInfo,
+    filters.search,
     sorting.sortOrder,
   ]);
 
@@ -173,11 +179,29 @@ export const MessagesPage = () => {
   }, [searchParams, selectedMessage, setSearchParams]);
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters({ ...filters, [key]: value });
+    if (key === 'search') {
+      // Don't trigger auto-fetch for search, just update local state
+      setPendingSearch(value);
+    } else {
+      setFilters({ ...filters, [key]: value });
+    }
+  };
+  
+  const handleSearch = () => {
+    // Trigger actual search when button clicked or Enter pressed
+    setFilters({ ...filters, search: pendingSearch });
+  };
+
+  const handleSearchBlur = () => {
+    // If search is empty on blur, clear the search filter to show all data
+    if (!pendingSearch.trim() && filters.search) {
+      setFilters({ ...filters, search: '' });
+    }
   };
 
   const clearFilters = () => {
     clearFiltersStore();
+    setPendingSearch('');
     fetchMessages(pagination.page, true); // Keep current page, force refresh
   };
 
@@ -276,7 +300,8 @@ export const MessagesPage = () => {
   const activeFilterCount =
     (filters.processed !== 'false' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
-    (filters.showSpam || filters.showNeedsInfo || filters.showWorthy ? 1 : 0);
+    (filters.showSpam || filters.showNeedsInfo || filters.showWorthy ? 1 : 0) +
+    (filters.search && filters.search.trim() ? 1 : 0);
 
   return (
     <Layout>
@@ -338,6 +363,18 @@ export const MessagesPage = () => {
 
               {/* Filter Controls */}
               <div className="flex flex-wrap gap-3 items-center">
+                {/* Search Input */}
+                <SearchInput
+                  value={pendingSearch}
+                  onChange={(value) => handleFilterChange('search', value)}
+                  onSearch={handleSearch}
+                  onBlur={handleSearchBlur}
+                  showSearchButton={true}
+                  placeholder="Search by ID, email, subject, content..."
+                  className="w-[300px]"
+                  size="sm"
+                />
+                
                 {/* Group 1: Status */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
@@ -348,8 +385,8 @@ export const MessagesPage = () => {
                       onClick={() => handleFilterChange('processed', 'false')}
                       className={`px-3 py-1 text-xs font-medium border rounded-l-md transition-colors ${
                         filters.processed === 'false'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-input text-foreground border-border hover:bg-accent'
                       }`}
                     >
                       Unprocessed
@@ -358,8 +395,8 @@ export const MessagesPage = () => {
                       onClick={() => handleFilterChange('processed', 'true')}
                       className={`px-3 py-1 text-xs font-medium border-t border-b transition-colors ${
                         filters.processed === 'true'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-input text-foreground border-border hover:bg-accent'
                       }`}
                     >
                       Processed
@@ -368,8 +405,8 @@ export const MessagesPage = () => {
                       onClick={() => handleFilterChange('processed', 'all')}
                       className={`px-3 py-1 text-xs font-medium border rounded-r-md transition-colors ${
                         filters.processed === 'all'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-input text-foreground border-border hover:bg-accent'
                       }`}
                     >
                       All
@@ -385,7 +422,7 @@ export const MessagesPage = () => {
                   <select
                     value={filters.channel}
                     onChange={(e) => handleFilterChange('channel', e.target.value)}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="all">All</option>
                     <option value="email">Email</option>
@@ -417,7 +454,7 @@ export const MessagesPage = () => {
                         showNeedsInfo: value === 'needsInfo',
                       });
                     }}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="none">None</option>
                     <option value="spam">🔴 Spam Only</option>
@@ -433,7 +470,7 @@ export const MessagesPage = () => {
                   <select
                     value={sorting.sortOrder}
                     onChange={(e) => setSorting({ sortOrder: e.target.value as 'asc' | 'desc' })}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="desc">Newest First</option>
                     <option value="asc">Oldest First</option>
@@ -559,9 +596,12 @@ export const MessagesPage = () => {
                   }
                   metadata={
                     <>
-                      <span className="break-all">From: {message.sender}</span>
+                      <span className="font-mono text-xs">ID: {message.id}</span>
+                      <span className="break-all">• From: {message.sender}</span>
                       {message.channel && <span>• {message.channel}</span>}
-                      <span className="whitespace-nowrap">• {formatDate(message.createdAt)}</span>
+                      <span className="whitespace-nowrap" title={`Imported: ${formatDate(message.createdAt)}`}>
+                        • {formatDate((message.metadata as any)?.receivedAt || message.createdAt)}
+                      </span>
                     </>
                   }
                   actions={

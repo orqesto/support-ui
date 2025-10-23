@@ -1,29 +1,47 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { useAuthStore } from '@/stores/authStore';
 import { userService } from '@/services/user.service';
 import { invitationService } from '@/services/invitation.service';
 import { InviteUserModal } from '@/components/InviteUserModal';
+import { useUsersStore } from '@/stores/usersStore';
 import { EditUserModal } from '@/components/EditUserModal';
 import { formatDate } from '@/lib/utils';
 import type { User } from '@/types';
-import { Users, Edit2, Shield, RefreshCw, Mail } from 'lucide-react';
+import { Users, Edit2, Shield, RefreshCw, Mail, Trash2 } from 'lucide-react';
 
 export const UsersPage = () => {
-  const { canManageUsers } = usePermissions();
-  const [users, setUsers] = useState<User[]>([]);
+  const { canManageUsers, isAdmin, hasPermission } = usePermissions();
+  const currentUser = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: User | null }>({
+    open: false,
+    user: null,
+  });
 
-  const fetchUsers = async (isRefresh = false) => {
+  // Use users store
+  const usersFromStore = useUsersStore((state) => state.users);
+  const users = Array.isArray(usersFromStore) ? usersFromStore : [];
+  const searchUser = useUsersStore((state) => state.searchQuery);
+  const setSearchUser = useUsersStore((state) => state.setSearchQuery);
+  const setUsers = useUsersStore((state) => state.setUsers);
+
+  // Local pending search state
+  const [pendingSearch, setPendingSearch] = useState(searchUser || '');
+
+  const fetchUsers = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -31,21 +49,35 @@ export const UsersPage = () => {
     }
 
     try {
-      const data = await userService.getAll();
-      setUsers(data);
+      const result = await userService.getAll(searchUser || undefined);
+      setUsers(result.data); // Extract data array from response
     } catch (error) {
       console.error('Failed to fetch users:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [searchUser, setUsers]);
+
+  const canViewUsers = hasPermission(Permission.VIEW_USERS);
 
   useEffect(() => {
-    if (canManageUsers) {
+    if (canViewUsers) {
       fetchUsers();
     }
-  }, [canManageUsers]);
+  }, [canViewUsers, fetchUsers]);
+
+  const handleSearch = () => {
+    // Trigger actual search when button clicked or Enter pressed
+    setSearchUser(pendingSearch);
+  };
+
+  const handleSearchBlur = () => {
+    // If search is empty on blur, clear the search filter to show all data
+    if (!pendingSearch.trim() && searchUser) {
+      setSearchUser('');
+    }
+  };
 
   const handleRefresh = () => {
     fetchUsers(true);
@@ -61,19 +93,95 @@ export const UsersPage = () => {
     setIsEditModalOpen(true);
   };
 
+  // Check if current user can edit/delete a specific user
+  const canManageUser = (user: User) => {
+    // Users can always edit their own profile
+    if (currentUser && user.id === currentUser.id) return true;
+    
+    // Global admin can manage everyone
+    if (isAdmin) return true;
+    
+    // Org admin cannot manage global admins
+    if (user.role === 'admin') return false;
+    
+    // Org admin can manage other users in their organization
+    return canManageUsers;
+  };
+
+  const handleDeleteUser = (user: User) => {
+    console.log('🗑️ Opening delete dialog for:', user.email);
+    setDeleteDialog({ open: true, user });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteDialog.user) return;
+
+    console.log('User confirmed deletion, calling API...');
+    try {
+      await userService.delete(deleteDialog.user.id);
+      console.log('✅ User deleted successfully');
+      setDeleteDialog({ open: false, user: null });
+      // Refresh users list
+      await fetchUsers();
+    } catch (error) {
+      console.error('❌ Failed to delete user:', error);
+      alert('Failed to delete user. Please try again.');
+      setDeleteDialog({ open: false, user: null });
+    }
+  };
+
+  const canDeleteUser = (user: User) => {
+    // Debug logging
+    console.log('canDeleteUser check:', {
+      targetUser: { id: user.id, email: user.email, role: user.role },
+      currentUser: { id: currentUser?.id, email: currentUser?.email, role: currentUser?.role },
+      isAdmin,
+      canManageUsers,
+      hasDeletePermission: hasPermission(Permission.DELETE_USERS),
+    });
+    
+    // Cannot delete yourself
+    if (currentUser && user.id === currentUser.id) {
+      console.log('Cannot delete yourself');
+      return false;
+    }
+    
+    // Check if user has delete permission
+    if (!hasPermission(Permission.DELETE_USERS)) {
+      console.log('No DELETE_USERS permission');
+      return false;
+    }
+    
+    // Global admin can delete anyone
+    if (isAdmin) {
+      console.log('Global admin - can delete');
+      return true;
+    }
+    
+    // Org admin cannot delete global admins
+    if (user.role === 'admin') {
+      console.log('Target is global admin - cannot delete');
+      return false;
+    }
+    
+    // Org admin can delete other users in their organization
+    console.log('Org admin check, canManageUsers:', canManageUsers);
+    return canManageUsers;
+  };
+
   const handleUpdateUser = async (userId: number, data: Partial<User>) => {
     await userService.update(userId, data);
     // Refresh users list
     await fetchUsers();
   };
 
-  if (!canManageUsers) {
+  if (!canViewUsers) {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <Shield className="mb-4 w-16 h-16 text-gray-400" />
-          <h2 className="mb-2 text-2xl font-bold text-gray-900">Access Denied</h2>
-          <p className="max-w-md text-center text-gray-600">
+          <h2 className="mb-2 text-2xl font-bold">Access Denied</h2>
+          <p className="max-w-md text-center text-muted-foreground">
             You don't have permission to manage users. Please contact your organization
             administrator.
           </p>
@@ -112,6 +220,18 @@ export const UsersPage = () => {
           </div>
         </div>
 
+        {/* Search */}
+        <SearchInput
+          value={pendingSearch}
+          onChange={setPendingSearch}
+          onSearch={handleSearch}
+          onBlur={handleSearchBlur}
+          showSearchButton={true}
+          placeholder="Search by ID, name, email, position..."
+          className="w-full"
+          size="sm"
+        />
+
         {/* Users Table */}
         <Card>
           <CardContent className="p-0">
@@ -130,9 +250,9 @@ export const UsersPage = () => {
               <>
                 {/* Mobile/Tablet Card View - Default up to XL */}
                 <div className="xl:hidden">
-                  <div className="divide-y divide-gray-200 overflow-auto max-h-[600px]">
+                  <div className="divide-y divide-border overflow-auto max-h-[600px]">
                     {users.map((user) => (
-                      <div key={user.id} className="p-4 hover:bg-gray-50">
+                      <div key={user.id} className="p-4 hover:bg-accent transition-colors">
                         <div className="flex gap-3 items-start">
                           <div className="flex flex-shrink-0 justify-center items-center w-12 h-12 text-sm font-medium rounded-full bg-primary text-primary-foreground">
                             {user.firstName?.charAt(0).toUpperCase()}
@@ -141,16 +261,33 @@ export const UsersPage = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex gap-2 justify-between items-start mb-2">
                               <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                <h3 className="text-sm font-semibold truncate">
                                   {user.firstName} {user.lastName}
                                 </h3>
-                                <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                                <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                               </div>
-                              <PermissionGuard permission={Permission.MANAGE_USERS}>
-                                <Button size="sm" variant="outline" className="flex-shrink-0" onClick={() => handleEditUser(user)}>
-                                  <Edit2 className="w-4 h-4" />
-                                </Button>
-                              </PermissionGuard>
+                              <div className="flex gap-2">
+                                {canManageUser(user) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-shrink-0"
+                                    onClick={() => handleEditUser(user)}
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {canDeleteUser(user) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-shrink-0 text-red-600 hover:text-red-700 hover:border-red-300"
+                                    onClick={() => handleDeleteUser(user)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             <div className="space-y-2">
                               <div className="flex flex-wrap gap-2">
@@ -186,76 +323,95 @@ export const UsersPage = () => {
                 <div className="hidden xl:block">
                   <div className="overflow-auto max-h-[600px]">
                     <table className="w-full table-auto">
-                    <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                          User
-                        </th>
-                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                          Role
-                        </th>
-                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                          Org Role
-                        </th>
-                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                          Position
-                        </th>
-                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                          Joined
-                        </th>
-                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center min-w-0">
-                              <div className="flex justify-center items-center w-10 h-10 text-sm font-medium rounded-full bg-primary text-primary-foreground">
-                                {user.firstName?.charAt(0).toUpperCase()}
-                                {user.lastName?.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="ml-3 min-w-0 flex-1">
-                                <div className="text-sm font-medium text-gray-900 truncate">
-                                  {user.firstName} {user.lastName}
-                                </div>
-                                <div className="text-sm text-gray-500 truncate">{user.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                              {roleDisplayNames[user.role]}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {user.organizationRole ? (
-                              <Badge variant="secondary">
-                                {roleDisplayNames[user.organizationRole]}
-                              </Badge>
-                            ) : (
-                              <span className="text-sm text-gray-400">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {user.position || '—'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {formatDate(user.createdAt)}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium text-right whitespace-nowrap">
-                            <PermissionGuard permission={Permission.MANAGE_USERS}>
-                              <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                            </PermissionGuard>
-                          </td>
+                      <thead className="sticky top-0 z-10 bg-muted border-b border-border">
+                        <tr>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                            User
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                            Role
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                            Org Role
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                            Position
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-muted-foreground uppercase">
+                            Joined
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-muted-foreground uppercase">
+                            Actions
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-card divide-y divide-border">
+                        {users.map((user) => (
+                          <tr key={user.id} className="hover:bg-accent transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center min-w-0">
+                                <div className="flex justify-center items-center w-10 h-10 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+                                  {user.firstName?.charAt(0).toUpperCase()}
+                                  {user.lastName?.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 ml-3 min-w-0">
+                                  <div className="text-sm font-medium truncate">
+                                    {user.firstName} {user.lastName}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground truncate">{user.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                                {roleDisplayNames[user.role]}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {user.organizationRole ? (
+                                <Badge variant="secondary">
+                                  {roleDisplayNames[user.organizationRole]}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500">
+                              {user.position || '—'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500">
+                              {formatDate(user.createdAt)}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium text-right whitespace-nowrap">
+                              <div className="flex gap-2 justify-end">
+                                {canManageUser(user) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleEditUser(user)}
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {canDeleteUser(user) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDeleteUser(user)}
+                                    className="text-red-600 hover:text-red-700 hover:border-red-300"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {!canManageUser(user) && !canDeleteUser(user) && (
+                                  <span className="text-sm text-gray-400">—</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </>
@@ -276,7 +432,6 @@ export const UsersPage = () => {
                 <p className="text-xs text-muted-foreground">
                   Full control within organization. Can manage users, settings, and all resources.
                 </p>
-                <p className="mt-2 text-xs text-orange-600">⚠️ Cannot create other org_admins</p>
               </div>
               <div className="p-4 rounded-lg border">
                 <div className="flex gap-2 items-center mb-2">
@@ -307,11 +462,11 @@ export const UsersPage = () => {
               </div>
               <div className="p-4 rounded-lg border">
                 <div className="flex gap-2 items-center mb-2">
-                  <Badge variant="secondary">member</Badge>
+                  <Badge variant="secondary">associate</Badge>
                 </div>
-                <p className="mb-1 text-sm font-medium">{roleDisplayNames.member}</p>
+                <p className="mb-1 text-sm font-medium">{roleDisplayNames.associate}</p>
                 <p className="text-xs text-muted-foreground">
-                  Basic organization member with read-only access to tickets and messages.
+                  View-only access to tickets and messages with ability to request changes.
                 </p>
               </div>
             </div>
@@ -336,6 +491,22 @@ export const UsersPage = () => {
         onUpdate={handleUpdateUser}
         user={selectedUser}
         allUsers={users}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, user: null })}
+        onConfirm={confirmDeleteUser}
+        title="Delete User"
+        description={
+          deleteDialog.user
+            ? `Are you sure you want to delete ${deleteDialog.user.firstName} ${deleteDialog.user.lastName}? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
       />
     </Layout>
   );

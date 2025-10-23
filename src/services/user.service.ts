@@ -1,11 +1,27 @@
 import { apiClient } from '@/lib/api-client';
-import type { User } from '@/types';
+import type { User, PaginationMeta } from '@/types';
 
 export const userService = {
   // Get all users
-  getAll: async (): Promise<User[]> => {
-    const response = await apiClient.get('/api/users');
-    return response.data.data || response.data; // Handle both {data: [...]} and direct array
+  getAll: async (search?: string, page: number = 1, limit: number = 10): Promise<{ data: User[]; pagination: PaginationMeta }> => {
+    const params = new URLSearchParams();
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    const response = await apiClient.get(`/api/users?${params}`);
+    return {
+      data: response.data.data || [],
+      pagination: response.data.pagination || {
+        page,
+        limit,
+        total: 0,
+        totalPages: 0,
+        hasMore: false,
+      },
+    };
   },
 
   // Get user by ID

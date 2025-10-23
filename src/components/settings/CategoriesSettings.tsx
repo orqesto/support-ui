@@ -108,7 +108,7 @@ export const CategoriesSettings = () => {
 
       {/* New Category Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 bg-blue-50 rounded-lg border">
+        <div className="p-4 space-y-4 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg border border-blue-500/20">
           <h4 className="font-semibold">New Category</h4>
           <div className="grid gap-4">
             <div>
@@ -117,7 +117,7 @@ export const CategoriesSettings = () => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border"
+                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="e.g., Technical Support"
               />
             </div>
@@ -126,7 +126,7 @@ export const CategoriesSettings = () => {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border"
+                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 rows={2}
                 placeholder="Brief description of this category"
               />
@@ -136,7 +136,7 @@ export const CategoriesSettings = () => {
               <textarea
                 value={formData.keywords}
                 onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 rows={3}
                 placeholder="technical, bug, error, crash, not working, broken"
               />
@@ -163,8 +163,9 @@ export const CategoriesSettings = () => {
         {categories.map((category) => (
           <div
             key={category.id}
-            className={`border rounded-lg p-4 ${editingCategory?.id === category.id ? 'bg-blue-50' : 'bg-white'
-              }`}
+            className={`border border-border rounded-lg p-4 ${
+              editingCategory?.id === category.id ? 'bg-blue-500/10 dark:bg-blue-500/10' : 'bg-card'
+            }`}
           >
             {editingCategory?.id === category.id ? (
               <div className="space-y-4">
@@ -176,7 +177,7 @@ export const CategoriesSettings = () => {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border"
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
@@ -184,7 +185,7 @@ export const CategoriesSettings = () => {
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border"
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={2}
                     />
                   </div>
@@ -193,7 +194,7 @@ export const CategoriesSettings = () => {
                     <textarea
                       value={formData.keywords}
                       onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border"
+                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={3}
                     />
                   </div>
@@ -228,7 +229,7 @@ export const CategoriesSettings = () => {
                           {category.keywords.split(',').map((keyword, index) => (
                             <span
                               key={index}
-                              className="px-2 py-1 text-xs bg-gray-100 rounded"
+                              className="px-2 py-1 text-xs bg-muted rounded"
                             >
                               {keyword.trim()}
                             </span>
@@ -268,7 +269,7 @@ export const CategoriesSettings = () => {
         <DialogContent>
           <p>Are you sure you want to delete this category? This action cannot be undone.</p>
           {categoryToDelete && (
-            <div className="p-4 mt-4 bg-gray-50 rounded">
+            <div className="p-4 mt-4 bg-muted rounded">
               <p className="text-sm font-medium">{categoryToDelete.name}</p>
             </div>
           )}

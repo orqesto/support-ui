@@ -23,10 +23,10 @@ const OrganizationPage = lazy(() => import('./pages/OrganizationPage').then(m =>
 const EmailTemplatesPage = lazy(() => import('./pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
 
 const LoadingFallback = () => (
-  <div className="flex items-center justify-center min-h-screen">
+  <div className="flex items-center justify-center min-h-screen bg-background">
     <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-      <p className="text-gray-600">Loading...</p>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+      <p className="text-muted-foreground">Loading...</p>
     </div>
   </div>
 );
@@ -129,7 +129,7 @@ const AppRoutes = () => {
         path="/users"
         element={
           <PrivateRoute>
-            <ProtectedRoute requiredPermission={Permission.MANAGE_USERS}>
+            <ProtectedRoute requiredPermission={Permission.VIEW_USERS}>
               <Suspense fallback={<LoadingFallback />}>
                 <UsersPage />
               </Suspense>

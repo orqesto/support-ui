@@ -2,66 +2,113 @@ import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Badge } from '@/components/ui/Badge';
-import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent, DialogFooter } from '@/components/ui/Dialog';
+import { useOrganizationsStore } from '@/stores/organizationsStore';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+} from '@/components/ui/Dialog';
 import { usePermissions } from '@/hooks/usePermissions';
-import { organizationService, type Organization, type OrganizationMember } from '@/services/organization.service';
+import { organizationService } from '@/services/organization.service';
 import { CreateOrganizationModal } from '@/components/CreateOrganizationModal';
 import { formatDate } from '@/lib/utils';
-import { Building2, Users, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
 
 export const OrganizationPage = () => {
   const { canManageOrganization, isAdmin } = usePermissions();
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
-  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
-  const [editOrgForm, setEditOrgForm] = useState<{ name: string; description: string; active: boolean }>({ name: '', description: '', active: true });
-  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; orgId: number | null; orgName: string }>({ isOpen: false, orgId: null, orgName: '' });
+  const [editOrgForm, setEditOrgForm] = useState<{
+    name: string;
+    description: string;
+    active: boolean;
+  }>({ name: '', description: '', active: true });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    orgId: number | null;
+    orgName: string;
+  }>({ isOpen: false, orgId: null, orgName: '' });
   const [editForm, setEditForm] = useState({
     name: '',
     description: '',
   });
 
-  const fetchOrganization = async () => {
+  // Use organizations store
+  const organization = useOrganizationsStore((state) => state.currentOrganization);
+  const setOrganization = useOrganizationsStore((state) => state.setCurrentOrganization);
+  const allOrganizationsFromStore = useOrganizationsStore((state) => state.allOrganizations);
+  const allOrganizations = Array.isArray(allOrganizationsFromStore) ? allOrganizationsFromStore : [];
+  const searchOrg = useOrganizationsStore((state) => state.searchQuery);
+  const setSearchOrg = useOrganizationsStore((state) => state.setSearchQuery);
+  const setAllOrganizations = useOrganizationsStore((state) => state.setAllOrganizations);
+
+  // Local pending search state
+  const [pendingSearch, setPendingSearch] = useState(searchOrg || '');
+
+  const fetchCurrentOrganization = async () => {
     setLoading(true);
     try {
-      const promises: Promise<any>[] = [
-        organizationService.getCurrent(),
-        organizationService.getMembers(),
-      ];
-
-      // Global admins fetch all organizations
-      if (isAdmin) {
-        promises.push(organizationService.getAll());
-      }
-
-      const results = await Promise.all(promises);
-      const [orgData, membersData, allOrgsData] = results;
-
+      const orgData = await organizationService.getCurrent();
       setOrganization(orgData);
-      setMembers(membersData);
-      if (allOrgsData) {
-        setAllOrganizations(allOrgsData);
-      }
       setEditForm({
         name: orgData.name,
         description: orgData.description || '',
       });
     } catch (error) {
-      console.error('Failed to fetch organization:', error);
+      console.error('Failed to fetch current organization:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchAllOrganizations = async () => {
+    if (!isAdmin) return;
+    
+    try {
+      const result = await organizationService.getAll(searchOrg || undefined);
+      setAllOrganizations(result.data); // Extract data array from response
+    } catch (error) {
+      console.error('Failed to fetch all organizations:', error);
+    }
+  };
+
+  // Fetch current organization once on mount
   useEffect(() => {
-    fetchOrganization();
+    fetchCurrentOrganization();
   }, []);
+  
+  // Fetch all organizations on mount (for admins)
+  useEffect(() => {
+    if (isAdmin) {
+      fetchAllOrganizations();
+    }
+  }, []);
+  
+  // Re-fetch only all organizations when search changes (not current org)
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchAllOrganizations();
+  }, [searchOrg]);
+
+  const handleSearch = () => {
+    // Trigger actual search when button clicked or Enter pressed
+    setSearchOrg(pendingSearch);
+  };
+
+  const handleSearchBlur = () => {
+    // If search is empty on blur, clear the search filter to show all data
+    if (!pendingSearch.trim() && searchOrg) {
+      setSearchOrg('');
+    }
+  };
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -97,8 +144,11 @@ export const OrganizationPage = () => {
 
   const handleCreateOrganization = async (name: string, slug: string, description?: string) => {
     await organizationService.create({ name, slug, description });
-    // Refresh the page to show the newly created organization
-    fetchOrganization();
+    // Refresh the lists to show the newly created organization
+    if (isAdmin) {
+      await fetchAllOrganizations();
+    }
+    await fetchCurrentOrganization();
   };
 
   const confirmDeleteOrg = (orgId: number, orgName: string) => {
@@ -111,11 +161,14 @@ export const OrganizationPage = () => {
     try {
       await organizationService.delete(deleteDialog.orgId);
       // Refresh organizations list
-      setAllOrganizations(allOrganizations.filter(org => org.id !== deleteDialog.orgId));
+      setAllOrganizations(allOrganizations.filter((org) => org.id !== deleteDialog.orgId));
       setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
     } catch (error: any) {
       console.error('Failed to delete organization:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete organization. Please check the console for details.';
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to delete organization. Please check the console for details.';
       alert(`Error: ${errorMessage}`);
       setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
     }
@@ -129,7 +182,7 @@ export const OrganizationPage = () => {
         active: editOrgForm.active,
       });
       // Update in the list
-      setAllOrganizations(allOrganizations.map(org => org.id === orgId ? updated : org));
+      setAllOrganizations(allOrganizations.map((org) => (org.id === orgId ? updated : org)));
       setEditingOrgId(null);
     } catch (error) {
       console.error('Failed to update organization:', error);
@@ -142,7 +195,7 @@ export const OrganizationPage = () => {
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary"></div>
             <p className="text-muted-foreground">Loading organization...</p>
           </div>
         </div>
@@ -154,9 +207,9 @@ export const OrganizationPage = () => {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Building2 className="w-16 h-16 text-gray-400 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Organization</h2>
-          <p className="text-gray-600 text-center max-w-md">
+          <Building2 className="mb-4 w-16 h-16 text-gray-400" />
+          <h2 className="mb-2 text-2xl font-bold text-gray-900">No Organization</h2>
+          <p className="max-w-md text-center text-gray-600">
             You are not currently associated with an organization.
           </p>
         </div>
@@ -166,245 +219,331 @@ export const OrganizationPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="mx-auto space-y-6 max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-2xl font-bold">Organization Settings</h2>
             <p className="text-sm text-muted-foreground">
-              {isAdmin ? 'Manage all organizations in the system' : 'Manage your organization\'s details and members'}
+              {isAdmin
+                ? 'Manage all organizations in the system'
+                : "Manage your organization's details"}
             </p>
           </div>
           {isAdmin && (
             <Button onClick={() => setIsCreateModalOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="mr-2 w-4 h-4" />
               Create Organization
             </Button>
           )}
         </div>
 
         {/* All Organizations (Global Admin Only) */}
-        {isAdmin && allOrganizations.length > 0 && (
+        {isAdmin && (
           <Card>
             <CardHeader>
-              <CardTitle>All Organizations</CardTitle>
-              <CardDescription>
-                {allOrganizations.length} organization{allOrganizations.length !== 1 ? 's' : ''} in the system
-              </CardDescription>
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
+                <div>
+                  <CardTitle>All Organizations</CardTitle>
+                  <CardDescription>
+                    {allOrganizations.length} organization{allOrganizations.length !== 1 ? 's' : ''}{' '}
+                    in the system
+                  </CardDescription>
+                </div>
+                <SearchInput
+                  key="org-search"
+                  value={pendingSearch}
+                  onChange={setPendingSearch}
+                  onSearch={handleSearch}
+                  onBlur={handleSearchBlur}
+                  showSearchButton={true}
+                  placeholder="Search by ID, name, slug, description..."
+                  className="w-full sm:w-auto sm:min-w-[300px]"
+                />
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              {/* Mobile/Tablet Card View - Default up to XL */}
-              <div className="xl:hidden divide-y divide-gray-200 overflow-auto max-h-[600px]">
-                {allOrganizations.map((org) => (
-                  editingOrgId === org.id ? (
-                    <div key={org.id} className="p-4 bg-blue-50">
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                          <input
-                            type="text"
-                            value={editOrgForm.name}
-                            onChange={(e) => setEditOrgForm({ ...editOrgForm, name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                          <input
-                            type="text"
-                            value={editOrgForm.description}
-                            onChange={(e) => setEditOrgForm({ ...editOrgForm, description: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id={`active-mobile-${org.id}`}
-                            checked={editOrgForm.active}
-                            onChange={(e) => setEditOrgForm({ ...editOrgForm, active: e.target.checked })}
-                            className="rounded"
-                          />
-                          <label htmlFor={`active-mobile-${org.id}`} className="text-sm font-medium text-gray-700">
-                            Active
-                          </label>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleUpdateOrg(org.id)} className="flex-1">
-                            <Save className="w-4 h-4 mr-2" />
-                            Save
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => setEditingOrgId(null)} className="flex-1">
-                            <X className="w-4 h-4 mr-2" />
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={org.id} className="p-4 hover:bg-gray-50">
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-gray-900">{org.name}</h3>
-                            {org.description && (
-                              <p className="text-sm text-gray-500 mt-1">{org.description}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingOrgId(org.id);
-                                setEditOrgForm({ name: org.name, description: org.description || '', active: org.active });
-                              }}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => confirmDeleteOrg(org.id, org.name)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 items-center text-xs">
-                          <Badge variant={org.active ? 'default' : 'secondary'}>
-                            {org.active ? 'Active' : 'Inactive'}
-                          </Badge>
-                          <code className="px-2 py-1 bg-gray-100 rounded text-gray-600">{org.slug}</code>
-                          <span className="text-gray-500">{formatDate(org.createdAt)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                ))}
-              </div>
-
-              {/* Desktop Table View - Only on XL+ screens */}
-              <div className="hidden xl:block">
-                <div className="overflow-auto max-h-[600px]">
-                  <table className="min-w-full">
-                  <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Slug
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {allOrganizations.map((org) => (
-                      editingOrgId === org.id ? (
-                        <tr key={org.id} className="bg-blue-50">
-                          <td colSpan={5} className="px-6 py-4">
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                <input
-                                  type="text"
-                                  value={editOrgForm.name}
-                                  onChange={(e) => setEditOrgForm({ ...editOrgForm, name: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <input
-                                  type="text"
-                                  value={editOrgForm.description}
-                                  onChange={(e) => setEditOrgForm({ ...editOrgForm, description: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  id={`active-${org.id}`}
-                                  checked={editOrgForm.active}
-                                  onChange={(e) => setEditOrgForm({ ...editOrgForm, active: e.target.checked })}
-                                  className="rounded"
-                                />
-                                <label htmlFor={`active-${org.id}`} className="text-sm font-medium text-gray-700">
-                                  Active
-                                </label>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button size="sm" onClick={() => handleUpdateOrg(org.id)}>
-                                  <Save className="w-4 h-4 mr-2" />
-                                  Save
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setEditingOrgId(null)}>
-                                  <X className="w-4 h-4 mr-2" />
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr key={org.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{org.name}</div>
-                            {org.description && (
-                              <div className="text-sm text-gray-500">{org.description}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <code className="text-sm text-gray-600">{org.slug}</code>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge variant={org.active ? 'default' : 'secondary'}>
-                              {org.active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(org.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingOrgId(org.id);
-                                  setEditOrgForm({ name: org.name, description: org.description || '', active: org.active });
-                                }}
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => confirmDeleteOrg(org.id, org.name)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    ))}
-                  </tbody>
-                </table>
+              {allOrganizations.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    {searchOrg
+                      ? 'No organizations found matching your search'
+                      : 'No organizations available'}
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Mobile/Tablet Card View - Default up to XL */}
+                  <div className="xl:hidden divide-y divide-gray-200 overflow-auto max-h-[600px]">
+                    {allOrganizations.map((org) =>
+                      editingOrgId === org.id ? (
+                        <div key={org.id} className="p-4 bg-blue-500/10 dark:bg-blue-500/10">
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block mb-1 text-sm font-medium">
+                                Name
+                              </label>
+                              <input
+                                type="text"
+                                value={editOrgForm.name}
+                                onChange={(e) =>
+                                  setEditOrgForm({ ...editOrgForm, name: e.target.value })
+                                }
+                                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+                            <div>
+                              <label className="block mb-1 text-sm font-medium">
+                                Description
+                              </label>
+                              <input
+                                type="text"
+                                value={editOrgForm.description}
+                                onChange={(e) =>
+                                  setEditOrgForm({ ...editOrgForm, description: e.target.value })
+                                }
+                                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="checkbox"
+                                id={`active-mobile-${org.id}`}
+                                checked={editOrgForm.active}
+                                onChange={(e) =>
+                                  setEditOrgForm({ ...editOrgForm, active: e.target.checked })
+                                }
+                                className="rounded"
+                              />
+                              <label
+                                htmlFor={`active-mobile-${org.id}`}
+                                className="text-sm font-medium"
+                              >
+                                Active
+                              </label>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpdateOrg(org.id)}
+                                className="flex-1"
+                              >
+                                <Save className="mr-2 w-4 h-4" />
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingOrgId(null)}
+                                className="flex-1"
+                              >
+                                <X className="mr-2 w-4 h-4" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={org.id} className="p-4 hover:bg-accent transition-colors">
+                          <div className="space-y-3">
+                            <div className="flex gap-2 justify-between items-start">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-semibold">{org.name}</h3>
+                                {org.description && (
+                                  <p className="mt-1 text-sm text-muted-foreground">{org.description}</p>
+                                )}
+                              </div>
+                              <div className="flex flex-shrink-0 gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingOrgId(org.id);
+                                    setEditOrgForm({
+                                      name: org.name,
+                                      description: org.description || '',
+                                      active: org.active,
+                                    });
+                                  }}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => confirmDeleteOrg(org.id, org.name)}
+                                  className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 items-center text-xs">
+                              <Badge variant={org.active ? 'default' : 'secondary'}>
+                                {org.active ? 'Active' : 'Inactive'}
+                              </Badge>
+                              <code className="px-2 py-1 text-muted-foreground bg-muted rounded">
+                                {org.slug}
+                              </code>
+                              <span className="text-muted-foreground">{formatDate(org.createdAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  {/* Desktop Table View - Only on XL+ screens */}
+                  <div className="hidden xl:block">
+                    <div className="overflow-auto max-h-[600px]">
+                      <table className="min-w-full">
+                        <thead className="sticky top-0 z-10 bg-gray-50 border-b">
+                          <tr>
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                              Name
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                              Slug
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                              Status
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                              Created
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {allOrganizations.map((org) =>
+                            editingOrgId === org.id ? (
+                              <tr key={org.id} className="bg-blue-500/10 dark:bg-blue-500/10">
+                                <td colSpan={5} className="px-6 py-4">
+                                  <div className="space-y-3">
+                                    <div>
+                                      <label className="block mb-1 text-sm font-medium">
+                                        Name
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editOrgForm.name}
+                                        onChange={(e) =>
+                                          setEditOrgForm({ ...editOrgForm, name: e.target.value })
+                                        }
+                                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block mb-1 text-sm font-medium">
+                                        Description
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editOrgForm.description}
+                                        onChange={(e) =>
+                                          setEditOrgForm({
+                                            ...editOrgForm,
+                                            description: e.target.value,
+                                          })
+                                        }
+                                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                      <input
+                                        type="checkbox"
+                                        id={`active-${org.id}`}
+                                        checked={editOrgForm.active}
+                                        onChange={(e) =>
+                                          setEditOrgForm({
+                                            ...editOrgForm,
+                                            active: e.target.checked,
+                                          })
+                                        }
+                                        className="rounded"
+                                      />
+                                      <label
+                                        htmlFor={`active-${org.id}`}
+                                        className="text-sm font-medium"
+                                      >
+                                        Active
+                                      </label>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button size="sm" onClick={() => handleUpdateOrg(org.id)}>
+                                        <Save className="mr-2 w-4 h-4" />
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingOrgId(null)}
+                                      >
+                                        <X className="mr-2 w-4 h-4" />
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              <tr key={org.id} className="hover:bg-accent transition-colors">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-medium">
+                                    {org.name}
+                                  </div>
+                                  {org.description && (
+                                    <div className="text-sm text-muted-foreground">{org.description}</div>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <code className="text-sm text-muted-foreground">{org.slug}</code>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <Badge variant={org.active ? 'default' : 'secondary'}>
+                                    {org.active ? 'Active' : 'Inactive'}
+                                  </Badge>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">
+                                  {formatDate(org.createdAt)}
+                                </td>
+                                <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingOrgId(org.id);
+                                        setEditOrgForm({
+                                          name: org.name,
+                                          description: org.description || '',
+                                          active: org.active,
+                                        });
+                                      }}
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => confirmDeleteOrg(org.id, org.name)}
+                                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
@@ -412,21 +551,25 @@ export const OrganizationPage = () => {
         {/* Organization Details */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+            <div className="flex justify-between items-center">
+              <div className="flex gap-3 items-center">
+                <div className="flex justify-center items-center w-12 h-12 bg-purple-100 rounded-lg">
                   <Building2 className="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                  <CardTitle>{isAdmin ? 'My Current Organization' : 'Organization Details'}</CardTitle>
+                  <CardTitle>
+                    {isAdmin ? 'My Current Organization' : 'Organization Details'}
+                  </CardTitle>
                   <CardDescription>
-                    {isAdmin ? `Details of your assigned organization (${organization.name})` : 'Basic information about your organization'}
+                    {isAdmin
+                      ? `Details of your assigned organization (${organization.name})`
+                      : 'Basic information about your organization'}
                   </CardDescription>
                 </div>
               </div>
               {canManageOrganization && !isEditing && (
                 <Button onClick={handleEdit} variant="outline" size="sm">
-                  <Edit2 className="w-4 h-4 mr-2" />
+                  <Edit2 className="mr-2 w-4 h-4" />
                   Edit
                 </Button>
               )}
@@ -436,7 +579,7 @@ export const OrganizationPage = () => {
             {isEditing ? (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block mb-1 text-sm font-medium">
                     Organization Name
                   </label>
                   <input
@@ -444,28 +587,28 @@ export const OrganizationPage = () => {
                     value={editForm.name}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                     placeholder="Enter organization name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block mb-1 text-sm font-medium">
                     Description
                   </label>
                   <textarea
                     value={editForm.description}
                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     rows={3}
                     placeholder="Enter organization description"
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSave} isLoading={saving}>
-                    <Save className="w-4 h-4 mr-2" />
+                    <Save className="mr-2 w-4 h-4" />
                     Save Changes
                   </Button>
                   <Button onClick={handleCancel} variant="outline" disabled={saving}>
-                    <X className="w-4 h-4 mr-2" />
+                    <X className="mr-2 w-4 h-4" />
                     Cancel
                   </Button>
                 </div>
@@ -474,16 +617,16 @@ export const OrganizationPage = () => {
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Name</label>
-                  <p className="text-base font-medium mt-1">{organization.name}</p>
+                  <p className="mt-1 text-base font-medium">{organization.name}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Slug</label>
-                  <p className="text-base font-mono text-gray-700 mt-1">{organization.slug}</p>
+                  <p className="mt-1 font-mono text-base text-gray-700">{organization.slug}</p>
                 </div>
                 {organization.description && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Description</label>
-                    <p className="text-base text-gray-700 mt-1">{organization.description}</p>
+                    <p className="mt-1 text-base text-gray-700">{organization.description}</p>
                   </div>
                 )}
                 <div>
@@ -497,123 +640,19 @@ export const OrganizationPage = () => {
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Created</label>
-                    <p className="text-sm text-gray-700 mt-1">
+                    <p className="mt-1 text-sm text-gray-700">
                       {formatDate(organization.createdAt)}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                    <p className="text-sm text-gray-700 mt-1">
+                    <p className="mt-1 text-sm text-gray-700">
                       {formatDate(organization.updatedAt)}
                     </p>
                   </div>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Members List */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <CardTitle>{isAdmin ? `${organization.name} Members` : 'Members'}</CardTitle>
-                <CardDescription>
-                  {members.length} member{members.length !== 1 ? 's' : ''} in {isAdmin ? 'this organization' : 'your organization'}
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {/* Mobile/Tablet Card View - Default up to XL */}
-            <div className="xl:hidden divide-y divide-gray-200 overflow-auto max-h-[600px]">
-              {members.map((member) => (
-                <div key={member.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex gap-3 items-start">
-                    <div className="flex flex-shrink-0 justify-center items-center w-10 h-10 text-sm font-medium rounded-full bg-primary text-primary-foreground">
-                      {member.firstName?.charAt(0).toUpperCase()}
-                      {member.lastName?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        {member.firstName} {member.lastName}
-                      </h3>
-                      <p className="text-sm text-gray-500 truncate">{member.email}</p>
-                      <div className="mt-2 space-y-1">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <Badge variant={member.organizationRole === 'org_admin' ? 'default' : 'secondary'}>
-                            {member.organizationRole}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-col gap-1 text-xs text-gray-500">
-                          {member.position && (
-                            <div>
-                              <span className="font-medium">Position:</span> {member.position}
-                            </div>
-                          )}
-                          <div>
-                            <span className="font-medium">Joined:</span> {formatDate(member.joinedAt)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop Table View - Only on XL+ screens */}
-            <div className="hidden xl:block">
-              <div className="overflow-auto max-h-[600px]">
-                <table className="min-w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Position
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Joined
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {members.map((member) => (
-                    <tr key={member.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {member.firstName} {member.lastName}
-                          </div>
-                          <div className="text-sm text-gray-500">{member.email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={member.organizationRole === 'org_admin' ? 'default' : 'secondary'}>
-                          {member.organizationRole}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {member.position || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(member.joinedAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -626,26 +665,34 @@ export const OrganizationPage = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog.isOpen} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, isOpen: open })}>
+      <Dialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, isOpen: open })}
+      >
         <DialogHeader>
           <DialogTitle>Delete Organization</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialog({ isOpen: false, orgId: null, orgName: '' })} />
+          <DialogClose
+            onClose={() => setDeleteDialog({ isOpen: false, orgId: null, orgName: '' })}
+          />
         </DialogHeader>
         <DialogContent>
           <div className="space-y-4">
-            <p className="text-sm text-gray-700">
-              Are you sure you want to delete <strong className="font-semibold text-gray-900">{deleteDialog.orgName}</strong>?
+            <p className="text-sm">
+              Are you sure you want to delete{' '}
+              <strong className="font-semibold">{deleteDialog.orgName}</strong>?
             </p>
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <p className="text-sm font-semibold text-red-900 mb-2">This will permanently delete:</p>
-              <ul className="text-sm text-red-800 space-y-1 list-disc list-inside">
+            <div className="p-4 bg-red-500/10 dark:bg-red-500/10 rounded-md border border-red-500/20">
+              <p className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">
+                This will permanently delete:
+              </p>
+              <ul className="space-y-1 text-sm list-disc list-inside text-red-600 dark:text-red-400">
                 <li>The organization</li>
                 <li>All users in this organization</li>
                 <li>All tickets and messages</li>
                 <li>All categories and settings</li>
               </ul>
             </div>
-            <p className="text-sm font-semibold text-red-600">This action cannot be undone.</p>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400">This action cannot be undone.</p>
           </div>
         </DialogContent>
         <DialogFooter>
@@ -658,9 +705,9 @@ export const OrganizationPage = () => {
           <Button
             variant="destructive"
             onClick={handleDeleteOrg}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="text-white bg-red-600 hover:bg-red-700"
           >
-            <Trash2 className="w-4 h-4 mr-2" />
+            <Trash2 className="mr-2 w-4 h-4" />
             Delete Organization
           </Button>
         </DialogFooter>

@@ -72,7 +72,7 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
       {/* Header Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-50 rounded-lg">
+          <div className="p-2 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg">
             {getChannelIcon(message.channel)}
           </div>
           <div className="flex-1">
@@ -98,20 +98,25 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
 
         <div>
           <p className="text-sm text-muted-foreground">Received</p>
-          <p className="text-sm">{formatDate(message.createdAt)}</p>
+          <p className="text-sm">{formatDate((message.metadata as any)?.receivedAt || message.createdAt)}</p>
+          {(message.metadata as any)?.receivedAt && message.createdAt && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Imported: {formatDate(message.createdAt)}
+            </p>
+          )}
         </div>
 
         {/* Link to Ticket */}
         {message.ticketId && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="p-3 bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-900">Linked Ticket</p>
-                <p className="text-xs text-blue-700">Ticket #{message.ticketId}</p>
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Linked Ticket</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Ticket #{message.ticketId}</p>
               </div>
               <Link 
                 to={`/tickets?id=${message.ticketId}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors"
               >
                 View Ticket
                 <ExternalLink className="h-3 w-3" />
@@ -140,10 +145,10 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
               {spamCheck && (
                 <div className={`p-3 rounded-lg border ${
                   spamCheck.isSpam === false 
-                    ? 'bg-green-50 border-green-200' 
+                    ? 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20' 
                     : spamCheck.isSpam === true 
-                    ? 'bg-red-50 border-red-200' 
-                    : 'bg-gray-50 border-gray-200'
+                    ? 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20' 
+                    : 'bg-muted border-border'
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     {spamCheck.isSpam === false ? (
@@ -168,8 +173,8 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
               {analysis && (
                 <div className={`p-3 rounded-lg border ${
                   analysis.isTicketWorthy 
-                    ? 'bg-blue-50 border-blue-200' 
-                    : 'bg-gray-50 border-gray-200'
+                    ? 'bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20' 
+                    : 'bg-muted border-border'
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     {analysis.isTicketWorthy ? (
@@ -194,8 +199,8 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
               {analysis?.needsMoreInfo !== undefined && (
                 <div className={`p-3 rounded-lg border ${
                   analysis.needsMoreInfo 
-                    ? 'bg-yellow-50 border-yellow-200' 
-                    : 'bg-green-50 border-green-200'
+                    ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20' 
+                    : 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     {analysis.needsMoreInfo ? (
@@ -213,7 +218,7 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
 
               {/* Priority */}
               {analysis?.suggestedPriority && (
-                <div className="p-3 rounded-lg border bg-purple-50 border-purple-200">
+                <div className="p-3 rounded-lg border bg-purple-500/10 dark:bg-purple-500/10 border-purple-500/20">
                   <div className="flex items-center gap-2 mb-1">
                     <Info className="h-4 w-4 text-purple-600" />
                     <span className="text-xs font-semibold">Priority</span>
@@ -225,7 +230,7 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
 
             {/* Category */}
             {analysis?.suggestedCategory && (
-              <div className="p-3 rounded-lg border bg-indigo-50 border-indigo-200">
+              <div className="p-3 rounded-lg border bg-indigo-500/10 dark:bg-indigo-500/10 border-indigo-500/20">
                 <div className="flex items-center gap-2 mb-1">
                   <Info className="h-4 w-4 text-indigo-600" />
                   <span className="text-xs font-semibold">Suggested Category</span>
@@ -236,36 +241,36 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
 
             {/* Summary */}
             {analysis?.summary && (
-              <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+              <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
                 <div className="flex items-center gap-2 mb-2">
                   <Info className="h-4 w-4 text-blue-600" />
                   <span className="text-xs font-semibold">AI Summary</span>
                 </div>
-                <p className="text-sm text-blue-900">{analysis.summary}</p>
+                <p className="text-sm text-blue-600 dark:text-blue-400">{analysis.summary}</p>
               </div>
             )}
 
             {/* Spam Reason */}
             {spamCheck?.reason && (
-              <div className="p-3 rounded-lg border bg-gray-50 border-gray-200">
+              <div className="p-3 rounded-lg border bg-muted border-border">
                 <div className="flex items-center gap-2 mb-2">
                   <Info className="h-4 w-4 text-gray-600" />
                   <span className="text-xs font-semibold">Detection Reason</span>
                 </div>
-                <p className="text-sm text-gray-700">{spamCheck.reason}</p>
+                <p className="text-sm text-muted-foreground">{spamCheck.reason}</p>
               </div>
             )}
 
             {/* Red Flags */}
             {spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
-              <div className="p-3 rounded-lg border bg-red-50 border-red-200">
+              <div className="p-3 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                   <span className="text-xs font-semibold">Red Flags</span>
                 </div>
                 <ul className="space-y-1">
                   {spamCheck.redFlags.map((flag: string, index: number) => (
-                    <li key={index} className="text-sm text-red-700 flex items-start gap-2">
+                    <li key={index} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
                       <span className="mt-1">•</span>
                       <span>{flag}</span>
                     </li>
@@ -284,7 +289,7 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
         return Object.keys(displayMetadata).length > 0 ? (
           <div className="border-t pt-6">
             <h3 className="text-sm font-semibold text-muted-foreground mb-3">Additional Information</h3>
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-muted rounded-lg p-4">
               <pre className="text-xs overflow-auto">
                 {JSON.stringify(displayMetadata, null, 2)}
               </pre>
@@ -319,8 +324,8 @@ export const MessageDetail = ({ message, onApprove, onReject, onReopen, onDelete
               </Button>
             )}
             {message.ticketId && (
-              <div className="flex-1 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-900 font-medium">
+              <div className="flex-1 p-3 bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                   Ticket already created - Cannot reopen
                 </p>
               </div>

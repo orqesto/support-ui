@@ -6,6 +6,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
 import { WebSocketDebug } from '@/components/WebSocketDebug';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   LayoutDashboard,
   Mail,
@@ -44,12 +46,12 @@ const allNavigation = [
     icon: Settings,
     permission: Permission.VIEW_ORGANIZATION_SETTINGS,
   },
-  { name: 'Users', href: '/users', icon: Users, permission: Permission.MANAGE_USERS },
-  { 
-    name: 'Email Templates', 
-    href: '/email-templates', 
-    icon: FileText, 
-    adminOnly: true // Only visible to global admins
+  { name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
+  {
+    name: 'Email Templates',
+    href: '/email-templates',
+    icon: FileText,
+    adminOnly: true, // Only visible to global admins
   },
 ];
 
@@ -78,7 +80,7 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Mobile sidebar backdrop */}
       <div
         className={cn(
@@ -92,7 +94,7 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transition-transform duration-300 transform',
+            'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transition-transform duration-300 transform',
             'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
@@ -117,7 +119,7 @@ export const Layout = ({ children }: LayoutProps) => {
                       'flex gap-3 items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
                       isActive
                         ? 'bg-primary text-primary-foreground'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground'
                     )}
                     onClick={() => setSidebarOpen(false)}
                   >
@@ -129,6 +131,9 @@ export const Layout = ({ children }: LayoutProps) => {
             </nav>
 
             <div className="p-4 border-t">
+              {/* Organization Switcher for Global Admins */}
+              <OrganizationSwitcher />
+              
               <div className="flex justify-between items-center mb-3">
                 <div className="flex gap-2 items-center">
                   <div className="flex justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
@@ -143,10 +148,11 @@ export const Layout = ({ children }: LayoutProps) => {
                     </p>
                   </div>
                 </div>
+                <ThemeToggle />
               </div>
               <button
                 onClick={handleLogout}
-                className="flex gap-2 items-center px-3 py-2 w-full text-sm text-gray-700 rounded-md transition-colors hover:bg-gray-100"
+                className="flex gap-2 items-center px-3 py-2 w-full text-sm rounded-md transition-colors text-foreground/70 hover:bg-accent hover:text-accent-foreground"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
@@ -156,20 +162,23 @@ export const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main content */}
-        <div className="overflow-x-hidden flex-1 w-full lg:ml-0">
+        <div className="overflow-x-hidden flex-1 w-full lg:ml-0 bg-background">
           {/* Mobile header with hamburger menu */}
-          <header className="flex fixed top-0 right-0 left-0 z-50 items-center px-4 h-14 bg-white border-b lg:hidden">
-            <button className="mr-4" onClick={() => setSidebarOpen(true)}>
-              <Menu className="w-6 h-6" />
-            </button>
-            <h2 className="text-lg font-semibold">
-              {navigation.find((item) => item.href === location.pathname)?.name || 'Dashboard'}
-            </h2>
+          <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 bg-card border-b lg:hidden">
+            <div className="flex items-center">
+              <button className="mr-4" onClick={() => setSidebarOpen(true)}>
+                <Menu className="w-6 h-6" />
+              </button>
+              <h2 className="text-lg font-semibold">
+                {navigation.find((item) => item.href === location.pathname)?.name || 'Dashboard'}
+              </h2>
+            </div>
+            <ThemeToggle />
           </header>
           {/* Spacer for fixed header */}
-          <div className="h-14"></div>
+          <div className="h-14 lg:hidden"></div>
 
-          <main className="overflow-x-hidden p-4 w-full max-w-full lg:p-6">{children}</main>
+          <main className="overflow-x-hidden p-4 w-full max-w-full lg:p-6 bg-background">{children}</main>
         </div>
       </div>
 

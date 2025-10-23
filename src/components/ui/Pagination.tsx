@@ -58,7 +58,7 @@ export const Pagination = ({
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t bg-white rounded-b-lg">
+    <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card rounded-b-lg">
       <div className="flex items-center text-sm text-muted-foreground">
         Showing <span className="font-medium mx-1">{startItem}</span> to{' '}
         <span className="font-medium mx-1">{endItem}</span> of{' '}
@@ -86,7 +86,7 @@ export const Pagination = ({
                 className={`min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors ${
                   page === currentPage
                     ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-gray-100 text-gray-700'
+                    : 'hover:bg-accent text-foreground'
                 } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {page}
@@ -94,7 +94,7 @@ export const Pagination = ({
             ) : (
               <span
                 key={index}
-                className="min-w-[36px] h-9 px-3 flex items-center justify-center text-gray-400"
+                className="min-w-[36px] h-9 px-3 flex items-center justify-center text-muted-foreground"
               >
                 {page}
               </span>

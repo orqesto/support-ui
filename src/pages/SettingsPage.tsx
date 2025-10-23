@@ -45,7 +45,7 @@ export const SettingsPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2 bg-purple-500/10 dark:bg-purple-500/10 rounded-lg">
               <Settings className="h-6 w-6 text-purple-600" />
             </div>
             <div>
@@ -70,8 +70,8 @@ export const SettingsPage = () => {
                       onClick={() => setActiveTab(tab.id)}
                       className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
                         activeTab === tab.id
-                          ? 'border-blue-600 text-blue-600 bg-blue-50'
-                          : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-gray-50'
+                          ? 'border-primary text-primary bg-primary/10'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
                       }`}
                     >
                       <Icon className="h-4 w-4" />

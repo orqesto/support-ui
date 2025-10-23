@@ -8,6 +8,7 @@ type FilterState = {
   showSpam?: boolean;
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
+  search?: string;
 };
 
 type SortingState = {

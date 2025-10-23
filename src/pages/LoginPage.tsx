@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth.service';
+import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -14,6 +15,7 @@ export const LoginPage = () => {
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const login = useAuthStore((state) => state.login);
+  const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -35,6 +37,27 @@ export const LoginPage = () => {
       const response = await authService.login({ email, password });
       if (response.success && response.data) {
         login(response.data.token, response.data.user);
+        
+        // Set user's organization context
+        // For non-admins, use their organizationId from the user object
+        // For admins, fetch available organizations
+        if (response.data.user.organizationId) {
+          // Non-admin user - use their assigned organization
+          setSelectedOrganization(response.data.user.organizationId);
+          console.log(`✅ [LOGIN] Auto-selected user's organization (ID: ${response.data.user.organizationId})`);
+        } else if (response.data.user.role === 'admin') {
+          // Global admin - fetch organizations
+          try {
+            const orgsResponse = await organizationService.getAll('', 1, 100);
+            if (orgsResponse.data.length > 0) {
+              setSelectedOrganization(orgsResponse.data[0].id);
+              console.log(`✅ [LOGIN] Auto-selected organization: ${orgsResponse.data[0].name} (ID: ${orgsResponse.data[0].id})`);
+            }
+          } catch (orgError) {
+            console.error('Failed to load organizations:', orgError);
+          }
+        }
+        
         navigate('/dashboard');
       } else {
         setError(response.message || 'Login failed');

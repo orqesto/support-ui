@@ -4,7 +4,7 @@ import { Wifi, WifiOff, X } from 'lucide-react';
 
 export const WebSocketStatus = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { socket } = useEmailProcessing();
+  const { socket } = useEmailProcessing(false); // Don't subscribe to events, just get socket
   const isConnected = socket?.connected ?? false;
   const socketId = socket?.id || 'N/A';
 

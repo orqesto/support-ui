@@ -10,6 +10,7 @@ import { ticketService } from '../services/ticket.service';
 import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
 import { useSystemHealth } from '../hooks/useSystemHealth';
 import { useMessagesStore } from '../stores/messagesStore';
+import { integrationsService } from '../services/integrations.service';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -21,6 +22,9 @@ export const DashboardPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [ingesting, setIngesting] = useState<string | null>(null);
+  const [hasIntegrations, setHasIntegrations] = useState(false);
+  const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
+  const [hasTelegramIntegrations, setHasTelegramIntegrations] = useState(false);
   
   // Get real-time system health
   const { health, isWebSocketConnected } = useSystemHealth();
@@ -77,11 +81,51 @@ export const DashboardPage = () => {
     }
   };
 
+  // Check if current organization has integrations
+  useEffect(() => {
+    const checkIntegrations = async () => {
+      try {
+        const response = await integrationsService.getAll();
+        const activeIntegrations = response.data?.filter(i => i.enabled) || [];
+        
+        const emailIntegrations = activeIntegrations.filter(i => i.type === 'email' || i.type === 'gmail');
+        const telegramIntegrations = activeIntegrations.filter(i => i.type === 'telegram');
+        
+        setHasIntegrations(activeIntegrations.length > 0);
+        setHasEmailIntegrations(emailIntegrations.length > 0);
+        setHasTelegramIntegrations(telegramIntegrations.length > 0);
+      } catch (error) {
+        console.error('Failed to check integrations:', error);
+        setHasIntegrations(false);
+        setHasEmailIntegrations(false);
+        setHasTelegramIntegrations(false);
+      }
+    };
+
+    checkIntegrations();
+  }, []);
+
   useEffect(() => {
     fetchStats();
   }, []);
 
   const handleIngestion = async (type: 'all' | 'email' | 'telegram' | 'check-email') => {
+    // Check if current org has required integrations before starting
+    if (type === 'all' && !hasIntegrations) {
+      alert('No integrations configured for the current organization. Please configure integrations in Settings.');
+      return;
+    }
+    
+    if ((type === 'email' || type === 'check-email') && !hasEmailIntegrations) {
+      alert('No email integrations configured for the current organization. Please configure email integration in Settings.');
+      return;
+    }
+    
+    if (type === 'telegram' && !hasTelegramIntegrations) {
+      alert('No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.');
+      return;
+    }
+
     setIngesting(type);
     try {
       let response;
@@ -250,18 +294,27 @@ export const DashboardPage = () => {
               <Button
                 onClick={() => handleIngestion('all')}
                 isLoading={ingesting === 'all'}
+                disabled={!hasIntegrations}
                 className="w-full h-12 text-base font-semibold"
                 size="lg"
+                title={!hasIntegrations ? 'No integrations configured for this organization' : ''}
               >
                 <PlayCircle className="mr-2 w-5 h-5" />
                 Start All Services
               </Button>
+              {!hasIntegrations && (
+                <p className="text-xs text-amber-600 text-center">
+                  ⚠️ No integrations configured. Go to Settings to add integrations.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
                   onClick={() => handleIngestion('email')}
                   isLoading={ingesting === 'email'}
+                  disabled={!hasEmailIntegrations}
                   className="w-full"
+                  title={!hasEmailIntegrations ? 'No email integrations configured' : ''}
                 >
                   <Mail className="mr-2 w-4 h-4" />
                   Email
@@ -270,7 +323,9 @@ export const DashboardPage = () => {
                   variant="outline"
                   onClick={() => handleIngestion('telegram')}
                   isLoading={ingesting === 'telegram'}
+                  disabled={!hasTelegramIntegrations}
                   className="w-full"
+                  title={!hasTelegramIntegrations ? 'No Telegram integration configured' : ''}
                 >
                   <Inbox className="mr-2 w-4 h-4" />
                   Telegram
@@ -293,10 +348,10 @@ export const DashboardPage = () => {
                 {health?.services.database && (
                   <div className={`flex justify-between items-center p-3 rounded-lg border ${
                     health.services.database.status === 'active' 
-                      ? 'bg-green-50 border-green-200' 
+                      ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20' 
                       : health.services.database.status === 'error'
-                      ? 'bg-red-50 border-red-200'
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                      : 'bg-muted border-border'
                   }`}>
                     <div className="flex gap-2 items-center">
                       <div className={`w-2 h-2 rounded-full ${
@@ -310,10 +365,10 @@ export const DashboardPage = () => {
                     </div>
                     <span className={`text-xs font-medium ${
                       health.services.database.status === 'active' 
-                        ? 'text-green-700' 
+                        ? 'text-green-600 dark:text-green-400' 
                         : health.services.database.status === 'error'
-                        ? 'text-red-700'
-                        : 'text-gray-600'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground'
                     }`}>
                       {health.services.database.status === 'active' ? 'Connected' : health.services.database.status === 'error' ? 'Error' : 'Inactive'}
                     </span>
@@ -324,10 +379,10 @@ export const DashboardPage = () => {
                 {health?.services.email && (
                   <div className={`flex justify-between items-center p-3 rounded-lg border ${
                     health.services.email.status === 'active' 
-                      ? 'bg-green-50 border-green-200' 
+                      ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20' 
                       : health.services.email.status === 'error'
-                      ? 'bg-red-50 border-red-200'
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                      : 'bg-muted border-border'
                   }`}>
                     <div className="flex gap-2 items-center">
                       <div className={`w-2 h-2 rounded-full ${
@@ -341,10 +396,10 @@ export const DashboardPage = () => {
                     </div>
                     <span className={`text-xs font-medium ${
                       health.services.email.status === 'active' 
-                        ? 'text-green-700' 
+                        ? 'text-green-600 dark:text-green-400' 
                         : health.services.email.status === 'error'
-                        ? 'text-red-700'
-                        : 'text-gray-600'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground'
                     }`}>
                       {health.services.email.message || health.services.email.status}
                     </span>
@@ -354,8 +409,8 @@ export const DashboardPage = () => {
                 {/* WebSocket Status */}
                 <div className={`flex justify-between items-center p-3 rounded-lg border ${
                   isWebSocketConnected 
-                    ? 'bg-blue-50 border-blue-200' 
-                    : 'bg-gray-50 border-gray-200'
+                    ? 'bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/10 dark:border-blue-500/20' 
+                    : 'bg-muted border-border'
                 }`}>
                   <div className="flex gap-2 items-center">
                     <div className={`w-2 h-2 rounded-full ${
@@ -364,7 +419,7 @@ export const DashboardPage = () => {
                     <span className="text-sm font-medium">WebSocket</span>
                   </div>
                   <span className={`text-xs font-medium ${
-                    isWebSocketConnected ? 'text-blue-700' : 'text-gray-600'
+                    isWebSocketConnected ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'
                   }`}>
                     {isWebSocketConnected ? 'Connected' : 'Disconnected'}
                   </span>
@@ -374,10 +429,10 @@ export const DashboardPage = () => {
                 {health?.services.ai && (
                   <div className={`flex justify-between items-center p-3 rounded-lg border ${
                     health.services.ai.status === 'active' 
-                      ? 'bg-purple-50 border-purple-200' 
+                      ? 'bg-purple-500/10 border-purple-500/20 dark:bg-purple-500/10 dark:border-purple-500/20' 
                       : health.services.ai.status === 'error'
-                      ? 'bg-red-50 border-red-200'
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                      : 'bg-muted border-border'
                   }`}>
                     <div className="flex gap-2 items-center">
                       <div className={`w-2 h-2 rounded-full ${
@@ -391,10 +446,10 @@ export const DashboardPage = () => {
                     </div>
                     <span className={`text-xs font-medium ${
                       health.services.ai.status === 'active' 
-                        ? 'text-purple-700' 
+                        ? 'text-purple-600 dark:text-purple-400' 
                         : health.services.ai.status === 'error'
-                        ? 'text-red-700'
-                        : 'text-gray-600'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground'
                     }`}>
                       {health.services.ai.message || health.services.ai.status}
                     </span>
@@ -405,8 +460,10 @@ export const DashboardPage = () => {
                 variant="outline"
                 onClick={() => handleIngestion('check-email')}
                 isLoading={ingesting === 'check-email'}
+                disabled={!hasEmailIntegrations}
                 className="w-full"
                 size="sm"
+                title={!hasEmailIntegrations ? 'No email integrations configured' : ''}
               >
                 <Mail className="mr-2 w-4 h-4" />
                 Check Emails Manually

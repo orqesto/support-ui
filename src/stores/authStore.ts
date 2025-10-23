@@ -6,8 +6,10 @@ type AuthState = {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  selectedOrganizationId: number | null; // Current organization context for admin
   login: (token: string, user: User) => void;
   logout: () => void;
+  setSelectedOrganization: (organizationId: number) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -16,13 +18,18 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
+      selectedOrganizationId: null,
       
       login: (token: string, user: User) => {
         set({ token, user, isAuthenticated: true });
       },
       
       logout: () => {
-        set({ token: null, user: null, isAuthenticated: false });
+        set({ token: null, user: null, isAuthenticated: false, selectedOrganizationId: null });
+      },
+      
+      setSelectedOrganization: (organizationId: number) => {
+        set({ selectedOrganizationId: organizationId });
       },
     }),
     {

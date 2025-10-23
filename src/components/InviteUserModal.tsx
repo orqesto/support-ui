@@ -4,6 +4,8 @@ import { X, Mail, UserPlus } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { organizationService, type Organization } from '@/services/organization.service';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthStore } from '@/stores/authStore';
 
 type InviteUserModalProps = {
   isOpen: boolean;
@@ -12,8 +14,10 @@ type InviteUserModalProps = {
 };
 
 export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalProps) => {
+  const { isAdmin } = usePermissions();
+  const user = useAuthStore((state) => state.user);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<string>('support');
+  const [role, setRole] = useState<string>('associate');
   const [organizationId, setOrganizationId] = useState<number | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,10 +26,21 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
   useEffect(() => {
     const loadOrganizations = async () => {
       try {
-        const orgs = await organizationService.getAll();
-        setOrganizations(orgs);
-        if (orgs.length > 0 && !organizationId) {
-          setOrganizationId(orgs[0].id);
+        if (isAdmin) {
+          // Global admin can select from all organizations
+          const result = await organizationService.getAll();
+          const orgs = result.data || [];
+          setOrganizations(orgs);
+          if (orgs.length > 0 && !organizationId) {
+            setOrganizationId(orgs[0].id);
+          }
+        } else {
+          // Org admin can only invite to their own organization
+          if (user?.organizationId) {
+            const currentOrg = await organizationService.getCurrent();
+            setOrganizations([currentOrg]);
+            setOrganizationId(currentOrg.id);
+          }
         }
       } catch (err) {
         console.error('Failed to load organizations:', err);
@@ -35,7 +50,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     if (isOpen) {
       loadOrganizations();
     }
-  }, [isOpen, organizationId]);
+  }, [isOpen, isAdmin, user?.organizationId, organizationId]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -51,8 +66,14 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     try {
       await onInvite(email, role, organizationId);
       setEmail('');
-      setRole('support');
-      setOrganizationId(organizations[0]?.id || null);
+      setRole('associate');
+      // Keep organization selected (for org_admin it's their org, for admin keep first)
+      if (!isAdmin) {
+        // For org_admin, keep their organization
+      } else {
+        // For global admin, reset to first org
+        setOrganizationId(organizations[0]?.id || null);
+      }
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send invitation');
@@ -65,18 +86,18 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+      <div className="bg-card rounded-lg shadow-xl max-w-md w-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/10 flex items-center justify-center">
               <UserPlus className="w-5 h-5 text-blue-600" />
             </div>
             <h2 className="text-xl font-semibold">Invite User</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -93,51 +114,58 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               We'll send an invitation link to this email
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium mb-1">
               Organization
             </label>
             <select
               value={organizationId || ''}
               onChange={(e) => setOrganizationId(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border bg-input text-foreground border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-muted disabled:cursor-not-allowed"
+              disabled={!isAdmin}
               required
             >
-              <option value="">Select organization...</option>
+              {organizations.length === 0 && <option value="">Loading organizations...</option>}
+              {isAdmin && organizations.length > 0 && <option value="">Select organization...</option>}
               {organizations.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.name}
                 </option>
               ))}
             </select>
-            <p className="text-sm text-gray-500 mt-1">
-              User will be added to this organization
+            <p className="text-sm text-muted-foreground mt-1">
+              {isAdmin 
+                ? 'Select the organization to invite this user to' 
+                : 'User will be added to your organization'}
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium mb-1">
               Role
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border bg-input text-foreground border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               required
             >
-              <option value="member">Member - Basic access</option>
               <option value="associate">Associate - Read-only with request permissions</option>
               <option value="support">Support - Manage tickets and messages</option>
               <option value="moderator">Moderator - Manage integrations, categories, AI</option>
-              <option value="org_admin">Organization Admin - Full control</option>
+              {isAdmin && (
+                <option value="org_admin">Organization Admin - Full control</option>
+              )}
             </select>
-            <p className="text-sm text-gray-500 mt-1">
-              Select the role for this user in your organization
+            <p className="text-sm text-muted-foreground mt-1">
+              {isAdmin 
+                ? 'Select the role for this user in the organization' 
+                : 'Org admins cannot invite other org admins'}
             </p>
           </div>
 
