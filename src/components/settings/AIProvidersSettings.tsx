@@ -18,6 +18,7 @@ import type { AIModel, AIProvider } from '@/types/aiProviders';
 import { AlertDialog } from '../ui/AlertDialog';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Select } from '../ui/Select';
 
 export const AIProvidersSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -89,7 +90,8 @@ export const AIProvidersSettings = () => {
               i.type === 'openai' ||
               i.type === 'anthropic' ||
               i.type === 'deepseek' ||
-              i.type === 'perplexity'
+              i.type === 'perplexity' ||
+              i.type === 'local_embeddings'
           )
         );
       }
@@ -313,13 +315,13 @@ export const AIProvidersSettings = () => {
     <div className="space-y-6">
       {/* Feature Requirements Info - Only show when no AI provider */}
       {!hasAnyProvider && (
-        <div className="p-3 rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/50">
+        <div className="p-3 bg-amber-50 rounded-lg border-2 border-amber-500 dark:bg-amber-950/50">
           <button
             onClick={() => setShowFeatureDetails(!showFeatureDetails)}
             className="flex justify-between items-center w-full text-left"
           >
             <div className="flex gap-2 items-center">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <AlertCircle className="flex-shrink-0 w-4 h-4 text-amber-600" />
               <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
                 No AI provider configured. Some features unavailable.
               </span>
@@ -440,7 +442,8 @@ export const AIProvidersSettings = () => {
                         isLoading={testing === integration.id}
                         disabled={!integration.hasCredentials}
                       >
-                        <TestTube2 className="w-4 h-4" />
+                        <TestTube2 className="mr-2 w-4 h-4" />
+                        Poke
                       </Button>
                       <Button
                         variant="outline"
@@ -493,46 +496,36 @@ export const AIProvidersSettings = () => {
                     placeholder="sk-..."
                   />
                 </div>
-                <div>
-                  <label htmlFor="defaultChatModel" className="text-sm font-medium">
-                    Default Chat Model
-                  </label>
-                  <select
-                    value={openaiConfig.defaultChatModel}
-                    onChange={(e) =>
-                      setOpenaiConfig({ ...openaiConfig, defaultChatModel: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
-                  >
-                    {openaiModels
-                      .filter((m) => m.type === 'chat')
-                      .map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="defaultEmbeddingModel" className="text-sm font-medium">
-                    Default Embedding Model
-                  </label>
-                  <select
-                    value={openaiConfig.defaultEmbeddingModel}
-                    onChange={(e) =>
-                      setOpenaiConfig({ ...openaiConfig, defaultEmbeddingModel: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
-                  >
-                    {openaiModels
-                      .filter((m) => m.type === 'embedding')
-                      .map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                <Select
+                  label="Default Chat Model"
+                  value={openaiConfig.defaultChatModel}
+                  onChange={(e) =>
+                    setOpenaiConfig({ ...openaiConfig, defaultChatModel: e.target.value })
+                  }
+                >
+                  {openaiModels
+                    .filter((m) => m.type === 'chat')
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                </Select>
+                <Select
+                  label="Default Embedding Model"
+                  value={openaiConfig.defaultEmbeddingModel}
+                  onChange={(e) =>
+                    setOpenaiConfig({ ...openaiConfig, defaultEmbeddingModel: e.target.value })
+                  }
+                >
+                  {openaiModels
+                    .filter((m) => m.type === 'embedding')
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                </Select>
                 <div>
                   <label htmlFor="organization" className="text-sm font-medium">
                     Organization ID (Optional)
@@ -710,26 +703,21 @@ export const AIProvidersSettings = () => {
                     placeholder="sk-ant-..."
                   />
                 </div>
-                <div>
-                  <label htmlFor="defaultModel" className="text-sm font-medium">
-                    Default Model
-                  </label>
-                  <select
-                    value={anthropicConfig.defaultModel}
-                    onChange={(e) =>
-                      setAnthropicConfig({ ...anthropicConfig, defaultModel: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
-                  >
-                    {anthropicModels
-                      .filter((m) => m.type === 'chat')
-                      .map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                <Select
+                  label="Default Model"
+                  value={anthropicConfig.defaultModel}
+                  onChange={(e) =>
+                    setAnthropicConfig({ ...anthropicConfig, defaultModel: e.target.value })
+                  }
+                >
+                  {anthropicModels
+                    .filter((m) => m.type === 'chat')
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                </Select>
                 <div>
                   <label htmlFor="baseUrl" className="text-sm font-medium">
                     Base URL (Optional)
@@ -895,26 +883,21 @@ export const AIProvidersSettings = () => {
                     placeholder="sk-..."
                   />
                 </div>
-                <div>
-                  <label htmlFor="defaultModel" className="text-sm font-medium">
-                    Default Model
-                  </label>
-                  <select
-                    value={deepseekConfig.defaultModel}
-                    onChange={(e) =>
-                      setDeepseekConfig({ ...deepseekConfig, defaultModel: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
-                  >
-                    {deepseekModels
-                      .filter((m) => m.type === 'chat')
-                      .map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                <Select
+                  label="Default Model"
+                  value={deepseekConfig.defaultModel}
+                  onChange={(e) =>
+                    setDeepseekConfig({ ...deepseekConfig, defaultModel: e.target.value })
+                  }
+                >
+                  {deepseekModels
+                    .filter((m) => m.type === 'chat')
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                </Select>
                 <div>
                   <label htmlFor="baseUrl" className="text-sm font-medium">
                     Base URL (Optional)
@@ -1080,26 +1063,21 @@ export const AIProvidersSettings = () => {
                     placeholder="pplx-..."
                   />
                 </div>
-                <div>
-                  <label htmlFor="defaultModel" className="text-sm font-medium">
-                    Default Model
-                  </label>
-                  <select
-                    value={perplexityConfig.defaultModel}
-                    onChange={(e) =>
-                      setPerplexityConfig({ ...perplexityConfig, defaultModel: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
-                  >
-                    {perplexityModels
-                      .filter((m) => m.type === 'chat')
-                      .map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                <Select
+                  label="Default Model"
+                  value={perplexityConfig.defaultModel}
+                  onChange={(e) =>
+                    setPerplexityConfig({ ...perplexityConfig, defaultModel: e.target.value })
+                  }
+                >
+                  {perplexityModels
+                    .filter((m) => m.type === 'chat')
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                </Select>
                 <div>
                   <label htmlFor="baseUrl" className="text-sm font-medium">
                     Base URL (Optional)

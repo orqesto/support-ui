@@ -5,6 +5,7 @@ import { organizationService, type Organization } from '@/services/organization.
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { Select } from './ui/Select';
 
 type InviteUserModalProps = {
   isOpen: boolean;
@@ -103,8 +104,10 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
             <h2 className="text-xl font-semibold">Invite User</h2>
           </div>
           <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="transition-colors text-muted-foreground hover:text-foreground"
+            className="h-auto p-2 transition-colors text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -126,55 +129,45 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
             </p>
           </div>
 
-          <div>
-            <label htmlFor="organization" className="block mb-1 text-sm font-medium">
-              Organization
-            </label>
-            <select
-              value={organizationId ?? ''}
-              onChange={(e) => setOrganizationId(Number(e.target.value))}
-              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-muted disabled:cursor-not-allowed"
-              disabled={!isAdmin}
-              required
-            >
-              {organizations.length === 0 && <option value="">Loading organizations...</option>}
-              {isAdmin && organizations.length > 0 && (
-                <option value="">Select organization...</option>
-              )}
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isAdmin
-                ? 'Select the organization to invite this user to'
-                : 'User will be added to your organization'}
-            </p>
-          </div>
+          <Select
+            label="Organization"
+            value={organizationId ?? ''}
+            onChange={(e) => setOrganizationId(Number(e.target.value))}
+            disabled={!isAdmin}
+            required
+          >
+            {organizations.length === 0 && <option value="">Loading organizations...</option>}
+            {isAdmin && organizations.length > 0 && (
+              <option value="">Select organization...</option>
+            )}
+            {organizations.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
+            ))}
+          </Select>
+          <p className="-mt-2 text-sm text-muted-foreground">
+            {isAdmin
+              ? 'Select the organization to invite this user to'
+              : 'User will be added to your organization'}
+          </p>
 
-          <div>
-            <label htmlFor="role" className="block mb-1 text-sm font-medium">
-              Role
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-              required
-            >
-              <option value="associate">Associate - Read-only with request permissions</option>
-              <option value="support">Support - Manage tickets and messages</option>
-              <option value="moderator">Moderator - Manage integrations, categories, AI</option>
-              {isAdmin && <option value="org_admin">Organization Admin - Full control</option>}
-            </select>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isAdmin
-                ? 'Select the role for this user in the organization'
-                : 'Org admins cannot invite other org admins'}
-            </p>
-          </div>
+          <Select
+            label="Role"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            required
+          >
+            <option value="associate">Associate - Read-only with request permissions</option>
+            <option value="support">Support - Manage tickets and messages</option>
+            <option value="moderator">Moderator - Manage integrations, categories, AI</option>
+            {isAdmin && <option value="org_admin">Organization Admin - Full control</option>}
+          </Select>
+          <p className="-mt-2 text-sm text-muted-foreground">
+            {isAdmin
+              ? 'Select the role for this user in the organization'
+              : 'Org admins cannot invite other org admins'}
+          </p>
 
           {error && (
             <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>

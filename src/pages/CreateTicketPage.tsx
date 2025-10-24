@@ -5,6 +5,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
@@ -178,41 +179,31 @@ export const CreateTicketPage = () => {
                 />
               </div>
 
-              <div>
-                <label htmlFor="priority" className="block mb-2 text-sm font-medium">
-                  Priority
-                </label>
-                <select
-                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={formData.priority}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
-                  }
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
-              </div>
+              <Select
+                label="Priority"
+                value={formData.priority}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                }
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </Select>
 
-              <div>
-                <label htmlFor="categoryId" className="block mb-2 text-sm font-medium">
-                  Category
-                </label>
-                <select
-                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Category"
+                value={formData.categoryId}
+                onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
+              >
+                <option value="">Select a category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </Select>
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" isLoading={loading}>

@@ -5,12 +5,17 @@ import {
   Send,
   Check,
   X,
+  XCircle,
   RefreshCw,
   Trash2,
   Filter,
   ExternalLink,
   RotateCcw,
   Paperclip,
+  ShieldX,
+  Ticket,
+  AlertTriangle,
+  Folder,
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -32,6 +37,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { ListCard } from '@/components/ui/ListCard';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { Select } from '@/components/ui/Select';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
@@ -118,6 +124,9 @@ export const MessagesPage = () => {
         if (currentFilters.hasAttachments) {
           apiFilters.hasAttachments = 'true';
         }
+        if (currentFilters.showFailed) {
+          apiFilters.showFailed = 'true';
+        }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
@@ -163,6 +172,7 @@ export const MessagesPage = () => {
     filters.showWorthy,
     filters.showNeedsInfo,
     filters.hasAttachments,
+    filters.showFailed,
     filters.search,
     sorting.sortOrder,
   ]);
@@ -346,6 +356,7 @@ export const MessagesPage = () => {
     (filters.channel !== 'all' ? 1 : 0) +
     ((filters.showSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0) +
+    (filters.showFailed ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 
   return (
@@ -458,24 +469,25 @@ export const MessagesPage = () => {
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Channel:
                   </span>
-                  <select
+                  <Select
                     value={filters.channel}
                     onChange={(e) => handleFilterChange('channel', e.target.value)}
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 pr-8 h-8 text-xs"
                     aria-label="Filter by channel"
                   >
                     <option value="all">All</option>
                     <option value="email">Email</option>
                     <option value="telegram">Telegram</option>
                     <option value="slack">Slack</option>
-                  </select>
+                  </Select>
                 </div>
+
                 {/* Group 3: AI Filter */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     AI Filter:
                   </span>
-                  <select
+                  <Select
                     value={
                       filters.showSpam
                         ? 'spam'
@@ -494,16 +506,17 @@ export const MessagesPage = () => {
                         showNeedsInfo: value === 'needsInfo',
                       });
                     }}
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 pr-8 h-8 text-xs compact"
                     aria-label="Filter by AI analysis"
                   >
                     <option value="none">None</option>
-                    <option value="spam">🔴 Spam Only</option>
-                    <option value="worthy">🟢 Worthy Only</option>
-                    <option value="needsInfo">🟡 Needs Info</option>
-                  </select>
+                    <option value="spam">Spam</option>
+                    <option value="worthy">Ticket Worthy</option>
+                    <option value="needsInfo">Needs Info</option>
+                  </Select>
                 </div>
-                {/* Group 4: Attachments */}
+
+                {/* Group 4a: Has Attachments */}
                 <label className="flex gap-2 items-center cursor-pointer">
                   <input
                     type="checkbox"
@@ -516,20 +529,33 @@ export const MessagesPage = () => {
                     <span>Has Attachments</span>
                   </div>
                 </label>
+                {/* Group 4b: Failed Processing */}
+                <label className="flex gap-2 items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.showFailed ?? false}
+                    onChange={(e) => setFilters({ ...filters, showFailed: e.target.checked })}
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap text-red-600 dark:text-red-400">
+                    <XCircle className="w-3 h-3" />
+                    <span>Failed Processing</span>
+                  </div>
+                </label>
                 {/* Group 5: Sorting */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Order:
                   </span>
-                  <select
+                  <Select
                     value={sorting.sortOrder}
                     onChange={(e) => setSorting({ sortOrder: e.target.value as 'asc' | 'desc' })}
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 pr-8 h-8 text-xs"
                     aria-label="Sort order"
                   >
                     <option value="desc">Newest First</option>
                     <option value="asc">Oldest First</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -604,6 +630,12 @@ export const MessagesPage = () => {
                       {getChannelIcon(message.channel)}
                       <Badge variant="secondary">{message.channel}</Badge>
                       {message.processed && <Badge variant="success">Processed</Badge>}
+                      {message.processingError && (
+                        <Badge variant="danger" title={message.processingError} className="flex gap-1 items-center">
+                          <XCircle className="w-3 h-3" />
+                          Failed
+                        </Badge>
+                      )}
                       {hasAttachments && (
                         <Badge
                           variant="default"
@@ -617,19 +649,27 @@ export const MessagesPage = () => {
 
                       {/* AI Analysis Badges */}
                       {spamCheck?.isSpam === true && (
-                        <Badge variant="danger" title={spamCheck.category}>
-                          🚫 Spam
+                        <Badge variant="danger" title={spamCheck.category} className="flex gap-1 items-center">
+                          <ShieldX className="w-3 h-3" />
+                          Spam
                         </Badge>
                       )}
                       {!spamCheck?.isSpam && analysis?.isTicketWorthy && (
                         <Badge
                           variant="default"
                           title={`Confidence: ${Math.round((analysis.confidence ?? 0) * 100)}%`}
+                          className="flex gap-1 items-center"
                         >
-                          🎫 Ticket Worthy
+                          <Ticket className="w-3 h-3" />
+                          Ticket Worthy
                         </Badge>
                       )}
-                      {analysis?.needsMoreInfo && <Badge variant="warning">⚠️ Needs Info</Badge>}
+                      {analysis?.needsMoreInfo && (
+                        <Badge variant="warning" className="flex gap-1 items-center">
+                          <AlertTriangle className="w-3 h-3" />
+                          Needs Info
+                        </Badge>
+                      )}
                       {analysis?.suggestedPriority && (
                         <Badge
                           variant={
@@ -646,8 +686,9 @@ export const MessagesPage = () => {
                       )}
                       {analysis?.suggestedCategory &&
                         getCategoryDisplay(analysis.suggestedCategory) && (
-                          <Badge variant="secondary" title="AI Suggested Category">
-                            📁 {getCategoryDisplay(analysis.suggestedCategory)}
+                          <Badge variant="secondary" title="AI Suggested Category" className="flex gap-1 items-center">
+                            <Folder className="w-3 h-3" />
+                            {getCategoryDisplay(analysis.suggestedCategory)}
                           </Badge>
                         )}
                     </>
@@ -676,6 +717,11 @@ export const MessagesPage = () => {
                         <span className="flex gap-1 items-center">
                           • <Paperclip className="w-3 h-3" />
                           {(message.rawData?.attachments as unknown[])?.length || 0} file(s)
+                        </span>
+                      )}
+                      {message.processingError && (
+                        <span className="text-red-600 dark:text-red-400 font-medium" title="Processing Error">
+                          • Error: {message.processingError}
                         </span>
                       )}
                       <span

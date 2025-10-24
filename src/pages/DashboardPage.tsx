@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle } from 'lucide-react';
+import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle, AlertTriangle, Hourglass, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
 import { Layout } from '../components/layout/Layout';
@@ -328,15 +328,25 @@ export const DashboardPage = () => {
                     <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
                       {stat.value}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {stat.title === 'Unprocessed Messages' &&
-                        stats.unprocessedMessages > 0 &&
-                        '⚠️ Needs attention'}
-                      {stat.title === 'Pending Tickets' &&
-                        stats.pendingTickets > 0 &&
-                        '⏳ Awaiting response'}
-                      {(stat.title === 'Total Messages' || stat.title === 'Total Tickets') &&
-                        '📊 All time'}
+                    <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
+                      {stat.title === 'Unprocessed Messages' && stats.unprocessedMessages > 0 && (
+                        <>
+                          <AlertTriangle className="w-3 h-3" />
+                          Needs attention
+                        </>
+                      )}
+                      {stat.title === 'Pending Tickets' && stats.pendingTickets > 0 && (
+                        <>
+                          <Hourglass className="w-3 h-3" />
+                          Awaiting response
+                        </>
+                      )}
+                      {(stat.title === 'Total Messages' || stat.title === 'Total Tickets') && (
+                        <>
+                          <BarChart3 className="w-3 h-3" />
+                          All time
+                        </>
+                      )}
                       <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
                         →
                       </span>
@@ -374,8 +384,9 @@ export const DashboardPage = () => {
                 Start All Services
               </Button>
               {!hasIntegrations && (
-                <p className="text-xs text-center text-amber-600">
-                  ⚠️ No integrations configured. Go to Settings to add integrations.
+                <p className="flex gap-1 justify-center items-center text-xs text-amber-600">
+                  <AlertTriangle className="w-3 h-3" />
+                  No integrations configured. Go to Settings to add integrations.
                 </p>
               )}
               <div className="grid grid-cols-2 gap-3">

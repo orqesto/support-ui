@@ -10,6 +10,7 @@ type FilterState = {
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
   hasAttachments?: boolean;
+  showFailed?: boolean;
   search?: string;
 };
 
@@ -45,6 +46,7 @@ const defaultFilters: FilterState = {
   showNeedsInfo: false,
   showWorthy: false,
   hasAttachments: false,
+  showFailed: false,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>

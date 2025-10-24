@@ -9,6 +9,7 @@ import {
   Inbox,
   RefreshCw,
   ShieldAlert,
+  ExternalLink,
 } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
@@ -108,7 +109,7 @@ export const StatisticsPage = () => {
         </div>
 
         {/* Overview Cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardContent className="p-6">
               <div className="flex justify-between items-center">
@@ -156,6 +157,23 @@ export const StatisticsPage = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Jira Synced</p>
+                  <p className="mt-2 text-3xl font-bold">{stats.overview.jiraSyncedTickets}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {stats.overview.totalTickets > 0
+                      ? `${((stats.overview.jiraSyncedTickets / stats.overview.totalTickets) * 100).toFixed(0)}% of tickets`
+                      : '0% of tickets'}
+                  </p>
+                </div>
+                <ExternalLink className="w-10 h-10 text-blue-400" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Spam/Scam Alert Section */}
@@ -164,7 +182,7 @@ export const StatisticsPage = () => {
             <CardHeader>
               <CardTitle className="flex gap-2 items-center text-red-700">
                 <ShieldAlert className="w-5 h-5" />
-                ⚠️ Spam & Scam Detection
+                Spam & Scam Detection
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -223,8 +241,9 @@ export const StatisticsPage = () => {
                             {category.categoryName}
                           </div>
                           {isSpamCategory && (
-                            <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full border border-red-300">
-                              ⚠️ Spam/Scam
+                            <span className="flex gap-1 items-center px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full border border-red-300">
+                              <AlertTriangle className="w-3 h-3" />
+                              Spam/Scam
                             </span>
                           )}
                           <div className="text-xs text-muted-foreground">
@@ -375,6 +394,20 @@ export const StatisticsPage = () => {
                       <span className="text-muted-foreground">Needs Info</span>
                       <span className="font-medium text-yellow-600">
                         {channelStats.needsInfoCount}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <ExternalLink className="w-3 h-3" />
+                        Jira Synced
+                      </span>
+                      <span className="font-medium text-blue-600">
+                        {channelStats.jiraSyncedTickets}
+                        {channelStats.totalTickets > 0 && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            ({((channelStats.jiraSyncedTickets / channelStats.totalTickets) * 100).toFixed(0)}%)
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>

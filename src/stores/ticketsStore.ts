@@ -10,7 +10,7 @@ type TicketFilters = {
 };
 
 type TicketSorting = {
-  sortBy: 'createdAt' | 'updatedAt';
+  sortBy: 'createdAt' | 'updatedAt' | 'priority';
   sortOrder: 'asc' | 'desc';
 };
 

@@ -31,6 +31,7 @@ import { ExternalLink } from '@/components/ui/ExternalLink';
 import { ListCard } from '@/components/ui/ListCard';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PAGINATION } from '@/lib/constants';
 import {
@@ -551,10 +552,10 @@ export const TicketsPage = () => {
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
-                  <select
+                  <Select
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 pr-8 h-8 text-xs"
                     aria-label="Filter by status"
                   >
                     <option value="all">All</option>
@@ -563,17 +564,17 @@ export const TicketsPage = () => {
                     <option value="in_progress">In Progress</option>
                     <option value="resolved">Resolved</option>
                     <option value="closed">Closed</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Priority:
                   </span>
-                  <select
+                  <Select
                     value={filters.priority}
                     onChange={(e) => handleFilterChange('priority', e.target.value)}
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 pr-8 h-8 text-xs"
                     aria-label="Filter by priority"
                   >
                     <option value="all">All</option>
@@ -581,45 +582,47 @@ export const TicketsPage = () => {
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                     <option value="critical">Critical</option>
-                  </select>
+                  </Select>
                 </div>
                 {/* Group 2: Sorting */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
-                  <select
+                  <Select
                     value={sorting.sortBy}
                     onChange={(e) =>
                       setSortingStore({
                         ...sorting,
-                        sortBy: e.target.value as 'createdAt' | 'updatedAt',
+                        sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
                       })
                     }
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    aria-label="Sort by field"
+                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    aria-label="Sort by"
                   >
                     <option value="createdAt">Created Date</option>
                     <option value="updatedAt">Updated Date</option>
-                  </select>
+                    <option value="priority">Priority</option>
+                  </Select>
                 </div>
 
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                     Order:
                   </span>
-                  <select
+                  <Select
                     value={sorting.sortOrder}
                     onChange={(e) =>
                       setSortingStore({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
                     }
-                    className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 pr-8 h-8 text-xs"
                     aria-label="Sort order"
                   >
                     <option value="desc">Newest First</option>
                     <option value="asc">Oldest First</option>
-                  </select>
+                  </Select>
                 </div>
+
                 {/* Group 3: Jira & Sync */}
                 {jiraIntegrations.length > 1 && (
                   <>
@@ -627,25 +630,24 @@ export const TicketsPage = () => {
                       <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
                         Jira:
                       </span>
-                      <select
+                      <Select
                         value={selectedJiraId ?? ''}
                         onChange={(e) =>
                           setSelectedJiraId(e.target.value ? Number(e.target.value) : undefined)
                         }
-                        className="px-2 py-1 text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                        aria-label="Select Jira instance"
+                        className="px-2 py-1 pr-8 h-8 text-xs"
+                        aria-label="Filter by Jira integration"
                       >
-                        <option value="">Select Instance</option>
-                        {jiraIntegrations.map((jira) => (
-                          <option key={jira.id} value={jira.id}>
-                            {jira.config.projectKey || jira.name}
+                        <option value="">All Integrations</option>
+                        {jiraIntegrations.map((integration) => (
+                          <option key={integration.id} value={integration.id}>
+                            {integration.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   </>
                 )}
-
                 <Button
                   onClick={handleSyncAll}
                   size="sm"

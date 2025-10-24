@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '../ui/Dialog';
+import { Select } from '../ui/Select';
 
 export const SpamRulesSettings = () => {
   const [rules, setRules] = useState<SpamRule[]>([]);
@@ -215,20 +216,15 @@ export const SpamRulesSettings = () => {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="category" className="text-sm font-medium">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="sender">Sender</option>
-                  <option value="subject">Subject</option>
-                  <option value="content">Content</option>
-                </select>
-              </div>
+              <Select
+                label="Category"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                <option value="sender">Sender</option>
+                <option value="subject">Subject</option>
+                <option value="content">Content</option>
+              </Select>
               <div>
                 <label htmlFor="severity" className="text-sm font-medium">
                   Severity (0-100)
@@ -316,20 +312,15 @@ export const SpamRulesSettings = () => {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="category" className="text-sm font-medium">
-                        Category
-                      </label>
-                      <select
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="sender">Sender</option>
-                        <option value="subject">Subject</option>
-                        <option value="content">Content</option>
-                      </select>
-                    </div>
+                    <Select
+                      label="Category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    >
+                      <option value="sender">Sender</option>
+                      <option value="subject">Subject</option>
+                      <option value="content">Content</option>
+                    </Select>
                     <div>
                       <label htmlFor="severity" className="text-sm font-medium">
                         Severity

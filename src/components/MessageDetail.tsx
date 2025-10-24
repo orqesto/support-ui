@@ -179,6 +179,28 @@ export const MessageDetail = ({
             </div>
           </div>
         )}
+
+        {/* Processing Error Alert */}
+        {message.processingError && (
+          <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-red-900 dark:text-red-100 mb-1">
+                  Processing Failed
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300 break-words">
+                  {message.processingError}
+                </p>
+                {(message.metadata as { failedAt?: string })?.failedAt && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                    Failed at: {formatDate((message.metadata as { failedAt: string }).failedAt)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Message Content */}

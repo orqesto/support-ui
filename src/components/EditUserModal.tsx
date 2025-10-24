@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -15,6 +16,7 @@ import {
   DialogContent,
   DialogFooter,
 } from './ui/Dialog';
+import { Select } from './ui/Select';
 
 type EditUserModalProps = {
   isOpen: boolean;
@@ -290,86 +292,79 @@ export const EditUserModal = ({
               </div>
 
               {canEditRoles && isAdmin && (
-                <div>
-                  <label htmlFor="globalRole" className="block mb-2 text-sm font-medium">
-                    Global Role
-                  </label>
-                  <select
+                <>
+                  <Select
+                    label="Global Role"
                     id="globalRole"
                     value={globalRole}
                     onChange={(e) => setGlobalRole(e.target.value as GlobalRole)}
                     disabled={isLastGlobalAdmin}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-muted disabled:cursor-not-allowed"
                   >
                     {globalRoles.map((role) => (
                       <option key={role} value={role}>
                         {role === 'admin' ? 'System Administrator' : 'User'}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   {isLastGlobalAdmin ? (
-                    <p className="mt-1 text-xs font-medium text-red-600">
-                      ⚠️ Cannot change role - you are the last System Administrator
+                    <p className="flex gap-1 items-center -mt-2 text-xs font-medium text-red-600">
+                      <AlertTriangle className="w-3 h-3" />
+                      Cannot change role - you are the last System Administrator
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="-mt-2 text-xs text-muted-foreground">
                       System-wide role (admin has full access)
                     </p>
                   )}
-                </div>
+                </>
               )}
 
               {canEditRoles && (
-                <div>
-                  <label htmlFor="organizationRole" className="block mb-2 text-sm font-medium">
-                    Organization Role
-                  </label>
-                  <select
+                <>
+                  <Select
+                    label="Organization Role"
                     id="organizationRole"
                     value={organizationRole}
                     onChange={(e) => setOrganizationRole(e.target.value as OrganizationRole)}
                     disabled={!isAdmin && isLastOrgAdmin}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-muted disabled:cursor-not-allowed"
                   >
                     {orgRoles.map((role) => (
                       <option key={role} value={role}>
                         {roleDisplayNames[role]}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   {!isAdmin && isLastOrgAdmin ? (
-                    <p className="mt-1 text-xs font-medium text-red-600">
-                      ⚠️ Cannot change role - you are the last Organization Administrator
+                    <p className="flex gap-1 items-center -mt-2 text-xs font-medium text-red-600">
+                      <AlertTriangle className="w-3 h-3" />
+                      Cannot change role - you are the last Organization Administrator
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="-mt-2 text-xs text-muted-foreground">
                       Permissions within the organization
                     </p>
                   )}
-                </div>
+                </>
               )}
 
               {isAdmin && organizations.length > 0 && (
-                <div>
-                  <label htmlFor="organization" className="block mb-2 text-sm font-medium">
-                    Organization
-                  </label>
-                  <select
+                <>
+                  <Select
+                    label="Organization"
                     id="organization"
                     value={selectedOrgId ?? ''}
                     onChange={(e) => setSelectedOrgId(parseInt(e.target.value))}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {organizations.map((org) => (
                       <option key={org.id} value={org.id}>
                         {org.name}
                       </option>
                     ))}
-                  </select>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  </Select>
+                  <p className="-mt-2 text-xs text-muted-foreground">
                     Change user&apos;s organization membership
                   </p>
-                </div>
+                </>
               )}
 
               {canEditPosition && (

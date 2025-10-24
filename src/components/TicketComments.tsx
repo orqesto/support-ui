@@ -430,7 +430,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    className="px-3 py-2 w-full text-sm rounded-lg border resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 w-full text-sm rounded-lg border border-border bg-input text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                     rows={3}
                   />
                   <div className="flex gap-2">
@@ -524,7 +524,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
           onChange={(e) => setNewComment(e.target.value)}
           onKeyDown={handleKeyPress}
           placeholder="Add a comment... (Cmd/Ctrl+Enter to submit)"
-          className="px-3 py-2 w-full rounded-lg border resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2 w-full rounded-lg border border-border bg-input text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
           rows={3}
           disabled={isSubmitting}
         />

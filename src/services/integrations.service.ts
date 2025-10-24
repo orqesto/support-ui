@@ -58,12 +58,18 @@ export type PerplexityConfig = {
   defaultModel?: string;
 };
 
+export type LocalEmbeddingsConfig = {
+  model: string;
+  dimensions: number;
+  quantized: boolean;
+};
+
 // Base integration type
 export type BaseIntegration = {
   id: number;
   organizationId: number;
   name: string;
-  type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack' | 'openai' | 'anthropic' | 'deepseek' | 'perplexity';
+  type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack' | 'openai' | 'anthropic' | 'deepseek' | 'perplexity' | 'local_embeddings';
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -116,6 +122,11 @@ export type PerplexityIntegration = BaseIntegration & {
   config: PerplexityConfig;
 };
 
+export type LocalEmbeddingsIntegration = BaseIntegration & {
+  type: 'local_embeddings';
+  config: LocalEmbeddingsConfig;
+};
+
 export type Integration =
   | EmailIntegration
   | GmailIntegration
@@ -125,7 +136,8 @@ export type Integration =
   | OpenAIIntegration
   | AnthropicIntegration
   | DeepSeekIntegration
-  | PerplexityIntegration;
+  | PerplexityIntegration
+  | LocalEmbeddingsIntegration;
 
 export type ApiResponse<T> = {
   success: boolean;
@@ -198,6 +210,21 @@ export const integrationsService = {
   }): Promise<ApiResponse<Integration>> => {
     const response = await apiClient.post<{ success: boolean; data: Integration }>(
       '/api/integrations',
+      data
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  update: async (
+    id: number,
+    data: Partial<{
+      name: string;
+      enabled: boolean;
+      config: Record<string, unknown>;
+    }>
+  ): Promise<ApiResponse<Integration>> => {
+    const response = await apiClient.patch<{ success: boolean; data: Integration }>(
+      `/api/integrations/${id}`,
       data
     );
     return { success: response.data.success, data: response.data.data };
