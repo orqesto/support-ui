@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, Save, Zap, Cloud } from 'lucide-react';
+import { Sparkles, Save, Zap, Cloud, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { integrationsService } from '@/services/integrations.service';
 import { AlertDialog } from '../ui/AlertDialog';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -19,6 +20,8 @@ export const EmbeddingSettings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasOpenAI, setHasOpenAI] = useState(false);
+  const [openAIEmbeddingModel, setOpenAIEmbeddingModel] = useState<string>('text-embedding-3-small');
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -27,10 +30,31 @@ export const EmbeddingSettings = () => {
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   useEffect(() => {
-    fetchSettings().catch((error) => {
-      console.error('Failed to fetch embedding settings:', error);
+    Promise.all([fetchSettings(), checkOpenAIConfig()]).catch((error) => {
+      console.error('Failed to initialize:', error);
     });
   }, []);
+
+  const checkOpenAIConfig = async () => {
+    try {
+      const response = await integrationsService.getAll();
+      if (response.success && response.data) {
+        const openAIIntegration = response.data.find((i) => i.type === 'openai' && i.enabled);
+        if (openAIIntegration) {
+          setHasOpenAI(true);
+          // Extract the embedding model from OpenAI config
+          const config = openAIIntegration.config as { defaultEmbeddingModel?: string };
+          if (config.defaultEmbeddingModel) {
+            setOpenAIEmbeddingModel(config.defaultEmbeddingModel);
+          }
+        } else {
+          setHasOpenAI(false);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check OpenAI config:', error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -59,7 +83,7 @@ export const EmbeddingSettings = () => {
         setAlertDialog({
           open: true,
           title: 'Settings Saved',
-          description: `Embedding provider set to ${settings.provider === 'local' ? 'Local (all-MiniLM-L6-v2)' : 'OpenAI'}`,
+          description: `Embedding provider set to ${settings.provider === 'local' ? 'Local (all-MiniLM-L6-v2)' : `OpenAI (${openAIEmbeddingModel})`}`,
           variant: 'success',
         });
       }
@@ -153,34 +177,57 @@ export const EmbeddingSettings = () => {
 
             {/* OpenAI Option */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                settings.provider === 'openai'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
+              className={`border rounded-lg p-4 transition-colors ${
+                !hasOpenAI
+                  ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
+                  : settings.provider === 'openai'
+                    ? 'border-primary bg-primary/5 cursor-pointer'
+                    : 'border-border hover:border-primary/50 cursor-pointer'
               }`}
-              onClick={() => setSettings({ provider: 'openai', preferLocal: false })}
+              onClick={() => {
+                if (hasOpenAI) {
+                  setSettings({ provider: 'openai', preferLocal: false });
+                }
+              }}
             >
               <div className="flex gap-3 items-start">
                 <input
                   type="radio"
                   checked={settings.provider === 'openai'}
-                  onChange={() => setSettings({ provider: 'openai', preferLocal: false })}
+                  onChange={() => {
+                    if (hasOpenAI) {
+                      setSettings({ provider: 'openai', preferLocal: false });
+                    }
+                  }}
+                  disabled={!hasOpenAI}
                   className="mt-1"
                 />
                 <div className="flex-1">
                   <div className="flex gap-2 items-center mb-1">
                     <Cloud className="w-4 h-4 text-blue-500" />
                     <h3 className="font-semibold">OpenAI Embeddings</h3>
+                    {!hasOpenAI && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                        Not Configured
+                      </span>
+                    )}
                   </div>
                   <p className="mb-2 text-sm text-muted-foreground">
-                    text-embedding-3-small via OpenAI API
+                    {openAIEmbeddingModel} via OpenAI API
                   </p>
+                  {!hasOpenAI && (
+                    <div className="mb-2 p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                      <div className="flex gap-2 items-start">
+                        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-800 dark:text-amber-200">
+                          Configure OpenAI in <strong>AI Providers</strong> settings first
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="px-2 py-1 text-blue-700 bg-blue-50 rounded">
                       ⭐ Best Quality
-                    </span>
-                    <span className="px-2 py-1 text-yellow-700 bg-yellow-50 rounded">
-                      💵 ~$0.10/month
                     </span>
                     <span className="px-2 py-1 text-gray-700 bg-gray-50 rounded">
                       🌐 API Required
@@ -218,9 +265,6 @@ export const EmbeddingSettings = () => {
                       <li>When you&apos;re already using OpenAI for chat</li>
                       <li>Organizations with API budget</li>
                     </ul>
-                    <p className="mt-2 text-xs font-medium text-orange-700 dark:text-orange-300">
-                      ⚠️ Note: OpenAI API must be configured in AI Providers settings
-                    </p>
                   </>
                 )}
               </div>
