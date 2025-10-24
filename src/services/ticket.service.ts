@@ -21,7 +21,7 @@ export const ticketService = {
     filters?: Record<string, string>,
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
-    sortBy?: 'createdAt' | 'updatedAt',
+    sortBy?: 'createdAt' | 'updatedAt' | 'priority',
     sortOrder?: 'asc' | 'desc'
   ) => {
     const params = new URLSearchParams({

@@ -1,11 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, ExternalLink } from 'lucide-react';
+import { AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { categoryService } from '@/services/category.service';
 import { ticketService } from '@/services/ticket.service';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
@@ -178,8 +179,9 @@ export const EditTicketPage = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {ticket?.externalId && (
-                <div className="p-3 text-sm text-gray-700 bg-gray-100 rounded-md border border-gray-300">
-                  ⚠️ Warning: This form is disabled because the ticket is synced with Jira.
+                <div className="flex gap-2 items-start p-3 text-sm text-gray-700 bg-gray-100 rounded-md border border-gray-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>Warning: This form is disabled because the ticket is synced with Jira.</span>
                 </div>
               )}
               <Input
@@ -206,63 +208,48 @@ export const EditTicketPage = () => {
                 />
               </div>
 
-              <div>
-                <label htmlFor="status" className="block mb-2 text-sm font-medium">
-                  Status
-                </label>
-                <select
-                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, status: e.target.value as TicketStatus }))
-                  }
-                  disabled={!!ticket?.externalId}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </div>
+              <Select
+                label="Status"
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, status: e.target.value as TicketStatus }))
+                }
+                disabled={!!ticket?.externalId}
+              >
+                <option value="pending">Pending</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </Select>
 
-              <div>
-                <label htmlFor="priority" className="block mb-2 text-sm font-medium">
-                  Priority
-                </label>
-                <select
-                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  value={formData.priority}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
-                  }
-                  disabled={!!ticket?.externalId}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
-              </div>
+              <Select
+                label="Priority"
+                value={formData.priority}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                }
+                disabled={!!ticket?.externalId}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </Select>
 
-              <div>
-                <label htmlFor="categoryId" className="block mb-2 text-sm font-medium">
-                  Category
-                </label>
-                <select
-                  className="flex px-3 py-2 w-full h-10 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-                  disabled={!!ticket?.externalId}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Category"
+                value={formData.categoryId}
+                onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
+                disabled={!!ticket?.externalId}
+              >
+                <option value="">Select a category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </Select>
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" isLoading={saving} disabled={!!ticket?.externalId}>

@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, Save, Zap, Cloud, AlertCircle } from 'lucide-react';
+import {
+  Sparkles,
+  Save,
+  Zap,
+  Cloud,
+  AlertCircle,
+  Lock,
+  Package,
+  Star,
+  Globe,
+  BarChart3,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-import { integrationsService } from '@/services/integrations.service';
+import { integrationsService, type Integration } from '@/services/integrations.service';
 import { AlertDialog } from '../ui/AlertDialog';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -21,7 +32,9 @@ export const EmbeddingSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasOpenAI, setHasOpenAI] = useState(false);
-  const [openAIEmbeddingModel, setOpenAIEmbeddingModel] = useState<string>('text-embedding-3-small');
+  const [openAIEmbeddingModel, setOpenAIEmbeddingModel] =
+    useState<string>('text-embedding-3-small');
+  const [localIntegration, setLocalIntegration] = useState<Integration | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -30,19 +43,19 @@ export const EmbeddingSettings = () => {
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   useEffect(() => {
-    Promise.all([fetchSettings(), checkOpenAIConfig()]).catch((error) => {
+    Promise.all([fetchSettings(), checkIntegrations()]).catch((error) => {
       console.error('Failed to initialize:', error);
     });
   }, []);
 
-  const checkOpenAIConfig = async () => {
+  const checkIntegrations = async () => {
     try {
       const response = await integrationsService.getAll();
       if (response.success && response.data) {
+        // Check for OpenAI
         const openAIIntegration = response.data.find((i) => i.type === 'openai' && i.enabled);
         if (openAIIntegration) {
           setHasOpenAI(true);
-          // Extract the embedding model from OpenAI config
           const config = openAIIntegration.config as { defaultEmbeddingModel?: string };
           if (config.defaultEmbeddingModel) {
             setOpenAIEmbeddingModel(config.defaultEmbeddingModel);
@@ -50,9 +63,15 @@ export const EmbeddingSettings = () => {
         } else {
           setHasOpenAI(false);
         }
+
+        // Check for Local Embeddings
+        const localEmbedding = response.data.find((i) => i.type === 'local_embeddings');
+        if (localEmbedding) {
+          setLocalIntegration(localEmbedding);
+        }
       }
     } catch (error) {
-      console.error('Failed to check OpenAI config:', error);
+      console.error('Failed to check integrations:', error);
     }
   };
 
@@ -99,6 +118,35 @@ export const EmbeddingSettings = () => {
     }
   };
 
+  const toggleLocalIntegration = async () => {
+    if (!localIntegration) {
+      return;
+    }
+
+    try {
+      await integrationsService.update(localIntegration.id, {
+        enabled: !localIntegration.enabled,
+      });
+
+      setAlertDialog({
+        open: true,
+        title: 'Success',
+        description: `Local Embeddings ${!localIntegration.enabled ? 'enabled' : 'disabled'} successfully`,
+        variant: 'success',
+      });
+
+      await checkIntegrations();
+    } catch (error) {
+      console.error('Failed to toggle local embeddings:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: 'Failed to update local embeddings status',
+        variant: 'error',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -136,39 +184,70 @@ export const EmbeddingSettings = () => {
           <div className="space-y-4">
             {/* Local Embeddings Option */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                settings.provider === 'local'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
+              className={`border rounded-lg p-4 transition-colors ${
+                !localIntegration?.enabled
+                  ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
+                  : settings.provider === 'local'
+                    ? 'border-primary bg-primary/5 cursor-pointer'
+                    : 'border-border hover:border-primary/50 cursor-pointer'
               }`}
-              onClick={() => setSettings({ provider: 'local', preferLocal: true })}
+              onClick={() => {
+                if (localIntegration?.enabled) {
+                  setSettings({ provider: 'local', preferLocal: true });
+                }
+              }}
             >
               <div className="flex gap-3 items-start">
                 <input
                   type="radio"
                   checked={settings.provider === 'local'}
-                  onChange={() => setSettings({ provider: 'local', preferLocal: true })}
+                  onChange={() => {
+                    if (localIntegration?.enabled) {
+                      setSettings({ provider: 'local', preferLocal: true });
+                    }
+                  }}
+                  disabled={!localIntegration?.enabled}
                   className="mt-1"
                 />
                 <div className="flex-1">
                   <div className="flex gap-2 items-center mb-1">
                     <Zap className="w-4 h-4 text-green-500" />
                     <h3 className="font-semibold">Local Embeddings</h3>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                      Recommended
-                    </span>
+                    {localIntegration?.enabled ? (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                        Enabled
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                        Disabled
+                      </span>
+                    )}
                   </div>
                   <p className="mb-2 text-sm text-muted-foreground">
                     all-MiniLM-L6-v2 model running on your server
                   </p>
+                  {!localIntegration?.enabled && (
+                    <div className="p-2 mb-2 bg-amber-50 rounded border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+                      <div className="flex gap-2 items-start">
+                        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-800 dark:text-amber-200">
+                          Enable the integration below to use local embeddings
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="px-2 py-1 text-green-700 bg-green-50 rounded">💰 Free</span>
-                    <span className="px-2 py-1 text-blue-700 bg-blue-50 rounded">🔒 Private</span>
-                    <span className="px-2 py-1 text-purple-700 bg-purple-50 rounded">
-                      ⚡ Fast (30-50ms)
+                    <span className="flex gap-1 items-center px-2 py-1 text-blue-700 bg-blue-50 rounded">
+                      <Lock className="w-3 h-3" />
+                      Private
                     </span>
-                    <span className="px-2 py-1 text-orange-700 bg-orange-50 rounded">
-                      📦 80MB model
+                    <span className="flex gap-1 items-center px-2 py-1 text-purple-700 bg-purple-50 rounded">
+                      <Zap className="w-3 h-3" />
+                      Fast (30-50ms)
+                    </span>
+                    <span className="flex gap-1 items-center px-2 py-1 text-orange-700 bg-orange-50 rounded">
+                      <Package className="w-3 h-3" />
+                      80MB model
                     </span>
                   </div>
                 </div>
@@ -216,7 +295,7 @@ export const EmbeddingSettings = () => {
                     {openAIEmbeddingModel} via OpenAI API
                   </p>
                   {!hasOpenAI && (
-                    <div className="mb-2 p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                    <div className="p-2 mb-2 bg-amber-50 rounded border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
                       <div className="flex gap-2 items-start">
                         <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-amber-800 dark:text-amber-200">
@@ -226,14 +305,17 @@ export const EmbeddingSettings = () => {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="px-2 py-1 text-blue-700 bg-blue-50 rounded">
-                      ⭐ Best Quality
+                    <span className="flex gap-1 items-center px-2 py-1 text-blue-700 bg-blue-50 rounded">
+                      <Star className="w-3 h-3" />
+                      Best Quality
                     </span>
-                    <span className="px-2 py-1 text-gray-700 bg-gray-50 rounded">
-                      🌐 API Required
+                    <span className="flex gap-1 items-center px-2 py-1 text-gray-700 bg-gray-50 rounded">
+                      <Globe className="w-3 h-3" />
+                      API Required
                     </span>
-                    <span className="px-2 py-1 text-purple-700 bg-purple-50 rounded">
-                      📊 1536 dimensions
+                    <span className="flex gap-1 items-center px-2 py-1 text-purple-700 bg-purple-50 rounded">
+                      <BarChart3 className="w-3 h-3" />
+                      1536 dimensions
                     </span>
                   </div>
                 </div>
@@ -270,6 +352,67 @@ export const EmbeddingSettings = () => {
               </div>
             </div>
           </div>
+
+          {/* Local Embeddings Analytics Info */}
+          {localIntegration?.enabled && !hasOpenAI && (
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950/20 dark:border-green-900">
+              <div className="flex gap-2">
+                <Zap className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-green-900 dark:text-green-100">
+                  <p className="mb-1 font-medium">💡 Local embeddings provide basic AI analysis:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-xs text-green-800 dark:text-green-200">
+                    <li>Category matching via semantic similarity</li>
+                    <li>Ticket-worthiness detection (spam/promo filtering)</li>
+                    <li>Priority detection based on keywords</li>
+                    <li>Works without any AI Provider configured</li>
+                  </ul>
+                  <p className="mt-2 text-xs text-green-700 dark:text-green-300">
+                    For advanced analysis (summarization, custom prompts), configure an AI Provider
+                    in <strong>Settings → AI Providers</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Local Embeddings Integration Status */}
+          {localIntegration && (
+            <div className="pt-4 border-t">
+              <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+                <div className="flex flex-1 gap-3 items-center">
+                  <div
+                    className={`w-2 h-2 rounded-full ${localIntegration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Local Embeddings Integration</p>
+                    <p className="text-xs text-muted-foreground">
+                      Xenova/all-MiniLM-L6-v2 • 384 dimensions • ~80MB
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {localIntegration.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={localIntegration.enabled}
+                    onClick={toggleLocalIntegration}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                      localIntegration.enabled ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        localIntegration.enabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Save Button */}
           <div className="flex justify-end pt-2">

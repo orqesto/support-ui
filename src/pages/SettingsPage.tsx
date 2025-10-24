@@ -10,14 +10,20 @@ import { IntegrationsSettings } from '../components/settings/IntegrationsSetting
 import { PromptsSettings } from '../components/settings/PromptsSettings';
 import { SpamRulesSettings } from '../components/settings/SpamRulesSettings';
 
-type TabType = 'categories' | 'prompts' | 'spam-rules' | 'integrations' | 'ai-providers' | 'embeddings';
+type TabType =
+  | 'categories'
+  | 'prompts'
+  | 'spam-rules'
+  | 'integrations'
+  | 'ai-providers'
+  | 'embeddings';
 
 export const SettingsPage = () => {
   const location = useLocation();
-  
+
   // Get active tab from URL hash, default to 'categories'
   const activeTab = (location.hash.replace('#', '') || 'categories') as TabType;
-  
+
   // Handle tab change by updating URL hash
   const handleTabChange = (tabId: TabType) => {
     window.location.hash = tabId;
@@ -82,9 +88,9 @@ export const SettingsPage = () => {
 
         {/* Tabs */}
         <Card>
-          <CardContent className="p-0">
-            <div className="border-b">
-              <div className="flex">
+          <CardContent className="p-0 overflow-visible">
+            <div className="border-b overflow-visible">
+              <div className="flex overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
@@ -92,14 +98,16 @@ export const SettingsPage = () => {
                       key={tab.id}
                       variant="ghost"
                       onClick={() => handleTabChange(tab.id)}
-                      className={`h-auto rounded-none items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+                      className={`h-auto rounded-none items-center gap-2 px-3 py-3 sm:px-4 sm:py-3.5 md:px-6 md:py-4 border-b-2 transition-colors shrink-0 ${
                         activeTab === tab.id
                           ? 'border-primary text-primary bg-primary/10'
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
-                      <span className="font-medium">{tab.label}</span>
+                      <Icon className="w-4 h-4 sm:w-4 sm:h-4" />
+                      <span className="hidden text-sm font-medium whitespace-nowrap xl:inline lg:text-base">
+                        {tab.label}
+                      </span>
                     </Button>
                   );
                 })}

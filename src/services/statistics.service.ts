@@ -9,6 +9,7 @@ export type ChannelStats = {
   needsInfoCount: number;
   ticketWorthyCount: number;
   totalTickets: number;
+  jiraSyncedTickets: number;
   categories: Array<{
     categoryId: string;
     categoryName: string;
@@ -23,6 +24,7 @@ export type StatisticsData = {
     totalTickets: number;
     totalSpam: number;
     totalNeedsInfo: number;
+    jiraSyncedTickets: number;
   };
   byChannel: ChannelStats[];
   topCategories: Array<{

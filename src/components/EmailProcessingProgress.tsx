@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Mail, CheckCircle, XCircle, Loader2, Globe } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -7,6 +8,7 @@ import { useEmailProcessing } from '../hooks/useEmailProcessing';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 export const EmailProcessingProgress = () => {
+  const navigate = useNavigate();
   const { isAdmin } = usePermissions();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
@@ -103,11 +105,25 @@ export const EmailProcessingProgress = () => {
               <p className="text-xs text-muted-foreground">Processed</p>
             </div>
             <div className="space-y-1">
-              <div className="flex items-center justify-center gap-1">
+              <div
+                className="flex items-center justify-center gap-1 cursor-pointer hover:opacity-75 transition-opacity"
+                onClick={() => {
+                  if (failed > 0) {
+                    navigate('/messages');
+                    // Set filter via URL or store after navigation
+                    setTimeout(() => {
+                      // Will be handled by Messages page to check showFailed filter
+                    }, 100);
+                  }
+                }}
+                title={failed > 0 ? 'Click to view failed messages' : 'No failed messages'}
+              >
                 <XCircle className="h-4 w-4 text-red-500" />
                 <span className="text-2xl font-bold">{failed}</span>
               </div>
-              <p className="text-xs text-muted-foreground">Failed</p>
+              <p className="text-xs text-muted-foreground">
+                {failed > 0 ? 'Failed (click to view)' : 'Failed'}
+              </p>
             </div>
           </div>
 

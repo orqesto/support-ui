@@ -15,6 +15,7 @@ import { integrationsService, type Integration } from '@/services/integrations.s
 import { AlertDialog } from '../ui/AlertDialog';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Select } from '../ui/Select';
 
 export const IntegrationsSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -616,27 +617,22 @@ export const IntegrationsSettings = () => {
                     Client secret from the same OAuth2 credentials
                   </p>
                 </div>
-                <div>
-                  <label htmlFor="searchQuery" className="text-sm font-medium">
-                    Search Query
-                  </label>
-                  <select
-                    value={gmailConfig.searchQuery}
-                    onChange={(e) =>
-                      setGmailConfig({ ...gmailConfig, searchQuery: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border"
-                  >
-                    {searchQueryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Select which emails to fetch from Gmail
-                  </p>
-                </div>
+                <Select
+                  label="Search Query"
+                  value={gmailConfig.searchQuery}
+                  onChange={(e) =>
+                    setGmailConfig({ ...gmailConfig, searchQuery: e.target.value })
+                  }
+                >
+                  {searchQueryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+                <p className="-mt-2 text-xs text-muted-foreground">
+                  Select which emails to fetch from Gmail
+                </p>
                 <div>
                   <label htmlFor="maxResults" className="text-sm font-medium">
                     Max Results per Sync

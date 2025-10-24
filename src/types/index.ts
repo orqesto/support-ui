@@ -30,6 +30,7 @@ export type Message = {
   content: string;
   processed: boolean;
   ticketId: number | null;
+  processingError?: string | null;
   createdAt: string;
   metadata?: Record<string, unknown>;
   rawData?: Record<string, unknown>;
