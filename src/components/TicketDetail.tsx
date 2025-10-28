@@ -7,6 +7,7 @@ import {
   User,
   Calendar,
   Mail,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDate } from '../lib/utils';
@@ -14,6 +15,7 @@ import { messageService } from '../services/message.service';
 import type { Ticket, TicketStatus, TicketPriority, Message } from '../types';
 import { TicketAttachments } from './TicketAttachments';
 import { TicketComments } from './TicketComments';
+import { TranslateButton } from './TranslateButton';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { ExternalLink } from './ui/ExternalLink';
@@ -51,6 +53,17 @@ export const TicketDetail = ({
 }: TicketDetailProps) => {
   const [linkedMessages, setLinkedMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/tickets?id=${ticket.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }).catch((err) => {
+      console.error('Failed to copy link:', err);
+    });
+  };
 
   useEffect(() => {
     const fetchLinkedMessages = async () => {
@@ -76,7 +89,12 @@ export const TicketDetail = ({
       {/* Header Section */}
       <div className="space-y-4">
         <div>
-          <h2 className="mb-3 text-2xl font-bold">{ticket.title}</h2>
+          <div className="flex gap-3 items-center mb-2">
+            <h2 className="text-2xl font-bold">{ticket.title}</h2>
+            <span className="px-2 py-1 text-xs font-mono rounded bg-muted text-muted-foreground">
+              #{ticket.id}
+            </span>
+          </div>
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Status:</span>
@@ -147,7 +165,16 @@ export const TicketDetail = ({
 
       {/* Description */}
       <div className="pt-6 border-t">
-        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Description</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">Description</h3>
+          <TranslateButton
+            ticketId={ticket.id}
+            originalContent={ticket.description}
+            originalSubject={ticket.title}
+            variant="ghost"
+            size="sm"
+          />
+        </div>
         <div className="max-w-none prose prose-sm">
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
         </div>
@@ -227,7 +254,11 @@ export const TicketDetail = ({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-6 border-t">
+      <div className="flex gap-2 pt-6 border-t flex-wrap">
+        <Button onClick={handleCopyLink} variant="outline" size="sm">
+          <LinkIcon className="mr-2 w-4 h-4" />
+          {linkCopied ? 'Link Copied!' : 'Copy Link'}
+        </Button>
         {!ticket.externalId ? (
           <Link to={`/tickets/edit/${ticket.id}`} className="flex-1">
             <Button variant="outline" className="w-full">

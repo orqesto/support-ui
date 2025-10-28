@@ -116,4 +116,34 @@ export const organizationService = {
     );
     return response.data;
   },
+
+  getAIProvider: async () => {
+    const response = await apiClient.get<
+      ApiResponse<{ preferredProvider: string | null }>
+    >('/api/organizations/ai-provider');
+    return response.data.data?.preferredProvider ?? null;
+  },
+
+  updateAIProvider: async (provider: string | null) => {
+    const response = await apiClient.patch<ApiResponse<{ preferredProvider: string | null }>>(
+      '/api/organizations/ai-provider',
+      { preferredProvider: provider }
+    );
+    return response.data;
+  },
+
+  getAutoReply: async () => {
+    const response = await apiClient.get<ApiResponse<{ enabled: boolean }>>(
+      '/api/organizations/auto-reply'
+    );
+    return response.data.data?.enabled ?? false;
+  },
+
+  updateAutoReply: async (enabled: boolean) => {
+    const response = await apiClient.patch<ApiResponse<{ enabled: boolean }>>(
+      '/api/organizations/auto-reply',
+      { enabled }
+    );
+    return response.data;
+  },
 };

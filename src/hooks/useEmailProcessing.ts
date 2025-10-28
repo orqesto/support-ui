@@ -22,6 +22,10 @@ type EmailProcessingEvent = {
     processed?: number;
     failed?: number;
     error?: string;
+    // Performance timing fields (in milliseconds)
+    fetchTime?: number;
+    processTime?: number;
+    totalTime?: number;
   };
 };
 
@@ -33,6 +37,10 @@ type EmailProcessingState = {
   failed: number;
   error?: string;
   isProcessing: boolean;
+  // Performance timing (in milliseconds)
+  fetchTime?: number;
+  processTime?: number;
+  totalTime?: number;
 };
 
 export const useEmailProcessing = (enabled = true) => {
@@ -103,16 +111,25 @@ export const useEmailProcessing = (enabled = true) => {
             processed: event.data?.processed ?? prev.processed,
             failed: event.data?.failed ?? 0,
             isProcessing: false,
+            fetchTime: event.data?.fetchTime,
+            processTime: event.data?.processTime,
+            totalTime: event.data?.totalTime,
           }));
           break;
 
         case 'error':
+          // Individual message errors shouldn't stop the whole process
+          // Only increment failed count and keep processing
           setState((prev) => ({
             ...prev,
-            status: 'error',
-            error: event.data?.error,
             failed: prev.failed + 1,
-            isProcessing: false,
+            // Only set to error status if processing hasn't started
+            // (meaning it's a critical error like API failure)
+            ...(prev.status === 'idle' && {
+              status: 'error',
+              error: event.data?.error,
+              isProcessing: false,
+            }),
           }));
           break;
       }

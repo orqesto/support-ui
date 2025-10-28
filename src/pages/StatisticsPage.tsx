@@ -10,6 +10,8 @@ import {
   RefreshCw,
   ShieldAlert,
   ExternalLink,
+  Brain,
+  Cpu,
 } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
@@ -277,7 +279,7 @@ export const StatisticsPage = () => {
             <CardHeader>
               <CardTitle className="flex gap-2 items-center">
                 <BarChart3 className="w-5 h-5" />
-                AI Category Accuracy
+                AI Category Suggestions vs Final Assignments
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -307,7 +309,7 @@ export const StatisticsPage = () => {
                           </div>
                           <span className="text-muted-foreground">→</span>
                           <div className="text-sm">
-                            <span className="font-medium">User Selected:</span>{' '}
+                            <span className="font-medium">Final Category:</span>{' '}
                             <span
                               className={
                                 isMatch
@@ -455,6 +457,115 @@ export const StatisticsPage = () => {
             );
           })}
         </div>
+
+        {/* AI Models Usage */}
+        {stats.aiModels && (stats.aiModels.totalAnalyzed > 0 || stats.aiModels.totalEmbedded > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex gap-2 items-center">
+                <Brain className="w-5 h-5" />
+                AI Models Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {/* Analysis Providers */}
+                {stats.aiModels.analysisProviders.length > 0 && (
+                  <div>
+                    <div className="flex gap-2 items-center mb-3">
+                      <Cpu className="w-4 h-4 text-purple-600" />
+                      <h3 className="text-sm font-semibold">Analysis Providers</h3>
+                      <span className="text-xs text-muted-foreground">
+                        ({stats.aiModels.totalAnalyzed} messages)
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {stats.aiModels.analysisProviders.map((item) => (
+                        <div key={item.provider} className="flex justify-between items-center">
+                          <span className="text-sm capitalize">{item.provider}</span>
+                          <div className="flex gap-2 items-center">
+                            <span className="text-sm font-medium">{item.count}</span>
+                            <span className="text-xs text-muted-foreground">({item.percentage}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Embedding Providers */}
+                {stats.aiModels.embeddingProviders.length > 0 && (
+                  <div>
+                    <div className="flex gap-2 items-center mb-3">
+                      <Cpu className="w-4 h-4 text-blue-600" />
+                      <h3 className="text-sm font-semibold">Embedding Providers</h3>
+                      <span className="text-xs text-muted-foreground">
+                        ({stats.aiModels.totalEmbedded} messages)
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {stats.aiModels.embeddingProviders.map((item) => (
+                        <div key={item.provider} className="flex justify-between items-center">
+                          <span className="text-sm capitalize">{item.provider}</span>
+                          <div className="flex gap-2 items-center">
+                            <span className="text-sm font-medium">{item.count}</span>
+                            <span className="text-xs text-muted-foreground">({item.percentage}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Analysis Models */}
+                {stats.aiModels.analysisModels.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+                      Analysis Models
+                    </h3>
+                    <div className="space-y-2">
+                      {stats.aiModels.analysisModels.map((item) => (
+                        <div
+                          key={item.model}
+                          className="flex justify-between items-center text-xs"
+                        >
+                          <span className="font-mono">{item.model}</span>
+                          <div className="flex gap-2 items-center">
+                            <span className="font-medium">{item.count}</span>
+                            <span className="text-muted-foreground">({item.percentage}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Embedding Models */}
+                {stats.aiModels.embeddingModels.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+                      Embedding Models
+                    </h3>
+                    <div className="space-y-2">
+                      {stats.aiModels.embeddingModels.map((item) => (
+                        <div
+                          key={item.model}
+                          className="flex justify-between items-center text-xs"
+                        >
+                          <span className="font-mono">{item.model}</span>
+                          <div className="flex gap-2 items-center">
+                            <span className="font-medium">{item.count}</span>
+                            <span className="text-muted-foreground">({item.percentage}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );

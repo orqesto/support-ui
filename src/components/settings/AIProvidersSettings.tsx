@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react';
 import {
-  Brain,
-  Plus,
-  Save,
-  Trash2,
-  Edit,
-  TestTube2,
   ChevronDown,
   ChevronUp,
   AlertCircle,
   CheckCircle,
   XCircle,
+  Sparkles,
+  MessageCircle,
 } from 'lucide-react';
 import { aiService } from '@/services/ai.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
+import { organizationService } from '@/services/organization.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
 import { AlertDialog } from '../ui/AlertDialog';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Select } from '../ui/Select';
+import { AnthropicProviderCard } from './providers/AnthropicProviderCard';
+import { DeepSeekProviderCard } from './providers/DeepSeekProviderCard';
+import { OpenAIProviderCard } from './providers/OpenAIProviderCard';
+import { PerplexityProviderCard } from './providers/PerplexityProviderCard';
 
 export const AIProvidersSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -27,12 +28,12 @@ export const AIProvidersSettings = () => {
   const [testing, setTesting] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [showOpenAIForm, setShowOpenAIForm] = useState(false);
-  const [showAnthropicForm, setShowAnthropicForm] = useState(false);
-  const [showDeepSeekForm, setShowDeepSeekForm] = useState(false);
-  const [showPerplexityForm, setShowPerplexityForm] = useState(false);
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
   const [showFeatureDetails, setShowFeatureDetails] = useState(false);
+  const [preferredProvider, setPreferredProvider] = useState<string | null>(null);
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+  const [savingAutoReply, setSavingAutoReply] = useState(false);
 
   const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
   const [anthropicModels, setAnthropicModels] = useState<AIModel[]>([]);
@@ -48,37 +49,77 @@ export const AIProvidersSettings = () => {
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
-  const [openaiConfig, setOpenaiConfig] = useState({
-    apiKey: '',
-    baseUrl: '',
-    organization: '',
-    defaultChatModel: 'gpt-4o-mini',
-    defaultEmbeddingModel: 'text-embedding-3-small',
-  });
-
-  const [anthropicConfig, setAnthropicConfig] = useState({
-    apiKey: '',
-    baseUrl: '',
-    defaultModel: 'claude-3-5-sonnet-20241022',
-  });
-
-  const [deepseekConfig, setDeepseekConfig] = useState({
-    apiKey: '',
-    baseUrl: '',
-    defaultModel: 'deepseek-chat',
-  });
-
-  const [perplexityConfig, setPerplexityConfig] = useState({
-    apiKey: '',
-    baseUrl: '',
-    defaultModel: 'llama-3.1-sonar-large-128k-online',
-  });
-
   useEffect(() => {
-    Promise.all([fetchIntegrations(), loadModels()]).catch((error) => {
+    Promise.all([fetchIntegrations(), loadModels(), fetchPreferredProvider(), fetchAutoReplySettings()]).catch((error) => {
       console.error('Failed to initialize:', error);
     });
   }, []);
+
+  const fetchPreferredProvider = async () => {
+    try {
+      const provider = await organizationService.getAIProvider();
+      setPreferredProvider(provider);
+    } catch (error) {
+      console.error('Failed to fetch preferred provider:', error);
+    }
+  };
+
+  const fetchAutoReplySettings = async () => {
+    try {
+      const enabled = await organizationService.getAutoReply();
+      setAutoReplyEnabled(enabled);
+    } catch (error) {
+      console.error('Failed to fetch auto-reply settings:', error);
+    }
+  };
+
+  const handleProviderChange = async (provider: string | null) => {
+    setSavingProvider(true);
+    try {
+      await organizationService.updateAIProvider(provider);
+      setPreferredProvider(provider);
+      setAlertDialog({
+        open: true,
+        title: 'Success',
+        description: `Preferred AI provider ${provider ? `set to ${provider}` : 'cleared'}. This will be used for translations and AI features.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to update preferred provider:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: 'Failed to update preferred provider',
+        variant: 'error',
+      });
+    } finally {
+      setSavingProvider(false);
+    }
+  };
+
+  const handleAutoReplyChange = async (enabled: boolean) => {
+    setSavingAutoReply(true);
+    try {
+      await organizationService.updateAutoReply(enabled);
+      setAutoReplyEnabled(enabled);
+      setAlertDialog({
+        open: true,
+        title: 'Success',
+        description: `AI Auto-Reply ${enabled ? 'enabled' : 'disabled'} successfully.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to update auto-reply setting:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: 'Failed to update auto-reply setting',
+        variant: 'error',
+      });
+    } finally {
+      setSavingAutoReply(false);
+    }
+  };
 
   const fetchIntegrations = async () => {
     try {
@@ -128,59 +169,6 @@ export const AIProvidersSettings = () => {
     }
   };
 
-  const resetForm = (type: AIProvider) => {
-    if (type === 'openai') {
-      setOpenaiConfig({
-        apiKey: '',
-        baseUrl: '',
-        organization: '',
-        defaultChatModel: 'gpt-4o-mini',
-        defaultEmbeddingModel: 'text-embedding-3-small',
-      });
-      setShowOpenAIForm(false);
-    } else if (type === 'anthropic') {
-      setAnthropicConfig({
-        apiKey: '',
-        baseUrl: '',
-        defaultModel: 'claude-3-5-sonnet-20241022',
-      });
-      setShowAnthropicForm(false);
-    } else if (type === 'deepseek') {
-      setDeepseekConfig({
-        apiKey: '',
-        baseUrl: '',
-        defaultModel: 'deepseek-chat',
-      });
-      setShowDeepSeekForm(false);
-    } else if (type === 'perplexity') {
-      setPerplexityConfig({
-        apiKey: '',
-        baseUrl: '',
-        defaultModel: 'llama-3.1-sonar-large-128k-online',
-      });
-      setShowPerplexityForm(false);
-    }
-    setEditingId(null);
-  };
-
-  const loadForEdit = (integration: Integration) => {
-    setEditingId(integration.id);
-    const config = integration.config;
-    if (integration.type === 'openai') {
-      setOpenaiConfig(config as typeof openaiConfig);
-      setShowOpenAIForm(true);
-    } else if (integration.type === 'anthropic') {
-      setAnthropicConfig(config as typeof anthropicConfig);
-      setShowAnthropicForm(true);
-    } else if (integration.type === 'deepseek') {
-      setDeepseekConfig(config as typeof deepseekConfig);
-      setShowDeepSeekForm(true);
-    } else if (integration.type === 'perplexity') {
-      setPerplexityConfig(config as typeof perplexityConfig);
-      setShowPerplexityForm(true);
-    }
-  };
-
   const saveIntegration = async (
     name: string,
     type: AIProvider,
@@ -197,7 +185,7 @@ export const AIProvidersSettings = () => {
 
       if (response.success) {
         await fetchIntegrations();
-        resetForm(type);
+        setEditingId(null);
         setAlertDialog({
           open: true,
           title: 'Success',
@@ -311,8 +299,112 @@ export const AIProvidersSettings = () => {
 
   const hasAnyProvider = integrations.length > 0;
 
+  const enabledProviders = integrations
+    .filter(
+      (i) =>
+        i.type === 'openai' ||
+        i.type === 'anthropic' ||
+        i.type === 'deepseek' ||
+        i.type === 'perplexity'
+    )
+    .map((i) => i.type);
+
   return (
     <div className="space-y-6">
+      {/* Preferred AI Provider Selector - Show when multiple providers */}
+      {enabledProviders.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              Preferred AI Provider
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Select which AI provider to use by default for translations and AI features.
+              </p>
+              <div className="flex gap-3 items-center">
+                <Select
+                  value={preferredProvider ?? 'auto'}
+                  onChange={(e) => {
+                    const value = e.target.value === 'auto' ? null : e.target.value;
+                    handleProviderChange(value).catch((err) => console.error(err));
+                  }}
+                  disabled={savingProvider}
+                  className="flex-1 max-w-xs"
+                >
+                  <option value="auto">Auto (priority order)</option>
+                  {enabledProviders.includes('openai') && <option value="openai">OpenAI</option>}
+                  {enabledProviders.includes('anthropic') && (
+                    <option value="anthropic">Anthropic</option>
+                  )}
+                  {enabledProviders.includes('deepseek') && (
+                    <option value="deepseek">DeepSeek</option>
+                  )}
+                  {enabledProviders.includes('perplexity') && (
+                    <option value="perplexity">Perplexity</option>
+                  )}
+                </Select>
+                {savingProvider && (
+                  <span className="text-sm text-muted-foreground">Saving...</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {preferredProvider
+                  ? `Currently using: ${preferredProvider}`
+                  : 'Auto mode uses priority: OpenAI > Anthropic > DeepSeek > Perplexity'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Auto-Reply Toggle - Show when AI provider is configured */}
+      {hasAnyProvider && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              AI Auto-Reply
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Automatically respond to messages that need more information from the sender.
+              </p>
+              <div className="flex gap-3 items-center">
+                <label className="flex gap-3 items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={autoReplyEnabled}
+                      onChange={(e) => handleAutoReplyChange(e.target.checked)}
+                      disabled={savingAutoReply}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
+                  </div>
+                  <span className="text-sm font-medium">
+                    {autoReplyEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </label>
+                {savingAutoReply && (
+                  <span className="text-sm text-muted-foreground">Saving...</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {autoReplyEnabled
+                  ? 'AI will automatically ask for more information when messages are incomplete.'
+                  : 'AI auto-reply is currently disabled. Messages will require manual handling.'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Feature Requirements Info - Only show when no AI provider */}
       {!hasAnyProvider && (
         <div className="p-3 bg-amber-50 rounded-lg border-2 border-amber-500 dark:bg-amber-950/50">
@@ -371,757 +463,74 @@ export const AIProvidersSettings = () => {
           )}
         </div>
       )}
-      {/* OpenAI Integration */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
-              <Brain className="w-5 h-5 text-green-600" />
-              OpenAI
-            </CardTitle>
-            <Button
-              size="sm"
-              onClick={() => {
-                resetForm('openai');
-                setShowOpenAIForm(!showOpenAIForm);
-              }}
-            >
-              <Plus className="mr-1 w-4 h-4" />
-              {openaiIntegrations.length > 0 ? 'Update' : 'Add'} OpenAI
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* List of OpenAI integrations */}
-          {openaiIntegrations.length > 0 && (
-            <div className="space-y-2">
-              {openaiIntegrations.map((integration) => (
-                <div key={integration.id} className="rounded-lg border">
-                  <div className="flex justify-between items-center p-3">
-                    <div className="flex gap-3 items-center">
-                      <div
-                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                      />
-                      <div>
-                        <p className="font-medium">{integration.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Chat:{' '}
-                          {(integration.config as { defaultChatModel?: string }).defaultChatModel} •
-                          Embedding:{' '}
-                          {
-                            (integration.config as { defaultEmbeddingModel?: string })
-                              .defaultEmbeddingModel
-                          }
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleModels(integration.id)}
-                      >
-                        {showModels[integration.id] ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadForEdit(integration)}
-                        disabled={editingId === integration.id}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => testConnection(integration.id, integration.name)}
-                        isLoading={testing === integration.id}
-                        disabled={!integration.hasCredentials}
-                      >
-                        <TestTube2 className="mr-2 w-4 h-4" />
-                        Poke
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(integration.id, integration.name)}
-                        isLoading={deleting === integration.id}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
 
-                  {/* Show available models */}
-                  {showModels[integration.id] && (
-                    <div className="p-3 border-t bg-muted/30">
-                      <h5 className="mb-2 text-sm font-medium">Available Models:</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {openaiModels.map((model) => (
-                          <div key={model.id} className="p-2 text-xs rounded border bg-background">
-                            <p className="font-medium">{model.name}</p>
-                            <p className="text-muted-foreground">
-                              {model.type} • {model.contextWindow.toLocaleString()} tokens
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+      {/* OpenAI Provider Card */}
+      <OpenAIProviderCard
+        integrations={openaiIntegrations}
+        models={openaiModels}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onSave={(config) => saveIntegration('OpenAI', 'openai', config as Record<string, string | number | boolean>)}
+        onCancel={() => setEditingId(null)}
+      />
 
-          {/* Add/Edit form */}
-          {showOpenAIForm && (
-            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
-                {editingId ? 'Edit OpenAI Configuration' : 'Add OpenAI Configuration'}
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="apiKey" className="text-sm font-medium">
-                    API Key *
-                  </label>
-                  <input
-                    type="password"
-                    value={openaiConfig.apiKey}
-                    onChange={(e) => setOpenaiConfig({ ...openaiConfig, apiKey: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="sk-..."
-                  />
-                </div>
-                <Select
-                  label="Default Chat Model"
-                  value={openaiConfig.defaultChatModel}
-                  onChange={(e) =>
-                    setOpenaiConfig({ ...openaiConfig, defaultChatModel: e.target.value })
-                  }
-                >
-                  {openaiModels
-                    .filter((m) => m.type === 'chat')
-                    .map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                </Select>
-                <Select
-                  label="Default Embedding Model"
-                  value={openaiConfig.defaultEmbeddingModel}
-                  onChange={(e) =>
-                    setOpenaiConfig({ ...openaiConfig, defaultEmbeddingModel: e.target.value })
-                  }
-                >
-                  {openaiModels
-                    .filter((m) => m.type === 'embedding')
-                    .map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                </Select>
-                <div>
-                  <label htmlFor="organization" className="text-sm font-medium">
-                    Organization ID (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={openaiConfig.organization}
-                    onChange={(e) =>
-                      setOpenaiConfig({ ...openaiConfig, organization: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="org-..."
-                  />
-                </div>
-                <div>
-                  <label htmlFor="baseUrl" className="text-sm font-medium">
-                    Base URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={openaiConfig.baseUrl}
-                    onChange={(e) => setOpenaiConfig({ ...openaiConfig, baseUrl: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="https://api.openai.com"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    saveIntegration(
-                      editingId ? `OpenAI-${editingId}` : 'OpenAI',
-                      'openai',
-                      openaiConfig
-                    )
-                  }
-                  isLoading={saving === 'openai'}
-                  disabled={!openaiConfig.apiKey}
-                >
-                  <Save className="mr-2 w-4 h-4" />
-                  {editingId ? 'Update' : 'Save'} OpenAI
-                </Button>
-                <Button variant="outline" onClick={() => resetForm('openai')}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
+      {/* Anthropic Provider Card */}
+      <AnthropicProviderCard
+        integrations={anthropicIntegrations}
+        models={anthropicModels}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onSave={(config) => saveIntegration('Anthropic', 'anthropic', config as Record<string, string | number | boolean>)}
+        onCancel={() => setEditingId(null)}
+      />
 
-          {openaiIntegrations.length === 0 && !showOpenAIForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
-              No OpenAI configuration
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* DeepSeek Provider Card */}
+      <DeepSeekProviderCard
+        integrations={deepseekIntegrations}
+        models={deepseekModels}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onSave={(config) => saveIntegration('DeepSeek', 'deepseek', config as Record<string, string | number | boolean>)}
+        onCancel={() => setEditingId(null)}
+      />
 
-      {/* Anthropic Integration */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
-              <Brain className="w-5 h-5 text-orange-600" />
-              Anthropic (Claude)
-            </CardTitle>
-            <Button
-              size="sm"
-              onClick={() => {
-                resetForm('anthropic');
-                setShowAnthropicForm(!showAnthropicForm);
-              }}
-            >
-              <Plus className="mr-1 w-4 h-4" />
-              {anthropicIntegrations.length > 0 ? 'Update' : 'Add'} Anthropic
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* List of Anthropic integrations */}
-          {anthropicIntegrations.length > 0 && (
-            <div className="space-y-2">
-              {anthropicIntegrations.map((integration) => (
-                <div key={integration.id} className="rounded-lg border">
-                  <div className="flex justify-between items-center p-3">
-                    <div className="flex gap-3 items-center">
-                      <div
-                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                      />
-                      <div>
-                        <p className="font-medium">{integration.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Model: {(integration.config as { defaultModel?: string }).defaultModel}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleModels(integration.id)}
-                      >
-                        {showModels[integration.id] ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadForEdit(integration)}
-                        disabled={editingId === integration.id}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => testConnection(integration.id, integration.name)}
-                        isLoading={testing === integration.id}
-                        disabled={!integration.hasCredentials}
-                      >
-                        <TestTube2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(integration.id, integration.name)}
-                        isLoading={deleting === integration.id}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Show available models */}
-                  {showModels[integration.id] && (
-                    <div className="p-3 border-t bg-muted/30">
-                      <h5 className="mb-2 text-sm font-medium">Available Models:</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {anthropicModels.map((model) => (
-                          <div key={model.id} className="p-2 text-xs rounded border bg-background">
-                            <p className="font-medium">{model.name}</p>
-                            <p className="text-muted-foreground">
-                              {model.type} • {model.contextWindow.toLocaleString()} tokens
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Add/Edit form */}
-          {showAnthropicForm && (
-            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
-                {editingId ? 'Edit Anthropic Configuration' : 'Add Anthropic Configuration'}
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="apiKey" className="text-sm font-medium">
-                    API Key *
-                  </label>
-                  <input
-                    type="password"
-                    value={anthropicConfig.apiKey}
-                    onChange={(e) =>
-                      setAnthropicConfig({ ...anthropicConfig, apiKey: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="sk-ant-..."
-                  />
-                </div>
-                <Select
-                  label="Default Model"
-                  value={anthropicConfig.defaultModel}
-                  onChange={(e) =>
-                    setAnthropicConfig({ ...anthropicConfig, defaultModel: e.target.value })
-                  }
-                >
-                  {anthropicModels
-                    .filter((m) => m.type === 'chat')
-                    .map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                </Select>
-                <div>
-                  <label htmlFor="baseUrl" className="text-sm font-medium">
-                    Base URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={anthropicConfig.baseUrl}
-                    onChange={(e) =>
-                      setAnthropicConfig({ ...anthropicConfig, baseUrl: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="https://api.anthropic.com"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    saveIntegration(
-                      editingId ? `Anthropic-${editingId}` : 'Anthropic',
-                      'anthropic',
-                      anthropicConfig
-                    )
-                  }
-                  isLoading={saving === 'anthropic'}
-                  disabled={!anthropicConfig.apiKey}
-                >
-                  <Save className="mr-2 w-4 h-4" />
-                  {editingId ? 'Update' : 'Save'} Anthropic
-                </Button>
-                <Button variant="outline" onClick={() => resetForm('anthropic')}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {anthropicIntegrations.length === 0 && !showAnthropicForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
-              No Anthropic configuration
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* DeepSeek Integration */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
-              <Brain className="w-5 h-5 text-blue-600" />
-              DeepSeek
-            </CardTitle>
-            <Button
-              size="sm"
-              onClick={() => {
-                resetForm('deepseek');
-                setShowDeepSeekForm(!showDeepSeekForm);
-              }}
-            >
-              <Plus className="mr-1 w-4 h-4" />
-              {deepseekIntegrations.length > 0 ? 'Update' : 'Add'} DeepSeek
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* List of DeepSeek integrations */}
-          {deepseekIntegrations.length > 0 && (
-            <div className="space-y-2">
-              {deepseekIntegrations.map((integration) => (
-                <div key={integration.id} className="rounded-lg border">
-                  <div className="flex justify-between items-center p-3">
-                    <div className="flex gap-3 items-center">
-                      <div
-                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                      />
-                      <div>
-                        <p className="font-medium">{integration.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Model: {(integration.config as { defaultModel?: string }).defaultModel}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleModels(integration.id)}
-                      >
-                        {showModels[integration.id] ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadForEdit(integration)}
-                        disabled={editingId === integration.id}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => testConnection(integration.id, integration.name)}
-                        isLoading={testing === integration.id}
-                        disabled={!integration.hasCredentials}
-                      >
-                        <TestTube2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(integration.id, integration.name)}
-                        isLoading={deleting === integration.id}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Show available models */}
-                  {showModels[integration.id] && (
-                    <div className="p-3 border-t bg-muted/30">
-                      <h5 className="mb-2 text-sm font-medium">Available Models:</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {deepseekModels.map((model) => (
-                          <div key={model.id} className="p-2 text-xs rounded border bg-background">
-                            <p className="font-medium">{model.name}</p>
-                            <p className="text-muted-foreground">
-                              {model.type} • {model.contextWindow.toLocaleString()} tokens
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Add/Edit form */}
-          {showDeepSeekForm && (
-            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
-                {editingId ? 'Edit DeepSeek Configuration' : 'Add DeepSeek Configuration'}
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="apiKey" className="text-sm font-medium">
-                    API Key *
-                  </label>
-                  <input
-                    type="password"
-                    value={deepseekConfig.apiKey}
-                    onChange={(e) =>
-                      setDeepseekConfig({ ...deepseekConfig, apiKey: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="sk-..."
-                  />
-                </div>
-                <Select
-                  label="Default Model"
-                  value={deepseekConfig.defaultModel}
-                  onChange={(e) =>
-                    setDeepseekConfig({ ...deepseekConfig, defaultModel: e.target.value })
-                  }
-                >
-                  {deepseekModels
-                    .filter((m) => m.type === 'chat')
-                    .map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                </Select>
-                <div>
-                  <label htmlFor="baseUrl" className="text-sm font-medium">
-                    Base URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={deepseekConfig.baseUrl}
-                    onChange={(e) =>
-                      setDeepseekConfig({ ...deepseekConfig, baseUrl: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="https://api.deepseek.com"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    saveIntegration(
-                      editingId ? `DeepSeek-${editingId}` : 'DeepSeek',
-                      'deepseek',
-                      deepseekConfig
-                    )
-                  }
-                  isLoading={saving === 'deepseek'}
-                  disabled={!deepseekConfig.apiKey}
-                >
-                  <Save className="mr-2 w-4 h-4" />
-                  {editingId ? 'Update' : 'Save'} DeepSeek
-                </Button>
-                <Button variant="outline" onClick={() => resetForm('deepseek')}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {deepseekIntegrations.length === 0 && !showDeepSeekForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
-              No DeepSeek configuration
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Perplexity Integration */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
-              <Brain className="w-5 h-5 text-purple-600" />
-              Perplexity
-            </CardTitle>
-            <Button
-              size="sm"
-              onClick={() => {
-                resetForm('perplexity');
-                setShowPerplexityForm(!showPerplexityForm);
-              }}
-            >
-              <Plus className="mr-1 w-4 h-4" />
-              {perplexityIntegrations.length > 0 ? 'Update' : 'Add'} Perplexity
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* List of Perplexity integrations */}
-          {perplexityIntegrations.length > 0 && (
-            <div className="space-y-2">
-              {perplexityIntegrations.map((integration) => (
-                <div key={integration.id} className="rounded-lg border">
-                  <div className="flex justify-between items-center p-3">
-                    <div className="flex gap-3 items-center">
-                      <div
-                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                      />
-                      <div>
-                        <p className="font-medium">{integration.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Model: {(integration.config as { defaultModel?: string }).defaultModel}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleModels(integration.id)}
-                      >
-                        {showModels[integration.id] ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadForEdit(integration)}
-                        disabled={editingId === integration.id}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => testConnection(integration.id, integration.name)}
-                        isLoading={testing === integration.id}
-                        disabled={!integration.hasCredentials}
-                      >
-                        <TestTube2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(integration.id, integration.name)}
-                        isLoading={deleting === integration.id}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Show available models */}
-                  {showModels[integration.id] && (
-                    <div className="p-3 border-t bg-muted/30">
-                      <h5 className="mb-2 text-sm font-medium">Available Models:</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {perplexityModels.map((model) => (
-                          <div key={model.id} className="p-2 text-xs rounded border bg-background">
-                            <p className="font-medium">{model.name}</p>
-                            <p className="text-muted-foreground">
-                              {model.type} • {model.contextWindow.toLocaleString()} tokens
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Add/Edit form */}
-          {showPerplexityForm && (
-            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
-                {editingId ? 'Edit Perplexity Configuration' : 'Add Perplexity Configuration'}
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="apiKey" className="text-sm font-medium">
-                    API Key *
-                  </label>
-                  <input
-                    type="password"
-                    value={perplexityConfig.apiKey}
-                    onChange={(e) =>
-                      setPerplexityConfig({ ...perplexityConfig, apiKey: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="pplx-..."
-                  />
-                </div>
-                <Select
-                  label="Default Model"
-                  value={perplexityConfig.defaultModel}
-                  onChange={(e) =>
-                    setPerplexityConfig({ ...perplexityConfig, defaultModel: e.target.value })
-                  }
-                >
-                  {perplexityModels
-                    .filter((m) => m.type === 'chat')
-                    .map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                </Select>
-                <div>
-                  <label htmlFor="baseUrl" className="text-sm font-medium">
-                    Base URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={perplexityConfig.baseUrl}
-                    onChange={(e) =>
-                      setPerplexityConfig({ ...perplexityConfig, baseUrl: e.target.value })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="https://api.perplexity.ai"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    saveIntegration(
-                      editingId ? `Perplexity-${editingId}` : 'Perplexity',
-                      'perplexity',
-                      perplexityConfig
-                    )
-                  }
-                  isLoading={saving === 'perplexity'}
-                  disabled={!perplexityConfig.apiKey}
-                >
-                  <Save className="mr-2 w-4 h-4" />
-                  {editingId ? 'Update' : 'Save'} Perplexity
-                </Button>
-                <Button variant="outline" onClick={() => resetForm('perplexity')}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {perplexityIntegrations.length === 0 && !showPerplexityForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
-              No Perplexity configuration
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Perplexity Provider Card */}
+      <PerplexityProviderCard
+        integrations={perplexityIntegrations}
+        models={perplexityModels}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onSave={(config) => saveIntegration('Perplexity', 'perplexity', config as Record<string, string | number | boolean>)}
+        onCancel={() => setEditingId(null)}
+      />
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (

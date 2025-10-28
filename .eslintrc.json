@@ -21,13 +21,7 @@
     },
     "project": "./tsconfig.app.json"
   },
-  "plugins": [
-    "@typescript-eslint",
-    "react",
-    "react-hooks",
-    "jsx-a11y",
-    "import"
-  ],
+  "plugins": ["@typescript-eslint", "react", "react-hooks", "jsx-a11y", "import"],
   "settings": {
     "react": {
       "version": "detect"
@@ -115,6 +109,14 @@
     "react-hooks/exhaustive-deps": "warn",
 
     // General Rules
+    "max-lines": [
+      "error",
+      {
+        "max": 850,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
     "no-console": ["warn", { "allow": ["warn", "error", "info"] }],
     "no-debugger": "error",
     "no-alert": "error",
@@ -133,14 +135,7 @@
     "import/order": [
       "error",
       {
-        "groups": [
-          "builtin",
-          "external",
-          "internal",
-          "parent",
-          "sibling",
-          "index"
-        ],
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
         "pathGroups": [
           {
             "pattern": "react",

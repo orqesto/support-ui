@@ -38,6 +38,14 @@ export type StatisticsData = {
     actualCategoryName: string;
     count: number;
   }>;
+  aiModels: {
+    analysisProviders: Array<{ provider: string; count: number; percentage: number }>;
+    analysisModels: Array<{ model: string; count: number; percentage: number }>;
+    embeddingProviders: Array<{ provider: string; count: number; percentage: number }>;
+    embeddingModels: Array<{ model: string; count: number; percentage: number }>;
+    totalAnalyzed: number;
+    totalEmbedded: number;
+  };
 };
 
 export type ApiResponse<T> = {

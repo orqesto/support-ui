@@ -84,4 +84,39 @@ export const ticketService = {
     const response = await apiClient.delete<ApiResponse<void>>(`/api/tickets/${id}`);
     return response.data;
   },
+
+  getSimilar: async (id: number, params?: { limit?: number; minSimilarity?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.minSimilarity) {
+      queryParams.append('minSimilarity', params.minSimilarity.toString());
+    }
+
+    const url = queryParams.toString()
+      ? `/api/tickets/${id}/similar?${queryParams.toString()}`
+      : `/api/tickets/${id}/similar`;
+
+    const response = await apiClient.get<
+      ApiResponse<
+        Array<{
+          ticketId: number;
+          messageId: number;
+          messageContent: string;
+          messageSubject: string | null;
+          similarity: number;
+          ticketStatus: string;
+          ticketTitle: string;
+          responses: Array<{
+            id: number;
+            content: string;
+            channel: string;
+            sentAt: string | null;
+          }>;
+        }>
+      >
+    >(url);
+    return response.data;
+  },
 };

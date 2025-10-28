@@ -13,6 +13,8 @@ import {
   FileText,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { EmailProcessingProgress } from '@/components/EmailProcessingProgress';
+import { ProcessingStatusWidget } from '@/components/ProcessingStatusWidget';
 import { WebSocketDebug } from '@/components/WebSocketDebug';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -197,6 +199,12 @@ export const Layout = ({ children }: LayoutProps) => {
 
       {/* WebSocket Debug Panel (Development Only) */}
       {isDevelopment && <WebSocketDebug />}
+
+      {/* Processing Status Widget */}
+      <ProcessingStatusWidget />
+
+      {/* Email Processing Progress Widget (Floating) */}
+      <EmailProcessingProgress />
     </div>
   );
 };
