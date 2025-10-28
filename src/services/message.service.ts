@@ -64,4 +64,27 @@ export const messageService = {
     const response = await apiClient.delete<ApiResponse<void>>(`/api/messages/${id}`);
     return response.data;
   },
+
+  reply: async (id: number, content: string, resolve = true) => {
+    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
+      content,
+      resolve,
+    });
+    return response.data;
+  },
+
+  resolve: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/resolve`, {});
+    return response.data;
+  },
+
+  reopen: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reopen`, {});
+    return response.data;
+  },
+
+  getThreadMessages: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<Message[]>>(`/api/messages/${id}/thread`);
+    return response.data;
+  },
 };

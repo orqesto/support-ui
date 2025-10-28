@@ -30,10 +30,21 @@ export type Message = {
   content: string;
   processed: boolean;
   ticketId: number | null;
+  threadId?: string | null;
   processingError?: string | null;
   createdAt: string;
   metadata?: Record<string, unknown>;
   rawData?: Record<string, unknown>;
+  // AI model tracking
+  embeddingProvider?: string | null;
+  embeddingModel?: string | null;
+  analysisProvider?: string | null;
+  analysisModel?: string | null;
+  // Direct reply tracking
+  directReply?: string | null;
+  repliedBy?: number | null;
+  repliedAt?: string | null;
+  resolved?: boolean;
 };
 
 export type Ticket = {

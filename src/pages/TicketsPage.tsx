@@ -113,15 +113,15 @@ export const TicketsPage = () => {
   // Auto-open ticket from query param
   useEffect(() => {
     const ticketIdParam = searchParams.get('id');
-    if (ticketIdParam && !selectedTicket) {
+    const paramId = ticketIdParam ? parseInt(ticketIdParam) : null;
+    
+    // Only fetch if URL has an ID and it's different from the currently selected ticket
+    if (paramId && (!selectedTicket || selectedTicket.id !== paramId)) {
       const fetchAndOpenTicket = async () => {
         try {
-          const response = await ticketService.getById(parseInt(ticketIdParam));
+          const response = await ticketService.getById(paramId);
           if (response.success && response.data) {
             setSelectedTicket(response.data);
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('id');
-            setSearchParams(newParams);
           }
         } catch (error) {
           console.error('Failed to fetch ticket:', error);
@@ -130,8 +130,11 @@ export const TicketsPage = () => {
       fetchAndOpenTicket().catch((error) => {
         console.error('Failed to fetch ticket:', error);
       });
+    } else if (!paramId && selectedTicket) {
+      // URL cleared but ticket still selected - clear selection
+      setSelectedTicket(null);
     }
-  }, [searchParams, selectedTicket, setSearchParams]);
+  }, [searchParams, selectedTicket]);
 
   const fetchTickets = useCallback(
     async (page = 1, force = false) => {
@@ -232,7 +235,7 @@ export const TicketsPage = () => {
     });
   }, [hasPermission]);
 
-  // Listen for real-time ticket updates from Jira webhooks
+  // Listen for real-time ticket updates from Jira webhooks and new ticket creation
   useEffect(() => {
     getSocket(); // Initialize WebSocket connection
 
@@ -267,10 +270,25 @@ export const TicketsPage = () => {
       }
     };
 
+    const handleTicketCreated = (data: unknown) => {
+      const ticketData = data as { ticketId: number; organizationId: number };
+      console.log('✨ New ticket created:', ticketData);
+
+      // Clear cache to ensure fresh data
+      clearCache();
+
+      // Refresh tickets list to show the new ticket
+      fetchTickets(pagination.page, true).catch((error) => {
+        console.error('Failed to fetch tickets after creation:', error);
+      });
+    };
+
     subscribeToEvent('ticket:updated', handleTicketUpdate);
+    subscribeToEvent('ticket:created', handleTicketCreated);
 
     return () => {
       unsubscribeFromEvent('ticket:updated', handleTicketUpdate);
+      unsubscribeFromEvent('ticket:created', handleTicketCreated);
       releaseSocket();
     };
   }, [pagination.page, selectedTicket, fetchTickets, clearCache]);
@@ -698,7 +716,12 @@ export const TicketsPage = () => {
                 key={ticket.id}
                 header={
                   <>
-                    <h3 className="w-full text-lg font-semibold break-words">{ticket.title}</h3>
+                    <div className="flex gap-2 items-start w-full">
+                      <h3 className="flex-1 text-lg font-semibold break-words">{ticket.title}</h3>
+                      <span className="px-2 py-0.5 text-xs font-mono rounded bg-muted text-muted-foreground whitespace-nowrap">
+                        #{ticket.id}
+                      </span>
+                    </div>
                     <div className="flex gap-2 items-center">
                       <span className="text-xs font-medium text-muted-foreground">Status:</span>
                       <Badge variant={statusColors[ticket.status]}>{ticket.status}</Badge>
@@ -738,7 +761,14 @@ export const TicketsPage = () => {
                 }
                 actions={
                   <>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedTicket(ticket)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedTicket(ticket);
+                        setSearchParams({ id: ticket.id.toString() });
+                      }}
+                    >
                       <ExternalLinkIcon className="mr-1 w-3 h-3" />
                       Open
                     </Button>
@@ -850,7 +880,10 @@ export const TicketsPage = () => {
       {selectedTicket && (
         <Drawer
           open={!!selectedTicket}
-          onClose={() => setSelectedTicket(null)}
+          onClose={() => {
+            setSearchParams({});
+            setSelectedTicket(null);
+          }}
           title="Ticket Details"
         >
           <TicketDetail

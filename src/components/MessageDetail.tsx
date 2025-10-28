@@ -13,13 +13,21 @@ import {
   RotateCcw,
   Paperclip,
   Download,
+  Link as LinkIcon,
+  Reply,
+  RefreshCw,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDate } from '../lib/utils';
+import { messageService } from '../services/message.service';
 import type { Message } from '../types';
+import { MessageThread } from './MessageThread';
+import { SimilarTickets } from './SimilarTickets';
+import { TranslateButton } from './TranslateButton';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from './ui/Dialog';
+import { Textarea } from './ui/Textarea';
 
 type MessageDetailProps = {
   message: Message;
@@ -27,6 +35,8 @@ type MessageDetailProps = {
   onReject?: () => void;
   onReopen?: () => void;
   onDelete?: () => void;
+  onRefresh?: () => void;
+  onMessageNavigate?: (messageId: number) => void;
 };
 
 export const MessageDetail = ({
@@ -35,9 +45,28 @@ export const MessageDetail = ({
   onReject,
   onReopen,
   onDelete,
+  onRefresh,
+  onMessageNavigate,
 }: MessageDetailProps) => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/messages?id=${message.id}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Failed to copy link:', err);
+      });
+  };
 
   const handleRejectClick = () => {
     setRejectDialogOpen(true);
@@ -57,15 +86,59 @@ export const MessageDetail = ({
     onReopen?.();
   };
 
+  const handleSendReply = async () => {
+    if (!replyContent.trim()) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      // For new messages: resolve=true marks as resolved
+      // For already-resolved messages: resolve=true keeps them resolved
+      const shouldResolve = true;
+      await messageService.reply(message.id, replyContent, shouldResolve);
+      setReplyContent('');
+      setShowReplyForm(false);
+      onApprove?.(); // Refresh message
+    } catch (error) {
+      console.error('Failed to send reply:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResolveWithoutReply = async () => {
+    try {
+      await messageService.resolve(message.id);
+      onApprove?.(); // Refresh message
+    } catch (error) {
+      console.error('Failed to resolve message:', error);
+    }
+  };
+
+  const handleReopenMessage = async () => {
+    try {
+      await messageService.reopen(message.id);
+      onApprove?.(); // Refresh message
+    } catch (error) {
+      console.error('Failed to reopen message:', error);
+    }
+  };
+
+  const handleUseResponse = (content: string) => {
+    setReplyContent(content);
+    setShowReplyForm(true);
+  };
+
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'email':
-        return <Mail className="h-5 w-5" />;
+        return <Mail className="w-5 h-5" />;
       case 'slack':
       case 'telegram':
-        return <MessageSquare className="h-5 w-5" />;
+        return <MessageSquare className="w-5 h-5" />;
       default:
-        return <Send className="h-5 w-5" />;
+        return <Send className="w-5 h-5" />;
     }
   };
 
@@ -78,6 +151,10 @@ export const MessageDetail = ({
         suggestedPriority?: string;
         confidence?: number;
         summary?: string;
+        embeddingProvider?: string;
+        embeddingModel?: string;
+        analysisProvider?: string;
+        analysisModel?: string;
       }
     | undefined;
 
@@ -88,6 +165,15 @@ export const MessageDetail = ({
         category?: string;
         reason?: string;
         redFlags?: string[];
+      }
+    | undefined;
+
+  const autoReply = message.metadata?.autoReply as
+    | {
+        sent?: boolean;
+        sentAt?: string;
+        missingInfo?: string[];
+        replyContent?: string;
       }
     | undefined;
 
@@ -117,22 +203,40 @@ export const MessageDetail = ({
     <div className="space-y-6">
       {/* Header Section */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-500/10 dark:bg-blue-500/10 rounded-lg">
+        <div className="flex gap-3 items-center">
+          <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
             {getChannelIcon(message.channel)}
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <Badge variant="secondary">{message.channel}</Badge>
               {message.processed && <Badge variant="success">Processed</Badge>}
               {message.ticketId && <Badge variant="default">Has Ticket</Badge>}
+              {message.resolved && !message.ticketId && <Badge variant="success">Resolved</Badge>}
             </div>
           </div>
+          {onRefresh && (
+            <Button
+              onClick={onRefresh}
+              variant="ghost"
+              size="sm"
+              className="flex-shrink-0"
+              title="Refresh message data"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          )}
         </div>
 
-        <div>
-          <p className="text-sm text-muted-foreground">From</p>
-          <p className="text-lg font-semibold">{message.sender}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Message ID</p>
+            <p className="font-mono text-sm">#{message.id}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">From</p>
+            <p className="text-lg font-semibold truncate">{message.sender}</p>
+          </div>
         </div>
 
         {message.subject && (
@@ -146,12 +250,11 @@ export const MessageDetail = ({
           <p className="text-sm text-muted-foreground">Received</p>
           <p className="text-sm">
             {formatDate(
-              (message.metadata as { receivedAt?: string })?.receivedAt ??
-                message.createdAt
+              (message.metadata as { receivedAt?: string })?.receivedAt ?? message.createdAt
             )}
           </p>
           {(message.metadata as { receivedAt?: string })?.receivedAt && message.createdAt && (
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               Imported: {formatDate(message.createdAt)}
             </p>
           )}
@@ -159,8 +262,8 @@ export const MessageDetail = ({
 
         {/* Link to Ticket */}
         {message.ticketId && (
-          <div className="p-3 bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <div className="flex items-center justify-between">
+          <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+            <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
                   Linked Ticket
@@ -174,7 +277,7 @@ export const MessageDetail = ({
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors"
               >
                 View Ticket
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
           </div>
@@ -182,18 +285,16 @@ export const MessageDetail = ({
 
         {/* Processing Error Alert */}
         {message.processingError && (
-          <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200 dark:bg-red-950/20 dark:border-red-800">
             <div className="flex gap-3">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-red-900 dark:text-red-100 mb-1">
-                  Processing Failed
-                </p>
-                <p className="text-sm text-red-700 dark:text-red-300 break-words">
+                <p className="mb-1 font-medium text-red-900 dark:text-red-100">Processing Failed</p>
+                <p className="text-sm text-red-700 break-words dark:text-red-300">
                   {message.processingError}
                 </p>
                 {(message.metadata as { failedAt?: string })?.failedAt && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">
                     Failed at: {formatDate((message.metadata as { failedAt: string }).failedAt)}
                   </p>
                 )}
@@ -203,18 +304,166 @@ export const MessageDetail = ({
         )}
       </div>
 
+      {/* Similar Resolved Tickets - AI-powered suggestions */}
+      {!message.ticketId && !message.resolved && (
+        <SimilarTickets messageId={message.id} onUseResponse={handleUseResponse} />
+      )}
+
       {/* Message Content */}
-      <div className="border-t pt-6">
-        <h3 className="text-sm font-semibold text-muted-foreground mb-3">Message</h3>
-        <div className="prose prose-sm max-w-none">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+      <div className="pt-6 border-t">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">Message</h3>
+          <TranslateButton
+            messageId={message.id}
+            originalContent={message.content}
+            originalSubject={message.subject ?? undefined}
+            variant="ghost"
+            size="sm"
+          />
+        </div>
+        <div className="max-w-none prose prose-sm">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
 
+      {/* AI Auto-Reply (if sent) */}
+      {autoReply?.sent && autoReply.replyContent && (
+        <div className="p-4 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex gap-2 items-center">
+              <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900">
+                <Send className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-green-900 dark:text-green-100">
+                AI Auto-Reply Sent
+              </h3>
+            </div>
+            {autoReply.sentAt && (
+              <span className="text-xs text-green-600 dark:text-green-400">
+                {formatDate(new Date(autoReply.sentAt))}
+              </span>
+            )}
+          </div>
+          <div className="mb-3 max-w-none prose prose-sm prose-green">
+            <p className="text-sm leading-relaxed text-green-900 whitespace-pre-wrap dark:text-green-50">
+              {autoReply.replyContent}
+            </p>
+          </div>
+          {autoReply.missingInfo && autoReply.missingInfo.length > 0 && (
+            <div className="pt-3 border-t border-green-200 dark:border-green-800">
+              <p className="mb-2 text-xs font-medium text-green-700 dark:text-green-300">
+                Additional information requested:
+              </p>
+              <ul className="space-y-1 text-xs text-green-600 dark:text-green-400">
+                {autoReply.missingInfo.map((info) => (
+                  <li key={info} className="flex gap-2 items-start">
+                    <span className="mt-1">•</span>
+                    <span>{info}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Email Thread */}
+      <MessageThread
+        messageId={message.id}
+        currentThreadId={message.threadId}
+        onMessageClick={onMessageNavigate}
+      />
+
+      {/* Direct Reply Form */}
+      <div className="pt-6 border-t">
+        {message.ticketId && (
+          <div className="p-3 mb-3 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+            <p className="flex gap-2 items-start text-sm text-blue-900 dark:text-blue-100">
+              <Info className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                This message is linked to Ticket #{message.ticketId}. Your reply will be sent to
+                the customer.
+              </span>
+            </p>
+          </div>
+        )}
+        {message.resolved && !message.ticketId && (
+          <div className="p-3 mb-3 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+            <p className="flex gap-2 items-start text-sm text-green-900 dark:text-green-100">
+              <Info className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                This message is already marked as resolved. You can still send a follow-up reply if
+                needed.
+              </span>
+            </p>
+          </div>
+        )}
+        {!showReplyForm ? (
+          <Button onClick={() => setShowReplyForm(true)} className="w-full" variant="outline">
+            <Reply className="mr-2 w-4 h-4" />
+            {message.ticketId
+              ? 'Send Reply'
+              : message.resolved
+                ? 'Send Follow-up Reply'
+                : 'Reply Without Creating Ticket'}
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <Textarea
+              id="reply-textarea"
+              label={message.ticketId ? 'Reply' : message.resolved ? 'Follow-up Reply' : 'Quick Reply'}
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder={
+                message.ticketId
+                  ? 'Type your reply...'
+                  : message.resolved
+                    ? 'Type your follow-up message...'
+                    : 'Type your reply to resolve this request quickly...'
+              }
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleSendReply} disabled={submitting || !replyContent.trim()}>
+                <Send className="mr-2 w-4 h-4" />
+                {submitting
+                  ? 'Sending...'
+                  : message.ticketId
+                    ? 'Send Reply'
+                    : message.resolved
+                      ? 'Send Reply'
+                      : 'Send & Resolve'}
+              </Button>
+              <Button variant="outline" onClick={() => setShowReplyForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Show existing direct reply if present */}
+      {message.directReply && message.repliedAt && (
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+              Support Reply
+            </h3>
+            {message.repliedAt && (
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                {formatDate(new Date(message.repliedAt))}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-blue-900 whitespace-pre-wrap dark:text-blue-50">
+            {message.directReply}
+          </p>
+        </div>
+      )}
+
       {/* Email Attachments */}
       {emailAttachments && emailAttachments.length > 0 && (
-        <div className="border-t pt-6">
-          <h3 className="flex gap-2 items-center text-sm font-semibold text-muted-foreground mb-3">
+        <div className="pt-6 border-t">
+          <h3 className="flex gap-2 items-center mb-3 text-sm font-semibold text-muted-foreground">
             <Paperclip className="w-4 h-4" />
             Attachments
             <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
@@ -222,18 +471,18 @@ export const MessageDetail = ({
             </span>
           </h3>
           <div className="space-y-2">
-            {emailAttachments.map((attachment, index) => (
+            {emailAttachments.map((attachment) => (
               <div
-                key={`attachment-${attachment.filename || index}`}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border hover:bg-muted transition-colors"
+                key={attachment.filename}
+                className="flex justify-between items-center p-3 rounded-lg border transition-colors bg-muted/50 hover:bg-muted"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 bg-blue-500/10 dark:bg-blue-500/10 rounded">
+                <div className="flex gap-3 items-center min-w-0">
+                  <div className="p-2 rounded bg-blue-500/10 dark:bg-blue-500/10">
                     <Paperclip className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{attachment.filename}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex gap-2 items-center text-xs text-muted-foreground">
                       <span>{attachment.contentType}</span>
                       {attachment.size && (
                         <>
@@ -257,10 +506,13 @@ export const MessageDetail = ({
             ))}
           </div>
           {!message.ticketId && (
-            <div className="mt-3 p-3 bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                ℹ️ Attachments will be available for download once a ticket is created from this
-                message.
+            <div className="p-3 mt-3 rounded-lg border bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20">
+              <p className="flex gap-2 items-start text-xs text-amber-600 dark:text-amber-400">
+                <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  Attachments will be available for download once a ticket is created from this
+                  message.
+                </span>
               </p>
             </div>
           )}
@@ -269,8 +521,8 @@ export const MessageDetail = ({
 
       {/* AI Analysis */}
       {(analysis ?? spamCheck) && (
-        <div className="border-t pt-6">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4">AI Analysis</h3>
+        <div className="pt-6 border-t">
+          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">AI Analysis</h3>
           <div className="space-y-4">
             {/* Status Indicators */}
             <div className="grid grid-cols-2 gap-3">
@@ -285,13 +537,13 @@ export const MessageDetail = ({
                         : 'bg-muted border-border'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex gap-2 items-center mb-1">
                     {spamCheck.isSpam === false ? (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="w-4 h-4 text-green-600" />
                     ) : spamCheck.isSpam === true ? (
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
                     ) : (
-                      <Info className="h-4 w-4 text-gray-600" />
+                      <Info className="w-4 h-4 text-gray-600" />
                     )}
                     <span className="text-xs font-semibold">Spam Check</span>
                   </div>
@@ -303,7 +555,7 @@ export const MessageDetail = ({
                         : 'Unknown'}
                   </p>
                   {spamCheck.category && (
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">
+                    <p className="mt-1 text-xs capitalize text-muted-foreground">
                       {spamCheck.category}
                     </p>
                   )}
@@ -319,17 +571,17 @@ export const MessageDetail = ({
                       : 'bg-muted border-border'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex gap-2 items-center mb-1">
                     {analysis.isTicketWorthy ? (
-                      <CheckCircle className="h-4 w-4 text-blue-600" />
+                      <CheckCircle className="w-4 h-4 text-blue-600" />
                     ) : (
-                      <Info className="h-4 w-4 text-gray-600" />
+                      <Info className="w-4 h-4 text-gray-600" />
                     )}
                     <span className="text-xs font-semibold">Ticket Worthy</span>
                   </div>
                   <p className="text-sm font-medium">{analysis.isTicketWorthy ? 'Yes' : 'No'}</p>
                   {analysis.confidence !== undefined && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Confidence: {Math.round(analysis.confidence * 100)}%
                     </p>
                   )}
@@ -345,11 +597,11 @@ export const MessageDetail = ({
                       : 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex gap-2 items-center mb-1">
                     {analysis.needsMoreInfo ? (
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                      <AlertTriangle className="w-4 h-4 text-yellow-600" />
                     ) : (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="w-4 h-4 text-green-600" />
                     )}
                     <span className="text-xs font-semibold">Info Complete</span>
                   </div>
@@ -362,11 +614,11 @@ export const MessageDetail = ({
               {/* Priority */}
               {analysis?.suggestedPriority && (
                 <div className="p-3 rounded-lg border bg-purple-500/10 dark:bg-purple-500/10 border-purple-500/20">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Info className="h-4 w-4 text-purple-600" />
+                  <div className="flex gap-2 items-center mb-1">
+                    <Info className="w-4 h-4 text-purple-600" />
                     <span className="text-xs font-semibold">Priority</span>
                   </div>
-                  <p className="text-sm capitalize font-medium">{analysis.suggestedPriority}</p>
+                  <p className="text-sm font-medium capitalize">{analysis.suggestedPriority}</p>
                 </div>
               )}
             </div>
@@ -374,8 +626,8 @@ export const MessageDetail = ({
             {/* Category */}
             {analysis?.suggestedCategory && (
               <div className="p-3 rounded-lg border bg-indigo-500/10 dark:bg-indigo-500/10 border-indigo-500/20">
-                <div className="flex items-center gap-2 mb-1">
-                  <Info className="h-4 w-4 text-indigo-600" />
+                <div className="flex gap-2 items-center mb-1">
+                  <Info className="w-4 h-4 text-indigo-600" />
                   <span className="text-xs font-semibold">Suggested Category</span>
                 </div>
                 <p className="text-sm font-medium">{analysis.suggestedCategory}</p>
@@ -385,8 +637,8 @@ export const MessageDetail = ({
             {/* Summary */}
             {analysis?.summary && (
               <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Info className="h-4 w-4 text-blue-600" />
+                <div className="flex gap-2 items-center mb-2">
+                  <Info className="w-4 h-4 text-blue-600" />
                   <span className="text-xs font-semibold">AI Summary</span>
                 </div>
                 <p className="text-sm text-blue-600 dark:text-blue-400">{analysis.summary}</p>
@@ -396,8 +648,8 @@ export const MessageDetail = ({
             {/* Spam Reason */}
             {spamCheck?.reason && (
               <div className="p-3 rounded-lg border bg-muted border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <Info className="h-4 w-4 text-gray-600" />
+                <div className="flex gap-2 items-center mb-2">
+                  <Info className="w-4 h-4 text-gray-600" />
                   <span className="text-xs font-semibold">Detection Reason</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{spamCheck.reason}</p>
@@ -407,21 +659,51 @@ export const MessageDetail = ({
             {/* Red Flags */}
             {spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
               <div className="p-3 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                <div className="flex gap-2 items-center mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
                   <span className="text-xs font-semibold">Red Flags</span>
                 </div>
                 <ul className="space-y-1">
-                  {spamCheck.redFlags.map((flag: string, index: number) => (
+                  {spamCheck.redFlags.map((flag: string) => (
                     <li
-                      key={`flag-${flag}-${index}`}
-                      className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2"
+                      key={flag}
+                      className="flex gap-2 items-start text-sm text-red-600 dark:text-red-400"
                     >
                       <span className="mt-1">•</span>
                       <span>{flag}</span>
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* AI Models Used */}
+            {(message.analysisProvider ?? message.embeddingProvider) && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                <div className="flex gap-2 items-center mb-2">
+                  <Info className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  <span className="text-xs font-semibold">AI Models Used</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  {message.analysisProvider && (
+                    <div>
+                      <span className="text-muted-foreground">Analysis: </span>
+                      <span className="font-mono font-medium">
+                        {message.analysisProvider}
+                        {message.analysisModel && ` (${message.analysisModel})`}
+                      </span>
+                    </div>
+                  )}
+                  {message.embeddingProvider && (
+                    <div>
+                      <span className="text-muted-foreground">Embedding: </span>
+                      <span className="font-mono font-medium">
+                        {message.embeddingProvider}
+                        {message.embeddingModel && ` (${message.embeddingModel})`}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -435,12 +717,12 @@ export const MessageDetail = ({
           const { embedding, embeddingString, analysis, spamCheck, ...displayMetadata } =
             message.metadata;
           return Object.keys(displayMetadata).length > 0 ? (
-            <div className="border-t pt-6">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+            <div className="pt-6 border-t">
+              <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
                 Additional Information
               </h3>
-              <div className="bg-muted rounded-lg p-4">
-                <pre className="text-xs overflow-auto">
+              <div className="p-4 rounded-lg bg-muted">
+                <pre className="overflow-auto text-xs">
                   {JSON.stringify(displayMetadata, null, 2)}
                 </pre>
               </div>
@@ -449,18 +731,37 @@ export const MessageDetail = ({
         })()}
 
       {/* Actions */}
-      <div className="border-t pt-6 flex gap-2">
+      <div className="flex flex-wrap gap-2 pt-6 border-t">
+        <Button onClick={handleCopyLink} variant="outline" size="sm">
+          <LinkIcon className="mr-2 w-4 h-4" />
+          {linkCopied ? 'Link Copied!' : 'Copy Link'}
+        </Button>
+
+        {!message.ticketId && !message.resolved && (
+          <Button onClick={handleResolveWithoutReply} variant="outline" size="sm">
+            <CheckCircle className="mr-1 w-4 h-4" />
+            Mark Resolved
+          </Button>
+        )}
+
+        {message.resolved && !message.ticketId && (
+          <Button onClick={handleReopenMessage} variant="outline" size="sm">
+            <RotateCcw className="mr-1 w-4 h-4" />
+            Reopen
+          </Button>
+        )}
+
         {!message.processed ? (
           <>
             {onApprove && (
               <Button onClick={onApprove} className="flex-1">
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="mr-2 w-4 h-4" />
                 Create Ticket
               </Button>
             )}
             {onReject && (
               <Button onClick={handleRejectClick} variant="outline" className="flex-1">
-                <X className="h-4 w-4 mr-2" />
+                <X className="mr-2 w-4 h-4" />
                 Mark as Processed
               </Button>
             )}
@@ -469,13 +770,13 @@ export const MessageDetail = ({
           <>
             {!message.ticketId && onReopen && (
               <Button onClick={handleReopenClick} variant="outline" className="flex-1">
-                <RotateCcw className="h-4 w-4 mr-2" />
+                <RotateCcw className="mr-2 w-4 h-4" />
                 Reopen Message
               </Button>
             )}
             {message.ticketId && (
-              <div className="flex-1 p-3 bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-md">
-                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+              <div className="flex-1 p-3 rounded-md border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
                   Ticket already created - Cannot reopen
                 </p>
               </div>
@@ -484,7 +785,7 @@ export const MessageDetail = ({
         )}
         {onDelete && (
           <Button onClick={onDelete} variant="destructive">
-            <Trash2 className="h-4 w-4 mr-2" />
+            <Trash2 className="mr-2 w-4 h-4" />
             Delete
           </Button>
         )}

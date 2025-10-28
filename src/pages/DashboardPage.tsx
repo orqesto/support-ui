@@ -1,17 +1,18 @@
 import { useEffect, useState, useRef } from 'react';
-import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle, AlertTriangle, Hourglass, BarChart3 } from 'lucide-react';
+import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle, AlertTriangle, Hourglass, BarChart3, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { EmailProcessingProgress } from '../components/EmailProcessingProgress';
 import { Layout } from '../components/layout/Layout';
 import { AlertDialog } from '../components/ui/AlertDialog';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { useEmailProcessing } from '../hooks/useEmailProcessing';
 import { useSystemHealth } from '../hooks/useSystemHealth';
 import { ingestionService } from '../services/ingestion.service';
 import { integrationsService } from '../services/integrations.service';
 import { messageService } from '../services/message.service';
 import { ticketService } from '../services/ticket.service';
 import { useMessagesStore } from '../stores/messagesStore';
+import { useProcessingStore } from '../stores/processingStore';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -43,6 +44,34 @@ export const DashboardPage = () => {
 
   // Get messages store cache clear function
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
+  
+  // Get processing store functions
+  const { addTask, removeTask } = useProcessingStore();
+  
+  // Subscribe to email processing events to auto-refresh on completion
+  const { status: processingStatus, processed: processedCount, isProcessing } = useEmailProcessing(true);
+  const prevProcessingStatus = useRef(processingStatus);
+
+  // Auto-refresh stats when processing completes
+  useEffect(() => {
+    // Detect transition from processing to complete
+    if (
+      prevProcessingStatus.current === 'processing' &&
+      processingStatus === 'complete' &&
+      processedCount > 0
+    ) {
+      console.log(`Email processing completed (${processedCount} messages), refreshing dashboard stats...`);
+      
+      // Clear caches to force fresh data fetch
+      clearMessagesCache();
+      
+      // Refresh dashboard stats
+      fetchStats().catch((error) => {
+        console.error('Failed to refresh stats after processing:', error);
+      });
+    }
+    prevProcessingStatus.current = processingStatus;
+  }, [processingStatus, processedCount, clearMessagesCache]);
 
   const fetchStats = async () => {
     try {
@@ -138,7 +167,7 @@ export const DashboardPage = () => {
     []
   );
 
-  const handleIngestion = async (type: 'all' | 'email' | 'telegram' | 'check-email') => {
+  const handleIngestion = async (type: 'all' | 'email' | 'telegram') => {
     // Check if current org has required integrations before starting
     if (type === 'all' && !hasIntegrations) {
       setAlertDialog({
@@ -151,7 +180,7 @@ export const DashboardPage = () => {
       return;
     }
 
-    if ((type === 'email' || type === 'check-email') && !hasEmailIntegrations) {
+    if (type === 'email' && !hasEmailIntegrations) {
       setAlertDialog({
         open: true,
         title: 'No Email Integration',
@@ -174,6 +203,16 @@ export const DashboardPage = () => {
     }
 
     setIngesting(type);
+    
+    // Add to global processing status
+    const taskMessage =
+      type === 'all'
+        ? 'Processing all services'
+        : type === 'email'
+          ? 'Checking emails'
+          : 'Checking Telegram';
+    const taskId = addTask(type === 'telegram' ? 'telegram' : 'email', taskMessage);
+    
     try {
       let response;
       switch (type) {
@@ -186,9 +225,6 @@ export const DashboardPage = () => {
         case 'telegram':
           response = await ingestionService.startTelegram();
           break;
-        case 'check-email':
-          response = await ingestionService.checkEmails();
-          break;
       }
       if (response.success) {
         const message = response.message ?? 'Ingestion started successfully';
@@ -196,6 +232,9 @@ export const DashboardPage = () => {
 
         // Clear Messages page cache so it shows fresh data
         clearMessagesCache();
+
+        // Refresh stats immediately
+        await fetchStats();
 
         // Show success message first
         const description = note ? `${message}\n\n${note}` : message;
@@ -211,14 +250,14 @@ export const DashboardPage = () => {
           clearInterval(pollingIntervalRef.current);
         }
 
-        // Refresh stats after a delay to allow background processing
-        // Poll stats every 2 seconds for up to 30 seconds
+        // Poll stats aggressively for 60 seconds to catch async processing
         let attempts = 0;
-        const maxAttempts = 15;
+        const maxAttempts = 30; // 30 attempts × 2s = 60 seconds
         pollingIntervalRef.current = setInterval(async () => {
           attempts++;
           await fetchStats();
 
+          // Stop polling after max attempts
           if (attempts >= maxAttempts && pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
@@ -235,6 +274,8 @@ export const DashboardPage = () => {
       });
     } finally {
       setIngesting(null);
+      // Remove from global processing status
+      removeTask(taskId);
     }
   };
 
@@ -375,13 +416,21 @@ export const DashboardPage = () => {
               <Button
                 onClick={() => handleIngestion('all')}
                 isLoading={ingesting === 'all'}
-                disabled={!hasIntegrations}
+                disabled={!hasIntegrations || isProcessing || processingStatus === 'processing'}
                 className="w-full h-12 text-base font-semibold"
                 size="lg"
-                title={!hasIntegrations ? 'No integrations configured for this organization' : ''}
+                title={
+                  !hasIntegrations
+                    ? 'No integrations configured for this organization'
+                    : isProcessing || processingStatus === 'processing'
+                      ? 'Email processing is already running. Please wait for completion.'
+                      : ''
+                }
               >
                 <PlayCircle className="mr-2 w-5 h-5" />
-                Start All Services
+                {isProcessing || processingStatus === 'processing'
+                  ? 'Processing...'
+                  : 'Start All Services'}
               </Button>
               {!hasIntegrations && (
                 <p className="flex gap-1 justify-center items-center text-xs text-amber-600">
@@ -389,14 +438,26 @@ export const DashboardPage = () => {
                   No integrations configured. Go to Settings to add integrations.
                 </p>
               )}
+              {(isProcessing || processingStatus === 'processing') && (
+                <p className="flex gap-1 justify-center items-center text-xs text-blue-600 dark:text-blue-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Email processing in progress. Please wait...
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
                   onClick={() => handleIngestion('email')}
                   isLoading={ingesting === 'email'}
-                  disabled={!hasEmailIntegrations}
+                  disabled={!hasEmailIntegrations || isProcessing || processingStatus === 'processing'}
                   className="w-full"
-                  title={!hasEmailIntegrations ? 'No email integrations configured' : ''}
+                  title={
+                    !hasEmailIntegrations
+                      ? 'No email integrations configured'
+                      : isProcessing || processingStatus === 'processing'
+                        ? 'Processing already in progress'
+                        : ''
+                  }
                 >
                   <Mail className="mr-2 w-4 h-4" />
                   Email
@@ -405,9 +466,15 @@ export const DashboardPage = () => {
                   variant="outline"
                   onClick={() => handleIngestion('telegram')}
                   isLoading={ingesting === 'telegram'}
-                  disabled={!hasTelegramIntegrations}
+                  disabled={!hasTelegramIntegrations || isProcessing || processingStatus === 'processing'}
                   className="w-full"
-                  title={!hasTelegramIntegrations ? 'No Telegram integration configured' : ''}
+                  title={
+                    !hasTelegramIntegrations
+                      ? 'No Telegram integration configured'
+                      : isProcessing || processingStatus === 'processing'
+                        ? 'Processing already in progress'
+                        : ''
+                  }
                 >
                   <Inbox className="mr-2 w-4 h-4" />
                   Telegram
@@ -568,23 +635,9 @@ export const DashboardPage = () => {
                   </div>
                 )}
               </div>
-              <Button
-                variant="outline"
-                onClick={() => handleIngestion('check-email')}
-                isLoading={ingesting === 'check-email'}
-                disabled={!hasEmailIntegrations}
-                className="w-full"
-                size="sm"
-                title={!hasEmailIntegrations ? 'No email integrations configured' : ''}
-              >
-                <Mail className="mr-2 w-4 h-4" />
-                Check Emails Manually
-              </Button>
             </CardContent>
           </Card>
         </div>
-        {/* Real-time Email Processing Progress */}
-        <EmailProcessingProgress />
       </div>
 
       {/* Alert Dialog */}

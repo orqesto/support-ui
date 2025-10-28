@@ -1,28 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import {
-  Mail,
-  MessageSquare,
-  Send,
-  Check,
-  X,
-  XCircle,
-  RefreshCw,
-  Trash2,
-  Filter,
-  ExternalLink,
-  RotateCcw,
-  Paperclip,
-  ShieldX,
-  Ticket,
-  AlertTriangle,
-  Folder,
-} from 'lucide-react';
+import { Mail, RefreshCw } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/MessageDetail';
+import { MessageFilters } from '@/components/MessageFilters';
+import { MessageListItem } from '@/components/MessageListItem';
 import { AlertDialog } from '@/components/ui/AlertDialog';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import {
@@ -34,12 +18,8 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Drawer } from '@/components/ui/Drawer';
-import { ListCard } from '@/components/ui/ListCard';
 import { Pagination } from '@/components/ui/Pagination';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Select } from '@/components/ui/Select';
 import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
@@ -181,20 +161,73 @@ export const MessagesPage = () => {
     await fetchMessages(page);
   };
 
+  // Sync URL parameters with filters on mount
+  useEffect(() => {
+    const urlProcessed = searchParams.get('processed');
+    const urlChannel = searchParams.get('channel');
+    const urlSpam = searchParams.get('spam');
+    const urlWorthy = searchParams.get('worthy');
+    const urlNeedsInfo = searchParams.get('needsInfo');
+    const urlAttachments = searchParams.get('attachments');
+    const urlFailed = searchParams.get('failed');
+    const urlSearch = searchParams.get('search');
+
+    const urlFilters: Partial<typeof filters> = {};
+    let hasUrlFilters = false;
+
+    if (urlProcessed && ['all', 'true', 'false'].includes(urlProcessed)) {
+      urlFilters.processed = urlProcessed as 'all' | 'true' | 'false';
+      hasUrlFilters = true;
+    }
+    if (urlChannel && ['all', 'email', 'telegram', 'slack'].includes(urlChannel)) {
+      urlFilters.channel = urlChannel as 'all' | 'email' | 'telegram' | 'slack';
+      hasUrlFilters = true;
+    }
+    if (urlSpam === 'true') {
+      urlFilters.showSpam = true;
+      hasUrlFilters = true;
+    }
+    if (urlWorthy === 'true') {
+      urlFilters.showWorthy = true;
+      hasUrlFilters = true;
+    }
+    if (urlNeedsInfo === 'true') {
+      urlFilters.showNeedsInfo = true;
+      hasUrlFilters = true;
+    }
+    if (urlAttachments === 'true') {
+      urlFilters.hasAttachments = true;
+      hasUrlFilters = true;
+    }
+    if (urlFailed === 'true') {
+      urlFilters.showFailed = true;
+      hasUrlFilters = true;
+    }
+    if (urlSearch) {
+      urlFilters.search = urlSearch;
+      hasUrlFilters = true;
+    }
+
+    // Apply URL filters to store if any exist
+    if (hasUrlFilters) {
+      setFilters(urlFilters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
   // Auto-open message from query param
   useEffect(() => {
     const messageIdParam = searchParams.get('id');
-    if (messageIdParam && !selectedMessage) {
+    const paramId = messageIdParam ? parseInt(messageIdParam) : null;
+    
+    // Only fetch if URL has an ID and it's different from the currently selected message
+    if (paramId && (!selectedMessage || selectedMessage.id !== paramId)) {
       // Fetch the specific message by ID (it might be filtered out)
       const fetchAndOpenMessage = async () => {
         try {
-          const response = await messageService.getById(parseInt(messageIdParam));
+          const response = await messageService.getById(paramId);
           if (response.success && response.data) {
             setSelectedMessage(response.data);
-            // Clear the query param after opening
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('id');
-            setSearchParams(newParams);
           }
         } catch (error) {
           console.error('Failed to fetch message:', error);
@@ -203,8 +236,11 @@ export const MessagesPage = () => {
       fetchAndOpenMessage().catch((error) => {
         console.error('Failed to fetch message:', error);
       });
+    } else if (!paramId && selectedMessage) {
+      // URL cleared but message still selected - clear selection
+      setSelectedMessage(null);
     }
-  }, [searchParams, selectedMessage, setSearchParams]);
+  }, [searchParams, selectedMessage]);
 
   const handleFilterChange = (key: string, value: string) => {
     if (key === 'search') {
@@ -240,9 +276,9 @@ export const MessagesPage = () => {
   const handleReject = async (message: Message) => {
     try {
       await messageService.markAsProcessed(message.id);
-      clearCache(); // Clear all cached data
-      setSelectedMessage(null); // Close the drawer
-      await fetchMessages(pagination.page, true); // Keep current page, force refresh
+      clearCache();
+      setSelectedMessage(null);
+      await fetchMessages(pagination.page, true);
     } catch (error) {
       console.error('Failed to mark message as processed:', error);
     }
@@ -251,9 +287,9 @@ export const MessagesPage = () => {
   const handleReopen = async (message: Message) => {
     try {
       await messageService.markAsUnprocessed(message.id);
-      clearCache(); // Clear all cached data
-      setSelectedMessage(null); // Close the drawer
-      await fetchMessages(pagination.page, true); // Keep current page, force refresh
+      clearCache();
+      setSelectedMessage(null);
+      await fetchMessages(pagination.page, true);
     } catch (error: unknown) {
       console.error('Failed to reopen message:', error);
       const errorMsg =
@@ -272,8 +308,22 @@ export const MessagesPage = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchMessages(pagination.page, true); // Keep current page, force refresh
+    await fetchMessages(pagination.page, true);
     setRefreshing(false);
+  };
+
+  const handleRefreshMessage = async () => {
+    if (!selectedMessage) {
+      return;
+    }
+    try {
+      const response = await messageService.getById(selectedMessage.id);
+      if (response.success && response.data) {
+        setSelectedMessage(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to refresh message:', error);
+    }
   };
 
   const handleSyncEmails = async () => {
@@ -321,11 +371,11 @@ export const MessagesPage = () => {
     setDeleting(true);
     try {
       await messageService.delete(messageToDelete.id);
-      clearCache(); // Clear all cached data
+      clearCache();
       setDeleteDialogOpen(false);
       setMessageToDelete(null);
-      setSelectedMessage(null); // Close the drawer
-      await fetchMessages(1, true); // Force refresh
+      setSelectedMessage(null);
+      await fetchMessages(1, true);
     } catch (error) {
       console.error('Failed to delete message:', error);
       setAlertDialog({
@@ -339,17 +389,6 @@ export const MessagesPage = () => {
     }
   };
 
-  const getChannelIcon = (channel: string) => {
-    switch (channel) {
-      case 'email':
-        return <Mail className="w-4 h-4" />;
-      case 'slack':
-      case 'telegram':
-        return <MessageSquare className="w-4 h-4" />;
-      default:
-        return <Send className="w-4 h-4" />;
-    }
-  };
 
   const activeFilterCount =
     (filters.processed !== 'false' ? 1 : 0) +
@@ -388,179 +427,20 @@ export const MessagesPage = () => {
         </div>
 
         {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Header */}
-              <div className="flex flex-wrap gap-2 justify-between items-center min-h-[32px]">
-                <div className="flex flex-wrap gap-2 items-center">
-                  <div className="flex gap-2 items-center">
-                    <Filter className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Filters</span>
-                    <Badge variant="default" className="text-xs">
-                      {activeFilterCount}
-                    </Badge>
-                  </div>
-                  {pagination.total > 0 && (
-                    <span className="text-xs whitespace-nowrap text-muted-foreground">
-                      {(pagination.page - 1) * pagination.limit + 1}-
-                      {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                      {pagination.total}
-                    </span>
-                  )}
-                </div>
-                {activeFilterCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
-                    <X className="mr-1 w-3 h-3" />
-                    Clear
-                  </Button>
-                )}
-              </div>
-
-              {/* Filter Controls */}
-              <div className="flex flex-wrap gap-3 items-center">
-                {/* Search Input */}
-                <SearchInput
-                  value={pendingSearch}
-                  onChange={(value) => handleFilterChange('search', value)}
-                  onSearch={handleSearch}
-                  onBlur={handleSearchBlur}
-                  showSearchButton={true}
-                  placeholder="Search by ID, email, subject, content..."
-                  className="w-[300px]"
-                  size="sm"
-                />
-
-                {/* Group 1: Status */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Status:
-                  </span>
-                  <div className="inline-flex rounded-md shadow-sm">
-                    <Button
-                      variant={filters.processed === 'false' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFilterChange('processed', 'false')}
-                      className="h-8 text-xs rounded-l-md rounded-r-none border-r-0"
-                    >
-                      Unprocessed
-                    </Button>
-                    <Button
-                      variant={filters.processed === 'true' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFilterChange('processed', 'true')}
-                      className="h-8 text-xs rounded-none border-r-0"
-                    >
-                      Processed
-                    </Button>
-                    <Button
-                      variant={filters.processed === 'all' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFilterChange('processed', 'all')}
-                      className="h-8 text-xs rounded-r-md rounded-l-none"
-                    >
-                      All
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Group 2: Channel */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Channel:
-                  </span>
-                  <Select
-                    value={filters.channel}
-                    onChange={(e) => handleFilterChange('channel', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Filter by channel"
-                  >
-                    <option value="all">All</option>
-                    <option value="email">Email</option>
-                    <option value="telegram">Telegram</option>
-                    <option value="slack">Slack</option>
-                  </Select>
-                </div>
-
-                {/* Group 3: AI Filter */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    AI Filter:
-                  </span>
-                  <Select
-                    value={
-                      filters.showSpam
-                        ? 'spam'
-                        : filters.showWorthy
-                          ? 'worthy'
-                          : filters.showNeedsInfo
-                            ? 'needsInfo'
-                            : 'none'
-                    }
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFilters({
-                        ...filters,
-                        showSpam: value === 'spam',
-                        showWorthy: value === 'worthy',
-                        showNeedsInfo: value === 'needsInfo',
-                      });
-                    }}
-                    className="px-2 py-1 pr-8 h-8 text-xs compact"
-                    aria-label="Filter by AI analysis"
-                  >
-                    <option value="none">None</option>
-                    <option value="spam">Spam</option>
-                    <option value="worthy">Ticket Worthy</option>
-                    <option value="needsInfo">Needs Info</option>
-                  </Select>
-                </div>
-
-                {/* Group 4a: Has Attachments */}
-                <label className="flex gap-2 items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filters.hasAttachments ?? false}
-                    onChange={(e) => setFilters({ ...filters, hasAttachments: e.target.checked })}
-                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                  />
-                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                    <Paperclip className="w-3 h-3" />
-                    <span>Has Attachments</span>
-                  </div>
-                </label>
-                {/* Group 4b: Failed Processing */}
-                <label className="flex gap-2 items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filters.showFailed ?? false}
-                    onChange={(e) => setFilters({ ...filters, showFailed: e.target.checked })}
-                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                  />
-                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap text-red-600 dark:text-red-400">
-                    <XCircle className="w-3 h-3" />
-                    <span>Failed Processing</span>
-                  </div>
-                </label>
-                {/* Group 5: Sorting */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Order:
-                  </span>
-                  <Select
-                    value={sorting.sortOrder}
-                    onChange={(e) => setSorting({ sortOrder: e.target.value as 'asc' | 'desc' })}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Sort order"
-                  >
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MessageFilters
+          filters={filters}
+          sorting={sorting}
+          pendingSearch={pendingSearch}
+          activeFilterCount={activeFilterCount}
+          pagination={pagination}
+          onFilterChange={handleFilterChange}
+          onSearch={handleSearch}
+          onSearchBlur={handleSearchBlur}
+          onClearFilters={clearFilters}
+          onSortingChange={(sortOrder) => setSorting({ sortOrder })}
+          setPendingSearch={setPendingSearch}
+          setFilters={setFilters}
+        />
 
         {loading ? (
           <div className="space-y-4">
@@ -585,213 +465,20 @@ export const MessagesPage = () => {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {messages.map((message) => {
-              const analysis = message.metadata?.analysis as
-                | {
-                    isTicketWorthy?: boolean;
-                    needsMoreInfo?: boolean;
-                    suggestedPriority?: string;
-                    suggestedCategory?: string;
-                    confidence?: number;
-                  }
-                | undefined;
-
-              const spamCheck = message.metadata?.spamCheck as
-                | {
-                    isSpam?: boolean;
-                    category?: string;
-                  }
-                | undefined;
-
-              // Get category display name (handle both ID and name formats)
-              const getCategoryDisplay = (suggestedCat?: string) => {
-                if (!suggestedCat) {
-                  return null;
-                }
-                // If it's a numeric ID, just show "Category #X", otherwise show the name
-                if (/^\d+$/.test(suggestedCat)) {
-                  return `Category #${suggestedCat}`;
-                }
-                // If it contains letters, it's likely a name - show it directly
-                return suggestedCat;
-              };
-
-              // Check if message has attachments
-              const hasAttachments =
-                message.rawData?.attachments &&
-                Array.isArray(message.rawData.attachments) &&
-                message.rawData.attachments.length > 0;
-
-              return (
-                <ListCard
-                  key={message.id}
-                  header={
-                    <>
-                      {getChannelIcon(message.channel)}
-                      <Badge variant="secondary">{message.channel}</Badge>
-                      {message.processed && <Badge variant="success">Processed</Badge>}
-                      {message.processingError && (
-                        <Badge variant="danger" title={message.processingError} className="flex gap-1 items-center">
-                          <XCircle className="w-3 h-3" />
-                          Failed
-                        </Badge>
-                      )}
-                      {hasAttachments && (
-                        <Badge
-                          variant="default"
-                          title={`${(message.rawData?.attachments as unknown[])?.length || 0} attachment(s)`}
-                          className="flex gap-1 items-center"
-                        >
-                          <Paperclip className="w-3 h-3" />
-                          {(message.rawData?.attachments as unknown[])?.length || 0}
-                        </Badge>
-                      )}
-
-                      {/* AI Analysis Badges */}
-                      {spamCheck?.isSpam === true && (
-                        <Badge variant="danger" title={spamCheck.category} className="flex gap-1 items-center">
-                          <ShieldX className="w-3 h-3" />
-                          Spam
-                        </Badge>
-                      )}
-                      {!spamCheck?.isSpam && analysis?.isTicketWorthy && (
-                        <Badge
-                          variant="default"
-                          title={`Confidence: ${Math.round((analysis.confidence ?? 0) * 100)}%`}
-                          className="flex gap-1 items-center"
-                        >
-                          <Ticket className="w-3 h-3" />
-                          Ticket Worthy
-                        </Badge>
-                      )}
-                      {analysis?.needsMoreInfo && (
-                        <Badge variant="warning" className="flex gap-1 items-center">
-                          <AlertTriangle className="w-3 h-3" />
-                          Needs Info
-                        </Badge>
-                      )}
-                      {analysis?.suggestedPriority && (
-                        <Badge
-                          variant={
-                            analysis.suggestedPriority === 'critical'
-                              ? 'danger'
-                              : analysis.suggestedPriority === 'high'
-                                ? 'warning'
-                                : 'default'
-                          }
-                          title="AI Suggested Priority"
-                        >
-                          Priority: {analysis.suggestedPriority}
-                        </Badge>
-                      )}
-                      {analysis?.suggestedCategory &&
-                        getCategoryDisplay(analysis.suggestedCategory) && (
-                          <Badge variant="secondary" title="AI Suggested Category" className="flex gap-1 items-center">
-                            <Folder className="w-3 h-3" />
-                            {getCategoryDisplay(analysis.suggestedCategory)}
-                          </Badge>
-                        )}
-                    </>
-                  }
-                  content={
-                    <>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold break-all">{message.sender}</p>
-                        {message.subject && (
-                          <p className="text-xs break-all text-muted-foreground">
-                            Subject: {message.subject}
-                          </p>
-                        )}
-                      </div>
-                      <p className="text-sm break-all text-muted-foreground line-clamp-2">
-                        {message.content}
-                      </p>
-                    </>
-                  }
-                  metadata={
-                    <>
-                      <span className="font-mono text-xs">ID: {message.id}</span>
-                      <span className="break-all">• From: {message.sender}</span>
-                      {message.channel && <span>• {message.channel}</span>}
-                      {hasAttachments && (
-                        <span className="flex gap-1 items-center">
-                          • <Paperclip className="w-3 h-3" />
-                          {(message.rawData?.attachments as unknown[])?.length || 0} file(s)
-                        </span>
-                      )}
-                      {message.processingError && (
-                        <span className="text-red-600 dark:text-red-400 font-medium" title="Processing Error">
-                          • Error: {message.processingError}
-                        </span>
-                      )}
-                      <span
-                        className="whitespace-nowrap"
-                        title={`Imported: ${formatDate(message.createdAt)}`}
-                      >
-                        •{' '}
-                        {formatDate(
-                          (message.metadata as { receivedAt?: string })?.receivedAt ??
-                            message.createdAt
-                        )}
-                      </span>
-                    </>
-                  }
-                  actions={
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedMessage(message)}
-                      >
-                        <ExternalLink className="mr-1 w-3 h-3" />
-                        Open
-                      </Button>
-                      <PermissionGuard permission={Permission.PROCESS_MESSAGES}>
-                        {!message.processed ? (
-                          <>
-                            <Button size="sm" onClick={() => handleApprove(message)}>
-                              <Check className="mr-1 w-3 h-3" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleReject(message)}
-                            >
-                              <X className="mr-1 w-3 h-3" />
-                              Reject
-                            </Button>
-                          </>
-                        ) : (
-                          !message.ticketId && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleReopen(message)}
-                            >
-                              <RotateCcw className="mr-1 w-3 h-3" />
-                              Reopen
-                            </Button>
-                          )
-                        )}
-                      </PermissionGuard>
-                      <PermissionGuard
-                        permissions={[Permission.DELETE_MESSAGES, Permission.MANAGE_ORGANIZATION]}
-                      >
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteClick(message)}
-                        >
-                          <Trash2 className="mr-1 w-3 h-3" />
-                          Delete
-                        </Button>
-                      </PermissionGuard>
-                    </>
-                  }
-                />
-              );
-            })}
+            {messages.map((message) => (
+              <MessageListItem
+                key={message.id}
+                message={message}
+                onOpen={(msg) => {
+                  setSelectedMessage(msg);
+                  setSearchParams({ id: msg.id.toString() });
+                }}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onReopen={handleReopen}
+                onDelete={handleDeleteClick}
+              />
+            ))}
           </div>
         )}
 
@@ -838,7 +525,10 @@ export const MessagesPage = () => {
       {selectedMessage && (
         <Drawer
           open={!!selectedMessage}
-          onClose={() => setSelectedMessage(null)}
+          onClose={() => {
+            setSearchParams({});
+            setSelectedMessage(null);
+          }}
           title="Message Details"
         >
           <MessageDetail
@@ -855,6 +545,18 @@ export const MessagesPage = () => {
             onDelete={() => {
               handleDeleteClick(selectedMessage);
               setSelectedMessage(null);
+            }}
+            onRefresh={handleRefreshMessage}
+            onMessageNavigate={async (messageId: number) => {
+              try {
+                const response = await messageService.getById(messageId);
+                if (response.success && response.data) {
+                  setSelectedMessage(response.data);
+                  setSearchParams({ id: messageId.toString() });
+                }
+              } catch (error) {
+                console.error('Failed to navigate to message:', error);
+              }
             }}
           />
         </Drawer>

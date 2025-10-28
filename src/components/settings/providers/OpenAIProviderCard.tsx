@@ -1,0 +1,285 @@
+import { useState } from 'react';
+import {
+  Brain,
+  Plus,
+  Save,
+  Trash2,
+  Edit,
+  TestTube2,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
+import type { Integration } from '@/services/integrations.service';
+import type { AIModel } from '@/types/aiProviders';
+
+type OpenAIProviderCardProps = {
+  integrations: Integration[];
+  models: AIModel[];
+  showModels: Record<string, boolean>;
+  testing: number | null;
+  deleting: number | null;
+  saving: string | null;
+  editingId: number | null;
+  onToggleModels: (id: number) => void;
+  onEdit: (integration: Integration) => void;
+  onTest: (id: number, name: string) => void;
+  onDelete: (id: number, name: string) => void;
+  onSave: (config: OpenAIConfig) => void;
+  onCancel: () => void;
+};
+
+type OpenAIConfig = {
+  apiKey: string;
+  baseUrl: string;
+  organization: string;
+  defaultChatModel: string;
+  defaultEmbeddingModel: string;
+};
+
+export const OpenAIProviderCard = ({
+  integrations,
+  models,
+  showModels,
+  testing,
+  deleting,
+  saving,
+  editingId,
+  onToggleModels,
+  onEdit,
+  onTest,
+  onDelete,
+  onSave,
+  onCancel,
+}: OpenAIProviderCardProps) => {
+  const [showForm, setShowForm] = useState(false);
+  const [config, setConfig] = useState<OpenAIConfig>({
+    apiKey: '',
+    baseUrl: '',
+    organization: '',
+    defaultChatModel: 'gpt-4o-mini',
+    defaultEmbeddingModel: 'text-embedding-3-small',
+  });
+
+  const handleEdit = (integration: Integration) => {
+    setConfig(integration.config as OpenAIConfig);
+    setShowForm(true);
+    onEdit(integration);
+  };
+
+  const handleReset = () => {
+    setConfig({
+      apiKey: '',
+      baseUrl: '',
+      organization: '',
+      defaultChatModel: 'gpt-4o-mini',
+      defaultEmbeddingModel: 'text-embedding-3-small',
+    });
+    setShowForm(false);
+    onCancel();
+  };
+
+  const handleSave = () => {
+    onSave(config);
+    handleReset();
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex gap-2 items-center">
+            <Brain className="w-5 h-5 text-green-600" />
+            OpenAI
+          </CardTitle>
+          <Button
+            size="sm"
+            onClick={() => {
+              handleReset();
+              setShowForm(!showForm);
+            }}
+          >
+            <Plus className="mr-1 w-4 h-4" />
+            {integrations.length > 0 ? 'Update' : 'Add'} OpenAI
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* List of OpenAI integrations */}
+        {integrations.length > 0 && (
+          <div className="space-y-2">
+            {integrations.map((integration) => (
+              <div key={integration.id} className="rounded-lg border">
+                <div className="flex justify-between items-center p-3">
+                  <div className="flex gap-3 items-center">
+                    <div
+                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                    />
+                    <div>
+                      <p className="font-medium">{integration.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Chat:{' '}
+                        {(integration.config as { defaultChatModel?: string }).defaultChatModel} •
+                        Embedding:{' '}
+                        {
+                          (integration.config as { defaultEmbeddingModel?: string })
+                            .defaultEmbeddingModel
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onToggleModels(integration.id)}
+                    >
+                      {showModels[integration.id] ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(integration)}
+                      disabled={editingId === integration.id}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onTest(integration.id, integration.name)}
+                      isLoading={testing === integration.id}
+                      disabled={!integration.hasCredentials}
+                    >
+                      <TestTube2 className="mr-2 w-4 h-4" />
+                      Poke
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDelete(integration.id, integration.name)}
+                      isLoading={deleting === integration.id}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Show available models */}
+                {showModels[integration.id] && (
+                  <div className="p-3 border-t bg-muted/30">
+                    <h5 className="mb-2 text-sm font-medium">Available Models:</h5>
+                    <div className="grid grid-cols-2 gap-2">
+                      {models.map((model) => (
+                        <div key={model.id} className="p-2 text-xs rounded border bg-background">
+                          <p className="font-medium">{model.name}</p>
+                          <p className="text-muted-foreground">
+                            {model.type} • {model.contextWindow.toLocaleString()} tokens
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add/Edit form */}
+        {showForm && (
+          <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
+            <h4 className="font-medium">
+              {editingId ? 'Edit OpenAI Configuration' : 'Add OpenAI Configuration'}
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="apiKey" className="text-sm font-medium">
+                  API Key *
+                </label>
+                <input
+                  type="password"
+                  value={config.apiKey}
+                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  placeholder="sk-..."
+                />
+              </div>
+              <Select
+                label="Default Chat Model"
+                value={config.defaultChatModel}
+                onChange={(e) => setConfig({ ...config, defaultChatModel: e.target.value })}
+              >
+                {models
+                  .filter((m) => m.type === 'chat')
+                  .map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+              </Select>
+              <Select
+                label="Default Embedding Model"
+                value={config.defaultEmbeddingModel}
+                onChange={(e) => setConfig({ ...config, defaultEmbeddingModel: e.target.value })}
+              >
+                {models
+                  .filter((m) => m.type === 'embedding')
+                  .map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+              </Select>
+              <div>
+                <label htmlFor="organization" className="text-sm font-medium">
+                  Organization ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={config.organization}
+                  onChange={(e) => setConfig({ ...config, organization: e.target.value })}
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  placeholder="org-..."
+                />
+              </div>
+              <div>
+                <label htmlFor="baseUrl" className="text-sm font-medium">
+                  Base URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={config.baseUrl}
+                  onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  placeholder="https://api.openai.com"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSave} isLoading={saving === 'openai'} disabled={!config.apiKey}>
+                <Save className="mr-2 w-4 h-4" />
+                {editingId ? 'Update' : 'Save'} OpenAI
+              </Button>
+              <Button variant="outline" onClick={handleReset}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {integrations.length === 0 && !showForm && (
+          <p className="py-4 text-sm text-center text-muted-foreground">
+            No OpenAI configuration
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

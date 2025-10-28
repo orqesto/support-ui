@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import type { PaginationMeta } from '@/services/message.service';
 import type { Message } from '@/types';
 
-type FilterState = {
+export type FilterState = {
   processed?: 'all' | 'true' | 'false';
   channel?: 'all' | 'email' | 'telegram' | 'slack';
   showSpam?: boolean;
@@ -14,7 +14,7 @@ type FilterState = {
   search?: string;
 };
 
-type SortingState = {
+export type SortingState = {
   sortOrder: 'asc' | 'desc';
 };
 
