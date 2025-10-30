@@ -55,6 +55,9 @@ export const Permission = {
   // Statistics & Reports
   VIEW_STATISTICS: 'view_statistics',
   VIEW_REPORTS: 'view_reports',
+
+  // Audit Logs
+  VIEW_AUDIT_LOGS: 'view_audit_logs',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];

@@ -202,6 +202,13 @@ export const MessageThread = ({
   const totalExchanges = conversationPairs.length;
   const hasThread = currentThreadId !== null && currentThreadId !== undefined;
 
+  // Always show the thread section - even if API returns no related messages
+  // This helps users understand the conversation context
+  // Only hide if there was an error or we're still loading
+  // if (!loading && conversationPairs.length === 0 && !hasThread && !error) {
+  //   return null;
+  // }
+
   return (
     <div className="pt-4 mt-6 border-t">
       {/* Header */}
@@ -214,7 +221,7 @@ export const MessageThread = ({
           {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           <MessageSquare className="w-4 h-4" />
           <span className="font-semibold">
-            {hasThread ? 'Conversation Thread' : 'Message Details'}
+            {hasThread || totalExchanges > 0 ? 'Conversation Thread' : 'Message Details'}
           </span>
           {totalExchanges > 0 && (
             <Badge variant="secondary" className="ml-1">
@@ -267,6 +274,12 @@ export const MessageThread = ({
                     }`}
                     onClick={() => {
                       if (!isCurrentMessage && onMessageClick) {
+                        onMessageClick(pair.customerEmail.id);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (!isCurrentMessage && onMessageClick && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
                         onMessageClick(pair.customerEmail.id);
                       }
                     }}

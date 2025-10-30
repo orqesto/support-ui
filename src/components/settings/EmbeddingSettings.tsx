@@ -243,11 +243,11 @@ export const EmbeddingSettings = () => {
                     </span>
                     <span className="flex gap-1 items-center px-2 py-1 text-purple-700 bg-purple-50 rounded">
                       <Zap className="w-3 h-3" />
-                      Fast (30-50ms)
+                      Fast (~60-120ms)
                     </span>
                     <span className="flex gap-1 items-center px-2 py-1 text-orange-700 bg-orange-50 rounded">
                       <Package className="w-3 h-3" />
-                      80MB model
+                      ~470MB
                     </span>
                   </div>
                 </div>

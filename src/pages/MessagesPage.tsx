@@ -503,7 +503,7 @@ export const MessagesPage = () => {
         <DialogContent>
           <p>Are you sure you want to delete this message? This action cannot be undone.</p>
           {messageToDelete && (
-            <div className="p-4 mt-4 bg-gray-50 rounded">
+            <div className="p-4 mt-4 rounded bg-muted">
               <p className="text-sm font-medium">From: {messageToDelete.sender}</p>
               {messageToDelete.subject && (
                 <p className="text-sm text-muted-foreground">Subject: {messageToDelete.subject}</p>

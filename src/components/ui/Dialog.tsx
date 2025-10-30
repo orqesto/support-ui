@@ -39,9 +39,13 @@ export const DialogHeader = ({
   </div>
 );
 
-export const DialogTitle = ({ children }: { children: ReactNode }) => (
-  <h2 className="text-lg font-semibold">{children}</h2>
-);
+export const DialogTitle = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) => <h2 className={cn('text-lg font-semibold', className)}>{children}</h2>;
 
 export const DialogClose = ({ onClose }: { onClose: () => void }) => (
   <Button

@@ -3,8 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { useAuthStore } from './stores/authStore';
@@ -36,6 +38,9 @@ const OrganizationPage = lazy(() =>
 const EmailTemplatesPage = lazy(() =>
   import('./pages/EmailTemplatesPage').then((m) => ({ default: m.EmailTemplatesPage }))
 );
+const AuditLogsPage = lazy(() =>
+  import('./pages/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage }))
+);
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-screen bg-background">
@@ -65,6 +70,14 @@ const AppRoutes = () => {
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />}
       />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route
+        path="/forgot-password"
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPasswordPage />}
+      />
+      <Route
+        path="/reset-password"
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPasswordPage />}
+      />
       <Route path="/oauth/gmail/callback" element={<OAuthCallbackPage />} />
       <Route
         path="/dashboard"
@@ -163,6 +176,18 @@ const AppRoutes = () => {
             <Suspense fallback={<LoadingFallback />}>
               <EmailTemplatesPage />
             </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/audit-logs"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_AUDIT_LOGS}>
+              <Suspense fallback={<LoadingFallback />}>
+                <AuditLogsPage />
+              </Suspense>
+            </ProtectedRoute>
           </PrivateRoute>
         }
       />

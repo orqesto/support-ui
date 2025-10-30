@@ -55,6 +55,12 @@ const allNavigation = [
     icon: FileText,
     adminOnly: true, // Only visible to global admins
   },
+  {
+    name: 'Audit Logs',
+    href: '/audit-logs',
+    icon: FileText,
+    permission: Permission.VIEW_AUDIT_LOGS,
+  },
 ];
 
 export const Layout = ({ children }: LayoutProps) => {

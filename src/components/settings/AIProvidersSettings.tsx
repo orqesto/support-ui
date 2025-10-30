@@ -297,7 +297,12 @@ export const AIProvidersSettings = () => {
   const deepseekIntegrations = integrations.filter((i) => i.type === 'deepseek');
   const perplexityIntegrations = integrations.filter((i) => i.type === 'perplexity');
 
-  const hasAnyProvider = integrations.length > 0;
+  // Only check for AI chat providers (not email, telegram, local embeddings, etc.)
+  const hasAnyProvider =
+    openaiIntegrations.length > 0 ||
+    anthropicIntegrations.length > 0 ||
+    deepseekIntegrations.length > 0 ||
+    perplexityIntegrations.length > 0;
 
   const enabledProviders = integrations
     .filter(
