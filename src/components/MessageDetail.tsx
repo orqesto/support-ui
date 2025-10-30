@@ -7,21 +7,24 @@ import {
   X,
   Trash2,
   AlertTriangle,
-  CheckCircle,
-  Info,
   ExternalLink,
   RotateCcw,
-  Paperclip,
-  Download,
   Link as LinkIcon,
   Reply,
   RefreshCw,
+  Search,
+  Info,
+  CheckCircle,
+  BookOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDate } from '../lib/utils';
 import { messageService } from '../services/message.service';
 import type { Message } from '../types';
+import { MessageAIAnalysis } from './MessageAIAnalysis';
+import { MessageAttachments } from './MessageAttachments';
 import { MessageThread } from './MessageThread';
+import { SimilarMessagesDialog } from './SimilarMessagesDialog';
 import { SimilarTickets } from './SimilarTickets';
 import { TranslateButton } from './TranslateButton';
 import { Badge } from './ui/Badge';
@@ -54,6 +57,7 @@ export const MessageDetail = ({
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/messages?id=${message.id}`;
@@ -93,9 +97,9 @@ export const MessageDetail = ({
 
     try {
       setSubmitting(true);
-      // For new messages: resolve=true marks as resolved
-      // For already-resolved messages: resolve=true keeps them resolved
-      const shouldResolve = true;
+      // Only resolve if it's a standalone message (no ticket)
+      // Messages with tickets should just send reply without resolving
+      const shouldResolve = !message.ticketId && !message.resolved;
       await messageService.reply(message.id, replyContent, shouldResolve);
       setReplyContent('');
       setShowReplyForm(false);
@@ -125,6 +129,11 @@ export const MessageDetail = ({
     }
   };
 
+  const handleSelectSimilarAnswer = (answer: string) => {
+    setReplyContent(answer);
+    setShowReplyForm(true);
+  };
+
   const handleUseResponse = (content: string) => {
     setReplyContent(content);
     setShowReplyForm(true);
@@ -142,32 +151,6 @@ export const MessageDetail = ({
     }
   };
 
-  // Extract AI analysis from metadata (actual backend structure)
-  const analysis = message.metadata?.analysis as
-    | {
-        isTicketWorthy?: boolean;
-        needsMoreInfo?: boolean;
-        suggestedCategory?: string;
-        suggestedPriority?: string;
-        confidence?: number;
-        summary?: string;
-        embeddingProvider?: string;
-        embeddingModel?: string;
-        analysisProvider?: string;
-        analysisModel?: string;
-      }
-    | undefined;
-
-  const spamCheck = message.metadata?.spamCheck as
-    | {
-        isSpam?: boolean;
-        confidence?: number;
-        category?: string;
-        reason?: string;
-        redFlags?: string[];
-      }
-    | undefined;
-
   const autoReply = message.metadata?.autoReply as
     | {
         sent?: boolean;
@@ -177,27 +160,17 @@ export const MessageDetail = ({
       }
     | undefined;
 
-  // Extract attachments from rawData (for emails)
-  const emailAttachments = message.rawData?.attachments as
-    | Array<{
-        filename: string;
-        contentType: string;
-        size?: number;
-      }>
+  const suggestedAnswer = message.metadata?.suggestedAnswer as
+    | {
+        answer: string;
+        similarity: number;
+        source?: 'documentation' | 'similar_ticket' | 'similar_message';
+        sourceId: number;
+        sourceMessageId?: number; // Legacy field
+        documentTitle?: string;
+        foundAt: string;
+      }
     | undefined;
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) {
-      return 'Unknown size';
-    }
-    if (bytes < 1024) {
-      return bytes + ' B';
-    }
-    if (bytes < 1024 * 1024) {
-      return (bytes / 1024).toFixed(1) + ' KB';
-    }
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
 
   return (
     <div className="space-y-6">
@@ -367,6 +340,103 @@ export const MessageDetail = ({
         </div>
       )}
 
+      {/* AI Suggested Answer - Needs Agent Approval */}
+      {suggestedAnswer && !message.resolved && (
+        suggestedAnswer.source === 'documentation' ? (
+          <div className="p-4 mb-6 rounded-lg border-2 border-blue-300 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700">
+            <div className="flex gap-2 items-start mb-3">
+              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
+                <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">
+                  AI Found Answer in Documentation
+                </h3>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  {Math.round(suggestedAnswer.similarity * 100)}% similarity
+                  {suggestedAnswer.documentTitle && ` • ${suggestedAnswer.documentTitle}`}
+                  {' • Needs your review'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-3 rounded bg-white border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800">
+              <p className="mb-2 text-xs font-medium text-blue-700 dark:text-blue-300">
+                From Documentation:
+              </p>
+              <p className="text-sm whitespace-pre-wrap text-blue-900 dark:text-blue-50">
+                {suggestedAnswer.answer}
+              </p>
+            </div>
+
+            <div className="flex gap-2 mt-3">
+              <Button
+                onClick={() => {
+                  setReplyContent(suggestedAnswer.answer);
+                  setShowReplyForm(true);
+                }}
+                className="flex-1"
+              >
+                <Check className="mr-2 w-4 h-4" />
+                Use This Answer
+              </Button>
+              <Button
+                onClick={() => setShowReplyForm(true)}
+                variant="outline"
+              >
+                Write Different Reply
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 mb-6 rounded-lg border-2 border-purple-300 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-700">
+            <div className="flex gap-2 items-start mb-3">
+              <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900">
+                <Search className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100">
+                  {suggestedAnswer.source === 'similar_ticket' 
+                    ? 'AI Found Similar Resolved Ticket'
+                    : 'AI Found Similar Resolved Message'}
+                </h3>
+                <p className="text-xs text-purple-600 dark:text-purple-400">
+                  {Math.round(suggestedAnswer.similarity * 100)}% similarity • Needs your review
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-3 rounded bg-white border border-purple-200 dark:bg-purple-950/40 dark:border-purple-800">
+              <p className="mb-2 text-xs font-medium text-purple-700 dark:text-purple-300">
+                Suggested Answer:
+              </p>
+              <p className="text-sm whitespace-pre-wrap text-purple-900 dark:text-purple-50">
+                {suggestedAnswer.answer}
+              </p>
+            </div>
+
+            <div className="flex gap-2 mt-3">
+              <Button
+                onClick={() => {
+                  setReplyContent(suggestedAnswer.answer);
+                  setShowReplyForm(true);
+                }}
+                className="flex-1"
+              >
+                <Check className="mr-2 w-4 h-4" />
+                Use This Answer
+              </Button>
+              <Button
+                onClick={() => setShowReplyForm(true)}
+                variant="outline"
+              >
+                Write Different Reply
+              </Button>
+            </div>
+          </div>
+        )
+      )}
+
       {/* Email Thread */}
       <MessageThread
         messageId={message.id}
@@ -399,14 +469,27 @@ export const MessageDetail = ({
           </div>
         )}
         {!showReplyForm ? (
-          <Button onClick={() => setShowReplyForm(true)} className="w-full" variant="outline">
-            <Reply className="mr-2 w-4 h-4" />
-            {message.ticketId
-              ? 'Send Reply'
-              : message.resolved
-                ? 'Send Follow-up Reply'
-                : 'Reply Without Creating Ticket'}
-          </Button>
+          <div className="space-y-2">
+            {/* Find Similar Resolved Messages - only for unresolved messages without tickets */}
+            {!message.resolved && !message.ticketId && (
+              <Button
+                onClick={() => setSimilarMessagesOpen(true)}
+                className="w-full"
+                variant="secondary"
+              >
+                <Search className="mr-2 w-4 h-4" />
+                Find Similar Resolved Messages
+              </Button>
+            )}
+            <Button onClick={() => setShowReplyForm(true)} className="w-full" variant="outline">
+              <Reply className="mr-2 w-4 h-4" />
+              {message.ticketId
+                ? 'Send Reply'
+                : message.resolved
+                  ? 'Send Follow-up Reply'
+                  : 'Reply Without Creating Ticket'}
+            </Button>
+          </div>
         ) : (
           <div className="space-y-3">
             <Textarea
@@ -461,254 +544,10 @@ export const MessageDetail = ({
       )}
 
       {/* Email Attachments */}
-      {emailAttachments && emailAttachments.length > 0 && (
-        <div className="pt-6 border-t">
-          <h3 className="flex gap-2 items-center mb-3 text-sm font-semibold text-muted-foreground">
-            <Paperclip className="w-4 h-4" />
-            Attachments
-            <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
-              {emailAttachments.length}
-            </span>
-          </h3>
-          <div className="space-y-2">
-            {emailAttachments.map((attachment) => (
-              <div
-                key={attachment.filename}
-                className="flex justify-between items-center p-3 rounded-lg border transition-colors bg-muted/50 hover:bg-muted"
-              >
-                <div className="flex gap-3 items-center min-w-0">
-                  <div className="p-2 rounded bg-blue-500/10 dark:bg-blue-500/10">
-                    <Paperclip className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{attachment.filename}</p>
-                    <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                      <span>{attachment.contentType}</span>
-                      {attachment.size && (
-                        <>
-                          <span>•</span>
-                          <span>{formatFileSize(attachment.size)}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {message.ticketId && (
-                  <Link
-                    to={`/tickets?id=${message.ticketId}`}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
-                  >
-                    <Download className="w-3 h-3" />
-                    View in Ticket
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
-          {!message.ticketId && (
-            <div className="p-3 mt-3 rounded-lg border bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20">
-              <p className="flex gap-2 items-start text-xs text-amber-600 dark:text-amber-400">
-                <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>
-                  Attachments will be available for download once a ticket is created from this
-                  message.
-                </span>
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      <MessageAttachments message={message} />
 
       {/* AI Analysis */}
-      {(analysis ?? spamCheck) && (
-        <div className="pt-6 border-t">
-          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">AI Analysis</h3>
-          <div className="space-y-4">
-            {/* Status Indicators */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Spam Check */}
-              {spamCheck && (
-                <div
-                  className={`p-3 rounded-lg border ${
-                    spamCheck.isSpam === false
-                      ? 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
-                      : spamCheck.isSpam === true
-                        ? 'bg-red-500/10 dark:bg-red-500/10 border-red-500/20'
-                        : 'bg-muted border-border'
-                  }`}
-                >
-                  <div className="flex gap-2 items-center mb-1">
-                    {spamCheck.isSpam === false ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : spamCheck.isSpam === true ? (
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
-                    ) : (
-                      <Info className="w-4 h-4 text-gray-600" />
-                    )}
-                    <span className="text-xs font-semibold">Spam Check</span>
-                  </div>
-                  <p className="text-sm font-medium">
-                    {spamCheck.isSpam === false
-                      ? 'Not Spam'
-                      : spamCheck.isSpam === true
-                        ? 'Spam Detected'
-                        : 'Unknown'}
-                  </p>
-                  {spamCheck.category && (
-                    <p className="mt-1 text-xs capitalize text-muted-foreground">
-                      {spamCheck.category}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Ticket Worthy */}
-              {analysis && (
-                <div
-                  className={`p-3 rounded-lg border ${
-                    analysis.isTicketWorthy
-                      ? 'bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20'
-                      : 'bg-muted border-border'
-                  }`}
-                >
-                  <div className="flex gap-2 items-center mb-1">
-                    {analysis.isTicketWorthy ? (
-                      <CheckCircle className="w-4 h-4 text-blue-600" />
-                    ) : (
-                      <Info className="w-4 h-4 text-gray-600" />
-                    )}
-                    <span className="text-xs font-semibold">Ticket Worthy</span>
-                  </div>
-                  <p className="text-sm font-medium">{analysis.isTicketWorthy ? 'Yes' : 'No'}</p>
-                  {analysis.confidence !== undefined && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Confidence: {Math.round(analysis.confidence * 100)}%
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Needs More Info */}
-              {analysis?.needsMoreInfo !== undefined && (
-                <div
-                  className={`p-3 rounded-lg border ${
-                    analysis.needsMoreInfo
-                      ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20'
-                      : 'bg-green-500/10 dark:bg-green-500/10 border-green-500/20'
-                  }`}
-                >
-                  <div className="flex gap-2 items-center mb-1">
-                    {analysis.needsMoreInfo ? (
-                      <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    )}
-                    <span className="text-xs font-semibold">Info Complete</span>
-                  </div>
-                  <p className="text-sm font-medium">
-                    {analysis.needsMoreInfo ? 'Needs More Info' : 'Complete'}
-                  </p>
-                </div>
-              )}
-
-              {/* Priority */}
-              {analysis?.suggestedPriority && (
-                <div className="p-3 rounded-lg border bg-purple-500/10 dark:bg-purple-500/10 border-purple-500/20">
-                  <div className="flex gap-2 items-center mb-1">
-                    <Info className="w-4 h-4 text-purple-600" />
-                    <span className="text-xs font-semibold">Priority</span>
-                  </div>
-                  <p className="text-sm font-medium capitalize">{analysis.suggestedPriority}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Category */}
-            {analysis?.suggestedCategory && (
-              <div className="p-3 rounded-lg border bg-indigo-500/10 dark:bg-indigo-500/10 border-indigo-500/20">
-                <div className="flex gap-2 items-center mb-1">
-                  <Info className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs font-semibold">Suggested Category</span>
-                </div>
-                <p className="text-sm font-medium">{analysis.suggestedCategory}</p>
-              </div>
-            )}
-
-            {/* Summary */}
-            {analysis?.summary && (
-              <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
-                <div className="flex gap-2 items-center mb-2">
-                  <Info className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-semibold">AI Summary</span>
-                </div>
-                <p className="text-sm text-blue-600 dark:text-blue-400">{analysis.summary}</p>
-              </div>
-            )}
-
-            {/* Spam Reason */}
-            {spamCheck?.reason && (
-              <div className="p-3 rounded-lg border bg-muted border-border">
-                <div className="flex gap-2 items-center mb-2">
-                  <Info className="w-4 h-4 text-gray-600" />
-                  <span className="text-xs font-semibold">Detection Reason</span>
-                </div>
-                <p className="text-sm text-muted-foreground">{spamCheck.reason}</p>
-              </div>
-            )}
-
-            {/* Red Flags */}
-            {spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
-              <div className="p-3 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
-                <div className="flex gap-2 items-center mb-2">
-                  <AlertTriangle className="w-4 h-4 text-red-600" />
-                  <span className="text-xs font-semibold">Red Flags</span>
-                </div>
-                <ul className="space-y-1">
-                  {spamCheck.redFlags.map((flag: string) => (
-                    <li
-                      key={flag}
-                      className="flex gap-2 items-start text-sm text-red-600 dark:text-red-400"
-                    >
-                      <span className="mt-1">•</span>
-                      <span>{flag}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* AI Models Used */}
-            {(message.analysisProvider ?? message.embeddingProvider) && (
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                <div className="flex gap-2 items-center mb-2">
-                  <Info className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  <span className="text-xs font-semibold">AI Models Used</span>
-                </div>
-                <div className="space-y-2 text-xs">
-                  {message.analysisProvider && (
-                    <div>
-                      <span className="text-muted-foreground">Analysis: </span>
-                      <span className="font-mono font-medium">
-                        {message.analysisProvider}
-                        {message.analysisModel && ` (${message.analysisModel})`}
-                      </span>
-                    </div>
-                  )}
-                  {message.embeddingProvider && (
-                    <div>
-                      <span className="text-muted-foreground">Embedding: </span>
-                      <span className="font-mono font-medium">
-                        {message.embeddingProvider}
-                        {message.embeddingModel && ` (${message.embeddingModel})`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <MessageAIAnalysis message={message} />
 
       {/* Metadata */}
       {message.metadata &&
@@ -828,6 +667,14 @@ export const MessageDetail = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Similar Messages Dialog */}
+      <SimilarMessagesDialog
+        messageId={message.id}
+        open={similarMessagesOpen}
+        onClose={() => setSimilarMessagesOpen(false)}
+        onSelectAnswer={handleSelectSimilarAnswer}
+      />
     </div>
   );
 };

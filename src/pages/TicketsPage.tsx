@@ -96,7 +96,7 @@ export const TicketsPage = () => {
   const getCached = useTicketsStore((state) => state.getCached);
   const clearCache = useTicketsStore((state) => state.clearCache);
 
-  const { hasPermission } = usePermissions();
+  const { hasPermission, user } = usePermissions();
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
@@ -233,7 +233,8 @@ export const TicketsPage = () => {
     fetchJiraIntegrations().catch((error) => {
       console.error('Failed to fetch Jira integrations:', error);
     });
-  }, [hasPermission]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Listen for real-time ticket updates from Jira webhooks and new ticket creation
   useEffect(() => {
@@ -833,10 +834,13 @@ export const TicketsPage = () => {
         <DialogContent>
           <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
           {ticketToDelete && (
-            <div className="p-4 mt-4 bg-gray-50 rounded">
-              <p className="text-sm font-medium">{ticketToDelete.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Status: {ticketToDelete.status} | Priority: {ticketToDelete.priority}
+            <div className="p-3 mt-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {ticketToDelete.title}
+              </p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                Status: <span className="font-medium">{ticketToDelete.status}</span> | Priority:{' '}
+                <span className="font-medium">{ticketToDelete.priority}</span>
               </p>
             </div>
           )}

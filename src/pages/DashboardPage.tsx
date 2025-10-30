@@ -1,5 +1,16 @@
 import { useEffect, useState, useRef } from 'react';
-import { Inbox, Ticket as TicketIcon, PlayCircle, Mail, Clock, CheckCircle, AlertTriangle, Hourglass, BarChart3, Loader2 } from 'lucide-react';
+import {
+  Inbox,
+  Ticket as TicketIcon,
+  PlayCircle,
+  Mail,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Hourglass,
+  BarChart3,
+  Loader2,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { AlertDialog } from '../components/ui/AlertDialog';
@@ -44,12 +55,16 @@ export const DashboardPage = () => {
 
   // Get messages store cache clear function
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
-  
+
   // Get processing store functions
   const { addTask, removeTask } = useProcessingStore();
-  
+
   // Subscribe to email processing events to auto-refresh on completion
-  const { status: processingStatus, processed: processedCount, isProcessing } = useEmailProcessing(true);
+  const {
+    status: processingStatus,
+    processed: processedCount,
+    isProcessing,
+  } = useEmailProcessing(true);
   const prevProcessingStatus = useRef(processingStatus);
 
   // Auto-refresh stats when processing completes
@@ -60,11 +75,13 @@ export const DashboardPage = () => {
       processingStatus === 'complete' &&
       processedCount > 0
     ) {
-      console.log(`Email processing completed (${processedCount} messages), refreshing dashboard stats...`);
-      
+      console.log(
+        `Email processing completed (${processedCount} messages), refreshing dashboard stats...`
+      );
+
       // Clear caches to force fresh data fetch
       clearMessagesCache();
-      
+
       // Refresh dashboard stats
       fetchStats().catch((error) => {
         console.error('Failed to refresh stats after processing:', error);
@@ -148,7 +165,7 @@ export const DashboardPage = () => {
     checkIntegrations().catch((error) => {
       console.error('Failed to check integrations:', error);
     });
-  }, [])
+  }, []);
 
   useEffect(() => {
     fetchStats().catch((error) => {
@@ -170,13 +187,6 @@ export const DashboardPage = () => {
   const handleIngestion = async (type: 'all' | 'email' | 'telegram') => {
     // Check if current org has required integrations before starting
     if (type === 'all' && !hasIntegrations) {
-      setAlertDialog({
-        open: true,
-        title: 'No Integrations',
-        description:
-          'No integrations configured for the current organization. Please configure integrations in Settings.',
-        variant: 'warning',
-      });
       return;
     }
 
@@ -203,7 +213,7 @@ export const DashboardPage = () => {
     }
 
     setIngesting(type);
-    
+
     // Add to global processing status
     const taskMessage =
       type === 'all'
@@ -212,7 +222,7 @@ export const DashboardPage = () => {
           ? 'Checking emails'
           : 'Checking Telegram';
     const taskId = addTask(type === 'telegram' ? 'telegram' : 'email', taskMessage);
-    
+
     try {
       let response;
       switch (type) {
@@ -449,7 +459,9 @@ export const DashboardPage = () => {
                   variant="outline"
                   onClick={() => handleIngestion('email')}
                   isLoading={ingesting === 'email'}
-                  disabled={!hasEmailIntegrations || isProcessing || processingStatus === 'processing'}
+                  disabled={
+                    !hasEmailIntegrations || isProcessing || processingStatus === 'processing'
+                  }
                   className="w-full"
                   title={
                     !hasEmailIntegrations
@@ -466,7 +478,9 @@ export const DashboardPage = () => {
                   variant="outline"
                   onClick={() => handleIngestion('telegram')}
                   isLoading={ingesting === 'telegram'}
-                  disabled={!hasTelegramIntegrations || isProcessing || processingStatus === 'processing'}
+                  disabled={
+                    !hasTelegramIntegrations || isProcessing || processingStatus === 'processing'
+                  }
                   className="w-full"
                   title={
                     !hasTelegramIntegrations
@@ -496,7 +510,7 @@ export const DashboardPage = () => {
                 {/* Database Status */}
                 {health?.services.database && (
                   <div
-                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                    className={`flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 p-3 rounded-lg border ${
                       health.services.database.status === 'active'
                         ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20'
                         : health.services.database.status === 'error'
@@ -506,7 +520,7 @@ export const DashboardPage = () => {
                   >
                     <div className="flex gap-2 items-center">
                       <div
-                        className={`w-2 h-2 rounded-full ${
+                        className={`w-2 h-2 flex-shrink-0 rounded-full ${
                           health.services.database.status === 'active'
                             ? 'bg-green-500 animate-pulse'
                             : health.services.database.status === 'error'
@@ -537,7 +551,7 @@ export const DashboardPage = () => {
                 {/* Email Service Status */}
                 {health?.services.email && (
                   <div
-                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                    className={`flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 p-3 rounded-lg border ${
                       health.services.email.status === 'active'
                         ? 'bg-green-500/10 border-green-500/20 dark:bg-green-500/10 dark:border-green-500/20'
                         : health.services.email.status === 'error'
@@ -547,7 +561,7 @@ export const DashboardPage = () => {
                   >
                     <div className="flex gap-2 items-center">
                       <div
-                        className={`w-2 h-2 rounded-full ${
+                        className={`w-2 h-2 flex-shrink-0 rounded-full ${
                           health.services.email.status === 'active'
                             ? 'bg-green-500 animate-pulse'
                             : health.services.email.status === 'error'
@@ -558,7 +572,7 @@ export const DashboardPage = () => {
                       <span className="text-sm font-medium">Email Service</span>
                     </div>
                     <span
-                      className={`text-xs font-medium ${
+                      className={`text-xs font-medium break-words ${
                         health.services.email.status === 'active'
                           ? 'text-green-600 dark:text-green-400'
                           : health.services.email.status === 'error'
@@ -573,7 +587,7 @@ export const DashboardPage = () => {
 
                 {/* WebSocket Status */}
                 <div
-                  className={`flex justify-between items-center p-3 rounded-lg border ${
+                  className={`flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 p-3 rounded-lg border ${
                     isWebSocketConnected
                       ? 'bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/10 dark:border-blue-500/20'
                       : 'bg-muted border-border'
@@ -581,7 +595,7 @@ export const DashboardPage = () => {
                 >
                   <div className="flex gap-2 items-center">
                     <div
-                      className={`w-2 h-2 rounded-full ${
+                      className={`w-2 h-2 flex-shrink-0 rounded-full ${
                         isWebSocketConnected ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'
                       }`}
                     />
@@ -601,7 +615,7 @@ export const DashboardPage = () => {
                 {/* AI Service Status */}
                 {health?.services.ai && (
                   <div
-                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                    className={`flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 p-3 rounded-lg border ${
                       health.services.ai.status === 'active'
                         ? 'bg-purple-500/10 border-purple-500/20 dark:bg-purple-500/10 dark:border-purple-500/20'
                         : health.services.ai.status === 'error'
@@ -609,9 +623,9 @@ export const DashboardPage = () => {
                           : 'bg-muted border-border'
                     }`}
                   >
-                    <div className="flex gap-2 items-center">
+                    <div className="flex flex-shrink-0 gap-2 items-center">
                       <div
-                        className={`w-2 h-2 rounded-full ${
+                        className={`w-2 h-2 flex-shrink-0 rounded-full ${
                           health.services.ai.status === 'active'
                             ? 'bg-purple-500 animate-pulse'
                             : health.services.ai.status === 'error'
@@ -619,10 +633,10 @@ export const DashboardPage = () => {
                               : 'bg-gray-400'
                         }`}
                       />
-                      <span className="text-sm font-medium">AI Processing</span>
+                      <span className="text-sm font-medium whitespace-nowrap">AI Processing</span>
                     </div>
                     <span
-                      className={`text-xs font-medium ${
+                      className={`text-xs font-medium break-words ${
                         health.services.ai.status === 'active'
                           ? 'text-purple-600 dark:text-purple-400'
                           : health.services.ai.status === 'error'

@@ -87,4 +87,29 @@ export const messageService = {
     const response = await apiClient.get<ApiResponse<Message[]>>(`/api/messages/${id}/thread`);
     return response.data;
   },
+
+  getSimilarResolvedMessages: async (id: number, limit = 5, minSimilarity = 0.7) => {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      minSimilarity: minSimilarity.toString(),
+    });
+    const response = await apiClient.get<
+      ApiResponse<
+        Array<{
+          messageId?: number;
+          content: string;
+          subject?: string | null;
+          sender?: string;
+          directReply: string;
+          similarity: number;
+          repliedAt?: string | null;
+          repliedBy?: number | null;
+          source: 'documentation' | 'message';
+          documentationId?: number;
+          documentTitle?: string;
+        }>
+      >
+    >(`/api/messages/${id}/similar-resolved?${params.toString()}`);
+    return response.data;
+  },
 };

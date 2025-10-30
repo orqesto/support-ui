@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { AIProvidersSettings } from '../components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
+import { DocumentationSettings } from '../components/settings/DocumentationSettings';
 import { EmbeddingSettings } from '../components/settings/EmbeddingSettings';
 import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
 import { PromptsSettings } from '../components/settings/PromptsSettings';
@@ -14,9 +15,10 @@ type TabType =
   | 'categories'
   | 'prompts'
   | 'spam-rules'
-  | 'integrations'
+  | 'documentation'
+  | 'embeddings'
   | 'ai-providers'
-  | 'embeddings';
+  | 'integrations';
 
 export const SettingsPage = () => {
   const location = useLocation();
@@ -47,6 +49,12 @@ export const SettingsPage = () => {
       label: 'Spam Rules',
       icon: Shield,
       description: 'Configure spam detection rules',
+    },
+    {
+      id: 'documentation' as TabType,
+      label: 'Documentation',
+      icon: FileText,
+      description: 'Upload knowledge base documents for AI',
     },
     {
       id: 'embeddings' as TabType,
@@ -115,10 +123,11 @@ export const SettingsPage = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="p-6">
+            <div className="p-6" key={activeTab}>
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
               {activeTab === 'spam-rules' && <SpamRulesSettings />}
+              {activeTab === 'documentation' && <DocumentationSettings />}
               {activeTab === 'embeddings' && <EmbeddingSettings />}
               {activeTab === 'ai-providers' && <AIProvidersSettings />}
               {activeTab === 'integrations' && <IntegrationsSettings />}
