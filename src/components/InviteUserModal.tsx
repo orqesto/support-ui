@@ -93,8 +93,14 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
   }
 
   return (
-    <div className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50">
-      <div className="w-full max-w-md rounded-lg shadow-xl bg-card">
+    <div 
+      className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-md rounded-lg shadow-xl bg-card"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-border">
           <div className="flex gap-2 items-center">

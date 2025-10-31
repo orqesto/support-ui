@@ -96,8 +96,8 @@ export const SettingsPage = () => {
 
         {/* Tabs */}
         <Card>
-          <CardContent className="p-0 overflow-visible">
-            <div className="border-b overflow-visible">
+          <CardContent className="overflow-visible p-0">
+            <div className="overflow-visible border-b">
               <div className="flex overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
@@ -113,7 +113,7 @@ export const SettingsPage = () => {
                       }`}
                     >
                       <Icon className="w-4 h-4 sm:w-4 sm:h-4" />
-                      <span className="hidden text-sm font-medium whitespace-nowrap xl:inline lg:text-base">
+                      <span className="hidden text-sm font-medium whitespace-nowrap xl:inline xlg:text-base xl:text-[10px]">
                         {tab.label}
                       </span>
                     </Button>

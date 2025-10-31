@@ -105,7 +105,7 @@ export const SearchInput = ({
               }
             }}
             onMouseDown={(e) => e.preventDefault()} // Prevent stealing focus from input
-            className="h-auto min-h-[44px] min-w-[44px] p-2 rounded-full transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+            className="h-auto min-h-[44px] min-w-[44px] p-2 rounded-full transition-colors text-muted-foreground hover:text-primary hover:bg-primary/10"
             title="Clear search"
             type="button"
             aria-label="Clear search"
@@ -119,7 +119,7 @@ export const SearchInput = ({
             variant="ghost"
             onClick={onSearch}
             onMouseDown={(e) => e.preventDefault()}
-            className="h-auto min-h-[44px] min-w-[44px] p-2 rounded-full transition-colors text-primary hover:text-primary/80 hover:bg-primary/10"
+            className="h-auto min-h-[44px] min-w-[44px] p-2 rounded-full transition-colors text-white/60 hover:text-primary hover:bg-primary/10 dark:text-white/40 dark:hover:text-primary"
             title="Search"
             aria-label="Search"
           >
