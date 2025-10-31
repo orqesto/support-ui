@@ -1,21 +1,12 @@
 /* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
-import {
-  Ticket,
-  ExternalLink as ExternalLinkIcon,
-  Send,
-  RefreshCw,
-  Edit2,
-  Trash2,
-  Filter,
-  X,
-} from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { Ticket, RefreshCw } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { TicketDetail } from '@/components/TicketDetail';
+import { TicketFilters } from '@/components/tickets/TicketFilters';
+import { TicketListItem } from '@/components/tickets/TicketListItem';
 import { AlertDialog } from '@/components/ui/AlertDialog';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import {
@@ -27,11 +18,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Drawer } from '@/components/ui/Drawer';
-import { ExternalLink } from '@/components/ui/ExternalLink';
-import { ListCard } from '@/components/ui/ListCard';
 import { Pagination } from '@/components/ui/Pagination';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PAGINATION } from '@/lib/constants';
 import {
@@ -40,30 +27,11 @@ import {
   unsubscribeFromEvent,
   releaseSocket,
 } from '@/lib/socketManager';
-import { formatDate } from '@/lib/utils';
 import { integrationsService, type JiraIntegration } from '@/services/integrations.service';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
-import type { Ticket as TicketType, TicketStatus, TicketPriority } from '@/types';
+import type { Ticket as TicketType } from '@/types';
 import { Permission } from '@/types/roles';
-
-const statusColors: Record<
-  TicketStatus,
-  'default' | 'success' | 'warning' | 'danger' | 'secondary'
-> = {
-  pending: 'warning',
-  open: 'default',
-  in_progress: 'default',
-  resolved: 'success',
-  closed: 'secondary',
-};
-
-const priorityColors: Record<TicketPriority, 'default' | 'success' | 'warning' | 'danger'> = {
-  low: 'success',
-  medium: 'default',
-  high: 'warning',
-  critical: 'danger',
-};
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -168,6 +136,9 @@ export const TicketsPage = () => {
         }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
+        }
+        if (currentFilters.syncedToJira !== undefined) {
+          apiFilters.syncedToJira = currentFilters.syncedToJira.toString();
         }
 
         const response = await ticketService.getAll(
@@ -302,6 +273,8 @@ export const TicketsPage = () => {
     if (key === 'search') {
       // Don't trigger auto-fetch for search, just update local state
       setPendingSearch(value);
+    } else if (key === 'syncedToJira') {
+      setFiltersStore({ ...filters, syncedToJira: value === 'true' || undefined });
     } else {
       setFiltersStore({ ...filters, [key]: value });
     }
@@ -501,11 +474,6 @@ export const TicketsPage = () => {
     }
   };
 
-  const activeFilterCount =
-    (filters.status !== 'all' ? 1 : 0) +
-    (filters.priority !== 'all' ? 1 : 0) +
-    (filters.categoryId !== 'all' ? 1 : 0) +
-    (filters.search?.trim() ? 1 : 0);
 
   return (
     <Layout>
@@ -523,173 +491,24 @@ export const TicketsPage = () => {
         </div>
 
         {/* Filters Card */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Header */}
-              <div className="flex flex-wrap gap-2 justify-between items-center min-h-[32px]">
-                <div className="flex flex-wrap gap-2 items-center">
-                  <div className="flex gap-2 items-center">
-                    <Filter className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Filters</span>
-                    <Badge variant="default" className="text-xs">
-                      {activeFilterCount}
-                    </Badge>
-                  </div>
-                  {pagination.total > 0 && (
-                    <span className="text-xs whitespace-nowrap text-muted-foreground">
-                      {(pagination.page - 1) * pagination.limit + 1}-
-                      {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                      {pagination.total}
-                    </span>
-                  )}
-                </div>
-                {activeFilterCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
-                    <X className="mr-1 w-3 h-3" />
-                    Clear
-                  </Button>
-                )}
-              </div>
-
-              {/* Filter Controls */}
-              <div className="flex flex-wrap gap-3 items-center">
-                {/* Search Input */}
-                <SearchInput
-                  value={pendingSearch}
-                  onChange={(value) => handleFilterChange('search', value)}
-                  onSearch={handleSearch}
-                  onBlur={handleSearchBlur}
-                  showSearchButton={true}
-                  placeholder="Search by ID, title, description..."
-                  className="w-[300px]"
-                  size="sm"
-                />
-
-                {/* Group 1: Status & Priority */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Status:
-                  </span>
-                  <Select
-                    value={filters.status}
-                    onChange={(e) => handleFilterChange('status', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Filter by status"
-                  >
-                    <option value="all">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                  </Select>
-                </div>
-
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Priority:
-                  </span>
-                  <Select
-                    value={filters.priority}
-                    onChange={(e) => handleFilterChange('priority', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Filter by priority"
-                  >
-                    <option value="all">All</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </Select>
-                </div>
-                {/* Group 2: Sorting */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Sort:
-                  </span>
-                  <Select
-                    value={sorting.sortBy}
-                    onChange={(e) =>
-                      setSortingStore({
-                        ...sorting,
-                        sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
-                      })
-                    }
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Sort by"
-                  >
-                    <option value="createdAt">Created Date</option>
-                    <option value="updatedAt">Updated Date</option>
-                    <option value="priority">Priority</option>
-                  </Select>
-                </div>
-
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                    Order:
-                  </span>
-                  <Select
-                    value={sorting.sortOrder}
-                    onChange={(e) =>
-                      setSortingStore({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
-                    }
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Sort order"
-                  >
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                  </Select>
-                </div>
-
-                {/* Group 3: Jira & Sync */}
-                {jiraIntegrations.length > 1 && (
-                  <>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                        Jira:
-                      </span>
-                      <Select
-                        value={selectedJiraId ?? ''}
-                        onChange={(e) =>
-                          setSelectedJiraId(e.target.value ? Number(e.target.value) : undefined)
-                        }
-                        className="px-2 py-1 pr-8 h-8 text-xs"
-                        aria-label="Filter by Jira integration"
-                      >
-                        <option value="">All Integrations</option>
-                        {jiraIntegrations.map((integration) => (
-                          <option key={integration.id} value={integration.id}>
-                            {integration.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  </>
-                )}
-                <Button
-                  onClick={handleSyncAll}
-                  size="sm"
-                  className="ml-auto"
-                  disabled={
-                    !hasPermission(Permission.MANAGE_TICKETS) ||
-                    jiraIntegrations.length === 0 ||
-                    (jiraIntegrations.length > 1 && !selectedJiraId)
-                  }
-                  isLoading={isSyncingAll}
-                  title={
-                    !hasPermission(Permission.MANAGE_TICKETS)
-                      ? 'You need MANAGE_TICKETS permission to sync to Jira'
-                      : ''
-                  }
-                >
-                  <Send className="mr-2 w-4 h-4" />
-                  Sync to Jira
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <TicketFilters
+          filters={filters}
+          sorting={sorting}
+          pendingSearch={pendingSearch}
+          pagination={pagination}
+          jiraIntegrations={jiraIntegrations}
+          selectedJiraId={selectedJiraId}
+          isSyncingAll={isSyncingAll}
+          hasManagePermission={hasPermission(Permission.MANAGE_TICKETS)}
+          onFilterChange={handleFilterChange}
+          onSearch={handleSearch}
+          onSearchBlur={handleSearchBlur}
+          onClearFilters={clearFilters}
+          onSortingChange={setSortingStore}
+          onJiraIdChange={setSelectedJiraId}
+          onSyncAll={handleSyncAll}
+          onPendingSearchChange={setPendingSearch}
+        />
 
         {loading ? (
           <div className="space-y-4">
@@ -713,101 +532,16 @@ export const TicketsPage = () => {
         ) : (
           <div className="grid gap-4">
             {tickets.map((ticket) => (
-              <ListCard
+              <TicketListItem
                 key={ticket.id}
-                header={
-                  <>
-                    <div className="flex gap-2 items-start w-full">
-                      <h3 className="flex-1 text-lg font-semibold break-words">{ticket.title}</h3>
-                      <span className="px-2 py-0.5 text-xs font-mono rounded bg-muted text-muted-foreground whitespace-nowrap">
-                        #{ticket.id}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-xs font-medium text-muted-foreground">Status:</span>
-                      <Badge variant={statusColors[ticket.status]}>{ticket.status}</Badge>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-xs font-medium text-muted-foreground">Priority:</span>
-                      <Badge variant={priorityColors[ticket.priority]}>{ticket.priority}</Badge>
-                    </div>
-                    {ticket.categoryName && (
-                      <div className="flex gap-2 items-center">
-                        <span className="text-xs font-medium text-muted-foreground">Category:</span>
-                        <Badge variant="default">{ticket.categoryName}</Badge>
-                      </div>
-                    )}
-                    {ticket.externalId && ticket.externalUrl && (
-                      <ExternalLink
-                        href={ticket.externalUrl}
-                        className="text-xs"
-                        onClick={() => {
-                          console.log('Opening Jira URL:', ticket.externalUrl);
-                        }}
-                      >
-                        {ticket.externalId}
-                      </ExternalLink>
-                    )}
-                  </>
-                }
-                content={
-                  <p className="text-sm text-muted-foreground line-clamp-2">{ticket.description}</p>
-                }
-                metadata={
-                  <>
-                    <span className="break-all">From: {ticket.sender}</span>
-                    {ticket.categoryName && <span>• {ticket.categoryName}</span>}
-                    <span className="whitespace-nowrap">• {formatDate(ticket.createdAt)}</span>
-                  </>
-                }
-                actions={
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedTicket(ticket);
-                        setSearchParams({ id: ticket.id.toString() });
-                      }}
-                    >
-                      <ExternalLinkIcon className="mr-1 w-3 h-3" />
-                      Open
-                    </Button>
-                    <PermissionGuard permission={Permission.MANAGE_TICKETS}>
-                      {!ticket.externalId && (
-                        <Link to={`/tickets/edit/${ticket.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Edit2 className="mr-1 w-3 h-3" />
-                            Edit
-                          </Button>
-                        </Link>
-                      )}
-                      {!ticket.externalId && (
-                        <Button
-                          size="sm"
-                          onClick={() => handlePushToJira(ticket.id)}
-                          isLoading={syncing === ticket.id}
-                        >
-                          <Send className="mr-1 w-3 h-3" />
-                          Push
-                        </Button>
-                      )}
-                    </PermissionGuard>
-                    <PermissionGuard
-                      permissions={[Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION]}
-                    >
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteClick(ticket)}
-                        aria-label="Delete ticket"
-                      >
-                        <Trash2 className="mr-2 w-4 h-4" />
-                        Delete
-                      </Button>
-                    </PermissionGuard>
-                  </>
-                }
+                ticket={ticket}
+                isSyncing={syncing === ticket.id}
+                onOpen={(t) => {
+                  setSelectedTicket(t);
+                  setSearchParams({ id: t.id.toString() });
+                }}
+                onPushToJira={handlePushToJira}
+                onDelete={handleDeleteClick}
               />
             ))}
           </div>

@@ -104,6 +104,9 @@ export const MessagesPage = () => {
         if (currentFilters.hasAttachments) {
           apiFilters.hasAttachments = 'true';
         }
+        if (currentFilters.hasReplies) {
+          apiFilters.hasReplies = 'true';
+        }
         if (currentFilters.showFailed) {
           apiFilters.showFailed = 'true';
         }
@@ -152,6 +155,7 @@ export const MessagesPage = () => {
     filters.showWorthy,
     filters.showNeedsInfo,
     filters.hasAttachments,
+    filters.hasReplies,
     filters.showFailed,
     filters.search,
     sorting.sortOrder,
@@ -169,6 +173,7 @@ export const MessagesPage = () => {
     const urlWorthy = searchParams.get('worthy');
     const urlNeedsInfo = searchParams.get('needsInfo');
     const urlAttachments = searchParams.get('attachments');
+    const urlReplies = searchParams.get('replies');
     const urlFailed = searchParams.get('failed');
     const urlSearch = searchParams.get('search');
 
@@ -199,6 +204,10 @@ export const MessagesPage = () => {
       urlFilters.hasAttachments = true;
       hasUrlFilters = true;
     }
+    if (urlReplies === 'true') {
+      urlFilters.hasReplies = true;
+      hasUrlFilters = true;
+    }
     if (urlFailed === 'true') {
       urlFilters.showFailed = true;
       hasUrlFilters = true;
@@ -219,7 +228,7 @@ export const MessagesPage = () => {
   useEffect(() => {
     const messageIdParam = searchParams.get('id');
     const paramId = messageIdParam ? parseInt(messageIdParam) : null;
-    
+
     // Only fetch if URL has an ID and it's different from the currently selected message
     if (paramId && (!selectedMessage || selectedMessage.id !== paramId)) {
       // Fetch the specific message by ID (it might be filtered out)
@@ -389,12 +398,12 @@ export const MessagesPage = () => {
     }
   };
 
-
   const activeFilterCount =
     (filters.processed !== 'false' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
     ((filters.showSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0) +
+    (filters.hasReplies ? 1 : 0) +
     (filters.showFailed ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 

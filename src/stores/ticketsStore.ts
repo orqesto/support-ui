@@ -1,12 +1,13 @@
 /* eslint-disable no-console */
 import { create } from 'zustand';
-import type { Ticket } from '@/types';
+import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 
 type TicketFilters = {
-  status: string;
-  priority: string;
+  status: TicketStatus | 'all';
+  priority: TicketPriority | 'all';
   categoryId: string;
   search?: string;
+  syncedToJira?: boolean;
 };
 
 type TicketSorting = {
@@ -50,6 +51,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
     status: 'all',
     priority: 'all',
     categoryId: 'all',
+    syncedToJira: undefined,
   },
   sorting: {
     sortBy: 'createdAt',
@@ -74,6 +76,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         status: 'all',
         priority: 'all',
         categoryId: 'all',
+        syncedToJira: undefined,
       },
       // Keep cache - just changing back to "all" filters
     });

@@ -304,7 +304,12 @@ export const MessageThread = ({
                         </div>
                         <div className="flex flex-col gap-1 items-end">
                           <div className="text-xs whitespace-nowrap text-muted-foreground">
-                            {formatDate(new Date(pair.customerEmail.createdAt))}
+                            {formatDate(
+                              new Date(
+                                (pair.customerEmail.metadata as { receivedAt?: string })?.receivedAt ??
+                                  pair.customerEmail.createdAt
+                              )
+                            )}
                           </div>
                           {isCurrentMessage && (
                             <Badge variant="default" className="text-xs">
@@ -364,7 +369,12 @@ export const MessageThread = ({
                               </div>
                             </div>
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
-                              {formatDate(new Date(pair.systemReply.createdAt))}
+                              {formatDate(
+                                new Date(
+                                  (pair.systemReply.metadata as { receivedAt?: string })?.receivedAt ??
+                                    pair.systemReply.createdAt
+                                )
+                              )}
                             </div>
                           </div>
 
