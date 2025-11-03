@@ -12,6 +12,7 @@ export type HealthResponse = {
   services: {
     database: ServiceStatus;
     email: ServiceStatus;
+    telegram: ServiceStatus;
     websocket: ServiceStatus;
     ai: ServiceStatus;
   };

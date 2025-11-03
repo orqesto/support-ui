@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Mail, MessageSquare, X, CheckCircle } from 'lucide-react';
+import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
 import { useProcessingStore } from '@/stores/processingStore';
 
 export const ProcessingStatusWidget = () => {
   const { tasks, isProcessing, removeTask } = useProcessingStore();
+  const {
+    isProcessing: isTelegramProcessing,
+    activeBots,
+    recentMessages: _recentMessages,
+    totalProcessed,
+    currentMessage,
+  } = useTelegramProcessing(true);
   const [completedTasks, setCompletedTasks] = useState<
     Array<{ id: string; message: string }>
   >([]);
@@ -66,7 +74,17 @@ export const ProcessingStatusWidget = () => {
               </p>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Processing... {formatDuration(task.startedAt)}
+              {task.type === 'telegram' && isTelegramProcessing ? (
+                <>
+                  {currentMessage ? (
+                    <>Processing: {currentMessage.sender.substring(0, 20)}...</>
+                  ) : (
+                    <>Active bots: {activeBots} • Processed: {totalProcessed}</>
+                  )}
+                </>
+              ) : (
+                <>Processing... {formatDuration(task.startedAt)}</>
+              )}
             </p>
           </div>
           <button

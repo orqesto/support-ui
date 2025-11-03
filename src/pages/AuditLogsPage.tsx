@@ -120,7 +120,7 @@ export const AuditLogsPage = () => {
   return (
     <Layout>
       <PermissionGuard permission={Permission.VIEW_AUDIT_LOGS}>
-        <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-6 h-full">
           {/* Header */}
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
             <div>
@@ -220,8 +220,8 @@ export const AuditLogsPage = () => {
           )}
 
           {/* Audit Logs Table */}
-          <Card>
-            <CardContent className="p-0">
+          <Card className="flex-1 flex flex-col overflow-hidden">
+            <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
               {loading ? (
                 <div className="p-8 text-center">
                   <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
@@ -236,8 +236,8 @@ export const AuditLogsPage = () => {
               ) : (
                 <>
                   {/* Mobile/Tablet Card View */}
-                  <div className="xl:hidden">
-                    <div className="divide-y divide-border overflow-auto max-h-[600px]">
+                  <div className="xl:hidden flex-1 flex flex-col overflow-hidden">
+                    <div className="divide-y divide-border overflow-auto flex-1">
                       {logs.map((log) => (
                         <div key={log.id} className="p-4 transition-colors hover:bg-accent">
                           <div className="flex gap-3 items-start">
@@ -279,8 +279,8 @@ export const AuditLogsPage = () => {
                   </div>
 
                   {/* Desktop Table View */}
-                  <div className="hidden xl:block">
-                    <div className="overflow-auto max-h-[600px]">
+                  <div className="hidden xl:flex flex-col flex-1 overflow-hidden">
+                    <div className="overflow-auto flex-1">
                       <table className="w-full table-auto">
                         <thead className="sticky top-0 z-10 border-b bg-muted border-border">
                           <tr>

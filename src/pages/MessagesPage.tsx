@@ -107,6 +107,9 @@ export const MessagesPage = () => {
         if (currentFilters.hasReplies) {
           apiFilters.hasReplies = 'true';
         }
+        if (currentFilters.hasTicket !== undefined) {
+          apiFilters.hasTicket = currentFilters.hasTicket ? 'true' : 'false';
+        }
         if (currentFilters.showFailed) {
           apiFilters.showFailed = 'true';
         }
@@ -156,6 +159,7 @@ export const MessagesPage = () => {
     filters.showNeedsInfo,
     filters.hasAttachments,
     filters.hasReplies,
+    filters.hasTicket,
     filters.showFailed,
     filters.search,
     sorting.sortOrder,
@@ -174,6 +178,7 @@ export const MessagesPage = () => {
     const urlNeedsInfo = searchParams.get('needsInfo');
     const urlAttachments = searchParams.get('attachments');
     const urlReplies = searchParams.get('replies');
+    const urlTicket = searchParams.get('ticket');
     const urlFailed = searchParams.get('failed');
     const urlSearch = searchParams.get('search');
 
@@ -206,6 +211,10 @@ export const MessagesPage = () => {
     }
     if (urlReplies === 'true') {
       urlFilters.hasReplies = true;
+      hasUrlFilters = true;
+    }
+    if (urlTicket === 'true' || urlTicket === 'false') {
+      urlFilters.hasTicket = urlTicket === 'true';
       hasUrlFilters = true;
     }
     if (urlFailed === 'true') {
@@ -404,6 +413,7 @@ export const MessagesPage = () => {
     ((filters.showSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0) +
     (filters.hasReplies ? 1 : 0) +
+    (filters.hasTicket !== undefined ? 1 : 0) +
     (filters.showFailed ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 
