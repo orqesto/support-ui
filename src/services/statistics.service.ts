@@ -39,12 +39,15 @@ export type StatisticsData = {
     count: number;
   }>;
   aiModels: {
+    totalMessages: number;
+    totalSpam: number;
+    totalUnprocessed: number;
+    totalAnalyzed: number;
+    totalEmbedded: number;
     analysisProviders: Array<{ provider: string; count: number; percentage: number }>;
     analysisModels: Array<{ model: string; count: number; percentage: number }>;
     embeddingProviders: Array<{ provider: string; count: number; percentage: number }>;
     embeddingModels: Array<{ model: string; count: number; percentage: number }>;
-    totalAnalyzed: number;
-    totalEmbedded: number;
   };
 };
 
