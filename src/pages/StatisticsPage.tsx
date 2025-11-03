@@ -468,6 +468,38 @@ export const StatisticsPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Message Processing Breakdown */}
+              <div className="mb-6 p-4 rounded-lg bg-muted/50">
+                <h3 className="mb-3 text-sm font-semibold">Message Processing Breakdown</h3>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  <div>
+                    <div className="text-2xl font-bold">{stats.aiModels.totalMessages}</div>
+                    <div className="text-xs text-muted-foreground">Total Messages</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-red-600">{stats.aiModels.totalSpam}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Spam Filtered ({Math.round((stats.aiModels.totalSpam / stats.aiModels.totalMessages) * 100)}%)
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-orange-600">{stats.aiModels.totalUnprocessed}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Unprocessed ({Math.round((stats.aiModels.totalUnprocessed / stats.aiModels.totalMessages) * 100)}%)
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{stats.aiModels.totalAnalyzed}</div>
+                    <div className="text-xs text-muted-foreground">
+                      AI Analyzed ({Math.round((stats.aiModels.totalAnalyzed / stats.aiModels.totalMessages) * 100)}%)
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  💡 Only messages that pass spam filtering and are marked as processed go through AI analysis
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Analysis Providers */}
                 {stats.aiModels.analysisProviders.length > 0 && (

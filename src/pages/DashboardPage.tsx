@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useEmailProcessing } from '../hooks/useEmailProcessing';
 import { useSystemHealth } from '../hooks/useSystemHealth';
+import { useTelegramProcessing } from '../hooks/useTelegramProcessing';
 import { ingestionService } from '../services/ingestion.service';
 import { integrationsService } from '../services/integrations.service';
 import { messageService } from '../services/message.service';
@@ -67,7 +68,16 @@ export const DashboardPage = () => {
   } = useEmailProcessing(true);
   const prevProcessingStatus = useRef(processingStatus);
 
-  // Auto-refresh stats when processing completes
+  // Subscribe to telegram processing events
+  const {
+    isProcessing: isTelegramProcessing,
+    totalProcessed: telegramProcessedCount,
+    activeBots: _activeBots,
+    recentMessages: _recentMessages,
+  } = useTelegramProcessing(true);
+  const prevIsTelegramProcessing = useRef(isTelegramProcessing);
+
+  // Auto-refresh stats when email processing completes
   useEffect(() => {
     // Detect transition from processing to complete
     if (
@@ -89,6 +99,29 @@ export const DashboardPage = () => {
     }
     prevProcessingStatus.current = processingStatus;
   }, [processingStatus, processedCount, clearMessagesCache]);
+
+  // Auto-refresh stats when telegram processing completes
+  useEffect(() => {
+    // Detect transition from processing to complete
+    if (
+      prevIsTelegramProcessing.current &&
+      !isTelegramProcessing &&
+      telegramProcessedCount > 0
+    ) {
+      console.log(
+        `Telegram processing completed (${telegramProcessedCount} messages), refreshing dashboard stats...`
+      );
+
+      // Clear caches to force fresh data fetch
+      clearMessagesCache();
+
+      // Refresh dashboard stats
+      fetchStats().catch((error) => {
+        console.error('Failed to refresh stats after processing:', error);
+      });
+    }
+    prevIsTelegramProcessing.current = isTelegramProcessing;
+  }, [isTelegramProcessing, telegramProcessedCount, clearMessagesCache]);
 
   const fetchStats = async () => {
     try {
@@ -215,13 +248,20 @@ export const DashboardPage = () => {
     setIngesting(type);
 
     // Add to global processing status
-    const taskMessage =
-      type === 'all'
-        ? 'Processing all services'
-        : type === 'email'
-          ? 'Checking emails'
-          : 'Checking Telegram';
-    const taskId = addTask(type === 'telegram' ? 'telegram' : 'email', taskMessage);
+    const taskIds: string[] = [];
+    
+    if (type === 'all') {
+      // Add separate tasks for each service
+      if (hasEmailIntegrations) {
+        taskIds.push(addTask('email', 'Checking emails'));
+      }
+      if (hasTelegramIntegrations) {
+        taskIds.push(addTask('telegram', 'Checking Telegram'));
+      }
+    } else {
+      const taskMessage = type === 'email' ? 'Checking emails' : 'Checking Telegram';
+      taskIds.push(addTask(type, taskMessage));
+    }
 
     try {
       let response;
@@ -239,6 +279,7 @@ export const DashboardPage = () => {
       if (response.success) {
         const message = response.message ?? 'Ingestion started successfully';
         const note = (response as { note?: string }).note;
+        const stats = (response as { stats?: { activeBots?: number; recentMessages?: number; recentProcessed?: number; timeWindow?: string } }).stats;
 
         // Clear Messages page cache so it shows fresh data
         clearMessagesCache();
@@ -246,8 +287,18 @@ export const DashboardPage = () => {
         // Refresh stats immediately
         await fetchStats();
 
-        // Show success message first
-        const description = note ? `${message}\n\n${note}` : message;
+        // Build description with stats if available
+        let description = message;
+        if (note) {
+          description += `\n\n${note}`;
+        }
+        if (stats && type === 'telegram') {
+          description += `\n\n📊 Activity (last ${stats.timeWindow || '5 minutes'}):`;
+          description += `\n• ${stats.recentMessages || 0} messages received`;
+          description += `\n• ${stats.recentProcessed || 0} processed`;
+          description += `\n• ${stats.activeBots || 0} bot(s) active`;
+        }
+
         setAlertDialog({
           open: true,
           title: 'Ingestion Complete',
@@ -284,8 +335,8 @@ export const DashboardPage = () => {
       });
     } finally {
       setIngesting(null);
-      // Remove from global processing status
-      removeTask(taskId);
+      // Remove all tasks from global processing status
+      taskIds.forEach((id) => removeTask(id));
     }
   };
 
@@ -581,6 +632,43 @@ export const DashboardPage = () => {
                       }`}
                     >
                       {health.services.email.message ?? health.services.email.status}
+                    </span>
+                  </div>
+                )}
+
+                {/* Telegram Service Status */}
+                {health?.services.telegram && (
+                  <div
+                    className={`flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 p-3 rounded-lg border ${
+                      health.services.telegram.status === 'active'
+                        ? 'bg-cyan-500/10 border-cyan-500/20 dark:bg-cyan-500/10 dark:border-cyan-500/20'
+                        : health.services.telegram.status === 'error'
+                          ? 'bg-red-500/10 border-red-500/20 dark:bg-red-500/10 dark:border-red-500/20'
+                          : 'bg-muted border-border'
+                    }`}
+                  >
+                    <div className="flex gap-2 items-center">
+                      <div
+                        className={`w-2 h-2 flex-shrink-0 rounded-full ${
+                          health.services.telegram.status === 'active'
+                            ? 'bg-cyan-500 animate-pulse'
+                            : health.services.telegram.status === 'error'
+                              ? 'bg-red-500'
+                              : 'bg-gray-400'
+                        }`}
+                      />
+                      <span className="text-sm font-medium">Telegram Service</span>
+                    </div>
+                    <span
+                      className={`text-xs font-medium break-words ${
+                        health.services.telegram.status === 'active'
+                          ? 'text-cyan-600 dark:text-cyan-400'
+                          : health.services.telegram.status === 'error'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
+                      {health.services.telegram.message ?? health.services.telegram.status}
                     </span>
                   </div>
                 )}

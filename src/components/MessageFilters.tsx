@@ -1,4 +1,4 @@
-import { Filter, X, Paperclip, XCircle, MessageCircle } from 'lucide-react';
+import { Filter, X, Paperclip, XCircle, MessageCircle, Ticket } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -210,6 +210,43 @@ export const MessageFilters = ({
                     <span>Replies</span>
                   </div>
                 </label>
+
+                {/* Ticket filter - tri-state toggle */}
+                <div className="flex gap-1 items-center">
+                  <Ticket className="w-3 h-3 text-muted-foreground" />
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setFilters({ ...filters, hasTicket: undefined })}
+                      className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                        filters.hasTicket === undefined
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setFilters({ ...filters, hasTicket: true })}
+                      className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                        filters.hasTicket === true
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      Has Ticket
+                    </button>
+                    <button
+                      onClick={() => setFilters({ ...filters, hasTicket: false })}
+                      className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                        filters.hasTicket === false
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      No Ticket
+                    </button>
+                  </div>
+                </div>
 
                 <label className="flex gap-2 items-center cursor-pointer">
                   <input

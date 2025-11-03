@@ -11,6 +11,7 @@ export type FilterState = {
   showWorthy?: boolean;
   hasAttachments?: boolean;
   hasReplies?: boolean;
+  hasTicket?: boolean;
   showFailed?: boolean;
   search?: string;
 };
@@ -48,6 +49,7 @@ const defaultFilters: FilterState = {
   showWorthy: false,
   hasAttachments: false,
   hasReplies: false,
+  hasTicket: undefined,
   showFailed: false,
 };
 
