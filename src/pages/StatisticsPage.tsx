@@ -273,71 +273,6 @@ export const StatisticsPage = () => {
           </CardContent>
         </Card>
 
-        {/* AI Category Accuracy */}
-        {stats.aiAccuracy && stats.aiAccuracy.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex gap-2 items-center">
-                <BarChart3 className="w-5 h-5" />
-                AI Category Suggestions vs Final Assignments
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {stats.aiAccuracy
-                  .sort((a, b) => b.count - a.count)
-                  .slice(0, 10)
-                  .map((item) => {
-                    const isMatch = item.suggestedCategoryName === item.actualCategoryName;
-                    return (
-                      <div
-                        key={item.suggestedCategoryName}
-                        className="flex justify-between items-center p-3 rounded-lg bg-muted"
-                      >
-                        <div className="flex flex-1 gap-3 items-center">
-                          <div className="text-sm">
-                            <span className="font-medium">AI Suggested:</span>{' '}
-                            <span
-                              className={
-                                isMatch
-                                  ? 'font-medium text-green-600 dark:text-green-400'
-                                  : 'text-muted-foreground'
-                              }
-                            >
-                              {item.suggestedCategoryName}
-                            </span>
-                          </div>
-                          <span className="text-muted-foreground">→</span>
-                          <div className="text-sm">
-                            <span className="font-medium">Final Category:</span>{' '}
-                            <span
-                              className={
-                                isMatch
-                                  ? 'font-medium text-green-600 dark:text-green-400'
-                                  : 'font-medium text-primary'
-                              }
-                            >
-                              {item.actualCategoryName}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          {isMatch && (
-                            <span className="px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
-                              ✓ Match
-                            </span>
-                          )}
-                          <span className="text-sm font-medium text-muted-foreground">
-                            {item.count} {item.count === 1 ? 'ticket' : 'tickets'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Channel Statistics */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -595,6 +530,86 @@ export const StatisticsPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* AI Category Accuracy */}
+              {stats.aiAccuracy && stats.aiAccuracy.length > 0 && (() => {
+                const totalPredictions = stats.aiAccuracy.reduce((sum, item) => sum + item.count, 0);
+                const correctPredictions = stats.aiAccuracy
+                  .filter(item => item.suggestedCategoryName === item.actualCategoryName)
+                  .reduce((sum, item) => sum + item.count, 0);
+                const accuracyRate = totalPredictions > 0 
+                  ? Math.round((correctPredictions / totalPredictions) * 100) 
+                  : 0;
+
+                return (
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="flex gap-2 items-center mb-4">
+                      <BarChart3 className="w-4 h-4 text-purple-600" />
+                      <h3 className="text-sm font-semibold">Category Prediction Accuracy</h3>
+                      <span className="ml-auto px-3 py-1 text-sm font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full">
+                        {accuracyRate}% Match Rate
+                      </span>
+                    </div>
+                    
+                    <div className="mb-4 p-3 rounded-lg bg-muted/50">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-lg font-bold">{totalPredictions}</div>
+                          <div className="text-xs text-muted-foreground">Total Predictions</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-green-600">{correctPredictions}</div>
+                          <div className="text-xs text-muted-foreground">Correct</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-orange-600">{totalPredictions - correctPredictions}</div>
+                          <div className="text-xs text-muted-foreground">Human Adjusted</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {stats.aiAccuracy
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 15)
+                        .map((item, index) => {
+                          const isMatch = item.suggestedCategoryName === item.actualCategoryName;
+                          return (
+                            <div
+                              key={`${item.suggestedCategoryName}-${item.actualCategoryName}-${index}`}
+                              className="flex justify-between items-center p-2 rounded text-xs hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex flex-1 gap-2 items-center min-w-0">
+                                {isMatch ? (
+                                  <div className="flex gap-1 items-center min-w-0">
+                                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400">
+                                      ✓
+                                    </span>
+                                    <span className="font-medium text-green-600 dark:text-green-400 truncate">
+                                      {item.suggestedCategoryName}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-1 items-center min-w-0">
+                                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                      ✎
+                                    </span>
+                                    <span className="text-muted-foreground truncate">{item.suggestedCategoryName}</span>
+                                    <span className="flex-shrink-0 text-muted-foreground">→</span>
+                                    <span className="font-medium truncate">{item.actualCategoryName}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="flex-shrink-0 ml-2 font-medium text-muted-foreground">
+                                {item.count}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         )}
