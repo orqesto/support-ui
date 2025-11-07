@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Activity, X } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
-import { Button } from './ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 export const WebSocketDebug = () => {
   const [isOpen, setIsOpen] = useState(false);

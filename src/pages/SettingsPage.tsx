@@ -1,15 +1,16 @@
-import { Settings, FolderTree, FileText, Shield, Plug, Brain, Sparkles } from 'lucide-react';
+import { Settings, FolderTree, FileText, Shield, Inbox, Brain, Sparkles, Zap } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
+import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
+import { CategoriesSettings } from '@/components/settings/CategoriesSettings';
+import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
+import { EmbeddingSettings } from '@/components/settings/EmbeddingSettings';
+import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
+import { PromptsSettings } from '@/components/settings/PromptsSettings';
+import { SpamRulesSettings } from '@/components/settings/SpamRulesSettings';
+import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { AIProvidersSettings } from '../components/settings/AIProvidersSettings';
-import { CategoriesSettings } from '../components/settings/CategoriesSettings';
-import { DocumentationSettings } from '../components/settings/DocumentationSettings';
-import { EmbeddingSettings } from '../components/settings/EmbeddingSettings';
-import { IntegrationsSettings } from '../components/settings/IntegrationsSettings';
-import { PromptsSettings } from '../components/settings/PromptsSettings';
-import { SpamRulesSettings } from '../components/settings/SpamRulesSettings';
 
 type TabType =
   | 'categories'
@@ -18,7 +19,8 @@ type TabType =
   | 'documentation'
   | 'embeddings'
   | 'ai-providers'
-  | 'integrations';
+  | 'message-sources'
+  | 'ticket-automation';
 
 export const SettingsPage = () => {
   const location = useLocation();
@@ -69,16 +71,22 @@ export const SettingsPage = () => {
       description: 'Configure OpenAI, Anthropic and models',
     },
     {
-      id: 'integrations' as TabType,
-      label: 'Integrations',
-      icon: Plug,
-      description: 'Configure Email, Jira, Telegram, Slack',
+      id: 'message-sources' as TabType,
+      label: 'Message Sources',
+      icon: Inbox,
+      description: 'Configure Email, Telegram, Slack integrations',
+    },
+    {
+      id: 'ticket-automation' as TabType,
+      label: 'Ticket Automation',
+      icon: Zap,
+      description: 'Configure Auto-Reply, Jira, and workflows',
     },
   ];
 
   return (
     <Layout>
-      <div className="mx-auto space-y-6 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
@@ -106,7 +114,7 @@ export const SettingsPage = () => {
                       key={tab.id}
                       variant="ghost"
                       onClick={() => handleTabChange(tab.id)}
-                      className={`h-auto rounded-none items-center gap-2 px-3 py-3 sm:px-4 sm:py-3.5 md:px-6 md:py-4 border-b-2 transition-colors shrink-0 ${
+                      className={`h-auto rounded-none items-center gap-2 px-2 py-2 sm:px-4 sm:py-2 md:px-6 md:py-4 border-b-2 transition-colors shrink-0 ${
                         activeTab === tab.id
                           ? 'border-primary text-primary bg-primary/10'
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -130,7 +138,8 @@ export const SettingsPage = () => {
               {activeTab === 'documentation' && <DocumentationSettings />}
               {activeTab === 'embeddings' && <EmbeddingSettings />}
               {activeTab === 'ai-providers' && <AIProvidersSettings />}
-              {activeTab === 'integrations' && <IntegrationsSettings />}
+              {activeTab === 'message-sources' && <MessageSourcesSettings />}
+              {activeTab === 'ticket-automation' && <TicketAutomationSettings />}
             </div>
           </CardContent>
         </Card>

@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -131,7 +131,7 @@ export const EditTicketPage = () => {
 
   return (
     <Layout>
-      <div className="mx-auto space-y-6 max-w-3xl">
+      <div className="px-4 pb-6 mx-auto space-y-4 w-full max-w-7xl">
         <div>
           <h1 className="text-3xl font-bold">Edit Ticket</h1>
           <p className="mt-2 text-muted-foreground">Update ticket details</p>

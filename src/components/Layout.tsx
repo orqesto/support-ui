@@ -14,16 +14,16 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { EmailProcessingProgress } from '@/components/EmailProcessingProgress';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { ProcessingStatusWidget } from '@/components/ProcessingStatusWidget';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/Button';
 import { WebSocketDebug } from '@/components/WebSocketDebug';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission, roleDisplayNames } from '@/types/roles';
-import { OrganizationSwitcher } from '../OrganizationSwitcher';
-import { ThemeToggle } from '../ThemeToggle';
-import { Button } from '../ui/Button';
 
 const isDevelopment = import.meta.env.DEV;
 
@@ -96,14 +96,13 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Mobile sidebar backdrop */}
-      <Button
-        variant="ghost"
-        className={cn(
-          'fixed inset-0 z-40 bg-gray-900/80 lg:hidden',
-          sidebarOpen ? 'block' : 'hidden'
-        )}
-        onClick={() => setSidebarOpen(false)}
-      />
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-gray-900/80 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       <div className="flex flex-row flex-1 overflow-hidden">
         {/* Sidebar - Hidden on mobile, visible on desktop */}
@@ -194,7 +193,7 @@ export const Layout = ({ children }: LayoutProps) => {
           {/* Spacer for fixed header */}
           <div className="h-14 lg:hidden" />
 
-          <main className="overflow-x-hidden flex-1 flex flex-col p-4 w-full max-w-full lg:p-6 bg-background">
+          <main className="overflow-x-hidden flex-1 flex flex-col p-2 w-full max-w-full lg:p-4 bg-background">
             {children}
           </main>
         </div>

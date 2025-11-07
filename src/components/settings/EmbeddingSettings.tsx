@@ -11,13 +11,13 @@ import {
   Globe,
   BarChart3,
 } from 'lucide-react';
+import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { integrationsService, type Integration } from '@/services/integrations.service';
-import { AlertDialog } from '../ui/AlertDialog';
-import { Button } from '../ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 
-type EmbeddingProvider = 'openai' | 'local';
+type EmbeddingProvider = 'openai' | 'local_embeddings';
 
 type EmbeddingSettings = {
   provider: EmbeddingProvider;
@@ -26,7 +26,7 @@ type EmbeddingSettings = {
 
 export const EmbeddingSettings = () => {
   const [settings, setSettings] = useState<EmbeddingSettings>({
-    provider: 'local',
+    provider: 'local_embeddings',
     preferLocal: true,
   });
   const [loading, setLoading] = useState(true);
@@ -102,7 +102,7 @@ export const EmbeddingSettings = () => {
         setAlertDialog({
           open: true,
           title: 'Settings Saved',
-          description: `Embedding provider set to ${settings.provider === 'local' ? 'Local (all-MiniLM-L6-v2)' : `OpenAI (${openAIEmbeddingModel})`}`,
+          description: `Embedding provider set to ${settings.provider === 'local_embeddings' ? 'Local (all-MiniLM-L6-v2)' : `OpenAI (${openAIEmbeddingModel})`}`,
           variant: 'success',
         });
       }
@@ -184,26 +184,35 @@ export const EmbeddingSettings = () => {
           <div className="space-y-4">
             {/* Local Embeddings Option */}
             <div
+              role="button"
+              tabIndex={localIntegration?.enabled ? 0 : -1}
               className={`border rounded-lg p-4 transition-colors ${
                 !localIntegration?.enabled
                   ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
-                  : settings.provider === 'local'
+                  : settings.provider === 'local_embeddings'
                     ? 'border-primary bg-primary/5 cursor-pointer'
                     : 'border-border hover:border-primary/50 cursor-pointer'
               }`}
               onClick={() => {
                 if (localIntegration?.enabled) {
-                  setSettings({ provider: 'local', preferLocal: true });
+                  setSettings({ provider: 'local_embeddings', preferLocal: true });
                 }
               }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && localIntegration?.enabled) {
+                  e.preventDefault();
+                  setSettings({ provider: 'local_embeddings', preferLocal: true });
+                }
+              }}
+              aria-label="Select local embeddings provider"
             >
               <div className="flex gap-3 items-start">
                 <input
                   type="radio"
-                  checked={settings.provider === 'local'}
+                  checked={settings.provider === 'local_embeddings'}
                   onChange={() => {
                     if (localIntegration?.enabled) {
-                      setSettings({ provider: 'local', preferLocal: true });
+                      setSettings({ provider: 'local_embeddings', preferLocal: true });
                     }
                   }}
                   disabled={!localIntegration?.enabled}
@@ -256,18 +265,27 @@ export const EmbeddingSettings = () => {
 
             {/* OpenAI Option */}
             <div
+              role="button"
+              tabIndex={hasOpenAI ? 0 : -1}
               className={`border rounded-lg p-4 transition-colors ${
                 !hasOpenAI
                   ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
-                  : settings.provider === 'openai'
-                    ? 'border-primary bg-primary/5 cursor-pointer'
-                    : 'border-border hover:border-primary/50 cursor-pointer'
+                  : settings.provider === 'local_embeddings'
+                    ? 'border-border hover:border-primary/50 cursor-pointer'
+                    : 'border-primary bg-primary/5 cursor-pointer'
               }`}
               onClick={() => {
                 if (hasOpenAI) {
                   setSettings({ provider: 'openai', preferLocal: false });
                 }
               }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && hasOpenAI) {
+                  e.preventDefault();
+                  setSettings({ provider: 'openai', preferLocal: false });
+                }
+              }}
+              aria-label="Select OpenAI embeddings provider"
             >
               <div className="flex gap-3 items-start">
                 <input
@@ -328,7 +346,7 @@ export const EmbeddingSettings = () => {
             <div className="flex gap-2">
               <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-blue-900 dark:text-blue-100">
-                {settings.provider === 'local' ? (
+                {settings.provider === 'local_embeddings' ? (
                   <>
                     <p className="mb-1 font-medium">Local embeddings are perfect for:</p>
                     <ul className="list-disc list-inside space-y-0.5 text-xs text-blue-800 dark:text-blue-200">

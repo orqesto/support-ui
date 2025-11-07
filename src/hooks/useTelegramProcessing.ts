@@ -82,8 +82,8 @@ export const useTelegramProcessing = (enabled = true) => {
             ...prev,
             isProcessing: true,
             currentMessage: {
-              sender: event.data?.sender || 'Unknown',
-              content: event.data?.content || '',
+              sender: event.data?.sender ?? 'Unknown',
+              content: event.data?.content ?? '',
             },
           }));
           break;
@@ -95,11 +95,11 @@ export const useTelegramProcessing = (enabled = true) => {
         case 'processed':
           setState((prev) => {
             const newMessage: ProcessedMessage = {
-              id: event.data?.messageId || Date.now(),
-              sender: event.data?.sender || 'Unknown',
-              content: event.data?.content || prev.currentMessage?.content || '',
-              status: event.data?.status || 'saved',
-              processTime: event.data?.processTime || 0,
+              id: event.data?.messageId ?? Date.now(),
+              sender: event.data?.sender ?? 'Unknown',
+              content: event.data?.content ?? prev.currentMessage?.content ?? '',
+              status: event.data?.status ?? 'saved',
+              processTime: event.data?.processTime ?? 0,
               timestamp: Date.now(),
             };
 
@@ -126,11 +126,11 @@ export const useTelegramProcessing = (enabled = true) => {
         case 'error':
           setState((prev) => {
             const errorMessage: ProcessedMessage = {
-              id: event.data?.messageId || Date.now(),
-              sender: event.data?.sender || prev.currentMessage?.sender || 'Unknown',
-              content: prev.currentMessage?.content || '',
+              id: event.data?.messageId ?? Date.now(),
+              sender: event.data?.sender ?? prev.currentMessage?.sender ?? 'Unknown',
+              content: prev.currentMessage?.content ?? '',
               status: 'error',
-              processTime: event.data?.processTime || 0,
+              processTime: event.data?.processTime ?? 0,
               timestamp: Date.now(),
               error: event.data?.error,
             };

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiClient } from '../lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 type TranslationResponse = {
   original: {
@@ -32,11 +32,11 @@ export const useTranslation = () => {
     setError(null);
 
     try {
-      const response = await apiClient.post<TranslationResponse>(
+      const response = await apiClient.post<{ success: boolean; data: TranslationResponse }>(
         `/api/translation/messages/${messageId}/translate`,
         { targetLanguage }
       );
-      return response.data;
+      return response.data.data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Translation failed';
       setError(errorMessage);
@@ -51,11 +51,11 @@ export const useTranslation = () => {
     setError(null);
 
     try {
-      const response = await apiClient.post<TranslationResponse>(
+      const response = await apiClient.post<{ success: boolean; data: TranslationResponse }>(
         `/api/translation/tickets/${ticketId}/translate`,
         { targetLanguage }
       );
-      return response.data;
+      return response.data.data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Translation failed';
       setError(errorMessage);
@@ -65,8 +65,78 @@ export const useTranslation = () => {
     }
   };
 
+  const streamMessageTranslation = (
+    messageId: number,
+    targetLanguage: string,
+    onChunk: (field: 'content' | 'subject', text: string) => void,
+    onComplete?: () => void,
+    onError?: (error: string) => void
+  ) => {
+    setIsTranslating(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const eventSource = new EventSource(
+        `/api/translation/messages/${messageId}/stream?token=${token}&targetLanguage=${targetLanguage}`
+      );
+
+      type SSEData =
+        | { type: 'start'; sourceLang: string; targetLanguage: string }
+        | { type: 'chunk'; field: 'content' | 'subject'; text: string }
+        | { type: 'done' }
+        | { type: 'error'; error: string };
+
+      eventSource.onmessage = (event: MessageEvent) => {
+        const data = JSON.parse(event.data as string) as SSEData;
+
+        if (data.type === 'chunk') {
+          onChunk(data.field, data.text);
+        } else if (data.type === 'done') {
+          eventSource.close();
+          setIsTranslating(false);
+          if (onComplete) {
+            onComplete();
+          }
+        } else if (data.type === 'error') {
+          eventSource.close();
+          setIsTranslating(false);
+          const errMsg = data.error || 'Translation failed';
+          setError(errMsg);
+          if (onError) {
+            onError(errMsg);
+          }
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource.close();
+        setIsTranslating(false);
+        const errMsg = 'Connection failed';
+        setError(errMsg);
+        if (onError) {
+          onError(errMsg);
+        }
+      };
+
+      // Return cleanup function
+      return () => {
+        eventSource.close();
+        setIsTranslating(false);
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Stream failed';
+      setError(errorMessage);
+      setIsTranslating(false);
+      if (onError) {
+        onError(errorMessage);
+      }
+    }
+  };
+
   return {
     translateMessage,
+    streamMessageTranslation,
     translateTicket,
     isTranslating,
     error,
@@ -90,9 +160,11 @@ const fetchLanguagesOnce = async (): Promise<SupportedLanguage[]> => {
 
   // Start new fetch
   languagesFetchPromise = apiClient
-    .get<{ languages: SupportedLanguage[] }>('/api/translation/languages')
+    .get<{ success: boolean; data: { languages: SupportedLanguage[] } }>(
+      '/api/translation/languages'
+    )
     .then((response) => {
-      languagesCache = response.data.languages;
+      languagesCache = response.data.data.languages;
       languagesFetchPromise = null;
       return languagesCache;
     })

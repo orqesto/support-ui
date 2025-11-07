@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -23,12 +23,17 @@ export const CreateTicketPage = () => {
   const [message, setMessage] = useState<Message | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    category?: string;
+    priority?: string;
+  }>({});
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'medium' as TicketPriority,
     categoryId: '',
+    syncToJira: false,
   });
 
   // Alert dialog state
@@ -56,11 +61,38 @@ export const CreateTicketPage = () => {
       if (response.success && response.data) {
         const data = response.data;
         setMessage(data);
+
+        // Extract AI analysis from metadata
+        const analysis = data.metadata?.analysis as
+          | {
+              suggestedCategory?: string;
+              suggestedPriority?: string;
+            }
+          | undefined;
+
+        // Track AI suggestions
+        if (analysis?.suggestedPriority ?? analysis?.suggestedCategory) {
+          setAiSuggestions({
+            priority: analysis.suggestedPriority,
+            category: analysis.suggestedCategory,
+          });
+        }
+
         setFormData((prev) => ({
           ...prev,
           title: data.subject ?? `Message from ${data.sender}`,
           description: data.content,
+          // Pre-fill priority if AI suggested one
+          priority: (analysis?.suggestedPriority as TicketPriority) ?? prev.priority,
+          // categoryId will be set after categories are loaded
         }));
+
+        // Store AI suggested category name for later matching
+        if (analysis?.suggestedCategory) {
+          // We'll match this after categories are loaded
+          (window as { aiSuggestedCategory?: string }).aiSuggestedCategory =
+            analysis.suggestedCategory;
+        }
       }
     } catch (error) {
       console.error('Failed to fetch message:', error);
@@ -72,6 +104,23 @@ export const CreateTicketPage = () => {
       const response = await categoryService.getAll();
       if (response.success && response.data) {
         setCategories(response.data);
+
+        // Match AI-suggested category to category ID
+        const aiSuggestedCategory = (window as { aiSuggestedCategory?: string })
+          .aiSuggestedCategory;
+        if (aiSuggestedCategory) {
+          const matchedCategory = response.data.find(
+            (cat) => cat.name.toLowerCase() === aiSuggestedCategory.toLowerCase()
+          );
+          if (matchedCategory) {
+            setFormData((prev) => ({
+              ...prev,
+              categoryId: matchedCategory.id.toString(),
+            }));
+          }
+          // Clean up temporary storage
+          delete (window as { aiSuggestedCategory?: string }).aiSuggestedCategory;
+        }
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error);
@@ -90,6 +139,7 @@ export const CreateTicketPage = () => {
         ...formData,
         messageId: parseInt(messageId),
         categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
+        syncToJira: formData.syncToJira,
       });
 
       if (response.success && response.data) {
@@ -120,7 +170,7 @@ export const CreateTicketPage = () => {
 
   return (
     <Layout>
-      <div className="mx-auto space-y-6 max-w-3xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         <div>
           <h1 className="text-3xl font-bold">Create Ticket</h1>
           <p className="mt-2 text-muted-foreground">Convert message into a support ticket</p>
@@ -179,31 +229,65 @@ export const CreateTicketPage = () => {
                 />
               </div>
 
-              <Select
-                label="Priority"
-                value={formData.priority}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
-                }
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </Select>
+              <div>
+                <Select
+                  label="Priority"
+                  value={formData.priority}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                  }
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </Select>
+                {aiSuggestions.priority && (
+                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                    ✨ AI suggested: {aiSuggestions.priority}
+                  </p>
+                )}
+              </div>
 
-              <Select
-                label="Category"
-                value={formData.categoryId}
-                onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-              >
-                <option value="">Select a category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </Select>
+              <div>
+                <Select
+                  label="Category"
+                  value={formData.categoryId}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </Select>
+                {aiSuggestions.category && (
+                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                    ✨ AI suggested: {aiSuggestions.category}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
+                <input
+                  type="checkbox"
+                  id="syncToJira"
+                  checked={formData.syncToJira}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, syncToJira: e.target.checked }))
+                  }
+                  className="mt-0.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary focus:ring-2"
+                />
+                <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
+                  <span className="font-medium">Sync to Jira</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Automatically create a Jira ticket when this ticket is created. Ticket will only
+                    sync if it has meaningful title/description and a category (or high/critical
+                    priority).
+                  </p>
+                </label>
+              </div>
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" isLoading={loading}>

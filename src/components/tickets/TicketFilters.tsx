@@ -95,149 +95,160 @@ export const TicketFilters = ({
           </div>
 
           {/* Filter Controls */}
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Search Input */}
-            <SearchInput
-              value={pendingSearch}
-              onChange={onPendingSearchChange}
-              onSearch={onSearch}
-              onBlur={onSearchBlur}
-              showSearchButton={true}
-              placeholder="Search by ID, title, description..."
-              className="w-[300px]"
-              size="sm"
-            />
-
-            {/* Group 1: Status & Priority */}
-            <div className="flex gap-2 items-center">
-              <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                Status:
-              </span>
-              <Select
-                value={filters.status}
-                onChange={(e) => onFilterChange('status', e.target.value)}
-                className="px-2 py-1 pr-8 h-8 text-xs"
-                aria-label="Filter by status"
-              >
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-              </Select>
+          <div className="flex flex-col gap-3">
+            {/* Row 1: Search */}
+            <div className="flex flex-wrap gap-3 items-center">
+              <SearchInput
+                value={pendingSearch}
+                onChange={onPendingSearchChange}
+                onSearch={onSearch}
+                onBlur={onSearchBlur}
+                showSearchButton={true}
+                placeholder="Search by ID, title, description..."
+                className="flex-1 min-w-[300px]"
+                size="sm"
+              />
             </div>
 
-            <div className="flex gap-2 items-center">
-              <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                Priority:
-              </span>
-              <Select
-                value={filters.priority}
-                onChange={(e) => onFilterChange('priority', e.target.value)}
-                className="px-2 py-1 pr-8 h-8 text-xs"
-                aria-label="Filter by priority"
-              >
-                <option value="all">All</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </Select>
-            </div>
-
-            {/* Group 2: Sorting */}
-            <div className="flex gap-2 items-center">
-              <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                Sort:
-              </span>
-              <Select
-                value={sorting.sortBy}
-                onChange={(e) =>
-                  onSortingChange({
-                    ...sorting,
-                    sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
-                  })
-                }
-                className="px-2 py-1 pr-8 h-8 text-xs"
-                aria-label="Sort by"
-              >
-                <option value="createdAt">Created Date</option>
-                <option value="updatedAt">Updated Date</option>
-                <option value="priority">Priority</option>
-              </Select>
-            </div>
-
-            <div className="flex gap-2 items-center">
-              <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                Order:
-              </span>
-              <Select
-                value={sorting.sortOrder}
-                onChange={(e) =>
-                  onSortingChange({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
-                }
-                className="px-2 py-1 pr-8 h-8 text-xs"
-                aria-label="Sort order"
-              >
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </Select>
-            </div>
-
-            {/* Group 3: Jira & Sync */}
-            {jiraIntegrations.length > 1 && (
+            {/* Row 2: Main Filters */}
+            <div className="flex flex-wrap gap-4 items-center">
+              {/* Group 1: Status & Priority */}
               <div className="flex gap-2 items-center">
-                <span className="text-xs font-medium whitespace-nowrap text-muted-foreground">
-                  Jira:
+                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                  Status:
                 </span>
                 <Select
-                  value={selectedJiraId ?? ''}
-                  onChange={(e) => onJiraIdChange(e.target.value ? Number(e.target.value) : undefined)}
+                  value={filters.status}
+                  onChange={(e) => onFilterChange('status', e.target.value)}
                   className="px-2 py-1 pr-8 h-8 text-xs"
-                  aria-label="Filter by Jira integration"
+                  aria-label="Filter by status"
                 >
-                  <option value="">All Integrations</option>
-                  {jiraIntegrations.map((integration) => (
-                    <option key={integration.id} value={integration.id}>
-                      {integration.name}
-                    </option>
-                  ))}
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
                 </Select>
               </div>
-            )}
 
-            {/* Jira Sync Status Filter */}
-            <label className="flex gap-2 items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.syncedToJira ?? false}
-                onChange={(e) =>
-                  onFilterChange('syncedToJira', e.target.checked ? 'true' : 'false')
-                }
-                className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-              />
-              <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                <ExternalLinkIcon className="w-3 h-3" />
-                <span>Synced to Jira</span>
+              <div className="flex gap-2 items-center">
+                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                  Priority:
+                </span>
+                <Select
+                  value={filters.priority}
+                  onChange={(e) => onFilterChange('priority', e.target.value)}
+                  className="px-2 py-1 pr-8 h-8 text-xs"
+                  aria-label="Filter by priority"
+                >
+                  <option value="all">All</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </Select>
               </div>
-            </label>
 
-            <Button
-              onClick={onSyncAll}
-              size="sm"
-              className="ml-auto"
-              disabled={
-                !hasManagePermission ||
-                jiraIntegrations.length === 0 ||
-                (jiraIntegrations.length > 1 && !selectedJiraId)
-              }
-              isLoading={isSyncingAll}
-              title={!hasManagePermission ? 'You need MANAGE_TICKETS permission to sync to Jira' : ''}
-            >
-              <Send className="mr-2 w-4 h-4" />
-              Sync to Jira
-            </Button>
+              {/* Divider */}
+              <div className="h-8 w-px bg-border" />
+
+              {/* Group 2: Sorting */}
+              <div className="flex gap-2 items-center">
+                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                  Sort:
+                </span>
+                <Select
+                  value={sorting.sortBy}
+                  onChange={(e) =>
+                    onSortingChange({
+                      ...sorting,
+                      sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
+                    })
+                  }
+                  className="px-2 py-1 pr-8 h-8 text-xs"
+                  aria-label="Sort by"
+                >
+                  <option value="createdAt">Created Date</option>
+                  <option value="updatedAt">Updated Date</option>
+                  <option value="priority">Priority</option>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 items-center">
+                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                  Order:
+                </span>
+                <Select
+                  value={sorting.sortOrder}
+                  onChange={(e) =>
+                    onSortingChange({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
+                  }
+                  className="px-2 py-1 pr-8 h-8 text-xs"
+                  aria-label="Sort order"
+                >
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </Select>
+              </div>
+
+              {/* Divider */}
+              <div className="h-8 w-px bg-border" />
+
+              {/* Group 3: Jira & Sync */}
+              {jiraIntegrations.length > 1 && (
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                    Jira:
+                  </span>
+                  <Select
+                    value={selectedJiraId ?? ''}
+                    onChange={(e) => onJiraIdChange(e.target.value ? Number(e.target.value) : undefined)}
+                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    aria-label="Filter by Jira integration"
+                  >
+                    <option value="">All Integrations</option>
+                    {jiraIntegrations.map((integration) => (
+                      <option key={integration.id} value={integration.id}>
+                        {integration.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+
+              {/* Jira Sync Status Filter */}
+              <label className="flex gap-2 items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.syncedToJira ?? false}
+                  onChange={(e) =>
+                    onFilterChange('syncedToJira', e.target.checked ? 'true' : 'false')
+                  }
+                  className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                />
+                <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                  <ExternalLinkIcon className="w-3 h-3" />
+                  <span>Synced to Jira</span>
+                </div>
+              </label>
+
+              <Button
+                onClick={onSyncAll}
+                size="sm"
+                className="ml-auto"
+                disabled={
+                  !hasManagePermission ||
+                  jiraIntegrations.length === 0 ||
+                  (jiraIntegrations.length > 1 && !selectedJiraId)
+                }
+                isLoading={isSyncingAll}
+                title={!hasManagePermission ? 'You need MANAGE_TICKETS permission to sync to Jira' : ''}
+              >
+                <Send className="mr-2 w-4 h-4" />
+                Sync to Jira
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Lightbulb, Copy, CheckCircle, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatDate } from '../lib/utils';
-import { ticketService } from '../services/ticket.service';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { formatDate } from '@/lib/utils';
+import { ticketService } from '@/services/ticket.service';
 
 type SimilarTicket = {
   ticketId: number;

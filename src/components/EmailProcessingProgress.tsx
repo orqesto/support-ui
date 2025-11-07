@@ -1,30 +1,32 @@
 import { useState, useEffect } from 'react';
-import { Mail, CheckCircle, XCircle, Loader2, Globe, X, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Mail,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Globe,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { usePermissions } from '@/hooks/usePermissions';
-import { integrationsService } from '@/services/integrations.service';
+import { Button } from '@/components/ui/Button';
+import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { useAuthStore } from '@/stores/authStore';
-import { useEmailProcessing } from '../hooks/useEmailProcessing';
-import { Button } from './ui/Button';
 
 type Position = { x: number; y: number };
 
 export const EmailProcessingProgress = () => {
   const navigate = useNavigate();
-  const { isAdmin } = usePermissions();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
-  const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
-  
+
   // Persist state across navigation using localStorage
   const [isExpanded, setIsExpanded] = useState(() => {
     const saved = localStorage.getItem('emailProcessingWidget_expanded');
     return saved !== null ? saved === 'true' : true;
   });
-  
-  const [isClosed, setIsClosed] = useState(() => {
-    const saved = localStorage.getItem('emailProcessingWidget_closed');
-    return saved === 'true';
-  });
+
+  const [isClosed, setIsClosed] = useState(false); // Always start open
 
   // Draggable position state
   const [position, setPosition] = useState<Position>(() => {
@@ -47,41 +49,16 @@ export const EmailProcessingProgress = () => {
     localStorage.setItem('emailProcessingWidget_expanded', String(isExpanded));
   }, [isExpanded]);
 
-  // Save closed state to localStorage and reset after some time
+  // Auto-reopen widget after some time if closed
   useEffect(() => {
-    localStorage.setItem('emailProcessingWidget_closed', String(isClosed));
-    
-    // Auto-reopen widget when new processing starts (don't stay closed forever)
     if (isClosed) {
       const timer = setTimeout(() => {
         setIsClosed(false);
       }, 300000); // Reopen after 5 minutes
-      
+
       return () => clearTimeout(timer);
     }
   }, [isClosed]);
-
-  // Check if ANY organization has email integrations (system-wide)
-  useEffect(() => {
-    const checkIntegrations = async () => {
-      try {
-        const hasIntegrations = await integrationsService.hasAnyEmailIntegrations();
-        setHasEmailIntegrations(hasIntegrations);
-      } catch (error) {
-        console.error('Failed to check integrations:', error);
-        setHasEmailIntegrations(false);
-      }
-    };
-
-    checkIntegrations().catch((error) => {
-      console.error('Failed to check integrations:', error);
-    });
-  }, []); // Only check once on mount, not on org change
-
-  // Show widget if admin and has email integrations (any org)
-  // Subscribe to events if admin (to see progress even when org is selected)
-  const shouldShow = isAdmin && hasEmailIntegrations;
-  const shouldSubscribe = isAdmin && hasEmailIntegrations;
 
   const {
     status,
@@ -95,7 +72,7 @@ export const EmailProcessingProgress = () => {
     fetchTime,
     processTime,
     totalTime,
-  } = useEmailProcessing(shouldSubscribe);
+  } = useEmailProcessing(true); // Always subscribe to events
 
   // Save position to localStorage
   useEffect(() => {
@@ -156,30 +133,35 @@ export const EmailProcessingProgress = () => {
     }
   }, [status, total]);
 
-  // Auto-reopen when processing starts
+  // Auto-reopen when processing starts (even if widget was closed)
   useEffect(() => {
-    if (status === 'started' || status === 'processing' || isProcessing) {
-      setIsClosed(false); // Show widget when processing starts
+    if ((status === 'started' || status === 'processing' || isProcessing) && isClosed) {
+      setIsClosed(false);
     }
-  }, [status, isProcessing]);
+  }, [status, isProcessing, isClosed]);
 
-  // Don't render if:
-  // - No integrations configured
-  // - Status is idle AND widget was manually closed
-  // - Widget was manually closed AND processing is not active
-  if (!shouldShow) {
-    return null;
-  }
-  
-  // Hide only if idle AND manually closed, OR if manually closed AND not processing
-  if (status === 'idle' || (isClosed && !isProcessing && status !== 'processing')) {
-    return null;
-  }
+  // Auto-close after 3 seconds when completed with 0 results
+  useEffect(() => {
+    if (status === 'complete' && total === 0) {
+      const timer = setTimeout(() => {
+        setIsClosed(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [status, total]);
+
+  // Show widget ONLY if there's activity
+  const isActivelyProcessing = isProcessing || status === 'started' || status === 'processing';
+  const hasRecentActivity = status === 'complete'; // Show on complete regardless of total
+
+  // Force show if actively processing (ignore isClosed), allow closing only when complete
+  const shouldBeVisible = isActivelyProcessing ?? (hasRecentActivity && !isClosed);
 
   return (
     <div
-      className="fixed z-50 w-80 shadow-2xl rounded-lg border bg-card text-card-foreground"
+      className="fixed z-50 w-80 rounded-lg border shadow-2xl bg-card text-card-foreground"
       style={{
+        display: shouldBeVisible ? 'block' : 'none', // Hide with CSS, don't unmount
         left: `${position.x}px`,
         top: `${position.y}px`,
         cursor: isDragging ? 'grabbing' : 'grab',
@@ -189,19 +171,19 @@ export const EmailProcessingProgress = () => {
       <div
         role="button"
         tabIndex={0}
-        className="flex items-center justify-between p-3 border-b bg-muted/30 cursor-grab active:cursor-grabbing select-none"
+        className="flex justify-between items-center p-3 border-b select-none bg-muted/30 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         title="Drag to move widget"
       >
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex flex-1 gap-2 items-center">
           {isProcessing || status === 'processing' || status === 'started' ? (
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
           ) : status === 'complete' ? (
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="w-4 h-4 text-green-500" />
           ) : status === 'error' ? (
-            <XCircle className="h-4 w-4 text-red-500" />
+            <XCircle className="w-4 h-4 text-red-500" />
           ) : (
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle className="w-4 h-4 text-muted-foreground" />
           )}
           <span className="text-sm font-semibold truncate">
             {isProcessing || status === 'processing' || status === 'started'
@@ -214,33 +196,33 @@ export const EmailProcessingProgress = () => {
           </span>
           {selectedOrganizationId && (
             <span title="System-wide stats">
-              <Globe className="h-3 w-3 text-muted-foreground" />
+              <Globe className="w-3 h-3 text-muted-foreground" />
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex gap-1 items-center">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="h-6 w-6 p-0"
+            className="p-0 w-6 h-6"
           >
-            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+            {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsClosed(true)}
-            className="h-6 w-6 p-0"
+            className="p-0 w-6 h-6"
           >
-            <X className="h-3 w-3" />
+            <X className="w-3 h-3" />
           </Button>
         </div>
       </div>
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="p-3 space-y-3 max-h-96 overflow-y-auto">
+        <div className="overflow-y-auto p-3 space-y-3 max-h-96">
           {/* Progress Bar */}
           {total > 0 && (
             <div className="space-y-2">
@@ -262,15 +244,15 @@ export const EmailProcessingProgress = () => {
           {/* Status Messages - Compact */}
           <div className="flex justify-around text-center">
             <div>
-              <div className="flex items-center justify-center gap-1">
-                <Mail className="h-3 w-3 text-blue-500" />
+              <div className="flex gap-1 justify-center items-center">
+                <Mail className="w-3 h-3 text-blue-500" />
                 <span className="text-lg font-bold">{total}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
             <div>
-              <div className="flex items-center justify-center gap-1">
-                <CheckCircle className="h-3 w-3 text-green-500" />
+              <div className="flex gap-1 justify-center items-center">
+                <CheckCircle className="w-3 h-3 text-green-500" />
                 <span className="text-lg font-bold">{processed}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Processed</p>
@@ -283,11 +265,11 @@ export const EmailProcessingProgress = () => {
                 }
               }}
               disabled={failed === 0}
-              className="cursor-pointer hover:opacity-75 transition-opacity disabled:cursor-default disabled:opacity-100"
+              className="transition-opacity cursor-pointer hover:opacity-75 disabled:cursor-default disabled:opacity-100"
               title={failed > 0 ? 'Click to view failed messages' : 'No failed messages'}
             >
-              <div className="flex items-center justify-center gap-1">
-                <XCircle className="h-3 w-3 text-red-500" />
+              <div className="flex gap-1 justify-center items-center">
+                <XCircle className="w-3 h-3 text-red-500" />
                 <span className="text-lg font-bold">{failed}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">
@@ -298,7 +280,7 @@ export const EmailProcessingProgress = () => {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-destructive/10 text-destructive px-4 py-2 rounded text-sm">
+            <div className="px-4 py-2 text-sm rounded bg-destructive/10 text-destructive">
               {error}
             </div>
           )}
@@ -312,44 +294,45 @@ export const EmailProcessingProgress = () => {
           )}
 
           {/* Performance Timing */}
-          {status === 'complete' && (fetchTime !== undefined || processTime !== undefined || totalTime) && (
-            <div className="pt-2 border-t">
-              <p className="text-xs font-semibold text-muted-foreground mb-1.5">⚡ Performance</p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {fetchTime !== undefined && fetchTime > 0 ? (
-                  <div>
-                    <p className="text-xs font-mono font-semibold">
-                      {fetchTime < 1000 ? `${fetchTime}ms` : `${(fetchTime / 1000).toFixed(1)}s`}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Fetch</p>
-                  </div>
-                ) : null}
-                {processTime !== undefined && processTime > 0 ? (
-                  <div>
-                    <p className="text-xs font-mono font-semibold">
-                      {processTime < 1000
-                        ? `${processTime}ms`
-                        : `${(processTime / 1000).toFixed(1)}s`}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Process</p>
-                  </div>
-                ) : null}
-                {totalTime && totalTime > 0 ? (
-                  <div>
-                    <p className="text-xs font-mono font-semibold text-blue-600">
-                      {totalTime < 1000 ? `${totalTime}ms` : `${(totalTime / 1000).toFixed(1)}s`}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Total</p>
-                  </div>
-                ) : null}
+          {status === 'complete' &&
+            (fetchTime !== undefined || processTime !== undefined || totalTime) && (
+              <div className="pt-2 border-t">
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">⚡ Performance</p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {fetchTime !== undefined && fetchTime > 0 ? (
+                    <div>
+                      <p className="font-mono text-xs font-semibold">
+                        {fetchTime < 1000 ? `${fetchTime}ms` : `${(fetchTime / 1000).toFixed(1)}s`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Fetch</p>
+                    </div>
+                  ) : null}
+                  {processTime !== undefined && processTime > 0 ? (
+                    <div>
+                      <p className="font-mono text-xs font-semibold">
+                        {processTime < 1000
+                          ? `${processTime}ms`
+                          : `${(processTime / 1000).toFixed(1)}s`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Process</p>
+                    </div>
+                  ) : null}
+                  {totalTime && totalTime > 0 ? (
+                    <div>
+                      <p className="font-mono text-xs font-semibold text-blue-600">
+                        {totalTime < 1000 ? `${totalTime}ms` : `${(totalTime / 1000).toFixed(1)}s`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Total</p>
+                    </div>
+                  ) : null}
+                </div>
+                {processTime !== undefined && processTime > 0 && total > 0 && (
+                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+                    Avg: {Math.round(processTime / total)}ms/msg
+                  </p>
+                )}
               </div>
-              {processTime !== undefined && processTime > 0 && total > 0 && (
-                <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-                  Avg: {Math.round(processTime / total)}ms/msg
-                </p>
-              )}
-            </div>
-          )}
+            )}
         </div>
       )}
     </div>

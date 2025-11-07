@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { X, Building2, Plus } from 'lucide-react';
-import { Button } from './ui/Button';
-import { Input } from './ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 type CreateOrganizationModalProps = {
   isOpen: boolean;
@@ -54,7 +54,7 @@ export const CreateOrganizationModal = ({
     setIsLoading(true);
 
     try {
-      await onCreate(formData.name, formData.slug, formData.description || undefined);
+      await onCreate(formData.name, formData.slug, formData.description ?? undefined);
       setFormData({ name: '', slug: '', description: '' });
       onClose();
     } catch (err) {
@@ -68,16 +68,30 @@ export const CreateOrganizationModal = ({
     }
   };
 
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <div 
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
       className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50"
       onClick={onClose}
     >
-      <div 
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        role="dialog"
+        aria-modal="true"
         className="w-full max-w-md rounded-lg shadow-xl bg-card"
         onClick={(e) => e.stopPropagation()}
       >
@@ -93,7 +107,7 @@ export const CreateOrganizationModal = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-auto p-2 transition-colors text-muted-foreground hover:text-foreground hover:bg-transparent"
+            className="p-2 h-auto transition-colors text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <X className="w-5 h-5" />
           </Button>

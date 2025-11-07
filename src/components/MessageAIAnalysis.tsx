@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
-import type { Message } from '../types';
+import type { Message } from '@/types';
 
 type MessageAIAnalysisProps = {
   message: Message;

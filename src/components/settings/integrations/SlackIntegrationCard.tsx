@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Zap, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import type { IntegrationCardProps } from '@/components/settings/integrations/types';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { integrationsService } from '@/services/integrations.service';
-import { Button } from '../../ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
-import type { IntegrationCardProps } from './types';
 
 type SlackConfig = {
   botToken: string;

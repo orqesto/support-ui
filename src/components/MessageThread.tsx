@@ -9,11 +9,12 @@ import {
   AlertCircle,
   ArrowDown,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
 
 type MessageThreadProps = {
   messageId: number;
@@ -278,7 +279,11 @@ export const MessageThread = ({
                       }
                     }}
                     onKeyDown={(e) => {
-                      if (!isCurrentMessage && onMessageClick && (e.key === 'Enter' || e.key === ' ')) {
+                      if (
+                        !isCurrentMessage &&
+                        onMessageClick &&
+                        (e.key === 'Enter' || e.key === ' ')
+                      ) {
                         e.preventDefault();
                         onMessageClick(pair.customerEmail.id);
                       }
@@ -306,8 +311,8 @@ export const MessageThread = ({
                           <div className="text-xs whitespace-nowrap text-muted-foreground">
                             {formatDate(
                               new Date(
-                                (pair.customerEmail.metadata as { receivedAt?: string })?.receivedAt ??
-                                  pair.customerEmail.createdAt
+                                (pair.customerEmail.metadata as { receivedAt?: string })
+                                  ?.receivedAt ?? pair.customerEmail.createdAt
                               )
                             )}
                           </div>
@@ -326,9 +331,11 @@ export const MessageThread = ({
 
                       {/* Customer Email Content */}
                       <div className="ml-10 text-sm whitespace-pre-wrap break-words">
-                        {pair.customerEmail.content.length > 500 && !isCurrentMessage
-                          ? `${pair.customerEmail.content.substring(0, 500)}...`
-                          : pair.customerEmail.content}
+                        <LinkifiedText>
+                          {pair.customerEmail.content.length > 500 && !isCurrentMessage
+                            ? `${pair.customerEmail.content.substring(0, 500)}...`
+                            : pair.customerEmail.content}
+                        </LinkifiedText>
                       </div>
 
                       {/* AI Analysis for Customer Email */}
@@ -371,8 +378,8 @@ export const MessageThread = ({
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
                               {formatDate(
                                 new Date(
-                                  (pair.systemReply.metadata as { receivedAt?: string })?.receivedAt ??
-                                    pair.systemReply.createdAt
+                                  (pair.systemReply.metadata as { receivedAt?: string })
+                                    ?.receivedAt ?? pair.systemReply.createdAt
                                 )
                               )}
                             </div>
@@ -380,9 +387,11 @@ export const MessageThread = ({
 
                           {/* System Reply Content */}
                           <div className="ml-10 text-sm whitespace-pre-wrap break-words text-foreground/80">
-                            {pair.systemReply.content.length > 500
-                              ? `${pair.systemReply.content.substring(0, 500)}...`
-                              : pair.systemReply.content}
+                            <LinkifiedText>
+                              {pair.systemReply.content.length > 500
+                                ? `${pair.systemReply.content.substring(0, 500)}...`
+                                : pair.systemReply.content}
+                            </LinkifiedText>
                           </div>
 
                           {/* Reply Status */}

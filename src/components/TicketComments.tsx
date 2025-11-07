@@ -12,18 +12,9 @@ import {
   File,
   RefreshCw,
 } from 'lucide-react';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
-import {
-  getSocket,
-  subscribeToEvent,
-  unsubscribeFromEvent,
-  releaseSocket,
-} from '../lib/socketManager';
-import { formatDate } from '../lib/utils';
-import { commentsService, type Comment } from '../services/comments.service';
-import { AlertDialog } from './ui/AlertDialog';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
+import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogHeader,
@@ -31,7 +22,16 @@ import {
   DialogClose,
   DialogContent,
   DialogFooter,
-} from './ui/Dialog';
+} from '@/components/ui/Dialog';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
+import {
+  getSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+  releaseSocket,
+} from '@/lib/socketManager';
+import { formatDate } from '@/lib/utils';
+import { commentsService, type Comment } from '@/services/comments.service';
 
 type TicketCommentsProps = {
   ticketId: number;

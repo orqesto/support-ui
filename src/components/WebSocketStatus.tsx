@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Wifi, WifiOff, X } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
-import { Button } from './ui/Button';
 
 export const WebSocketStatus = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -55,7 +55,7 @@ export const WebSocketStatus = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(false)}
-                className="h-auto p-1 text-white rounded transition-colors hover:bg-white/20 hover:text-white"
+                className="p-1 h-auto text-white rounded transition-colors hover:bg-white/20 hover:text-white"
                 title="Close"
               >
                 <X className="w-4 h-4" />

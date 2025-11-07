@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Mail, Eye, RefreshCw, AlertCircle } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
@@ -57,7 +57,7 @@ export const EmailTemplatesPage = () => {
 
   return (
     <Layout>
-      <div className="mx-auto space-y-6 max-w-7xl">
+      <div className="px-4 mx-auto space-y-6 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>

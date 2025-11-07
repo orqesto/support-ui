@@ -112,6 +112,7 @@ export type CreateTicketRequest = {
   priority?: TicketPriority;
   categoryId?: number;
   assigneeId?: number;
+  syncToJira?: boolean;
 };
 
 export type UpdateTicketRequest = {

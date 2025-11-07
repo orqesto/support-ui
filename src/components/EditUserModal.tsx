@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { usePermissions } from '@/hooks/usePermissions';
-import { organizationService, type Organization } from '@/services/organization.service';
-import { useAuthStore } from '@/stores/authStore';
-import type { User } from '@/types';
-import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
-import { AlertDialog } from './ui/AlertDialog';
-import { Button } from './ui/Button';
-import { ConfirmDialog } from './ui/ConfirmDialog';
+import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   Dialog,
   DialogHeader,
@@ -15,8 +10,13 @@ import {
   DialogClose,
   DialogContent,
   DialogFooter,
-} from './ui/Dialog';
-import { Select } from './ui/Select';
+} from '@/components/ui/Dialog';
+import { Select } from '@/components/ui/Select';
+import { usePermissions } from '@/hooks/usePermissions';
+import { organizationService, type Organization } from '@/services/organization.service';
+import { useAuthStore } from '@/stores/authStore';
+import type { User } from '@/types';
+import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
 
 type EditUserModalProps = {
   isOpen: boolean;
@@ -73,8 +73,8 @@ export const EditUserModal = ({
 
   // Check if user is editing their own profile
   const isEditingSelf = currentUser && user && currentUser.id === user.id;
-  const canEditRoles = isAdmin || (canManageUsers && !isEditingSelf);
-  const canEditPosition = isAdmin || canManageUsers; // Org admin can edit own position
+  const canEditRoles = isAdmin ?? (canManageUsers && !isEditingSelf);
+  const canEditPosition = isAdmin ?? canManageUsers; // Org admin can edit own position
 
   // Safety check: ensure allUsers is always an array
   const safeAllUsers = Array.isArray(allUsers) ? allUsers : [];
@@ -145,12 +145,12 @@ export const EditUserModal = ({
     try {
       // Update user details
       await onUpdate(user.id, {
-        firstName: firstName.trim() || undefined,
-        lastName: lastName.trim() || undefined,
-        position: canEditPosition ? position.trim() || undefined : undefined,
-        telegram: telegram.trim() || undefined,
-        slack: slack.trim() || undefined,
-        phone: phone.trim() || undefined,
+        firstName: firstName.trim() ?? undefined,
+        lastName: lastName.trim() ?? undefined,
+        position: canEditPosition ? (position.trim() ?? undefined) : undefined,
+        telegram: telegram.trim() ?? undefined,
+        slack: slack.trim() ?? undefined,
+        phone: phone.trim() ?? undefined,
         role: canEditRoles && isAdmin ? globalRole : undefined,
         organizationRole: canEditRoles ? organizationRole : undefined,
       });
@@ -387,7 +387,7 @@ export const EditUserModal = ({
                   <label htmlFor="position" className="block mb-2 text-sm font-medium">
                     Position
                   </label>
-                  <div className="px-3 py-2 text-sm rounded-md bg-muted">{position || '—'}</div>
+                  <div className="px-3 py-2 text-sm rounded-md bg-muted">{position ?? '—'}</div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Position can only be changed by administrators
                   </p>
@@ -401,7 +401,7 @@ export const EditUserModal = ({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || isGlobalRoleChangeDisabled || isOrgRoleChangeDisabled}
+              disabled={isSubmitting ?? isGlobalRoleChangeDisabled ?? isOrgRoleChangeDisabled}
             >
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>

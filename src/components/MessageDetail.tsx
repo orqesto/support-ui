@@ -18,19 +18,26 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatDate } from '../lib/utils';
-import { messageService } from '../services/message.service';
-import type { Message } from '../types';
-import { MessageAIAnalysis } from './MessageAIAnalysis';
-import { MessageAttachments } from './MessageAttachments';
-import { MessageThread } from './MessageThread';
-import { SimilarMessagesDialog } from './SimilarMessagesDialog';
-import { SimilarTickets } from './SimilarTickets';
-import { TranslateButton } from './TranslateButton';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
-import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from './ui/Dialog';
-import { Textarea } from './ui/Textarea';
+import { MessageAIAnalysis } from '@/components/MessageAIAnalysis';
+import { MessageAttachments } from '@/components/MessageAttachments';
+import { MessageThread } from '@/components/MessageThread';
+import { SimilarMessagesDialog } from '@/components/SimilarMessagesDialog';
+import { SimilarTickets } from '@/components/SimilarTickets';
+import { TranslateButton } from '@/components/TranslateButton';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+} from '@/components/ui/Dialog';
+import { Textarea } from '@/components/ui/Textarea';
+import { LinkifiedText } from '@/lib/linkify';
+import { formatDate } from '@/lib/utils';
+import { messageService } from '@/services/message.service';
+import type { Message } from '@/types';
 
 type MessageDetailProps = {
   message: Message;
@@ -117,15 +124,6 @@ export const MessageDetail = ({
       onApprove?.(); // Refresh message
     } catch (error) {
       console.error('Failed to resolve message:', error);
-    }
-  };
-
-  const handleReopenMessage = async () => {
-    try {
-      await messageService.reopen(message.id);
-      onApprove?.(); // Refresh message
-    } catch (error) {
-      console.error('Failed to reopen message:', error);
     }
   };
 
@@ -294,8 +292,10 @@ export const MessageDetail = ({
             size="sm"
           />
         </div>
-        <div className="max-w-none prose prose-sm">
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        <div className="max-w-none break-words prose prose-sm">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
+            <LinkifiedText>{message.content}</LinkifiedText>
+          </p>
         </div>
       </div>
 
@@ -317,9 +317,9 @@ export const MessageDetail = ({
               </span>
             )}
           </div>
-          <div className="mb-3 max-w-none prose prose-sm prose-green">
-            <p className="text-sm leading-relaxed text-green-900 whitespace-pre-wrap dark:text-green-50">
-              {autoReply.replyContent}
+          <div className="mb-3 max-w-none break-words prose prose-sm prose-green">
+            <p className="text-sm leading-relaxed text-green-900 whitespace-pre-wrap break-words overflow-wrap-anywhere dark:text-green-50">
+              <LinkifiedText>{autoReply.replyContent}</LinkifiedText>
             </p>
           </div>
           {autoReply.missingInfo && autoReply.missingInfo.length > 0 && (
@@ -341,11 +341,12 @@ export const MessageDetail = ({
       )}
 
       {/* AI Suggested Answer - Needs Agent Approval */}
-      {suggestedAnswer && !message.resolved && (
-        suggestedAnswer.source === 'documentation' ? (
-          <div className="p-4 mb-6 rounded-lg border-2 border-blue-300 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700">
+      {suggestedAnswer &&
+        !message.resolved &&
+        (suggestedAnswer.source === 'documentation' ? (
+          <div className="p-4 mb-6 bg-blue-50 rounded-lg border-2 border-blue-300 dark:bg-blue-950/20 dark:border-blue-700">
             <div className="flex gap-2 items-start mb-3">
-              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
+              <div className="p-2 bg-blue-100 rounded-full dark:bg-blue-900">
                 <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
@@ -359,13 +360,13 @@ export const MessageDetail = ({
                 </p>
               </div>
             </div>
-            
-            <div className="p-3 rounded bg-white border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800">
+
+            <div className="p-3 bg-white rounded border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800">
               <p className="mb-2 text-xs font-medium text-blue-700 dark:text-blue-300">
                 From Documentation:
               </p>
-              <p className="text-sm whitespace-pre-wrap text-blue-900 dark:text-blue-50">
-                {suggestedAnswer.answer}
+              <p className="text-sm text-blue-900 whitespace-pre-wrap break-words overflow-wrap-anywhere dark:text-blue-50">
+                <LinkifiedText>{suggestedAnswer.answer}</LinkifiedText>
               </p>
             </div>
 
@@ -380,23 +381,20 @@ export const MessageDetail = ({
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
-              <Button
-                onClick={() => setShowReplyForm(true)}
-                variant="outline"
-              >
+              <Button onClick={() => setShowReplyForm(true)} variant="outline">
                 Write Different Reply
               </Button>
             </div>
           </div>
         ) : (
-          <div className="p-4 mb-6 rounded-lg border-2 border-purple-300 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-700">
+          <div className="p-4 mb-6 bg-purple-50 rounded-lg border-2 border-purple-300 dark:bg-purple-950/20 dark:border-purple-700">
             <div className="flex gap-2 items-start mb-3">
-              <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900">
+              <div className="p-2 bg-purple-100 rounded-full dark:bg-purple-900">
                 <Search className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-purple-900 dark:text-purple-100">
-                  {suggestedAnswer.source === 'similar_ticket' 
+                  {suggestedAnswer.source === 'similar_ticket'
                     ? 'AI Found Similar Resolved Ticket'
                     : 'AI Found Similar Resolved Message'}
                 </h3>
@@ -405,13 +403,13 @@ export const MessageDetail = ({
                 </p>
               </div>
             </div>
-            
-            <div className="p-3 rounded bg-white border border-purple-200 dark:bg-purple-950/40 dark:border-purple-800">
+
+            <div className="p-3 bg-white rounded border border-purple-200 dark:bg-purple-950/40 dark:border-purple-800">
               <p className="mb-2 text-xs font-medium text-purple-700 dark:text-purple-300">
                 Suggested Answer:
               </p>
-              <p className="text-sm whitespace-pre-wrap text-purple-900 dark:text-purple-50">
-                {suggestedAnswer.answer}
+              <p className="text-sm text-purple-900 whitespace-pre-wrap break-words overflow-wrap-anywhere dark:text-purple-50">
+                <LinkifiedText>{suggestedAnswer.answer}</LinkifiedText>
               </p>
             </div>
 
@@ -426,16 +424,12 @@ export const MessageDetail = ({
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
-              <Button
-                onClick={() => setShowReplyForm(true)}
-                variant="outline"
-              >
+              <Button onClick={() => setShowReplyForm(true)} variant="outline">
                 Write Different Reply
               </Button>
             </div>
           </div>
-        )
-      )}
+        ))}
 
       {/* Email Thread */}
       <MessageThread
@@ -451,8 +445,8 @@ export const MessageDetail = ({
             <p className="flex gap-2 items-start text-sm text-blue-900 dark:text-blue-100">
               <Info className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
-                This message is linked to Ticket #{message.ticketId}. Your reply will be sent to
-                the customer.
+                This message is linked to Ticket #{message.ticketId}. Your reply will be sent to the
+                customer.
               </span>
             </p>
           </div>
@@ -470,7 +464,7 @@ export const MessageDetail = ({
         )}
         {!showReplyForm ? (
           <div className="space-y-2">
-            {/* Find Similar Resolved Messages - only for unresolved messages without tickets */}
+            {/* AI Knowledge Search - searches docs, tickets, and messages */}
             {!message.resolved && !message.ticketId && (
               <Button
                 onClick={() => setSimilarMessagesOpen(true)}
@@ -478,7 +472,7 @@ export const MessageDetail = ({
                 variant="secondary"
               >
                 <Search className="mr-2 w-4 h-4" />
-                Find Similar Resolved Messages
+                AI Knowledge Search
               </Button>
             )}
             <Button onClick={() => setShowReplyForm(true)} className="w-full" variant="outline">
@@ -494,7 +488,9 @@ export const MessageDetail = ({
           <div className="space-y-3">
             <Textarea
               id="reply-textarea"
-              label={message.ticketId ? 'Reply' : message.resolved ? 'Follow-up Reply' : 'Quick Reply'}
+              label={
+                message.ticketId ? 'Reply' : message.resolved ? 'Follow-up Reply' : 'Quick Reply'
+              }
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
               placeholder={
@@ -583,8 +579,8 @@ export const MessageDetail = ({
           </Button>
         )}
 
-        {message.resolved && !message.ticketId && (
-          <Button onClick={handleReopenMessage} variant="outline" size="sm">
+        {message.resolved && !message.ticketId && onReopen && (
+          <Button onClick={handleReopenClick} variant="outline" size="sm">
             <RotateCcw className="mr-1 w-4 h-4" />
             Reopen
           </Button>

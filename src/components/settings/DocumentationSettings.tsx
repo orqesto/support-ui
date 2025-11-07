@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Clock, BookOpen, BarChart3 } from 'lucide-react';
-import { formatDate } from '../../lib/utils';
-import { documentationService, type Documentation } from '../../services/documentation.service';
-import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { formatDate } from '@/lib/utils';
+import { documentationService, type Documentation } from '@/services/documentation.service';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) {

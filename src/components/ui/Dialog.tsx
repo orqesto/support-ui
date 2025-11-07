@@ -17,8 +17,16 @@ export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
   return (
     <div className="flex fixed inset-0 z-50 justify-center items-center">
       <div
+        role="button"
+        tabIndex={0}
         className="fixed inset-0 bg-black/50"
         onClick={() => onOpenChange(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' || e.key === 'Enter') {
+            onOpenChange(false);
+          }
+        }}
+        aria-label="Close dialog"
       />
       <div className="relative bg-card rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {children}

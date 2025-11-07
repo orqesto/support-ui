@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
-import { settingsService, type Category } from '@/services/settings.service';
-import { Button } from '../ui/Button';
+import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogHeader,
@@ -9,7 +8,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogClose,
-} from '../ui/Dialog';
+} from '@/components/ui/Dialog';
+import { settingsService, type Category } from '@/services/settings.service';
 
 export const CategoriesSettings = () => {
   const [categories, setCategories] = useState<Category[]>([]);

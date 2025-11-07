@@ -4,7 +4,7 @@ import { Users, Edit2, Shield, RefreshCw, Mail, Trash2 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { EditUserModal } from '@/components/EditUserModal';
 import { InviteUserModal } from '@/components/InviteUserModal';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -222,7 +222,7 @@ export const UsersPage = () => {
 
   return (
     <Layout>
-      <div className="mx-auto space-y-4 max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>

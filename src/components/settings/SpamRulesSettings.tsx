@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
-import { settingsService, type SpamRule } from '@/services/settings.service';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogHeader,
@@ -10,8 +9,9 @@ import {
   DialogContent,
   DialogFooter,
   DialogClose,
-} from '../ui/Dialog';
-import { Select } from '../ui/Select';
+} from '@/components/ui/Dialog';
+import { Select } from '@/components/ui/Select';
+import { settingsService, type SpamRule } from '@/services/settings.service';
 
 export const SpamRulesSettings = () => {
   const [rules, setRules] = useState<SpamRule[]>([]);
