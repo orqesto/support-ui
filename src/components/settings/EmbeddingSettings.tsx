@@ -333,7 +333,7 @@ export const EmbeddingSettings = () => {
                     </span>
                     <span className="flex gap-1 items-center px-2 py-1 text-purple-700 bg-purple-50 rounded">
                       <BarChart3 className="w-3 h-3" />
-                      1536 dimensions
+                      384 dimensions
                     </span>
                   </div>
                 </div>
@@ -404,7 +404,7 @@ export const EmbeddingSettings = () => {
                   <div className="flex-1">
                     <p className="text-sm font-medium">Local Embeddings Integration</p>
                     <p className="text-xs text-muted-foreground">
-                      Xenova/all-MiniLM-L6-v2 • 384 dimensions • ~80MB
+                      Xenova/multilingual-e5-small • 384 dimensions • ~470MB
                     </p>
                   </div>
                 </div>

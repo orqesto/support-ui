@@ -106,7 +106,7 @@ export const SettingsPage = () => {
         <Card>
           <CardContent className="overflow-visible p-0">
             <div className="overflow-visible border-b">
-              <div className="flex overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
+              <div className="flex">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
@@ -114,14 +114,15 @@ export const SettingsPage = () => {
                       key={tab.id}
                       variant="ghost"
                       onClick={() => handleTabChange(tab.id)}
-                      className={`h-auto rounded-none items-center gap-2 px-2 py-2 sm:px-4 sm:py-2 md:px-6 md:py-4 border-b-2 transition-colors shrink-0 ${
+                      title={tab.label}
+                      className={`flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
                         activeTab === tab.id
                           ? 'border-primary text-primary bg-primary/10'
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
                       }`}
                     >
-                      <Icon className="w-4 h-4 sm:w-4 sm:h-4" />
-                      <span className="hidden text-sm font-medium whitespace-nowrap xl:inline xlg:text-base xl:text-[10px]">
+                      <Icon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 shrink-0" />
+                      <span className="text-[10px] sm:text-xs md:text-sm font-medium truncate">
                         {tab.label}
                       </span>
                     </Button>
