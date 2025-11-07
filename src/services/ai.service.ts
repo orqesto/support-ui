@@ -1,5 +1,5 @@
-import { apiClient } from '../lib/api-client';
-import type { AIModel, AIProvider } from '../types/aiProviders';
+import { apiClient } from '@/lib/api-client';
+import type { AIModel, AIProvider } from '@/types/aiProviders';
 
 type AIModelsResponse = {
   all: AIModel[];

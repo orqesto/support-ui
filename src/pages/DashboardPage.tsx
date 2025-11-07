@@ -12,19 +12,19 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
-import { AlertDialog } from '../components/ui/AlertDialog';
-import { Button } from '../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { useEmailProcessing } from '../hooks/useEmailProcessing';
-import { useSystemHealth } from '../hooks/useSystemHealth';
-import { useTelegramProcessing } from '../hooks/useTelegramProcessing';
-import { ingestionService } from '../services/ingestion.service';
-import { integrationsService } from '../services/integrations.service';
-import { messageService } from '../services/message.service';
-import { ticketService } from '../services/ticket.service';
-import { useMessagesStore } from '../stores/messagesStore';
-import { useProcessingStore } from '../stores/processingStore';
+import { Layout } from '@/components/Layout';
+import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useEmailProcessing } from '@/hooks/useEmailProcessing';
+import { useSystemHealth } from '@/hooks/useSystemHealth';
+import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
+import { ingestionService } from '@/services/ingestion.service';
+import { integrationsService } from '@/services/integrations.service';
+import { messageService } from '@/services/message.service';
+import { ticketService } from '@/services/ticket.service';
+import { useMessagesStore } from '@/stores/messagesStore';
+import { useProcessingStore } from '@/stores/processingStore';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -37,6 +37,7 @@ export const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [ingesting, setIngesting] = useState<string | null>(null);
   const [hasIntegrations, setHasIntegrations] = useState(false);
+  const [hasMessageSources, setHasMessageSources] = useState(false);
   const [hasEmailIntegrations, setHasEmailIntegrations] = useState(false);
   const [hasTelegramIntegrations, setHasTelegramIntegrations] = useState(false);
 
@@ -69,12 +70,8 @@ export const DashboardPage = () => {
   const prevProcessingStatus = useRef(processingStatus);
 
   // Subscribe to telegram processing events
-  const {
-    isProcessing: isTelegramProcessing,
-    totalProcessed: telegramProcessedCount,
-    activeBots: _activeBots,
-    recentMessages: _recentMessages,
-  } = useTelegramProcessing(true);
+  const { isProcessing: isTelegramProcessing, totalProcessed: telegramProcessedCount } =
+    useTelegramProcessing(true);
   const prevIsTelegramProcessing = useRef(isTelegramProcessing);
 
   // Auto-refresh stats when email processing completes
@@ -85,10 +82,6 @@ export const DashboardPage = () => {
       processingStatus === 'complete' &&
       processedCount > 0
     ) {
-      console.log(
-        `Email processing completed (${processedCount} messages), refreshing dashboard stats...`
-      );
-
       // Clear caches to force fresh data fetch
       clearMessagesCache();
 
@@ -103,15 +96,7 @@ export const DashboardPage = () => {
   // Auto-refresh stats when telegram processing completes
   useEffect(() => {
     // Detect transition from processing to complete
-    if (
-      prevIsTelegramProcessing.current &&
-      !isTelegramProcessing &&
-      telegramProcessedCount > 0
-    ) {
-      console.log(
-        `Telegram processing completed (${telegramProcessedCount} messages), refreshing dashboard stats...`
-      );
-
+    if (prevIsTelegramProcessing.current && !isTelegramProcessing && telegramProcessedCount > 0) {
       // Clear caches to force fresh data fetch
       clearMessagesCache();
 
@@ -183,13 +168,19 @@ export const DashboardPage = () => {
           (i) => i.type === 'email' || i.type === 'gmail'
         );
         const telegramIntegrations = activeIntegrations.filter((i) => i.type === 'telegram');
+        const messageSourceIntegrations = activeIntegrations.filter(
+          (i) =>
+            i.type === 'email' || i.type === 'gmail' || i.type === 'telegram' || i.type === 'slack'
+        );
 
         setHasIntegrations(activeIntegrations.length > 0);
+        setHasMessageSources(messageSourceIntegrations.length > 0);
         setHasEmailIntegrations(emailIntegrations.length > 0);
         setHasTelegramIntegrations(telegramIntegrations.length > 0);
       } catch (error) {
         console.error('Failed to check integrations:', error);
         setHasIntegrations(false);
+        setHasMessageSources(false);
         setHasEmailIntegrations(false);
         setHasTelegramIntegrations(false);
       }
@@ -249,7 +240,7 @@ export const DashboardPage = () => {
 
     // Add to global processing status
     const taskIds: string[] = [];
-    
+
     if (type === 'all') {
       // Add separate tasks for each service
       if (hasEmailIntegrations) {
@@ -277,34 +268,13 @@ export const DashboardPage = () => {
           break;
       }
       if (response.success) {
-        const message = response.message ?? 'Ingestion started successfully';
-        const note = (response as { note?: string }).note;
-        const stats = (response as { stats?: { activeBots?: number; recentMessages?: number; recentProcessed?: number; timeWindow?: string } }).stats;
-
         // Clear Messages page cache so it shows fresh data
         clearMessagesCache();
 
         // Refresh stats immediately
         await fetchStats();
 
-        // Build description with stats if available
-        let description = message;
-        if (note) {
-          description += `\n\n${note}`;
-        }
-        if (stats && type === 'telegram') {
-          description += `\n\n📊 Activity (last ${stats.timeWindow || '5 minutes'}):`;
-          description += `\n• ${stats.recentMessages || 0} messages received`;
-          description += `\n• ${stats.recentProcessed || 0} processed`;
-          description += `\n• ${stats.activeBots || 0} bot(s) active`;
-        }
-
-        setAlertDialog({
-          open: true,
-          title: 'Ingestion Complete',
-          description,
-          variant: 'success',
-        });
+        // No modal shown - users see progress in EmailProcessingProgress widget
 
         // Clear any existing polling interval
         if (pollingIntervalRef.current) {
@@ -347,7 +317,7 @@ export const DashboardPage = () => {
       icon: Mail,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
-      onClick: () => navigate('/messages'),
+      onClick: () => navigate('/messages?processed=all'),
     },
     {
       title: 'Unprocessed Messages',
@@ -355,7 +325,7 @@ export const DashboardPage = () => {
       icon: Clock,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
-      onClick: () => navigate('/messages?filter=unprocessed'),
+      onClick: () => navigate('/messages?processed=false'),
     },
     {
       title: 'Total Tickets',
@@ -363,7 +333,7 @@ export const DashboardPage = () => {
       icon: TicketIcon,
       color: 'text-green-600 dark:text-green-400',
       bg: 'bg-green-50 dark:bg-green-950/50',
-      onClick: () => navigate('/tickets'),
+      onClick: () => navigate('/tickets?status=all'),
     },
     {
       title: 'Pending Tickets',
@@ -371,13 +341,13 @@ export const DashboardPage = () => {
       icon: CheckCircle,
       color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-50 dark:bg-purple-950/50',
-      onClick: () => navigate('/tickets?filter=pending'),
+      onClick: () => navigate('/tickets?status=pending'),
     },
   ];
 
   return (
     <Layout>
-      <div className="mx-auto space-y-5 max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -394,6 +364,8 @@ export const DashboardPage = () => {
         {loading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
+              // Index key is safe: array is immutable (recreated from text split), no reordering
+              // eslint-disable-next-line react/no-array-index-key
               <Card key={`skeleton-${i}`} className="animate-pulse">
                 <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
                   <div className="w-24 h-4 bg-gray-200 rounded" />
@@ -477,12 +449,12 @@ export const DashboardPage = () => {
               <Button
                 onClick={() => handleIngestion('all')}
                 isLoading={ingesting === 'all'}
-                disabled={!hasIntegrations || isProcessing || processingStatus === 'processing'}
+                disabled={!hasMessageSources || isProcessing || processingStatus === 'processing'}
                 className="w-full h-12 text-base font-semibold"
                 size="lg"
                 title={
-                  !hasIntegrations
-                    ? 'No integrations configured for this organization'
+                  !hasMessageSources
+                    ? 'No message sources configured (email, gmail, telegram, or slack)'
                     : isProcessing || processingStatus === 'processing'
                       ? 'Email processing is already running. Please wait for completion.'
                       : ''
@@ -493,10 +465,11 @@ export const DashboardPage = () => {
                   ? 'Processing...'
                   : 'Start All Services'}
               </Button>
-              {!hasIntegrations && (
+              {!hasMessageSources && (
                 <p className="flex gap-1 justify-center items-center text-xs text-amber-600">
                   <AlertTriangle className="w-3 h-3" />
-                  No integrations configured. Go to Settings to add integrations.
+                  No message sources configured. Go to Settings to add email, Gmail, Telegram, or
+                  Slack integrations.
                 </p>
               )}
               {(isProcessing || processingStatus === 'processing') && (

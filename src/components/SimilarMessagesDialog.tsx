@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Search, Check, TrendingUp, Clock, User, BookOpen, MessageCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/Dialog';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/Dialog';
 
 type SimilarMessage = {
   messageId?: number;
@@ -89,8 +89,11 @@ export const SimilarMessagesDialog = ({
         <DialogHeader>
           <DialogTitle className="flex gap-2 items-center">
             <Search className="w-5 h-5" />
-            Similar Resolved Messages
+            AI Knowledge Search
           </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Searching documentation, resolved tickets, and previous messages
+          </p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">
@@ -104,10 +107,10 @@ export const SimilarMessagesDialog = ({
             <div className="py-12 text-center rounded-lg border border-dashed">
               <Search className="mx-auto mb-3 w-12 h-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                No similar resolved messages found
+                No similar content found
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Try resolving similar requests first to build your knowledge base
+                No matching documentation, tickets, or messages found in the knowledge base
               </p>
             </div>
           )}

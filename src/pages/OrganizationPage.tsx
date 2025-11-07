@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
 import { CreateOrganizationModal } from '@/components/CreateOrganizationModal';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -238,7 +238,7 @@ export const OrganizationPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="px-4 mx-auto w-full max-w-7xl flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
             <p className="text-muted-foreground">Loading organization...</p>
@@ -251,7 +251,7 @@ export const OrganizationPage = () => {
   if (!organization) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="px-4 mx-auto w-full max-w-7xl flex flex-col items-center justify-center min-h-[60vh]">
           <Building2 className="mb-4 w-16 h-16 text-gray-400" />
           <h2 className="mb-2 text-2xl font-bold text-gray-900">No Organization</h2>
           <p className="max-w-md text-center text-gray-600">
@@ -264,7 +264,7 @@ export const OrganizationPage = () => {
 
   return (
     <Layout>
-      <div className="mx-auto space-y-6 max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>

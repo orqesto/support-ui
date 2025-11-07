@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Mail, Plus, Save, TestTube2, Trash2 } from 'lucide-react';
+import type { IntegrationCardProps } from '@/components/settings/integrations/types';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
-import { Button } from '../../ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
-import { Select } from '../../ui/Select';
-import type { IntegrationCardProps } from './types';
 
 type GmailConfig = {
   clientId: string;

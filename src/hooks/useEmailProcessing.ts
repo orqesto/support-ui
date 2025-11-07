@@ -108,7 +108,8 @@ export const useEmailProcessing = (enabled = true) => {
           setState((prev) => ({
             ...prev,
             status: 'complete',
-            processed: event.data?.processed ?? prev.processed,
+            total: event.data?.total ?? prev.total,
+            processed: event.data?.processed ?? 0,
             failed: event.data?.failed ?? 0,
             isProcessing: false,
             fetchTime: event.data?.fetchTime,

@@ -1,11 +1,11 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X, Mail, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
-import { Button } from './ui/Button';
-import { Input } from './ui/Input';
-import { Select } from './ui/Select';
 
 type InviteUserModalProps = {
   isOpen: boolean;
@@ -88,16 +88,27 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     }
   };
 
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <div 
-      className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <div 
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50" onClick={onClose}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        role="dialog"
+        aria-modal="true"
         className="w-full max-w-md rounded-lg shadow-xl bg-card"
         onClick={(e) => e.stopPropagation()}
       >
@@ -113,7 +124,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-auto p-2 transition-colors text-muted-foreground hover:text-foreground hover:bg-transparent"
+            className="p-2 h-auto transition-colors text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -158,12 +169,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               : 'User will be added to your organization'}
           </p>
 
-          <Select
-            label="Role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            required
-          >
+          <Select label="Role" value={role} onChange={(e) => setRole(e.target.value)} required>
             <option value="associate">Associate - Read-only with request permissions</option>
             <option value="support">Support - Manage tickets and messages</option>
             <option value="moderator">Moderator - Manage integrations, categories, AI</option>

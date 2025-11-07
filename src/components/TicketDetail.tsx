@@ -10,15 +10,16 @@ import {
   Link as LinkIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatDate } from '../lib/utils';
-import { messageService } from '../services/message.service';
-import type { Ticket, TicketStatus, TicketPriority, Message } from '../types';
-import { TicketAttachments } from './TicketAttachments';
-import { TicketComments } from './TicketComments';
-import { TranslateButton } from './TranslateButton';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
-import { ExternalLink } from './ui/ExternalLink';
+import { TicketAttachments } from '@/components/TicketAttachments';
+import { TicketComments } from '@/components/TicketComments';
+import { TranslateButton } from '@/components/TranslateButton';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { ExternalLink } from '@/components/ui/ExternalLink';
+import { LinkifiedText } from '@/lib/linkify';
+import { formatDate } from '@/lib/utils';
+import { messageService } from '@/services/message.service';
+import type { Ticket, TicketStatus, TicketPriority, Message } from '@/types';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -57,12 +58,15 @@ export const TicketDetail = ({
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/tickets?id=${ticket.id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    }).catch((err) => {
-      console.error('Failed to copy link:', err);
-    });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Failed to copy link:', err);
+      });
   };
 
   useEffect(() => {
@@ -91,7 +95,7 @@ export const TicketDetail = ({
         <div>
           <div className="flex gap-3 items-center mb-2">
             <h2 className="text-2xl font-bold">{ticket.title}</h2>
-            <span className="px-2 py-1 text-xs font-mono rounded bg-muted text-muted-foreground">
+            <span className="px-2 py-1 font-mono text-xs rounded bg-muted text-muted-foreground">
               #{ticket.id}
             </span>
           </div>
@@ -175,8 +179,10 @@ export const TicketDetail = ({
             size="sm"
           />
         </div>
-        <div className="max-w-none prose prose-sm">
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+        <div className="max-w-none break-words prose prose-sm">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
+            <LinkifiedText>{ticket.description}</LinkifiedText>
+          </p>
         </div>
       </div>
 
@@ -254,7 +260,7 @@ export const TicketDetail = ({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-6 border-t flex-wrap">
+      <div className="flex flex-wrap gap-2 pt-6 border-t">
         <Button onClick={handleCopyLink} variant="outline" size="sm">
           <LinkIcon className="mr-2 w-4 h-4" />
           {linkCopied ? 'Link Copied!' : 'Copy Link'}

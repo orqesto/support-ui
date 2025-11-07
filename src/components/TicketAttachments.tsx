@@ -1,6 +1,9 @@
 /* eslint-disable no-console */
 import { useState, useEffect, useCallback } from 'react';
 import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
+import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import {
@@ -8,11 +11,8 @@ import {
   subscribeToEvent,
   unsubscribeFromEvent,
   releaseSocket,
-} from '../lib/socketManager';
-import { commentsService, type Attachment } from '../services/comments.service';
-import { AlertDialog } from './ui/AlertDialog';
-import { Button } from './ui/Button';
-import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog';
+} from '@/lib/socketManager';
+import { commentsService, type Attachment } from '@/services/comments.service';
 
 type TicketAttachmentsProps = {
   ticketId: number;

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Ticket, RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { TicketDetail } from '@/components/TicketDetail';
 import { TicketFilters } from '@/components/tickets/TicketFilters';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
@@ -78,11 +78,90 @@ export const TicketsPage = () => {
   const [deleting, setDeleting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
 
+  // Sync URL parameters with filters on mount
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    const urlPriority = searchParams.get('priority');
+    const urlCategory = searchParams.get('category');
+    const urlJira = searchParams.get('jira');
+    const urlSearch = searchParams.get('search');
+
+    const urlFilters: Partial<typeof filters> = {};
+    let hasUrlFilters = false;
+
+    if (
+      urlStatus &&
+      ['all', 'pending', 'open', 'in_progress', 'resolved', 'closed'].includes(urlStatus)
+    ) {
+      urlFilters.status = urlStatus as
+        | 'all'
+        | 'pending'
+        | 'open'
+        | 'in_progress'
+        | 'resolved'
+        | 'closed';
+      hasUrlFilters = true;
+    }
+    if (urlPriority && ['all', 'low', 'medium', 'high', 'critical'].includes(urlPriority)) {
+      urlFilters.priority = urlPriority as 'all' | 'low' | 'medium' | 'high' | 'critical';
+      hasUrlFilters = true;
+    }
+    if (urlCategory) {
+      urlFilters.categoryId = urlCategory;
+      hasUrlFilters = true;
+    }
+    if (urlJira === 'true' || urlJira === 'false') {
+      urlFilters.syncedToJira = urlJira === 'true';
+      hasUrlFilters = true;
+    }
+    if (urlSearch) {
+      urlFilters.search = urlSearch;
+      hasUrlFilters = true;
+    }
+
+    // Apply URL filters to store if any exist
+    if (hasUrlFilters) {
+      setFiltersStore(urlFilters as typeof filters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Sync filters to URL whenever they change
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    // Preserve ticket ID if present
+    const ticketIdParam = searchParams.get('id');
+    if (ticketIdParam) {
+      params.set('id', ticketIdParam);
+    }
+
+    // Add filters to URL (only non-default values)
+    if (filters.status && filters.status !== 'all') {
+      params.set('status', filters.status);
+    }
+    if (filters.priority && filters.priority !== 'all') {
+      params.set('priority', filters.priority);
+    }
+    if (filters.categoryId && filters.categoryId !== 'all') {
+      params.set('category', filters.categoryId);
+    }
+    if (filters.syncedToJira !== undefined) {
+      params.set('jira', filters.syncedToJira.toString());
+    }
+    if (filters.search) {
+      params.set('search', filters.search);
+    }
+
+    // Update URL without triggering navigation
+    setSearchParams(params, { replace: true });
+  }, [filters, setSearchParams, searchParams]);
+
   // Auto-open ticket from query param
   useEffect(() => {
     const ticketIdParam = searchParams.get('id');
     const paramId = ticketIdParam ? parseInt(ticketIdParam) : null;
-    
+
     // Only fetch if URL has an ID and it's different from the currently selected ticket
     if (paramId && (!selectedTicket || selectedTicket.id !== paramId)) {
       const fetchAndOpenTicket = async () => {
@@ -271,8 +350,11 @@ export const TicketsPage = () => {
 
   const handleFilterChange = (key: string, value: string) => {
     if (key === 'search') {
-      // Don't trigger auto-fetch for search, just update local state
       setPendingSearch(value);
+      // If clearing search (empty value), immediately apply to show all results
+      if (!value.trim()) {
+        setFiltersStore({ ...filters, search: '' });
+      }
     } else if (key === 'syncedToJira') {
       setFiltersStore({ ...filters, syncedToJira: value === 'true' || undefined });
     } else {
@@ -474,10 +556,9 @@ export const TicketsPage = () => {
     }
   };
 
-
   return (
     <Layout>
-      <div className="mx-auto space-y-4 max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>
@@ -513,6 +594,8 @@ export const TicketsPage = () => {
         {loading ? (
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
+              // Index key is safe: array is immutable (recreated from text split), no reordering
+              // eslint-disable-next-line react/no-array-index-key
               <Card key={`ticket-skeleton-${i}`} className="animate-pulse">
                 <CardContent className="p-6">
                   <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
@@ -568,7 +651,7 @@ export const TicketsPage = () => {
         <DialogContent>
           <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
           {ticketToDelete && (
-            <div className="p-3 mt-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+            <div className="p-3 mt-3 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {ticketToDelete.title}
               </p>

@@ -1,14 +1,10 @@
 import { useEffect, useState } from 'react';
-import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
-import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { JiraIntegrationCard } from '@/components/settings/integrations/JiraIntegrationCard';
-import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
-import { TelegramIntegrationCard } from '@/components/settings/integrations/TelegramIntegrationCard';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 
-export const IntegrationsSettings = () => {
+export const TicketAutomationSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [alertDialog, setAlertDialog] = useState<AlertState>({
@@ -42,36 +38,20 @@ export const IntegrationsSettings = () => {
   };
 
   if (loading) {
-    return <div className="py-12 text-center">Loading integrations...</div>;
+    return <div className="py-12 text-center">Loading automation settings...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <EmailIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-foreground">Ticket Automation</h2>
+        <p className="text-sm text-muted-foreground">
+          Configure how tickets are integrated with external systems and automated workflows.
+        </p>
+      </div>
 
-      <GmailIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
+      {/* Jira Integration */}
       <JiraIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
-      <TelegramIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
-      <SlackIntegrationCard
         integrations={integrations}
         onRefresh={fetchIntegrations}
         onShowAlert={setAlertDialog}

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Mail, RefreshCw } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/layout/Layout';
+import { Layout } from '@/components/Layout';
 import { MessageDetail } from '@/components/MessageDetail';
 import { MessageFilters } from '@/components/MessageFilters';
 import { MessageListItem } from '@/components/MessageListItem';
@@ -233,6 +233,52 @@ export const MessagesPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
+  // Sync filters to URL whenever they change
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    // Preserve message ID if present
+    const messageIdParam = searchParams.get('id');
+    if (messageIdParam) {
+      params.set('id', messageIdParam);
+    }
+
+    // Add filters to URL (only non-default values)
+    if (filters.processed && filters.processed !== 'false') {
+      params.set('processed', filters.processed);
+    }
+    if (filters.channel && filters.channel !== 'all') {
+      params.set('channel', filters.channel);
+    }
+    if (filters.showSpam) {
+      params.set('spam', 'true');
+    }
+    if (filters.showWorthy) {
+      params.set('worthy', 'true');
+    }
+    if (filters.showNeedsInfo) {
+      params.set('needsInfo', 'true');
+    }
+    if (filters.hasAttachments) {
+      params.set('attachments', 'true');
+    }
+    if (filters.hasReplies) {
+      params.set('replies', 'true');
+    }
+    if (filters.hasTicket !== undefined) {
+      params.set('ticket', filters.hasTicket.toString());
+    }
+    if (filters.showFailed) {
+      params.set('failed', 'true');
+    }
+    if (filters.search) {
+      params.set('search', filters.search);
+    }
+
+    // Update URL without triggering navigation
+    setSearchParams(params, { replace: true });
+  }, [filters, setSearchParams, searchParams]);
+
   // Auto-open message from query param
   useEffect(() => {
     const messageIdParam = searchParams.get('id');
@@ -262,8 +308,11 @@ export const MessagesPage = () => {
 
   const handleFilterChange = (key: string, value: string) => {
     if (key === 'search') {
-      // Don't trigger auto-fetch for search, just update local state
       setPendingSearch(value);
+      // If clearing search (empty value), immediately apply to show all results
+      if (!value.trim()) {
+        setFilters({ ...filters, search: '' });
+      }
     } else {
       setFilters({ ...filters, [key]: value });
     }
@@ -304,10 +353,23 @@ export const MessagesPage = () => {
 
   const handleReopen = async (message: Message) => {
     try {
+      const reopenedMessageId = message.id;
       await messageService.markAsUnprocessed(message.id);
       clearCache();
-      setSelectedMessage(null);
+
+      // Refetch the messages list
       await fetchMessages(pagination.page, true);
+
+      // Refetch the specific message to get updated data
+      const response = await messageService.getById(reopenedMessageId);
+      if (response.success && response.data) {
+        setSelectedMessage(response.data);
+
+        // Update URL to include message ID (keeps filters intact)
+        const params = new URLSearchParams(searchParams);
+        params.set('id', reopenedMessageId.toString());
+        setSearchParams(params);
+      }
     } catch (error: unknown) {
       console.error('Failed to reopen message:', error);
       const errorMsg =
@@ -419,7 +481,7 @@ export const MessagesPage = () => {
 
   return (
     <Layout>
-      <div className="mx-auto space-y-4 max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>
@@ -464,6 +526,8 @@ export const MessagesPage = () => {
         {loading ? (
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
+              // Index key is safe: array is immutable (recreated from text split), no reordering
+              // eslint-disable-next-line react/no-array-index-key
               <Card key={`skeleton-${i}`} className="animate-pulse">
                 <CardContent className="p-6">
                   <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
@@ -545,7 +609,10 @@ export const MessagesPage = () => {
         <Drawer
           open={!!selectedMessage}
           onClose={() => {
-            setSearchParams({});
+            // Remove only the 'id' parameter, keep all filter parameters
+            const params = new URLSearchParams(searchParams);
+            params.delete('id');
+            setSearchParams(params);
             setSelectedMessage(null);
           }}
           title="Message Details"
@@ -559,7 +626,7 @@ export const MessagesPage = () => {
             }}
             onReopen={async () => {
               await handleReopen(selectedMessage);
-              setSelectedMessage(null);
+              // Message stays open after reopening (handleReopen handles this)
             }}
             onDelete={() => {
               handleDeleteClick(selectedMessage);

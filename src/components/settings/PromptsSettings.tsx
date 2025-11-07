@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
 
 export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);

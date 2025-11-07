@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
-import { Button } from './ui/Button';
 
 export const OrganizationSwitcher = () => {
   const user = useAuthStore((state) => state.user);
@@ -91,7 +91,18 @@ export const OrganizationSwitcher = () => {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div
+            role="button"
+            tabIndex={0}
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsOpen(false);
+              }
+            }}
+            aria-label="Close organization menu"
+          />
 
           {/* Dropdown */}
           <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-64 rounded-md border shadow-lg bg-card border-border">
