@@ -106,8 +106,9 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   setFilters: (filters) => {
-    console.log('🔄 Messages filters updated:', filters);
-    set({ filters }); // Keep cache for other filter combinations
+    const currentState = get();
+    const newFilters = { ...currentState.filters, ...filters };
+    set({ filters: newFilters }); // Merge with existing filters
   },
 
   setSorting: (sorting) => {

@@ -543,7 +543,7 @@ export const MessageDetail = ({
       <MessageAttachments message={message} />
 
       {/* AI Analysis */}
-      <MessageAIAnalysis message={message} />
+      <MessageAIAnalysis message={message} onRefresh={onRefresh} />
 
       {/* Metadata */}
       {message.metadata &&

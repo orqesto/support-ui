@@ -16,6 +16,9 @@ export type GmailOAuthCallbackRequest = {
   redirectUri: string;
   searchQuery?: string;
   maxResults?: number;
+  pollingMaxPages?: number;
+  bulkImportDays?: number;
+  bulkImportMaxResults?: number;
 };
 
 export type ApiResponse<T> = {
@@ -75,7 +78,10 @@ export const gmailOAuthService = {
     clientId: string,
     clientSecret: string,
     searchQuery?: string,
-    maxResults?: number
+    maxResults?: number,
+    pollingMaxPages?: number,
+    bulkImportDays?: number,
+    bulkImportMaxResults?: number
   ): Promise<ApiResponse<{ email: string; id: number }>> =>
     new Promise((resolve) => {
       const executeOAuth = async () => {
@@ -154,6 +160,9 @@ export const gmailOAuthService = {
                   redirectUri,
                   searchQuery,
                   maxResults,
+                  pollingMaxPages,
+                  bulkImportDays,
+                  bulkImportMaxResults,
                 })
                 .then((callbackResponse) => {
                   resolve(callbackResponse);
@@ -196,6 +205,9 @@ export const gmailOAuthService = {
                   redirectUri,
                   searchQuery,
                   maxResults,
+                  pollingMaxPages,
+                  bulkImportDays,
+                  bulkImportMaxResults,
                 })
                 .then((callbackResponse) => {
                   resolve(callbackResponse);

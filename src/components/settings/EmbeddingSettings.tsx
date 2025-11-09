@@ -102,7 +102,7 @@ export const EmbeddingSettings = () => {
         setAlertDialog({
           open: true,
           title: 'Settings Saved',
-          description: `Embedding provider set to ${settings.provider === 'local_embeddings' ? 'Local (all-MiniLM-L6-v2)' : `OpenAI (${openAIEmbeddingModel})`}`,
+          description: `Embedding provider set to ${settings.provider === 'local_embeddings' ? 'Local (multilingual-e5-small)' : `OpenAI (${openAIEmbeddingModel})`}`,
           variant: 'success',
         });
       }
@@ -233,7 +233,7 @@ export const EmbeddingSettings = () => {
                     )}
                   </div>
                   <p className="mb-2 text-sm text-muted-foreground">
-                    all-MiniLM-L6-v2 model running on your server
+                    multilingual-e5-small model (100+ languages) running on your server
                   </p>
                   {!localIntegration?.enabled && (
                     <div className="p-2 mb-2 bg-amber-50 rounded border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">

@@ -8,6 +8,7 @@ import { EmbeddingSettings } from '@/components/settings/EmbeddingSettings';
 import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
 import { PromptsSettings } from '@/components/settings/PromptsSettings';
 import { SpamRulesSettings } from '@/components/settings/SpamRulesSettings';
+import { SupportRulesSettings } from '@/components/settings/SupportRulesSettings';
 import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -16,6 +17,7 @@ type TabType =
   | 'categories'
   | 'prompts'
   | 'spam-rules'
+  | 'support-rules'
   | 'documentation'
   | 'embeddings'
   | 'ai-providers'
@@ -51,6 +53,12 @@ export const SettingsPage = () => {
       label: 'Spam Rules',
       icon: Shield,
       description: 'Configure spam detection rules',
+    },
+    {
+      id: 'support-rules' as TabType,
+      label: 'Support Rules',
+      icon: Shield,
+      description: 'Configure support request detection rules',
     },
     {
       id: 'documentation' as TabType,
@@ -136,6 +144,7 @@ export const SettingsPage = () => {
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
               {activeTab === 'spam-rules' && <SpamRulesSettings />}
+              {activeTab === 'support-rules' && <SupportRulesSettings />}
               {activeTab === 'documentation' && <DocumentationSettings />}
               {activeTab === 'embeddings' && <EmbeddingSettings />}
               {activeTab === 'ai-providers' && <AIProvidersSettings />}

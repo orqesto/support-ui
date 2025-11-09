@@ -49,7 +49,7 @@ export const JiraIntegrationCard = ({
     setSaving(true);
     try {
       const response = await integrationsService.upsert({
-        name: editingId ? `Jira-${editingId}` : `Jira-${config.projectKey}`,
+        name: `Jira-${config.projectKey}`,
         type: 'jira',
         enabled: true,
         config,

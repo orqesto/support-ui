@@ -76,7 +76,18 @@ export const AnthropicProviderCard = ({
   };
 
   const handleSave = () => {
-    onSave(config);
+    // Don't send masked values (containing bullet points •)
+    const configToSave = {
+      ...config,
+      apiKey: config.apiKey.includes('•') ? '' : config.apiKey,
+    };
+    
+    // Only save if we have a real API key
+    if (!configToSave.apiKey) {
+      return; // User didn't change the API key, skip save
+    }
+    
+    onSave(configToSave);
     handleReset();
   };
 

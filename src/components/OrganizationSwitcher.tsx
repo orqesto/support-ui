@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { organizationService, type Organization } from '@/services/organization.service';
@@ -12,11 +12,18 @@ export const OrganizationSwitcher = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false); // Prevent duplicate simultaneous calls
 
   // Only show for global admins
   const isGlobalAdmin = user?.role === 'admin';
 
   const loadOrganizations = useCallback(async () => {
+    // Prevent duplicate simultaneous calls (e.g., from React StrictMode)
+    if (loadingRef.current) {
+      return;
+    }
+    
+    loadingRef.current = true;
     setLoading(true);
     try {
       const result = await organizationService.getAll('', 1, 100);
@@ -30,8 +37,10 @@ export const OrganizationSwitcher = () => {
       console.error('Failed to load organizations:', error);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }, [selectedOrganizationId, setSelectedOrganization]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Remove dependencies to prevent recreation on every org change
 
   useEffect(() => {
     if (isGlobalAdmin) {
@@ -39,7 +48,8 @@ export const OrganizationSwitcher = () => {
         console.error('Failed to load organizations:', error);
       });
     }
-  }, [isGlobalAdmin, loadOrganizations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGlobalAdmin]); // Only run when admin status changes
 
   // Log current organization on mount and when it changes
   useEffect(() => {

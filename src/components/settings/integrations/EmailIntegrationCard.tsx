@@ -51,7 +51,7 @@ export const EmailIntegrationCard = ({
     setSaving(true);
     try {
       const response = await integrationsService.upsert({
-        name: editingId ? `Email-${editingId}` : `Email-${config.user}`,
+        name: `Email-${config.user}`,
         type: 'email',
         enabled: true,
         config,

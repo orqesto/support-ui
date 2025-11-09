@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Plus, Save, TestTube2, Trash2 } from 'lucide-react';
+import { Calendar, Mail, MoreVertical, Plus, Save, TestTube2, Trash2 } from 'lucide-react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -12,6 +12,9 @@ type GmailConfig = {
   clientSecret: string;
   searchQuery: string;
   maxResults: number;
+  pollingMaxPages: number;
+  bulkImportDays: number;
+  bulkImportMaxResults: number;
 };
 
 const searchQueryOptions = [
@@ -29,21 +32,79 @@ export const GmailIntegrationCard = ({
 }: IntegrationCardProps) => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [pollingPagesInput, setPollingPagesInput] = useState<string>('200');
+  const [maxResultsInput, setMaxResultsInput] = useState<string>('500');
+  const [bulkImportMaxResultsInput, setBulkImportMaxResultsInput] = useState<string>('500');
+  const [editBulkImport, setEditBulkImport] = useState<{ id: number; name: string; currentDays: number } | null>(null);
+  const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
+  const [showMenu, setShowMenu] = useState<number | null>(null);
 
   const [config, setConfig] = useState<GmailConfig>({
     clientId: '',
     clientSecret: '',
-    searchQuery: 'is:unread',
-    maxResults: 10,
+    searchQuery: '',
+    maxResults: 500,
+    pollingMaxPages: 200,
+    bulkImportDays: 0,
+    bulkImportMaxResults: 500,
   });
 
   const gmailIntegrations = integrations.filter((i) => i.type === 'gmail');
 
+  const handleUpdateBulkImportDays = async () => {
+    if (!editBulkImport) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const days = parseInt(bulkImportDaysInput) || 0;
+      
+      await integrationsService.update(editBulkImport.id, {
+        config: {
+          gmail: {
+            bulkImportDays: days,
+          },
+        },
+      });
+
+      await onRefresh();
+      setEditBulkImport(null);
+
+      onShowAlert({
+        open: true,
+        title: 'Success',
+        description: `Bulk import days updated to ${days === 0 ? 'All time' : `${days} days`}`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to update bulk import days:', error);
+      onShowAlert({
+        open: true,
+        title: 'Update Failed',
+        description: error instanceof Error ? error.message : 'Failed to update bulk import days',
+        variant: 'error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const resetForm = () => {
-    setConfig({ clientId: '', clientSecret: '', searchQuery: 'is:unread', maxResults: 10 });
+    setConfig({
+      clientId: '',
+      clientSecret: '',
+      searchQuery: '',
+      maxResults: 500,
+      pollingMaxPages: 200,
+      bulkImportDays: 0,
+      bulkImportMaxResults: 500,
+    });
+    setPollingPagesInput('200');
+    setMaxResultsInput('500');
+    setBulkImportMaxResultsInput('500');
     setShowForm(false);
   };
 
@@ -54,7 +115,10 @@ export const GmailIntegrationCard = ({
         config.clientId,
         config.clientSecret,
         config.searchQuery,
-        config.maxResults
+        config.maxResults,
+        config.pollingMaxPages,
+        config.bulkImportDays,
+        config.bulkImportMaxResults
       );
 
       if (response.success) {
@@ -98,7 +162,6 @@ export const GmailIntegrationCard = ({
   };
 
   const testConnection = async (id: number, name: string) => {
-    setTesting(id);
     try {
       const response = await integrationsService.test(id);
       if (response.success) {
@@ -124,8 +187,6 @@ export const GmailIntegrationCard = ({
         description: `Failed to test ${name} connection`,
         variant: 'error',
       });
-    } finally {
-      setTesting(null);
     }
   };
 
@@ -202,30 +263,83 @@ export const GmailIntegrationCard = ({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         OAuth2 •{' '}
-                        {(integration.config as { searchQuery?: string }).searchQuery ?? 'is:unread'}
+                        {(() => {
+                          const query = (integration.config as { gmail?: { searchQuery?: string } }).gmail?.searchQuery ?? 
+                                       (integration.config as { searchQuery?: string }).searchQuery ?? 
+                                       'is:unread';
+                          return query === '' ? 'Everything' : query;
+                        })()}
+                        {(() => {
+                          const gmailConfig = (integration.config as { gmail?: { bulkImportDays?: number } }).gmail;
+                          const bulkDays = gmailConfig?.bulkImportDays ?? 0;
+                          return bulkDays === 0 ? (
+                            <span className="ml-2 text-orange-600 font-medium">⚠️ Bulk: All time</span>
+                          ) : (
+                            <span className="ml-2 text-muted-foreground">📅 Bulk: {bulkDays}d</span>
+                          );
+                        })()}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => testConnection(integration.id, integration.name)}
-                      isLoading={testing === integration.id}
-                      disabled={!integration.hasCredentials}
-                    >
-                      <TestTube2 className="mr-1.5 w-4 h-4" />
-                      Poke
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeleteConfirm({ id: integration.id, name: integration.name })}
-                      isLoading={deleting === integration.id}
-                    >
-                      <Trash2 className="mr-1.5 w-4 h-4 text-red-600" />
-                      Delete
-                    </Button>
+                  <div className="flex gap-2 items-center">
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMenu(showMenu === integration.id ? null : integration.id)}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                      {showMenu === integration.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setShowMenu(null)}
+                            onKeyDown={(e) => e.key === 'Escape' && setShowMenu(null)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Close menu"
+                          />
+                          <div className="absolute right-0 z-20 mt-1 w-48 rounded-md border bg-white dark:bg-gray-800 shadow-lg">
+                            <div className="py-1">
+                              <button
+                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent"
+                                onClick={() => {
+                                  const gmailConfig = (integration.config as { gmail?: { bulkImportDays?: number } }).gmail;
+                                  const bulkDays = gmailConfig?.bulkImportDays ?? 0;
+                                  setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays });
+                                  setBulkImportDaysInput(bulkDays.toString());
+                                  setShowMenu(null);
+                                }}
+                              >
+                                <Calendar className="mr-2 w-4 h-4" />
+                                Bulk Import Days
+                              </button>
+                              <button
+                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent"
+                                onClick={() => {
+                                  void testConnection(integration.id, integration.name);
+                                  setShowMenu(null);
+                                }}
+                              >
+                                <TestTube2 className="mr-2 w-4 h-4" />
+                                Test Connection
+                              </button>
+                              <button
+                                className="flex w-full items-center px-3 py-2 text-sm text-red-600 hover:bg-accent"
+                                onClick={() => {
+                                  setDeleteConfirm({ id: integration.id, name: integration.name });
+                                  setShowMenu(null);
+                                }}
+                              >
+                                <Trash2 className="mr-2 w-4 h-4" />
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -285,16 +399,109 @@ export const GmailIntegrationCard = ({
                     Max Results per Sync
                   </label>
                   <input
+                    id="maxResults"
                     type="number"
-                    value={config.maxResults}
-                    onChange={(e) =>
-                      setConfig({ ...config, maxResults: parseInt(e.target.value) || 10 })
-                    }
+                    value={maxResultsInput}
+                    onChange={(e) => setMaxResultsInput(e.target.value)}
+                    onBlur={() => {
+                      const value = parseInt(maxResultsInput) || 500;
+                      const validated = Math.min(Math.max(value, 1), 500);
+                      setConfig({ ...config, maxResults: validated });
+                      setMaxResultsInput(validated.toString());
+                    }}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="10"
+                    placeholder="500"
                     min="1"
-                    max="100"
+                    max="500"
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Messages fetched per page during regular polling
+                  </p>
+                </div>
+
+                {/* Polling Settings */}
+                <div className="pt-3 border-t">
+                  <h5 className="mb-3 text-sm font-semibold">Regular Polling Settings</h5>
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="pollingMaxPages" className="text-sm font-medium">
+                        Max Pages to Poll
+                      </label>
+                      <input
+                        id="pollingMaxPages"
+                        type="number"
+                        value={pollingPagesInput}
+                        onChange={(e) => {
+                          setPollingPagesInput(e.target.value);
+                        }}
+                        onBlur={() => {
+                          // Validate and update config on blur
+                          const value = parseInt(pollingPagesInput) || 50;
+                          const validated = Math.min(Math.max(value, 1), 200);
+                          setConfig({ ...config, pollingMaxPages: validated });
+                          setPollingPagesInput(validated.toString());
+                        }}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                        placeholder="50"
+                        min="1"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Maximum pages per polling cycle (max: 200). Example: 100 pages × 10/page = 1,000 messages.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bulk Import Settings */}
+                <div className="pt-3 border-t">
+                  <h5 className="mb-3 text-sm font-semibold">Bulk Import Settings</h5>
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="bulkImportDays" className="text-sm font-medium">
+                        Import Time Range (Days)
+                      </label>
+                      <Select
+                        value={config.bulkImportDays.toString()}
+                        onChange={(e) =>
+                          setConfig({ ...config, bulkImportDays: parseInt(e.target.value) })
+                        }
+                      >
+                        <option value="0">All Time</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="180">Last 6 Months</option>
+                        <option value="365">Last Year</option>
+                      </Select>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        How far back to import emails when using bulk import (0 = all emails)
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="bulkImportMaxResults" className="text-sm font-medium">
+                        Bulk Import Page Size
+                      </label>
+                      <input
+                        id="bulkImportMaxResults"
+                        type="number"
+                        value={bulkImportMaxResultsInput}
+                        onChange={(e) => setBulkImportMaxResultsInput(e.target.value)}
+                        onBlur={() => {
+                          const value = parseInt(bulkImportMaxResultsInput) || 500;
+                          const validated = Math.min(Math.max(value, 100), 500);
+                          setConfig({ ...config, bulkImportMaxResults: validated });
+                          setBulkImportMaxResultsInput(validated.toString());
+                        }}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                        placeholder="500"
+                        min="100"
+                        max="500"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Messages per page during bulk import (max: 500, recommended for large imports)
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="p-3 text-xs bg-yellow-50 rounded border border-yellow-200">
@@ -331,6 +538,52 @@ export const GmailIntegrationCard = ({
             <p className="py-4 text-sm text-center text-muted-foreground">
               No Gmail accounts connected
             </p>
+          )}
+
+          {/* Bulk Import Days Edit Modal */}
+          {editBulkImport && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
+                <h3 className="mb-4 text-lg font-semibold">Change Bulk Import Days</h3>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  {editBulkImport.name}
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="bulkImportDays" className="text-sm font-medium">
+                      Import Time Range
+                    </label>
+                    <Select
+                      id="bulkImportDays"
+                      value={bulkImportDaysInput}
+                      onChange={(e) => setBulkImportDaysInput(e.target.value)}
+                      className="mt-1"
+                    >
+                      <option value="0">All Time</option>
+                      <option value="1">Last 1 Day</option>
+                      <option value="7">Last 7 Days</option>
+                      <option value="30">Last 30 Days</option>
+                      <option value="90">Last 90 Days</option>
+                      <option value="180">Last 6 Months</option>
+                      <option value="365">Last Year</option>
+                    </Select>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      How far back to fetch emails during bulk import. Set to &quot;All Time&quot; to
+                      fetch everything (may take a while).
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>
+                      <Save className="mr-2 w-4 h-4" />
+                      Update
+                    </Button>
+                    <Button variant="outline" onClick={() => setEditBulkImport(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
