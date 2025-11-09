@@ -112,4 +112,9 @@ export const messageService = {
     >(`/api/messages/${id}/similar-resolved?${params.toString()}`);
     return response.data;
   },
+
+  reanalyze: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/analyze`, {});
+    return response.data;
+  },
 };

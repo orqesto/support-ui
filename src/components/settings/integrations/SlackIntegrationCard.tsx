@@ -45,7 +45,7 @@ export const SlackIntegrationCard = ({
     setSaving(true);
     try {
       const response = await integrationsService.upsert({
-        name: editingId ? `Slack-${editingId}` : 'Slack Workspace',
+        name: 'Slack Workspace',
         type: 'slack',
         enabled: true,
         config,

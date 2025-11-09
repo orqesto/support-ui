@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Mail, RefreshCw } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -34,6 +34,7 @@ export const MessagesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const urlSyncedRef = useRef(false); // Track if URL params were synced
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -65,6 +66,7 @@ export const MessagesPage = () => {
     hasMore: false,
   });
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
+  const fetchingRef = useRef(false); // Track if fetch is in progress
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
@@ -79,11 +81,18 @@ export const MessagesPage = () => {
         }
       }
 
+      // Prevent duplicate simultaneous calls (e.g., from React StrictMode)
+      if (fetchingRef.current && !force) {
+        return;
+      }
+
+      fetchingRef.current = true;
       setLoading(true);
       try {
         // Build API filters
         const apiFilters: Record<string, string> = {};
-        const currentFilters = filters; // Capture current filters
+        // ⚠️ CRITICAL: Read filters fresh from store, not from closure!
+        const currentFilters = useMessagesStore.getState().filters;
 
         if (currentFilters.processed !== 'all') {
           apiFilters.processed = currentFilters.processed ?? 'false';
@@ -117,11 +126,12 @@ export const MessagesPage = () => {
           apiFilters.search = currentFilters.search.trim();
         }
 
+        const currentSorting = useMessagesStore.getState().sorting;
         const response = await messageService.getAll(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
           page,
           pagination.limit,
-          sorting.sortOrder
+          currentSorting.sortOrder
         );
 
         if (response.success && response.data) {
@@ -140,13 +150,19 @@ export const MessagesPage = () => {
         console.error('Failed to fetch messages:', error);
       } finally {
         setLoading(false);
+        fetchingRef.current = false;
       }
     },
-    [filters, sorting, getCached, setMessages, pagination.limit]
+    [getCached, setMessages, pagination.limit]
   );
 
   // Fetch on mount and when filters or sorting change
   useEffect(() => {
+    // Skip initial fetch if URL sync hasn't happened yet
+    if (!urlSyncedRef.current) {
+      return;
+    }
+    
     fetchMessages(1).catch((error) => {
       console.error('Failed to fetch messages:', error);
     });
@@ -226,9 +242,17 @@ export const MessagesPage = () => {
       hasUrlFilters = true;
     }
 
-    // Apply URL filters to store if any exist
+    // Mark URL sync as complete FIRST to prevent filter effect from running on mount
+    urlSyncedRef.current = true;
+    
+    // Apply URL filters to store if any exist (triggers filter effect)
     if (hasUrlFilters) {
       setFilters(urlFilters);
+    } else {
+      // No URL filters - fetch with default filters
+      fetchMessages(1).catch((error) => {
+        console.error('Failed to fetch messages:', error);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
@@ -277,7 +301,8 @@ export const MessagesPage = () => {
 
     // Update URL without triggering navigation
     setSearchParams(params, { replace: true });
-  }, [filters, setSearchParams, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, setSearchParams]); // searchParams intentionally omitted to prevent circular dependency
 
   // Auto-open message from query param
   useEffect(() => {

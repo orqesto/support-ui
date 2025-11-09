@@ -11,31 +11,44 @@ import {
   DialogClose,
 } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
-import { settingsService, type SpamRule } from '@/services/settings.service';
+import {
+  supportRuleService,
+  type SupportRule,
+  type SupportRuleCategory,
+} from '@/services/supportRule.service';
 
-export const SpamRulesSettings = () => {
-  const [rules, setRules] = useState<SpamRule[]>([]);
+export const SupportRulesSettings = () => {
+  const [rules, setRules] = useState<SupportRule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingRule, setEditingRule] = useState<SpamRule | null>(null);
+  const [editingRule, setEditingRule] = useState<SupportRule | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [ruleToDelete, setRuleToDelete] = useState<SpamRule | null>(null);
-  const [formData, setFormData] = useState({
+  const [ruleToDelete, setRuleToDelete] = useState<SupportRule | null>(null);
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    pattern: string;
+    category: SupportRuleCategory;
+    confidence: number;
+    active: boolean;
+  }>({
     name: '',
     description: '',
     pattern: '',
-    category: 'content',
-    severity: 10,
+    category: 'issue',
+    confidence: 20,
     active: true,
   });
 
   const fetchRules = async () => {
     try {
       setLoading(true);
-      const data = await settingsService.getSpamRules();
-      setRules(data);
+      const response = await supportRuleService.getAll();
+      if (response.success && response.data) {
+        setRules(response.data);
+      }
     } catch (error) {
-      console.error('Error fetching spam rules:', error);
+      console.error('Error fetching support rules:', error);
     } finally {
       setLoading(false);
     }
@@ -47,14 +60,14 @@ export const SpamRulesSettings = () => {
     });
   }, []);
 
-  const handleEdit = (rule: SpamRule) => {
+  const handleEdit = (rule: SupportRule) => {
     setEditingRule(rule);
     setFormData({
       name: rule.name,
       description: rule.description,
       pattern: rule.pattern ?? '',
       category: rule.category,
-      severity: rule.severity,
+      confidence: rule.confidence,
       active: rule.active,
     });
   };
@@ -65,8 +78,8 @@ export const SpamRulesSettings = () => {
       name: '',
       description: '',
       pattern: '',
-      category: 'content',
-      severity: 10,
+      category: 'issue',
+      confidence: 20,
       active: true,
     });
   };
@@ -74,9 +87,9 @@ export const SpamRulesSettings = () => {
   const handleSave = async () => {
     try {
       if (editingRule) {
-        await settingsService.updateSpamRule(editingRule.id, formData);
+        await supportRuleService.update(editingRule.id, formData);
       } else if (isCreating) {
-        await settingsService.createSpamRule(formData);
+        await supportRuleService.create(formData);
       }
       await fetchRules();
       setEditingRule(null);
@@ -85,8 +98,8 @@ export const SpamRulesSettings = () => {
         name: '',
         description: '',
         pattern: '',
-        category: 'content',
-        severity: 10,
+        category: 'issue',
+        confidence: 20,
         active: true,
       });
     } catch (error) {
@@ -101,13 +114,13 @@ export const SpamRulesSettings = () => {
       name: '',
       description: '',
       pattern: '',
-      category: 'content',
-      severity: 10,
+      category: 'issue',
+      confidence: 20,
       active: true,
     });
   };
 
-  const handleDeleteClick = (rule: SpamRule) => {
+  const handleDeleteClick = (rule: SupportRule) => {
     setRuleToDelete(rule);
     setDeleteDialogOpen(true);
   };
@@ -117,7 +130,7 @@ export const SpamRulesSettings = () => {
       return;
     }
     try {
-      await settingsService.deleteSpamRule(ruleToDelete.id);
+      await supportRuleService.delete(ruleToDelete.id);
       await fetchRules();
       setDeleteDialogOpen(false);
       setRuleToDelete(null);
@@ -126,26 +139,23 @@ export const SpamRulesSettings = () => {
     }
   };
 
-  const toggleActive = async (rule: SpamRule) => {
+  const toggleActive = async (rule: SupportRule) => {
     try {
-      await settingsService.updateSpamRule(rule.id, { active: !rule.active });
+      await supportRuleService.update(rule.id, { active: !rule.active });
       await fetchRules();
     } catch (error) {
       console.error('Error toggling rule:', error);
     }
   };
 
-  const getSeverityColor = (severity: number) => {
-    if (severity >= 100) {
-      return 'danger'; // Critical spam - auto-reject
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 30) {
+      return 'success';
     }
-    if (severity >= 50) {
-      return 'danger'; // Mark as spam
+    if (confidence >= 20) {
+      return 'default';
     }
-    if (severity >= 25) {
-      return 'warning'; // Flag for review
-    }
-    return 'default';
+    return 'secondary';
   };
 
   if (loading) {
@@ -157,9 +167,9 @@ export const SpamRulesSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Spam Detection Rules</h3>
+          <h3 className="text-lg font-semibold">Support Detection Rules</h3>
           <p className="text-sm text-muted-foreground">
-            Configure rules and red flags for spam detection
+            Configure patterns to identify legitimate support requests
           </p>
         </div>
         <Button onClick={handleCreate} disabled={isCreating}>
@@ -168,35 +178,19 @@ export const SpamRulesSettings = () => {
         </Button>
       </div>
 
-      {/* Security Notice */}
-      <div className="p-4 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
-        <p className="text-sm text-red-600 dark:text-red-400">
-          <strong>🔒 System Protected Rules:</strong> Security rules (marked with 🔒 SYSTEM
-          PROTECTED) cannot be modified or deleted. These protect against AI prompt injection and
-          other security threats.
-        </p>
-      </div>
-
       {/* Info Banner */}
-      <div className="p-4 space-y-2 rounded-lg border bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20">
-        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+      <div className="p-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+        <p className="text-sm text-blue-600 dark:text-blue-400">
           <strong>Pattern Matching:</strong> Use regex or keywords separated by{' '}
-          <code className="px-1 rounded bg-yellow-500/20">|</code> (pipe).
+          <code className="px-1 rounded bg-blue-500/20">|</code> (pipe). Higher confidence scores
+          (0-100) indicate stronger support signals.
         </p>
-        <p className="text-sm text-yellow-600 dark:text-yellow-400">
-          <strong>Severity Levels:</strong>
-        </p>
-        <ul className="ml-4 space-y-1 text-sm text-yellow-600 dark:text-yellow-400 list-disc">
-          <li><strong>1-49:</strong> Flag for review (save to database, mark as suspicious)</li>
-          <li><strong>50-99:</strong> Mark as spam (save to database but don&apos;t process)</li>
-          <li><strong>100:</strong> <span className="font-bold text-red-600 dark:text-red-400">Critical spam - Auto-reject immediately (don&apos;t save to database)</span></li>
-        </ul>
       </div>
 
       {/* New Rule Form */}
       {isCreating && (
         <div className="p-4 space-y-4 rounded-lg border bg-card border-border">
-          <h4 className="font-semibold">New Spam Rule</h4>
+          <h4 className="font-semibold">New Support Rule</h4>
           <div className="grid gap-4">
             <div>
               <label htmlFor="name" className="text-sm font-medium">
@@ -207,7 +201,7 @@ export const SpamRulesSettings = () => {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                placeholder="e.g., phishing_indicators"
+                placeholder="e.g., urgent_customer_issue"
               />
             </div>
             <div>
@@ -231,45 +225,50 @@ export const SpamRulesSettings = () => {
                 value={formData.pattern}
                 onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
                 className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                placeholder="verify your account|confirm identity|suspended"
+                placeholder="problem|issue|error|need help"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Category"
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value as SupportRuleCategory })
+                }
               >
-                <option value="sender">Sender</option>
-                <option value="subject">Subject</option>
-                <option value="content">Content</option>
+                <option value="issue">Issue</option>
+                <option value="help">Help Request</option>
+                <option value="question">Question</option>
+                <option value="access">Access</option>
+                <option value="account">Account</option>
+                <option value="urgent">Urgent</option>
               </Select>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label htmlFor="severity" className="text-sm font-medium">
-                    Severity
+                  <label htmlFor="confidence" className="text-sm font-medium">
+                    Confidence
                   </label>
                   <span className="text-sm font-medium text-primary">
-                    {formData.severity}
-                    {formData.severity >= 100 && ' 🚫 Auto-Reject'}
-                    {formData.severity >= 50 && formData.severity < 100 && ' ⚠️ Mark as Spam'}
-                    {formData.severity < 50 && ' ℹ️ Flag for Review'}
+                    {formData.confidence}
+                    {formData.confidence >= 30 && ' ✅ Strong Signal'}
+                    {formData.confidence >= 20 && formData.confidence < 30 && ' ℹ️ Moderate Signal'}
+                    {formData.confidence < 20 && ' ⚡ Weak Signal'}
                   </span>
                 </div>
                 <input
                   type="range"
-                  id="severity"
+                  id="confidence"
                   min="0"
                   max="100"
                   step="5"
-                  value={formData.severity}
-                  onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
+                  value={formData.confidence}
+                  onChange={(e) => setFormData({ ...formData, confidence: parseInt(e.target.value) })}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0 (Low)</span>
-                  <span>50 (Spam)</span>
-                  <span>100 (Reject)</span>
+                  <span>0 (Weak)</span>
+                  <span>20 (Moderate)</span>
+                  <span>30+ (Strong)</span>
                 </div>
               </div>
             </div>
@@ -308,7 +307,7 @@ export const SpamRulesSettings = () => {
           >
             {editingRule?.id === rule.id ? (
               <div className="space-y-4">
-                <h4 className="font-semibold">Edit Spam Rule</h4>
+                <h4 className="font-semibold">Edit Support Rule</h4>
                 <div className="grid gap-4">
                   <div>
                     <label htmlFor="name" className="text-sm font-medium">
@@ -347,40 +346,45 @@ export const SpamRulesSettings = () => {
                     <Select
                       label="Category"
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value as SupportRuleCategory })
+                      }
                     >
-                      <option value="sender">Sender</option>
-                      <option value="subject">Subject</option>
-                      <option value="content">Content</option>
+                      <option value="issue">Issue</option>
+                      <option value="help">Help Request</option>
+                      <option value="question">Question</option>
+                      <option value="access">Access</option>
+                      <option value="account">Account</option>
+                      <option value="urgent">Urgent</option>
                     </Select>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <label htmlFor="severity-edit" className="text-sm font-medium">
-                          Severity
+                        <label htmlFor="confidence-edit" className="text-sm font-medium">
+                          Confidence
                         </label>
                         <span className="text-sm font-medium text-primary">
-                          {formData.severity}
-                          {formData.severity >= 100 && ' 🚫 Auto-Reject'}
-                          {formData.severity >= 50 && formData.severity < 100 && ' ⚠️ Mark as Spam'}
-                          {formData.severity < 50 && ' ℹ️ Flag for Review'}
+                          {formData.confidence}
+                          {formData.confidence >= 30 && ' ✅ Strong Signal'}
+                          {formData.confidence >= 20 && formData.confidence < 30 && ' ℹ️ Moderate Signal'}
+                          {formData.confidence < 20 && ' ⚡ Weak Signal'}
                         </span>
                       </div>
                       <input
                         type="range"
-                        id="severity-edit"
+                        id="confidence-edit"
                         min="0"
                         max="100"
                         step="5"
-                        value={formData.severity}
+                        value={formData.confidence}
                         onChange={(e) =>
-                          setFormData({ ...formData, severity: parseInt(e.target.value) })
+                          setFormData({ ...formData, confidence: parseInt(e.target.value) })
                         }
                         className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>0 (Low)</span>
-                        <span>50 (Spam)</span>
-                        <span>100 (Reject)</span>
+                        <span>0 (Weak)</span>
+                        <span>20 (Moderate)</span>
+                        <span>30+ (Strong)</span>
                       </div>
                     </div>
                   </div>
@@ -417,19 +421,9 @@ export const SpamRulesSettings = () => {
                       <Badge variant={rule.active ? 'success' : 'default'}>
                         {rule.active ? 'Active' : 'Inactive'}
                       </Badge>
-                      <Badge variant={getSeverityColor(rule.severity)}>
-                        Severity: {rule.severity}
+                      <Badge variant={getConfidenceColor(rule.confidence)}>
+                        Confidence: {rule.confidence}
                       </Badge>
-                      {rule.severity >= 100 && (
-                        <Badge variant="danger" className="font-bold">
-                          🚫 AUTO-REJECT
-                        </Badge>
-                      )}
-                      {rule.category === 'security' && (
-                        <Badge variant="danger" className="font-bold">
-                          🔒 SYSTEM PROTECTED
-                        </Badge>
-                      )}
                       <Badge variant="secondary" className="capitalize">
                         {rule.category}
                       </Badge>
@@ -449,26 +443,11 @@ export const SpamRulesSettings = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => toggleActive(rule)}
-                      title={
-                        rule.category === 'security'
-                          ? 'Security rules cannot be disabled'
-                          : rule.active
-                            ? 'Deactivate'
-                            : 'Activate'
-                      }
-                      disabled={rule.category === 'security'}
+                      title={rule.active ? 'Deactivate' : 'Activate'}
                     >
                       {rule.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(rule)}
-                      disabled={rule.category === 'security'}
-                      title={
-                        rule.category === 'security' ? 'Security rules cannot be edited' : 'Edit'
-                      }
-                    >
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(rule)}>
                       <Edit2 className="mr-2 w-4 h-4" />
                       Edit
                     </Button>
@@ -476,11 +455,7 @@ export const SpamRulesSettings = () => {
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDeleteClick(rule)}
-                      aria-label="Delete spam rule"
-                      disabled={rule.category === 'security'}
-                      title={
-                        rule.category === 'security' ? 'Security rules cannot be deleted' : 'Delete'
-                      }
+                      aria-label="Delete support rule"
                     >
                       <Trash2 className="mr-2 w-4 h-4" />
                       Delete
@@ -496,11 +471,11 @@ export const SpamRulesSettings = () => {
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogHeader>
-          <DialogTitle>Delete Spam Rule</DialogTitle>
+          <DialogTitle>Delete Support Rule</DialogTitle>
           <DialogClose onClose={() => setDeleteDialogOpen(false)} />
         </DialogHeader>
         <DialogContent>
-          <p>Are you sure you want to delete this spam detection rule?</p>
+          <p>Are you sure you want to delete this support detection rule?</p>
           {ruleToDelete && (
             <div className="p-4 mt-4 rounded bg-muted">
               <p className="text-sm font-medium">{ruleToDelete.name}</p>

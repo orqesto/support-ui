@@ -1,11 +1,27 @@
-import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react';
+import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 
 type MessageAIAnalysisProps = {
   message: Message;
+  onRefresh?: () => void;
 };
 
-export const MessageAIAnalysis = ({ message }: MessageAIAnalysisProps) => {
+export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps) => {
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
+
+  const handleReanalyze = async () => {
+    try {
+      setIsReanalyzing(true);
+      await messageService.reanalyze(message.id);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to re-analyze message:', error);
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
   // Extract AI analysis from metadata
   const analysis = message.metadata?.analysis as
     | {
@@ -29,6 +45,7 @@ export const MessageAIAnalysis = ({ message }: MessageAIAnalysisProps) => {
         category?: string;
         reason?: string;
         redFlags?: string[];
+        greenFlags?: string[];
       }
     | undefined;
 
@@ -39,7 +56,18 @@ export const MessageAIAnalysis = ({ message }: MessageAIAnalysisProps) => {
 
   return (
     <div className="pt-6 border-t">
-      <h3 className="mb-4 text-sm font-semibold text-muted-foreground">AI Analysis</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-sm font-semibold text-muted-foreground">AI Analysis</h3>
+        <button
+          onClick={handleReanalyze}
+          disabled={isReanalyzing}
+          className="flex gap-1 items-center px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="Re-analyze this message with current AI settings"
+        >
+          <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
+          Re-analyze
+        </button>
+      </div>
       <div className="space-y-4">
         {/* Status Indicators */}
         <div className="grid grid-cols-2 gap-3">
@@ -183,6 +211,27 @@ export const MessageAIAnalysis = ({ message }: MessageAIAnalysisProps) => {
                 <li
                   key={flag}
                   className="flex gap-2 items-start text-sm text-red-600 dark:text-red-400"
+                >
+                  <span className="mt-1">•</span>
+                  <span>{flag}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Green Flags */}
+        {spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
+          <div className="p-3 rounded-lg border bg-green-500/10 dark:bg-green-500/10 border-green-500/20">
+            <div className="flex gap-2 items-center mb-2">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <span className="text-xs font-semibold">Green Flags</span>
+            </div>
+            <ul className="space-y-1">
+              {spamCheck.greenFlags.map((flag: string) => (
+                <li
+                  key={flag}
+                  className="flex gap-2 items-start text-sm text-green-600 dark:text-green-400"
                 >
                   <span className="mt-1">•</span>
                   <span>{flag}</span>

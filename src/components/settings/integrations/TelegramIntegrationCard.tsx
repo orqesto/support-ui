@@ -43,7 +43,7 @@ export const TelegramIntegrationCard = ({
     setSaving(true);
     try {
       const response = await integrationsService.upsert({
-        name: editingId ? `Telegram-${editingId}` : 'Telegram Bot',
+        name: 'Telegram Bot',
         type: 'telegram',
         enabled: true,
         config,
