@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import DepartmentBadge from '@/components/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -237,7 +238,10 @@ export const CategoriesSettings = () => {
               <>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h4 className="text-lg font-semibold">{category.name}</h4>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="text-lg font-semibold">{category.name}</h4>
+                      <DepartmentBadge department={category.departmentRole} />
+                    </div>
                     {category.description && (
                       <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
                     )}

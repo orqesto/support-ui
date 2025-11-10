@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Calendar, Mail, MoreVertical, Plus, Save, TestTube2, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mail, Plus, MoreVertical, Trash2, TestTube2, Download, X } from 'lucide-react';
+import DepartmentBadge from '@/components/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
 
@@ -258,9 +258,14 @@ export const GmailIntegrationCard = ({
                       className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
                     <div>
-                      <p className="font-medium">
-                        {(integration.config as { user?: string }).user ?? integration.name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">
+                          {(integration.config as { user?: string }).user ?? integration.name}
+                        </p>
+                        {integration.departmentRole && (
+                          <DepartmentBadge department={integration.departmentRole} size="sm" />
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         OAuth2 •{' '}
                         {(() => {

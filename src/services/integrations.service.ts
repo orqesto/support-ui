@@ -70,6 +70,7 @@ export type BaseIntegration = {
   name: string;
   type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack' | 'openai' | 'anthropic' | 'deepseek' | 'perplexity' | 'local_embeddings';
   enabled: boolean;
+  departmentRole?: 'support' | 'sales' | 'billing' | 'general';
   createdAt: string;
   updatedAt: string;
   hasCredentials?: boolean;
