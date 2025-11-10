@@ -22,7 +22,7 @@ export const OrganizationSwitcher = () => {
     if (loadingRef.current) {
       return;
     }
-    
+
     loadingRef.current = true;
     setLoading(true);
     try {

@@ -12,10 +12,11 @@ export type Invitation = {
 };
 
 export const invitationService = {
-  invite: async (email: string, role: string, organizationId: number) => {
+  invite: async (email: string, role: string, departmentRole: string, organizationId: number) => {
     const response = await apiClient.post<ApiResponse<null>>('/api/invitations', {
       email,
       role,
+      departmentRole,
       organizationId,
     });
     return response.data;

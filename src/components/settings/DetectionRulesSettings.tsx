@@ -12,23 +12,23 @@ import {
 } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import {
-  supportRuleService,
-  type SupportRule,
-  type SupportRuleCategory,
-} from '@/services/supportRule.service';
+  detectionRuleService,
+  type DetectionRule,
+  type DetectionRuleCategory,
+} from '@/services/detectionRule.service';
 
-export const SupportRulesSettings = () => {
-  const [rules, setRules] = useState<SupportRule[]>([]);
+export const DetectionRulesSettings = () => {
+  const [rules, setRules] = useState<DetectionRule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingRule, setEditingRule] = useState<SupportRule | null>(null);
+  const [editingRule, setEditingRule] = useState<DetectionRule | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [ruleToDelete, setRuleToDelete] = useState<SupportRule | null>(null);
+  const [ruleToDelete, setRuleToDelete] = useState<DetectionRule | null>(null);
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
     pattern: string;
-    category: SupportRuleCategory;
+    category: DetectionRuleCategory;
     confidence: number;
     active: boolean;
   }>({
@@ -43,12 +43,12 @@ export const SupportRulesSettings = () => {
   const fetchRules = async () => {
     try {
       setLoading(true);
-      const response = await supportRuleService.getAll();
+      const response = await detectionRuleService.getAll();
       if (response.success && response.data) {
         setRules(response.data);
       }
     } catch (error) {
-      console.error('Error fetching support rules:', error);
+      console.error('Error fetching detection rules:', error);
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ export const SupportRulesSettings = () => {
     });
   }, []);
 
-  const handleEdit = (rule: SupportRule) => {
+  const handleEdit = (rule: DetectionRule) => {
     setEditingRule(rule);
     setFormData({
       name: rule.name,
@@ -87,9 +87,9 @@ export const SupportRulesSettings = () => {
   const handleSave = async () => {
     try {
       if (editingRule) {
-        await supportRuleService.update(editingRule.id, formData);
+        await detectionRuleService.update(editingRule.id, formData);
       } else if (isCreating) {
-        await supportRuleService.create(formData);
+        await detectionRuleService.create(formData);
       }
       await fetchRules();
       setEditingRule(null);
@@ -120,7 +120,7 @@ export const SupportRulesSettings = () => {
     });
   };
 
-  const handleDeleteClick = (rule: SupportRule) => {
+  const handleDeleteClick = (rule: DetectionRule) => {
     setRuleToDelete(rule);
     setDeleteDialogOpen(true);
   };
@@ -130,7 +130,7 @@ export const SupportRulesSettings = () => {
       return;
     }
     try {
-      await supportRuleService.delete(ruleToDelete.id);
+      await detectionRuleService.delete(ruleToDelete.id);
       await fetchRules();
       setDeleteDialogOpen(false);
       setRuleToDelete(null);
@@ -139,9 +139,9 @@ export const SupportRulesSettings = () => {
     }
   };
 
-  const toggleActive = async (rule: SupportRule) => {
+  const toggleActive = async (rule: DetectionRule) => {
     try {
-      await supportRuleService.update(rule.id, { active: !rule.active });
+      await detectionRuleService.update(rule.id, { active: !rule.active });
       await fetchRules();
     } catch (error) {
       console.error('Error toggling rule:', error);
@@ -233,7 +233,7 @@ export const SupportRulesSettings = () => {
                 label="Category"
                 value={formData.category}
                 onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value as SupportRuleCategory })
+                  setFormData({ ...formData, category: e.target.value as DetectionRuleCategory })
                 }
               >
                 <option value="issue">Issue</option>
@@ -262,7 +262,9 @@ export const SupportRulesSettings = () => {
                   max="100"
                   step="5"
                   value={formData.confidence}
-                  onChange={(e) => setFormData({ ...formData, confidence: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, confidence: parseInt(e.target.value) })
+                  }
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -301,10 +303,7 @@ export const SupportRulesSettings = () => {
       {/* Rules List */}
       <div className="space-y-3">
         {rules.map((rule) => (
-          <div
-            key={rule.id}
-            className="border border-border rounded-lg p-4 bg-card"
-          >
+          <div key={rule.id} className="p-4 rounded-lg border border-border bg-card">
             {editingRule?.id === rule.id ? (
               <div className="space-y-4">
                 <h4 className="font-semibold">Edit Support Rule</h4>
@@ -347,7 +346,10 @@ export const SupportRulesSettings = () => {
                       label="Category"
                       value={formData.category}
                       onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value as SupportRuleCategory })
+                        setFormData({
+                          ...formData,
+                          category: e.target.value as DetectionRuleCategory,
+                        })
                       }
                     >
                       <option value="issue">Issue</option>
@@ -365,7 +367,9 @@ export const SupportRulesSettings = () => {
                         <span className="text-sm font-medium text-primary">
                           {formData.confidence}
                           {formData.confidence >= 30 && ' ✅ Strong Signal'}
-                          {formData.confidence >= 20 && formData.confidence < 30 && ' ℹ️ Moderate Signal'}
+                          {formData.confidence >= 20 &&
+                            formData.confidence < 30 &&
+                            ' ℹ️ Moderate Signal'}
                           {formData.confidence < 20 && ' ⚡ Weak Signal'}
                         </span>
                       </div>

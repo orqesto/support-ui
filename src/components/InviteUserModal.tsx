@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 type InviteUserModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onInvite: (email: string, role: string, organizationId: number) => Promise<void>;
+  onInvite: (email: string, role: string, departmentRole: string, organizationId: number) => Promise<void>;
 };
 
 export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalProps) => {
@@ -18,6 +18,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
   const user = useAuthStore((state) => state.user);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('associate');
+  const [departmentRole, setDepartmentRole] = useState<string>('support');
   const [organizationId, setOrganizationId] = useState<number | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,9 +67,10 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     setIsLoading(true);
 
     try {
-      await onInvite(email, role, organizationId);
+      await onInvite(email, role, departmentRole, organizationId);
       setEmail('');
       setRole('associate');
+      setDepartmentRole('support');
       // Keep organization selected (for org_admin it's their org, for admin keep first)
       if (!isAdmin) {
         // For org_admin, keep their organization
@@ -179,6 +181,16 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
             {isAdmin
               ? 'Select the role for this user in the organization'
               : 'Org admins cannot invite other org admins'}
+          </p>
+
+          <Select label="Department" value={departmentRole} onChange={(e) => setDepartmentRole(e.target.value)} required>
+            <option value="support">Support - Customer support team</option>
+            <option value="sales">Sales - Sales team</option>
+            <option value="billing">Billing - Billing/finance team</option>
+            <option value="general">General - General/shared/admin</option>
+          </Select>
+          <p className="-mt-2 text-sm text-muted-foreground">
+            Department determines which message sources, categories, and docs the user sees
           </p>
 
           {error && (

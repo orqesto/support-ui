@@ -36,7 +36,6 @@ type OpenAIConfig = {
   baseUrl: string;
   organization: string;
   defaultChatModel: string;
-  defaultEmbeddingModel: string;
 };
 
 export const OpenAIProviderCard = ({
@@ -60,7 +59,6 @@ export const OpenAIProviderCard = ({
     baseUrl: '',
     organization: '',
     defaultChatModel: 'gpt-4o-mini',
-    defaultEmbeddingModel: 'text-embedding-3-small',
   });
 
   const handleEdit = (integration: Integration) => {
@@ -75,7 +73,6 @@ export const OpenAIProviderCard = ({
       baseUrl: '',
       organization: '',
       defaultChatModel: 'gpt-4o-mini',
-      defaultEmbeddingModel: 'text-embedding-3-small',
     });
     setShowForm(false);
     onCancel();
@@ -132,12 +129,7 @@ export const OpenAIProviderCard = ({
                       <p className="font-medium">{integration.name}</p>
                       <p className="text-xs text-muted-foreground">
                         Chat:{' '}
-                        {(integration.config as { defaultChatModel?: string }).defaultChatModel} •
-                        Embedding:{' '}
-                        {
-                          (integration.config as { defaultEmbeddingModel?: string })
-                            .defaultEmbeddingModel
-                        }
+                        {(integration.config as { defaultChatModel?: string }).defaultChatModel}
                       </p>
                     </div>
                   </div>
@@ -229,19 +221,6 @@ export const OpenAIProviderCard = ({
               >
                 {models
                   .filter((m) => m.type === 'chat')
-                  .map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-              </Select>
-              <Select
-                label="Default Embedding Model"
-                value={config.defaultEmbeddingModel}
-                onChange={(e) => setConfig({ ...config, defaultEmbeddingModel: e.target.value })}
-              >
-                {models
-                  .filter((m) => m.type === 'embedding')
                   .map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.name}

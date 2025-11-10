@@ -1,14 +1,13 @@
-import { Settings, FolderTree, FileText, Shield, Inbox, Brain, Sparkles, Zap } from 'lucide-react';
+import { Settings, FolderTree, FileText, Shield, Inbox, Brain, Zap } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '@/components/settings/CategoriesSettings';
+import { DetectionRulesSettings } from '@/components/settings/DetectionRulesSettings';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
-import { EmbeddingSettings } from '@/components/settings/EmbeddingSettings';
 import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
 import { PromptsSettings } from '@/components/settings/PromptsSettings';
 import { SpamRulesSettings } from '@/components/settings/SpamRulesSettings';
-import { SupportRulesSettings } from '@/components/settings/SupportRulesSettings';
 import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -17,9 +16,8 @@ type TabType =
   | 'categories'
   | 'prompts'
   | 'spam-rules'
-  | 'support-rules'
+  | 'detection-rules'
   | 'documentation'
-  | 'embeddings'
   | 'ai-providers'
   | 'message-sources'
   | 'ticket-automation';
@@ -55,22 +53,16 @@ export const SettingsPage = () => {
       description: 'Configure spam detection rules',
     },
     {
-      id: 'support-rules' as TabType,
-      label: 'Support Rules',
+      id: 'detection-rules' as TabType,
+      label: 'Detection Rules',
       icon: Shield,
-      description: 'Configure support request detection rules',
+      description: 'Configure positive signals for legitimate messages',
     },
     {
       id: 'documentation' as TabType,
       label: 'Documentation',
       icon: FileText,
       description: 'Upload knowledge base documents for AI',
-    },
-    {
-      id: 'embeddings' as TabType,
-      label: 'Embeddings',
-      icon: Sparkles,
-      description: 'Choose embedding provider (OpenAI or Local)',
     },
     {
       id: 'ai-providers' as TabType,
@@ -144,9 +136,8 @@ export const SettingsPage = () => {
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
               {activeTab === 'spam-rules' && <SpamRulesSettings />}
-              {activeTab === 'support-rules' && <SupportRulesSettings />}
+              {activeTab === 'detection-rules' && <DetectionRulesSettings />}
               {activeTab === 'documentation' && <DocumentationSettings />}
-              {activeTab === 'embeddings' && <EmbeddingSettings />}
               {activeTab === 'ai-providers' && <AIProvidersSettings />}
               {activeTab === 'message-sources' && <MessageSourcesSettings />}
               {activeTab === 'ticket-automation' && <TicketAutomationSettings />}

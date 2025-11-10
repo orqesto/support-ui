@@ -551,7 +551,7 @@ export const OrganizationPage = () => {
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm font-medium">{org.name}</div>
                                   {org.description && (
-                                    <div className="text-sm text-muted-foreground">
+                                    <div className="overflow-hidden text-sm whitespace-pre-wrap break-words text-muted-foreground">
                                       {org.description}
                                     </div>
                                   )}
