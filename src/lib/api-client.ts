@@ -16,14 +16,19 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Add selected organization context for admin
+    // Add selected organization and department context
     const authStorage = localStorage.getItem('auth-storage');
     if (authStorage) {
       try {
         const parsed = JSON.parse(authStorage) as {
-          state?: { selectedOrganizationId?: number };
+          state?: { 
+            selectedOrganizationId?: number;
+            selectedDepartmentRole?: string;
+          };
         };
         const selectedOrgId = parsed.state?.selectedOrganizationId;
+        const selectedDept = parsed.state?.selectedDepartmentRole;
+        
         if (selectedOrgId) {
           config.headers['X-Organization-Context'] = String(selectedOrgId);
           // eslint-disable-next-line no-console
@@ -35,6 +40,15 @@ apiClient.interceptors.request.use(
             '⚠️ [API] No organization context set!',
             config.method?.toUpperCase(),
             config.url
+          );
+        }
+
+        // Add department context if selected
+        if (selectedDept) {
+          config.headers['X-Department-Context'] = selectedDept;
+          // eslint-disable-next-line no-console
+          console.log(
+            `🏷️ [API] Department Context: ${selectedDept} | ${config.method?.toUpperCase()} ${config.url}`
           );
         }
       } catch (e) {

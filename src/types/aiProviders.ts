@@ -16,7 +16,6 @@ export type AIProviderConfig = {
     baseUrl?: string;
     organization?: string;
     defaultChatModel?: string;
-    defaultEmbeddingModel?: string;
   };
   anthropic?: {
     apiKey: string;

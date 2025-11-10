@@ -100,8 +100,8 @@ export const UsersPage = () => {
     });
   };
 
-  const handleInviteUser = async (email: string, role: string, organizationId: number) => {
-    await invitationService.invite(email, role, organizationId);
+  const handleInviteUser = async (email: string, role: string, departmentRole: string, organizationId: number) => {
+    await invitationService.invite(email, role, departmentRole, organizationId);
     // Optionally refresh users list or show a success message
   };
 

@@ -4,6 +4,8 @@ export type ChannelType = 'email' | 'telegram' | 'slack' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
+export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general';
+
 export type User = {
   id: number;
   email: string;
@@ -12,6 +14,7 @@ export type User = {
   position: string | null;
   role: GlobalRole; // Global role (admin, user)
   organizationRole?: OrganizationRole; // Role in current organization
+  departmentRoles?: DepartmentRole[]; // ALL departments/functions within organization (can have multiple!)
   organizationId?: number; // Current organization ID
   // Optional contact methods
   telegram?: string | null; // Telegram username (e.g., @username)

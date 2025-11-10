@@ -37,7 +37,6 @@ export type OpenAIConfig = {
   baseUrl?: string;
   organization?: string;
   defaultChatModel?: string;
-  defaultEmbeddingModel?: string;
 };
 
 export type AnthropicConfig = {

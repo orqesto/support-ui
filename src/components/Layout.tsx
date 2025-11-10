@@ -13,6 +13,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { DepartmentSwitcher } from '@/components/DepartmentSwitcher';
 import { EmailProcessingProgress } from '@/components/EmailProcessingProgress';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { ProcessingStatusWidget } from '@/components/ProcessingStatusWidget';
@@ -147,6 +148,9 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="p-4 border-t">
               {/* Organization Switcher for Global Admins */}
               <OrganizationSwitcher />
+
+              {/* Department Switcher for Multi-Department Users */}
+              <DepartmentSwitcher />
 
               <div className="flex justify-between items-center mb-3">
                 <div className="flex gap-2 items-center">

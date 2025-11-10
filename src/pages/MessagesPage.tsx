@@ -162,7 +162,7 @@ export const MessagesPage = () => {
     if (!urlSyncedRef.current) {
       return;
     }
-    
+
     fetchMessages(1).catch((error) => {
       console.error('Failed to fetch messages:', error);
     });
@@ -244,7 +244,7 @@ export const MessagesPage = () => {
 
     // Mark URL sync as complete FIRST to prevent filter effect from running on mount
     urlSyncedRef.current = true;
-    
+
     // Apply URL filters to store if any exist (triggers filter effect)
     if (hasUrlFilters) {
       setFilters(urlFilters);
