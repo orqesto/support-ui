@@ -1,4 +1,14 @@
-import { Settings, FolderTree, FileText, Shield, Inbox, Brain, Zap } from 'lucide-react';
+import {
+  Settings,
+  FolderTree,
+  FileText,
+  ShieldAlert,
+  ShieldPlus,
+  Inbox,
+  Cog,
+  BrainCog,
+  Zap,
+} from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
@@ -43,19 +53,19 @@ export const SettingsPage = () => {
     {
       id: 'prompts' as TabType,
       label: 'AI Prompts',
-      icon: FileText,
+      icon: Cog,
       description: 'Customize AI prompt templates',
     },
     {
       id: 'spam-rules' as TabType,
       label: 'Spam Rules',
-      icon: Shield,
+      icon: ShieldAlert,
       description: 'Configure spam detection rules',
     },
     {
       id: 'detection-rules' as TabType,
       label: 'Detection Rules',
-      icon: Shield,
+      icon: ShieldPlus,
       description: 'Configure positive signals for legitimate messages',
     },
     {
@@ -67,7 +77,7 @@ export const SettingsPage = () => {
     {
       id: 'ai-providers' as TabType,
       label: 'AI Providers',
-      icon: Brain,
+      icon: BrainCog,
       description: 'Configure OpenAI, Anthropic and models',
     },
     {

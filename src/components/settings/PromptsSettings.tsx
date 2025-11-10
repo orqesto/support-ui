@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
+import DepartmentBadge from '@/components/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
@@ -269,6 +270,7 @@ export const PromptsSettings = () => {
                   <div className="flex-1">
                     <div className="flex gap-2 items-center">
                       <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
+                      <DepartmentBadge department={prompt.departmentRole} size="sm" />
                       {prompt.type === 'system' && <Badge variant="default">System</Badge>}
                       <Badge variant={prompt.active ? 'success' : 'default'}>
                         {prompt.active ? 'Active' : 'Inactive'}

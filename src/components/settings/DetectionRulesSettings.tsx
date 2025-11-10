@@ -167,7 +167,7 @@ export const DetectionRulesSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Support Detection Rules</h3>
+          <h3 className="text-lg font-semibold">Detection Rules</h3>
           <p className="text-sm text-muted-foreground">
             Configure patterns to identify legitimate support requests
           </p>

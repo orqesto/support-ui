@@ -6,6 +6,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable sending cookies with requests
 });
 
 // Request interceptor to add auth token and organization context
@@ -70,9 +71,21 @@ apiClient.interceptors.response.use(
       typeof err === 'object' && err !== null && 'response' in err;
 
     if (isAxiosError(error) && error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Only redirect to login if not already there
+      const currentPath = window.location.pathname;
+      const isOnAuthPage = currentPath === '/login' || currentPath === '/signup' || 
+                          currentPath === '/forgot-password' || currentPath === '/reset-password';
+      
+      if (!isOnAuthPage) {
+        // Clear all authentication data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('auth-storage');
+        sessionStorage.clear();
+        
+        // Redirect to login
+        window.location.href = '/login';
+      }
     }
 
     // Extract error message from response

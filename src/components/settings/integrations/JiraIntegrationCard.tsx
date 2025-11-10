@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ExternalLink, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import { Layers, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import DepartmentBadge from '@/components/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -178,9 +179,14 @@ export const JiraIntegrationCard = ({
                       className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
                     <div>
-                      <p className="font-medium">
-                        {(integration.config as JiraConfig).projectKey ?? integration.name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">
+                          {(integration.config as JiraConfig).projectKey ?? integration.name}
+                        </p>
+                        {integration.departmentRole && (
+                          <DepartmentBadge department={integration.departmentRole} size="sm" />
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {(integration.config as JiraConfig).apiUrl ?? 'Not configured'}
                       </p>
