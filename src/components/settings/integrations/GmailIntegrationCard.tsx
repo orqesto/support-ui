@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Mail, Plus, MoreVertical, Trash2, TestTube2, Download, X } from 'lucide-react';
+import { useState } from 'react';
+import { Mail, Plus, MoreVertical, Trash2, TestTube2, Calendar, Save } from 'lucide-react';
 import DepartmentBadge from '@/components/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
 
@@ -37,7 +38,11 @@ export const GmailIntegrationCard = ({
   const [pollingPagesInput, setPollingPagesInput] = useState<string>('200');
   const [maxResultsInput, setMaxResultsInput] = useState<string>('500');
   const [bulkImportMaxResultsInput, setBulkImportMaxResultsInput] = useState<string>('500');
-  const [editBulkImport, setEditBulkImport] = useState<{ id: number; name: string; currentDays: number } | null>(null);
+  const [editBulkImport, setEditBulkImport] = useState<{
+    id: number;
+    name: string;
+    currentDays: number;
+  } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [showMenu, setShowMenu] = useState<number | null>(null);
 
@@ -61,7 +66,7 @@ export const GmailIntegrationCard = ({
     setSaving(true);
     try {
       const days = parseInt(bulkImportDaysInput) || 0;
-      
+
       await integrationsService.update(editBulkImport.id, {
         config: {
           gmail: {
@@ -200,7 +205,7 @@ export const GmailIntegrationCard = ({
     setDeleteConfirm(null);
 
     try {
-      const response = await integrationsService.delete(id);
+      const response = await integrationsService.delete(id, 'gmail');
       if (response.success) {
         await onRefresh();
       } else {
@@ -258,7 +263,7 @@ export const GmailIntegrationCard = ({
                       className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2 items-center">
                         <p className="font-medium">
                           {(integration.config as { user?: string }).user ?? integration.name}
                         </p>
@@ -269,16 +274,22 @@ export const GmailIntegrationCard = ({
                       <p className="text-xs text-muted-foreground">
                         OAuth2 •{' '}
                         {(() => {
-                          const query = (integration.config as { gmail?: { searchQuery?: string } }).gmail?.searchQuery ?? 
-                                       (integration.config as { searchQuery?: string }).searchQuery ?? 
-                                       'is:unread';
+                          const query =
+                            (integration.config as { gmail?: { searchQuery?: string } }).gmail
+                              ?.searchQuery ??
+                            (integration.config as { searchQuery?: string }).searchQuery ??
+                            'is:unread';
                           return query === '' ? 'Everything' : query;
                         })()}
                         {(() => {
-                          const gmailConfig = (integration.config as { gmail?: { bulkImportDays?: number } }).gmail;
+                          const gmailConfig = (
+                            integration.config as { gmail?: { bulkImportDays?: number } }
+                          ).gmail;
                           const bulkDays = gmailConfig?.bulkImportDays ?? 0;
                           return bulkDays === 0 ? (
-                            <span className="ml-2 text-orange-600 font-medium">⚠️ Bulk: All time</span>
+                            <span className="ml-2 font-medium text-orange-600">
+                              ⚠️ Bulk: All time
+                            </span>
                           ) : (
                             <span className="ml-2 text-muted-foreground">📅 Bulk: {bulkDays}d</span>
                           );
@@ -291,7 +302,9 @@ export const GmailIntegrationCard = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setShowMenu(showMenu === integration.id ? null : integration.id)}
+                        onClick={() =>
+                          setShowMenu(showMenu === integration.id ? null : integration.id)
+                        }
                       >
                         <MoreVertical className="w-4 h-4" />
                       </Button>
@@ -305,14 +318,20 @@ export const GmailIntegrationCard = ({
                             tabIndex={0}
                             aria-label="Close menu"
                           />
-                          <div className="absolute right-0 z-20 mt-1 w-48 rounded-md border bg-white dark:bg-gray-800 shadow-lg">
+                          <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md border shadow-lg dark:bg-gray-800">
                             <div className="py-1">
                               <button
-                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent"
+                                className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
                                 onClick={() => {
-                                  const gmailConfig = (integration.config as { gmail?: { bulkImportDays?: number } }).gmail;
+                                  const gmailConfig = (
+                                    integration.config as { gmail?: { bulkImportDays?: number } }
+                                  ).gmail;
                                   const bulkDays = gmailConfig?.bulkImportDays ?? 0;
-                                  setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays });
+                                  setEditBulkImport({
+                                    id: integration.id,
+                                    name: integration.name,
+                                    currentDays: bulkDays,
+                                  });
                                   setBulkImportDaysInput(bulkDays.toString());
                                   setShowMenu(null);
                                 }}
@@ -321,7 +340,7 @@ export const GmailIntegrationCard = ({
                                 Bulk Import Days
                               </button>
                               <button
-                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent"
+                                className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
                                 onClick={() => {
                                   void testConnection(integration.id, integration.name);
                                   setShowMenu(null);
@@ -331,7 +350,7 @@ export const GmailIntegrationCard = ({
                                 Test Connection
                               </button>
                               <button
-                                className="flex w-full items-center px-3 py-2 text-sm text-red-600 hover:bg-accent"
+                                className="flex items-center px-3 py-2 w-full text-sm text-red-600 hover:bg-accent"
                                 onClick={() => {
                                   setDeleteConfirm({ id: integration.id, name: integration.name });
                                   setShowMenu(null);
@@ -451,7 +470,8 @@ export const GmailIntegrationCard = ({
                         min="1"
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Maximum pages per polling cycle (max: 200). Example: 100 pages × 10/page = 1,000 messages.
+                        Maximum pages per polling cycle (max: 200). Example: 100 pages × 10/page =
+                        1,000 messages.
                       </p>
                     </div>
                   </div>
@@ -503,7 +523,8 @@ export const GmailIntegrationCard = ({
                         max="500"
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Messages per page during bulk import (max: 500, recommended for large imports)
+                        Messages per page during bulk import (max: 500, recommended for large
+                        imports)
                       </p>
                     </div>
                   </div>
@@ -547,12 +568,10 @@ export const GmailIntegrationCard = ({
 
           {/* Bulk Import Days Edit Modal */}
           {editBulkImport && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
+            <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
+              <div className="p-6 w-full max-w-md rounded-lg border shadow-lg bg-card">
                 <h3 className="mb-4 text-lg font-semibold">Change Bulk Import Days</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  {editBulkImport.name}
-                </p>
+                <p className="mb-4 text-sm text-muted-foreground">{editBulkImport.name}</p>
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="bulkImportDays" className="text-sm font-medium">
@@ -573,8 +592,8 @@ export const GmailIntegrationCard = ({
                       <option value="365">Last Year</option>
                     </Select>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      How far back to fetch emails during bulk import. Set to &quot;All Time&quot; to
-                      fetch everything (may take a while).
+                      How far back to fetch emails during bulk import. Set to &quot;All Time&quot;
+                      to fetch everything (may take a while).
                     </p>
                   </div>
                   <div className="flex gap-2">

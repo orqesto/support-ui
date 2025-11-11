@@ -11,6 +11,8 @@ type ProcessingStatus = 'idle' | 'started' | 'processing' | 'complete' | 'error'
 
 type EmailProcessingEvent = {
   type: 'started' | 'found' | 'processing' | 'processed' | 'complete' | 'error';
+  integrationId?: number;
+  integrationName?: string;
   data?: {
     total?: number;
     current?: number;
@@ -27,6 +29,23 @@ type EmailProcessingEvent = {
     processTime?: number;
     totalTime?: number;
   };
+};
+
+export type ProcessingSession = {
+  integrationId: number;
+  integrationName: string;
+  status: ProcessingStatus;
+  total: number;
+  current: number;
+  processed: number;
+  failed: number;
+  error?: string;
+  isProcessing: boolean;
+  // Performance timing (in milliseconds)
+  fetchTime?: number;
+  processTime?: number;
+  totalTime?: number;
+  progress: number;
 };
 
 type EmailProcessingState = {
@@ -54,6 +73,9 @@ export const useEmailProcessing = (enabled = true) => {
     isProcessing: false,
   });
 
+  // NEW: Track multiple processing sessions by integrationId
+  const [sessions, setSessions] = useState<Map<number, ProcessingSession>>(new Map());
+
   useEffect(() => {
     // Always get socket instance (for connection status)
     const socketInstance = getSocket();
@@ -68,6 +90,128 @@ export const useEmailProcessing = (enabled = true) => {
 
     const handleProcessing = (data: unknown) => {
       const event = data as EmailProcessingEvent;
+
+      // If integrationId is provided, track this session separately
+      if (event.integrationId) {
+        setSessions((prev) => {
+          const newSessions = new Map(prev);
+          const integrationId = event.integrationId as number;
+          const integrationName = event.integrationName ?? `Integration ${integrationId}`;
+          const existing = newSessions.get(integrationId);
+
+          switch (event.type) {
+            case 'started':
+              newSessions.set(integrationId, {
+                integrationId,
+                integrationName,
+                status: 'started',
+                total: 0,
+                current: 0,
+                processed: 0,
+                failed: 0,
+                isProcessing: true,
+                progress: 0,
+              });
+              break;
+
+            case 'found':
+              if (existing) {
+                const total = event.data?.total ?? 0;
+                newSessions.set(integrationId, {
+                  ...existing,
+                  status: 'processing',
+                  total,
+                });
+              }
+              break;
+
+            case 'processing':
+              if (existing) {
+                const current = event.data?.current ?? 0;
+                const total = event.data?.total ?? existing.total;
+                newSessions.set(integrationId, {
+                  ...existing,
+                  status: 'processing',
+                  current,
+                  total,
+                  progress: total > 0 ? (current / total) * 100 : 0,
+                });
+              } else {
+                // Create session if it doesn't exist (page refresh during processing)
+                newSessions.set(integrationId, {
+                  integrationId,
+                  integrationName,
+                  status: 'processing',
+                  total: event.data?.total ?? 0,
+                  current: event.data?.current ?? 0,
+                  processed: 0,
+                  failed: 0,
+                  isProcessing: true,
+                  progress: 0,
+                });
+              }
+              break;
+
+            case 'processed':
+              if (existing) {
+                newSessions.set(integrationId, {
+                  ...existing,
+                  processed: existing.processed + 1,
+                });
+              } else {
+                // Create minimal session if processing in progress but page was refreshed
+                newSessions.set(integrationId, {
+                  integrationId,
+                  integrationName,
+                  status: 'processing',
+                  total: 0,
+                  current: 0,
+                  processed: 1,
+                  failed: 0,
+                  isProcessing: true,
+                  progress: 0,
+                });
+              }
+              break;
+
+            case 'complete':
+              if (existing) {
+                const processed = event.data?.processed ?? existing.processed;
+                const failed = event.data?.failed ?? existing.failed;
+                newSessions.set(integrationId, {
+                  ...existing,
+                  status: 'complete',
+                  processed,
+                  failed,
+                  isProcessing: false,
+                  progress: 100,
+                  fetchTime: event.data?.fetchTime,
+                  processTime: event.data?.processTime,
+                  totalTime: event.data?.totalTime,
+                });
+              }
+              break;
+
+            case 'error':
+              if (existing) {
+                newSessions.set(integrationId, {
+                  ...existing,
+                  failed: existing.failed + 1,
+                  ...(existing.status === 'idle' && {
+                    status: 'error',
+                    error: event.data?.error,
+                    isProcessing: false,
+                  }),
+                });
+              }
+              break;
+          }
+
+          return newSessions;
+        });
+      }
+
+      // Maintain backward compatibility with legacy single-session state
       switch (event.type) {
         case 'started':
           setState({
@@ -119,13 +263,9 @@ export const useEmailProcessing = (enabled = true) => {
           break;
 
         case 'error':
-          // Individual message errors shouldn't stop the whole process
-          // Only increment failed count and keep processing
           setState((prev) => ({
             ...prev,
             failed: prev.failed + 1,
-            // Only set to error status if processing hasn't started
-            // (meaning it's a critical error like API failure)
             ...(prev.status === 'idle' && {
               status: 'error',
               error: event.data?.error,
@@ -163,5 +303,6 @@ export const useEmailProcessing = (enabled = true) => {
     ...state,
     progress,
     reset,
+    sessions, // Map of integration sessions for multi-widget display
   };
 };

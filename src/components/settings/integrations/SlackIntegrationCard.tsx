@@ -117,7 +117,7 @@ export const SlackIntegrationCard = ({
     setDeleteConfirm(null);
 
     try {
-      const response = await integrationsService.delete(id);
+      const response = await integrationsService.delete(id, 'slack');
       if (response.success) {
         await onRefresh();
       } else {

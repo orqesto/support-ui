@@ -115,7 +115,7 @@ export const TelegramIntegrationCard = ({
     setDeleteConfirm(null);
 
     try {
-      const response = await integrationsService.delete(id);
+      const response = await integrationsService.delete(id, 'telegram');
       if (response.success) {
         await onRefresh();
       } else {

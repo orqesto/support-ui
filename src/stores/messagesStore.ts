@@ -6,6 +6,7 @@ import type { Message } from '@/types';
 export type FilterState = {
   processed?: 'all' | 'true' | 'false';
   channel?: 'all' | 'email' | 'telegram' | 'slack';
+  messageSourceId?: string; // 'all' or integration ID
   showSpam?: boolean;
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
@@ -44,6 +45,7 @@ type MessagesState = {
 const defaultFilters: FilterState = {
   processed: 'false',
   channel: 'all',
+  messageSourceId: 'all',
   showSpam: false,
   showNeedsInfo: false,
   showWorthy: false,

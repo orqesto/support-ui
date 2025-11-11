@@ -22,11 +22,13 @@ type AnthropicProviderCardProps = {
   testing: number | null;
   deleting: number | null;
   saving: string | null;
+  toggling: number | null;
   editingId: number | null;
   onToggleModels: (id: number) => void;
   onEdit: (integration: Integration) => void;
   onTest: (id: number, name: string) => void;
-  onDelete: (id: number, name: string) => void;
+  onDelete: (id: number, name: string, type: string) => void;
+  onToggleEnabled: (id: number, currentEnabled: boolean, name: string, type: string) => void;
   onSave: (config: AnthropicConfig) => void;
   onCancel: () => void;
 };
@@ -44,11 +46,13 @@ export const AnthropicProviderCard = ({
   testing,
   deleting,
   saving,
+  toggling,
   editingId,
   onToggleModels,
   onEdit,
   onTest,
   onDelete,
+  onToggleEnabled,
   onSave,
   onCancel,
 }: AnthropicProviderCardProps) => {
@@ -129,7 +133,23 @@ export const AnthropicProviderCard = ({
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    {/* Enable/Disable Toggle */}
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-muted-foreground">
+                        {integration.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer" aria-label={`Toggle ${integration.name}`}>
+                        <input
+                          type="checkbox"
+                          checked={integration.enabled}
+                          onChange={() => onToggleEnabled(integration.id, integration.enabled, integration.name, integration.type)}
+                          disabled={toggling === integration.id}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
+                      </label>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -161,7 +181,7 @@ export const AnthropicProviderCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onDelete(integration.id, integration.name)}
+                      onClick={() => onDelete(integration.id, integration.name, integration.type)}
                       isLoading={deleting === integration.id}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />

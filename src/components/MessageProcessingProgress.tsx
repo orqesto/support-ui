@@ -4,21 +4,28 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  Globe,
   X,
   ChevronDown,
   ChevronUp,
+  type LucideIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { useEmailProcessing } from '@/hooks/useEmailProcessing';
-import { useAuthStore } from '@/stores/authStore';
+import type { ProcessingSession } from '@/hooks/useEmailProcessing';
 
 type Position = { x: number; y: number };
 
-export const EmailProcessingProgress = () => {
+type Props = {
+  session: ProcessingSession;
+  index: number; // For stacking multiple widgets
+  onClose: (integrationId: number) => void;
+  icon?: LucideIcon; // Custom icon for different sources
+  sourceType?: string; // 'email', 'telegram', 'slack', etc.
+};
+
+export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail, sourceType = 'message' }: Props) => {
   const navigate = useNavigate();
-  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const SourceIcon = icon;
 
   // Persist state across navigation using localStorage
   const [isExpanded, setIsExpanded] = useState(() => {
@@ -26,20 +33,29 @@ export const EmailProcessingProgress = () => {
     return saved !== null ? saved === 'true' : true;
   });
 
-  const [isClosed, setIsClosed] = useState(false); // Always start open
+  // Use integration-specific closed state to avoid hiding all widgets
+  const [isClosed, setIsClosed] = useState(() => {
+    // Check localStorage for this specific integration's closed state
+    const saved = localStorage.getItem(`emailProcessingWidget_${session.integrationId}_closed`);
+    // Default to false (open) for new sessions
+    return saved === 'true' && session.status === 'complete';
+  });
 
-  // Draggable position state
+  // Draggable position state - stack widgets vertically with offset based on index
+  const WIDGET_HEIGHT = 200; // Approximate height per widget
+  const STACK_OFFSET = WIDGET_HEIGHT + 16; // Offset between stacked widgets
+  
   const [position, setPosition] = useState<Position>(() => {
-    const saved = localStorage.getItem('emailProcessingWidget_position');
+    const saved = localStorage.getItem(`emailProcessingWidget_${session.integrationId}_position`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Position;
         return parsed;
       } catch {
-        return { x: window.innerWidth - 336, y: 16 };
+        return { x: window.innerWidth - 336, y: 16 + (index * STACK_OFFSET) };
       }
     }
-    return { x: window.innerWidth - 336, y: 16 }; // Default: bottom-right
+    return { x: window.innerWidth - 336, y: 16 + (index * STACK_OFFSET) };
   });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
@@ -48,6 +64,11 @@ export const EmailProcessingProgress = () => {
   useEffect(() => {
     localStorage.setItem('emailProcessingWidget_expanded', String(isExpanded));
   }, [isExpanded]);
+
+  // Save closed state per integration
+  useEffect(() => {
+    localStorage.setItem(`emailProcessingWidget_${session.integrationId}_closed`, String(isClosed));
+  }, [isClosed, session.integrationId]);
 
   // Auto-reopen widget after some time if closed
   useEffect(() => {
@@ -60,6 +81,7 @@ export const EmailProcessingProgress = () => {
     }
   }, [isClosed]);
 
+  // Use session data from props instead of hook
   const {
     status,
     total,
@@ -72,12 +94,13 @@ export const EmailProcessingProgress = () => {
     fetchTime,
     processTime,
     totalTime,
-  } = useEmailProcessing(true); // Always subscribe to events
+    integrationName,
+  } = session;
 
-  // Save position to localStorage
+  // Save position to localStorage with integration-specific key
   useEffect(() => {
-    localStorage.setItem('emailProcessingWidget_position', JSON.stringify(position));
-  }, [position]);
+    localStorage.setItem(`emailProcessingWidget_${session.integrationId}_position`, JSON.stringify(position));
+  }, [position, session.integrationId]);
 
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -135,10 +158,12 @@ export const EmailProcessingProgress = () => {
 
   // Auto-reopen when processing starts (even if widget was closed)
   useEffect(() => {
-    if ((status === 'started' || status === 'processing' || isProcessing) && isClosed) {
+    if (status === 'started' || status === 'processing' || isProcessing) {
       setIsClosed(false);
+      // Clear the closed state from localStorage when reprocessing
+      localStorage.removeItem(`emailProcessingWidget_${session.integrationId}_closed`);
     }
-  }, [status, isProcessing, isClosed]);
+  }, [status, isProcessing, session.integrationId]);
 
   // Auto-close after 3 seconds when completed with 0 results
   useEffect(() => {
@@ -152,10 +177,25 @@ export const EmailProcessingProgress = () => {
 
   // Show widget ONLY if there's activity
   const isActivelyProcessing = isProcessing || status === 'started' || status === 'processing';
-  const hasRecentActivity = status === 'complete'; // Show on complete regardless of total
+  const hasRecentActivity = status === 'complete' || status === 'error'; // Show on complete/error regardless of total
 
   // Force show if actively processing (ignore isClosed), allow closing only when complete
-  const shouldBeVisible = isActivelyProcessing ?? (hasRecentActivity && !isClosed);
+  // ALWAYS show when processing, even if user closed it before
+  const shouldBeVisible = isActivelyProcessing || (hasRecentActivity && !isClosed);
+
+  // Debug log for visibility issues
+  if (import.meta.env.DEV) {
+    console.log(`[MessageProcessingProgress] ${integrationName}:`, {
+      status,
+      isProcessing,
+      isActivelyProcessing,
+      hasRecentActivity,
+      isClosed,
+      shouldBeVisible,
+      total,
+      current
+    });
+  }
 
   return (
     <div
@@ -185,7 +225,10 @@ export const EmailProcessingProgress = () => {
           ) : (
             <CheckCircle className="w-4 h-4 text-muted-foreground" />
           )}
-          <span className="text-sm font-semibold truncate">
+          <span className="text-sm font-semibold truncate" title={integrationName}>
+            {integrationName.length > 20 ? integrationName.substring(0, 17) + '...' : integrationName}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
             {isProcessing || status === 'processing' || status === 'started'
               ? 'Processing'
               : status === 'complete'
@@ -194,11 +237,6 @@ export const EmailProcessingProgress = () => {
                   ? 'Failed'
                   : 'Ready'}
           </span>
-          {selectedOrganizationId && (
-            <span title="System-wide stats">
-              <Globe className="w-3 h-3 text-muted-foreground" />
-            </span>
-          )}
         </div>
         <div className="flex gap-1 items-center">
           <Button
@@ -212,8 +250,14 @@ export const EmailProcessingProgress = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsClosed(true)}
+            onClick={() => {
+              setIsClosed(true);
+              localStorage.setItem(`emailProcessingWidget_${session.integrationId}_closed`, 'true');
+              // Notify parent to remove this session after delay
+              setTimeout(() => onClose(session.integrationId), 300000); // Auto-remove after 5 min
+            }}
             className="p-0 w-6 h-6"
+            title="Close widget"
           >
             <X className="w-3 h-3" />
           </Button>
@@ -245,7 +289,7 @@ export const EmailProcessingProgress = () => {
           <div className="flex justify-around text-center">
             <div>
               <div className="flex gap-1 justify-center items-center">
-                <Mail className="w-3 h-3 text-blue-500" />
+                <SourceIcon className="w-3 h-3 text-blue-500" />
                 <span className="text-lg font-bold">{total}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
@@ -288,7 +332,7 @@ export const EmailProcessingProgress = () => {
           {/* Success Message */}
           {status === 'complete' && !error && (
             <div className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded text-xs">
-              ✅ Processed {processed} email{processed !== 1 ? 's' : ''}
+              ✅ Processed {processed} {sourceType}{processed !== 1 ? 's' : ''}
               {failed > 0 && ` (${failed} failed)`}
             </div>
           )}

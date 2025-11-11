@@ -27,6 +27,7 @@ export const AIProvidersSettings = () => {
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [toggling, setToggling] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
   const [showFeatureDetails, setShowFeatureDetails] = useState(false);
@@ -52,7 +53,7 @@ export const AIProvidersSettings = () => {
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
 
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string; type: string } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -299,8 +300,8 @@ export const AIProvidersSettings = () => {
     }
   };
 
-  const handleDeleteClick = (id: number, name: string) => {
-    setDeleteConfirm({ id, name });
+  const handleDeleteClick = (id: number, name: string, type: string) => {
+    setDeleteConfirm({ id, name, type });
   };
 
   const confirmDelete = async () => {
@@ -308,12 +309,12 @@ export const AIProvidersSettings = () => {
       return;
     }
 
-    const { id, name } = deleteConfirm;
+    const { id, name, type } = deleteConfirm;
     setDeleting(id);
     setDeleteConfirm(null);
 
     try {
-      const response = await integrationsService.delete(id);
+      const response = await integrationsService.delete(id, type);
 
       if (response.success) {
         await fetchIntegrations();
@@ -340,6 +341,70 @@ export const AIProvidersSettings = () => {
 
   const cancelDelete = () => {
     setDeleteConfirm(null);
+  };
+
+  const toggleEnabled = async (id: number, currentEnabled: boolean, name: string, type: string) => {
+    setToggling(id);
+    
+    // Optimistic update - immediately update UI
+    setIntegrations(prevIntegrations =>
+      prevIntegrations.map(integration =>
+        integration.id === id
+          ? { ...integration, enabled: !currentEnabled }
+          : integration
+      )
+    );
+    
+    try {
+      // Include type to disambiguate which table to update (important when IDs overlap)
+      const response = await integrationsService.update(id, { 
+        enabled: !currentEnabled,
+        type 
+      });
+      if (response.success) {
+        // Confirm with server data
+        await fetchIntegrations();
+        setAlertDialog({
+          open: true,
+          title: 'Success',
+          description: `${name} ${!currentEnabled ? 'enabled' : 'disabled'} successfully!`,
+          variant: 'success',
+        });
+      } else {
+        // Revert optimistic update on error
+        setIntegrations(prevIntegrations =>
+          prevIntegrations.map(integration =>
+            integration.id === id
+              ? { ...integration, enabled: currentEnabled }
+              : integration
+          )
+        );
+        setAlertDialog({
+          open: true,
+          title: 'Error',
+          description: response.error ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
+          variant: 'error',
+        });
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      setIntegrations(prevIntegrations =>
+        prevIntegrations.map(integration =>
+          integration.id === id
+            ? { ...integration, enabled: currentEnabled }
+            : integration
+        )
+      );
+      console.error(`Failed to toggle ${name}:`, error);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
+        variant: 'error',
+      });
+    } finally {
+      setToggling(null);
+    }
   };
 
   const testConnection = async (id: number, name: string) => {
@@ -694,11 +759,13 @@ export const AIProvidersSettings = () => {
         testing={testing}
         deleting={deleting}
         saving={saving}
+        toggling={toggling}
         editingId={editingId}
         onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
         onTest={testConnection}
         onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration('OpenAI', 'openai', config as Record<string, string | number | boolean>)
         }
@@ -713,11 +780,13 @@ export const AIProvidersSettings = () => {
         testing={testing}
         deleting={deleting}
         saving={saving}
+        toggling={toggling}
         editingId={editingId}
         onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
         onTest={testConnection}
         onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration(
             'Anthropic',
@@ -736,11 +805,13 @@ export const AIProvidersSettings = () => {
         testing={testing}
         deleting={deleting}
         saving={saving}
+        toggling={toggling}
         editingId={editingId}
         onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
         onTest={testConnection}
         onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration(
             'DeepSeek',
@@ -759,11 +830,13 @@ export const AIProvidersSettings = () => {
         testing={testing}
         deleting={deleting}
         saving={saving}
+        toggling={toggling}
         editingId={editingId}
         onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
         onTest={testConnection}
         onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration(
             'Perplexity',

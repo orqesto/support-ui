@@ -14,13 +14,13 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DepartmentSwitcher } from '@/components/DepartmentSwitcher';
-import { EmailProcessingProgress } from '@/components/EmailProcessingProgress';
+import { MessageProcessingProgress } from '@/components/MessageProcessingProgress';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
-import { ProcessingStatusWidget } from '@/components/ProcessingStatusWidget';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/Button';
 import { WebSocketDebug } from '@/components/WebSocketDebug';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
+import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
@@ -72,6 +72,51 @@ export const Layout = ({ children }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
 
+  // Track multiple email processing sessions
+  const { sessions } = useEmailProcessing(true);
+
+  // Persist closed sessions in localStorage to survive page navigation
+  const [closedSessions, setClosedSessions] = useState<Set<number>>(() => {
+    try {
+      const stored = localStorage.getItem('closedEmailSessions');
+      if (!stored) {
+        return new Set();
+      }
+      const parsed = JSON.parse(stored) as unknown;
+      return Array.isArray(parsed) ? new Set(parsed as number[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Handle session close
+  const handleSessionClose = (integrationId: number) => {
+    setClosedSessions((prev) => {
+      const newSet = new Set(prev).add(integrationId);
+      // Persist to localStorage
+      localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
+      return newSet;
+    });
+  };
+
+  // Get visible sessions (not closed and either processing or recently completed)
+  const visibleSessions = useMemo(
+    () =>
+      Array.from(sessions.entries())
+        .filter(([integrationId, session]) => {
+          // Don't show if manually closed
+          if (closedSessions.has(integrationId)) {
+            return false;
+          }
+          // Show if processing or recently completed
+          return (
+            session.isProcessing || session.status === 'complete' || session.status === 'error'
+          );
+        })
+        .map(([_, session]) => session),
+    [sessions, closedSessions]
+  );
+
   // Filter navigation based on permissions
   const navigation = useMemo(
     () =>
@@ -95,7 +140,7 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="flex flex-col h-screen bg-background">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -105,7 +150,7 @@ export const Layout = ({ children }: LayoutProps) => {
         />
       )}
 
-      <div className="flex flex-row flex-1 overflow-hidden">
+      <div className="flex overflow-hidden flex-row flex-1">
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
@@ -171,7 +216,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="justify-start gap-2 w-full text-sm text-foreground/70 hover:bg-accent hover:text-accent-foreground"
+                className="gap-2 justify-start w-full text-sm text-foreground/70 hover:bg-accent hover:text-accent-foreground"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
@@ -181,7 +226,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main content */}
-        <div className="overflow-x-hidden flex-1 flex flex-col w-full lg:ml-0 bg-background">
+        <div className="flex overflow-x-hidden flex-col flex-1 w-full lg:ml-0 bg-background">
           {/* Mobile header with hamburger menu */}
           <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 border-b bg-card lg:hidden">
             <div className="flex items-center">
@@ -197,7 +242,7 @@ export const Layout = ({ children }: LayoutProps) => {
           {/* Spacer for fixed header */}
           <div className="h-14 lg:hidden" />
 
-          <main className="overflow-x-hidden flex-1 flex flex-col p-2 w-full max-w-full lg:p-4 bg-background">
+          <main className="flex overflow-x-hidden flex-col flex-1 p-2 w-full max-w-full lg:p-4 bg-background">
             {children}
           </main>
         </div>
@@ -209,11 +254,16 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* WebSocket Debug Panel (Development Only) */}
       {isDevelopment && <WebSocketDebug />}
 
-      {/* Processing Status Widget */}
-      <ProcessingStatusWidget />
-
-      {/* Email Processing Progress Widget (Floating) */}
-      <EmailProcessingProgress />
+      {/* Message Processing Progress Widgets (Multiple instances for parallel processing) */}
+      {visibleSessions.map((session, index) => (
+        <MessageProcessingProgress
+          key={session.integrationId}
+          session={session}
+          index={index}
+          onClose={handleSessionClose}
+          sourceType="email"
+        />
+      ))}
     </div>
   );
 };

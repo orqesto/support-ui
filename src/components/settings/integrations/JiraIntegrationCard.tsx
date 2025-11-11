@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layers, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import { ExternalLink, Plus, Save, TestTube2, Trash2, Edit, Star } from 'lucide-react';
 import DepartmentBadge from '@/components/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +24,7 @@ export const JiraIntegrationCard = ({
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [settingDefault, setSettingDefault] = useState<number | null>(null);
 
   const [config, setConfig] = useState<JiraConfig>({
     apiUrl: '',
@@ -121,7 +122,7 @@ export const JiraIntegrationCard = ({
     setDeleteConfirm(null);
 
     try {
-      const response = await integrationsService.delete(id);
+      const response = await integrationsService.delete(id, 'jira');
       if (response.success) {
         await onRefresh();
       } else {
@@ -142,6 +143,39 @@ export const JiraIntegrationCard = ({
       });
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleSetDefault = async (id: number, name: string) => {
+    setSettingDefault(id);
+    try {
+      const response = await integrationsService.setDefaultTicketing(id);
+      if (response.success) {
+        await onRefresh();
+        onShowAlert({
+          open: true,
+          title: 'Success',
+          description: response.message ?? `${name} is now the default integration`,
+          variant: 'success',
+        });
+      } else {
+        onShowAlert({
+          open: true,
+          title: 'Error',
+          description: `Failed to set default: ${response.error ?? 'Unknown error'}`,
+          variant: 'error',
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to set ${name} as default:`, error);
+      onShowAlert({
+        open: true,
+        title: 'Error',
+        description: `Failed to set ${name} as default integration`,
+        variant: 'error',
+      });
+    } finally {
+      setSettingDefault(null);
     }
   };
 
@@ -186,6 +220,12 @@ export const JiraIntegrationCard = ({
                         {integration.departmentRole && (
                           <DepartmentBadge department={integration.departmentRole} size="sm" />
                         )}
+                        {integration.isDefault && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full dark:bg-yellow-900/30 dark:text-yellow-500">
+                            <Star className="w-3 h-3 fill-current" />
+                            Default
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {(integration.config as JiraConfig).apiUrl ?? 'Not configured'}
@@ -193,6 +233,17 @@ export const JiraIntegrationCard = ({
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    {!integration.isDefault && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSetDefault(integration.id, integration.name)}
+                        isLoading={settingDefault === integration.id}
+                        title="Set as default for this department"
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

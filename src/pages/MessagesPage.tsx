@@ -100,6 +100,9 @@ export const MessagesPage = () => {
         if (currentFilters.channel !== 'all') {
           apiFilters.channel = currentFilters.channel ?? '';
         }
+        if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
+          apiFilters.messageSourceId = currentFilters.messageSourceId;
+        }
         // Add metadata-based filters
         if (currentFilters.showSpam) {
           apiFilters.showSpam = 'true';

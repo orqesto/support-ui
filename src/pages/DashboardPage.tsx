@@ -19,12 +19,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
+import { getSocket } from '@/lib/socketManager';
 import { ingestionService } from '@/services/ingestion.service';
 import { integrationsService } from '@/services/integrations.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
-import { useProcessingStore } from '@/stores/processingStore';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -57,9 +57,6 @@ export const DashboardPage = () => {
 
   // Get messages store cache clear function
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
-
-  // Get processing store functions
-  const { addTask, removeTask } = useProcessingStore();
 
   // Subscribe to email processing events to auto-refresh on completion
   const {
@@ -197,6 +194,29 @@ export const DashboardPage = () => {
     });
   }, []);
 
+  // Listen for real-time stats updates via WebSocket
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleStatsUpdate = (updatedStats: {
+      totalMessages?: number;
+      unprocessedMessages?: number;
+      totalTickets?: number;
+      pendingTickets?: number;
+    }) => {
+      setStats((prev) => ({
+        ...prev,
+        ...updatedStats,
+      }));
+    };
+
+    socket.on('stats:update', handleStatsUpdate);
+
+    return () => {
+      socket.off('stats:update', handleStatsUpdate);
+    };
+  }, []);
+
   // Cleanup polling interval on unmount
   useEffect(
     () => () => {
@@ -238,21 +258,7 @@ export const DashboardPage = () => {
 
     setIngesting(type);
 
-    // Add to global processing status
-    const taskIds: string[] = [];
-
-    if (type === 'all') {
-      // Add separate tasks for each service
-      if (hasEmailIntegrations) {
-        taskIds.push(addTask('email', 'Checking emails'));
-      }
-      if (hasTelegramIntegrations) {
-        taskIds.push(addTask('telegram', 'Checking Telegram'));
-      }
-    } else {
-      const taskMessage = type === 'email' ? 'Checking emails' : 'Checking Telegram';
-      taskIds.push(addTask(type, taskMessage));
-    }
+    // Note: Progress is tracked by MessageProcessingProgress widget
 
     try {
       let response;
@@ -305,8 +311,6 @@ export const DashboardPage = () => {
       });
     } finally {
       setIngesting(null);
-      // Remove all tasks from global processing status
-      taskIds.forEach((id) => removeTask(id));
     }
   };
 
