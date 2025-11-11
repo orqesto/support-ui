@@ -71,6 +71,7 @@ export type BaseIntegration = {
   type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack' | 'openai' | 'anthropic' | 'deepseek' | 'perplexity' | 'local_embeddings';
   enabled: boolean;
   departmentRole?: 'support' | 'sales' | 'billing' | 'general';
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
   hasCredentials?: boolean;
@@ -181,18 +182,18 @@ export const integrationsService = {
     }
   },
 
-  getById: async (id: number): Promise<ApiResponse<Integration>> => {
+  getById: async (id: number, type: string): Promise<ApiResponse<Integration>> => {
     const response = await apiClient.get<{ success: boolean; data: Integration }>(
-      `/api/integrations/${id}`
+      `/api/integrations/${id}?type=${encodeURIComponent(type)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await apiClient.delete<{ success: boolean; message: string }>(
-      `/api/integrations/${id}`
+  delete: async (id: number, type: string): Promise<ApiResponse<void>> => {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/integrations/${id}?type=${encodeURIComponent(type)}`
     );
-    return { success: response.data.success, message: response.data.message };
+    return { success: response.data.success };
   },
 
   test: async (id: number): Promise<ApiResponse<{ success: boolean; message: string }>> => {
@@ -221,6 +222,7 @@ export const integrationsService = {
       name: string;
       enabled: boolean;
       config: Record<string, unknown>;
+      type: string;
     }>
   ): Promise<ApiResponse<Integration>> => {
     const response = await apiClient.patch<{ success: boolean; data: Integration }>(
@@ -228,6 +230,29 @@ export const integrationsService = {
       data
     );
     return { success: response.data.success, data: response.data.data };
+  },
+
+  setDefaultTicketing: async (id: number): Promise<ApiResponse<{
+    id: number;
+    name: string;
+    departmentRole: string;
+    isDefault: boolean;
+  }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      data: {
+        id: number;
+        name: string;
+        departmentRole: string;
+        isDefault: boolean;
+      };
+    }>(`/api/integrations/ticketing/${id}/set-default`);
+    return {
+      success: response.data.success,
+      message: response.data.message,
+      data: response.data.data
+    };
   },
 };
 

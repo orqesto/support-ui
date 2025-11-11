@@ -1,9 +1,11 @@
-import { Filter, X, Paperclip, XCircle, MessageCircle, Ticket } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Filter, X, Paperclip, XCircle, MessageCircle, Ticket, Inbox } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
+import { integrationsService, type Integration } from '@/services/integrations.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
 
 type MessageFiltersProps = {
@@ -38,7 +40,29 @@ export const MessageFilters = ({
   onSortingChange,
   setPendingSearch,
   setFilters,
-}: MessageFiltersProps) => (
+}: MessageFiltersProps) => {
+  const [messageSources, setMessageSources] = useState<Integration[]>([]);
+
+  // Fetch message sources on mount
+  useEffect(() => {
+    const fetchSources = async () => {
+      try {
+        const response = await integrationsService.getAll();
+        if (response.success && response.data) {
+          // Filter to only message sources (email, telegram, slack)
+          const sources = response.data.filter((integration) => 
+            ['email', 'gmail', 'telegram', 'slack'].includes(integration.type)
+          );
+          setMessageSources(sources);
+        }
+      } catch (error) {
+        console.error('Failed to fetch message sources:', error);
+      }
+    };
+    void fetchSources();
+  }, []);
+
+  return (
   <Card>
       <CardContent className="p-4">
         <div className="space-y-3">
@@ -140,6 +164,30 @@ export const MessageFilters = ({
                   <option value="email">Email</option>
                   <option value="telegram">Telegram</option>
                   <option value="slack">Slack</option>
+                </Select>
+              </div>
+
+              {/* Divider */}
+              <div className="h-8 w-px bg-border" />
+
+              {/* Message Source Group */}
+              <div className="flex gap-2 items-center">
+                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                  <Inbox className="inline w-3 h-3 mr-1" />
+                  Source:
+                </span>
+                <Select
+                  value={filters.messageSourceId ?? 'all'}
+                  onChange={(e) => onFilterChange('messageSourceId', e.target.value)}
+                  className="px-2 py-1 pr-8 h-8 text-xs"
+                  aria-label="Filter by message source"
+                >
+                  <option value="all">All Sources</option>
+                  {messageSources.map((source) => (
+                    <option key={source.id} value={source.id.toString()}>
+                      {source.name}
+                    </option>
+                  ))}
                 </Select>
               </div>
 
@@ -285,4 +333,5 @@ export const MessageFilters = ({
         </div>
       </CardContent>
     </Card>
-);
+  );
+};

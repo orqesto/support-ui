@@ -15,7 +15,7 @@ export const WebSocketStatus = () => {
       {!isExpanded && (
         <Button
           onClick={() => setIsExpanded(true)}
-          className={`fixed right-0 top-1/2 -translate-y-1/2 p-2 rounded-l-lg shadow-lg transition-all z-50 group ${
+          className={`fixed right-2 top-1/2 -translate-y-1/2 p-2 rounded-l-lg shadow-lg transition-all z-50 group ${
             isConnected
               ? 'text-white bg-green-600 hover:bg-green-700'
               : 'text-white bg-red-600 hover:bg-red-700'
@@ -23,9 +23,9 @@ export const WebSocketStatus = () => {
           title={isConnected ? 'Connected' : 'Disconnected'}
         >
           {isConnected ? (
-            <Wifi className="w-5 h-5 animate-pulse" />
+            <Wifi className="w-4 h-4 animate-pulse" />
           ) : (
-            <WifiOff className="w-5 h-5" />
+            <WifiOff className="w-4 h-4" />
           )}
           <span className="absolute right-full px-2 py-1 mr-2 text-xs text-white whitespace-nowrap bg-gray-900 rounded opacity-0 transition-opacity pointer-events-none group-hover:opacity-100">
             {isConnected ? 'Connected' : 'Disconnected'}

@@ -123,7 +123,7 @@ export const EmailIntegrationCard = ({
     setDeleteConfirm(null);
 
     try {
-      const response = await integrationsService.delete(id);
+      const response = await integrationsService.delete(id, 'email');
       if (response.success) {
         await onRefresh();
       } else {
