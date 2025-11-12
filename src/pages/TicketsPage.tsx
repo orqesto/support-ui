@@ -83,6 +83,7 @@ export const TicketsPage = () => {
     const urlStatus = searchParams.get('status');
     const urlPriority = searchParams.get('priority');
     const urlCategory = searchParams.get('category');
+    const urlMessageSource = searchParams.get('source');
     const urlJira = searchParams.get('jira');
     const urlSearch = searchParams.get('search');
 
@@ -108,6 +109,10 @@ export const TicketsPage = () => {
     }
     if (urlCategory) {
       urlFilters.categoryId = urlCategory;
+      hasUrlFilters = true;
+    }
+    if (urlMessageSource) {
+      urlFilters.messageSourceId = urlMessageSource;
       hasUrlFilters = true;
     }
     if (urlJira === 'true' || urlJira === 'false') {
@@ -145,6 +150,9 @@ export const TicketsPage = () => {
     }
     if (filters.categoryId && filters.categoryId !== 'all') {
       params.set('category', filters.categoryId);
+    }
+    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
+      params.set('source', filters.messageSourceId);
     }
     if (filters.syncedToJira !== undefined) {
       params.set('jira', filters.syncedToJira.toString());
@@ -212,6 +220,9 @@ export const TicketsPage = () => {
         }
         if (currentFilters.categoryId !== 'all') {
           apiFilters.categoryId = currentFilters.categoryId;
+        }
+        if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
+          apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();

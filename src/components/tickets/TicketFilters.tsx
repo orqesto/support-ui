@@ -1,4 +1,5 @@
 import { Filter, X, Send, ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import { MessageSourceFilter } from '@/components/filters/MessageSourceFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -12,6 +13,7 @@ type FilterState = {
   status: TicketStatus | 'all';
   priority: TicketPriority | 'all';
   categoryId: string;
+  messageSourceId?: string;
   search?: string;
   syncedToJira?: boolean;
 };
@@ -62,6 +64,7 @@ export const TicketFilters = ({
     (filters.status !== 'all' ? 1 : 0) +
     (filters.priority !== 'all' ? 1 : 0) +
     (filters.categoryId !== 'all' ? 1 : 0) +
+    (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 
   return (
@@ -149,6 +152,15 @@ export const TicketFilters = ({
                   <option value="critical">Critical</option>
                 </Select>
               </div>
+
+              {/* Divider */}
+              <div className="h-8 w-px bg-border" />
+
+              {/* Message Source Filter */}
+              <MessageSourceFilter
+                value={filters.messageSourceId}
+                onChange={(value) => onFilterChange('messageSourceId', value)}
+              />
 
               {/* Divider */}
               <div className="h-8 w-px bg-border" />

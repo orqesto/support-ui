@@ -168,15 +168,19 @@ export const DocumentationSettings = () => {
 
   const handleDeleteConfirm = async () => {
     if (!deleteDialog.docId) {
+      console.warn('Delete confirm called but no docId');
       return;
     }
 
+    console.log('Deleting documentation:', deleteDialog.docId);
     try {
       await documentationService.deleteDocumentation(deleteDialog.docId);
+      console.log('Documentation deleted successfully');
       await loadDocumentation();
       setDeleteDialog({ open: false, docId: null });
     } catch (error) {
       console.error('Failed to delete documentation:', error);
+      // Keep dialog open to show error
     }
   };
 
