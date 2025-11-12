@@ -6,6 +6,7 @@ type TicketFilters = {
   status: TicketStatus | 'all';
   priority: TicketPriority | 'all';
   categoryId: string;
+  messageSourceId?: string;
   search?: string;
   syncedToJira?: boolean;
 };
@@ -51,6 +52,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
     status: 'all',
     priority: 'all',
     categoryId: 'all',
+    messageSourceId: 'all',
     syncedToJira: undefined,
   },
   sorting: {
@@ -76,6 +78,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         status: 'all',
         priority: 'all',
         categoryId: 'all',
+        messageSourceId: 'all',
         syncedToJira: undefined,
       },
       // Keep cache - just changing back to "all" filters

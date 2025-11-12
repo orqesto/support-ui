@@ -173,6 +173,7 @@ export const MessagesPage = () => {
   }, [
     filters.processed,
     filters.channel,
+    filters.messageSourceId,
     filters.showSpam,
     filters.showWorthy,
     filters.showNeedsInfo,
@@ -192,6 +193,7 @@ export const MessagesPage = () => {
   useEffect(() => {
     const urlProcessed = searchParams.get('processed');
     const urlChannel = searchParams.get('channel');
+    const urlMessageSource = searchParams.get('source');
     const urlSpam = searchParams.get('spam');
     const urlWorthy = searchParams.get('worthy');
     const urlNeedsInfo = searchParams.get('needsInfo');
@@ -210,6 +212,10 @@ export const MessagesPage = () => {
     }
     if (urlChannel && ['all', 'email', 'telegram', 'slack'].includes(urlChannel)) {
       urlFilters.channel = urlChannel as 'all' | 'email' | 'telegram' | 'slack';
+      hasUrlFilters = true;
+    }
+    if (urlMessageSource) {
+      urlFilters.messageSourceId = urlMessageSource;
       hasUrlFilters = true;
     }
     if (urlSpam === 'true') {
@@ -276,6 +282,9 @@ export const MessagesPage = () => {
     }
     if (filters.channel && filters.channel !== 'all') {
       params.set('channel', filters.channel);
+    }
+    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
+      params.set('source', filters.messageSourceId);
     }
     if (filters.showSpam) {
       params.set('spam', 'true');

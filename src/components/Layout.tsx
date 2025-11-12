@@ -1,4 +1,4 @@
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import {
   LayoutDashboard,
   Mail,
@@ -99,21 +99,57 @@ export const Layout = ({ children }: LayoutProps) => {
     });
   };
 
+  // Auto-reopen widgets when a previously closed session starts processing again
+  useEffect(() => {
+    const activeIntegrationIds = Array.from(sessions.entries())
+      .filter(([_, session]) => session.isProcessing || session.status === 'started')
+      .map(([id]) => id);
+
+    if (activeIntegrationIds.length > 0) {
+      setClosedSessions((prev) => {
+        const shouldUpdate = activeIntegrationIds.some((id) => prev.has(id));
+        if (!shouldUpdate) {
+          return prev;
+        }
+
+        const newSet = new Set(prev);
+        activeIntegrationIds.forEach((id) => newSet.delete(id));
+        // Persist to localStorage
+        localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
+        return newSet;
+      });
+    }
+  }, [sessions]);
+
   // Get visible sessions (not closed and either processing or recently completed)
   const visibleSessions = useMemo(
-    () =>
-      Array.from(sessions.entries())
+    () => {
+      console.log('[Layout] Sessions Map:', Array.from(sessions.entries()).map(([id, s]) => ({
+        id,
+        name: s.integrationName,
+        status: s.status,
+        isProcessing: s.isProcessing,
+        total: s.total,
+        current: s.current
+      })));
+      
+      const filtered = Array.from(sessions.entries())
         .filter(([integrationId, session]) => {
           // Don't show if manually closed
           if (closedSessions.has(integrationId)) {
+            console.log(`[Layout] Filtering out ${session.integrationName}: manually closed`);
             return false;
           }
           // Show if processing or recently completed
-          return (
-            session.isProcessing || session.status === 'complete' || session.status === 'error'
-          );
+          const shouldShow = session.isProcessing || session.status === 'complete' || session.status === 'error';
+          console.log(`[Layout] ${session.integrationName}: shouldShow=${shouldShow} (isProcessing=${session.isProcessing}, status=${session.status})`);
+          return shouldShow;
         })
-        .map(([_, session]) => session),
+        .map(([_, session]) => session);
+      
+      console.log('[Layout] Visible sessions count:', filtered.length);
+      return filtered;
+    },
     [sessions, closedSessions]
   );
 

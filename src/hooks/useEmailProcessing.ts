@@ -91,6 +91,15 @@ export const useEmailProcessing = (enabled = true) => {
     const handleProcessing = (data: unknown) => {
       const event = data as EmailProcessingEvent;
 
+      // DEBUG: Log all events to see what we're receiving
+      console.log('[useEmailProcessing] Event received:', {
+        type: event.type,
+        integrationId: event.integrationId,
+        integrationName: event.integrationName,
+        hasData: !!event.data,
+        data: event.data
+      });
+
       // If integrationId is provided, track this session separately
       if (event.integrationId) {
         setSessions((prev) => {

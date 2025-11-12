@@ -36,10 +36,10 @@ export const ConfirmDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
-      </DialogHeader>
       <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
         <div className="flex gap-4">
           <div className="flex-shrink-0">
             <AlertTriangle className={`w-6 h-6 ${variantStyles[variant]}`} />
@@ -48,18 +48,18 @@ export const ConfirmDialog = ({
             <p className="text-sm text-foreground">{description}</p>
           </div>
         </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {cancelText}
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            className={variant === 'danger' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+          >
+            {confirmText}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          {cancelText}
-        </Button>
-        <Button
-          onClick={handleConfirm}
-          className={variant === 'danger' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
-        >
-          {confirmText}
-        </Button>
-      </DialogFooter>
     </Dialog>
   );
 };

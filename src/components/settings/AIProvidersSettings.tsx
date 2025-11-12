@@ -5,7 +5,6 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Sparkles,
   MessageCircle,
 } from 'lucide-react';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
@@ -15,7 +14,6 @@ import { PerplexityProviderCard } from '@/components/settings/providers/Perplexi
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
 import { aiService } from '@/services/ai.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { organizationService } from '@/services/organization.service';
@@ -31,8 +29,6 @@ export const AIProvidersSettings = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
   const [showFeatureDetails, setShowFeatureDetails] = useState(false);
-  const [preferredProvider, setPreferredProvider] = useState<string | null>(null);
-  const [savingProvider, setSavingProvider] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [requestMissingInfo, setRequestMissingInfo] = useState(true);
   const [suggestSolutions, setSuggestSolutions] = useState(true);
@@ -53,27 +49,17 @@ export const AIProvidersSettings = () => {
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
 
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string; type: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: number;
+    name: string;
+    type: string;
+  } | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetchIntegrations(),
-      loadModels(),
-      fetchPreferredProvider(),
-      fetchAutoReplySettings(),
-    ]).catch((error) => {
+    Promise.all([fetchIntegrations(), loadModels(), fetchAutoReplySettings()]).catch((error) => {
       console.error('Failed to initialize:', error);
     });
   }, []);
-
-  const fetchPreferredProvider = async () => {
-    try {
-      const provider = await organizationService.getAIProvider();
-      setPreferredProvider(provider);
-    } catch (error) {
-      console.error('Failed to fetch preferred provider:', error);
-    }
-  };
 
   const fetchAutoReplySettings = async () => {
     try {
@@ -85,30 +71,6 @@ export const AIProvidersSettings = () => {
       setTempThreshold(settings.highConfidenceThreshold);
     } catch (error) {
       console.error('Failed to fetch auto-reply settings:', error);
-    }
-  };
-
-  const handleProviderChange = async (provider: string | null) => {
-    setSavingProvider(true);
-    try {
-      await organizationService.updateAIProvider(provider);
-      setPreferredProvider(provider);
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: `Preferred AI provider ${provider ? `set to ${provider}` : 'cleared'}. This will be used for translations and AI features.`,
-        variant: 'success',
-      });
-    } catch (error) {
-      console.error('Failed to update preferred provider:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Error',
-        description: 'Failed to update preferred provider',
-        variant: 'error',
-      });
-    } finally {
-      setSavingProvider(false);
     }
   };
 
@@ -345,21 +307,19 @@ export const AIProvidersSettings = () => {
 
   const toggleEnabled = async (id: number, currentEnabled: boolean, name: string, type: string) => {
     setToggling(id);
-    
+
     // Optimistic update - immediately update UI
-    setIntegrations(prevIntegrations =>
-      prevIntegrations.map(integration =>
-        integration.id === id
-          ? { ...integration, enabled: !currentEnabled }
-          : integration
+    setIntegrations((prevIntegrations) =>
+      prevIntegrations.map((integration) =>
+        integration.id === id ? { ...integration, enabled: !currentEnabled } : integration
       )
     );
-    
+
     try {
       // Include type to disambiguate which table to update (important when IDs overlap)
-      const response = await integrationsService.update(id, { 
+      const response = await integrationsService.update(id, {
         enabled: !currentEnabled,
-        type 
+        type,
       });
       if (response.success) {
         // Confirm with server data
@@ -372,27 +332,24 @@ export const AIProvidersSettings = () => {
         });
       } else {
         // Revert optimistic update on error
-        setIntegrations(prevIntegrations =>
-          prevIntegrations.map(integration =>
-            integration.id === id
-              ? { ...integration, enabled: currentEnabled }
-              : integration
+        setIntegrations((prevIntegrations) =>
+          prevIntegrations.map((integration) =>
+            integration.id === id ? { ...integration, enabled: currentEnabled } : integration
           )
         );
         setAlertDialog({
           open: true,
           title: 'Error',
-          description: response.error ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
+          description:
+            response.error ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
           variant: 'error',
         });
       }
     } catch (error) {
       // Revert optimistic update on error
-      setIntegrations(prevIntegrations =>
-        prevIntegrations.map(integration =>
-          integration.id === id
-            ? { ...integration, enabled: currentEnabled }
-            : integration
+      setIntegrations((prevIntegrations) =>
+        prevIntegrations.map((integration) =>
+          integration.id === id ? { ...integration, enabled: currentEnabled } : integration
         )
       );
       console.error(`Failed to toggle ${name}:`, error);
@@ -462,66 +419,8 @@ export const AIProvidersSettings = () => {
     deepseekIntegrations.length > 0 ||
     perplexityIntegrations.length > 0;
 
-  const enabledProviders = integrations
-    .filter(
-      (i) =>
-        i.type === 'openai' ||
-        i.type === 'anthropic' ||
-        i.type === 'deepseek' ||
-        i.type === 'perplexity'
-    )
-    .map((i) => i.type);
-
   return (
     <div className="space-y-6">
-      {/* Preferred AI Provider Selector - Show when multiple providers */}
-      {enabledProviders.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex gap-2 items-center">
-              <Sparkles className="w-5 h-5" />
-              Preferred AI Provider
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Select which AI provider to use by default for translations and AI features.
-              </p>
-              <div className="flex gap-3 items-center">
-                <Select
-                  value={preferredProvider ?? 'auto'}
-                  onChange={(e) => {
-                    const value = e.target.value === 'auto' ? null : e.target.value;
-                    handleProviderChange(value).catch((err) => console.error(err));
-                  }}
-                  disabled={savingProvider}
-                  className="flex-1 max-w-xs"
-                >
-                  <option value="auto">Auto (priority order)</option>
-                  {enabledProviders.includes('openai') && <option value="openai">OpenAI</option>}
-                  {enabledProviders.includes('anthropic') && (
-                    <option value="anthropic">Anthropic</option>
-                  )}
-                  {enabledProviders.includes('deepseek') && (
-                    <option value="deepseek">DeepSeek</option>
-                  )}
-                  {enabledProviders.includes('perplexity') && (
-                    <option value="perplexity">Perplexity</option>
-                  )}
-                </Select>
-                {savingProvider && <span className="text-sm text-muted-foreground">Saving...</span>}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {preferredProvider
-                  ? `Currently using: ${preferredProvider}`
-                  : 'Auto mode uses priority: OpenAI > Anthropic > DeepSeek > Perplexity'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* AI Auto-Reply Toggle - Show when AI provider is configured */}
       {hasAnyProvider && (
         <Card>
