@@ -72,10 +72,11 @@ export const OrganizationSwitcher = () => {
     setSelectedOrganization(orgId);
     setIsOpen(false);
 
-    // Reload to apply new context
+    // Clear URL parameters (closes any open message/ticket) and reload
     // eslint-disable-next-line no-console
-    console.log('🔄 [ORG SWITCHER] Reloading page to apply new organization context...');
-    window.location.reload();
+    console.log('🔄 [ORG SWITCHER] Clearing selection and reloading to apply new organization context...');
+    const baseUrl = window.location.pathname; // e.g., /messages or /tickets
+    window.location.href = baseUrl; // Navigate to base URL without params, triggering reload
   };
 
   if (!isGlobalAdmin) {

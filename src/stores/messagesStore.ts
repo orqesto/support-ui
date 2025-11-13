@@ -4,10 +4,11 @@ import type { PaginationMeta } from '@/services/message.service';
 import type { Message } from '@/types';
 
 export type FilterState = {
-  processed?: 'all' | 'true' | 'false';
+  processed?: 'all' | 'unprocessed' | 'processed' | 'resolved';
   channel?: 'all' | 'email' | 'telegram' | 'slack';
   messageSourceId?: string; // 'all' or integration ID
   showSpam?: boolean;
+  excludeSpam?: boolean; // Filter out spam messages (show only legitimate)
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
   hasAttachments?: boolean;
@@ -43,10 +44,11 @@ type MessagesState = {
 };
 
 const defaultFilters: FilterState = {
-  processed: 'false',
+  processed: 'all',
   channel: 'all',
   messageSourceId: 'all',
   showSpam: false,
+  excludeSpam: false,
   showNeedsInfo: false,
   showWorthy: false,
   hasAttachments: false,

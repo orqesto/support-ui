@@ -2,8 +2,6 @@ import type { AxiosResponse } from 'axios';
 import { apiClient } from '@/lib/api-client';
 import type { User, PaginationMeta, ApiResponse } from '@/types';
 
-type UsersListResponse = ApiResponse<User[]> & { pagination: PaginationMeta };
-
 export const userService = {
   // Get all users
   getAll: async (
@@ -18,12 +16,12 @@ export const userService = {
     params.append('page', page.toString());
     params.append('limit', limit.toString());
 
-    const response: AxiosResponse<UsersListResponse> = await apiClient.get(
+    const response: AxiosResponse<ApiResponse<{ users: User[]; pagination: PaginationMeta }>> = await apiClient.get(
       `/api/users?${params.toString()}`
     );
     return {
-      data: response.data.data ?? [],
-      pagination: response.data.pagination ?? {
+      data: response.data.data?.users ?? [],
+      pagination: response.data.data?.pagination ?? {
         page,
         limit,
         total: 0,

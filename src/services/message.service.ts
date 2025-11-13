@@ -107,6 +107,14 @@ export const messageService = {
           source: 'documentation' | 'message';
           documentationId?: number;
           documentTitle?: string;
+          chunkId?: number;
+          chunkIndex?: number;
+          chunkMetadata?: { extractedText?: string; page?: number };
+          references?: Array<{
+            chunkId: number;
+            chunkIndex: number;
+            metadata: unknown;
+          }>;
         }>
       >
     >(`/api/messages/${id}/similar-resolved?${params.toString()}`);

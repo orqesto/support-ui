@@ -61,7 +61,7 @@ export const UsersPage = () => {
 
       try {
         const result = await userService.getAll(searchUser || undefined);
-        setUsers(result.data); // Extract data array from response
+        setUsers(result.data); // Service returns { data: User[], pagination }
       } catch (error) {
         console.error('Failed to fetch users:', error);
       } finally {

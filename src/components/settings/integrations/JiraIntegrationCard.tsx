@@ -149,7 +149,7 @@ export const JiraIntegrationCard = ({
   const handleSetDefault = async (id: number, name: string) => {
     setSettingDefault(id);
     try {
-      const response = await integrationsService.setDefaultTicketing(id);
+      const response = await integrationsService.setDefaultTicketing(id, 'jira');
       if (response.success) {
         await onRefresh();
         onShowAlert({

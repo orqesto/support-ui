@@ -13,6 +13,7 @@ type EmailProcessingEvent = {
   type: 'started' | 'found' | 'processing' | 'processed' | 'complete' | 'error';
   integrationId?: number;
   integrationName?: string;
+  departmentRole?: string; // Department this integration belongs to
   data?: {
     total?: number;
     current?: number;
@@ -32,8 +33,10 @@ type EmailProcessingEvent = {
 };
 
 export type ProcessingSession = {
+  sessionKey: string; // Composite key: integrationId-departmentRole
   integrationId: number;
   integrationName: string;
+  departmentRole?: string; // Department this integration belongs to
   status: ProcessingStatus;
   total: number;
   current: number;
@@ -62,7 +65,7 @@ type EmailProcessingState = {
   totalTime?: number;
 };
 
-export const useEmailProcessing = (enabled = true) => {
+export const useEmailProcessing = (enabled = true, filterByDepartment?: string) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [state, setState] = useState<EmailProcessingState>({
     status: 'idle',
@@ -73,8 +76,8 @@ export const useEmailProcessing = (enabled = true) => {
     isProcessing: false,
   });
 
-  // NEW: Track multiple processing sessions by integrationId
-  const [sessions, setSessions] = useState<Map<number, ProcessingSession>>(new Map());
+  // NEW: Track multiple processing sessions by sessionKey (integrationId-departmentRole)
+  const [sessions, setSessions] = useState<Map<string, ProcessingSession>>(new Map());
 
   useEffect(() => {
     // Always get socket instance (for connection status)
@@ -102,17 +105,27 @@ export const useEmailProcessing = (enabled = true) => {
 
       // If integrationId is provided, track this session separately
       if (event.integrationId) {
+        // Filter by department if specified - ignore events from other departments
+        if (filterByDepartment && event.departmentRole && event.departmentRole !== filterByDepartment) {
+          console.log(`[useEmailProcessing] Ignoring event from ${event.departmentRole}, current filter: ${filterByDepartment}`);
+          return;
+        }
         setSessions((prev) => {
           const newSessions = new Map(prev);
           const integrationId = event.integrationId as number;
           const integrationName = event.integrationName ?? `Integration ${integrationId}`;
-          const existing = newSessions.get(integrationId);
+          const departmentRole = event.departmentRole ?? 'general';
+          // Use composite key: integrationId-departmentRole
+          const sessionKey = `${integrationId}-${departmentRole}`;
+          const existing = newSessions.get(sessionKey);
 
           switch (event.type) {
             case 'started':
-              newSessions.set(integrationId, {
+              newSessions.set(sessionKey, {
+                sessionKey,
                 integrationId,
                 integrationName,
+                departmentRole, // Use normalized value
                 status: 'started',
                 total: 0,
                 current: 0,
@@ -126,7 +139,7 @@ export const useEmailProcessing = (enabled = true) => {
             case 'found':
               if (existing) {
                 const total = event.data?.total ?? 0;
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
                   ...existing,
                   status: 'processing',
                   total,
@@ -138,7 +151,7 @@ export const useEmailProcessing = (enabled = true) => {
               if (existing) {
                 const current = event.data?.current ?? 0;
                 const total = event.data?.total ?? existing.total;
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
                   ...existing,
                   status: 'processing',
                   current,
@@ -147,9 +160,11 @@ export const useEmailProcessing = (enabled = true) => {
                 });
               } else {
                 // Create session if it doesn't exist (page refresh during processing)
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
+                  sessionKey,
                   integrationId,
                   integrationName,
+                  departmentRole, // Use normalized value
                   status: 'processing',
                   total: event.data?.total ?? 0,
                   current: event.data?.current ?? 0,
@@ -163,15 +178,17 @@ export const useEmailProcessing = (enabled = true) => {
 
             case 'processed':
               if (existing) {
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
                   ...existing,
                   processed: existing.processed + 1,
                 });
               } else {
                 // Create minimal session if processing in progress but page was refreshed
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
+                  sessionKey,
                   integrationId,
                   integrationName,
+                  departmentRole, // Use normalized value
                   status: 'processing',
                   total: 0,
                   current: 0,
@@ -187,7 +204,7 @@ export const useEmailProcessing = (enabled = true) => {
               if (existing) {
                 const processed = event.data?.processed ?? existing.processed;
                 const failed = event.data?.failed ?? existing.failed;
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
                   ...existing,
                   status: 'complete',
                   processed,
@@ -203,7 +220,7 @@ export const useEmailProcessing = (enabled = true) => {
 
             case 'error':
               if (existing) {
-                newSessions.set(integrationId, {
+                newSessions.set(sessionKey, {
                   ...existing,
                   failed: existing.failed + 1,
                   ...(existing.status === 'idle' && {
@@ -292,7 +309,7 @@ export const useEmailProcessing = (enabled = true) => {
       unsubscribeFromEvent('email:processing', handleProcessing);
       releaseSocket();
     };
-  }, [enabled]);
+  }, [enabled, filterByDepartment]);
 
   const reset = useCallback(() => {
     setState({

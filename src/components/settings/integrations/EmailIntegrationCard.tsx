@@ -5,6 +5,7 @@ import type { IntegrationCardProps } from '@/components/settings/integrations/ty
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { integrationsService } from '@/services/integrations.service';
+import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
 
 type EmailConfig = {
   host: string;
@@ -42,9 +43,11 @@ export const EmailIntegrationCard = ({
     setEditingId(null);
   };
 
-  const loadForEdit = (id: number, currentConfig: EmailConfig) => {
+  const loadForEdit = (id: number, currentConfig: Record<string, unknown>) => {
     setEditingId(id);
-    setConfig(currentConfig);
+    // Extract email config from wrapper (backend stores as { email: { host, port, ... } })
+    const emailConfig = (currentConfig as { email?: EmailConfig }).email ?? currentConfig;
+    setConfig(emailConfig as EmailConfig);
     setShowForm(true);
   };
 
@@ -55,17 +58,24 @@ export const EmailIntegrationCard = ({
         name: `Email-${config.user}`,
         type: 'email',
         enabled: true,
-        config,
+        config: {
+          email: config, // Backend expects config wrapped in 'email' key
+        },
       });
 
       if (response.success) {
         await onRefresh();
         resetForm();
+        
+        const actionMessage = response.action === 'updated'
+          ? 'Email integration updated successfully! (Credentials refreshed for existing integration)'
+          : 'Email integration created successfully!';
+        
         onShowAlert({
           open: true,
-          title: 'Success',
-          description: 'Email integration saved successfully!',
-          variant: 'success',
+          title: response.action === 'updated' ? 'Updated' : 'Created',
+          description: actionMessage,
+          variant: response.action === 'updated' ? 'info' : 'success',
         });
       }
     } catch (error) {
@@ -183,14 +193,14 @@ export const EmailIntegrationCard = ({
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium">
-                          {(integration.config as EmailConfig).user ?? integration.name}
+                          {((integration.config as { email?: EmailConfig }).email?.user) ?? integration.name}
                         </p>
                         {integration.departmentRole && (
                           <DepartmentBadge department={integration.departmentRole} size="sm" />
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {(integration.config as EmailConfig).host ?? 'Not configured'}
+                        {((integration.config as { email?: EmailConfig }).email?.host) ?? 'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -198,7 +208,7 @@ export const EmailIntegrationCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => loadForEdit(integration.id, integration.config as EmailConfig)}
+                      onClick={() => loadForEdit(integration.id, integration.config as Record<string, unknown>)}
                       disabled={editingId === integration.id}
                     >
                       <Edit className="w-4 h-4" />
@@ -260,15 +270,34 @@ export const EmailIntegrationCard = ({
                 </div>
                 <div>
                   <label htmlFor="user" className="text-sm font-medium">
-                    Email
+                    Email {isProviderSupported(config.user) && <span className="text-xs text-green-500">✓ Auto-detected</span>}
                   </label>
                   <input
                     type="email"
                     value={config.user}
-                    onChange={(e) => setConfig({ ...config, user: e.target.value })}
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      const detected = detectImapConfig(email);
+                      if (detected) {
+                        // Auto-fill IMAP settings for recognized providers
+                        setConfig({
+                          ...config,
+                          user: email,
+                          host: detected.host,
+                          port: detected.port,
+                          secure: detected.secure,
+                        });
+                      } else {
+                        // Just update email if provider not recognized
+                        setConfig({ ...config, user: email });
+                      }
+                    }}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="support@example.com"
+                    placeholder="support@gmail.com"
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Supported: Gmail, Outlook, Yahoo, iCloud, and more
+                  </p>
                 </div>
                 <div>
                   <label htmlFor="password" className="text-sm font-medium">

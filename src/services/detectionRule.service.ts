@@ -6,6 +6,7 @@ export type DetectionRuleCategory = 'issue' | 'help' | 'question' | 'access' | '
 export type DetectionRule = {
   id: number;
   organizationId: number;
+  departmentRole: 'support' | 'sales' | 'billing' | 'general';
   name: string;
   description: string;
   pattern: string;

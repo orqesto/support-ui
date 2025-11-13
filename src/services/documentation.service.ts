@@ -1,8 +1,15 @@
 import { apiClient } from '@/lib/api-client';
 
+export type DocumentType = 'technical' | 'nda' | 'legal' | 'policy' | 'template' | 'general';
+
 export type Documentation = {
   id: number;
   organizationId: number;
+  departmentRole: 'support' | 'sales' | 'billing' | 'general';
+  visibility: 'department' | 'organization';
+  documentType: DocumentType;
+  chunkingStrategy: string | null;
+  allowQuoting: boolean;
   title: string;
   description: string | null;
   filename: string;
@@ -48,12 +55,24 @@ export type SearchResult = {
   documentTitle: string;
 };
 
-const uploadDocumentation = async (file: File, title: string, description?: string): Promise<Documentation> => {
+const uploadDocumentation = async (
+  file: File,
+  title: string,
+  description?: string,
+  visibility?: 'department' | 'organization',
+  documentType?: DocumentType
+): Promise<Documentation> => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('title', title);
   if (description) {
     formData.append('description', description);
+  }
+  if (visibility) {
+    formData.append('visibility', visibility);
+  }
+  if (documentType) {
+    formData.append('documentType', documentType);
   }
 
   const response = await apiClient.post<Documentation>('/api/documentation', formData, {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, Paperclip, XCircle, MessageCircle, Ticket, Inbox } from 'lucide-react';
+import { Filter, X, Paperclip, XCircle, MessageCircle, Ticket, Inbox, ShieldX, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -120,20 +120,28 @@ export const MessageFilters = ({
                 </span>
                 <div className="inline-flex rounded-md shadow-sm">
                   <Button
-                    variant={filters.processed === 'false' ? 'primary' : 'outline'}
+                    variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
                     size="sm"
-                    onClick={() => onFilterChange('processed', 'false')}
+                    onClick={() => onFilterChange('processed', 'unprocessed')}
                     className="h-8 text-xs rounded-l-md rounded-r-none border-r-0"
                   >
                     Unprocessed
                   </Button>
                   <Button
-                    variant={filters.processed === 'true' ? 'primary' : 'outline'}
+                    variant={filters.processed === 'processed' ? 'primary' : 'outline'}
                     size="sm"
-                    onClick={() => onFilterChange('processed', 'true')}
+                    onClick={() => onFilterChange('processed', 'processed')}
                     className="h-8 text-xs rounded-none border-r-0"
                   >
                     Processed
+                  </Button>
+                  <Button
+                    variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => onFilterChange('processed', 'resolved')}
+                    className="h-8 text-xs rounded-none border-r-0"
+                  >
+                    Resolved
                   </Button>
                   <Button
                     variant={filters.processed === 'all' ? 'primary' : 'outline'}
@@ -194,45 +202,67 @@ export const MessageFilters = ({
               {/* Divider */}
               <div className="h-8 w-px bg-border" />
 
-              {/* AI Filter Group */}
-              <div className="flex gap-2 items-center">
-                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                  AI Filter:
-                </span>
-                <Select
-                  value={
-                    filters.showSpam
-                      ? 'spam'
-                      : filters.showWorthy
-                        ? 'worthy'
-                        : filters.showNeedsInfo
-                          ? 'needsInfo'
-                          : 'none'
-                  }
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFilters({
-                      ...filters,
-                      showSpam: value === 'spam',
-                      showWorthy: value === 'worthy',
-                      showNeedsInfo: value === 'needsInfo',
-                    });
-                  }}
-                  className="px-2 py-1 pr-8 h-8 text-xs compact"
-                  aria-label="Filter by AI analysis"
-                >
-                  <option value="none">None</option>
-                  <option value="spam">Spam</option>
-                  <option value="worthy">Ticket Worthy</option>
-                  <option value="needsInfo">Needs Info</option>
-                </Select>
-              </div>
-
-              {/* Divider */}
-              <div className="h-8 w-px bg-border" />
-
-              {/* Content Filters Group */}
+              {/* Contextual Filters - shown based on status */}
               <div className="flex flex-wrap gap-3 items-center">
+                {/* Spam filters - available for all messages (processed or not) */}
+                <label className="flex gap-2 items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.showSpam ?? false}
+                    onChange={(e) => setFilters({ ...filters, showSpam: e.target.checked, excludeSpam: false })}
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                    <ShieldX className="w-3 h-3" />
+                    <span>Spam</span>
+                  </div>
+                </label>
+
+                <label className="flex gap-2 items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.excludeSpam ?? false}
+                    onChange={(e) => setFilters({ ...filters, excludeSpam: e.target.checked, showSpam: false })}
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                    <ShieldX className="w-3 h-3 text-green-500" />
+                    <span>Exclude Spam</span>
+                  </div>
+                </label>
+
+                {/* Show Ticket Worthy & Needs Info only for Processed */}
+                {filters.processed === 'processed' && (
+                  <>
+                    <label className="flex gap-2 items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filters.showWorthy ?? false}
+                        onChange={(e) => setFilters({ ...filters, showWorthy: e.target.checked })}
+                        className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                      />
+                      <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                        <Ticket className="w-3 h-3" />
+                        <span>Ticket Worthy</span>
+                      </div>
+                    </label>
+
+                    <label className="flex gap-2 items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filters.showNeedsInfo ?? false}
+                        onChange={(e) => setFilters({ ...filters, showNeedsInfo: e.target.checked })}
+                        className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                      />
+                      <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                        <Info className="w-3 h-3" />
+                        <span>Needs Info</span>
+                      </div>
+                    </label>
+                  </>
+                )}
+
+                {/* Common filters - always visible */}
                 <label className="flex gap-2 items-center cursor-pointer">
                   <input
                     type="checkbox"

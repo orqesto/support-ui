@@ -115,7 +115,7 @@ export const DashboardPage = () => {
         pendingTicketsResponse,
       ] = await Promise.all([
         messageService.getAll(undefined, 1, 9999), // Get total count from pagination
-        messageService.getAll({ processed: 'false' }, 1, 9999),
+        messageService.getAll({ processed: 'unprocessed' }, 1, 9999),
         ticketService.getAll(undefined, 1, 9999),
         ticketService.getAll({ status: 'pending' }, 1, 9999),
       ]);
@@ -329,7 +329,7 @@ export const DashboardPage = () => {
       icon: Clock,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
-      onClick: () => navigate('/messages?processed=false'),
+      onClick: () => navigate('/messages?processed=unprocessed'),
     },
     {
       title: 'Total Tickets',

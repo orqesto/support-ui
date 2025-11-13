@@ -59,10 +59,11 @@ export const DepartmentSwitcher = () => {
     setSelectedDepartment(dept);
     setIsOpen(false);
 
-    // Reload to apply new context
+    // Clear URL parameters (closes any open message/ticket) and reload
     // eslint-disable-next-line no-console
-    console.log('🔄 [DEPT SWITCHER] Reloading page to apply new department context...');
-    window.location.reload();
+    console.log('🔄 [DEPT SWITCHER] Clearing selection and reloading to apply new department context...');
+    const baseUrl = window.location.pathname; // e.g., /messages or /tickets
+    window.location.href = baseUrl; // Navigate to base URL without params, triggering reload
   };
 
   if (!showSwitcher) {

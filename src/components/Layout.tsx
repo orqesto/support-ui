@@ -67,32 +67,34 @@ const allNavigation = [
 export const Layout = ({ children }: LayoutProps) => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
 
-  // Track multiple email processing sessions
-  const { sessions } = useEmailProcessing(true);
+  // Track multiple email processing sessions (filtered by selected department)
+  const { sessions } = useEmailProcessing(true, selectedDepartmentRole ?? undefined);
 
   // Persist closed sessions in localStorage to survive page navigation
-  const [closedSessions, setClosedSessions] = useState<Set<number>>(() => {
+  // Use sessionKey (integrationId-departmentRole) to track closed sessions
+  const [closedSessions, setClosedSessions] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('closedEmailSessions');
       if (!stored) {
         return new Set();
       }
       const parsed = JSON.parse(stored) as unknown;
-      return Array.isArray(parsed) ? new Set(parsed as number[]) : new Set();
+      return Array.isArray(parsed) ? new Set(parsed as string[]) : new Set();
     } catch {
       return new Set();
     }
   });
 
   // Handle session close
-  const handleSessionClose = (integrationId: number) => {
+  const handleSessionClose = (sessionKey: string) => {
     setClosedSessions((prev) => {
-      const newSet = new Set(prev).add(integrationId);
+      const newSet = new Set(prev).add(sessionKey);
       // Persist to localStorage
       localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
       return newSet;
@@ -101,19 +103,19 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Auto-reopen widgets when a previously closed session starts processing again
   useEffect(() => {
-    const activeIntegrationIds = Array.from(sessions.entries())
+    const activeSessionKeys = Array.from(sessions.entries())
       .filter(([_, session]) => session.isProcessing || session.status === 'started')
-      .map(([id]) => id);
+      .map(([sessionKey]) => sessionKey);
 
-    if (activeIntegrationIds.length > 0) {
+    if (activeSessionKeys.length > 0) {
       setClosedSessions((prev) => {
-        const shouldUpdate = activeIntegrationIds.some((id) => prev.has(id));
+        const shouldUpdate = activeSessionKeys.some((key) => prev.has(key));
         if (!shouldUpdate) {
           return prev;
         }
 
         const newSet = new Set(prev);
-        activeIntegrationIds.forEach((id) => newSet.delete(id));
+        activeSessionKeys.forEach((key) => newSet.delete(key));
         // Persist to localStorage
         localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
         return newSet;
@@ -122,11 +124,13 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [sessions]);
 
   // Get visible sessions (not closed and either processing or recently completed)
+  // IMPORTANT: Filter by current department to avoid showing other departments' progress
   const visibleSessions = useMemo(
     () => {
       console.log('[Layout] Sessions Map:', Array.from(sessions.entries()).map(([id, s]) => ({
         id,
         name: s.integrationName,
+        dept: s.departmentRole,
         status: s.status,
         isProcessing: s.isProcessing,
         total: s.total,
@@ -134,23 +138,30 @@ export const Layout = ({ children }: LayoutProps) => {
       })));
       
       const filtered = Array.from(sessions.entries())
-        .filter(([integrationId, session]) => {
+        .filter(([sessionKey, session]) => {
           // Don't show if manually closed
-          if (closedSessions.has(integrationId)) {
+          if (closedSessions.has(sessionKey)) {
             console.log(`[Layout] Filtering out ${session.integrationName}: manually closed`);
             return false;
           }
+          
+          // Filter by current department (only show sessions for selected department)
+          if (selectedDepartmentRole && session.departmentRole && session.departmentRole !== selectedDepartmentRole) {
+            console.log(`[Layout] Filtering out ${session.integrationName}: wrong department (${session.departmentRole} vs ${selectedDepartmentRole})`);
+            return false;
+          }
+          
           // Show if processing or recently completed
           const shouldShow = session.isProcessing || session.status === 'complete' || session.status === 'error';
-          console.log(`[Layout] ${session.integrationName}: shouldShow=${shouldShow} (isProcessing=${session.isProcessing}, status=${session.status})`);
+          console.log(`[Layout] ${session.integrationName} (${session.departmentRole}): shouldShow=${shouldShow} (isProcessing=${session.isProcessing}, status=${session.status})`);
           return shouldShow;
         })
         .map(([_, session]) => session);
       
-      console.log('[Layout] Visible sessions count:', filtered.length);
+      console.log('[Layout] Visible sessions count:', filtered.length, `for dept: ${selectedDepartmentRole || 'all'}`);
       return filtered;
     },
-    [sessions, closedSessions]
+    [sessions, closedSessions, selectedDepartmentRole]
   );
 
   // Filter navigation based on permissions
@@ -293,7 +304,7 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* Message Processing Progress Widgets (Multiple instances for parallel processing) */}
       {visibleSessions.map((session, index) => (
         <MessageProcessingProgress
-          key={session.integrationId}
+          key={session.sessionKey}
           session={session}
           index={index}
           onClose={handleSessionClose}
