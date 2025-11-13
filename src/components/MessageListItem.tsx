@@ -1,9 +1,5 @@
 import {
-  Check,
-  X,
   ExternalLink,
-  RotateCcw,
-  Trash2,
   XCircle,
   Paperclip,
   ShieldX,
@@ -11,32 +7,19 @@ import {
   AlertTriangle,
   Folder,
 } from 'lucide-react';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ListCard } from '@/components/ui/ListCard';
 import { getChannelIcon, getCategoryDisplay, hasMessageAttachments } from '@/lib/messageHelpers';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
-import { Permission } from '@/types/roles';
 
 type MessageListItemProps = {
   message: Message;
   onOpen: (message: Message) => void;
-  onApprove: (message: Message) => void;
-  onReject: (message: Message) => void;
-  onReopen: (message: Message) => void;
-  onDelete: (message: Message) => void;
 };
 
-export const MessageListItem = ({
-  message,
-  onOpen,
-  onApprove,
-  onReject,
-  onReopen,
-  onDelete,
-}: MessageListItemProps) => {
+export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
   const analysis = message.metadata?.analysis as
     | {
         isTicketWorthy?: boolean;
@@ -159,37 +142,11 @@ export const MessageListItem = ({
       }
       actions={
         <>
+          {/* All messages: Just Open to see details */}
           <Button size="sm" variant="outline" onClick={() => onOpen(message)}>
             <ExternalLink className="mr-1 w-3 h-3" />
             Open
           </Button>
-          <PermissionGuard permission={Permission.PROCESS_MESSAGES}>
-            {!message.processed ? (
-              <>
-                <Button size="sm" onClick={() => onApprove(message)}>
-                  <Check className="mr-1 w-3 h-3" />
-                  Approve
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => onReject(message)}>
-                  <X className="mr-1 w-3 h-3" />
-                  Reject
-                </Button>
-              </>
-            ) : (
-              !message.ticketId && (
-                <Button size="sm" variant="outline" onClick={() => onReopen(message)}>
-                  <RotateCcw className="mr-1 w-3 h-3" />
-                  Reopen
-                </Button>
-              )
-            )}
-          </PermissionGuard>
-          <PermissionGuard permissions={[Permission.DELETE_MESSAGES, Permission.MANAGE_ORGANIZATION]}>
-            <Button size="sm" variant="destructive" onClick={() => onDelete(message)}>
-              <Trash2 className="mr-1 w-3 h-3" />
-              Delete
-            </Button>
-          </PermissionGuard>
         </>
       }
     />

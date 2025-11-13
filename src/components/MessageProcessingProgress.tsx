@@ -18,12 +18,18 @@ type Position = { x: number; y: number };
 type Props = {
   session: ProcessingSession;
   index: number; // For stacking multiple widgets
-  onClose: (integrationId: number) => void;
+  onClose: (sessionKey: string) => void; // Use sessionKey instead of integrationId
   icon?: LucideIcon; // Custom icon for different sources
   sourceType?: string; // 'email', 'telegram', 'slack', etc.
 };
 
-export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail, sourceType = 'message' }: Props) => {
+export const MessageProcessingProgress = ({
+  session,
+  index,
+  onClose,
+  icon = Mail,
+  sourceType = 'message',
+}: Props) => {
   const navigate = useNavigate();
   const SourceIcon = icon;
 
@@ -33,10 +39,10 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
     return saved !== null ? saved === 'true' : true;
   });
 
-  // Use integration-specific closed state to avoid hiding all widgets
+  // Use session-specific closed state to avoid hiding all widgets
   const [isClosed, setIsClosed] = useState(() => {
-    // Check localStorage for this specific integration's closed state
-    const saved = localStorage.getItem(`emailProcessingWidget_${session.integrationId}_closed`);
+    // Check localStorage for this specific session's closed state
+    const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_closed`);
     // Default to false (open) for new sessions
     return saved === 'true' && session.status === 'complete';
   });
@@ -44,18 +50,18 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
   // Draggable position state - stack widgets vertically with offset based on index
   const WIDGET_HEIGHT = 200; // Approximate height per widget
   const STACK_OFFSET = WIDGET_HEIGHT + 16; // Offset between stacked widgets
-  
+
   const [position, setPosition] = useState<Position>(() => {
-    const saved = localStorage.getItem(`emailProcessingWidget_${session.integrationId}_position`);
+    const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_position`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Position;
         return parsed;
       } catch {
-        return { x: window.innerWidth - 336, y: 16 + (index * STACK_OFFSET) };
+        return { x: window.innerWidth - 336, y: 16 + index * STACK_OFFSET };
       }
     }
-    return { x: window.innerWidth - 336, y: 16 + (index * STACK_OFFSET) };
+    return { x: window.innerWidth - 336, y: 16 + index * STACK_OFFSET };
   });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
@@ -65,10 +71,10 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
     localStorage.setItem('emailProcessingWidget_expanded', String(isExpanded));
   }, [isExpanded]);
 
-  // Save closed state per integration
+  // Save closed state per session
   useEffect(() => {
-    localStorage.setItem(`emailProcessingWidget_${session.integrationId}_closed`, String(isClosed));
-  }, [isClosed, session.integrationId]);
+    localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_closed`, String(isClosed));
+  }, [isClosed, session.sessionKey]);
 
   // Auto-reopen widget after some time if closed
   useEffect(() => {
@@ -97,10 +103,13 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
     integrationName,
   } = session;
 
-  // Save position to localStorage with integration-specific key
+  // Save position to localStorage with session-specific key
   useEffect(() => {
-    localStorage.setItem(`emailProcessingWidget_${session.integrationId}_position`, JSON.stringify(position));
-  }, [position, session.integrationId]);
+    localStorage.setItem(
+      `emailProcessingWidget_${session.sessionKey}_position`,
+      JSON.stringify(position)
+    );
+  }, [position, session.sessionKey]);
 
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -161,16 +170,22 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
     if (status === 'started' || status === 'processing' || isProcessing) {
       setIsClosed(false);
       // Clear the closed state from localStorage when reprocessing
-      localStorage.removeItem(`emailProcessingWidget_${session.integrationId}_closed`);
+      localStorage.removeItem(`emailProcessingWidget_${session.sessionKey}_closed`);
     }
-  }, [status, isProcessing, session.integrationId]);
+  }, [status, isProcessing, session.sessionKey]);
 
-  // Auto-close after 3 seconds when completed with 0 results
+  // Auto-close after delay when completed
+  // Keep widget open to show AI analysis phase which happens asynchronously
   useEffect(() => {
-    if (status === 'complete' && total === 0) {
+    if (status === 'complete') {
+      // If no messages found (total === 0), close after 30 seconds
+      // If messages were processed (total > 0), keep open for 2 minutes to show AI analysis results
+      const closeDelay = total === 0 ? 30000 : 120000; // 30s for no messages, 2 min for processed messages
+
       const timer = setTimeout(() => {
         setIsClosed(true);
-      }, 3000);
+      }, closeDelay);
+
       return () => clearTimeout(timer);
     }
   }, [status, total]);
@@ -193,7 +208,7 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
       isClosed,
       shouldBeVisible,
       total,
-      current
+      current,
     });
   }
 
@@ -226,7 +241,9 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
             <CheckCircle className="w-4 h-4 text-muted-foreground" />
           )}
           <span className="text-sm font-semibold truncate" title={integrationName}>
-            {integrationName.length > 20 ? integrationName.substring(0, 17) + '...' : integrationName}
+            {integrationName.length > 20
+              ? integrationName.substring(0, 17) + '...'
+              : integrationName}
           </span>
           <span className="text-[10px] text-muted-foreground">
             {isProcessing || status === 'processing' || status === 'started'
@@ -252,9 +269,9 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
             size="sm"
             onClick={() => {
               setIsClosed(true);
-              localStorage.setItem(`emailProcessingWidget_${session.integrationId}_closed`, 'true');
+              localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_closed`, 'true');
               // Notify parent to remove this session after delay
-              setTimeout(() => onClose(session.integrationId), 300000); // Auto-remove after 5 min
+              setTimeout(() => onClose(session.sessionKey), 300000); // Auto-remove after 5 min
             }}
             className="p-0 w-6 h-6"
             title="Close widget"
@@ -331,9 +348,18 @@ export const MessageProcessingProgress = ({ session, index, onClose, icon = Mail
 
           {/* Success Message */}
           {status === 'complete' && !error && (
-            <div className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded text-xs">
-              ✅ Processed {processed} {sourceType}{processed !== 1 ? 's' : ''}
-              {failed > 0 && ` (${failed} failed)`}
+            <div className="space-y-1.5">
+              <div className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded text-xs">
+                ✅ Processed {processed} {sourceType}
+                {processed !== 1 ? 's' : ''}
+                {failed > 0 && ` (${failed} failed)`}
+              </div>
+              {processed > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded text-xs flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  AI analysis in progress (embeddings, spam detection, categorization)...
+                </div>
+              )}
             </div>
           )}
 

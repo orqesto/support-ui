@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Clock, BookOpen, BarChart3 } from 'lucide-react';
+import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Clock, BookOpen, BarChart3, Globe, Lock, FileCode, Scale, ScrollText, Mail } from 'lucide-react';
+import DepartmentBadge from '@/components/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatDate } from '@/lib/utils';
-import { documentationService, type Documentation } from '@/services/documentation.service';
+import { documentationService, type Documentation, type DocumentType } from '@/services/documentation.service';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) {
@@ -14,6 +15,35 @@ const formatFileSize = (bytes: number): string => {
     return (bytes / 1024).toFixed(1) + ' KB';
   }
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+const getDocumentTypeBadge = (type: DocumentType) => {
+  const config = {
+    technical: { icon: FileCode, label: 'Technical', color: 'blue' },
+    nda: { icon: Lock, label: 'NDA', color: 'red' },
+    legal: { icon: Scale, label: 'Legal', color: 'purple' },
+    policy: { icon: ScrollText, label: 'Policy', color: 'indigo' },
+    template: { icon: Mail, label: 'Template', color: 'green' },
+    general: { icon: FileText, label: 'General', color: 'gray' },
+  };
+
+  const { icon: Icon, label, color } = config[type] || config.general;
+
+  const colorClasses = {
+    blue: 'text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-200',
+    red: 'text-red-700 bg-red-100 dark:bg-red-900 dark:text-red-200',
+    purple: 'text-purple-700 bg-purple-100 dark:bg-purple-900 dark:text-purple-200',
+    indigo: 'text-indigo-700 bg-indigo-100 dark:bg-indigo-900 dark:text-indigo-200',
+    green: 'text-green-700 bg-green-100 dark:bg-green-900 dark:text-green-200',
+    gray: 'text-gray-700 bg-gray-100 dark:bg-gray-800 dark:text-gray-300',
+  };
+
+  return (
+    <span className={`inline-flex gap-1 items-center px-2 py-1 text-xs font-medium rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}>
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  );
 };
 
 const getStatusBadge = (status: string) => {
@@ -56,6 +86,8 @@ export const DocumentationSettings = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [visibility, setVisibility] = useState<'department' | 'organization'>('department');
+  const [documentType, setDocumentType] = useState<DocumentType>('general');
   const [isDragging, setIsDragging] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; docId: number | null }>({
     open: false,
@@ -146,12 +178,14 @@ export const DocumentationSettings = () => {
 
     try {
       setUploading(true);
-      await documentationService.uploadDocumentation(selectedFile, title, description);
+      await documentationService.uploadDocumentation(selectedFile, title, description, visibility, documentType);
 
       // Reset form
       setSelectedFile(null);
       setTitle('');
       setDescription('');
+      setVisibility('department');
+      setDocumentType('general');
 
       // Reload documentation list
       await loadDocumentation();
@@ -322,6 +356,68 @@ export const DocumentationSettings = () => {
             />
           </div>
 
+          <div>
+            <div className="block mb-2 text-sm font-medium">Visibility</div>
+            <div className="flex gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="department"
+                  checked={visibility === 'department'}
+                  onChange={(e) => setVisibility(e.target.value as 'department')}
+                  className="w-4 h-4"
+                />
+                <Lock className="w-4 h-4" />
+                <span className="text-sm">Department only</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="organization"
+                  checked={visibility === 'organization'}
+                  onChange={(e) => setVisibility(e.target.value as 'organization')}
+                  className="w-4 h-4"
+                />
+                <Globe className="w-4 h-4" />
+                <span className="text-sm">Shared with all departments</span>
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {visibility === 'department'
+                ? 'Only your department can see and use this documentation'
+                : 'All departments can see and use this documentation'}
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="doc-type" className="block mb-2 text-sm font-medium">
+              Document Type
+            </label>
+            <select
+              id="doc-type"
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value as DocumentType)}
+              className="px-3 py-2 w-full rounded-md border dark:bg-gray-800 dark:border-gray-700"
+            >
+              <option value="general">📄 General - Uncategorized documentation</option>
+              <option value="technical">📘 Technical - Support guides, how-tos</option>
+              <option value="nda">📝 NDA - Confidential agreements (no quoting)</option>
+              <option value="legal">⚖️ Legal - Terms, policies (careful references)</option>
+              <option value="policy">📋 Policy - Company procedures</option>
+              <option value="template">📧 Template - Email/response templates</option>
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {documentType === 'nda' && '⚠️ AI will reference this document without revealing specific terms'}
+              {documentType === 'legal' && '⚠️ AI will reference carefully without providing legal advice'}
+              {documentType === 'technical' && 'AI can quote directly from this documentation'}
+              {documentType === 'policy' && 'AI can quote company policies and procedures'}
+              {documentType === 'template' && 'Used for response formatting and templates'}
+              {documentType === 'general' && 'Standard documentation with quotable content'}
+            </p>
+          </div>
+
           <Button onClick={handleUpload} disabled={!selectedFile || !title.trim() || uploading}>
             <Upload className="mr-2 w-4 h-4" />
             {uploading ? 'Uploading...' : 'Upload Documentation'}
@@ -350,6 +446,19 @@ export const DocumentationSettings = () => {
                   <div className="flex gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
+                    {getDocumentTypeBadge(doc.documentType)}
+                    <DepartmentBadge department={doc.departmentRole} size="sm" />
+                    {doc.visibility === 'organization' ? (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                        <Globe className="w-3 h-3" />
+                        Shared
+                      </span>
+                    ) : (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full dark:bg-gray-800 dark:text-gray-300">
+                        <Lock className="w-3 h-3" />
+                        Private
+                      </span>
+                    )}
                     {getStatusBadge(doc.status)}
                   </div>
 

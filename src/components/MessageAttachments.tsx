@@ -119,8 +119,9 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
               </div>
             </div>
             <a
-              href={attachment.url}
-              download={attachment.originalFilename}
+              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${attachment.url}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
             >
               <Download className="w-3 h-3" />

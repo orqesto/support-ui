@@ -107,6 +107,9 @@ export const MessagesPage = () => {
         if (currentFilters.showSpam) {
           apiFilters.showSpam = 'true';
         }
+        if (currentFilters.excludeSpam) {
+          apiFilters.excludeSpam = 'true';
+        }
         if (currentFilters.showWorthy) {
           apiFilters.showWorthy = 'true';
         }
@@ -175,6 +178,7 @@ export const MessagesPage = () => {
     filters.channel,
     filters.messageSourceId,
     filters.showSpam,
+    filters.excludeSpam,
     filters.showWorthy,
     filters.showNeedsInfo,
     filters.hasAttachments,
@@ -195,6 +199,7 @@ export const MessagesPage = () => {
     const urlChannel = searchParams.get('channel');
     const urlMessageSource = searchParams.get('source');
     const urlSpam = searchParams.get('spam');
+    const urlExcludeSpam = searchParams.get('excludeSpam');
     const urlWorthy = searchParams.get('worthy');
     const urlNeedsInfo = searchParams.get('needsInfo');
     const urlAttachments = searchParams.get('attachments');
@@ -206,8 +211,8 @@ export const MessagesPage = () => {
     const urlFilters: Partial<typeof filters> = {};
     let hasUrlFilters = false;
 
-    if (urlProcessed && ['all', 'true', 'false'].includes(urlProcessed)) {
-      urlFilters.processed = urlProcessed as 'all' | 'true' | 'false';
+    if (urlProcessed && ['all', 'unprocessed', 'processed', 'resolved'].includes(urlProcessed)) {
+      urlFilters.processed = urlProcessed as 'all' | 'unprocessed' | 'processed' | 'resolved';
       hasUrlFilters = true;
     }
     if (urlChannel && ['all', 'email', 'telegram', 'slack'].includes(urlChannel)) {
@@ -220,6 +225,10 @@ export const MessagesPage = () => {
     }
     if (urlSpam === 'true') {
       urlFilters.showSpam = true;
+      hasUrlFilters = true;
+    }
+    if (urlExcludeSpam === 'true') {
+      urlFilters.excludeSpam = true;
       hasUrlFilters = true;
     }
     if (urlWorthy === 'true') {
@@ -277,7 +286,7 @@ export const MessagesPage = () => {
     }
 
     // Add filters to URL (only non-default values)
-    if (filters.processed && filters.processed !== 'false') {
+    if (filters.processed && filters.processed !== 'all') {
       params.set('processed', filters.processed);
     }
     if (filters.channel && filters.channel !== 'all') {
@@ -288,6 +297,9 @@ export const MessagesPage = () => {
     }
     if (filters.showSpam) {
       params.set('spam', 'true');
+    }
+    if (filters.excludeSpam) {
+      params.set('excludeSpam', 'true');
     }
     if (filters.showWorthy) {
       params.set('worthy', 'true');
@@ -507,9 +519,9 @@ export const MessagesPage = () => {
   };
 
   const activeFilterCount =
-    (filters.processed !== 'false' ? 1 : 0) +
+    (filters.processed !== 'all' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
-    ((filters.showSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
+    ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0) +
     (filters.hasReplies ? 1 : 0) +
     (filters.hasTicket !== undefined ? 1 : 0) +
@@ -593,10 +605,6 @@ export const MessagesPage = () => {
                   setSelectedMessage(msg);
                   setSearchParams({ id: msg.id.toString() });
                 }}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onReopen={handleReopen}
-                onDelete={handleDeleteClick}
               />
             ))}
           </div>

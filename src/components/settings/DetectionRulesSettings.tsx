@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
+import DepartmentBadge from '@/components/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -422,6 +423,7 @@ export const DetectionRulesSettings = () => {
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 items-center">
                       <h4 className="text-lg font-semibold">{rule.name}</h4>
+                      <DepartmentBadge department={rule.departmentRole} size="sm" />
                       <Badge variant={rule.active ? 'success' : 'default'}>
                         {rule.active ? 'Active' : 'Inactive'}
                       </Badge>

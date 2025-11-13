@@ -61,7 +61,7 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
         <button
           onClick={handleReanalyze}
           disabled={isReanalyzing}
-          className="flex gap-1 items-center px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex gap-1 items-center px-2 py-1 text-xs text-blue-600 rounded transition-colors dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Re-analyze this message with current AI settings"
         >
           <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
@@ -100,7 +100,9 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
                     : 'Unknown'}
               </p>
               {spamCheck.category && (
-                <p className="mt-1 text-xs capitalize text-muted-foreground">{spamCheck.category}</p>
+                <p className="mt-1 text-xs capitalize text-muted-foreground">
+                  {spamCheck.category}
+                </p>
               )}
             </div>
           )}
@@ -125,7 +127,9 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
               <p className="text-sm font-medium">{analysis.isTicketWorthy ? 'Yes' : 'No'}</p>
               {analysis.confidence !== undefined && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Confidence: {Math.round(analysis.confidence * 100)}%
+                  Confidence: {typeof analysis.confidence === 'number' 
+                    ? `${Math.round(analysis.confidence * 100)}%`
+                    : analysis.confidence}
                 </p>
               )}
             </div>

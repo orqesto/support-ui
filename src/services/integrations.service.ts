@@ -145,6 +145,7 @@ export type ApiResponse<T> = {
   data?: T;
   error?: string;
   message?: string;
+  action?: 'created' | 'updated';  // Backend returns this for upsert operations
 };
 
 // Generic integrations service (for listing all)
@@ -209,11 +210,15 @@ export const integrationsService = {
     enabled?: boolean;
     config: Record<string, unknown>;
   }): Promise<ApiResponse<Integration>> => {
-    const response = await apiClient.post<{ success: boolean; data: Integration }>(
+    const response = await apiClient.post<{ success: boolean; action?: 'created' | 'updated'; data: Integration }>(
       '/api/integrations',
       data
     );
-    return { success: response.data.success, data: response.data.data };
+    return { 
+      success: response.data.success, 
+      data: response.data.data,
+      action: response.data.action 
+    };
   },
 
   update: async (
@@ -232,7 +237,11 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
-  setDefaultTicketing: async (id: number): Promise<ApiResponse<{
+  /**
+   * @deprecated Use ticketingSystemsService.setDefault instead
+   * This method is kept for backwards compatibility but uses the new endpoint
+   */
+  setDefaultTicketing: async (id: number, type: string = 'jira'): Promise<ApiResponse<{
     id: number;
     name: string;
     departmentRole: string;
@@ -247,7 +256,7 @@ export const integrationsService = {
         departmentRole: string;
         isDefault: boolean;
       };
-    }>(`/api/integrations/ticketing/${id}/set-default`);
+    }>(`/api/ticketing-systems/${id}/set-default?type=${type}`);
     return {
       success: response.data.success,
       message: response.data.message,

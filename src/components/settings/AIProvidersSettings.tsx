@@ -308,26 +308,49 @@ export const AIProvidersSettings = () => {
   const toggleEnabled = async (id: number, currentEnabled: boolean, name: string, type: string) => {
     setToggling(id);
 
+    const isEnabling = !currentEnabled;
+
     // Optimistic update - immediately update UI
+    // If enabling this provider, disable all other AI providers (mutual exclusion)
     setIntegrations((prevIntegrations) =>
-      prevIntegrations.map((integration) =>
-        integration.id === id ? { ...integration, enabled: !currentEnabled } : integration
-      )
+      prevIntegrations.map((integration) => {
+        if (integration.id === id) {
+          return { ...integration, enabled: isEnabling };
+        }
+        // Disable other AI providers if we're enabling this one
+        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity'].includes(integration.type);
+        if (isEnabling && isAIProvider) {
+          return { ...integration, enabled: false };
+        }
+        return integration;
+      })
     );
 
     try {
       // Include type to disambiguate which table to update (important when IDs overlap)
-      const response = await integrationsService.update(id, {
-        enabled: !currentEnabled,
+      // Extended update payload with AI provider mutual exclusion flag
+      const updatePayload: Partial<{
+        name: string;
+        enabled: boolean;
+        config: Record<string, unknown>;
+        type: string;
+      }> & { disableOtherAIProviders?: boolean } = {
+        enabled: isEnabling,
         type,
-      });
+        disableOtherAIProviders: isEnabling, // Signal backend to disable other AI providers
+      };
+      
+      const response = await integrationsService.update(id, updatePayload)
       if (response.success) {
         // Confirm with server data
         await fetchIntegrations();
+        const successMessage = isEnabling
+          ? `${name} enabled successfully! Other AI providers have been disabled.`
+          : `${name} disabled successfully!`;
         setAlertDialog({
           open: true,
           title: 'Success',
-          description: `${name} ${!currentEnabled ? 'enabled' : 'disabled'} successfully!`,
+          description: successMessage,
           variant: 'success',
         });
       } else {

@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Mail,
   MessageSquare,
   Send,
   Check,
-  X,
   Trash2,
   AlertTriangle,
   ExternalLink,
@@ -16,6 +15,8 @@ import {
   Info,
   CheckCircle,
   BookOpen,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { MessageAIAnalysis } from '@/components/MessageAIAnalysis';
@@ -65,6 +66,60 @@ export const MessageDetail = ({
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const [showTopButton, setShowTopButton] = useState(false);
+  const [showBottomButton, setShowBottomButton] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTop = () => {
+    // Scroll to the very top (header/message content)
+    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const scrollToBottom = () => {
+    // Scroll to actions at the bottom
+    document
+      .querySelector('[data-message-actions]')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // Check if content is scrollable and update button visibility
+  useEffect(() => {
+    const checkScroll = () => {
+      const container = containerRef.current?.closest(
+        '.overflow-auto, .overflow-y-auto'
+      ) as HTMLElement;
+      if (!container) {
+        return;
+      }
+
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isScrollable = scrollHeight > clientHeight + 100; // Only show if significant scroll needed
+
+      setShowScrollButtons(isScrollable);
+
+      // Show top button when scrolled down
+      setShowTopButton(scrollTop > 200);
+
+      // Show bottom button when not at bottom
+      setShowBottomButton(scrollTop < scrollHeight - clientHeight - 200);
+    };
+
+    checkScroll();
+
+    const container = containerRef.current?.closest(
+      '.overflow-auto, .overflow-y-auto'
+    ) as HTMLElement;
+    if (container) {
+      container.addEventListener('scroll', checkScroll);
+      window.addEventListener('resize', checkScroll);
+
+      return () => {
+        container.removeEventListener('scroll', checkScroll);
+        window.removeEventListener('resize', checkScroll);
+      };
+    }
+  }, [message]);
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/messages?id=${message.id}`;
@@ -121,7 +176,6 @@ export const MessageDetail = ({
   const handleResolveWithoutReply = async () => {
     try {
       await messageService.resolve(message.id);
-      onApprove?.(); // Refresh message
     } catch (error) {
       console.error('Failed to resolve message:', error);
     }
@@ -171,7 +225,34 @@ export const MessageDetail = ({
     | undefined;
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="relative space-y-6">
+      {/* Floating scroll buttons - only show when scrollable */}
+      {showScrollButtons && (
+        <div className="flex fixed right-6 bottom-24 z-40 flex-col gap-2">
+          {showTopButton && (
+            <Button
+              onClick={scrollToTop}
+              size="sm"
+              variant="outline"
+              className="p-0 w-10 h-10 border-2 shadow-lg backdrop-blur-sm transition-all duration-300 bg-background/80 hover:scale-110"
+              title="Scroll to actions"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </Button>
+          )}
+          {showBottomButton && (
+            <Button
+              onClick={scrollToBottom}
+              size="sm"
+              variant="outline"
+              className="p-0 w-10 h-10 border-2 shadow-lg backdrop-blur-sm transition-all duration-300 bg-background/80 hover:scale-110"
+              title="Scroll to message"
+            >
+              <ArrowDown className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      )}
       {/* Header Section */}
       <div className="space-y-4">
         <div className="flex gap-3 items-center">
@@ -281,7 +362,7 @@ export const MessageDetail = ({
       )}
 
       {/* Message Content */}
-      <div className="pt-6 border-t">
+      <div className="pt-6 border-t" data-message-content>
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-muted-foreground">Message</h3>
           <TranslateButton
@@ -566,63 +647,111 @@ export const MessageDetail = ({
         })()}
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2 pt-6 border-t">
-        <Button onClick={handleCopyLink} variant="outline" size="sm">
-          <LinkIcon className="mr-2 w-4 h-4" />
-          {linkCopied ? 'Link Copied!' : 'Copy Link'}
-        </Button>
-
-        {!message.ticketId && !message.resolved && (
-          <Button onClick={handleResolveWithoutReply} variant="outline" size="sm">
-            <CheckCircle className="mr-1 w-4 h-4" />
-            Mark Resolved
-          </Button>
-        )}
-
-        {message.resolved && !message.ticketId && onReopen && (
-          <Button onClick={handleReopenClick} variant="outline" size="sm">
-            <RotateCcw className="mr-1 w-4 h-4" />
-            Reopen
-          </Button>
-        )}
-
-        {!message.processed ? (
+      <div className="flex flex-col gap-3 pt-6 border-t" data-message-actions>
+        {/* UNPROCESSED: Needs human review */}
+        {!message.processed && (
           <>
-            {onApprove && (
-              <Button onClick={onApprove} className="flex-1">
-                <Check className="mr-2 w-4 h-4" />
-                Create Ticket
-              </Button>
-            )}
+            {/* Primary action */}
             {onReject && (
-              <Button onClick={handleRejectClick} variant="outline" className="flex-1">
-                <X className="mr-2 w-4 h-4" />
-                Mark as Processed
+              <Button onClick={handleRejectClick} className="w-full" size="lg">
+                <Check className="mr-2 w-4 h-4" />
+                Process
               </Button>
             )}
-          </>
-        ) : (
-          <>
-            {!message.ticketId && onReopen && (
-              <Button onClick={handleReopenClick} variant="outline" className="flex-1">
-                <RotateCcw className="mr-2 w-4 h-4" />
-                Reopen Message
+
+            {/* Secondary actions */}
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleCopyLink} variant="ghost" size="sm" className="flex-1">
+                <LinkIcon className="mr-2 w-4 h-4" />
+                {linkCopied ? 'Link Copied!' : 'Copy Link'}
               </Button>
-            )}
-            {message.ticketId && (
-              <div className="flex-1 p-3 rounded-md border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  Ticket already created - Cannot reopen
-                </p>
-              </div>
-            )}
+              {onDelete && (
+                <Button onClick={onDelete} variant="destructive" size="sm" className="flex-1">
+                  <Trash2 className="mr-2 w-4 h-4" />
+                  Delete
+                </Button>
+              )}
+            </div>
           </>
         )}
-        {onDelete && (
-          <Button onClick={onDelete} variant="destructive">
-            <Trash2 className="mr-2 w-4 h-4" />
-            Delete
-          </Button>
+
+        {/* PROCESSED (not resolved, no ticket): Ready for action */}
+        {message.processed && !message.resolved && !message.ticketId && (
+          <>
+            {/* Primary actions */}
+            <div className="grid grid-cols-2 gap-3">
+              {onApprove && (
+                <Button onClick={onApprove} size="lg">
+                  <Check className="mr-2 w-4 h-4" />
+                  Create Ticket
+                </Button>
+              )}
+              <Button
+                onClick={handleResolveWithoutReply}
+                variant="secondary"
+                size="lg"
+                title="Mark as resolved and save attachments to knowledge base"
+              >
+                <CheckCircle className="mr-2 w-4 h-4" />
+                Resolve & Save to KB
+              </Button>
+            </div>
+
+            {/* Secondary actions */}
+            <div className="flex gap-2">
+              <Button onClick={handleCopyLink} variant="ghost" size="sm" className="flex-1">
+                <LinkIcon className="mr-2 w-4 h-4" />
+                {linkCopied ? 'Link Copied!' : 'Copy Link'}
+              </Button>
+              {onReopen && (
+                <Button onClick={handleReopenClick} variant="outline" size="sm" className="flex-1">
+                  <RotateCcw className="mr-2 w-4 h-4" />
+                  Reopen
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* RESOLVED: Completed */}
+        {message.resolved && !message.ticketId && (
+          <>
+            {/* Primary action */}
+            {onReopen && (
+              <Button onClick={handleReopenClick} variant="outline" size="lg" className="w-full">
+                <RotateCcw className="mr-2 w-4 h-4" />
+                Unresolve
+              </Button>
+            )}
+
+            {/* Secondary action */}
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleCopyLink} variant="ghost" size="sm" className="w-full">
+                <LinkIcon className="mr-2 w-4 h-4" />
+                {linkCopied ? 'Link Copied!' : 'Copy Link'}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* HAS TICKET: Ticket created */}
+        {message.ticketId && (
+          <>
+            {/* Info banner */}
+            <div className="p-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                ✓ Ticket created for this message
+              </p>
+            </div>
+
+            {/* Secondary action */}
+            <div className="flex gap-2">
+              <Button onClick={handleCopyLink} variant="ghost" size="sm" className="w-full">
+                <LinkIcon className="mr-2 w-4 h-4" />
+                {linkCopied ? 'Link Copied!' : 'Copy Link'}
+              </Button>
+            </div>
+          </>
         )}
       </div>
 
@@ -645,21 +774,30 @@ export const MessageDetail = ({
         </DialogContent>
       </Dialog>
 
-      {/* Reopen Confirmation Dialog */}
+      {/* Unresolve Confirmation Dialog */}
       <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reopen Message?</DialogTitle>
+            <DialogTitle>Unresolve Message?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to reopen this message? It will be marked as unprocessed and will
-            appear in your unprocessed messages list again.
+            Are you sure you want to unresolve this message? This will:
+          </p>
+          <ul className="pl-2 space-y-1 text-sm list-disc list-inside text-muted-foreground">
+            <li>Mark the message as unprocessed</li>
+            <li>Remove all documentation created from this message</li>
+            <li>Delete PDFs and images from the knowledge base</li>
+          </ul>
+          <p className="mt-3 text-sm text-muted-foreground">
+            The message will appear in your unprocessed messages list again.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReopenDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleReopenConfirm}>Reopen Message</Button>
+            <Button onClick={handleReopenConfirm} variant="destructive">
+              Unresolve & Clean Up
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
