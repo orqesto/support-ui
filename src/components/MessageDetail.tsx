@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   Mail,
   MessageSquare,
@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ExternalLink,
   RotateCcw,
+  Maximize2,
   Link as LinkIcon,
   Reply,
   RefreshCw,
@@ -15,13 +16,16 @@ import {
   Info,
   CheckCircle,
   BookOpen,
-  ArrowUp,
-  ArrowDown,
+  Paperclip,
+  X,
+  File,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { MessageAIAnalysis } from '@/components/MessageAIAnalysis';
 import { MessageAttachments } from '@/components/MessageAttachments';
 import { MessageThread } from '@/components/MessageThread';
+import RichTextEditor from '@/components/RichTextEditor';
+import { ScrollButtons } from '@/components/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/SimilarMessagesDialog';
 import { SimilarTickets } from '@/components/SimilarTickets';
 import { TranslateButton } from '@/components/TranslateButton';
@@ -34,7 +38,6 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
-import { Textarea } from '@/components/ui/Textarea';
 import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
@@ -46,8 +49,10 @@ type MessageDetailProps = {
   onReject?: () => void;
   onReopen?: () => void;
   onDelete?: () => void;
+  onResolve?: () => Promise<void>;
   onRefresh?: () => void;
   onMessageNavigate?: (messageId: number) => void;
+  showFullPageButton?: boolean;
 };
 
 export const MessageDetail = ({
@@ -56,9 +61,13 @@ export const MessageDetail = ({
   onReject,
   onReopen,
   onDelete,
+  onResolve,
   onRefresh,
   onMessageNavigate,
+  showFullPageButton = true,
 }: MessageDetailProps) => {
+  const location = useLocation();
+  const isFullPage = location.pathname.startsWith('/messages/');
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -66,60 +75,7 @@ export const MessageDetail = ({
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
-  const [showScrollButtons, setShowScrollButtons] = useState(false);
-  const [showTopButton, setShowTopButton] = useState(false);
-  const [showBottomButton, setShowBottomButton] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const scrollToTop = () => {
-    // Scroll to the very top (header/message content)
-    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const scrollToBottom = () => {
-    // Scroll to actions at the bottom
-    document
-      .querySelector('[data-message-actions]')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  // Check if content is scrollable and update button visibility
-  useEffect(() => {
-    const checkScroll = () => {
-      const container = containerRef.current?.closest(
-        '.overflow-auto, .overflow-y-auto'
-      ) as HTMLElement;
-      if (!container) {
-        return;
-      }
-
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isScrollable = scrollHeight > clientHeight + 100; // Only show if significant scroll needed
-
-      setShowScrollButtons(isScrollable);
-
-      // Show top button when scrolled down
-      setShowTopButton(scrollTop > 200);
-
-      // Show bottom button when not at bottom
-      setShowBottomButton(scrollTop < scrollHeight - clientHeight - 200);
-    };
-
-    checkScroll();
-
-    const container = containerRef.current?.closest(
-      '.overflow-auto, .overflow-y-auto'
-    ) as HTMLElement;
-    if (container) {
-      container.addEventListener('scroll', checkScroll);
-      window.addEventListener('resize', checkScroll);
-
-      return () => {
-        container.removeEventListener('scroll', checkScroll);
-        window.removeEventListener('resize', checkScroll);
-      };
-    }
-  }, [message]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/messages?id=${message.id}`;
@@ -162,8 +118,14 @@ export const MessageDetail = ({
       // Only resolve if it's a standalone message (no ticket)
       // Messages with tickets should just send reply without resolving
       const shouldResolve = !message.ticketId && !message.resolved;
-      await messageService.reply(message.id, replyContent, shouldResolve);
+      await messageService.replyWithAttachments(
+        message.id,
+        replyContent,
+        selectedFiles,
+        shouldResolve
+      );
       setReplyContent('');
+      setSelectedFiles([]);
       setShowReplyForm(false);
       onApprove?.(); // Refresh message
     } catch (error) {
@@ -176,6 +138,8 @@ export const MessageDetail = ({
   const handleResolveWithoutReply = async () => {
     try {
       await messageService.resolve(message.id);
+      // Call onResolve to refresh data without creating ticket
+      await onResolve?.();
     } catch (error) {
       console.error('Failed to resolve message:', error);
     }
@@ -189,6 +153,26 @@ export const MessageDetail = ({
   const handleUseResponse = (content: string) => {
     setReplyContent(content);
     setShowReplyForm(true);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) {
+      return bytes + ' B';
+    }
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const getChannelIcon = (channel: string) => {
@@ -225,34 +209,9 @@ export const MessageDetail = ({
     | undefined;
 
   return (
-    <div ref={containerRef} className="relative space-y-6">
-      {/* Floating scroll buttons - only show when scrollable */}
-      {showScrollButtons && (
-        <div className="flex fixed right-6 bottom-24 z-40 flex-col gap-2">
-          {showTopButton && (
-            <Button
-              onClick={scrollToTop}
-              size="sm"
-              variant="outline"
-              className="p-0 w-10 h-10 border-2 shadow-lg backdrop-blur-sm transition-all duration-300 bg-background/80 hover:scale-110"
-              title="Scroll to actions"
-            >
-              <ArrowUp className="w-4 h-4" />
-            </Button>
-          )}
-          {showBottomButton && (
-            <Button
-              onClick={scrollToBottom}
-              size="sm"
-              variant="outline"
-              className="p-0 w-10 h-10 border-2 shadow-lg backdrop-blur-sm transition-all duration-300 bg-background/80 hover:scale-110"
-              title="Scroll to message"
-            >
-              <ArrowDown className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      )}
+    <div className="relative space-y-6">
+      {/* Only show ScrollButtons in drawer mode (not full-page, page has its own) */}
+      {!isFullPage && <ScrollButtons bottomTarget="[data-message-actions]" />}
       {/* Header Section */}
       <div className="space-y-4">
         <div className="flex gap-3 items-center">
@@ -267,17 +226,20 @@ export const MessageDetail = ({
               {message.resolved && !message.ticketId && <Badge variant="success">Resolved</Badge>}
             </div>
           </div>
-          {onRefresh && (
-            <Button
-              onClick={onRefresh}
-              variant="ghost"
-              size="sm"
-              className="flex-shrink-0"
-              title="Refresh message data"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          )}
+          <div className="flex flex-shrink-0 gap-2">
+            {showFullPageButton && !isFullPage && (
+              <Link to={`/messages/${message.id}`}>
+                <Button variant="ghost" size="sm" title="Open in full page">
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
+            {onRefresh && (
+              <Button onClick={onRefresh} variant="ghost" size="sm" title="Refresh message data">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -567,22 +529,64 @@ export const MessageDetail = ({
           </div>
         ) : (
           <div className="space-y-3">
-            <Textarea
-              id="reply-textarea"
-              label={
-                message.ticketId ? 'Reply' : message.resolved ? 'Follow-up Reply' : 'Quick Reply'
-              }
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder={
-                message.ticketId
-                  ? 'Type your reply...'
-                  : message.resolved
-                    ? 'Type your follow-up message...'
-                    : 'Type your reply to resolve this request quickly...'
-              }
-            />
-            <div className="flex gap-2">
+            <div>
+              <label htmlFor="reply-editor" className="block mb-2 text-sm font-medium">
+                {message.ticketId ? 'Reply' : message.resolved ? 'Follow-up Reply' : 'Quick Reply'}
+              </label>
+              <RichTextEditor
+                content={replyContent}
+                onChange={setReplyContent}
+                placeholder={
+                  message.ticketId
+                    ? 'Type your reply...'
+                    : message.resolved
+                      ? 'Type your follow-up message...'
+                      : 'Type your reply to resolve this request quickly...'
+                }
+                minHeight="150px"
+              />
+            </div>
+
+            {/* Selected Files Display */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-1">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={file.name}
+                    className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
+                  >
+                    <File className="w-4 h-4 text-muted-foreground" />
+                    <span className="flex-1 text-sm truncate">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveFile(index)}
+                      className="p-1 h-auto text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                      disabled={submitting}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-between items-center">
+              <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">
+                <Paperclip className="w-4 h-4" />
+                <span>Attach Files</span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  disabled={submitting}
+                />
+              </label>
               <Button onClick={handleSendReply} disabled={submitting || !replyContent.trim()}>
                 <Send className="mr-2 w-4 h-4" />
                 {submitting
@@ -614,9 +618,10 @@ export const MessageDetail = ({
               </span>
             )}
           </div>
-          <p className="text-sm text-blue-900 whitespace-pre-wrap dark:text-blue-50">
-            {message.directReply}
-          </p>
+          <div
+            className="max-w-none text-sm text-blue-900 prose prose-sm dark:text-blue-50"
+            dangerouslySetInnerHTML={{ __html: message.directReply }}
+          />
         </div>
       )}
 

@@ -7,10 +7,10 @@ import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 export const WebSocketDebug = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { socket, sessions } = useEmailProcessing(true); // Enable to track sessions
-  
+
   // Aggregate stats from all sessions
   const allSessions = Array.from(sessions.values());
-  const isProcessing = allSessions.some(s => s.isProcessing);
+  const isProcessing = allSessions.some((s) => s.isProcessing);
   const total = allSessions.reduce((sum, s) => sum + s.total, 0);
   const current = allSessions.reduce((sum, s) => sum + s.current, 0);
   const processed = allSessions.reduce((sum, s) => sum + s.processed, 0);
@@ -26,7 +26,7 @@ export const WebSocketDebug = () => {
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-0 right-2 z-50 p-2 text-white bg-blue-600 rounded-r-lg shadow-lg transition-all -translate-y-1/2 hover:bg-blue-700 group"
+          className="fixed bottom-0 right-2 z-50 p-2 text-white bg-blue-600 rounded-lg shadow-lg transition-all -translate-y-1/2 hover:bg-blue-700 group"
           title="Open WebSocket Debug"
         >
           <Activity className="w-4 h-4" />

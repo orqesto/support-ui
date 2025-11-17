@@ -11,7 +11,9 @@ import { integrationsService } from '@/services/integrations.service';
 type GmailConfig = {
   clientId: string;
   clientSecret: string;
-  searchQuery: string;
+  isKnowledgeBase?: boolean;
+  searchQuery: string; // Gmail search filter
+  lookbackDays?: number; // Time-based limit (optional, adds to search)
   maxResults: number;
   pollingMaxPages: number;
   bulkImportDays: number;
@@ -19,11 +21,19 @@ type GmailConfig = {
 };
 
 const searchQueryOptions = [
-  { value: 'is:unread', label: 'Only Unread' },
-  { value: 'in:inbox', label: 'All Inbox' },
-  { value: 'is:unread OR label:inbox', label: 'Unread + Inbox' },
-  { value: 'after:2024/01/01', label: 'After 2024' },
-  { value: '', label: 'Everything' },
+  { value: 'is:unread', label: 'Unread only (recommended)' },
+  { value: 'in:inbox', label: 'All inbox messages' },
+  { value: 'is:unread OR in:inbox', label: 'Unread + All inbox' },
+  { value: '', label: 'Everything (all folders)' },
+];
+
+const lookbackOptions = [
+  { value: 7, label: 'Last 7 Days' },
+  { value: 30, label: 'Last 30 Days' },
+  { value: 90, label: 'Last 90 Days' },
+  { value: 180, label: 'Last 6 Months' },
+  { value: 365, label: 'Last Year' },
+  { value: 0, label: 'All Time (slow)' },
 ];
 
 export const GmailIntegrationCard = ({
@@ -49,7 +59,9 @@ export const GmailIntegrationCard = ({
   const [config, setConfig] = useState<GmailConfig>({
     clientId: '',
     clientSecret: '',
-    searchQuery: '',
+    isKnowledgeBase: false,
+    searchQuery: 'is:unread',
+    lookbackDays: 30,
     maxResults: 500,
     pollingMaxPages: 200,
     bulkImportDays: 0,
@@ -101,7 +113,9 @@ export const GmailIntegrationCard = ({
     setConfig({
       clientId: '',
       clientSecret: '',
-      searchQuery: '',
+      isKnowledgeBase: false,
+      searchQuery: 'is:unread',
+      lookbackDays: 30,
       maxResults: 500,
       pollingMaxPages: 200,
       bulkImportDays: 0,
@@ -116,10 +130,18 @@ export const GmailIntegrationCard = ({
   const handleGmailOAuth = async () => {
     setSaving(true);
     try {
+      // Combine search query with time range
+      let finalQuery = config.searchQuery || '';
+      if (config.lookbackDays && config.lookbackDays > 0) {
+        const timestamp = Math.floor(Date.now() / 1000 - config.lookbackDays * 86400);
+        const timeFilter = `after:${timestamp}`;
+        finalQuery = finalQuery ? `${finalQuery} ${timeFilter}` : timeFilter;
+      }
+
       const response = await gmailOAuthService.connectWithPopup(
         config.clientId,
         config.clientSecret,
-        config.searchQuery,
+        finalQuery,
         config.maxResults,
         config.pollingMaxPages,
         config.bulkImportDays,
@@ -274,11 +296,21 @@ export const GmailIntegrationCard = ({
                       <p className="text-xs text-muted-foreground">
                         OAuth2 •{' '}
                         {(() => {
-                          const query =
-                            (integration.config as { gmail?: { searchQuery?: string } }).gmail
-                              ?.searchQuery ??
-                            (integration.config as { searchQuery?: string }).searchQuery ??
-                            'is:unread';
+                          const gmailConfig = (
+                            integration.config as { gmail?: { lookbackDays?: number; searchQuery?: string } }
+                          ).gmail;
+                          const lookbackDays = gmailConfig?.lookbackDays;
+                          if (lookbackDays !== undefined) {
+                            if (lookbackDays === 0) return 'All Time';
+                            if (lookbackDays === 7) return 'Last 7 Days';
+                            if (lookbackDays === 30) return 'Last 30 Days';
+                            if (lookbackDays === 90) return 'Last 90 Days';
+                            if (lookbackDays === 180) return 'Last 6 Months';
+                            if (lookbackDays === 365) return 'Last Year';
+                            return `${lookbackDays} days`;
+                          }
+                          // Fallback to old searchQuery for backward compatibility
+                          const query = gmailConfig?.searchQuery ?? 'is:unread';
                           return query === '' ? 'Everything' : query;
                         })()}
                         {(() => {
@@ -404,20 +436,62 @@ export const GmailIntegrationCard = ({
                     Client secret from the same OAuth2 credentials
                   </p>
                 </div>
-                <Select
-                  label="Search Query"
-                  value={config.searchQuery}
-                  onChange={(e) => setConfig({ ...config, searchQuery: e.target.value })}
-                >
-                  {searchQueryOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-                <p className="-mt-2 text-xs text-muted-foreground">
-                  Select which emails to fetch from Gmail
+                
+                <div className="flex gap-2 items-center pt-2">
+                  <input
+                    type="checkbox"
+                    checked={config.isKnowledgeBase ?? false}
+                    onChange={(e) => setConfig({ ...config, isKnowledgeBase: e.target.checked })}
+                    className="rounded"
+                  />
+                  <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
+                    📚 Use as Knowledge Base Source
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2 ml-6">
+                  Extract Q&A pairs and documents from conversations for AI-powered support responses
                 </p>
+                
+                <div>
+                  <label htmlFor="searchQuery" className="text-sm font-medium">
+                    Email Filter
+                  </label>
+                  <select
+                    value={config.searchQuery}
+                    onChange={(e) => setConfig({ ...config, searchQuery: e.target.value })}
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {searchQueryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Which emails to sync (unread, inbox, etc.)
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="lookbackDays" className="text-sm font-medium">
+                    Time Range
+                  </label>
+                  <select
+                    value={config.lookbackDays ?? 30}
+                    onChange={(e) =>
+                      setConfig({ ...config, lookbackDays: parseInt(e.target.value) })
+                    }
+                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {lookbackOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    How far back in time (combines with filter above)
+                  </p>
+                </div>
                 <div>
                   <label htmlFor="maxResults" className="text-sm font-medium">
                     Max Results per Sync

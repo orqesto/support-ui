@@ -48,6 +48,8 @@ export type Message = {
   repliedBy?: number | null;
   repliedAt?: string | null;
   resolved?: boolean;
+  // Attachment tracking
+  attachmentCount?: number;
 };
 
 export type Ticket = {

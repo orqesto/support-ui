@@ -12,6 +12,7 @@ import {
   File,
   RefreshCw,
 } from 'lucide-react';
+import RichTextEditor from '@/components/RichTextEditor';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -186,12 +187,6 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     }
   };
 
-  const handleKeyPress = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      await handleAddComment();
-    }
-  };
 
   const handleEditStart = (comment: Comment) => {
     setEditingId(comment.id);
@@ -427,11 +422,11 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
               {/* Comment Content */}
               {editingId === comment.id ? (
                 <div className="space-y-2">
-                  <textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    className="px-3 py-2 w-full text-sm rounded-lg border border-border bg-input text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                    rows={3}
+                  <RichTextEditor
+                    content={editContent}
+                    onChange={setEditContent}
+                    placeholder="Edit comment..."
+                    minHeight="100px"
                   />
                   <div className="flex gap-2">
                     <Button
@@ -450,7 +445,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                 </div>
               ) : (
                 <>
-                  <p className="text-sm whitespace-pre-wrap break-words">{comment.content}</p>
+                  <div className="text-sm prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: comment.content }} />
                   {/* Attachments */}
                   {comment.attachments && comment.attachments.length > 0 && (
                     <div className="mt-3 space-y-2">
@@ -519,14 +514,12 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
 
       {/* Add Comment Form */}
       <div className="pt-4 border-t">
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          onKeyDown={handleKeyPress}
-          placeholder="Add a comment... (Cmd/Ctrl+Enter to submit)"
-          className="px-3 py-2 w-full rounded-lg border border-border bg-input text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          rows={3}
-          disabled={isSubmitting}
+        <RichTextEditor
+          content={newComment}
+          onChange={setNewComment}
+          placeholder="Add a comment... (formatting supported)"
+          minHeight="120px"
+          editable={!isSubmitting}
         />
 
         {/* Selected Files Display */}

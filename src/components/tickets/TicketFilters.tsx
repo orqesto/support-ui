@@ -1,4 +1,13 @@
-import { Filter, X, Send, ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import {
+  Filter,
+  X,
+  Send,
+  ExternalLink as ExternalLinkIcon,
+  Clock,
+  AlertTriangle,
+  Zap,
+  CheckCircle,
+} from 'lucide-react';
 import { MessageSourceFilter } from '@/components/filters/MessageSourceFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -65,21 +74,90 @@ export const TicketFilters = ({
     (filters.priority !== 'all' ? 1 : 0) +
     (filters.categoryId !== 'all' ? 1 : 0) +
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
-    (filters.search?.trim() ? 1 : 0);
+    (filters.search?.trim() ? 1 : 0) +
+    (filters.syncedToJira ? 1 : 0);
+
+  // Helper to get active filter labels
+  const getActiveFilters = () => {
+    const active: Array<{ key: string; label: string; value: string }> = [];
+
+    if (filters.status !== 'all') {
+      active.push({ key: 'status', label: 'Status', value: filters.status });
+    }
+    if (filters.priority !== 'all') {
+      active.push({ key: 'priority', label: 'Priority', value: filters.priority });
+    }
+    if (filters.categoryId !== 'all') {
+      active.push({ key: 'categoryId', label: 'Category', value: filters.categoryId });
+    }
+    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
+      active.push({ key: 'messageSourceId', label: 'Source', value: filters.messageSourceId });
+    }
+    if (filters.syncedToJira) {
+      active.push({ key: 'syncedToJira', label: 'Jira', value: 'Synced' });
+    }
+
+    return active;
+  };
+
+  const activeFilters = getActiveFilters();
+
+  const removeFilter = (key: string) => {
+    if (key === 'status') {
+      onFilterChange('status', 'all');
+    } else if (key === 'priority') {
+      onFilterChange('priority', 'all');
+    } else if (key === 'categoryId') {
+      onFilterChange('categoryId', 'all');
+    } else if (key === 'messageSourceId') {
+      onFilterChange('messageSourceId', 'all');
+    } else if (key === 'syncedToJira') {
+      onFilterChange('syncedToJira', 'false');
+    }
+  };
+
+  // Quick filter presets
+  const applyPreset = (presetName: string) => {
+    switch (presetName) {
+      case 'urgent':
+        // High/Critical priority, open tickets
+        onFilterChange('status', 'open');
+        onFilterChange('priority', 'high');
+        break;
+      case 'in-progress':
+        // Active work
+        onFilterChange('status', 'in_progress');
+        onFilterChange('priority', 'all');
+        break;
+      case 'pending':
+        // Waiting for assignment/action
+        onFilterChange('status', 'pending');
+        onFilterChange('priority', 'all');
+        break;
+      case 'recent':
+        // All recent tickets
+        onFilterChange('status', 'all');
+        onFilterChange('priority', 'all');
+        onSortingChange({ sortBy: 'createdAt', sortOrder: 'desc' });
+        break;
+    }
+  };
 
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Header */}
-          <div className="flex flex-wrap gap-2 justify-between items-center min-h-[32px]">
-            <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-wrap gap-3 justify-between items-center">
+            <div className="flex flex-wrap gap-3 items-center">
               <div className="flex gap-2 items-center">
                 <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Filters</span>
-                <Badge variant="default" className="text-xs">
-                  {activeFilterCount}
-                </Badge>
+                <span className="text-sm font-semibold">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="default" className="text-xs">
+                    {activeFilterCount}
+                  </Badge>
+                )}
               </div>
               {pagination.total > 0 && (
                 <span className="text-xs whitespace-nowrap text-muted-foreground">
@@ -89,12 +167,78 @@ export const TicketFilters = ({
                 </span>
               )}
             </div>
-            {activeFilterCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={onClearFilters} className="shrink-0">
-                <X className="mr-1 w-3 h-3" />
-                Clear
-              </Button>
-            )}
+            <div className="flex gap-2 items-center">
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 shrink-0">
+                  <X className="mr-1 w-3 h-3" />
+                  Clear All
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Active Filter Pills */}
+          {activeFilters.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {activeFilters.map((filter, index) => (
+                <Badge
+                  key={`${filter.key}-${index}`}
+                  variant="secondary"
+                  className="flex gap-1 items-center py-1 pr-1 pl-2 text-xs group"
+                >
+                  <span className="font-normal text-muted-foreground">{filter.label}:</span>
+                  <span className="font-medium capitalize">{filter.value.replace('_', ' ')}</span>
+                  <button
+                    onClick={() => removeFilter(filter.key)}
+                    className="ml-1 rounded-full hover:bg-muted-foreground/20 transition-colors p-0.5"
+                    aria-label={`Remove ${filter.label} filter`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Quick Filter Presets */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-medium text-muted-foreground">Quick Filters:</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyPreset('urgent')}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <AlertTriangle className="w-3 h-3 text-orange-500" />
+              Urgent
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyPreset('in-progress')}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <Zap className="w-3 h-3 text-blue-500" />
+              In Progress
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyPreset('pending')}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <Clock className="w-3 h-3" />
+              Pending
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyPreset('recent')}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <CheckCircle className="w-3 h-3 text-green-500" />
+              Recent
+            </Button>
           </div>
 
           {/* Filter Controls */}
@@ -113,154 +257,165 @@ export const TicketFilters = ({
               />
             </div>
 
-            {/* Row 2: Main Filters */}
-            <div className="flex flex-wrap gap-4 items-center">
-              {/* Group 1: Status & Priority */}
-              <div className="flex gap-2 items-center">
-                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                  Status:
-                </span>
-                <Select
-                  value={filters.status}
-                  onChange={(e) => onFilterChange('status', e.target.value)}
-                  className="px-2 py-1 pr-8 h-8 text-xs"
-                  aria-label="Filter by status"
-                >
-                  <option value="all">All</option>
-                  <option value="pending">Pending</option>
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
-                </Select>
-              </div>
-
-              <div className="flex gap-2 items-center">
-                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                  Priority:
-                </span>
-                <Select
-                  value={filters.priority}
-                  onChange={(e) => onFilterChange('priority', e.target.value)}
-                  className="px-2 py-1 pr-8 h-8 text-xs"
-                  aria-label="Filter by priority"
-                >
-                  <option value="all">All</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </Select>
-              </div>
-
-              {/* Divider */}
-              <div className="h-8 w-px bg-border" />
-
-              {/* Message Source Filter */}
-              <MessageSourceFilter
-                value={filters.messageSourceId}
-                onChange={(value) => onFilterChange('messageSourceId', value)}
-              />
-
-              {/* Divider */}
-              <div className="h-8 w-px bg-border" />
-
-              {/* Group 2: Sorting */}
-              <div className="flex gap-2 items-center">
-                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                  Sort:
-                </span>
-                <Select
-                  value={sorting.sortBy}
-                  onChange={(e) =>
-                    onSortingChange({
-                      ...sorting,
-                      sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
-                    })
-                  }
-                  className="px-2 py-1 pr-8 h-8 text-xs"
-                  aria-label="Sort by"
-                >
-                  <option value="createdAt">Created Date</option>
-                  <option value="updatedAt">Updated Date</option>
-                  <option value="priority">Priority</option>
-                </Select>
-              </div>
-
-              <div className="flex gap-2 items-center">
-                <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                  Order:
-                </span>
-                <Select
-                  value={sorting.sortOrder}
-                  onChange={(e) =>
-                    onSortingChange({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
-                  }
-                  className="px-2 py-1 pr-8 h-8 text-xs"
-                  aria-label="Sort order"
-                >
-                  <option value="desc">Newest First</option>
-                  <option value="asc">Oldest First</option>
-                </Select>
-              </div>
-
-              {/* Divider */}
-              <div className="h-8 w-px bg-border" />
-
-              {/* Group 3: Jira & Sync */}
-              {jiraIntegrations.length > 1 && (
+            {/* Primary Filters Row */}
+            <div className="p-3 rounded-lg border bg-muted/30">
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Group 1: Status & Priority */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    Jira:
+                    Status:
                   </span>
                   <Select
-                    value={selectedJiraId ?? ''}
-                    onChange={(e) => onJiraIdChange(e.target.value ? Number(e.target.value) : undefined)}
+                    value={filters.status}
+                    onChange={(e) => onFilterChange('status', e.target.value)}
                     className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Filter by Jira integration"
+                    aria-label="Filter by status"
                   >
-                    <option value="">All Integrations</option>
-                    {jiraIntegrations.map((integration) => (
-                      <option key={integration.id} value={integration.id}>
-                        {integration.name}
-                      </option>
-                    ))}
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
                   </Select>
                 </div>
-              )}
 
-              {/* Jira Sync Status Filter */}
-              <label className="flex gap-2 items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={filters.syncedToJira ?? false}
-                  onChange={(e) =>
-                    onFilterChange('syncedToJira', e.target.checked ? 'true' : 'false')
-                  }
-                  className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                />
-                <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                  <ExternalLinkIcon className="w-3 h-3" />
-                  <span>Synced to Jira</span>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                    Priority:
+                  </span>
+                  <Select
+                    value={filters.priority}
+                    onChange={(e) => onFilterChange('priority', e.target.value)}
+                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    aria-label="Filter by priority"
+                  >
+                    <option value="all">All</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </Select>
                 </div>
-              </label>
 
-              <Button
-                onClick={onSyncAll}
-                size="sm"
-                className="ml-auto"
-                disabled={
-                  !hasManagePermission ||
-                  jiraIntegrations.length === 0 ||
-                  (jiraIntegrations.length > 1 && !selectedJiraId)
-                }
-                isLoading={isSyncingAll}
-                title={!hasManagePermission ? 'You need MANAGE_TICKETS permission to sync to Jira' : ''}
-              >
-                <Send className="mr-2 w-4 h-4" />
-                Sync to Jira
-              </Button>
+                {/* Divider */}
+                <div className="w-px h-8 bg-border" />
+
+                {/* Message Source Filter */}
+                <MessageSourceFilter
+                  value={filters.messageSourceId}
+                  onChange={(value) => onFilterChange('messageSourceId', value)}
+                />
+
+                {/* Divider */}
+                <div className="w-px h-8 bg-border" />
+
+                {/* Group 2: Sorting */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                    Sort:
+                  </span>
+                  <Select
+                    value={sorting.sortBy}
+                    onChange={(e) =>
+                      onSortingChange({
+                        ...sorting,
+                        sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
+                      })
+                    }
+                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    aria-label="Sort by"
+                  >
+                    <option value="createdAt">Created Date</option>
+                    <option value="updatedAt">Updated Date</option>
+                    <option value="priority">Priority</option>
+                  </Select>
+                </div>
+
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                    Order:
+                  </span>
+                  <Select
+                    value={sorting.sortOrder}
+                    onChange={(e) =>
+                      onSortingChange({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
+                    }
+                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    aria-label="Sort order"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </Select>
+                </div>
+              </div>
             </div>
+
+            {/* Jira Integration Section */}
+            {jiraIntegrations.length > 0 && (
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Jira Integration Selector */}
+                {jiraIntegrations.length > 1 && (
+                  <>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                        Jira:
+                      </span>
+                      <Select
+                        value={selectedJiraId ?? ''}
+                        onChange={(e) =>
+                          onJiraIdChange(e.target.value ? Number(e.target.value) : undefined)
+                        }
+                        className="px-2 py-1 pr-8 h-8 text-xs"
+                        aria-label="Filter by Jira integration"
+                      >
+                        <option value="">All Integrations</option>
+                        {jiraIntegrations.map((integration) => (
+                          <option key={integration.id} value={integration.id}>
+                            {integration.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="w-px h-8 bg-border" />
+                  </>
+                )}
+
+                {/* Jira Sync Status Filter */}
+                <label className="flex gap-2 items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.syncedToJira ?? false}
+                    onChange={(e) =>
+                      onFilterChange('syncedToJira', e.target.checked ? 'true' : 'false')
+                    }
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                    <ExternalLinkIcon className="w-3 h-3" />
+                    <span>Synced to Jira</span>
+                  </div>
+                </label>
+
+                <Button
+                  onClick={onSyncAll}
+                  size="sm"
+                  className="ml-auto"
+                  disabled={
+                    !hasManagePermission ||
+                    jiraIntegrations.length === 0 ||
+                    (jiraIntegrations.length > 1 && !selectedJiraId)
+                  }
+                  isLoading={isSyncingAll}
+                  title={
+                    !hasManagePermission ? 'You need MANAGE_TICKETS permission to sync to Jira' : ''
+                  }
+                >
+                  <Send className="mr-2 w-4 h-4" />
+                  Sync to Jira
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

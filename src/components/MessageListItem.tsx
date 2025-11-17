@@ -37,7 +37,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
       }
     | undefined;
 
-  const hasAttachments = hasMessageAttachments(message.rawData as { attachments?: unknown[] });
+  const hasAttachments = hasMessageAttachments(message);
 
   return (
     <ListCard
@@ -47,7 +47,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           <Badge variant="secondary">{message.channel}</Badge>
           {message.processed && <Badge variant="success">Processed</Badge>}
           {message.processingError && (
-            <Badge variant="danger" title={message.processingError} className="flex gap-1 items-center">
+            <Badge
+              variant="danger"
+              title={message.processingError}
+              className="flex gap-1 items-center"
+            >
               <XCircle className="w-3 h-3" />
               Failed
             </Badge>
@@ -55,11 +59,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           {hasAttachments && (
             <Badge
               variant="default"
-              title={`${(message.rawData?.attachments as unknown[])?.length || 0} attachment(s)`}
+              title={`${message.attachmentCount ?? 0} attachment(s)`}
               className="flex gap-1 items-center"
             >
               <Paperclip className="w-3 h-3" />
-              {(message.rawData?.attachments as unknown[])?.length || 0}
+              {message.attachmentCount ?? 0}
             </Badge>
           )}
 
@@ -101,7 +105,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             </Badge>
           )}
           {analysis?.suggestedCategory && getCategoryDisplay(analysis.suggestedCategory) && (
-            <Badge variant="secondary" title="AI Suggested Category" className="flex gap-1 items-center">
+            <Badge
+              variant="secondary"
+              title="AI Suggested Category"
+              className="flex gap-1 items-center"
+            >
               <Folder className="w-3 h-3" />
               {getCategoryDisplay(analysis.suggestedCategory)}
             </Badge>
@@ -127,16 +135,19 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           {hasAttachments && (
             <span className="flex gap-1 items-center">
               • <Paperclip className="w-3 h-3" />
-              {(message.rawData?.attachments as unknown[])?.length || 0} file(s)
+              {message.attachmentCount ?? 0} file(s)
             </span>
           )}
           {message.processingError && (
-            <span className="text-red-600 dark:text-red-400 font-medium" title="Processing Error">
+            <span className="font-medium text-red-600 dark:text-red-400" title="Processing Error">
               • Error: {message.processingError}
             </span>
           )}
           <span className="whitespace-nowrap" title={`Imported: ${formatDate(message.createdAt)}`}>
-            • {formatDate((message.metadata as { receivedAt?: string })?.receivedAt ?? message.createdAt)}
+            •{' '}
+            {formatDate(
+              (message.metadata as { receivedAt?: string })?.receivedAt ?? message.createdAt
+            )}
           </span>
         </>
       }

@@ -16,8 +16,14 @@ import { Permission } from './types/roles';
 const MessagesPage = lazy(() =>
   import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage }))
 );
+const MessageDetailPage = lazy(() =>
+  import('./pages/MessageDetailPage').then((m) => ({ default: m.MessageDetailPage }))
+);
 const TicketsPage = lazy(() =>
   import('./pages/TicketsPage').then((m) => ({ default: m.TicketsPage }))
+);
+const TicketDetailPage = lazy(() =>
+  import('./pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage }))
 );
 const CreateTicketPage = lazy(() =>
   import('./pages/CreateTicketPage').then((m) => ({ default: m.CreateTicketPage }))
@@ -98,6 +104,16 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/messages/:id"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <MessageDetailPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/tickets"
         element={
           <PrivateRoute>
@@ -123,6 +139,16 @@ const AppRoutes = () => {
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
               <EditTicketPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/tickets/:id"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <TicketDetailPage />
             </Suspense>
           </PrivateRoute>
         }

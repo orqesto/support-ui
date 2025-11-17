@@ -238,6 +238,12 @@ export const useEmailProcessing = (enabled = true, filterByDepartment?: string) 
       }
 
       // Maintain backward compatibility with legacy single-session state
+      // Skip global events when department filtering is active to prevent cross-department interference
+      if (filterByDepartment && !event.integrationId) {
+        console.log('[useEmailProcessing] Ignoring global event - department filter active');
+        return;
+      }
+
       switch (event.type) {
         case 'started':
           setState({
