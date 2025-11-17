@@ -24,6 +24,7 @@ import { ingestionService } from '@/services/ingestion.service';
 import { integrationsService } from '@/services/integrations.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
+import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 
 export const DashboardPage = () => {
@@ -58,12 +59,16 @@ export const DashboardPage = () => {
   // Get messages store cache clear function
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 
+  // Get current user's department for filtering
+  const selectedDepartment = useAuthStore((state) => state.selectedDepartmentRole);
+
   // Subscribe to email processing events to auto-refresh on completion
+  // Filter by department to only show processing for user's department
   const {
     status: processingStatus,
     processed: processedCount,
     isProcessing,
-  } = useEmailProcessing(true);
+  } = useEmailProcessing(true, selectedDepartment ?? undefined);
   const prevProcessingStatus = useRef(processingStatus);
 
   // Subscribe to telegram processing events
@@ -267,7 +272,7 @@ export const DashboardPage = () => {
           response = await ingestionService.startAll();
           break;
         case 'email':
-          response = await ingestionService.startEmail();
+          response = await ingestionService.checkEmails(); // Check emails immediately, not just start polling
           break;
         case 'telegram':
           response = await ingestionService.startTelegram();

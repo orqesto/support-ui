@@ -129,7 +129,7 @@
     "no-useless-return": "error",
     "no-duplicate-imports": "error",
     "eqeqeq": ["error", "always"],
-    "curly": ["error", "all"],
+    "curly": ["error", "multi-line"],
 
     // Import Rules
     "import/order": [

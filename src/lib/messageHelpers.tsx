@@ -24,5 +24,5 @@ export const getCategoryDisplay = (suggestedCat?: string) => {
   return suggestedCat;
 };
 
-export const hasMessageAttachments = (rawData?: { attachments?: unknown[] }) =>
-  rawData?.attachments && Array.isArray(rawData.attachments) && rawData.attachments.length > 0;
+export const hasMessageAttachments = (message: { attachmentCount?: number }) =>
+  (message.attachmentCount ?? 0) > 0;

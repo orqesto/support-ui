@@ -273,8 +273,9 @@ export const MessageProcessingProgress = ({
               // Notify parent to remove this session after delay
               setTimeout(() => onClose(session.sessionKey), 300000); // Auto-remove after 5 min
             }}
+            disabled={isActivelyProcessing}
             className="p-0 w-6 h-6"
-            title="Close widget"
+            title={isActivelyProcessing ? 'Cannot close while processing' : 'Close widget'}
           >
             <X className="w-3 h-3" />
           </Button>

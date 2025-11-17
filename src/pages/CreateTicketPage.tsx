@@ -1,17 +1,20 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { Paperclip, X, File, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import RichTextEditor from '@/components/RichTextEditor';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { apiClient } from '@/lib/api-client';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
-import type { Message, Category, TicketPriority } from '@/types';
+import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
 
 export const CreateTicketPage = () => {
   const [searchParams] = useSearchParams();
@@ -35,6 +38,9 @@ export const CreateTicketPage = () => {
     categoryId: '',
     syncToJira: false,
   });
+
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [enhancing, setEnhancing] = useState(false);
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -78,10 +84,25 @@ export const CreateTicketPage = () => {
           });
         }
 
+        // Convert plain text to HTML for RichTextEditor
+        const escapeHtml = (text: string) => 
+          text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const htmlDescription = data.content
+          .split('\n')
+          .filter(line => line.trim()) // Remove empty lines
+          .map(line => `<p>${escapeHtml(line)}</p>`)
+          .join('');
+
         setFormData((prev) => ({
           ...prev,
           title: data.subject ?? `Message from ${data.sender}`,
-          description: data.content,
+          description: htmlDescription,
           // Pre-fill priority if AI suggested one
           priority: (analysis?.suggestedPriority as TicketPriority) ?? prev.priority,
           // categoryId will be set after categories are loaded
@@ -127,6 +148,55 @@ export const CreateTicketPage = () => {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) {
+      return bytes + ' B';
+    }
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const handleAIEnhance = async () => {
+    if (!formData.description.trim()) {
+      return;
+    }
+
+    try {
+      setEnhancing(true);
+      // Call AI service to enhance the description
+      const response = await apiClient.post<ApiResponse<{ enhanced: string }>>('/api/ai/enhance-ticket', {
+        content: formData.description,
+        title: formData.title,
+      });
+
+      if (response.data.success && response.data.data) {
+        setFormData((prev) => ({ ...prev, description: response.data.data?.enhanced ?? prev.description }));
+      }
+    } catch (error) {
+      console.error('Failed to enhance description:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Enhancement Failed',
+        description: 'Failed to enhance ticket description. Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setEnhancing(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!messageId) {
@@ -135,12 +205,12 @@ export const CreateTicketPage = () => {
 
     setLoading(true);
     try {
-      const response = await ticketService.create({
+      const response = await ticketService.createWithAttachments({
         ...formData,
         messageId: parseInt(messageId),
         categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
         syncToJira: formData.syncToJira,
-      });
+      }, selectedFiles);
 
       if (response.success && response.data) {
         const ticketId = response.data.id;
@@ -215,19 +285,58 @@ export const CreateTicketPage = () => {
               />
 
               <div>
-                <label htmlFor="description" className="block mb-2 text-sm font-medium">
-                  Description
-                </label>
-                <textarea
-                  className="flex px-3 py-2 w-full text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  rows={6}
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, description: e.target.value }))
-                  }
-                  required
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="description" className="text-sm font-medium">
+                    Description
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAIEnhance}
+                    disabled={!formData.description.trim() || enhancing || loading}
+                    className="gap-1"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {enhancing ? 'Enhancing...' : 'AI Enhance'}
+                  </Button>
+                </div>
+                <RichTextEditor
+                  content={formData.description}
+                  onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
+                  placeholder="Enter ticket description..."
+                  minHeight="200px"
                 />
               </div>
+
+              {/* File Attachments */}
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="block text-sm font-medium">Attachments</p>
+                  <div className="space-y-1">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={file.name}
+                        className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
+                      >
+                        <File className="w-4 h-4 text-muted-foreground" />
+                        <span className="flex-1 text-sm truncate">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveFile(index)}
+                          className="p-1 h-auto text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                          disabled={loading}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Select
@@ -289,13 +398,26 @@ export const CreateTicketPage = () => {
                 </label>
               </div>
 
-              <div className="flex gap-2 pt-4">
-                <Button type="submit" isLoading={loading}>
-                  Create Ticket
-                </Button>
-                <Button type="button" variant="outline" onClick={() => navigate('/messages')}>
-                  Cancel
-                </Button>
+              <div className="flex gap-2 justify-between items-center pt-4">
+                <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border cursor-pointer text-foreground bg-background border-border hover:bg-accent transition-colors">
+                  <Paperclip className="w-4 h-4" />
+                  <span>Attach Files</span>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    disabled={loading}
+                  />
+                </label>
+                <div className="flex gap-2">
+                  <Button type="submit" isLoading={loading}>
+                    Create Ticket
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => navigate('/messages')}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </form>
           </CardContent>

@@ -39,6 +39,8 @@ type MessagesState = {
   setFilters: (filters: FilterState) => void;
   setSorting: (sorting: SortingState) => void;
   updateFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
+  updatePrimaryFilter: (key: 'processed' | 'channel' | 'messageSourceId', value: string) => void;
+  updateSecondaryFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
   clearFilters: () => void;
   clearCache: () => void;
 };
@@ -124,6 +126,52 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     set((state) => ({
       filters: { ...state.filters, [key]: value },
     }));
+  },
+
+  // Update primary filter: Keep other primary filters, clear secondary filters
+  updatePrimaryFilter: (key, value) => {
+    set((state) => {
+      const { processed, channel, messageSourceId } = state.filters;
+      
+      console.log(`🔵 Primary filter changed: ${key} = ${value}`);
+      console.log('   Keeping: processed, channel, messageSourceId');
+      console.log('   Clearing: all secondary filters');
+      
+      return {
+        filters: {
+          // Keep all primary filters
+          processed,
+          channel,
+          messageSourceId,
+          // Update the changed one
+          [key]: value,
+          // Clear all secondary filters
+          showSpam: false,
+          excludeSpam: false,
+          showNeedsInfo: false,
+          showWorthy: false,
+          hasAttachments: false,
+          hasReplies: false,
+          hasTicket: false,
+          showFailed: false,
+          search: undefined,
+        },
+        cache: {}, // Clear cache on filter change
+      };
+    });
+  },
+
+  // Update secondary filter: Keep all filters
+  updateSecondaryFilter: (key, value) => {
+    set((state) => {
+      console.log(`🟢 Secondary filter changed: ${key} = ${value}`);
+      console.log('   Keeping: all filters');
+      
+      return {
+        filters: { ...state.filters, [key]: value },
+        cache: {}, // Clear cache on filter change
+      };
+    });
   },
 
   clearFilters: () => {

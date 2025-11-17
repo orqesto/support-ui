@@ -8,8 +8,10 @@ import {
   Calendar,
   Mail,
   Link as LinkIcon,
+  Maximize2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { ScrollButtons } from '@/components/ScrollButtons';
 import { TicketAttachments } from '@/components/TicketAttachments';
 import { TicketComments } from '@/components/TicketComments';
 import { TranslateButton } from '@/components/TranslateButton';
@@ -26,6 +28,7 @@ type TicketDetailProps = {
   onPushToJira?: () => void;
   onDelete?: () => void;
   isPushingToJira?: boolean;
+  showFullPageButton?: boolean;
 };
 
 const statusColors: Record<
@@ -51,7 +54,10 @@ export const TicketDetail = ({
   onPushToJira,
   onDelete,
   isPushingToJira,
+  showFullPageButton = true,
 }: TicketDetailProps) => {
+  const location = useLocation();
+  const isFullPage = location.pathname.startsWith('/tickets/');
   const [linkedMessages, setLinkedMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -89,15 +95,29 @@ export const TicketDetail = ({
   }, [ticket.id]);
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {/* Only show ScrollButtons in drawer mode (not full-page, page has its own) */}
+      {!isFullPage && <ScrollButtons bottomTarget="[data-ticket-actions]" />}
+
       {/* Header Section */}
       <div className="space-y-4">
         <div>
           <div className="flex gap-3 items-center mb-2">
-            <h2 className="text-2xl font-bold">{ticket.title}</h2>
+            <h2 className="flex-1 text-2xl font-bold">{ticket.title}</h2>
             <span className="px-2 py-1 font-mono text-xs rounded bg-muted text-muted-foreground">
               #{ticket.id}
             </span>
+            {showFullPageButton && !isFullPage && (
+              <Link to={`/tickets/${ticket.id}`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Open in full page"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
           </div>
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex gap-2 items-center">
@@ -260,7 +280,7 @@ export const TicketDetail = ({
       </div>
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2 pt-6 border-t">
+      <div className="flex flex-wrap gap-2 pt-6 border-t" data-ticket-actions>
         <Button onClick={handleCopyLink} variant="outline" size="sm">
           <LinkIcon className="mr-2 w-4 h-4" />
           {linkCopied ? 'Link Copied!' : 'Copy Link'}

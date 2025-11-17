@@ -51,6 +51,8 @@ export const MessagesPage = () => {
   const sorting = useMessagesStore((state) => state.sorting);
   const setMessages = useMessagesStore((state) => state.setMessages);
   const setFilters = useMessagesStore((state) => state.setFilters);
+  const updatePrimaryFilter = useMessagesStore((state) => state.updatePrimaryFilter);
+  const updateSecondaryFilter = useMessagesStore((state) => state.updateSecondaryFilter);
   const setSorting = useMessagesStore((state) => state.setSorting);
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
   const clearCache = useMessagesStore((state) => state.clearCache);
@@ -355,27 +357,34 @@ export const MessagesPage = () => {
     }
   }, [searchParams, selectedMessage]);
 
-  const handleFilterChange = (key: string, value: string) => {
+  const handleFilterChange = (key: string, value: string | boolean) => {
+    // Primary filters: processed, channel, messageSourceId
+    const primaryFilters = ['processed', 'channel', 'messageSourceId'];
+    
     if (key === 'search') {
-      setPendingSearch(value);
+      setPendingSearch(value as string);
       // If clearing search (empty value), immediately apply to show all results
-      if (!value.trim()) {
-        setFilters({ ...filters, search: '' });
+      if (!(value as string).trim()) {
+        updateSecondaryFilter('search', '');
       }
+    } else if (primaryFilters.includes(key)) {
+      // Primary filter change: keeps other primary filters, clears secondary
+      updatePrimaryFilter(key as 'processed' | 'channel' | 'messageSourceId', value as string);
     } else {
-      setFilters({ ...filters, [key]: value });
+      // Secondary filter change: keeps all filters
+      updateSecondaryFilter(key as keyof typeof filters, value);
     }
   };
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
-    setFilters({ ...filters, search: pendingSearch });
+    updateSecondaryFilter('search', pendingSearch);
   };
 
   const handleSearchBlur = () => {
     // If search is empty on blur, clear the search filter to show all data
     if (!pendingSearch.trim() && filters.search) {
-      setFilters({ ...filters, search: '' });
+      updateSecondaryFilter('search', '');
     }
   };
 
@@ -387,6 +396,12 @@ export const MessagesPage = () => {
 
   const handleApprove = (message: Message) => {
     navigate(`/tickets/create?messageId=${message.id}`);
+  };
+
+  const handleResolve = async () => {
+    // Refresh the messages list after resolving
+    await fetchMessages(pagination.page, true);
+    setSelectedMessage(null);
   };
 
   const handleReject = async (message: Message) => {
@@ -677,6 +692,7 @@ export const MessagesPage = () => {
               handleDeleteClick(selectedMessage);
               setSelectedMessage(null);
             }}
+            onResolve={handleResolve}
             onRefresh={handleRefreshMessage}
             onMessageNavigate={async (messageId: number) => {
               try {

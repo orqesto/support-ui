@@ -15,7 +15,7 @@ export const WebSocketStatus = () => {
       {!isExpanded && (
         <Button
           onClick={() => setIsExpanded(true)}
-          className={`fixed right-2 top-1/2 -translate-y-1/2 p-2 rounded-l-lg shadow-lg transition-all z-50 group ${
+          className={`fixed right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg shadow-lg transition-all z-50 group ${
             isConnected
               ? 'text-white bg-green-600 hover:bg-green-700'
               : 'text-white bg-red-600 hover:bg-red-700'

@@ -73,6 +73,23 @@ export const messageService = {
     return response.data;
   },
 
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true) => {
+    const formData = new FormData();
+    formData.append('content', content);
+    formData.append('resolve', String(resolve));
+    
+    files.forEach((file) => {
+      formData.append('attachments', file);
+    });
+
+    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
   resolve: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/resolve`, {});
     return response.data;

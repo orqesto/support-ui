@@ -7,9 +7,10 @@ type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
+  className?: string;
 };
 
-export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
+export const Dialog = ({ open, onOpenChange, children, className }: DialogProps) => {
   if (!open) {
     return null;
   }
@@ -28,7 +29,12 @@ export const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
         }}
         aria-label="Close dialog"
       />
-      <div className="relative bg-card rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div
+        className={cn(
+          'overflow-y-auto relative mx-4 w-full max-w-lg rounded-lg shadow-lg bg-card max-h-[90vh]',
+          className
+        )}
+      >
         {children}
       </div>
     </div>

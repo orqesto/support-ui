@@ -53,6 +53,29 @@ export const ticketService = {
     return response.data;
   },
 
+  createWithAttachments: async (data: CreateTicketRequest, files: File[]) => {
+    const formData = new FormData();
+    
+    // Append all ticket data as JSON string
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+      }
+    });
+    
+    // Append files
+    files.forEach((file) => {
+      formData.append('attachments', file);
+    });
+
+    const response = await apiClient.post<ApiResponse<Ticket>>('/api/tickets', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
   update: async (id: number, data: UpdateTicketRequest) => {
     const response = await apiClient.put<ApiResponse<Ticket>>(`/api/tickets/${id}`, data);
     return response.data;
