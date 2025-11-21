@@ -48,6 +48,7 @@ export type Message = {
   repliedBy?: number | null;
   repliedAt?: string | null;
   resolved?: boolean;
+  awaitingCustomerResponse?: boolean;
   // Attachment tracking
   attachmentCount?: number;
 };
@@ -101,6 +102,7 @@ export type PaginatedResponse<T> = ApiResponse<{
 }>;
 
 export type LoginRequest = {
+  organizationSlug: string;
   email: string;
   password: string;
 };

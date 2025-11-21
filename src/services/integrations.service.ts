@@ -68,10 +68,21 @@ export type BaseIntegration = {
   id: number;
   organizationId: number;
   name: string;
-  type: 'email' | 'gmail' | 'jira' | 'telegram' | 'slack' | 'openai' | 'anthropic' | 'deepseek' | 'perplexity' | 'local_embeddings';
+  type:
+    | 'email'
+    | 'gmail'
+    | 'jira'
+    | 'telegram'
+    | 'slack'
+    | 'openai'
+    | 'anthropic'
+    | 'deepseek'
+    | 'perplexity'
+    | 'local_embeddings';
   enabled: boolean;
   departmentRole?: 'support' | 'sales' | 'billing' | 'general';
   isDefault?: boolean;
+  isKnowledgeBase?: boolean; // If true, extract Q&A pairs for KB (email/gmail only)
   createdAt: string;
   updatedAt: string;
   hasCredentials?: boolean;
@@ -145,7 +156,7 @@ export type ApiResponse<T> = {
   data?: T;
   error?: string;
   message?: string;
-  action?: 'created' | 'updated';  // Backend returns this for upsert operations
+  action?: 'created' | 'updated'; // Backend returns this for upsert operations
 };
 
 // Generic integrations service (for listing all)
@@ -204,20 +215,45 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
+  testImapConfig: async (config: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    secure: boolean;
+    searchCriteria?: string;
+    lookbackDays?: number;
+  }): Promise<
+    ApiResponse<{
+      success: boolean;
+      message: string;
+      details?: { messageCount: number; searchCriteria: string; lookbackDays: number };
+    }>
+  > => {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      details?: { messageCount: number; searchCriteria: string; lookbackDays: number };
+    }>('/api/integrations/test-imap', config);
+    return { success: response.data.success, data: response.data };
+  },
+
   upsert: async (data: {
     name: string;
     type: string;
     enabled?: boolean;
+    isKnowledgeBase?: boolean;
     config: Record<string, unknown>;
   }): Promise<ApiResponse<Integration>> => {
-    const response = await apiClient.post<{ success: boolean; action?: 'created' | 'updated'; data: Integration }>(
-      '/api/integrations',
-      data
-    );
-    return { 
-      success: response.data.success, 
+    const response = await apiClient.post<{
+      success: boolean;
+      action?: 'created' | 'updated';
+      data: Integration;
+    }>('/api/integrations', data);
+    return {
+      success: response.data.success,
       data: response.data.data,
-      action: response.data.action 
+      action: response.data.action,
     };
   },
 
@@ -241,12 +277,17 @@ export const integrationsService = {
    * @deprecated Use ticketingSystemsService.setDefault instead
    * This method is kept for backwards compatibility but uses the new endpoint
    */
-  setDefaultTicketing: async (id: number, type: string = 'jira'): Promise<ApiResponse<{
-    id: number;
-    name: string;
-    departmentRole: string;
-    isDefault: boolean;
-  }>> => {
+  setDefaultTicketing: async (
+    id: number,
+    type: string = 'jira'
+  ): Promise<
+    ApiResponse<{
+      id: number;
+      name: string;
+      departmentRole: string;
+      isDefault: boolean;
+    }>
+  > => {
     const response = await apiClient.post<{
       success: boolean;
       message: string;
@@ -260,7 +301,7 @@ export const integrationsService = {
     return {
       success: response.data.success,
       message: response.data.message,
-      data: response.data.data
+      data: response.data.data,
     };
   },
 };

@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -8,11 +9,15 @@ import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 
 export const LoginPage = () => {
+  const [organizationSlug, setOrganizationSlug] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<'verify' | 'password'>('verify');
+  const [userVerified, setUserVerified] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const login = useAuthStore((state) => state.login);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const navigate = useNavigate();
@@ -28,13 +33,36 @@ export const LoginPage = () => {
     }
   }, [location]);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleVerifyUser = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const response = await authService.login({ email, password });
+      // Verify user exists in organization
+      const verifyResponse = await authService.verifyUser({ organizationSlug, email });
+
+      if (verifyResponse.success) {
+        setUserVerified(true);
+        setStep('password');
+        setInfo(`Welcome! Please enter your password.`);
+      } else {
+        setError(verifyResponse.message ?? 'User not found in this organization');
+      }
+    } catch {
+      setError('Unable to verify user. Please check your organization and email.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await authService.login({ organizationSlug, email, password });
       if (response.success && response.data) {
         login(response.data.token, response.data.user);
 
@@ -66,13 +94,21 @@ export const LoginPage = () => {
 
         navigate('/dashboard');
       } else {
-        setError(response.message ?? 'Login failed');
+        setError(response.message ?? 'Invalid password');
       }
     } catch {
-      setError('Invalid credentials. Please try again.');
+      setError('Invalid password. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    setStep('verify');
+    setUserVerified(false);
+    setPassword('');
+    setError('');
+    setInfo('');
   };
 
   return (
@@ -83,48 +119,89 @@ export const LoginPage = () => {
           <CardDescription>Enter your credentials to access the support system</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={step === 'verify' ? handleVerifyUser : handleLogin} className="space-y-4">
+            <Input
+              label="Organization"
+              type="text"
+              placeholder="resol"
+              value={organizationSlug}
+              onChange={(e) => setOrganizationSlug(e.target.value.toLowerCase())}
+              disabled={userVerified}
+              required
+            />
             <Input
               label="Email"
               type="email"
-              placeholder="admin@example.com"
+              placeholder="user@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={userVerified}
               required
             />
-            <div>
-              <Input
-                label="Password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <div className="mt-2 text-right">
-                <Link
-                  to="/forgot-password"
-                  className="text-sm transition-colors text-primary hover:text-primary/80"
-                >
-                  Forgot password?
-                </Link>
+            {step === 'password' && (
+              <div>
+                <div className="relative">
+                  <Input
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-[38px] text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                </div>
+                <div className="mt-2 text-right">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm transition-colors text-primary hover:text-primary/80"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
-            </div>
+            )}
             {info && <div className="p-3 text-sm text-blue-700 bg-blue-50 rounded-md">{info}</div>}
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" isLoading={isLoading}>
-              Sign in
-            </Button>
+            <div className="flex gap-2">
+              {step === 'password' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                  className="w-24"
+                >
+                  Back
+                </Button>
+              )}
+              <Button type="submit" className="flex-1" disabled={isLoading}>
+                {isLoading
+                  ? step === 'verify'
+                    ? 'Verifying...'
+                    : 'Signing in...'
+                  : step === 'verify'
+                    ? 'Continue'
+                    : 'Sign in'}
+              </Button>
+            </div>
             <div className="text-sm text-center text-muted-foreground">
               Don&apos;t have an account? Contact your administrator for an invitation.
             </div>
             <div className="mt-4 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
-              <p className="font-medium">ecttet@gmail.com / password123</p>
+              <p className="font-medium">admin@resol.com / password123</p>
             </div>
           </form>
         </CardContent>

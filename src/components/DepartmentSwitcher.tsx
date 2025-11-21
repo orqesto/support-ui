@@ -5,10 +5,10 @@ import { useAuthStore } from '@/stores/authStore';
 import type { DepartmentRole } from '@/types';
 
 const DEPARTMENT_LABELS: Record<DepartmentRole, string> = {
+  general: 'General',
   support: 'Support',
   sales: 'Sales',
   billing: 'Billing',
-  general: 'General',
 };
 
 const DEPARTMENT_DESCRIPTIONS: Record<DepartmentRole, string> = {
@@ -34,7 +34,8 @@ export const DepartmentSwitcher = () => {
   // Auto-select first department if none selected and user has departments
   useEffect(() => {
     if (!selectedDepartmentRole && departments.length > 0) {
-      setSelectedDepartment(departments[0]);
+      const department = departments.find((dept) => dept === 'general');
+      setSelectedDepartment(department ?? departments[0]);
     }
   }, [selectedDepartmentRole, departments, setSelectedDepartment]);
 
@@ -52,16 +53,16 @@ export const DepartmentSwitcher = () => {
 
   const handleSelectDepartment = (dept: DepartmentRole) => {
     // eslint-disable-next-line no-console
-    console.log(
-      `🔄 [DEPT SWITCHER] Switching to department: ${DEPARTMENT_LABELS[dept]} (${dept})`
-    );
+    console.log(`🔄 [DEPT SWITCHER] Switching to department: ${DEPARTMENT_LABELS[dept]} (${dept})`);
 
     setSelectedDepartment(dept);
     setIsOpen(false);
 
     // Clear URL parameters (closes any open message/ticket) and reload
     // eslint-disable-next-line no-console
-    console.log('🔄 [DEPT SWITCHER] Clearing selection and reloading to apply new department context...');
+    console.log(
+      '🔄 [DEPT SWITCHER] Clearing selection and reloading to apply new department context...'
+    );
     const baseUrl = window.location.pathname; // e.g., /messages or /tickets
     window.location.href = baseUrl; // Navigate to base URL without params, triggering reload
   };

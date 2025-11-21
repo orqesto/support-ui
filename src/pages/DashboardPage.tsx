@@ -458,7 +458,12 @@ export const DashboardPage = () => {
               <Button
                 onClick={() => handleIngestion('all')}
                 isLoading={ingesting === 'all'}
-                disabled={!hasMessageSources || isProcessing || processingStatus === 'processing'}
+                disabled={
+                  !hasMessageSources ||
+                  isProcessing ||
+                  processingStatus === 'processing' ||
+                  processingStatus === 'complete'
+                }
                 className="w-full h-12 text-base font-semibold"
                 size="lg"
                 title={
@@ -466,7 +471,9 @@ export const DashboardPage = () => {
                     ? 'No message sources configured (email, gmail, telegram, or slack)'
                     : isProcessing || processingStatus === 'processing'
                       ? 'Email processing is already running. Please wait for completion.'
-                      : ''
+                      : processingStatus === 'complete'
+                        ? 'Processing just completed. Wait for widget to close before starting again.'
+                        : ''
                 }
               >
                 <PlayCircle className="mr-2 w-5 h-5" />
@@ -481,10 +488,14 @@ export const DashboardPage = () => {
                   Slack integrations.
                 </p>
               )}
-              {(isProcessing || processingStatus === 'processing') && (
+              {(isProcessing ||
+                processingStatus === 'processing' ||
+                processingStatus === 'complete') && (
                 <p className="flex gap-1 justify-center items-center text-xs text-blue-600 dark:text-blue-400">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  Email processing in progress. Please wait...
+                  {processingStatus === 'complete'
+                    ? 'Processing completed. Widget will close automatically...'
+                    : 'Email processing in progress. Please wait...'}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-3">
@@ -493,7 +504,10 @@ export const DashboardPage = () => {
                   onClick={() => handleIngestion('email')}
                   isLoading={ingesting === 'email'}
                   disabled={
-                    !hasEmailIntegrations || isProcessing || processingStatus === 'processing'
+                    !hasEmailIntegrations ||
+                    isProcessing ||
+                    processingStatus === 'processing' ||
+                    processingStatus === 'complete'
                   }
                   className="w-full"
                   title={
@@ -501,7 +515,9 @@ export const DashboardPage = () => {
                       ? 'No email integrations configured'
                       : isProcessing || processingStatus === 'processing'
                         ? 'Processing already in progress'
-                        : ''
+                        : processingStatus === 'complete'
+                          ? 'Wait for widget to close'
+                          : ''
                   }
                 >
                   <Mail className="mr-2 w-4 h-4" />
@@ -512,7 +528,10 @@ export const DashboardPage = () => {
                   onClick={() => handleIngestion('telegram')}
                   isLoading={ingesting === 'telegram'}
                   disabled={
-                    !hasTelegramIntegrations || isProcessing || processingStatus === 'processing'
+                    !hasTelegramIntegrations ||
+                    isProcessing ||
+                    processingStatus === 'processing' ||
+                    processingStatus === 'complete'
                   }
                   className="w-full"
                   title={
@@ -520,7 +539,9 @@ export const DashboardPage = () => {
                       ? 'No Telegram integration configured'
                       : isProcessing || processingStatus === 'processing'
                         ? 'Processing already in progress'
-                        : ''
+                        : processingStatus === 'complete'
+                          ? 'Wait for widget to close'
+                          : ''
                   }
                 >
                   <Inbox className="mr-2 w-4 h-4" />

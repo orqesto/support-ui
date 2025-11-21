@@ -45,9 +45,12 @@ export const EmailIntegrationCard = ({
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<number | null>(null);
+  const [checkingCount, setCheckingCount] = useState(false);
+  const [messageCount, setMessageCount] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
 
   const [config, setConfig] = useState<EmailConfig>({
     host: '',
@@ -62,7 +65,7 @@ export const EmailIntegrationCard = ({
     bulkImportDays: 0,
     bulkImportMaxResults: 500,
   });
-  
+
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [editBulkImport, setEditBulkImport] = useState<{
     id: number;
@@ -72,7 +75,49 @@ export const EmailIntegrationCard = ({
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
 
   const emailIntegrations = integrations.filter((i) => i.type === 'email');
-  
+
+  const handleCheckMessagesCount = async () => {
+    setCheckingCount(true);
+    setMessageCount(null);
+    try {
+      const result = await integrationsService.testImapConfig({
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        password: config.password,
+        secure: config.secure,
+        searchCriteria: config.searchCriteria,
+        lookbackDays: config.lookbackDays,
+      });
+
+      if (result.success && result.data) {
+        setMessageCount(result.data.details?.messageCount ?? null);
+        onShowAlert({
+          open: true,
+          title: 'Connection Successful',
+          description: result.data.message,
+          variant: 'success',
+        });
+      } else {
+        onShowAlert({
+          open: true,
+          title: 'Connection Failed',
+          description: result.data?.message ?? 'Failed to connect to IMAP server',
+          variant: 'error',
+        });
+      }
+    } catch (error) {
+      onShowAlert({
+        open: true,
+        title: 'Connection Failed',
+        description: error instanceof Error ? error.message : 'Failed to test IMAP connection',
+        variant: 'error',
+      });
+    } finally {
+      setCheckingCount(false);
+    }
+  };
+
   const handleUpdateBulkImportDays = async () => {
     if (!editBulkImport) {
       return;
@@ -113,11 +158,11 @@ export const EmailIntegrationCard = ({
   };
 
   const resetForm = () => {
-    setConfig({ 
-      host: '', 
-      port: 993, 
-      user: '', 
-      password: '', 
+    setConfig({
+      host: '',
+      port: 993,
+      user: '',
+      password: '',
       secure: true,
       isKnowledgeBase: false,
       searchCriteria: 'UNSEEN',
@@ -128,37 +173,55 @@ export const EmailIntegrationCard = ({
     });
     setShowForm(false);
     setEditingId(null);
+    setEditingName(null);
+    setMessageCount(null);
     setShowAdvanced(false);
   };
 
-  const loadForEdit = (id: number, currentConfig: Record<string, unknown>) => {
+  const loadForEdit = (
+    id: number,
+    currentConfig: Record<string, unknown>,
+    currentName: string,
+    isKB: boolean
+  ) => {
     setEditingId(id);
+    setEditingName(currentName); // Store original name
     // Extract email config from wrapper (backend stores as { email: { host, port, ... } })
     const emailConfig = (currentConfig as { email?: EmailConfig }).email ?? currentConfig;
-    setConfig(emailConfig as EmailConfig);
+    // isKnowledgeBase is stored as top-level field in DB, not in config
+    setConfig({ ...(emailConfig as EmailConfig), isKnowledgeBase: isKB });
     setShowForm(true);
   };
 
   const saveIntegration = async () => {
     setSaving(true);
     try {
+      // When editing, use existing name; when creating, generate new name
+      const integrationName =
+        editingId !== null && editingName ? editingName : `Email-${config.user}`;
+
+      // Extract isKnowledgeBase from config (stored separately in DB)
+      const { isKnowledgeBase, ...emailConfigOnly } = config;
+
       const response = await integrationsService.upsert({
-        name: `Email-${config.user}`,
+        name: integrationName,
         type: 'email',
         enabled: true,
+        isKnowledgeBase: isKnowledgeBase ?? false, // Top-level field in DB
         config: {
-          email: config, // Backend expects config wrapped in 'email' key
+          email: emailConfigOnly, // Backend expects config wrapped in 'email' key
         },
       });
 
       if (response.success) {
         await onRefresh();
         resetForm();
-        
-        const actionMessage = response.action === 'updated'
-          ? 'Email integration updated successfully! (Credentials refreshed for existing integration)'
-          : 'Email integration created successfully!';
-        
+
+        const actionMessage =
+          response.action === 'updated'
+            ? 'Email integration updated successfully! (Credentials refreshed for existing integration)'
+            : 'Email integration created successfully!';
+
         onShowAlert({
           open: true,
           title: response.action === 'updated' ? 'Updated' : 'Created',
@@ -279,16 +342,18 @@ export const EmailIntegrationCard = ({
                       className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2 items-center">
                         <p className="font-medium">
-                          {((integration.config as { email?: EmailConfig }).email?.user) ?? integration.name}
+                          {(integration.config as { email?: EmailConfig }).email?.user ??
+                            integration.name}
                         </p>
                         {integration.departmentRole && (
                           <DepartmentBadge department={integration.departmentRole} size="sm" />
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {((integration.config as { email?: EmailConfig }).email?.host) ?? 'Not configured'}
+                        {(integration.config as { email?: EmailConfig }).email?.host ??
+                          'Not configured'}
                       </p>
                     </div>
                   </div>
@@ -299,10 +364,10 @@ export const EmailIntegrationCard = ({
                       onClick={() => {
                         const emailConfig = (integration.config as { email?: EmailConfig }).email;
                         const currentDays = emailConfig?.bulkImportDays || 0;
-                        setEditBulkImport({ 
-                          id: integration.id, 
-                          name: integration.name, 
-                          currentDays 
+                        setEditBulkImport({
+                          id: integration.id,
+                          name: integration.name,
+                          currentDays,
                         });
                         setBulkImportDaysInput('7');
                       }}
@@ -313,7 +378,14 @@ export const EmailIntegrationCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => loadForEdit(integration.id, integration.config as Record<string, unknown>)}
+                      onClick={() =>
+                        loadForEdit(
+                          integration.id,
+                          integration.config as Record<string, unknown>,
+                          integration.name,
+                          integration.isKnowledgeBase ?? false
+                        )
+                      }
                       disabled={editingId === integration.id}
                     >
                       <Edit className="w-4 h-4" />
@@ -331,7 +403,9 @@ export const EmailIntegrationCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setDeleteConfirm({ id: integration.id, name: integration.name })}
+                      onClick={() =>
+                        setDeleteConfirm({ id: integration.id, name: integration.name })
+                      }
                       isLoading={deleting === integration.id}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
@@ -375,7 +449,10 @@ export const EmailIntegrationCard = ({
                 </div>
                 <div>
                   <label htmlFor="user" className="text-sm font-medium">
-                    Email {isProviderSupported(config.user) && <span className="text-xs text-green-500">✓ Auto-detected</span>}
+                    Email{' '}
+                    {isProviderSupported(config.user) && (
+                      <span className="text-xs text-green-500">✓ Auto-detected</span>
+                    )}
                   </label>
                   <input
                     type="email"
@@ -417,18 +494,18 @@ export const EmailIntegrationCard = ({
                   />
                 </div>
               </div>
-              
+
               {/* Advanced Settings Toggle */}
               <div className="pt-2 border-t">
                 <button
                   type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                  className="flex gap-1 items-center text-sm text-muted-foreground hover:text-foreground"
                 >
                   {showAdvanced ? '▼' : '▶'} Advanced Settings
                 </button>
               </div>
-              
+
               {/* Advanced Settings Panel */}
               {showAdvanced && (
                 <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30">
@@ -451,14 +528,16 @@ export const EmailIntegrationCard = ({
                       Which emails to sync (read/unread status)
                     </p>
                   </div>
-                  
+
                   <div>
                     <label htmlFor="lookbackDays" className="text-sm font-medium">
                       Time Range
                     </label>
                     <select
                       value={config.lookbackDays ?? 30}
-                      onChange={(e) => setConfig({ ...config, lookbackDays: parseInt(e.target.value) })}
+                      onChange={(e) =>
+                        setConfig({ ...config, lookbackDays: parseInt(e.target.value) })
+                      }
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                       {lookbackOptions.map((opt) => (
@@ -471,7 +550,7 @@ export const EmailIntegrationCard = ({
                       How far back in time (combines with filter)
                     </p>
                   </div>
-                  
+
                   <div>
                     <label htmlFor="maxResults" className="text-sm font-medium">
                       Max Results per Sync
@@ -479,16 +558,16 @@ export const EmailIntegrationCard = ({
                     <input
                       type="number"
                       value={config.maxResults ?? 500}
-                      onChange={(e) => setConfig({ ...config, maxResults: parseInt(e.target.value) || 500 })}
+                      onChange={(e) =>
+                        setConfig({ ...config, maxResults: parseInt(e.target.value) || 500 })
+                      }
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       min="1"
                       max="1000"
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Limit emails per sync
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Limit emails per sync</p>
                   </div>
-                  
+
                   <div>
                     <label htmlFor="bulkImportMaxResults" className="text-sm font-medium">
                       Bulk Import Max Results
@@ -496,18 +575,21 @@ export const EmailIntegrationCard = ({
                     <input
                       type="number"
                       value={config.bulkImportMaxResults ?? 500}
-                      onChange={(e) => setConfig({ ...config, bulkImportMaxResults: parseInt(e.target.value) || 500 })}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          bulkImportMaxResults: parseInt(e.target.value) || 500,
+                        })
+                      }
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       min="1"
                       max="2000"
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Max for bulk imports
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Max for bulk imports</p>
                   </div>
                 </div>
               )}
-              
+
               <div className="flex gap-2 items-center">
                 <input
                   type="checkbox"
@@ -519,7 +601,7 @@ export const EmailIntegrationCard = ({
                   Use SSL/TLS
                 </label>
               </div>
-              
+
               <div className="flex gap-2 items-center">
                 <input
                   type="checkbox"
@@ -531,11 +613,30 @@ export const EmailIntegrationCard = ({
                   📚 Use as Knowledge Base Source
                 </label>
               </div>
-              <p className="text-xs text-muted-foreground -mt-2 ml-6">
+              <p className="-mt-2 ml-6 text-xs text-muted-foreground">
                 Extract Q&A pairs and documents from conversations for AI-powered support responses
               </p>
-              
-              <div className="flex gap-2">
+
+              {/* Message Count Display */}
+              {messageCount !== null && (
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950 dark:border-green-800">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    ✅ Found {messageCount} message{messageCount !== 1 ? 's' : ''} matching your
+                    criteria
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCheckMessagesCount}
+                  isLoading={checkingCount}
+                  disabled={!config.host || !config.user || !config.password || saving}
+                >
+                  <TestTube2 className="mr-2 w-4 h-4" />
+                  Check Messages Count
+                </Button>
                 <Button
                   onClick={saveIntegration}
                   isLoading={saving}
@@ -595,7 +696,7 @@ export const EmailIntegrationCard = ({
             <p className="mb-4 text-sm text-muted-foreground">
               Import historical emails for <strong>{editBulkImport.name}</strong>
             </p>
-            
+
             <div className="mb-4">
               <label htmlFor="bulkImportDays" className="block mb-2 text-sm font-medium">
                 Import emails from:
@@ -611,23 +712,16 @@ export const EmailIntegrationCard = ({
                 <option value="0">All time (may take long)</option>
               </select>
               <p className="mt-2 text-xs text-muted-foreground">
-                This will temporarily override the checkpoint and import historical emails. 
-                After completion, normal syncing will resume.
+                This will temporarily override the checkpoint and import historical emails. After
+                completion, normal syncing will resume.
               </p>
             </div>
 
             <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setEditBulkImport(null)}
-                disabled={saving}
-              >
+              <Button variant="outline" onClick={() => setEditBulkImport(null)} disabled={saving}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleUpdateBulkImportDays}
-                isLoading={saving}
-              >
+              <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>
                 Start Import
               </Button>
             </div>

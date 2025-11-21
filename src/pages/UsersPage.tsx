@@ -1,10 +1,21 @@
 /* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
-import { Users, Edit2, Shield, RefreshCw, Mail, Trash2 } from 'lucide-react';
+import {
+  Users,
+  Edit2,
+  Shield,
+  RefreshCw,
+  Mail,
+  Trash2,
+  Info,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { EditUserModal } from '@/components/EditUserModal';
 import { InviteUserModal } from '@/components/InviteUserModal';
 import { Layout } from '@/components/Layout';
+import { RoleInfoCard } from '@/components/RoleInfoCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -50,6 +61,7 @@ export const UsersPage = () => {
 
   // Local pending search state
   const [pendingSearch, setPendingSearch] = useState(searchUser || '');
+  const [showRoleInfo, setShowRoleInfo] = useState(false);
 
   const fetchUsers = useCallback(
     async (isRefresh = false) => {
@@ -100,7 +112,12 @@ export const UsersPage = () => {
     });
   };
 
-  const handleInviteUser = async (email: string, role: string, departmentRole: string, organizationId: number) => {
+  const handleInviteUser = async (
+    email: string,
+    role: string,
+    departmentRole: string,
+    organizationId: number
+  ) => {
     await invitationService.invite(email, role, departmentRole, organizationId);
     // Optionally refresh users list or show a success message
   };
@@ -250,6 +267,36 @@ export const UsersPage = () => {
           </div>
         </div>
 
+        {/* Role Information Panel */}
+        <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
+          <button
+            onClick={() => setShowRoleInfo(!showRoleInfo)}
+            className="p-4 w-full text-left transition-colors hover:bg-blue-100/50 dark:hover:bg-blue-900/20"
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex gap-2 items-center">
+                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">
+                  Role Permissions Guide
+                </h3>
+              </div>
+              {showRoleInfo ? (
+                <ChevronUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              )}
+            </div>
+            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+              {showRoleInfo ? 'Hide' : 'View'} detailed permissions for each organization role
+            </p>
+          </button>
+          {showRoleInfo && (
+            <div className="px-4 pb-4 space-y-4">
+              <RoleInfoCard />
+            </div>
+          )}
+        </Card>
+
         {/* Search */}
         <SearchInput
           value={pendingSearch}
@@ -331,6 +378,18 @@ export const UsersPage = () => {
                                     {roleDisplayNames[user.organizationRole]}
                                   </Badge>
                                 )}
+                                {user.departmentRoles && user.departmentRoles.length > 0 && (
+                                  <>
+                                    {user.departmentRoles.map((dept) => (
+                                      <Badge
+                                        key={dept}
+                                        className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
+                                      >
+                                        {dept.charAt(0).toUpperCase() + dept.slice(1)}
+                                      </Badge>
+                                    ))}
+                                  </>
+                                )}
                               </div>
                               <div className="flex flex-col gap-1 text-xs text-gray-500">
                                 {user.position && (
@@ -365,6 +424,9 @@ export const UsersPage = () => {
                           </th>
                           <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Org Role
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            Departments
                           </th>
                           <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Position
@@ -406,6 +468,22 @@ export const UsersPage = () => {
                                 <Badge variant="secondary">
                                   {roleDisplayNames[user.organizationRole]}
                                 </Badge>
+                              ) : (
+                                <span className="text-sm text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {user.departmentRoles && user.departmentRoles.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {user.departmentRoles.map((dept) => (
+                                    <Badge
+                                      key={dept}
+                                      className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
+                                    >
+                                      {dept.charAt(0).toUpperCase() + dept.slice(1)}
+                                    </Badge>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-sm text-gray-400">—</span>
                               )}

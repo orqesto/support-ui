@@ -12,23 +12,40 @@ import {
   ExternalLink,
   Brain,
   Cpu,
+  BookOpen,
+  FileText,
+  CheckCircle,
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { documentationService } from '@/services/documentation.service';
+import { kbService, type KBEntry } from '@/services/kb.service';
 import { statisticsService, type StatisticsData } from '@/services/statistics.service';
 
 export const StatisticsPage = () => {
   const [stats, setStats] = useState<StatisticsData | null>(null);
+  const [kbStats, setKbStats] = useState<{
+    totalDocs: number;
+    totalChunks: number;
+    totalReferences: number;
+  } | null>(null);
+  const [kbEntries, setKbEntries] = useState<KBEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchStatistics = async () => {
     try {
-      const response = await statisticsService.getAll();
-      if (response.success && response.data) {
-        setStats(response.data);
+      const [statsResponse, kbStatsData, kbEntriesData] = await Promise.all([
+        statisticsService.getAll(),
+        documentationService.getStats(),
+        kbService.getAll(),
+      ]);
+      if (statsResponse.success && statsResponse.data) {
+        setStats(statsResponse.data);
       }
+      setKbStats(kbStatsData);
+      setKbEntries(kbEntriesData.data);
     } catch (error) {
       console.error('Failed to fetch statistics:', error);
     } finally {
@@ -179,6 +196,103 @@ export const StatisticsPage = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Knowledge Base Statistics */}
+        {kbStats && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex gap-2 items-center">
+                <Brain className="w-5 h-5" />
+                Knowledge Base
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* KB Entries by Type */}
+              <div>
+                <p className="mb-3 text-sm font-medium text-muted-foreground">By Type</p>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold">{kbEntries.length}</p>
+                    <p className="text-sm text-muted-foreground">Total Entries</p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold text-blue-600">
+                      {kbEntries.filter((e) => e.type === 'qa_pair').length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Q&A Pairs</p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold text-purple-600">
+                      {kbEntries.filter((e) => e.type === 'document').length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Documents</p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold text-indigo-600">
+                      {kbEntries.filter((e) => e.type === 'manual_entry').length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Business Knowledge</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* KB Entries by Status */}
+              <div>
+                <p className="mb-3 text-sm font-medium text-muted-foreground">By Status</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold text-green-600">
+                      {kbEntries.filter((e) => e.approved).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Approved</p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold text-yellow-600">
+                      {kbEntries.filter((e) => !e.approved && !e.hidden).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Pending Review</p>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-card">
+                    <p className="text-2xl font-bold text-gray-600">
+                      {kbEntries.filter((e) => e.hidden).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Hidden</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Documentation Stats */}
+              <div>
+                <p className="mb-3 text-sm font-medium text-muted-foreground">
+                  Documentation Uploads
+                </p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex gap-3 items-center p-4 rounded-lg border bg-card">
+                    <BookOpen className="w-8 h-8 text-blue-500" />
+                    <div>
+                      <p className="text-2xl font-bold">{kbStats.totalDocs}</p>
+                      <p className="text-sm text-muted-foreground">Documents</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 items-center p-4 rounded-lg border bg-card">
+                    <FileText className="w-8 h-8 text-green-500" />
+                    <div>
+                      <p className="text-2xl font-bold">{kbStats.totalChunks}</p>
+                      <p className="text-sm text-muted-foreground">Chunks</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 items-center p-4 rounded-lg border bg-card">
+                    <CheckCircle className="w-8 h-8 text-purple-500" />
+                    <div>
+                      <p className="text-2xl font-bold">{kbStats.totalReferences}</p>
+                      <p className="text-sm text-muted-foreground">Times Used</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Spam/Scam Alert Section */}
         {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (

@@ -58,6 +58,14 @@ export const Permission = {
 
   // Audit Logs
   VIEW_AUDIT_LOGS: 'view_audit_logs',
+
+  // Subscription & Billing
+  VIEW_SUBSCRIPTION: 'view_subscription',
+  MANAGE_SUBSCRIPTION: 'manage_subscription',
+  VIEW_USAGE_STATS: 'view_usage_stats',
+  MANAGE_AI_MODULES: 'manage_ai_modules',
+  VIEW_BILLING: 'view_billing',
+  MANAGE_BILLING: 'manage_billing',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -96,6 +104,12 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.PROCESS_MESSAGES,
     Permission.VIEW_STATISTICS,
     Permission.VIEW_REPORTS,
+    Permission.VIEW_SUBSCRIPTION,
+    Permission.MANAGE_SUBSCRIPTION,
+    Permission.VIEW_USAGE_STATS,
+    Permission.MANAGE_AI_MODULES,
+    Permission.VIEW_BILLING,
+    Permission.MANAGE_BILLING,
   ],
 
   // Moderator
@@ -117,6 +131,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_MESSAGES,
     Permission.PROCESS_MESSAGES,
     Permission.VIEW_STATISTICS,
+    Permission.VIEW_SUBSCRIPTION,
+    Permission.VIEW_USAGE_STATS,
   ],
 
   // Support
@@ -130,6 +146,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_MESSAGES,
     Permission.PROCESS_MESSAGES,
     Permission.VIEW_STATISTICS,
+    Permission.VIEW_SUBSCRIPTION,
+    Permission.VIEW_USAGE_STATS,
   ],
 
   // Associate

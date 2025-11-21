@@ -249,27 +249,27 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
       {/* Table */}
       {attachments.length > 0 && (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <tr>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-400">
                   Name
                 </th>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-400">
                   Size
                 </th>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-400">
                   Date added
                 </th>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
+                <th className="px-4 py-2 text-xs font-medium tracking-wider text-right text-gray-500 uppercase dark:text-gray-400">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
               {attachments.map((attachment) => (
-                <tr key={attachment.id} className="hover:bg-gray-50">
+                <tr key={attachment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-4 py-3">
                     <div className="flex gap-2 items-center">
                       {isImage(attachment.mimeType) ? (
@@ -279,22 +279,22 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           className="object-cover w-10 h-10 rounded"
                         />
                       ) : (
-                        <File className="w-10 h-10 text-gray-400" />
+                        <File className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                       )}
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {attachment.originalFilename}
                         </p>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {getAttachmentSource(attachment)}
                         </span>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                     {formatFileSize(attachment.size)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                     {new Date(attachment.createdAt).toLocaleString('en-US', {
                       day: 'numeric',
                       month: 'short',
@@ -309,7 +309,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       {isImage(attachment.mimeType) && (
                         <Button
                           onClick={() => window.open(getAttachmentUrl(attachment), '_blank')}
-                          className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
+                          className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           title="View"
                         >
                           <Eye className="w-4 h-4" />
@@ -318,7 +318,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       <a
                         href={getAttachmentUrl(attachment)}
                         download={attachment.originalFilename}
-                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
+                        className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
@@ -327,10 +327,11 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       {/* Only show delete for non-Jira attachments (local uploads and email) */}
                       {!attachment.url.startsWith('http') && (
                         <Button
+                          variant="ghost"
                           onClick={() =>
                             handleDeleteClick(attachment.id, attachment.originalFilename)
                           }
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />

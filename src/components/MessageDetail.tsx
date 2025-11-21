@@ -1,35 +1,34 @@
 import { useState } from 'react';
 import {
-  Mail,
-  MessageSquare,
-  Send,
   Check,
-  Trash2,
-  AlertTriangle,
-  ExternalLink,
-  RotateCcw,
-  Maximize2,
-  Link as LinkIcon,
-  Reply,
+  Send,
   RefreshCw,
-  Search,
-  Info,
+  X,
+  Trash2,
+  RotateCcw,
+  LinkIcon,
   CheckCircle,
+  Maximize2,
   BookOpen,
   Paperclip,
-  X,
   File,
+  ExternalLink,
+  AlertTriangle,
+  Search,
+  Info,
+  Reply,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { MessageAIAnalysis } from '@/components/MessageAIAnalysis';
 import { MessageAttachments } from '@/components/MessageAttachments';
+import { MessageBadges } from '@/components/MessageBadges';
 import { MessageThread } from '@/components/MessageThread';
 import RichTextEditor from '@/components/RichTextEditor';
 import { ScrollButtons } from '@/components/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/SimilarMessagesDialog';
 import { SimilarTickets } from '@/components/SimilarTickets';
 import { TranslateButton } from '@/components/TranslateButton';
-import { Badge } from '@/components/ui/Badge';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -38,6 +37,7 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { useResolveMessageToKB } from '@/hooks/useResolveMessageToKB';
 import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
@@ -76,6 +76,14 @@ export const MessageDetail = ({
   const [submitting, setSubmitting] = useState(false);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant?: 'error' | 'success' | 'warning' | 'info';
+    onClose?: () => void | Promise<void>;
+  }>({ open: false, title: '', description: '' });
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/messages?id=${message.id}`;
@@ -115,19 +123,18 @@ export const MessageDetail = ({
 
     try {
       setSubmitting(true);
-      // Only resolve if it's a standalone message (no ticket)
-      // Messages with tickets should just send reply without resolving
-      const shouldResolve = !message.ticketId && !message.resolved;
+      // Send reply without resolving - message stays open for customer response
+      // Agent can explicitly resolve using "Resolve & Save to KB" button
       await messageService.replyWithAttachments(
         message.id,
         replyContent,
         selectedFiles,
-        shouldResolve
+        false // Don't auto-resolve - message is now awaiting customer response
       );
       setReplyContent('');
       setSelectedFiles([]);
       setShowReplyForm(false);
-      onApprove?.(); // Refresh message
+      onRefresh?.(); // Refresh message data after sending reply
     } catch (error) {
       console.error('Failed to send reply:', error);
     } finally {
@@ -136,22 +143,33 @@ export const MessageDetail = ({
   };
 
   const handleResolveWithoutReply = async () => {
-    try {
-      await messageService.resolve(message.id);
-      // Call onResolve to refresh data without creating ticket
-      await onResolve?.();
-    } catch (error) {
-      console.error('Failed to resolve message:', error);
+    const result = await resolveToKB(message.id, onResolve);
+    if (result) {
+      // Show dialog first, then refresh when it closes
+      setAlertDialog({
+        ...result.alertState,
+        onClose: async () => {
+          setAlertDialog({ open: false, title: '', description: '', variant: 'info' });
+          await result.refresh(); // Refresh AFTER dialog is shown
+        },
+      });
     }
   };
 
+  const convertTextToHtml = (text: string): string =>
+    text
+      .split('\n\n')
+      .filter((para) => para.trim())
+      .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+      .join('');
+
   const handleSelectSimilarAnswer = (answer: string) => {
-    setReplyContent(answer);
+    setReplyContent(convertTextToHtml(answer));
     setShowReplyForm(true);
   };
 
   const handleUseResponse = (content: string) => {
-    setReplyContent(content);
+    setReplyContent(convertTextToHtml(content));
     setShowReplyForm(true);
   };
 
@@ -175,18 +193,6 @@ export const MessageDetail = ({
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const getChannelIcon = (channel: string) => {
-    switch (channel) {
-      case 'email':
-        return <Mail className="w-5 h-5" />;
-      case 'slack':
-      case 'telegram':
-        return <MessageSquare className="w-5 h-5" />;
-      default:
-        return <Send className="w-5 h-5" />;
-    }
-  };
-
   const autoReply = message.metadata?.autoReply as
     | {
         sent?: boolean;
@@ -203,6 +209,7 @@ export const MessageDetail = ({
         source?: 'documentation' | 'similar_ticket' | 'similar_message';
         sourceId: number;
         sourceMessageId?: number; // Legacy field
+        documentationId?: number; // KB entry ID for "View Source" link
         documentTitle?: string;
         foundAt: string;
       }
@@ -214,18 +221,8 @@ export const MessageDetail = ({
       {!isFullPage && <ScrollButtons bottomTarget="[data-message-actions]" />}
       {/* Header Section */}
       <div className="space-y-4">
-        <div className="flex gap-3 items-center">
-          <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
-            {getChannelIcon(message.channel)}
-          </div>
-          <div className="flex-1">
-            <div className="flex flex-wrap gap-2 items-center">
-              <Badge variant="secondary">{message.channel}</Badge>
-              {message.processed && <Badge variant="success">Processed</Badge>}
-              {message.ticketId && <Badge variant="default">Has Ticket</Badge>}
-              {message.resolved && !message.ticketId && <Badge variant="success">Resolved</Badge>}
-            </div>
-          </div>
+        <div className="flex gap-3 items-center justify-between">
+          <MessageBadges message={message} />
           <div className="flex flex-shrink-0 gap-2">
             {showFullPageButton && !isFullPage && (
               <Link to={`/messages/${message.id}`}>
@@ -386,6 +383,8 @@ export const MessageDetail = ({
       {/* AI Suggested Answer - Needs Agent Approval */}
       {suggestedAnswer &&
         !message.resolved &&
+        !message.directReply &&
+        !message.repliedBy &&
         (suggestedAnswer.source === 'documentation' ? (
           <div className="p-4 mb-6 bg-blue-50 rounded-lg border-2 border-blue-300 dark:bg-blue-950/20 dark:border-blue-700">
             <div className="flex gap-2 items-start mb-3">
@@ -416,7 +415,7 @@ export const MessageDetail = ({
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={() => {
-                  setReplyContent(suggestedAnswer.answer);
+                  setReplyContent(convertTextToHtml(suggestedAnswer.answer));
                   setShowReplyForm(true);
                 }}
                 className="flex-1"
@@ -424,6 +423,18 @@ export const MessageDetail = ({
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
+              {suggestedAnswer.sourceId && (
+                <Button
+                  onClick={() =>
+                    window.open(`/knowledge-base?highlight=${suggestedAnswer.sourceId}`, '_blank')
+                  }
+                  variant="outline"
+                  title="View source in Knowledge Base"
+                >
+                  <ExternalLink className="mr-2 w-4 h-4" />
+                  View Source
+                </Button>
+              )}
               <Button onClick={() => setShowReplyForm(true)} variant="outline">
                 Write Different Reply
               </Button>
@@ -459,7 +470,7 @@ export const MessageDetail = ({
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={() => {
-                  setReplyContent(suggestedAnswer.answer);
+                  setReplyContent(convertTextToHtml(suggestedAnswer.answer));
                   setShowReplyForm(true);
                 }}
                 className="flex-1"
@@ -589,13 +600,7 @@ export const MessageDetail = ({
               </label>
               <Button onClick={handleSendReply} disabled={submitting || !replyContent.trim()}>
                 <Send className="mr-2 w-4 h-4" />
-                {submitting
-                  ? 'Sending...'
-                  : message.ticketId
-                    ? 'Send Reply'
-                    : message.resolved
-                      ? 'Send Reply'
-                      : 'Send & Resolve'}
+                {submitting ? 'Sending...' : 'Send Reply'}
               </Button>
               <Button variant="outline" onClick={() => setShowReplyForm(false)}>
                 Cancel
@@ -610,7 +615,7 @@ export const MessageDetail = ({
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
           <div className="flex justify-between items-start mb-2">
             <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-              Support Reply
+              Latest Support Reply
             </h3>
             {message.repliedAt && (
               <span className="text-xs text-blue-600 dark:text-blue-400">
@@ -691,15 +696,27 @@ export const MessageDetail = ({
                   Create Ticket
                 </Button>
               )}
-              <Button
-                onClick={handleResolveWithoutReply}
-                variant="secondary"
-                size="lg"
-                title="Mark as resolved and save attachments to knowledge base"
-              >
-                <CheckCircle className="mr-2 w-4 h-4" />
-                Resolve & Save to KB
-              </Button>
+              {!message.resolved && (
+                <Button
+                  onClick={handleResolveWithoutReply}
+                  variant="secondary"
+                  size="lg"
+                  disabled={resolving}
+                  title="Mark as resolved and save attachments to knowledge base"
+                >
+                  {resolving ? (
+                    <>
+                      <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 w-4 h-4" />
+                      Resolve & Save to KB
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
 
             {/* Secondary actions */}
@@ -813,6 +830,21 @@ export const MessageDetail = ({
         open={similarMessagesOpen}
         onClose={() => setSimilarMessagesOpen(false)}
         onSelectAnswer={handleSelectSimilarAnswer}
+      />
+
+      {/* Alert Dialog for feedback */}
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => {
+          if (!open && alertDialog.onClose) {
+            void alertDialog.onClose(); // Intentionally not awaiting - background refresh
+          } else {
+            setAlertDialog({ ...alertDialog, open });
+          }
+        }}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
       />
     </div>
   );

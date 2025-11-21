@@ -77,16 +77,20 @@ export const messageService = {
     const formData = new FormData();
     formData.append('content', content);
     formData.append('resolve', String(resolve));
-    
+
     files.forEach((file) => {
       formData.append('attachments', file);
     });
 
-    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiClient.post<ApiResponse<void>>(
+      `/api/messages/${id}/reply`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return response.data;
   },
 
@@ -138,8 +142,52 @@ export const messageService = {
     return response.data;
   },
 
+  getSuggestedAnswer: async (id: number) => {
+    const response = await apiClient.get<
+      ApiResponse<{
+        mode: 'ai-generated' | 'search-results';
+        aiResponse?: {
+          text: string;
+          confidence: number;
+          provider: string;
+        };
+        sources: Array<{
+          type: 'documentation' | 'ticket' | 'message';
+          id: number;
+          title?: string;
+          content: string;
+          answer?: string;
+          similarity: number;
+          metadata?: Record<string, unknown>;
+        }>;
+        searchPerformed: {
+          documentation: boolean;
+          tickets: boolean;
+          messages: boolean;
+        };
+      }>
+    >(`/api/messages/${id}/suggested-answer`);
+    return response.data;
+  },
+
   reanalyze: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/analyze`, {});
+    return response.data;
+  },
+
+  saveSuggestedAnswer: async (
+    id: number,
+    suggestedAnswer: {
+      answer: string;
+      similarity?: number;
+      source?: string;
+      documentTitle?: string;
+    }
+  ) => {
+    const response = await apiClient.post<ApiResponse<void>>(
+      `/api/messages/${id}/suggested-answer/save`,
+      { suggestedAnswer }
+    );
     return response.data;
   },
 };
