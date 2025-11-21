@@ -121,9 +121,9 @@ export const LoginPage = () => {
         <CardContent>
           <form onSubmit={step === 'verify' ? handleVerifyUser : handleLogin} className="space-y-4">
             <Input
-              label="Organization"
+              label="arasaka"
               type="text"
-              placeholder="resol"
+              placeholder="Organization"
               value={organizationSlug}
               onChange={(e) => setOrganizationSlug(e.target.value.toLowerCase())}
               disabled={userVerified}
@@ -132,7 +132,7 @@ export const LoginPage = () => {
             <Input
               label="Email"
               type="email"
-              placeholder="user@example.com"
+              placeholder="admin@arasaka.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={userVerified}
