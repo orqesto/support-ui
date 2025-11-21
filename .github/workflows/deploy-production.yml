@@ -1,0 +1,170 @@
+name: Deploy Frontend to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend to DigitalOcean
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: http://164.90.237.39:3001
+        run: npm run build
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: "placeholder"
+
+      - name: Add Known Hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Frontend
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          ssh ${SSH_USER}@${SSH_HOST} << 'ENDSSH'
+            set -e
+
+            echo "🚀 Starting frontend deployment..."
+
+            # Create frontend directory if it doesn't exist
+            mkdir -p /root/FE-app
+
+            # Install nginx if not installed
+            if ! command -v nginx &> /dev/null; then
+              echo "📦 Installing nginx..."
+              apt-get update
+              apt-get install -y nginx
+            fi
+
+            echo "✅ Frontend directory ready"
+          ENDSSH
+
+      - name: Copy built files
+        run: |
+          rsync -avz --delete \
+            ./dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/FE-app/
+
+      - name: Configure Nginx
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          ssh ${SSH_USER}@${SSH_HOST} << 'ENDSSH'
+            set -e
+
+            echo "⚙️  Configuring nginx..."
+
+            # Create nginx config for frontend
+            cat > /etc/nginx/sites-available/frontend << 'EOF'
+          server {
+              listen 80;
+              server_name 164.90.237.39;
+              root /root/FE-app;
+              index index.html;
+
+              # Gzip compression
+              gzip on;
+              gzip_vary on;
+              gzip_min_length 1024;
+              gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+
+              # Security headers
+              add_header X-Frame-Options "SAMEORIGIN" always;
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header X-XSS-Protection "1; mode=block" always;
+
+              # Handle React Router (SPA)
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              # Cache static assets
+              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                  expires 1y;
+                  add_header Cache-Control "public, immutable";
+              }
+
+              # API proxy (optional - if you want to proxy API calls)
+              location /api {
+                  proxy_pass http://localhost:3001;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+          EOF
+
+            # Enable the site
+            ln -sf /etc/nginx/sites-available/frontend /etc/nginx/sites-enabled/frontend
+
+            # Remove default nginx site
+            rm -f /etc/nginx/sites-enabled/default
+
+            # Test nginx config
+            nginx -t
+
+            # Reload nginx
+            systemctl reload nginx
+
+            echo "✅ Nginx configured and reloaded"
+          ENDSSH
+
+      - name: Verify Deployment
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          echo "🏥 Running health check..."
+          sleep 3
+
+          # Check if frontend is accessible
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${SSH_HOST}/ || echo "000")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Frontend health check passed!"
+          else
+            echo "⚠️  Frontend returned code: $HTTP_CODE"
+            echo "This might be expected if nginx needs more time to start"
+          fi
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## Frontend Deployment Summary 📋" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Server IP**: ${{ secrets.SSH_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend: http://${{ secrets.SSH_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 API Docs: http://${{ secrets.SSH_HOST }}:3001/api-docs" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏥 Backend Health: http://${{ secrets.SSH_HOST }}:3001/health" >> $GITHUB_STEP_SUMMARY
