@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Quote,
   Globe,
+  Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
@@ -69,27 +70,72 @@ export const SimilarMessagesDialog = ({
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [expandedQuotes, setExpandedQuotes] = useState<Set<number>>(new Set());
   const [showEnglish, setShowEnglish] = useState<Record<number, boolean>>({});
+  const [aiMode, setAiMode] = useState<'ai-generated' | 'search-results' | null>(null);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [aiConfidence, setAiConfidence] = useState<number>(0);
+  const [useAiResponse, setUseAiResponse] = useState(false);
 
   useEffect(() => {
     if (open && messageId) {
-      const fetchSimilarMessages = async () => {
+      const fetchSuggestedAnswer = async () => {
         setLoading(true);
         try {
-          const response = await messageService.getSimilarResolvedMessages(messageId, 5, 0.7);
-          setSimilarMessages(response.data ?? []);
+          const response = await messageService.getSuggestedAnswer(messageId);
+
+          // Set AI mode and response
+          setAiMode(response.data?.mode ?? null);
+          setAiResponse(response.data?.aiResponse?.text ?? null);
+          setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
+
+          // Convert sources to similar messages format for backward compatibility
+          const sources = response.data?.sources ?? [];
+          const converted: SimilarMessage[] = sources.map((source) => ({
+            messageId: source.type === 'message' ? source.id : undefined,
+            content: source.content,
+            subject: source.title ?? null,
+            sender: source.metadata?.sender as string | undefined,
+            directReply: source.answer ?? source.content,
+            similarity: source.similarity,
+            repliedAt: source.metadata?.repliedAt as string | null | undefined,
+            source: source.type === 'documentation' ? 'documentation' : 'message',
+            documentationId: source.type === 'documentation' ? source.id : undefined,
+            documentTitle: source.type === 'documentation' ? source.title : undefined,
+          }));
+
+          setSimilarMessages(converted);
         } catch (error) {
-          console.error('Failed to fetch similar messages:', error);
+          console.error('Failed to fetch suggested answer:', error);
           setSimilarMessages([]);
+          setAiMode(null);
+          setAiResponse(null);
         } finally {
           setLoading(false);
         }
       };
 
-      void fetchSimilarMessages();
+      void fetchSuggestedAnswer();
     }
   }, [open, messageId]);
 
-  const handleUseAnswer = () => {
+  const handleUseAnswer = async () => {
+    // If AI response is selected
+    if (useAiResponse && aiResponse) {
+      // Save to message metadata for persistence
+      try {
+        await messageService.saveSuggestedAnswer(messageId, {
+          answer: aiResponse,
+          similarity: aiConfidence,
+          source: 'ai-generated',
+        });
+      } catch (error) {
+        console.error('Failed to save suggested answer:', error);
+      }
+      onSelectAnswer(aiResponse);
+      onClose();
+      return;
+    }
+
+    // Otherwise use selected source
     if (selectedIndex !== null && similarMessages[selectedIndex]) {
       const msg = similarMessages[selectedIndex];
       // Use the version the user is currently viewing (English or native)
@@ -97,6 +143,19 @@ export const SimilarMessagesDialog = ({
         showEnglish[selectedIndex] && msg.directReplyEnglish
           ? msg.directReplyEnglish
           : msg.directReply;
+
+      // Save to message metadata for persistence
+      try {
+        await messageService.saveSuggestedAnswer(messageId, {
+          answer,
+          similarity: msg.similarity,
+          source: msg.source,
+          documentTitle: msg.documentTitle,
+        });
+      } catch (error) {
+        console.error('Failed to save suggested answer:', error);
+      }
+
       onSelectAnswer(answer);
       onClose();
     }
@@ -140,6 +199,82 @@ export const SimilarMessagesDialog = ({
         </DialogHeader>
 
         <div className="overflow-y-auto flex-1">
+          {/* AI-Generated Response Section */}
+          {!loading && aiMode === 'ai-generated' && aiResponse && (
+            <div className="mb-4">
+              <div
+                onClick={() => {
+                  setUseAiResponse(true);
+                  setSelectedIndex(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setUseAiResponse(true);
+                    setSelectedIndex(null);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                  useAiResponse
+                    ? 'ring-2 border-primary bg-primary/10 ring-primary'
+                    : 'border-dashed border-muted-foreground/30 hover:border-primary hover:bg-accent/20'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex gap-2 items-center">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <h3 className="text-base font-semibold">AI-Generated Response</h3>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end">
+                    <div className="flex gap-1 items-center text-sm font-semibold text-primary">
+                      <TrendingUp className="w-4 h-4" />
+                      {Math.round(aiConfidence * 100)}%
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {aiConfidence >= 0.9
+                        ? 'Very Confident'
+                        : aiConfidence >= 0.8
+                          ? 'Confident'
+                          : 'Moderate'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gradient-to-br rounded border from-primary/5 to-primary/10 border-primary/20">
+                  <p className="mb-2 text-sm font-medium text-muted-foreground">
+                    Suggested Answer:
+                  </p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
+                </div>
+
+                <div className="flex gap-2 items-center mt-3 text-xs text-muted-foreground">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Synthesized from {similarMessages.length} sources (see below)</span>
+                </div>
+
+                {useAiResponse && (
+                  <div className="flex justify-center items-center mt-3">
+                    <Badge variant="success" className="text-xs">
+                      <Check className="mr-1 w-3 h-3" />
+                      Selected
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Search Results Section */}
+          {!loading && aiMode === 'ai-generated' && similarMessages.length > 0 && (
+            <div className="mb-2">
+              <h4 className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+                Or choose from sources:
+              </h4>
+            </div>
+          )}
+
           {loading && (
             <div className="flex justify-center items-center py-12">
               <div className="w-8 h-8 rounded-full border-2 animate-spin border-primary border-t-transparent" />
@@ -301,39 +436,41 @@ export const SimilarMessagesDialog = ({
                       >
                         {msg.source === 'documentation' ? 'From Documentation:' : 'Support Answer:'}
                       </p>
-                      
+
                       {/* Language Toggle */}
-                      {msg.directReplyEnglish && msg.detectedLanguage && msg.detectedLanguage !== 'en' && (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowEnglish((prev) => ({ ...prev, [index]: false }));
-                            }}
-                            className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
-                              !showEnglish[index]
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                            }`}
-                          >
-                            <Globe className="w-3 h-3" />
-                            {msg.detectedLanguage.toUpperCase()}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowEnglish((prev) => ({ ...prev, [index]: true }));
-                            }}
-                            className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
-                              showEnglish[index]
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                            }`}
-                          >
-                            EN
-                          </button>
-                        </div>
-                      )}
+                      {msg.directReplyEnglish &&
+                        msg.detectedLanguage &&
+                        msg.detectedLanguage !== 'en' && (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowEnglish((prev) => ({ ...prev, [index]: false }));
+                              }}
+                              className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
+                                !showEnglish[index]
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                              }`}
+                            >
+                              <Globe className="w-3 h-3" />
+                              {msg.detectedLanguage.toUpperCase()}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowEnglish((prev) => ({ ...prev, [index]: true }));
+                              }}
+                              className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
+                                showEnglish[index]
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                              }`}
+                            >
+                              EN
+                            </button>
+                          </div>
+                        )}
                     </div>
                     <p
                       className={`text-sm whitespace-pre-wrap ${
@@ -414,9 +551,9 @@ export const SimilarMessagesDialog = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleUseAnswer} disabled={selectedIndex === null}>
+          <Button onClick={handleUseAnswer} disabled={!useAiResponse && selectedIndex === null}>
             <Check className="mr-2 w-4 h-4" />
-            Use This Answer
+            {useAiResponse ? 'Use AI Response' : 'Use This Answer'}
           </Button>
         </DialogFooter>
       </DialogContent>

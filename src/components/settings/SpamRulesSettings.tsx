@@ -187,10 +187,19 @@ export const SpamRulesSettings = () => {
         <p className="text-sm text-yellow-600 dark:text-yellow-400">
           <strong>Severity Levels:</strong>
         </p>
-        <ul className="ml-4 space-y-1 text-sm text-yellow-600 dark:text-yellow-400 list-disc">
-          <li><strong>1-49:</strong> Flag for review (save to database, mark as suspicious)</li>
-          <li><strong>50-99:</strong> Mark as spam (save to database but don&apos;t process)</li>
-          <li><strong>100:</strong> <span className="font-bold text-red-600 dark:text-red-400">Critical spam - Auto-reject immediately (don&apos;t save to database)</span></li>
+        <ul className="ml-4 space-y-1 text-sm list-disc text-yellow-600 dark:text-yellow-400">
+          <li>
+            <strong>1-49:</strong> Flag for review (save to database, mark as suspicious)
+          </li>
+          <li>
+            <strong>50-99:</strong> Mark as spam (save to database but don&apos;t process)
+          </li>
+          <li>
+            <strong>100:</strong>{' '}
+            <span className="font-bold text-red-600 dark:text-red-400">
+              Critical spam - Auto-reject immediately (don&apos;t save to database)
+            </span>
+          </li>
         </ul>
       </div>
 
@@ -303,10 +312,7 @@ export const SpamRulesSettings = () => {
       {/* Rules List */}
       <div className="space-y-3">
         {rules.map((rule) => (
-          <div
-            key={rule.id}
-            className="border border-border rounded-lg p-4 bg-card"
-          >
+          <div key={rule.id} className="p-4 rounded-lg border border-border bg-card">
             {editingRule?.id === rule.id ? (
               <div className="space-y-4">
                 <h4 className="font-semibold">Edit Spam Rule</h4>
@@ -460,7 +466,7 @@ export const SpamRulesSettings = () => {
                       }
                       disabled={rule.category === 'security'}
                     >
-                      {rule.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {rule.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                     </Button>
                     <Button
                       size="sm"

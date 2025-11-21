@@ -287,7 +287,7 @@ export const PromptsSettings = () => {
                       onClick={() => toggleActive(prompt)}
                       title={prompt.active ? 'Deactivate' : 'Activate'}
                     >
-                      {prompt.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {prompt.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(prompt)}>
                       <Edit2 className="mr-2 w-4 h-4" />

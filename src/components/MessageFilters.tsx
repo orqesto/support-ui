@@ -123,6 +123,9 @@ export const MessageFilters = ({
     if (filters.showFailed) {
       active.push({ key: 'showFailed', label: 'Filter', value: 'Failed' });
     }
+    if (filters.awaitingCustomerResponse) {
+      active.push({ key: 'awaitingCustomerResponse', label: 'Filter', value: 'Awaiting Response' });
+    }
 
     return active;
   };
@@ -143,7 +146,8 @@ export const MessageFilters = ({
       key === 'showNeedsInfo' ||
       key === 'hasAttachments' ||
       key === 'hasReplies' ||
-      key === 'showFailed'
+      key === 'showFailed' ||
+      key === 'awaitingCustomerResponse'
     ) {
       setFilters({ ...filters, [key]: false });
     } else if (key === 'hasTicket') {
@@ -193,6 +197,16 @@ export const MessageFilters = ({
           ...filters,
           processed: 'all',
           showFailed: true,
+        });
+        break;
+      case 'awaiting-response':
+        // Messages awaiting customer response (any status)
+        onFilterChange('processed', 'all');
+        setFilters({
+          ...filters,
+          processed: 'all',
+          awaitingCustomerResponse: true,
+          excludeSpam: true,
         });
         break;
     }
@@ -294,6 +308,15 @@ export const MessageFilters = ({
               <XCircle className="w-3 h-3 text-red-500" />
               Failed
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyPreset('awaiting-response')}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <Clock className="w-3 h-3 text-blue-500" />
+              Awaiting Response
+            </Button>
           </div>
 
           {/* Filter Controls */}
@@ -319,11 +342,11 @@ export const MessageFilters = ({
             <div className="p-3 rounded-lg border bg-muted/30">
               <div className="flex flex-wrap gap-4 items-center">
                 {/* Status Group */}
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
-                  <div className="inline-flex rounded-md shadow-sm">
+                  <div className="inline-flex rounded-md shadow-sm flex-shrink-0">
                     <Button
                       variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
                       size="sm"
@@ -597,6 +620,21 @@ export const MessageFilters = ({
                     <div className="flex gap-1 items-center text-xs font-medium text-red-600 whitespace-nowrap dark:text-red-400">
                       <XCircle className="w-3 h-3" />
                       <span>Failed</span>
+                    </div>
+                  </label>
+
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.awaitingCustomerResponse ?? false}
+                      onChange={(e) =>
+                        setFilters({ ...filters, awaitingCustomerResponse: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                      <Clock className="w-3 h-3 text-blue-500" />
+                      <span>Awaiting Response</span>
                     </div>
                   </label>
                 </div>

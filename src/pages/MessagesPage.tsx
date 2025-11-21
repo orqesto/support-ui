@@ -130,6 +130,9 @@ export const MessagesPage = () => {
         if (currentFilters.showFailed) {
           apiFilters.showFailed = 'true';
         }
+        if (currentFilters.awaitingCustomerResponse) {
+          apiFilters.awaitingCustomerResponse = 'true';
+        }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
@@ -187,6 +190,7 @@ export const MessagesPage = () => {
     filters.hasReplies,
     filters.hasTicket,
     filters.showFailed,
+    filters.awaitingCustomerResponse,
     filters.search,
     sorting.sortOrder,
   ]);
@@ -360,7 +364,7 @@ export const MessagesPage = () => {
   const handleFilterChange = (key: string, value: string | boolean) => {
     // Primary filters: processed, channel, messageSourceId
     const primaryFilters = ['processed', 'channel', 'messageSourceId'];
-    
+
     if (key === 'search') {
       setPendingSearch(value as string);
       // If clearing search (empty value), immediately apply to show all results
@@ -536,11 +540,14 @@ export const MessagesPage = () => {
   const activeFilterCount =
     (filters.processed !== 'all' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
-    ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy) ? 1 : 0) +
+    ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy)
+      ? 1
+      : 0) +
     (filters.hasAttachments ? 1 : 0) +
     (filters.hasReplies ? 1 : 0) +
     (filters.hasTicket !== undefined ? 1 : 0) +
     (filters.showFailed ? 1 : 0) +
+    (filters.awaitingCustomerResponse ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 
   return (
@@ -572,20 +579,22 @@ export const MessagesPage = () => {
         </div>
 
         {/* Filters */}
-        <MessageFilters
-          filters={filters}
-          sorting={sorting}
-          pendingSearch={pendingSearch}
-          activeFilterCount={activeFilterCount}
-          pagination={pagination}
-          onFilterChange={handleFilterChange}
-          onSearch={handleSearch}
-          onSearchBlur={handleSearchBlur}
-          onClearFilters={clearFilters}
-          onSortingChange={(sortOrder) => setSorting({ sortOrder })}
-          setPendingSearch={setPendingSearch}
-          setFilters={setFilters}
-        />
+        <div className="mb-6">
+          <MessageFilters
+            filters={filters}
+            sorting={sorting}
+            pendingSearch={pendingSearch}
+            activeFilterCount={activeFilterCount}
+            pagination={pagination}
+            onFilterChange={handleFilterChange}
+            onSearch={handleSearch}
+            onSearchBlur={handleSearchBlur}
+            onClearFilters={clearFilters}
+            onSortingChange={(sortOrder) => setSorting({ sortOrder })}
+            setPendingSearch={setPendingSearch}
+            setFilters={setFilters}
+          />
+        </div>
 
         {loading ? (
           <div className="space-y-4">

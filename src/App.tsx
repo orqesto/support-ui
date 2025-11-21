@@ -47,6 +47,24 @@ const EmailTemplatesPage = lazy(() =>
 const AuditLogsPage = lazy(() =>
   import('./pages/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage }))
 );
+const SubscriptionPage = lazy(() =>
+  import('./pages/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage }))
+);
+const PricingPage = lazy(() =>
+  import('./pages/PricingPage').then((m) => ({ default: m.PricingPage }))
+);
+const AIModulesPage = lazy(() =>
+  import('./pages/AIModulesPage').then((m) => ({ default: m.AIModulesPage }))
+);
+const AdminPlansPage = lazy(() =>
+  import('./pages/AdminPlansPage').then((m) => ({ default: m.AdminPlansPage }))
+);
+const UsageStatsPage = lazy(() =>
+  import('./pages/UsageStatsPage').then((m) => ({ default: m.UsageStatsPage }))
+);
+const KnowledgeBasePage = lazy(() =>
+  import('./pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage }))
+);
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-screen bg-background">
@@ -109,6 +127,16 @@ const AppRoutes = () => {
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
               <MessageDetailPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/knowledge-base"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <KnowledgeBasePage />
             </Suspense>
           </PrivateRoute>
         }
@@ -212,6 +240,62 @@ const AppRoutes = () => {
             <ProtectedRoute requiredPermission={Permission.VIEW_AUDIT_LOGS}>
               <Suspense fallback={<LoadingFallback />}>
                 <AuditLogsPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/plans"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <AdminPlansPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/subscription"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_SUBSCRIPTION}>
+              <Suspense fallback={<LoadingFallback />}>
+                <SubscriptionPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pricing"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <PricingPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/ai-modules"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_SUBSCRIPTION}>
+              <Suspense fallback={<LoadingFallback />}>
+                <AIModulesPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/usage-stats"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_USAGE_STATS}>
+              <Suspense fallback={<LoadingFallback />}>
+                <UsageStatsPage />
               </Suspense>
             </ProtectedRoute>
           </PrivateRoute>

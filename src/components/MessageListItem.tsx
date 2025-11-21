@@ -6,6 +6,7 @@ import {
   Ticket,
   AlertTriangle,
   Folder,
+  Clock,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -46,6 +47,16 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           {getChannelIcon(message.channel)}
           <Badge variant="secondary">{message.channel}</Badge>
           {message.processed && <Badge variant="success">Processed</Badge>}
+          {message.awaitingCustomerResponse && (
+            <Badge
+              variant="warning"
+              className="flex gap-1 items-center"
+              title="Waiting for customer to respond"
+            >
+              <Clock className="w-3 h-3" />
+              Awaiting Response
+            </Badge>
+          )}
           {message.processingError && (
             <Badge
               variant="danger"

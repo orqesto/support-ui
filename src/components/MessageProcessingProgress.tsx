@@ -47,6 +47,12 @@ export const MessageProcessingProgress = ({
     return saved === 'true' && session.status === 'complete';
   });
 
+  // Track if user manually dismissed (different from auto-close)
+  const [userDismissed, setUserDismissed] = useState(() => {
+    const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_dismissed`);
+    return saved === 'true';
+  });
+
   // Draggable position state - stack widgets vertically with offset based on index
   const WIDGET_HEIGHT = 200; // Approximate height per widget
   const STACK_OFFSET = WIDGET_HEIGHT + 16; // Offset between stacked widgets
@@ -76,16 +82,13 @@ export const MessageProcessingProgress = ({
     localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_closed`, String(isClosed));
   }, [isClosed, session.sessionKey]);
 
-  // Auto-reopen widget after some time if closed
+  // Save user dismissed state
   useEffect(() => {
-    if (isClosed) {
-      const timer = setTimeout(() => {
-        setIsClosed(false);
-      }, 300000); // Reopen after 5 minutes
-
-      return () => clearTimeout(timer);
-    }
-  }, [isClosed]);
+    localStorage.setItem(
+      `emailProcessingWidget_${session.sessionKey}_dismissed`,
+      String(userDismissed)
+    );
+  }, [userDismissed, session.sessionKey]);
 
   // Use session data from props instead of hook
   const {
@@ -93,7 +96,9 @@ export const MessageProcessingProgress = ({
     total,
     current,
     processed,
+    successful,
     failed,
+    skipped,
     error,
     progress,
     isProcessing,
@@ -101,6 +106,10 @@ export const MessageProcessingProgress = ({
     processTime,
     totalTime,
     integrationName,
+    kbEntriesTotal,
+    kbQAPairs,
+    kbStandaloneKnowledge,
+    kbDocuments,
   } = session;
 
   // Save position to localStorage with session-specific key
@@ -166,33 +175,54 @@ export const MessageProcessingProgress = ({
   }, [status, total]);
 
   // Auto-reopen when processing starts (even if widget was closed)
+  // Only auto-reopen if:
+  // 1. Not user dismissed OR
+  // 2. New messages found (total > 0)
   useEffect(() => {
-    if (status === 'started' || status === 'processing' || isProcessing) {
+    const hasNewMessages = total > 0;
+    const shouldReopen =
+      (status === 'started' || status === 'processing' || isProcessing) &&
+      (!userDismissed || hasNewMessages);
+
+    if (shouldReopen) {
       setIsClosed(false);
+      // Clear dismissed flag if new messages found
+      if (hasNewMessages) {
+        setUserDismissed(false);
+        localStorage.removeItem(`emailProcessingWidget_${session.sessionKey}_dismissed`);
+      }
       // Clear the closed state from localStorage when reprocessing
       localStorage.removeItem(`emailProcessingWidget_${session.sessionKey}_closed`);
     }
-  }, [status, isProcessing, session.sessionKey]);
+  }, [status, isProcessing, total, userDismissed, session.sessionKey]);
 
-  // Auto-close after delay when completed
-  // Keep widget open to show AI analysis phase which happens asynchronously
+  // Calculate if there are messages still being processed
+  const messagesInProgress = Math.max(0, current - (successful ?? 0) - (skipped ?? 0) - failed);
+
+  // If all messages are accounted for, consider it complete even if backend hasn't sent 'complete' event yet
+  const allMessagesProcessed = current > 0 && current === total && messagesInProgress === 0;
+
+  // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
-    if (status === 'complete') {
+    if (status === 'complete' || allMessagesProcessed) {
       // If no messages found (total === 0), close after 30 seconds
-      // If messages were processed (total > 0), keep open for 2 minutes to show AI analysis results
-      const closeDelay = total === 0 ? 30000 : 120000; // 30s for no messages, 2 min for processed messages
+      // If messages were processed (total > 0), keep open for 1 minute to show results
+      const closeDelay = total === 0 ? 30000 : 60000; // 30s for no messages, 1 min for processed messages
 
       const timer = setTimeout(() => {
         setIsClosed(true);
+        // Actually remove the session from parent after a short delay
+        setTimeout(() => onClose(session.sessionKey), 1000);
       }, closeDelay);
 
       return () => clearTimeout(timer);
     }
-  }, [status, total]);
+  }, [status, allMessagesProcessed, total, session.sessionKey, onClose]);
 
   // Show widget ONLY if there's activity
-  const isActivelyProcessing = isProcessing || status === 'started' || status === 'processing';
-  const hasRecentActivity = status === 'complete' || status === 'error'; // Show on complete/error regardless of total
+  const isActivelyProcessing =
+    (isProcessing || status === 'started' || status === 'processing') && !allMessagesProcessed;
+  const hasRecentActivity = status === 'complete' || status === 'error' || allMessagesProcessed; // Show on complete/error regardless of total
 
   // Force show if actively processing (ignore isClosed), allow closing only when complete
   // ALWAYS show when processing, even if user closed it before
@@ -231,12 +261,12 @@ export const MessageProcessingProgress = ({
         title="Drag to move widget"
       >
         <div className="flex flex-1 gap-2 items-center">
-          {isProcessing || status === 'processing' || status === 'started' ? (
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          ) : status === 'complete' ? (
+          {allMessagesProcessed || status === 'complete' ? (
             <CheckCircle className="w-4 h-4 text-green-500" />
           ) : status === 'error' ? (
             <XCircle className="w-4 h-4 text-red-500" />
+          ) : isProcessing || status === 'processing' || status === 'started' ? (
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
           ) : (
             <CheckCircle className="w-4 h-4 text-muted-foreground" />
           )}
@@ -246,13 +276,15 @@ export const MessageProcessingProgress = ({
               : integrationName}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {isProcessing || status === 'processing' || status === 'started'
-              ? 'Processing'
-              : status === 'complete'
-                ? 'Complete'
-                : status === 'error'
-                  ? 'Failed'
-                  : 'Ready'}
+            {allMessagesProcessed
+              ? 'Complete'
+              : isProcessing || status === 'processing' || status === 'started'
+                ? 'Processing'
+                : status === 'complete'
+                  ? 'Complete'
+                  : status === 'error'
+                    ? 'Failed'
+                    : 'Ready'}
           </span>
         </div>
         <div className="flex gap-1 items-center">
@@ -269,13 +301,18 @@ export const MessageProcessingProgress = ({
             size="sm"
             onClick={() => {
               setIsClosed(true);
+              setUserDismissed(true); // Prevent reopening on empty polls
               localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_closed`, 'true');
-              // Notify parent to remove this session after delay
-              setTimeout(() => onClose(session.sessionKey), 300000); // Auto-remove after 5 min
+              localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_dismissed`, 'true');
+              // Remove session immediately when manually closed
+              setTimeout(() => onClose(session.sessionKey), 1000);
             }}
-            disabled={isActivelyProcessing}
             className="p-0 w-6 h-6"
-            title={isActivelyProcessing ? 'Cannot close while processing' : 'Close widget'}
+            title={
+              isActivelyProcessing
+                ? 'Hide widget (processing continues in background)'
+                : "Close widget (won't reappear until new messages found)"
+            }
           >
             <X className="w-3 h-3" />
           </Button>
@@ -296,8 +333,8 @@ export const MessageProcessingProgress = ({
               </div>
               <div className="w-full bg-secondary rounded-full h-2.5">
                 <div
-                  className="bg-primary h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
+                  className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
                 />
               </div>
             </div>
@@ -312,12 +349,31 @@ export const MessageProcessingProgress = ({
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
+            {/* Show total processed (current progress) */}
+            {current > 0 && (
+              <div>
+                <div className="flex gap-1 justify-center items-center">
+                  <Loader2
+                    className={`w-3 h-3 ${isProcessing ? 'animate-spin text-primary' : 'text-muted-foreground'}`}
+                  />
+                  <span className="text-lg font-bold">{current}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Processed</p>
+              </div>
+            )}
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <CheckCircle className="w-3 h-3 text-green-500" />
-                <span className="text-lg font-bold">{processed}</span>
+                <span className="text-lg font-bold">{successful ?? 0}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground">Processed</p>
+              <p className="text-[10px] text-muted-foreground">Analyzed</p>
+            </div>
+            <div>
+              <div className="flex gap-1 justify-center items-center">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+                <span className="text-lg font-bold">{skipped ?? 0}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Skipped</p>
             </div>
             <button
               type="button"
@@ -334,9 +390,7 @@ export const MessageProcessingProgress = ({
                 <XCircle className="w-3 h-3 text-red-500" />
                 <span className="text-lg font-bold">{failed}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground">
-                {failed > 0 ? 'Failed (click)' : 'Failed'}
-              </p>
+              <p className="text-[10px] text-muted-foreground">Failed</p>
             </button>
           </div>
 
@@ -355,10 +409,17 @@ export const MessageProcessingProgress = ({
                 {processed !== 1 ? 's' : ''}
                 {failed > 0 && ` (${failed} failed)`}
               </div>
-              {processed > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded text-xs flex items-center gap-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  AI analysis in progress (embeddings, spam detection, categorization)...
+
+              {/* KB Entries Stats */}
+              {kbEntriesTotal !== undefined && kbEntriesTotal > 0 && (
+                <div className="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded text-xs">
+                  📚 KB: {kbEntriesTotal} {kbEntriesTotal === 1 ? 'entry' : 'entries'}
+                  {kbQAPairs !== undefined && kbQAPairs > 0 && ` (${kbQAPairs} Q&A`}
+                  {kbStandaloneKnowledge !== undefined &&
+                    kbStandaloneKnowledge > 0 &&
+                    `, ${kbStandaloneKnowledge} knowledge`}
+                  {kbDocuments !== undefined && kbDocuments > 0 && `, ${kbDocuments} docs`}
+                  {(kbQAPairs ?? 0) + (kbStandaloneKnowledge ?? 0) + (kbDocuments ?? 0) > 0 && ')'}
                 </div>
               )}
             </div>

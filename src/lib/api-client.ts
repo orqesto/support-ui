@@ -15,6 +15,9 @@ apiClient.interceptors.request.use(
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('✅ [API] Auth token added to request');
+    } else {
+      console.warn('⚠️ [API] No auth token found!');
     }
 
     // Add selected organization and department context
@@ -22,14 +25,14 @@ apiClient.interceptors.request.use(
     if (authStorage) {
       try {
         const parsed = JSON.parse(authStorage) as {
-          state?: { 
+          state?: {
             selectedOrganizationId?: number;
             selectedDepartmentRole?: string;
           };
         };
         const selectedOrgId = parsed.state?.selectedOrganizationId;
         const selectedDept = parsed.state?.selectedDepartmentRole;
-        
+
         if (selectedOrgId) {
           config.headers['X-Organization-Context'] = String(selectedOrgId);
           // eslint-disable-next-line no-console
@@ -67,22 +70,27 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
     // Type guard for axios error
-    const isAxiosError = (err: unknown): err is { response?: { status?: number; data?: unknown } } =>
+    const isAxiosError = (
+      err: unknown
+    ): err is { response?: { status?: number; data?: unknown } } =>
       typeof err === 'object' && err !== null && 'response' in err;
 
     if (isAxiosError(error) && error.response?.status === 401) {
       // Only redirect to login if not already there
       const currentPath = window.location.pathname;
-      const isOnAuthPage = currentPath === '/login' || currentPath === '/signup' || 
-                          currentPath === '/forgot-password' || currentPath === '/reset-password';
-      
+      const isOnAuthPage =
+        currentPath === '/login' ||
+        currentPath === '/signup' ||
+        currentPath === '/forgot-password' ||
+        currentPath === '/reset-password';
+
       if (!isOnAuthPage) {
         // Clear all authentication data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('auth-storage');
         sessionStorage.clear();
-        
+
         // Redirect to login
         window.location.href = '/login';
       }
@@ -92,7 +100,8 @@ apiClient.interceptors.response.use(
     if (isAxiosError(error) && error.response?.data) {
       const errorData = error.response.data as { error?: string; message?: string };
       const baseError = error as { message?: string };
-      const errorMessage = errorData.error ?? errorData.message ?? baseError.message ?? 'Unknown error';
+      const errorMessage =
+        errorData.error ?? errorData.message ?? baseError.message ?? 'Unknown error';
 
       // Create a more detailed error with status and message
       const enhancedError = new Error(errorMessage) as Error & { status?: number; data?: unknown };

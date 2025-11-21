@@ -53,16 +53,23 @@ export const ticketService = {
     return response.data;
   },
 
-  createWithAttachments: async (data: CreateTicketRequest, files: File[]) => {
+  createWithAttachments: async (data: CreateTicketRequest, files: File[] = []) => {
+    // If no files, use regular JSON POST
+    if (!files || files.length === 0) {
+      const response = await apiClient.post<ApiResponse<Ticket>>('/api/tickets', data);
+      return response.data;
+    }
+
+    // With files, use FormData
     const formData = new FormData();
-    
+
     // Append all ticket data as JSON string
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         formData.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
       }
     });
-    
+
     // Append files
     files.forEach((file) => {
       formData.append('attachments', file);

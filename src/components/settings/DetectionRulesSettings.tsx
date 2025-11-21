@@ -451,7 +451,7 @@ export const DetectionRulesSettings = () => {
                       onClick={() => toggleActive(rule)}
                       title={rule.active ? 'Deactivate' : 'Activate'}
                     >
-                      {rule.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {rule.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(rule)}>
                       <Edit2 className="mr-2 w-4 h-4" />

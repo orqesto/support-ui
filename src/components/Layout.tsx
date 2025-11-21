@@ -11,6 +11,10 @@ import {
   Users,
   Building2,
   FileText,
+  CreditCard,
+  Zap,
+  TrendingUp,
+  BookOpen,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DepartmentSwitcher } from '@/components/DepartmentSwitcher';
@@ -37,10 +41,22 @@ const allNavigation = [
   { name: 'Messages', href: '/messages', icon: Mail, permission: Permission.VIEW_MESSAGES },
   { name: 'Tickets', href: '/tickets', icon: Ticket, permission: Permission.VIEW_TICKETS },
   {
+    name: 'Knowledge Base',
+    href: '/knowledge-base',
+    icon: BookOpen,
+    permission: Permission.VIEW_MESSAGES,
+  },
+  {
     name: 'Statistics',
     href: '/statistics',
     icon: BarChart3,
     permission: Permission.VIEW_STATISTICS,
+  },
+  {
+    name: 'Usage Stats',
+    href: '/usage-stats',
+    icon: TrendingUp,
+    permission: Permission.VIEW_USAGE_STATS,
   },
   { name: 'Organization', href: '/organization', icon: Building2 },
   {
@@ -49,11 +65,29 @@ const allNavigation = [
     icon: Settings,
     permission: Permission.VIEW_ORGANIZATION_SETTINGS,
   },
+  {
+    name: 'Subscription',
+    href: '/subscription',
+    icon: CreditCard,
+    permission: Permission.VIEW_SUBSCRIPTION,
+  },
+  {
+    name: 'AI Modules',
+    href: '/ai-modules',
+    icon: Zap,
+    permission: Permission.VIEW_SUBSCRIPTION,
+  },
   { name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
   {
     name: 'Email Templates',
     href: '/email-templates',
     icon: FileText,
+    adminOnly: true, // Only visible to global admins
+  },
+  {
+    name: 'Admin - Plans & Modules',
+    href: '/admin/plans',
+    icon: Settings,
     adminOnly: true, // Only visible to global admins
   },
   {
@@ -74,7 +108,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { hasPermission, orgRole } = usePermissions();
 
   // Track multiple email processing sessions (filtered by selected department)
-  const { sessions } = useEmailProcessing(true, selectedDepartmentRole ?? undefined);
+  const { sessions, removeSession } = useEmailProcessing(true, selectedDepartmentRole ?? undefined);
 
   // Persist closed sessions in localStorage to survive page navigation
   // Use sessionKey (integrationId-departmentRole) to track closed sessions
@@ -93,6 +127,10 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Handle session close
   const handleSessionClose = (sessionKey: string) => {
+    // Remove from hook's session map and cleanup localStorage
+    removeSession(sessionKey);
+
+    // Also remove from local closed sessions tracking
     setClosedSessions((prev) => {
       const newSet = new Set(prev).add(sessionKey);
       // Persist to localStorage
@@ -125,44 +163,63 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Get visible sessions (not closed and either processing or recently completed)
   // IMPORTANT: Filter by current department to avoid showing other departments' progress
-  const visibleSessions = useMemo(
-    () => {
-      console.log('[Layout] Sessions Map:', Array.from(sessions.entries()).map(([id, s]) => ({
+  const visibleSessions = useMemo(() => {
+    console.log(
+      '[Layout] Sessions Map:',
+      Array.from(sessions.entries()).map(([id, s]) => ({
         id,
         name: s.integrationName,
         dept: s.departmentRole,
         status: s.status,
         isProcessing: s.isProcessing,
         total: s.total,
-        current: s.current
-      })));
-      
-      const filtered = Array.from(sessions.entries())
-        .filter(([sessionKey, session]) => {
-          // Don't show if manually closed
-          if (closedSessions.has(sessionKey)) {
-            console.log(`[Layout] Filtering out ${session.integrationName}: manually closed`);
-            return false;
-          }
-          
-          // Filter by current department (only show sessions for selected department)
-          if (selectedDepartmentRole && session.departmentRole && session.departmentRole !== selectedDepartmentRole) {
-            console.log(`[Layout] Filtering out ${session.integrationName}: wrong department (${session.departmentRole} vs ${selectedDepartmentRole})`);
-            return false;
-          }
-          
-          // Show if processing or recently completed
-          const shouldShow = session.isProcessing || session.status === 'complete' || session.status === 'error';
-          console.log(`[Layout] ${session.integrationName} (${session.departmentRole}): shouldShow=${shouldShow} (isProcessing=${session.isProcessing}, status=${session.status})`);
-          return shouldShow;
-        })
-        .map(([_, session]) => session);
-      
-      console.log('[Layout] Visible sessions count:', filtered.length, `for dept: ${selectedDepartmentRole || 'all'}`);
-      return filtered;
-    },
-    [sessions, closedSessions, selectedDepartmentRole]
-  );
+        current: s.current,
+      }))
+    );
+
+    const filtered = Array.from(sessions.entries())
+      .filter(([sessionKey, session]) => {
+        // Don't show if manually closed
+        if (closedSessions.has(sessionKey)) {
+          console.log(`[Layout] Filtering out ${session.integrationName}: manually closed`);
+          return false;
+        }
+
+        // Filter by current department (only show sessions for selected department)
+        // TODO: Make this configurable - for now show all during processing
+        // if (
+        //   selectedDepartmentRole &&
+        //   session.departmentRole &&
+        //   session.departmentRole !== selectedDepartmentRole
+        // ) {
+        //   console.log(
+        //     `[Layout] Filtering out ${session.integrationName}: wrong department (${session.departmentRole} vs ${selectedDepartmentRole})`
+        //   );
+        //   return false;
+        // }
+
+        // Show if processing or recently completed
+        // Include 'started' and 'processing' statuses to show restored sessions on page refresh
+        const shouldShow =
+          session.isProcessing ||
+          session.status === 'started' ||
+          session.status === 'processing' ||
+          session.status === 'complete' ||
+          session.status === 'error';
+        console.log(
+          `[Layout] ${session.integrationName} (${session.departmentRole}): shouldShow=${shouldShow} (isProcessing=${session.isProcessing}, status=${session.status})`
+        );
+        return shouldShow;
+      })
+      .map(([_, session]) => session);
+
+    console.log(
+      '[Layout] Visible sessions count:',
+      filtered.length,
+      `for dept: ${selectedDepartmentRole ?? 'all'}`
+    );
+    return filtered;
+  }, [sessions, closedSessions, selectedDepartmentRole]);
 
   // Filter navigation based on permissions
   const navigation = useMemo(

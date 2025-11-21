@@ -187,7 +187,6 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     }
   };
 
-
   const handleEditStart = (comment: Comment) => {
     setEditingId(comment.id);
     setEditContent(comment.content);
@@ -445,7 +444,10 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                 </div>
               ) : (
                 <>
-                  <div className="text-sm prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: comment.content }} />
+                  <div
+                    className="max-w-none text-sm prose prose-sm"
+                    dangerouslySetInnerHTML={{ __html: comment.content }}
+                  />
                   {/* Attachments */}
                   {comment.attachments && comment.attachments.length > 0 && (
                     <div className="mt-3 space-y-2">

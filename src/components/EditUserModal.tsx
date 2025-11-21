@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { RoleInfoCard } from '@/components/RoleInfoCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -15,7 +16,7 @@ import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
-import type { User } from '@/types';
+import type { User, DepartmentRole } from '@/types';
 import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
 
 type EditUserModalProps = {
@@ -32,6 +33,7 @@ type EditUserModalProps = {
       phone?: string;
       organizationRole?: OrganizationRole;
       role?: GlobalRole;
+      departments?: DepartmentRole[];
     }
   ) => Promise<void>;
   user: User | null;
@@ -40,6 +42,13 @@ type EditUserModalProps = {
 
 const globalRoles: GlobalRole[] = ['admin', 'user'];
 const orgRoles: OrganizationRole[] = ['org_admin', 'moderator', 'support', 'associate'];
+const departments: DepartmentRole[] = ['support', 'sales', 'billing', 'general'];
+const departmentLabels: Record<DepartmentRole, string> = {
+  support: 'Support',
+  sales: 'Sales',
+  billing: 'Billing',
+  general: 'General',
+};
 
 export const EditUserModal = ({
   isOpen,
@@ -58,6 +67,7 @@ export const EditUserModal = ({
   const [phone, setPhone] = useState('');
   const [globalRole, setGlobalRole] = useState<GlobalRole>('user');
   const [organizationRole, setOrganizationRole] = useState<OrganizationRole>('associate');
+  const [selectedDepartments, setSelectedDepartments] = useState<DepartmentRole[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
@@ -114,8 +124,9 @@ export const EditUserModal = ({
       setTelegram(user.telegram ?? '');
       setSlack(user.slack ?? '');
       setPhone(user.phone ?? '');
-      setGlobalRole((user.role as GlobalRole) ?? 'user');
-      setOrganizationRole((user.organizationRole as OrganizationRole) ?? 'associate');
+      setGlobalRole(user.role);
+      setOrganizationRole(user.organizationRole ?? 'associate');
+      setSelectedDepartments(user.departmentRoles ?? ['support']);
       setSelectedOrgId(user.organizationId);
     }
   }, [user]);
@@ -153,6 +164,7 @@ export const EditUserModal = ({
         phone: phone.trim() ?? undefined,
         role: canEditRoles && isAdmin ? globalRole : undefined,
         organizationRole: canEditRoles ? organizationRole : undefined,
+        departments: canEditRoles ? selectedDepartments : undefined,
       });
       onClose();
     } catch (error) {
@@ -344,6 +356,42 @@ export const EditUserModal = ({
                       Permissions within the organization
                     </p>
                   )}
+                  {/* Show role permissions info */}
+                  <div className="-mt-2">
+                    <RoleInfoCard role={organizationRole} compact />
+                  </div>
+
+                  {/* Department Selection */}
+                  <div>
+                    <div className="block mb-2 text-sm font-medium">Departments</div>
+                    <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
+                      {departments.map((dept) => (
+                        <label key={dept} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedDepartments.includes(dept)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDepartments([...selectedDepartments, dept]);
+                              } else {
+                                // Prevent deselecting all departments
+                                if (selectedDepartments.length > 1) {
+                                  setSelectedDepartments(
+                                    selectedDepartments.filter((d) => d !== dept)
+                                  );
+                                }
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm">{departmentLabels[dept]}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="-mt-2 mt-1 text-xs text-muted-foreground">
+                      User can access tickets and messages from selected departments
+                    </p>
+                  </div>
                 </>
               )}
 

@@ -1,23 +1,11 @@
-import {
-  Settings,
-  FolderTree,
-  FileText,
-  ShieldAlert,
-  ShieldPlus,
-  Inbox,
-  Cog,
-  BrainCog,
-  Zap,
-} from 'lucide-react';
+import { Settings, FolderTree, ShieldAlert, Inbox, Cog, BrainCog, Zap } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '@/components/settings/CategoriesSettings';
-import { DetectionRulesSettings } from '@/components/settings/DetectionRulesSettings';
-import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
 import { PromptsSettings } from '@/components/settings/PromptsSettings';
-import { SpamRulesSettings } from '@/components/settings/SpamRulesSettings';
+import { RulesSettings } from '@/components/settings/RulesSettings';
 import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -25,9 +13,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 type TabType =
   | 'categories'
   | 'prompts'
-  | 'spam-rules'
-  | 'detection-rules'
-  | 'documentation'
+  | 'rules'
   | 'ai-providers'
   | 'message-sources'
   | 'ticket-automation';
@@ -57,22 +43,10 @@ export const SettingsPage = () => {
       description: 'Customize AI prompt templates',
     },
     {
-      id: 'spam-rules' as TabType,
-      label: 'Spam Rules',
+      id: 'rules' as TabType,
+      label: 'Rules',
       icon: ShieldAlert,
-      description: 'Configure spam detection rules',
-    },
-    {
-      id: 'detection-rules' as TabType,
-      label: 'Detection Rules',
-      icon: ShieldPlus,
-      description: 'Configure positive signals for legitimate messages',
-    },
-    {
-      id: 'documentation' as TabType,
-      label: 'Documentation',
-      icon: FileText,
-      description: 'Upload knowledge base documents for AI',
+      description: 'Configure spam, detection, and KB extraction rules',
     },
     {
       id: 'ai-providers' as TabType,
@@ -145,9 +119,7 @@ export const SettingsPage = () => {
             <div className="p-6" key={activeTab}>
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
-              {activeTab === 'spam-rules' && <SpamRulesSettings />}
-              {activeTab === 'detection-rules' && <DetectionRulesSettings />}
-              {activeTab === 'documentation' && <DocumentationSettings />}
+              {activeTab === 'rules' && <RulesSettings />}
               {activeTab === 'ai-providers' && <AIProvidersSettings />}
               {activeTab === 'message-sources' && <MessageSourcesSettings />}
               {activeTab === 'ticket-automation' && <TicketAutomationSettings />}

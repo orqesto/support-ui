@@ -15,6 +15,7 @@ export type FilterState = {
   hasReplies?: boolean;
   hasTicket?: boolean;
   showFailed?: boolean;
+  awaitingCustomerResponse?: boolean;
   search?: string;
 };
 
@@ -57,6 +58,7 @@ const defaultFilters: FilterState = {
   hasReplies: false,
   hasTicket: undefined,
   showFailed: false,
+  awaitingCustomerResponse: false,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
@@ -114,7 +116,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   setFilters: (filters) => {
     const currentState = get();
     const newFilters = { ...currentState.filters, ...filters };
-    set({ filters: newFilters }); // Merge with existing filters
+    set({ filters: newFilters, cache: {} }); // Merge with existing filters and clear cache
   },
 
   setSorting: (sorting) => {
@@ -125,6 +127,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   updateFilter: (key, value) => {
     set((state) => ({
       filters: { ...state.filters, [key]: value },
+      cache: {}, // Clear cache on filter change
     }));
   },
 
@@ -132,11 +135,11 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   updatePrimaryFilter: (key, value) => {
     set((state) => {
       const { processed, channel, messageSourceId } = state.filters;
-      
+
       console.log(`🔵 Primary filter changed: ${key} = ${value}`);
       console.log('   Keeping: processed, channel, messageSourceId');
       console.log('   Clearing: all secondary filters');
-      
+
       return {
         filters: {
           // Keep all primary filters
@@ -152,8 +155,9 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           showWorthy: false,
           hasAttachments: false,
           hasReplies: false,
-          hasTicket: false,
+          hasTicket: undefined,
           showFailed: false,
+          awaitingCustomerResponse: false,
           search: undefined,
         },
         cache: {}, // Clear cache on filter change
@@ -166,7 +170,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     set((state) => {
       console.log(`🟢 Secondary filter changed: ${key} = ${value}`);
       console.log('   Keeping: all filters');
-      
+
       return {
         filters: { ...state.filters, [key]: value },
         cache: {}, // Clear cache on filter change
