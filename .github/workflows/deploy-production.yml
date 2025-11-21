@@ -26,7 +26,7 @@ jobs:
 
       - name: Build frontend
         env:
-          VITE_API_URL: http://164.90.237.39:3001
+          VITE_API_URL: http://steward.it.com:3001
         run: npm run build
 
       - name: Install SSH Key
@@ -84,7 +84,7 @@ jobs:
             cat > /etc/nginx/sites-available/frontend << 'EOF'
           server {
               listen 80;
-              server_name 164.90.237.39;
+              server_name steward.it.com www.steward.it.com 164.90.237.39;
               root /var/www/frontend;
               index index.html;
 
