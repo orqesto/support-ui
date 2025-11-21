@@ -140,6 +140,22 @@ jobs:
             echo "✅ Nginx configured and reloaded"
           ENDSSH
 
+      - name: Restore SSL Certificate
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          ssh ${SSH_USER}@${SSH_HOST} << 'ENDSSH'
+            set -e
+
+            echo "🔒 Restoring SSL certificate..."
+
+            # Re-apply SSL configuration (certbot modifies nginx config)
+            certbot --nginx -d steward.it.com -d www.steward.it.com --non-interactive --redirect
+
+            echo "✅ SSL certificate restored"
+          ENDSSH
+
       - name: Verify Deployment
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -168,6 +184,6 @@ jobs:
           echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 Frontend: http://${{ secrets.SSH_HOST }}" >> $GITHUB_STEP_SUMMARY
-          echo "- 📚 API Docs: http://${{ secrets.SSH_HOST }}:3001/api-docs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🏥 Backend Health: http://${{ secrets.SSH_HOST }}:3001/health" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend: https://steward.it.com" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 API Docs: http://steward.it.com:3001/api-docs" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏥 Backend Health: http://steward.it.com:3001/health" >> $GITHUB_STEP_SUMMARY
