@@ -201,7 +201,7 @@ export const LoginPage = () => {
             </div>
             <div className="mt-4 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
-              <p className="font-medium">admin@resol.com / password123</p>
+              <p className="font-medium">admin@arasaka.com / password123</p>
             </div>
           </form>
         </CardContent>
