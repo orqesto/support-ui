@@ -50,7 +50,7 @@ jobs:
             echo "🚀 Starting frontend deployment..."
 
             # Create frontend directory if it doesn't exist
-            mkdir -p /root/FE-app
+            mkdir -p /var/www/frontend
 
             # Install nginx if not installed
             if ! command -v nginx &> /dev/null; then
@@ -65,7 +65,10 @@ jobs:
       - name: Copy built files
         run: |
           rsync -avz --delete \
-            ./dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/FE-app/
+            ./dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/frontend/
+
+          # Fix permissions after rsync
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'chown -R www-data:www-data /var/www/frontend'
 
       - name: Configure Nginx
         env:
@@ -82,7 +85,7 @@ jobs:
           server {
               listen 80;
               server_name 164.90.237.39;
-              root /root/FE-app;
+              root /var/www/frontend;
               index index.html;
 
               # Gzip compression
