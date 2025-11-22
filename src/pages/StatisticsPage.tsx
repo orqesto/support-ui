@@ -45,7 +45,7 @@ export const StatisticsPage = () => {
         setStats(statsResponse.data);
       }
       setKbStats(kbStatsData);
-      setKbEntries(kbEntriesData.data);
+      setKbEntries(Array.isArray(kbEntriesData?.data) ? kbEntriesData.data : []);
     } catch (error) {
       console.error('Failed to fetch statistics:', error);
     } finally {
