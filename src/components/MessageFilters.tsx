@@ -333,16 +333,16 @@ export const MessageFilters = ({
                 onBlur={onSearchBlur}
                 showSearchButton={true}
                 placeholder="Search by ID, email, subject, content..."
-                className="flex-1 min-w-[300px]"
+                className="flex-1 min-w-[200px] sm:min-w-[300px]"
                 size="sm"
               />
             </div>
 
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
                 {/* Status Group */}
-                <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
@@ -382,18 +382,18 @@ export const MessageFilters = ({
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div className="w-px h-8 bg-border" />
+                {/* Divider - hidden on mobile */}
+                <div className="hidden sm:block w-px h-8 bg-border" />
 
                 {/* Channel Group */}
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Channel:
                   </span>
                   <Select
                     value={filters.channel}
                     onChange={(e) => onFilterChange('channel', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    className="px-2 py-1 pr-8 h-8 text-xs min-w-[100px]"
                     aria-label="Filter by channel"
                   >
                     <option value="all">All</option>
@@ -403,11 +403,11 @@ export const MessageFilters = ({
                   </Select>
                 </div>
 
-                {/* Divider */}
-                <div className="w-px h-8 bg-border" />
+                {/* Divider - hidden on mobile */}
+                <div className="hidden lg:block w-px h-8 bg-border" />
 
                 {/* Message Source Group */}
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     <Inbox className="inline mr-1 w-3 h-3" />
                     Source:
@@ -415,7 +415,7 @@ export const MessageFilters = ({
                   <Select
                     value={filters.messageSourceId ?? 'all'}
                     onChange={(e) => onFilterChange('messageSourceId', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    className="px-2 py-1 pr-8 h-8 text-xs min-w-[120px]"
                     aria-label="Filter by message source"
                   >
                     <option value="all">All Sources</option>
@@ -427,18 +427,18 @@ export const MessageFilters = ({
                   </Select>
                 </div>
 
-                {/* Divider */}
-                <div className="w-px h-8 bg-border" />
+                {/* Divider - hidden on mobile */}
+                <div className="hidden lg:block w-px h-8 bg-border" />
 
                 {/* Sort Order */}
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
                   <Select
                     value={sorting.sortOrder}
                     onChange={(e) => onSortingChange(e.target.value as 'asc' | 'desc')}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
+                    className="px-2 py-1 pr-8 h-8 text-xs min-w-[120px]"
                     aria-label="Sort order"
                   >
                     <option value="desc">Newest First</option>
