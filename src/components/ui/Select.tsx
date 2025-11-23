@@ -19,16 +19,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative z-10">
           <select
             id={selectId}
             className={cn(
-              'flex h-10 w-full rounded-md border border-border bg-input text-foreground px-3 py-2 text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-primary',
+              'flex h-10 w-full rounded-md border border-border bg-input text-foreground px-3 py-2 pr-10 text-sm',
+              'focus:outline-none focus:ring-2 focus:ring-primary focus:z-50',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted',
-              // On mobile (touch devices), use native select styling for proper picker positioning
-              // On desktop, hide native arrow and show custom chevron
-              'sm:appearance-none sm:pr-10',
+              'appearance-none relative', // Hide native dropdown arrow
               error && 'border-destructive focus:ring-destructive',
               className
             )}
@@ -37,8 +35,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           >
             {children}
           </select>
-          {/* Custom chevron - hidden on mobile, visible on desktop */}
-          <ChevronDown className="hidden absolute right-3 top-1/2 w-4 h-4 -translate-y-1/2 pointer-events-none sm:block text-muted-foreground" />
+          <ChevronDown className="absolute right-3 top-1/2 w-4 h-4 -translate-y-1/2 pointer-events-none text-muted-foreground z-20" />
         </div>
         {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
       </div>
