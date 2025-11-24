@@ -259,7 +259,8 @@ export const TicketFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-col sm:inline-flex gap-4 sm:flex-row rounded-md shadow-sm">
+
                 {/* Group 1: Status & Priority */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
@@ -298,8 +299,8 @@ export const TicketFilters = ({
                   />
                 </div>
 
-                {/* Divider */}
-                <div className="w-px h-8 bg-border" />
+             
+               
 
                 {/* Message Source Filter */}
                 <MessageSourceFilter
@@ -307,8 +308,6 @@ export const TicketFilters = ({
                   onChange={(value) => onFilterChange('messageSourceId', value)}
                 />
 
-                {/* Divider */}
-                <div className="w-px h-8 bg-border" />
 
                 {/* Group 2: Sorting */}
                 <div className="flex gap-2 items-center">
