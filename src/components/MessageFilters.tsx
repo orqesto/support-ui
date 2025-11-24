@@ -340,13 +340,15 @@ export const MessageFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
+              <div className="flex flex-col sm:inline-flex sm:flex-row rounded-md shadow-sm">
+
                 {/* Status Group */}
                 <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
-                  <div className="inline-flex rounded-md shadow-sm flex-shrink-0">
+                  <div className="flex flex-col w-full sm:inline-flex sm:flex-row sm:w-auto rounded-md shadow-sm">
+
                     <Button
                       variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
                       size="sm"

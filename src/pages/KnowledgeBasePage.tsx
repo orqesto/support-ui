@@ -199,6 +199,8 @@ export const KnowledgeBasePage = () => {
         {/* Tabs for Type Selection */}
         <div className="mb-6 border-b border-border">
           <div className="flex gap-1">
+
+            {/* All */}
             <button
               onClick={() => setFilterType('all')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -209,41 +211,50 @@ export const KnowledgeBasePage = () => {
             >
               All ({pagination.total})
             </button>
+
+            {/* Q&A Pairs */}
             <button
               onClick={() => setFilterType('qa_pair')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 filterType === 'qa_pair'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="hidden sm:block w-4 h-4" />
               Q&A Pairs ({filterType === 'qa_pair' ? pagination.total : '...'})
             </button>
+
+            {/* Documents */}
             <button
               onClick={() => setFilterType('document')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 filterType === 'document'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="hidden sm:block w-4 h-4" />
               Documents ({filterType === 'document' ? pagination.total : '...'})
             </button>
+
+            {/* Documentation */}
             <button
               onClick={() => setFilterType('documentation')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 filterType === 'documentation'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="hidden sm:block w-4 h-4" />
               Documentation
             </button>
+
           </div>
         </div>
+
+
 
         {/* Filters Card - Hidden in Documentation tab */}
         {filterType !== 'documentation' && (
