@@ -15,6 +15,7 @@ export type FilterState = {
   hasReplies?: boolean;
   hasTicket?: boolean;
   showFailed?: boolean;
+  excludeKB?: boolean; // Filter out KB messages (show only support requests)
   awaitingCustomerResponse?: boolean;
   search?: string;
 };

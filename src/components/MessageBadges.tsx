@@ -9,6 +9,7 @@ import {
   Ticket,
   AlertTriangle,
   Folder,
+  BookOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { getCategoryDisplay, hasMessageAttachments } from '@/lib/messageHelpers';
@@ -134,6 +135,16 @@ export const MessageBadges = ({ message }: MessageBadgesProps) => (
           )}
 
         {message.ticketId && <Badge variant="default">Has Ticket</Badge>}
+        {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
+          <Badge
+            variant="default"
+            className="flex gap-1 items-center bg-purple-600 text-white hover:bg-purple-700"
+            title="Message from Knowledge Base source"
+          >
+            <BookOpen className="w-4 h-4" />
+            Knowledge Base
+          </Badge>
+        )}
         {message.resolved && (
           <Badge className="text-white bg-green-600 hover:bg-green-700">✓ Resolved</Badge>
         )}

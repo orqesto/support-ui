@@ -14,6 +14,7 @@ import {
   Zap,
   Clock,
   AlertTriangle,
+  BookOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -634,6 +635,19 @@ export const MessageFilters = ({
                     <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
                       <Clock className="w-3 h-3 text-blue-500" />
                       <span>Awaiting Response</span>
+                    </div>
+                  </label>
+
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.excludeKB ?? false}
+                      onChange={(e) => setFilters({ ...filters, excludeKB: e.target.checked })}
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                      <BookOpen className="w-3 h-3 text-purple-500" />
+                      <span>Exclude KB</span>
                     </div>
                   </label>
                 </div>

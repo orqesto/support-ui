@@ -22,6 +22,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { MessageAIAnalysis } from '@/components/MessageAIAnalysis';
 import { MessageAttachments } from '@/components/MessageAttachments';
 import { MessageBadges } from '@/components/MessageBadges';
+import { MessageKBReferences } from '@/components/MessageKBReferences';
 import { MessageThread } from '@/components/MessageThread';
 import RichTextEditor from '@/components/RichTextEditor';
 import { ScrollButtons } from '@/components/ScrollButtons';
@@ -270,7 +271,14 @@ export const MessageDetail = ({
             </p>
           )}
         </div>
+      </div>
 
+      {/* KB References - Show if message was used in KB */}
+      {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
+        <MessageKBReferences messageId={message.id} />
+      )}
+
+      <div className="space-y-4">
         {/* Link to Ticket */}
         {message.ticketId && (
           <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
