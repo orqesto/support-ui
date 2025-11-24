@@ -340,15 +340,13 @@ export const MessageFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-col sm:inline-flex sm:flex-row rounded-md shadow-sm">
-
+              <div className="flex flex-wrap gap-3 items-center sm:gap-4">
                 {/* Status Group */}
                 <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
-                  <div className="flex flex-col w-full sm:inline-flex sm:flex-row sm:w-auto rounded-md shadow-sm gap-2">
-
+                  <div className="inline-flex flex-shrink-0 rounded-md shadow-sm">
                     <Button
                       variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
                       size="sm"
@@ -385,10 +383,10 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden sm:block w-px h-8 bg-border" />
+                <div className="hidden w-px h-8 sm:block bg-border" />
 
                 {/* Channel Group */}
-                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Channel:
                   </span>
@@ -401,17 +399,17 @@ export const MessageFilters = ({
                       { value: 'telegram', label: 'Telegram' },
                       { value: 'slack', label: 'Slack' },
                     ]}
-                    className="min-w-[120px] sm: w-full"
+                    className="min-w-[100px]"
                   />
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden lg:block w-px h-8 bg-border" />
+                <div className="hidden w-px h-8 lg:block bg-border" />
 
                 {/* Message Source Group */}
-                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    <Inbox className="inline mr-1 w-3 h-3 hidden sm:block" />
+                    <Inbox className="inline mr-1 w-3 h-3" />
                     Source:
                   </span>
                   <ReactSelect
@@ -424,15 +422,15 @@ export const MessageFilters = ({
                         label: source.name,
                       })),
                     ]}
-                    className="min-w-[120px] sm: w-full"
+                    className="min-w-[120px]"
                   />
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden lg:block w-px h-8 bg-border" />
+                <div className="hidden w-px h-8 lg:block bg-border" />
 
                 {/* Sort Order */}
-                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
@@ -443,7 +441,7 @@ export const MessageFilters = ({
                       { value: 'desc', label: 'Newest First' },
                       { value: 'asc', label: 'Oldest First' },
                     ]}
-                    className="min-w-[120px] sm: w-full"
+                    className="min-w-[120px]"
                   />
                 </div>
               </div>
