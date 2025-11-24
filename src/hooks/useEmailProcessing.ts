@@ -13,6 +13,7 @@ type EmailProcessingEvent = {
   type: 'started' | 'found' | 'processing' | 'processed' | 'complete' | 'error';
   integrationId?: number;
   integrationName?: string;
+  organizationId?: number; // Organization this integration belongs to
   departmentRole?: string; // Department this integration belongs to
   data?: {
     total?: number;
@@ -73,7 +74,11 @@ type EmailProcessingState = {
   totalTime?: number;
 };
 
-export const useEmailProcessing = (enabled = true, filterByDepartment?: string) => {
+export const useEmailProcessing = (
+  enabled = true,
+  filterByDepartment?: string,
+  filterByOrganization?: number
+) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [state, setState] = useState<EmailProcessingState>({
     status: 'idle',
@@ -158,6 +163,18 @@ export const useEmailProcessing = (enabled = true, filterByDepartment?: string) 
     return () => clearInterval(checkInterval);
   }, []);
 
+  // Clear all sessions when organization changes (admin switching context)
+  useEffect(() => {
+    if (filterByOrganization) {
+      console.log(
+        `[useEmailProcessing] Organization filter changed to ${filterByOrganization}, clearing all sessions`
+      );
+      setSessions(new Map());
+      // Clear localStorage for stale organization
+      localStorage.removeItem('emailProcessing_sessions');
+    }
+  }, [filterByOrganization]);
+
   useEffect(() => {
     // Always get socket instance (for connection status)
     const socketInstance = getSocket();
@@ -195,6 +212,15 @@ export const useEmailProcessing = (enabled = true, filterByDepartment?: string) 
           );
           return;
         }
+
+        // Filter by organization if specified - ignore events from other organizations
+        if (filterByOrganization && event.organizationId !== filterByOrganization) {
+          console.log(
+            `[useEmailProcessing] Ignoring event from org ${event.organizationId}, current filter: ${filterByOrganization}`
+          );
+          return;
+        }
+
         setSessions((prev) => {
           const newSessions = new Map(prev);
           const integrationId = event.integrationId as number;
@@ -351,6 +377,12 @@ export const useEmailProcessing = (enabled = true, filterByDepartment?: string) 
       // Skip global events when department filtering is active to prevent cross-department interference
       if (filterByDepartment && !event.integrationId) {
         console.log('[useEmailProcessing] Ignoring global event - department filter active');
+        return;
+      }
+
+      // Skip global events when organization filtering is active
+      if (filterByOrganization && !event.integrationId) {
+        console.log('[useEmailProcessing] Ignoring global event - organization filter active');
         return;
       }
 
@@ -625,7 +657,7 @@ export const useEmailProcessing = (enabled = true, filterByDepartment?: string) 
       unsubscribeFromEvent('kb:completed', handleKBCompleted);
       releaseSocket();
     };
-  }, [enabled, filterByDepartment]);
+  }, [enabled, filterByDepartment, filterByOrganization]);
 
   const reset = useCallback(() => {
     setState({
