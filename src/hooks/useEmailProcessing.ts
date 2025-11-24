@@ -522,27 +522,14 @@ export const useEmailProcessing = (
           return newSessions;
         }
 
-        // No existing session, create new one with KB prefix
-        const sessionKey = `kb-${kbEvent.messageSourceId}`;
-        newSessions.set(sessionKey, {
-          sessionKey,
-          integrationId: kbEvent.messageSourceId,
-          integrationName: kbEvent.messageSourceName || 'Knowledge Base',
-          departmentRole: kbEvent.departmentRole ?? 'general',
-          status: kbEvent.status === 'processing' ? 'processing' : 'idle',
-          total: kbEvent.messages.total,
-          current: kbEvent.messages.processed, // Total processed count
-          processed: kbEvent.messages.processed, // Total processed (successful + failed + skipped)
-          successful: kbEvent.messages.successful, // Successfully analyzed
-          failed: kbEvent.messages.failed,
-          skipped: kbEvent.messages.skipped, // Skipped (irrelevant/low quality)
-          isProcessing: kbEvent.status === 'processing',
-          progress: kbEvent.progress,
-          kbEntriesTotal: kbEvent.kbEntries?.total,
-          kbQAPairs: kbEvent.kbEntries?.qaPairs,
-          kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge,
-          kbDocuments: kbEvent.kbEntries?.documents,
-        });
+        // No existing session found - KB event without email session
+        // This can happen if:
+        // 1. KB processing started before email polling (bulk import)
+        // 2. Page refreshed after email session completed but KB still running
+        // For now, ignore orphan KB events to prevent duplicate widgets
+        console.log(
+          `[useEmailProcessing] No email session found for KB event (integration ${kbEvent.messageSourceId}), ignoring to prevent duplicate widget`
+        );
         return newSessions;
       });
     };
@@ -612,36 +599,11 @@ export const useEmailProcessing = (
           return newSessions;
         }
 
-        // No existing session, create new KB session
-        const sessionKey = `kb-${kbEvent.messageSourceId}`;
-        newSessions.set(sessionKey, {
-          sessionKey,
-          integrationId: kbEvent.messageSourceId,
-          integrationName: kbEvent.messageSourceName || 'Knowledge Base',
-          departmentRole: kbEvent.departmentRole ?? 'general',
-          status: 'complete',
-          total: kbEvent.messages.total,
-          current: kbEvent.messages.total,
-          processed: kbEvent.messages.successful,
-          failed: kbEvent.messages.failed,
-          isProcessing: false,
-          progress: 100,
-          totalTime: kbEvent.duration,
-          kbEntriesTotal: kbEvent.kbEntries?.total,
-          kbQAPairs: kbEvent.kbEntries?.qaPairs,
-          kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge,
-          kbDocuments: kbEvent.kbEntries?.documents,
-        });
-
-        // Auto-remove completed KB-only sessions after 1 minute
-        setTimeout(() => {
-          setSessions((p) => {
-            const updated = new Map(p);
-            updated.delete(sessionKey);
-            return updated;
-          });
-        }, 60000);
-
+        // No existing session found - KB completed without email session
+        // Ignore to prevent creating orphan completed sessions
+        console.log(
+          `[useEmailProcessing] No email session found for KB completion (integration ${kbEvent.messageSourceId}), ignoring`
+        );
         return newSessions;
       });
     };
