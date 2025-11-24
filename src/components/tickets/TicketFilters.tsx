@@ -12,8 +12,8 @@ import { MessageSourceFilter } from '@/components/filters/MessageSourceFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { Select } from '@/components/ui/Select';
 import type { JiraIntegration } from '@/services/integrations.service';
 import type { PaginationMeta } from '@/services/ticket.service';
 import type { TicketStatus, TicketPriority } from '@/types';
@@ -265,37 +265,37 @@ export const TicketFilters = ({
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={filters.status}
-                    onChange={(e) => onFilterChange('status', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Filter by status"
-                  >
-                    <option value="all">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                  </Select>
+                    onChange={(value) => onFilterChange('status', value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'pending', label: 'Pending' },
+                      { value: 'open', label: 'Open' },
+                      { value: 'in_progress', label: 'In Progress' },
+                      { value: 'resolved', label: 'Resolved' },
+                      { value: 'closed', label: 'Closed' },
+                    ]}
+                    className="min-w-[120px]"
+                  />
                 </div>
 
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Priority:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={filters.priority}
-                    onChange={(e) => onFilterChange('priority', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Filter by priority"
-                  >
-                    <option value="all">All</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </Select>
+                    onChange={(value) => onFilterChange('priority', value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' },
+                      { value: 'critical', label: 'Critical' },
+                    ]}
+                    className="min-w-[120px]"
+                  />
                 </div>
 
                 {/* Divider */}
@@ -315,38 +315,38 @@ export const TicketFilters = ({
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={sorting.sortBy}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       onSortingChange({
                         ...sorting,
-                        sortBy: e.target.value as 'createdAt' | 'updatedAt' | 'priority',
+                        sortBy: value as 'createdAt' | 'updatedAt' | 'priority',
                       })
                     }
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Sort by"
-                  >
-                    <option value="createdAt">Created Date</option>
-                    <option value="updatedAt">Updated Date</option>
-                    <option value="priority">Priority</option>
-                  </Select>
+                    options={[
+                      { value: 'createdAt', label: 'Created Date' },
+                      { value: 'updatedAt', label: 'Updated Date' },
+                      { value: 'priority', label: 'Priority' },
+                    ]}
+                    className="min-w-[140px]"
+                  />
                 </div>
 
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Order:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={sorting.sortOrder}
-                    onChange={(e) =>
-                      onSortingChange({ ...sorting, sortOrder: e.target.value as 'asc' | 'desc' })
+                    onChange={(value) =>
+                      onSortingChange({ ...sorting, sortOrder: value as 'asc' | 'desc' })
                     }
-                    className="px-2 py-1 pr-8 h-8 text-xs"
-                    aria-label="Sort order"
-                  >
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                  </Select>
+                    options={[
+                      { value: 'desc', label: 'Newest First' },
+                      { value: 'asc', label: 'Oldest First' },
+                    ]}
+                    className="min-w-[120px]"
+                  />
                 </div>
               </div>
             </div>
@@ -361,21 +361,18 @@ export const TicketFilters = ({
                       <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                         Jira:
                       </span>
-                      <Select
-                        value={selectedJiraId ?? ''}
-                        onChange={(e) =>
-                          onJiraIdChange(e.target.value ? Number(e.target.value) : undefined)
-                        }
-                        className="px-2 py-1 pr-8 h-8 text-xs"
-                        aria-label="Filter by Jira integration"
-                      >
-                        <option value="">All Integrations</option>
-                        {jiraIntegrations.map((integration) => (
-                          <option key={integration.id} value={integration.id}>
-                            {integration.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <ReactSelect
+                        value={selectedJiraId?.toString() ?? ''}
+                        onChange={(value) => onJiraIdChange(value ? Number(value) : undefined)}
+                        options={[
+                          { value: '', label: 'All Integrations' },
+                          ...jiraIntegrations.map((integration) => ({
+                            value: integration.id.toString(),
+                            label: integration.name,
+                          })),
+                        ]}
+                        className="min-w-[150px]"
+                      />
                     </div>
                     <div className="w-px h-8 bg-border" />
                   </>

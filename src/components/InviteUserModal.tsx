@@ -10,7 +10,12 @@ import { useAuthStore } from '@/stores/authStore';
 type InviteUserModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onInvite: (email: string, role: string, departmentRole: string, organizationId: number) => Promise<void>;
+  onInvite: (
+    email: string,
+    role: string,
+    departmentRole: string,
+    organizationId: number
+  ) => Promise<void>;
 };
 
 export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalProps) => {
@@ -106,7 +111,10 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50" onClick={onClose}>
+    <div
+      className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/50"
+      onClick={onClose}
+    >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         role="dialog"
@@ -183,7 +191,12 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               : 'Org admins cannot invite other org admins'}
           </p>
 
-          <Select label="Department" value={departmentRole} onChange={(e) => setDepartmentRole(e.target.value)} required>
+          <Select
+            label="Department"
+            value={departmentRole}
+            onChange={(e) => setDepartmentRole(e.target.value)}
+            required
+          >
             <option value="support">Support - Customer support team</option>
             <option value="sales">Sales - Sales team</option>
             <option value="billing">Billing - Billing/finance team</option>

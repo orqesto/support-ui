@@ -366,7 +366,7 @@ export const EditUserModal = ({
                     <div className="block mb-2 text-sm font-medium">Departments</div>
                     <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
                       {departments.map((dept) => (
-                        <label key={dept} className="flex items-center gap-2 cursor-pointer">
+                        <label key={dept} className="flex gap-2 items-center cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selectedDepartments.includes(dept)}
@@ -388,7 +388,7 @@ export const EditUserModal = ({
                         </label>
                       ))}
                     </div>
-                    <p className="-mt-2 mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 -mt-2 text-xs text-muted-foreground">
                       User can access tickets and messages from selected departments
                     </p>
                   </div>
