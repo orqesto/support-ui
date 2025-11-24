@@ -365,7 +365,7 @@ export const DashboardPage = () => {
               Real-time overview of your support operations
             </p>
           </div>
-          <div className="text-s text-muted-foreground text-right">
+          <div className="text-right text-s text-muted-foreground">
             Last updated: {new Date().toLocaleTimeString()}
           </div>
         </div>
