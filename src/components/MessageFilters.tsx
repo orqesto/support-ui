@@ -340,13 +340,13 @@ export const MessageFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-wrap gap-3 items-center sm:gap-4">
+              <div className="flex flex-col rounded-md shadow-sm sm:inline-flex sm:flex-row">
                 {/* Status Group */}
                 <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
-                  <div className="inline-flex flex-shrink-0 rounded-md shadow-sm">
+                  <div className="flex flex-col gap-2 w-full rounded-md shadow-sm sm:inline-flex sm:flex-row sm:w-auto">
                     <Button
                       variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
                       size="sm"
@@ -386,7 +386,7 @@ export const MessageFilters = ({
                 <div className="hidden w-px h-8 sm:block bg-border" />
 
                 {/* Channel Group */}
-                <div className="flex gap-2 items-center min-w-[140px]">
+                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Channel:
                   </span>
@@ -399,7 +399,7 @@ export const MessageFilters = ({
                       { value: 'telegram', label: 'Telegram' },
                       { value: 'slack', label: 'Slack' },
                     ]}
-                    className="min-w-[100px]"
+                    className="min-w-[120px] sm: w-full"
                   />
                 </div>
 
@@ -407,9 +407,9 @@ export const MessageFilters = ({
                 <div className="hidden w-px h-8 lg:block bg-border" />
 
                 {/* Message Source Group */}
-                <div className="flex gap-2 items-center min-w-[140px]">
+                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    <Inbox className="inline mr-1 w-3 h-3" />
+                    <Inbox className="inline hidden mr-1 w-3 h-3 sm:block" />
                     Source:
                   </span>
                   <ReactSelect
@@ -422,7 +422,7 @@ export const MessageFilters = ({
                         label: source.name,
                       })),
                     ]}
-                    className="min-w-[120px]"
+                    className="min-w-[120px] sm: w-full"
                   />
                 </div>
 
@@ -430,7 +430,7 @@ export const MessageFilters = ({
                 <div className="hidden w-px h-8 lg:block bg-border" />
 
                 {/* Sort Order */}
-                <div className="flex gap-2 items-center min-w-[140px]">
+                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
@@ -441,7 +441,7 @@ export const MessageFilters = ({
                       { value: 'desc', label: 'Newest First' },
                       { value: 'asc', label: 'Oldest First' },
                     ]}
-                    className="min-w-[120px]"
+                    className="min-w-[120px] sm: w-full"
                   />
                 </div>
               </div>
