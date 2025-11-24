@@ -266,8 +266,8 @@ export const DocumentationSettings = () => {
         {stats && (
           <div className="grid grid-cols-3 gap-4">
             <Card className="p-4">
-              <div className="flex gap-3 items-center">
-                <BookOpen className="w-8 h-8 text-blue-500" />
+              <div className="flex gap-3 items-center sm:items-center flex-col sm:flex-row text-center sm:text-left">
+                <BookOpen className="w-8 h-8 text-blue-500 hidden sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalDocs}</p>
                   <p className="text-sm text-muted-foreground">Documents</p>
@@ -275,8 +275,8 @@ export const DocumentationSettings = () => {
               </div>
             </Card>
             <Card className="p-4">
-              <div className="flex gap-3 items-center">
-                <FileText className="w-8 h-8 text-green-500" />
+              <div className="flex gap-3 items-centersm:items-center flex-col sm:flex-row text-center sm:text-left">
+              <FileText className="w-8 h-8 text-green-500 hidden sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalChunks}</p>
                   <p className="text-sm text-muted-foreground">Chunks</p>
@@ -284,8 +284,8 @@ export const DocumentationSettings = () => {
               </div>
             </Card>
             <Card className="p-4">
-              <div className="flex gap-3 items-center">
-                <CheckCircle className="w-8 h-8 text-purple-500" />
+              <div className="flex gap-3 items-center sm:items-center flex-col sm:flex-row text-center sm:text-left">
+              <CheckCircle className="w-8 h-8 text-purple-500 hidden sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalReferences}</p>
                   <p className="text-sm text-muted-foreground">Times Used</p>
@@ -300,7 +300,7 @@ export const DocumentationSettings = () => {
       <Card className="p-6">
         <h3 className="mb-4 text-lg font-semibold">Upload New Documentation</h3>
 
-        <div className="space-y-4">
+        <div className="space-y-4 sm:items-center flex-col sm:flex-row text-center sm:text-left">
           <div>
             <div className="block mb-2 text-sm font-medium">File (PDF, TXT, or Markdown)</div>
             <div
@@ -446,7 +446,7 @@ export const DocumentationSettings = () => {
           </div>
 
           <Button onClick={handleUpload} disabled={!selectedFile || !title.trim() || uploading}>
-            <Upload className="mr-2 w-4 h-4" />
+            <Upload className="mr-2 w-4 h-4 " />
             {uploading ? 'Uploading...' : 'Upload Documentation'}
           </Button>
         </div>

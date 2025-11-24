@@ -255,19 +255,20 @@ export const GmailIntegrationCard = ({
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
-              <Mail className="w-5 h-5 text-red-600" />
+          <div className="flex justify-between items-center gap-1">
+          <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
+              <Mail className="w-5 h-5 text-red-600 " />
               Gmail Accounts (OAuth2)
             </CardTitle>
             <Button
               size="sm"
+              className='py-5'
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4" />
+              <Plus className="mr-1 w-4 h-4 hidden block:sm" />
               Add Gmail
             </Button>
           </div>
@@ -622,7 +623,7 @@ export const GmailIntegrationCard = ({
           )}
 
           {gmailIntegrations.length === 0 && !showForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
+            <p className="py-2 text-sm text-center text-muted-foreground">
               No Gmail accounts connected
             </p>
           )}

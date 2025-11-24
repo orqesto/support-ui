@@ -105,17 +105,18 @@ export const CategoriesSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
         <div>
           <h3 className="text-lg font-semibold">Ticket Categories</h3>
           <p className="text-sm text-muted-foreground">
             Manage categories for automatic ticket classification
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating}>
-          <Plus className="mr-2 w-4 h-4" />
+        <Button onClick={handleCreate} disabled={isCreating} className="px-6 py-4 py-6" >
+          <Plus className="mr-2 w-4 h-4 hidden sm:block" />
           Add Category
         </Button>
+
       </div>
 
       {/* New Category Form */}
@@ -163,7 +164,8 @@ export const CategoriesSettings = () => {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-start justify-center sm:justify-start"
+          >
             <Button onClick={handleSave} disabled={!formData.name}>
               <Save className="mr-2 w-4 h-4" />
               Save
@@ -223,7 +225,8 @@ export const CategoriesSettings = () => {
                     />
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+
                   <Button onClick={handleSave}>
                     <Save className="mr-2 w-4 h-4" />
                     Save
@@ -236,15 +239,17 @@ export const CategoriesSettings = () => {
               </div>
             ) : (
               <>
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h4 className="text-lg font-semibold">{category.name}</h4>
                       <DepartmentBadge department={category.departmentRole} />
                     </div>
+
                     {category.description && (
                       <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
                     )}
+
                     {category.keywords && (
                       <div className="mt-2">
                         <p className="mb-1 text-xs font-medium text-muted-foreground">Keywords:</p>
@@ -261,11 +266,14 @@ export const CategoriesSettings = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
+
+                
+                  <div className="flex flex-row sm:flex-col gap-2 items-center sm:items-start justify-center sm:justify-start w-full sm:w-auto">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(category)}>
                       <Edit2 className="mr-2 w-4 h-4" />
                       Edit
                     </Button>
+
                     <Button
                       size="sm"
                       variant="destructive"
@@ -277,6 +285,7 @@ export const CategoriesSettings = () => {
                     </Button>
                   </div>
                 </div>
+
               </>
             )}
           </div>

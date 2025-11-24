@@ -170,7 +170,7 @@ export const CreateOrganizationModal = ({
               Cancel
             </Button>
             <Button type="submit" className="flex-1" isLoading={isLoading}>
-              <Plus className="mr-2 w-4 h-4" />
+              <Plus className="mr-2 w-4 h-4 hidden sm:block" />
               Create
             </Button>
           </div>

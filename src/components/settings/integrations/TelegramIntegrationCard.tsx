@@ -144,18 +144,19 @@ export const TelegramIntegrationCard = ({
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
+            <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl">
               <MessageSquare className="w-5 h-5 text-blue-500" />
               Telegram Bots
             </CardTitle>
             <Button
               size="sm"
+              className='py-5'
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4" />
+              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
               Add Telegram
             </Button>
           </div>
@@ -263,7 +264,7 @@ export const TelegramIntegrationCard = ({
           )}
 
           {telegramIntegrations.length === 0 && !showForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
+            <p className="py-2 text-sm text-center text-muted-foreground">
               No Telegram bots configured
             </p>
           )}

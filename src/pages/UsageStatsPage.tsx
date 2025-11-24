@@ -92,22 +92,24 @@ export const UsageStatsPage = () => {
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center">
+        <div className="flex gap-4 items-center sm:gap-0">
+
             <Button variant="ghost" size="sm" onClick={() => navigate('/subscription')}>
               <ArrowLeft className="mr-2 w-4 h-4" />
               Back
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Billing & Usage</h1>
-              <p className="mt-1 text-gray-600">
+            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Billing & Usage</h1>
+              <p className="mt-1 text-gray-600 text-sm sm:text-base">
                 AI module costs, usage tracking, and overage monitoring
               </p>
+
             </div>
           </div>
-          <Button onClick={exportUsageData} variant="outline">
-            <Download className="mr-2 w-4 h-4" />
-            Export CSV
-          </Button>
+          <Button onClick={exportUsageData} variant="outline" className="py-6">
+  <Download className="mr-2 w-4 h-4" />
+  Export CSV
+</Button>
         </div>
 
         {/* Summary Cards */}

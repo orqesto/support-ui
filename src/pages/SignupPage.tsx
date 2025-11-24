@@ -275,7 +275,7 @@ export const SignupPage = () => {
               Create Account
             </Button>
 
-            <div className="text-sm text-center text-muted-foreground">
+            <div className="py-2 text-sm text-center text-muted-foreground">
               Already have an account?{' '}
               <Link to="/login" className="font-medium text-primary hover:underline">
                 Sign in
