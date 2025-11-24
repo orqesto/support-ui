@@ -195,7 +195,7 @@ export const JiraIntegrationCard = ({
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4" />
+              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
               Add Jira
             </Button>
           </div>
@@ -351,7 +351,7 @@ export const JiraIntegrationCard = ({
           )}
 
           {jiraIntegrations.length === 0 && !showForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
+            <p className="py-2 text-sm text-center text-muted-foreground">
               No Jira instances configured
             </p>
           )}

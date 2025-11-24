@@ -38,7 +38,7 @@ export const KBTableView = ({
   onDelete,
 }: KBTableViewProps) => (
   <div className="hidden md:block rounded-lg border">
-    <table className="w-full table-fixed">
+    <table className="w-full l:table-fixed ">
       <thead className="bg-muted/50">
         <tr className="border-b">
           <th className="w-10 px-2 py-3 text-left text-sm font-medium">Type</th>
