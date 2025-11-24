@@ -145,19 +145,20 @@ export const SlackIntegrationCard = ({
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
+          <div className="flex justify-between">
+            <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl">
               <Zap className="w-5 h-5 text-purple-600" />
               Slack Workspaces
             </CardTitle>
             <Button
               size="sm"
+              className='py-5'
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4" />
+              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
               Add Slack
             </Button>
           </div>
@@ -281,7 +282,7 @@ export const SlackIntegrationCard = ({
           )}
 
           {slackIntegrations.length === 0 && !showForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
+            <p className="py-2 text-sm text-center text-muted-foreground">
               No Slack workspaces configured
             </p>
           )}
