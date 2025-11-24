@@ -10,6 +10,7 @@ import {
   X,
   Users,
   Building2,
+  Briefcase,
   FileText,
   CreditCard,
   Zap,
@@ -28,6 +29,7 @@ import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
+import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission, roleDisplayNames } from '@/types/roles';
 
@@ -109,10 +111,29 @@ export const Layout = ({ children }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
 
-  // Track multiple email processing sessions (filtered by selected department and organization)
+  // State for organization name
+  const [selectedOrgName, setSelectedOrgName] = useState<string>('Organization');
+
   // For admins: use selectedOrganizationId to filter widgets by current org context
   // For regular users: use their user.organizationId
   const organizationFilter = user?.role === 'admin' ? selectedOrganizationId : user?.organizationId;
+
+  // Fetch organization name for admins
+  useEffect(() => {
+    if (user?.role === 'admin' && selectedOrganizationId) {
+      organizationService
+        .getAll('', 1, 100)
+        .then((result) => {
+          const org = result.data.find((o: Organization) => o.id === selectedOrganizationId);
+          if (org) {
+            setSelectedOrgName(org.name);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to load organization name:', error);
+        });
+    }
+  }, [selectedOrganizationId, user?.role]);
   const { sessions, removeSession } = useEmailProcessing(
     true,
     selectedDepartmentRole ?? undefined,
@@ -122,10 +143,14 @@ export const Layout = ({ children }: LayoutProps) => {
   // Join/leave organization-specific WebSocket rooms for targeted event delivery
   useEffect(() => {
     if (organizationFilter) {
-      joinOrganizationRoom(organizationFilter);
+      // Wait for socket to connect before joining room
+      const timer = setTimeout(() => {
+        joinOrganizationRoom(organizationFilter);
+      }, 1000);
 
       // Leave room when organization changes or component unmounts
       return () => {
+        clearTimeout(timer);
         leaveOrganizationRoom(organizationFilter);
       };
     }
@@ -316,6 +341,32 @@ export const Layout = ({ children }: LayoutProps) => {
             </nav>
 
             <div className="p-4 border-t">
+              {/* Current Context Indicator */}
+              {(user?.role === 'admin' && selectedOrganizationId) || selectedDepartmentRole ? (
+                <div className="mb-3 p-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                  <p className="mb-2 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+                    Workspace
+                  </p>
+                  {user?.role === 'admin' && selectedOrganizationId && (
+                    <div className="flex gap-2 items-center mb-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-sm font-medium truncate text-foreground">
+                        {selectedOrgName}
+                      </span>
+                    </div>
+                  )}
+                  {selectedDepartmentRole && (
+                    <div className="flex gap-2 items-center">
+                      <Briefcase className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-sm font-medium text-foreground">
+                        {selectedDepartmentRole.charAt(0).toUpperCase() +
+                          selectedDepartmentRole.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               {/* Organization Switcher for Global Admins */}
               <OrganizationSwitcher />
 
