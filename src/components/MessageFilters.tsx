@@ -18,8 +18,8 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { Select } from '@/components/ui/Select';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
 
@@ -390,17 +390,17 @@ export const MessageFilters = ({
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Channel:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={filters.channel}
-                    onChange={(e) => onFilterChange('channel', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs min-w-[100px]"
-                    aria-label="Filter by channel"
-                  >
-                    <option value="all">All</option>
-                    <option value="email">Email</option>
-                    <option value="telegram">Telegram</option>
-                    <option value="slack">Slack</option>
-                  </Select>
+                    onChange={(value) => onFilterChange('channel', value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'email', label: 'Email' },
+                      { value: 'telegram', label: 'Telegram' },
+                      { value: 'slack', label: 'Slack' },
+                    ]}
+                    className="min-w-[100px]"
+                  />
                 </div>
 
                 {/* Divider - hidden on mobile */}
@@ -412,19 +412,18 @@ export const MessageFilters = ({
                     <Inbox className="inline mr-1 w-3 h-3" />
                     Source:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={filters.messageSourceId ?? 'all'}
-                    onChange={(e) => onFilterChange('messageSourceId', e.target.value)}
-                    className="px-2 py-1 pr-8 h-8 text-xs min-w-[120px]"
-                    aria-label="Filter by message source"
-                  >
-                    <option value="all">All Sources</option>
-                    {messageSources.map((source) => (
-                      <option key={source.id} value={source.id.toString()}>
-                        {source.name}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(value) => onFilterChange('messageSourceId', value)}
+                    options={[
+                      { value: 'all', label: 'All Sources' },
+                      ...messageSources.map((source) => ({
+                        value: source.id.toString(),
+                        label: source.name,
+                      })),
+                    ]}
+                    className="min-w-[120px]"
+                  />
                 </div>
 
                 {/* Divider - hidden on mobile */}
@@ -435,15 +434,15 @@ export const MessageFilters = ({
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
-                  <Select
+                  <ReactSelect
                     value={sorting.sortOrder}
-                    onChange={(e) => onSortingChange(e.target.value as 'asc' | 'desc')}
-                    className="px-2 py-1 pr-8 h-8 text-xs min-w-[120px]"
-                    aria-label="Sort order"
-                  >
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                  </Select>
+                    onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+                    options={[
+                      { value: 'desc', label: 'Newest First' },
+                      { value: 'asc', label: 'Oldest First' },
+                    ]}
+                    className="min-w-[120px]"
+                  />
                 </div>
               </div>
             </div>

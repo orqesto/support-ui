@@ -4,7 +4,7 @@ import DepartmentBadge from '@/components/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
 
@@ -297,7 +297,9 @@ export const GmailIntegrationCard = ({
                         OAuth2 •{' '}
                         {(() => {
                           const gmailConfig = (
-                            integration.config as { gmail?: { lookbackDays?: number; searchQuery?: string } }
+                            integration.config as {
+                              gmail?: { lookbackDays?: number; searchQuery?: string };
+                            }
                           ).gmail;
                           const lookbackDays = gmailConfig?.lookbackDays;
                           if (lookbackDays !== undefined) {
@@ -436,7 +438,7 @@ export const GmailIntegrationCard = ({
                     Client secret from the same OAuth2 credentials
                   </p>
                 </div>
-                
+
                 <div className="flex gap-2 items-center pt-2">
                   <input
                     type="checkbox"
@@ -448,46 +450,32 @@ export const GmailIntegrationCard = ({
                     📚 Use as Knowledge Base Source
                   </label>
                 </div>
-                <p className="text-xs text-muted-foreground -mt-2 ml-6">
-                  Extract Q&A pairs and documents from conversations for AI-powered support responses
+                <p className="-mt-2 ml-6 text-xs text-muted-foreground">
+                  Extract Q&A pairs and documents from conversations for AI-powered support
+                  responses
                 </p>
-                
+
                 <div>
-                  <label htmlFor="searchQuery" className="text-sm font-medium">
-                    Email Filter
-                  </label>
-                  <select
+                  <ReactSelect
+                    label="Email Filter"
                     value={config.searchQuery}
-                    onChange={(e) => setConfig({ ...config, searchQuery: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    {searchQueryOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setConfig({ ...config, searchQuery: value })}
+                    options={searchQueryOptions}
+                  />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Which emails to sync (unread, inbox, etc.)
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="lookbackDays" className="text-sm font-medium">
-                    Time Range
-                  </label>
-                  <select
-                    value={config.lookbackDays ?? 30}
-                    onChange={(e) =>
-                      setConfig({ ...config, lookbackDays: parseInt(e.target.value) })
-                    }
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    {lookbackOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <ReactSelect
+                    label="Time Range"
+                    value={(config.lookbackDays ?? 30).toString()}
+                    onChange={(value) => setConfig({ ...config, lookbackDays: parseInt(value) })}
+                    options={lookbackOptions.map((opt) => ({
+                      value: opt.value.toString(),
+                      label: opt.label,
+                    }))}
+                  />
                   <p className="mt-1 text-xs text-muted-foreground">
                     How far back in time (combines with filter above)
                   </p>
@@ -556,22 +544,21 @@ export const GmailIntegrationCard = ({
                   <h5 className="mb-3 text-sm font-semibold">Bulk Import Settings</h5>
                   <div className="space-y-3">
                     <div>
-                      <label htmlFor="bulkImportDays" className="text-sm font-medium">
-                        Import Time Range (Days)
-                      </label>
-                      <Select
+                      <ReactSelect
+                        label="Import Time Range (Days)"
                         value={config.bulkImportDays.toString()}
-                        onChange={(e) =>
-                          setConfig({ ...config, bulkImportDays: parseInt(e.target.value) })
+                        onChange={(value) =>
+                          setConfig({ ...config, bulkImportDays: parseInt(value) })
                         }
-                      >
-                        <option value="0">All Time</option>
-                        <option value="7">Last 7 Days</option>
-                        <option value="30">Last 30 Days</option>
-                        <option value="90">Last 90 Days</option>
-                        <option value="180">Last 6 Months</option>
-                        <option value="365">Last Year</option>
-                      </Select>
+                        options={[
+                          { value: '0', label: 'All Time' },
+                          { value: '7', label: 'Last 7 Days' },
+                          { value: '30', label: 'Last 30 Days' },
+                          { value: '90', label: 'Last 90 Days' },
+                          { value: '180', label: 'Last 6 Months' },
+                          { value: '365', label: 'Last Year' },
+                        ]}
+                      />
                       <p className="mt-1 text-xs text-muted-foreground">
                         How far back to import emails when using bulk import (0 = all emails)
                       </p>
@@ -648,23 +635,20 @@ export const GmailIntegrationCard = ({
                 <p className="mb-4 text-sm text-muted-foreground">{editBulkImport.name}</p>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="bulkImportDays" className="text-sm font-medium">
-                      Import Time Range
-                    </label>
-                    <Select
-                      id="bulkImportDays"
+                    <ReactSelect
+                      label="Import Time Range"
                       value={bulkImportDaysInput}
-                      onChange={(e) => setBulkImportDaysInput(e.target.value)}
-                      className="mt-1"
-                    >
-                      <option value="0">All Time</option>
-                      <option value="1">Last 1 Day</option>
-                      <option value="7">Last 7 Days</option>
-                      <option value="30">Last 30 Days</option>
-                      <option value="90">Last 90 Days</option>
-                      <option value="180">Last 6 Months</option>
-                      <option value="365">Last Year</option>
-                    </Select>
+                      onChange={(value) => setBulkImportDaysInput(value)}
+                      options={[
+                        { value: '0', label: 'All Time' },
+                        { value: '1', label: 'Last 1 Day' },
+                        { value: '7', label: 'Last 7 Days' },
+                        { value: '30', label: 'Last 30 Days' },
+                        { value: '90', label: 'Last 90 Days' },
+                        { value: '180', label: 'Last 6 Months' },
+                        { value: '365', label: 'Last Year' },
+                      ]}
+                    />
                     <p className="mt-2 text-xs text-muted-foreground">
                       How far back to fetch emails during bulk import. Set to &quot;All Time&quot;
                       to fetch everything (may take a while).
