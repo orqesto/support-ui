@@ -313,19 +313,20 @@ export const EmailIntegrationCard = ({
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex gap-2 items-center">
+          <div className="flex justify-between items-center gap-1">
+            <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
               <Mail className="w-5 h-5 text-blue-600" />
               Email Accounts (IMAP)
             </CardTitle>
             <Button
+            className='py-5'
               size="sm"
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4" />
+              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
               Add Email
             </Button>
           </div>
@@ -336,7 +337,7 @@ export const EmailIntegrationCard = ({
               {emailIntegrations.map((integration) => (
                 <div
                   key={integration.id}
-                  className="flex justify-between items-center p-3 rounded-lg border"
+                  className="flex justify-between items-center p-3 rounded-lg border gap-3"
                 >
                   <div className="flex gap-3 items-center">
                     <div
@@ -639,7 +640,7 @@ export const EmailIntegrationCard = ({
           )}
 
           {emailIntegrations.length === 0 && !showForm && (
-            <p className="py-4 text-sm text-center text-muted-foreground">
+            <p className="py-2 text-sm text-center text-muted-foreground">
               No email accounts configured
             </p>
           )}

@@ -108,12 +108,13 @@ export const OpenAIProviderCard = ({
           </CardTitle>
           <Button
             size="sm"
+            className='py-5'
             onClick={() => {
               handleReset();
               setShowForm(!showForm);
             }}
           >
-            <Plus className="mr-1 w-4 h-4" />
+            <Plus className="mr-1 w-4 h-4 hidden sm:block" />
             {integrations.length > 0 ? 'Update' : 'Add'} OpenAI
           </Button>
         </div>
@@ -285,7 +286,7 @@ export const OpenAIProviderCard = ({
         )}
 
         {integrations.length === 0 && !showForm && (
-          <p className="py-4 text-sm text-center text-muted-foreground">
+          <p className="py-2 text-sm text-center text-muted-foreground">
             No OpenAI configuration
           </p>
         )}

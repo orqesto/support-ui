@@ -156,15 +156,15 @@ export const SpamRulesSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
         <div>
-          <h3 className="text-lg font-semibold">Spam Detection Rules</h3>
+          <h3 className="text-lg font-semibold sm:">Spam Detection Rules</h3>
           <p className="text-sm text-muted-foreground">
             Configure rules and red flags for spam detection
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating}>
-          <Plus className="mr-2 w-4 h-4" />
+        <Button className="sm: h-12" onClick={handleCreate} disabled={isCreating}>
+          <Plus className="mr-2 w-4 h-4 " />
           Add Rule
         </Button>
       </div>
@@ -417,7 +417,7 @@ export const SpamRulesSettings = () => {
               </div>
             ) : (
               <>
-                <div className="flex justify-between items-start">
+               <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 items-center">
                       <h4 className="text-lg font-semibold">{rule.name}</h4>
@@ -446,7 +446,7 @@ export const SpamRulesSettings = () => {
                     {rule.pattern && (
                       <div className="mt-2">
                         <p className="mb-1 text-xs font-medium text-muted-foreground">Pattern:</p>
-                        <code className="px-2 py-1 font-mono text-xs rounded bg-muted">
+                        <code className="px-2 py-1 font-mono text-xs rounded bg-muted break-words">
                           {rule.pattern}
                         </code>
                       </div>

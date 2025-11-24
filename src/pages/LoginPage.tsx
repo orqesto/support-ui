@@ -196,10 +196,10 @@ export const LoginPage = () => {
                     : 'Sign in'}
               </Button>
             </div>
-            <div className="text-sm text-center text-muted-foreground">
+            <div className="py-2 text-sm text-center text-muted-foreground">
               Don&apos;t have an account? Contact your administrator for an invitation.
             </div>
-            <div className="mt-4 text-sm text-center text-muted-foreground">
+            <div className="mt-4 py-2 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
               <p className="font-medium">admin@arasaka.com / password123</p>
             </div>

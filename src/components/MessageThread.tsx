@@ -239,7 +239,7 @@ export const MessageThread = ({
       {expanded && (
         <div className="mt-4">
           {loading && (
-            <div className="py-8 text-sm text-center text-muted-foreground">
+            <div className="py-8 py-2 text-sm text-center text-muted-foreground">
               <div className="mx-auto mb-2 w-6 h-6 rounded-full border-2 animate-spin border-primary border-t-transparent" />
               Loading conversation...
             </div>

@@ -98,19 +98,20 @@ export const PerplexityProviderCard = ({
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-2">
           <CardTitle className="flex gap-2 items-center">
             <Brain className="w-5 h-5 text-purple-600" />
             Perplexity
           </CardTitle>
           <Button
             size="sm"
+            className='py-5'
             onClick={() => {
               handleReset();
               setShowForm(!showForm);
             }}
           >
-            <Plus className="mr-1 w-4 h-4" />
+            <Plus className="mr-1 w-4 h-4 hidden sm:block" />
             {integrations.length > 0 ? 'Update' : 'Add'} Perplexity
           </Button>
         </div>
@@ -272,7 +273,7 @@ export const PerplexityProviderCard = ({
         )}
 
         {integrations.length === 0 && !showForm && (
-          <p className="py-4 text-sm text-center text-muted-foreground">
+          <p className="py-2 text-sm text-center text-muted-foreground">
             No Perplexity configuration
           </p>
         )}

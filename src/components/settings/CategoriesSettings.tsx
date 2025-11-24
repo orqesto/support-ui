@@ -105,15 +105,15 @@ export const CategoriesSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center gap-1">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
         <div>
           <h3 className="text-lg font-semibold">Ticket Categories</h3>
           <p className="text-sm text-muted-foreground">
             Manage categories for automatic ticket classification
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating} className="px-6 py-4 sm:py-2" >
-          <Plus className="mr-2 w-4 h-4" />
+        <Button onClick={handleCreate} disabled={isCreating} className="px-6 py-4 py-6" >
+          <Plus className="mr-2 w-4 h-4 hidden sm:block" />
           Add Category
         </Button>
 

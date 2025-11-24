@@ -166,7 +166,7 @@ export const DetectionRulesSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
         <div>
           <h3 className="text-lg font-semibold">Detection Rules</h3>
           <p className="text-sm text-muted-foreground">
@@ -419,7 +419,7 @@ export const DetectionRulesSettings = () => {
               </div>
             ) : (
               <>
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 items-center">
                       <h4 className="text-lg font-semibold">{rule.name}</h4>
@@ -436,7 +436,7 @@ export const DetectionRulesSettings = () => {
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{rule.description}</p>
                     {rule.pattern && (
-                      <div className="mt-2">
+                      <div className="mt-2 break-words">
                         <p className="mb-1 text-xs font-medium text-muted-foreground">Pattern:</p>
                         <code className="px-2 py-1 font-mono text-xs rounded bg-muted">
                           {rule.pattern}
