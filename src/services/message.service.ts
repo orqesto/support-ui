@@ -190,4 +190,26 @@ export const messageService = {
     );
     return response.data;
   },
+
+  getKBReferences: async (id: number) => {
+    const response = await apiClient.get<
+      ApiResponse<
+        Array<{
+          id: number;
+          type: 'qa_pair' | 'document' | 'manual_entry';
+          title: string;
+          content: string;
+          qualityScore: number | null;
+          approved: boolean;
+          timesReferenced: number;
+          lastReferencedAt: string | null;
+          topics: string[] | null;
+          category: string | null;
+          typeData: unknown;
+          createdAt: string;
+        }>
+      >
+    >(`/api/messages/${id}/kb-references`);
+    return response.data;
+  },
 };

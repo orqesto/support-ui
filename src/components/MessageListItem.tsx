@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Folder,
   Clock,
+  BookOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -123,6 +124,18 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             >
               <Folder className="w-3 h-3" />
               {getCategoryDisplay(analysis.suggestedCategory)}
+            </Badge>
+          )}
+
+          {/* KB Source Badge */}
+          {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center bg-purple-600 text-white"
+              title="Message from Knowledge Base source"
+            >
+              <BookOpen className="w-3 h-3" />
+              KB
             </Badge>
           )}
         </>
