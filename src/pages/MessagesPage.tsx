@@ -130,6 +130,9 @@ export const MessagesPage = () => {
         if (currentFilters.showFailed) {
           apiFilters.showFailed = 'true';
         }
+        if (currentFilters.excludeKB) {
+          apiFilters.excludeKB = 'true';
+        }
         if (currentFilters.awaitingCustomerResponse) {
           apiFilters.awaitingCustomerResponse = 'true';
         }
