@@ -112,17 +112,17 @@ export const DashboardPage = () => {
 
   const fetchStats = async () => {
     try {
-      // Fetch all data without pagination limits to get accurate counts
+      // Fetch with limit=1 to get total counts from pagination metadata (we don't need the actual records)
       const [
         allMessagesResponse,
         unprocessedMessagesResponse,
         allTicketsResponse,
         pendingTicketsResponse,
       ] = await Promise.all([
-        messageService.getAll(undefined, 1, 9999), // Get total count from pagination
-        messageService.getAll({ processed: 'unprocessed' }, 1, 9999),
-        ticketService.getAll(undefined, 1, 9999),
-        ticketService.getAll({ status: 'pending' }, 1, 9999),
+        messageService.getAll(undefined, 1, 1), // Only need pagination.total, not the records
+        messageService.getAll({ processed: 'unprocessed' }, 1, 1),
+        ticketService.getAll(undefined, 1, 1),
+        ticketService.getAll({ status: 'pending' }, 1, 1),
       ]);
 
       if (allMessagesResponse.success) {
