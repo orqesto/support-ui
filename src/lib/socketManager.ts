@@ -112,3 +112,21 @@ export const forceDisconnect = () => {
     connectionCount = 0;
   }
 };
+
+// Join organization-specific room for targeted event delivery
+export const joinOrganizationRoom = (organizationId: number) => {
+  if (socket && socket.connected) {
+    console.log(`🏢 Joining organization room: org-${organizationId}`);
+    socket.emit('join-organization', organizationId);
+  } else {
+    console.warn('⚠️  Cannot join organization room - socket not connected');
+  }
+};
+
+// Leave organization room
+export const leaveOrganizationRoom = (organizationId: number) => {
+  if (socket && socket.connected) {
+    console.log(`🚪 Leaving organization room: org-${organizationId}`);
+    socket.emit('leave-organization', organizationId);
+  }
+};
