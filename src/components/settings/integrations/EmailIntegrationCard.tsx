@@ -4,6 +4,7 @@ import DepartmentBadge from '@/components/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { integrationsService } from '@/services/integrations.service';
 import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
 
@@ -510,42 +511,27 @@ export const EmailIntegrationCard = ({
               {showAdvanced && (
                 <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30">
                   <div>
-                    <label htmlFor="searchCriteria" className="text-sm font-medium">
-                      Email Filter
-                    </label>
-                    <select
+                    <ReactSelect
+                      label="Email Filter"
                       value={config.searchCriteria ?? 'UNSEEN'}
-                      onChange={(e) => setConfig({ ...config, searchCriteria: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      {searchCriteriaOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setConfig({ ...config, searchCriteria: value })}
+                      options={searchCriteriaOptions}
+                    />
                     <p className="mt-1 text-xs text-muted-foreground">
                       Which emails to sync (read/unread status)
                     </p>
                   </div>
 
                   <div>
-                    <label htmlFor="lookbackDays" className="text-sm font-medium">
-                      Time Range
-                    </label>
-                    <select
-                      value={config.lookbackDays ?? 30}
-                      onChange={(e) =>
-                        setConfig({ ...config, lookbackDays: parseInt(e.target.value) })
-                      }
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      {lookbackOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    <ReactSelect
+                      label="Time Range"
+                      value={(config.lookbackDays ?? 30).toString()}
+                      onChange={(value) => setConfig({ ...config, lookbackDays: parseInt(value) })}
+                      options={lookbackOptions.map((opt) => ({
+                        value: opt.value.toString(),
+                        label: opt.label,
+                      }))}
+                    />
                     <p className="mt-1 text-xs text-muted-foreground">
                       How far back in time (combines with filter)
                     </p>
@@ -698,19 +684,17 @@ export const EmailIntegrationCard = ({
             </p>
 
             <div className="mb-4">
-              <label htmlFor="bulkImportDays" className="block mb-2 text-sm font-medium">
-                Import emails from:
-              </label>
-              <select
+              <ReactSelect
+                label="Import emails from:"
                 value={bulkImportDaysInput}
-                onChange={(e) => setBulkImportDaysInput(e.target.value)}
-                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-                <option value="0">All time (may take long)</option>
-              </select>
+                onChange={(value) => setBulkImportDaysInput(value)}
+                options={[
+                  { value: '7', label: 'Last 7 days' },
+                  { value: '30', label: 'Last 30 days' },
+                  { value: '90', label: 'Last 90 days' },
+                  { value: '0', label: 'All time (may take long)' },
+                ]}
+              />
               <p className="mt-2 text-xs text-muted-foreground">
                 This will temporarily override the checkpoint and import historical emails. After
                 completion, normal syncing will resume.

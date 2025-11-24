@@ -254,7 +254,7 @@ export const Layout = ({ children }: LayoutProps) => {
         />
       )}
 
-      <div className="flex overflow-hidden flex-row flex-1">
+      <div className="flex lg:overflow-hidden flex-row flex-1">
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
@@ -330,7 +330,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main content */}
-        <div className="flex overflow-x-hidden flex-col flex-1 w-full lg:ml-0 bg-background">
+        <div className="flex lg:overflow-x-hidden flex-col flex-1 w-full lg:ml-0 bg-background">
           {/* Mobile header with hamburger menu */}
           <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 border-b bg-card lg:hidden">
             <div className="flex items-center">
@@ -346,7 +346,7 @@ export const Layout = ({ children }: LayoutProps) => {
           {/* Spacer for fixed header */}
           <div className="h-14 lg:hidden" />
 
-          <main className="flex overflow-x-hidden flex-col flex-1 p-2 w-full max-w-full lg:p-4 bg-background">
+          <main className="flex lg:overflow-x-hidden flex-col flex-1 p-2 w-full max-w-full lg:p-4 bg-background">
             {children}
           </main>
         </div>

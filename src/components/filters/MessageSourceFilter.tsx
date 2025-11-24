@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Inbox } from 'lucide-react';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 
 type MessageSourceFilterProps = {
@@ -43,19 +43,18 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
         <Inbox className="inline w-3 h-3 mr-1" />
         Source:
       </span>
-      <Select
+      <ReactSelect
         value={value ?? 'all'}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-2 py-1 pr-8 h-8 text-xs"
-        aria-label="Filter by message source"
-      >
-        <option value="all">All Sources</option>
-        {messageSources.map((source) => (
-          <option key={source.id} value={source.id.toString()}>
-            {source.name}
-          </option>
-        ))}
-      </Select>
+        onChange={(value) => onChange(value)}
+        options={[
+          { value: 'all', label: 'All Sources' },
+          ...messageSources.map((source) => ({
+            value: source.id.toString(),
+            label: source.name,
+          })),
+        ]}
+        className="min-w-[120px]"
+      />
     </div>
   );
 };

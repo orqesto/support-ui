@@ -1,11 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Clock, BookOpen, BarChart3, Globe, Lock, FileCode, Scale, ScrollText, Mail } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  Trash2,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  BookOpen,
+  BarChart3,
+  Globe,
+  Lock,
+  FileCode,
+  Scale,
+  ScrollText,
+  Mail,
+} from 'lucide-react';
 import DepartmentBadge from '@/components/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { formatDate } from '@/lib/utils';
-import { documentationService, type Documentation, type DocumentType } from '@/services/documentation.service';
+import {
+  documentationService,
+  type Documentation,
+  type DocumentType,
+} from '@/services/documentation.service';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) {
@@ -39,7 +59,9 @@ const getDocumentTypeBadge = (type: DocumentType) => {
   };
 
   return (
-    <span className={`inline-flex gap-1 items-center px-2 py-1 text-xs font-medium rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}>
+    <span
+      className={`inline-flex gap-1 items-center px-2 py-1 text-xs font-medium rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}
+    >
       <Icon className="w-3 h-3" />
       {label}
     </span>
@@ -178,7 +200,13 @@ export const DocumentationSettings = () => {
 
     try {
       setUploading(true);
-      await documentationService.uploadDocumentation(selectedFile, title, description, visibility, documentType);
+      await documentationService.uploadDocumentation(
+        selectedFile,
+        title,
+        description,
+        visibility,
+        documentType
+      );
 
       // Reset form
       setSelectedFile(null);
@@ -274,9 +302,7 @@ export const DocumentationSettings = () => {
 
         <div className="space-y-4">
           <div>
-            <div className="block mb-2 text-sm font-medium">
-              File (PDF, TXT, or Markdown)
-            </div>
+            <div className="block mb-2 text-sm font-medium">File (PDF, TXT, or Markdown)</div>
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -289,9 +315,11 @@ export const DocumentationSettings = () => {
             >
               <div className="flex flex-col gap-3 items-center p-8 text-center">
                 <div className={`p-3 rounded-full ${isDragging ? 'bg-primary/10' : 'bg-muted'}`}>
-                  <Upload className={`w-6 h-6 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <Upload
+                    className={`w-6 h-6 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`}
+                  />
                 </div>
-                
+
                 <div>
                   <input
                     id="doc-file"
@@ -302,7 +330,7 @@ export const DocumentationSettings = () => {
                   />
                   <label
                     htmlFor="doc-file"
-                    className="inline-flex gap-2 items-center px-4 py-2 text-sm font-semibold rounded-md cursor-pointer transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="inline-flex gap-2 items-center px-4 py-2 text-sm font-semibold rounded-md transition-colors cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     Choose file
                   </label>
@@ -312,7 +340,7 @@ export const DocumentationSettings = () => {
                 </div>
 
                 {selectedFile ? (
-                  <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-background border">
+                  <div className="flex gap-2 items-center px-3 py-2 rounded-md border bg-background">
                     <FileText className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium">{selectedFile.name}</span>
                     <span className="text-xs text-muted-foreground">
@@ -359,7 +387,7 @@ export const DocumentationSettings = () => {
           <div>
             <div className="block mb-2 text-sm font-medium">Visibility</div>
             <div className="flex gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex gap-2 items-center cursor-pointer">
                 <input
                   type="radio"
                   name="visibility"
@@ -371,7 +399,7 @@ export const DocumentationSettings = () => {
                 <Lock className="w-4 h-4" />
                 <span className="text-sm">Department only</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex gap-2 items-center cursor-pointer">
                 <input
                   type="radio"
                   name="visibility"
@@ -392,25 +420,24 @@ export const DocumentationSettings = () => {
           </div>
 
           <div>
-            <label htmlFor="doc-type" className="block mb-2 text-sm font-medium">
-              Document Type
-            </label>
-            <select
-              id="doc-type"
+            <ReactSelect
+              label="Document Type"
               value={documentType}
-              onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-              className="px-3 py-2 w-full rounded-md border dark:bg-gray-800 dark:border-gray-700"
-            >
-              <option value="general">📄 General - Uncategorized documentation</option>
-              <option value="technical">📘 Technical - Support guides, how-tos</option>
-              <option value="nda">📝 NDA - Confidential agreements (no quoting)</option>
-              <option value="legal">⚖️ Legal - Terms, policies (careful references)</option>
-              <option value="policy">📋 Policy - Company procedures</option>
-              <option value="template">📧 Template - Email/response templates</option>
-            </select>
+              onChange={(value) => setDocumentType(value as DocumentType)}
+              options={[
+                { value: 'general', label: '📄 General - Uncategorized documentation' },
+                { value: 'technical', label: '📘 Technical - Support guides, how-tos' },
+                { value: 'nda', label: '📝 NDA - Confidential agreements (no quoting)' },
+                { value: 'legal', label: '⚖️ Legal - Terms, policies (careful references)' },
+                { value: 'policy', label: '📋 Policy - Company procedures' },
+                { value: 'template', label: '📧 Template - Email/response templates' },
+              ]}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
-              {documentType === 'nda' && '⚠️ AI will reference this document without revealing specific terms'}
-              {documentType === 'legal' && '⚠️ AI will reference carefully without providing legal advice'}
+              {documentType === 'nda' &&
+                '⚠️ AI will reference this document without revealing specific terms'}
+              {documentType === 'legal' &&
+                '⚠️ AI will reference carefully without providing legal advice'}
               {documentType === 'technical' && 'AI can quote directly from this documentation'}
               {documentType === 'policy' && 'AI can quote company policies and procedures'}
               {documentType === 'template' && 'Used for response formatting and templates'}
