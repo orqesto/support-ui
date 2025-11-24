@@ -26,6 +26,7 @@ import { WebSocketDebug } from '@/components/WebSocketDebug';
 import { WebSocketStatus } from '@/components/WebSocketStatus';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
+import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission, roleDisplayNames } from '@/types/roles';
@@ -102,13 +103,33 @@ export const Layout = ({ children }: LayoutProps) => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
 
-  // Track multiple email processing sessions (filtered by selected department)
-  const { sessions, removeSession } = useEmailProcessing(true, selectedDepartmentRole ?? undefined);
+  // Track multiple email processing sessions (filtered by selected department and organization)
+  // For admins: use selectedOrganizationId to filter widgets by current org context
+  // For regular users: use their user.organizationId
+  const organizationFilter = user?.role === 'admin' ? selectedOrganizationId : user?.organizationId;
+  const { sessions, removeSession } = useEmailProcessing(
+    true,
+    selectedDepartmentRole ?? undefined,
+    organizationFilter ?? undefined
+  );
+
+  // Join/leave organization-specific WebSocket rooms for targeted event delivery
+  useEffect(() => {
+    if (organizationFilter) {
+      joinOrganizationRoom(organizationFilter);
+
+      // Leave room when organization changes or component unmounts
+      return () => {
+        leaveOrganizationRoom(organizationFilter);
+      };
+    }
+  }, [organizationFilter]);
 
   // Persist closed sessions in localStorage to survive page navigation
   // Use sessionKey (integrationId-departmentRole) to track closed sessions
@@ -254,7 +275,7 @@ export const Layout = ({ children }: LayoutProps) => {
         />
       )}
 
-      <div className="flex lg:overflow-hidden flex-row flex-1">
+      <div className="flex flex-row flex-1 lg:overflow-hidden">
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
@@ -330,7 +351,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main content */}
-        <div className="flex lg:overflow-x-hidden flex-col flex-1 w-full lg:ml-0 bg-background">
+        <div className="flex flex-col flex-1 w-full lg:overflow-x-hidden lg:ml-0 bg-background">
           {/* Mobile header with hamburger menu */}
           <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 border-b bg-card lg:hidden">
             <div className="flex items-center">
@@ -346,7 +367,7 @@ export const Layout = ({ children }: LayoutProps) => {
           {/* Spacer for fixed header */}
           <div className="h-14 lg:hidden" />
 
-          <main className="flex lg:overflow-x-hidden flex-col flex-1 p-2 w-full max-w-full lg:p-4 bg-background">
+          <main className="flex flex-col flex-1 p-2 w-full max-w-full lg:overflow-x-hidden lg:p-4 bg-background">
             {children}
           </main>
         </div>
