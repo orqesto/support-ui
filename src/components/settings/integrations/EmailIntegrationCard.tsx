@@ -75,7 +75,7 @@ export const EmailIntegrationCard = ({
   } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
 
-  const emailIntegrations = integrations.filter((i) => i.type === 'email');
+  const emailIntegrations = integrations.filter((int) => int.type === 'email');
 
   const handleCheckMessagesCount = async () => {
     setCheckingCount(true);
@@ -313,20 +313,19 @@ export const EmailIntegrationCard = ({
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center gap-1">
-            <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex gap-2 items-center">
               <Mail className="w-5 h-5 text-blue-600" />
               Email Accounts (IMAP)
             </CardTitle>
             <Button
-            className='py-5'
               size="sm"
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
+              <Plus className="mr-1 w-4 h-4" />
               Add Email
             </Button>
           </div>
@@ -337,7 +336,7 @@ export const EmailIntegrationCard = ({
               {emailIntegrations.map((integration) => (
                 <div
                   key={integration.id}
-                  className="flex justify-between items-center p-3 rounded-lg border gap-3"
+                  className="flex justify-between items-center p-3 rounded-lg border"
                 >
                   <div className="flex gap-3 items-center">
                     <div
@@ -640,7 +639,7 @@ export const EmailIntegrationCard = ({
           )}
 
           {emailIntegrations.length === 0 && !showForm && (
-            <p className="py-2 text-sm text-center text-muted-foreground">
+            <p className="py-4 text-sm text-center text-muted-foreground">
               No email accounts configured
             </p>
           )}
