@@ -88,15 +88,15 @@ export const PromptsSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
         <div>
           <h3 className="text-lg font-semibold">AI Prompt Templates</h3>
           <p className="text-sm text-muted-foreground">
             Customize prompts used by AI for message analysis and spam detection
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating}>
-          <Plus className="mr-2 w-4 h-4" />
+        <Button onClick={handleCreate} disabled={isCreating} className='py-4 py-6'>
+          <Plus className="mr-2 w-4 h-4 hidden sm:blcok" />
           Add Prompt
         </Button>
       </div>
@@ -268,20 +268,24 @@ export const PromptsSettings = () => {
               <>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
-                    <div className="flex gap-2 items-center">
+                  <div className="flex flex-col gap-2">
                       <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
-                      <DepartmentBadge department={prompt.departmentRole} size="sm" />
-                      {prompt.type === 'system' && <Badge variant="default">System</Badge>}
-                      <Badge variant={prompt.active ? 'success' : 'default'}>
-                        {prompt.active ? 'Active' : 'Inactive'}
-                      </Badge>
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <DepartmentBadge department={prompt.departmentRole} size="sm" />
+                        {prompt.type === 'system' && <Badge variant="default">System</Badge>}
+                        <Badge variant={prompt.active ? 'success' : 'default'}>
+                          {prompt.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
                     </div>
                     {prompt.description && (
                       <p className="mt-1 text-sm text-muted-foreground">{prompt.description}</p>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button
+
+                  
+                  <div className="flex gap-2 justify-end">
+                  <Button
                       size="sm"
                       variant="outline"
                       onClick={() => toggleActive(prompt)}
@@ -289,8 +293,9 @@ export const PromptsSettings = () => {
                     >
                       {prompt.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                     </Button>
+
                     <Button size="sm" variant="outline" onClick={() => handleEdit(prompt)}>
-                      <Edit2 className="mr-2 w-4 h-4" />
+                      <Edit2 className="mr-2 w-4 h-4 hidden sm:block" />
                       Edit
                     </Button>
                   </div>

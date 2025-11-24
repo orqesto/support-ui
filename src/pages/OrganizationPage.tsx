@@ -611,14 +611,17 @@ export const OrganizationPage = () => {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div className="flex gap-3 items-center">
-                <div className="flex justify-center items-center w-12 h-12 bg-purple-100 rounded-lg">
+                <div className="flex justify-center items-center w-12 h-12 bg-purple-100 rounded-lg hidden sm: block">
                   <Building2 className="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                  <CardTitle>
+                  <CardTitle className="text-xl font-bold text-gray-900 sm:text-xl" >
+                
+             
+              
                     {isAdmin ? 'My Current Organization' : 'Organization Details'}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="mt-1 text-gray-600 text-sm sm:text-base">
                     {isAdmin
                       ? `Details of your assigned organization (${organization.name})`
                       : 'Basic information about your organization'}
