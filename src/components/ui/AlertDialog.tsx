@@ -9,6 +9,8 @@ type AlertDialogProps = {
   description: string;
   variant?: 'success' | 'error' | 'warning' | 'info';
   confirmText?: string;
+  cancelText?: string;
+  onConfirm?: () => void | Promise<void>;
 };
 
 export const AlertDialog = ({
@@ -18,6 +20,8 @@ export const AlertDialog = ({
   description,
   variant = 'info',
   confirmText = 'OK',
+  cancelText = 'Cancel',
+  onConfirm,
 }: AlertDialogProps) => {
   const icons = {
     success: <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />,
@@ -40,7 +44,23 @@ export const AlertDialog = ({
         </div>
       </DialogContent>
       <DialogFooter>
-        <Button onClick={() => onOpenChange(false)}>{confirmText}</Button>
+        {onConfirm ? (
+          <>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {cancelText}
+            </Button>
+            <Button
+              onClick={async () => {
+                await onConfirm();
+                onOpenChange(false);
+              }}
+            >
+              {confirmText}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={() => onOpenChange(false)}>{confirmText}</Button>
+        )}
       </DialogFooter>
     </Dialog>
   );

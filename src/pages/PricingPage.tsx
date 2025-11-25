@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -44,6 +45,21 @@ export const PricingPage = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [modules, setModules] = useState<AIModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+    confirmAction?: boolean;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    variant: 'info',
+    confirmAction: false,
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,6 +81,68 @@ export const PricingPage = () => {
 
     void fetchPricing();
   }, []);
+
+  const handleSelectPlan = (planName: string) => {
+    if (planName === 'admin') {
+      setAlertDialog({
+        open: true,
+        title: 'Not Available',
+        description:
+          'Admin plan cannot be selected. This plan is reserved for system administrators.',
+        variant: 'error',
+        confirmAction: false,
+      });
+      return;
+    }
+
+    // Store selected plan and show confirmation
+    setSelectedPlan(planName);
+    setAlertDialog({
+      open: true,
+      title: 'Confirm Upgrade',
+      description: `Are you sure you want to upgrade to the ${planName} plan? This change will take effect immediately.`,
+      variant: 'info',
+      confirmAction: true,
+    });
+  };
+
+  const confirmUpgrade = async () => {
+    if (!selectedPlan) return;
+
+    setUpgrading(selectedPlan);
+    setAlertDialog({ ...alertDialog, open: false });
+
+    try {
+      await apiClient.post('/api/subscriptions/upgrade', { planName: selectedPlan });
+
+      setAlertDialog({
+        open: true,
+        title: 'Success!',
+        description: `Successfully upgraded to ${selectedPlan} plan! Redirecting...`,
+        variant: 'success',
+        confirmAction: false,
+      });
+
+      // Navigate to subscription page after delay
+      setTimeout(() => {
+        navigate('/subscription');
+      }, 1500);
+    } catch (error: unknown) {
+      console.error('Failed to upgrade plan:', error);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      const message = (error as any)?.response?.data?.error || 'Failed to upgrade plan';
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: message as string,
+        variant: 'error',
+        confirmAction: false,
+      });
+    } finally {
+      setUpgrading(null);
+      setSelectedPlan(null);
+    }
+  };
 
   const basePlans = plans.filter((p) => p.planType === 'base');
   const bundlePlans = plans.filter((p) => p.planType === 'bundle');
@@ -180,8 +258,17 @@ export const PricingPage = () => {
                         ))}
                     </div>
 
-                    <Button className="w-full" variant={isPopular ? 'primary' : 'outline'}>
-                      Get Started
+                    <Button
+                      className="w-full"
+                      variant={isPopular ? 'primary' : 'outline'}
+                      onClick={() => handleSelectPlan(plan.name)}
+                      disabled={upgrading === plan.name || plan.name === 'admin'}
+                    >
+                      {upgrading === plan.name
+                        ? 'Processing...'
+                        : plan.name === 'admin'
+                          ? 'Not Available'
+                          : 'Get Started'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -244,8 +331,13 @@ export const PricingPage = () => {
                         ))}
                     </div>
 
-                    <Button className="w-full" variant="primary">
-                      Get Started
+                    <Button
+                      className="w-full"
+                      variant="primary"
+                      onClick={() => handleSelectPlan(plan.name)}
+                      disabled={upgrading === plan.name}
+                    >
+                      {upgrading === plan.name ? 'Processing...' : 'Get Started'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -362,6 +454,16 @@ export const PricingPage = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+        onConfirm={alertDialog.confirmAction ? confirmUpgrade : undefined}
+        confirmText={alertDialog.confirmAction ? 'Upgrade' : 'OK'}
+      />
     </Layout>
   );
 };
