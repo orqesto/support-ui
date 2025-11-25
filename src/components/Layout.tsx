@@ -88,8 +88,8 @@ const allNavigation = [
     adminOnly: true, // Only visible to global admins
   },
   {
-    name: 'Admin - Plans & Modules',
-    href: '/admin/plans',
+    name: 'Admin Dashboard',
+    href: '/admin',
     icon: Settings,
     adminOnly: true, // Only visible to global admins
   },
