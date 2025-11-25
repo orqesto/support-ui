@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
 import { useEffect, useState } from 'react';
-import { Check, X, Zap } from 'lucide-react';
+import { Check, X, Zap, Users, TrendingUp, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -40,15 +41,18 @@ type Module = {
 export const AdminPlansPage = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
+  const [planStats, setPlanStats] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<{ type: 'plan' | 'module'; id: number } | null>(null);
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [plansRes, modulesRes] = await Promise.all([
+      const [plansRes, modulesRes, statsRes] = await Promise.all([
         apiClient.get('/api/admin/plans'),
         apiClient.get('/api/admin/modules'),
+        apiClient.get('/api/admin/plans/stats'),
       ]);
 
       if (plansRes.data.success) {
@@ -56,6 +60,9 @@ export const AdminPlansPage = () => {
       }
       if (modulesRes.data.success) {
         setModules(modulesRes.data.data as Module[]);
+      }
+      if (statsRes.data.success) {
+        setPlanStats(statsRes.data.data as Record<number, number>);
       }
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
@@ -67,6 +74,12 @@ export const AdminPlansPage = () => {
   useEffect(() => {
     void fetchData();
   }, []);
+
+  // Find the most popular plan
+  const mostPopularPlanId = Object.entries(planStats).reduce(
+    (max, [planId, count]) => (count > (planStats[max] || 0) ? Number(planId) : max),
+    0
+  );
 
   const handleTogglePlan = async (planId: number) => {
     try {
@@ -126,72 +139,294 @@ export const AdminPlansPage = () => {
           </p>
         </div>
 
-        {/* Subscription Plans */}
+        {/* Cross-navigation Banner */}
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-semibold text-blue-900">Looking for usage data?</h3>
+              <p className="text-sm text-blue-700">
+                Monitor organization limits and consumption in the Usage Dashboard
+              </p>
+            </div>
+            <Button onClick={() => navigate('/admin/usage')} variant="primary">
+              <BarChart3 className="mr-2 w-4 h-4" />
+              View Usage Dashboard
+            </Button>
+          </div>
+        </div>
+
+        {/* Base Platform Plans */}
         <div>
-          <h2 className="mb-4 text-xl font-semibold">Subscription Plans</h2>
+          <h2 className="mb-2 text-xl font-semibold">Base Platform Plans</h2>
+          <p className="mb-4 text-sm text-gray-400">Core platform plans without AI features</p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {plans.map((plan) => {
-              const isToggling = toggling?.type === 'plan' && toggling.id === plan.id;
-              return (
-                <Card
-                  key={plan.id}
-                  className={`relative ${plan.isActive ? 'border-green-500' : 'opacity-60'}`}
-                >
-                  {plan.isActive && (
-                    <Badge className="absolute top-4 right-4 text-white bg-green-500">
-                      <Check className="mr-1 w-3 h-3" />
-                      Active
-                    </Badge>
-                  )}
-                  {!plan.isActive && (
-                    <Badge className="absolute top-4 right-4 text-white bg-gray-500">
-                      <X className="mr-1 w-3 h-3" />
-                      Inactive
-                    </Badge>
-                  )}
-
-                  <CardHeader>
-                    <CardTitle className="pr-20">
-                      {plan.displayName}
-                      <div className="mt-2 text-sm font-normal text-gray-400">
-                        {plan.planType} • {plan.name}
-                      </div>
-                      <div className="mt-2 text-2xl font-bold">
-                        {plan.currency === 'EUR' ? '€' : '$'}
-                        {(plan.price / 100).toFixed(0)}
-                        <span className="text-sm font-normal text-gray-400">
-                          /{plan.billingInterval}
-                        </span>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="pb-4 mb-4 space-y-2 text-sm text-gray-400 border-b">
-                      <p>
-                        <strong>{plan.limits.maxUsers}</strong> users
-                      </p>
-                      <p>
-                        <strong>{plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}</strong>{' '}
-                        messages/month
-                      </p>
-                      <p>
-                        <strong>{plan.limits.maxIntegrations}</strong> integrations
-                      </p>
+            {plans
+              .filter((plan) => plan.planType === 'base')
+              .map((plan) => {
+                const isToggling = toggling?.type === 'plan' && toggling.id === plan.id;
+                return (
+                  <Card
+                    key={plan.id}
+                    className={`relative ${plan.isActive ? 'border-blue-500' : 'opacity-60'}`}
+                  >
+                    <div className="flex absolute top-4 right-4 flex-col gap-2 items-end">
+                      {plan.isActive && (
+                        <Badge className="text-white bg-blue-500">
+                          <Check className="mr-1 w-3 h-3" />
+                          Active
+                        </Badge>
+                      )}
+                      {!plan.isActive && (
+                        <Badge className="text-white bg-gray-500">
+                          <X className="mr-1 w-3 h-3" />
+                          Inactive
+                        </Badge>
+                      )}
+                      {mostPopularPlanId === plan.id && planStats[plan.id] > 0 && (
+                        <Badge className="text-white bg-purple-500">
+                          <TrendingUp className="mr-1 w-3 h-3" />
+                          Popular
+                        </Badge>
+                      )}
                     </div>
 
-                    <Button
-                      className="w-full"
-                      variant={plan.isActive ? 'destructive' : 'primary'}
-                      onClick={() => handleTogglePlan(plan.id)}
-                      disabled={isToggling}
-                    >
-                      {isToggling ? 'Toggling...' : plan.isActive ? 'Disable Plan' : 'Enable Plan'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    <CardHeader>
+                      <CardTitle className="pr-20">
+                        {plan.displayName}
+                        <div className="mt-2 text-sm font-normal text-gray-400">{plan.name}</div>
+                        <div className="mt-2 text-2xl font-bold">
+                          {plan.currency === 'EUR' ? '€' : '$'}
+                          {(plan.price / 100).toFixed(0)}
+                          <span className="text-sm font-normal text-gray-400">
+                            /{plan.billingInterval}
+                          </span>
+                        </div>
+                        <div className="flex items-center mt-2 text-xs text-gray-500">
+                          <Users className="inline mr-1 w-3 h-3" />
+                          {planStats[plan.id] || 0} organization
+                          {planStats[plan.id] !== 1 ? 's' : ''}
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="pb-4 mb-4 space-y-2 text-sm text-gray-400 border-b">
+                        <p>
+                          <strong>{plan.limits.maxUsers}</strong> users
+                        </p>
+                        <p>
+                          <strong>
+                            {plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}
+                          </strong>{' '}
+                          messages/month
+                        </p>
+                        <p>
+                          <strong>{plan.limits.maxIntegrations}</strong> integrations
+                        </p>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        variant={plan.isActive ? 'destructive' : 'primary'}
+                        onClick={() => handleTogglePlan(plan.id)}
+                        disabled={isToggling}
+                      >
+                        {isToggling
+                          ? 'Toggling...'
+                          : plan.isActive
+                            ? 'Disable Plan'
+                            : 'Enable Plan'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Bundle Plans */}
+        <div>
+          <h2 className="mb-2 text-xl font-semibold">Bundle Plans</h2>
+          <p className="mb-4 text-sm text-gray-400">
+            Pre-configured bundles with AI features included
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {plans
+              .filter((plan) => plan.planType === 'bundle')
+              .map((plan) => {
+                const isToggling = toggling?.type === 'plan' && toggling.id === plan.id;
+                return (
+                  <Card
+                    key={plan.id}
+                    className={`relative ${plan.isActive ? 'border-green-500' : 'opacity-60'}`}
+                  >
+                    <div className="flex absolute top-4 right-4 flex-col gap-2 items-end">
+                      {plan.isActive && (
+                        <Badge className="text-white bg-green-500">
+                          <Check className="mr-1 w-3 h-3" />
+                          Active
+                        </Badge>
+                      )}
+                      {!plan.isActive && (
+                        <Badge className="text-white bg-gray-500">
+                          <X className="mr-1 w-3 h-3" />
+                          Inactive
+                        </Badge>
+                      )}
+                      {mostPopularPlanId === plan.id && planStats[plan.id] > 0 && (
+                        <Badge className="text-white bg-purple-500">
+                          <TrendingUp className="mr-1 w-3 h-3" />
+                          Popular
+                        </Badge>
+                      )}
+                    </div>
+
+                    <CardHeader>
+                      <CardTitle className="pr-20">
+                        {plan.displayName}
+                        <div className="mt-2 text-sm font-normal text-gray-400">{plan.name}</div>
+                        <div className="mt-2 text-2xl font-bold">
+                          {plan.currency === 'EUR' ? '€' : '$'}
+                          {(plan.price / 100).toFixed(0)}
+                          <span className="text-sm font-normal text-gray-400">
+                            /{plan.billingInterval}
+                          </span>
+                        </div>
+                        <div className="flex items-center mt-2 text-xs text-gray-500">
+                          <Users className="inline mr-1 w-3 h-3" />
+                          {planStats[plan.id] || 0} organization
+                          {planStats[plan.id] !== 1 ? 's' : ''}
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="pb-4 mb-4 space-y-2 text-sm text-gray-400 border-b">
+                        <p>
+                          <strong>{plan.limits.maxUsers}</strong> users
+                        </p>
+                        <p>
+                          <strong>
+                            {plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}
+                          </strong>{' '}
+                          messages/month
+                        </p>
+                        <p>
+                          <strong>{plan.limits.maxIntegrations}</strong> integrations
+                        </p>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        variant={plan.isActive ? 'destructive' : 'primary'}
+                        onClick={() => handleTogglePlan(plan.id)}
+                        disabled={isToggling}
+                      >
+                        {isToggling
+                          ? 'Toggling...'
+                          : plan.isActive
+                            ? 'Disable Plan'
+                            : 'Enable Plan'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Enterprise Plans */}
+        <div>
+          <h2 className="mb-2 text-xl font-semibold">Enterprise Plans</h2>
+          <p className="mb-4 text-sm text-gray-400">Custom enterprise solutions</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {plans
+              .filter((plan) => plan.planType === 'enterprise')
+              .map((plan) => {
+                const isToggling = toggling?.type === 'plan' && toggling.id === plan.id;
+                return (
+                  <Card
+                    key={plan.id}
+                    className={`relative ${plan.isActive ? 'border-purple-500' : 'opacity-60'}`}
+                  >
+                    <div className="flex absolute top-4 right-4 flex-col gap-2 items-end">
+                      {plan.isActive && (
+                        <Badge className="text-white bg-purple-500">
+                          <Check className="mr-1 w-3 h-3" />
+                          Active
+                        </Badge>
+                      )}
+                      {!plan.isActive && (
+                        <Badge className="text-white bg-gray-500">
+                          <X className="mr-1 w-3 h-3" />
+                          Inactive
+                        </Badge>
+                      )}
+                      {mostPopularPlanId === plan.id && planStats[plan.id] > 0 && (
+                        <Badge className="text-white bg-purple-500">
+                          <TrendingUp className="mr-1 w-3 h-3" />
+                          Popular
+                        </Badge>
+                      )}
+                    </div>
+
+                    <CardHeader>
+                      <CardTitle className="pr-20">
+                        {plan.displayName}
+                        <div className="mt-2 text-sm font-normal text-gray-400">{plan.name}</div>
+                        <div className="mt-2 text-2xl font-bold">
+                          {plan.price === 0 ? (
+                            <span className="text-xl">Custom Pricing</span>
+                          ) : (
+                            <>
+                              {plan.currency === 'EUR' ? '€' : '$'}
+                              {(plan.price / 100).toFixed(0)}
+                              <span className="text-sm font-normal text-gray-400">
+                                /{plan.billingInterval}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center mt-2 text-xs text-gray-500">
+                          <Users className="inline mr-1 w-3 h-3" />
+                          {planStats[plan.id] || 0} organization
+                          {planStats[plan.id] !== 1 ? 's' : ''}
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="pb-4 mb-4 space-y-2 text-sm text-gray-400 border-b">
+                        <p>
+                          <strong>{plan.limits.maxUsers}</strong> users
+                        </p>
+                        <p>
+                          <strong>
+                            {plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}
+                          </strong>{' '}
+                          messages/month
+                        </p>
+                        <p>
+                          <strong>{plan.limits.maxIntegrations}</strong> integrations
+                        </p>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        variant={plan.isActive ? 'destructive' : 'primary'}
+                        onClick={() => handleTogglePlan(plan.id)}
+                        disabled={isToggling}
+                      >
+                        {isToggling
+                          ? 'Toggling...'
+                          : plan.isActive
+                            ? 'Disable Plan'
+                            : 'Enable Plan'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
           </div>
         </div>
 

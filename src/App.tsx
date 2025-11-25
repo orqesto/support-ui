@@ -56,8 +56,8 @@ const PricingPage = lazy(() =>
 const AIModulesPage = lazy(() =>
   import('./pages/AIModulesPage').then((m) => ({ default: m.AIModulesPage }))
 );
-const AdminPlansPage = lazy(() =>
-  import('./pages/AdminPlansPage').then((m) => ({ default: m.AdminPlansPage }))
+const AdminDashboardPage = lazy(() =>
+  import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage }))
 );
 const UsageStatsPage = lazy(() =>
   import('./pages/UsageStatsPage').then((m) => ({ default: m.UsageStatsPage }))
@@ -246,11 +246,11 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/admin/plans"
+        path="/admin"
         element={
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
-              <AdminPlansPage />
+              <AdminDashboardPage />
             </Suspense>
           </PrivateRoute>
         }

@@ -138,25 +138,25 @@ export const AIModulesPage = () => {
           <div className="flex gap-4 items-center">
             <div>
               <h1 className="text-2xl font-bold">AI Modules</h1>
-              <p className="mt-1 text-gray-400">Manage your AI-powered features</p>
+              <p className="mt-1 text-gray-500">Manage your AI-powered features</p>
             </div>
           </div>
         </div>
 
         {/* Cost Summary Card */}
-        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+        <Card>
           <CardContent className="p-6">
             <div className="flex justify-between items-center">
               <div>
-                <p className="mb-1 text-sm text-gray-400">Total Monthly Cost</p>
-                <p className="text-3xl font-bold text-gray-900">€{(totalCost / 100).toFixed(2)}</p>
-                <p className="mt-1 text-sm text-gray-400">
+                <p className="mb-1 text-sm text-gray-500">Total Monthly Cost</p>
+                <p className="text-3xl font-bold">€{(totalCost / 100).toFixed(2)}</p>
+                <p className="mt-1 text-sm text-gray-500">
                   {enabledModules.filter((m) => m.isEnabled).length} modules enabled
                 </p>
               </div>
               <div className="text-right">
                 <Zap className="mb-2 w-12 h-12 text-purple-600" />
-                <p className="text-sm text-gray-400">AI-Powered</p>
+                <p className="text-sm text-gray-500">AI-Powered</p>
               </div>
             </div>
           </CardContent>
@@ -189,7 +189,7 @@ export const AIModulesPage = () => {
                       <Zap className="flex-shrink-0 mt-1 w-6 h-6 text-purple-600" />
                       <div>
                         <h3 className="text-lg font-semibold">{module.displayName}</h3>
-                        <p className="mt-1 text-sm font-normal text-gray-400">
+                        <p className="mt-1 text-sm font-normal text-gray-500">
                           {module.description}
                         </p>
                       </div>
@@ -204,9 +204,9 @@ export const AIModulesPage = () => {
                       <span className="text-2xl font-bold">
                         €{(module.monthlyFee / 100).toFixed(0)}
                       </span>
-                      <span className="text-gray-400">/month</span>
+                      <span className="text-gray-500">/month</span>
                     </div>
-                    <div className="space-y-1 text-sm text-gray-400">
+                    <div className="space-y-1 text-sm text-gray-500">
                       <p>
                         <strong>{module.includedUnits.toLocaleString()}</strong> {module.unitName}s
                         included
@@ -219,10 +219,10 @@ export const AIModulesPage = () => {
 
                   {/* Usage (if enabled) */}
                   {enabled && enabledData && (
-                    <div className="p-3 mb-4 bg-blue-50 rounded-lg">
+                    <div className="p-3 mb-4 bg-gray-50 rounded-lg border border-gray-200">
                       <p className="mb-2 text-sm font-medium">Current Usage</p>
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400">
+                        <span className="text-gray-500">
                           {enabledData.currentPeriodUsage.toLocaleString()} /{' '}
                           {enabledData.includedUnits.toLocaleString()}
                         </span>
