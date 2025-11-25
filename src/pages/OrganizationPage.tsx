@@ -611,17 +611,14 @@ export const OrganizationPage = () => {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div className="flex gap-3 items-center">
-                <div className="flex justify-center items-center w-12 h-12 bg-purple-100 rounded-lg hidden sm: block">
+                <div className="block flex hidden justify-center items-center w-12 h-12 bg-purple-100 rounded-lg sm:">
                   <Building2 className="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl font-bold text-gray-900 sm:text-xl" >
-                
-             
-              
+                  <CardTitle className="text-xl font-bold sm:text-xl">
                     {isAdmin ? 'My Current Organization' : 'Organization Details'}
                   </CardTitle>
-                  <CardDescription className="mt-1 text-gray-600 text-sm sm:text-base">
+                  <CardDescription className="mt-1 text-sm text-gray-600 sm:text-base">
                     {isAdmin
                       ? `Details of your assigned organization (${organization.name})`
                       : 'Basic information about your organization'}
@@ -686,14 +683,14 @@ export const OrganizationPage = () => {
                   <label htmlFor="slug" className="text-sm font-medium text-gray-500">
                     Slug
                   </label>
-                  <p className="mt-1 font-mono text-base text-gray-700">{organization.slug}</p>
+                  <p className="mt-1 font-mono text-base">{organization.slug}</p>
                 </div>
                 {organization.description && (
                   <div>
                     <label htmlFor="description" className="text-sm font-medium text-gray-500">
                       Description
                     </label>
-                    <p className="mt-1 text-base text-gray-700">{organization.description}</p>
+                    <p className="mt-1 text-base">{organization.description}</p>
                   </div>
                 )}
                 <div>
@@ -711,17 +708,13 @@ export const OrganizationPage = () => {
                     <label htmlFor="createdAt" className="text-sm font-medium text-gray-500">
                       Created
                     </label>
-                    <p className="mt-1 text-sm text-gray-700">
-                      {formatDate(organization.createdAt)}
-                    </p>
+                    <p className="mt-1 text-sm">{formatDate(organization.createdAt)}</p>
                   </div>
                   <div>
                     <label htmlFor="updatedAt" className="text-sm font-medium text-gray-500">
                       Last Updated
                     </label>
-                    <p className="mt-1 text-sm text-gray-700">
-                      {formatDate(organization.updatedAt)}
-                    </p>
+                    <p className="mt-1 text-sm">{formatDate(organization.updatedAt)}</p>
                   </div>
                 </div>
               </div>

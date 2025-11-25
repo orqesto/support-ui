@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
 import { useEffect, useState } from 'react';
-import { Check, X, Zap, Users, TrendingUp } from 'lucide-react';
+import { Check, X, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -37,29 +37,50 @@ type Module = {
 };
 
 export const AdminPlansTab = () => {
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
-  const [planStats, setPlanStats] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<{ type: 'plan' | 'module'; id: number } | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [plansRes, modulesRes, statsRes] = await Promise.all([
-        apiClient.get('/api/admin/plans'),
-        apiClient.get('/api/admin/modules'),
-        apiClient.get('/api/admin/plans/stats'),
+      const [subscriptionRes, availablePlansRes, modulesRes] = await Promise.all([
+        apiClient
+          .get('/api/organizations/subscription')
+          .catch(() => ({ data: { success: false } })),
+        apiClient.get('/api/organizations/available-plans'),
+        apiClient.get('/api/organizations/ai-modules'),
       ]);
 
-      if (plansRes.data.success) {
-        setPlans(plansRes.data.data as Plan[]);
+      if (subscriptionRes.data.success) {
+        // Current subscription
+        const sub = subscriptionRes.data.data;
+        setCurrentPlan({
+          id: sub.planId,
+          name: sub.planName,
+          displayName: sub.planDisplayName,
+          planType: 'current',
+          price: sub.planPrice,
+          currency: sub.planCurrency,
+          billingInterval: 'month',
+          limits: sub.planLimits as {
+            maxUsers: number;
+            maxMessagesPerMonth?: number;
+            maxIntegrations: number;
+          },
+          isActive: sub.status === 'active',
+        });
       }
+
+      if (availablePlansRes.data.success) {
+        setAvailablePlans(availablePlansRes.data.data as Plan[]);
+      }
+
       if (modulesRes.data.success) {
         setModules(modulesRes.data.data as Module[]);
-      }
-      if (statsRes.data.success) {
-        setPlanStats(statsRes.data.data as Record<number, number>);
       }
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
@@ -72,35 +93,30 @@ export const AdminPlansTab = () => {
     void fetchData();
   }, []);
 
-  // Find the most popular plan
-  const mostPopularPlanId = Object.entries(planStats).reduce(
-    (max, [planId, count]) => (count > (planStats[max] || 0) ? Number(planId) : max),
-    0
-  );
+  const handleSwitchPlan = async (planId: number) => {
+    if (!currentPlan || planId === currentPlan.id) {
+      return; // Already on this plan
+    }
 
-  const handleTogglePlan = async (planId: number) => {
     try {
-      setToggling({ type: 'plan', id: planId });
-      const response = await apiClient.patch(`/api/admin/plans/${planId}/toggle`);
+      setSwitching(true);
+      const response = await apiClient.patch('/api/organizations/subscription/plan', { planId });
 
       if (response.data.success) {
-        setPlans((prev) =>
-          prev.map((plan) =>
-            plan.id === planId ? { ...plan, isActive: response.data.data.isActive } : plan
-          )
-        );
+        // Refresh data to show new plan
+        await fetchData();
       }
     } catch (error) {
-      console.error('Failed to toggle plan:', error);
+      console.error('Failed to switch plan:', error);
     } finally {
-      setToggling(null);
+      setSwitching(false);
     }
   };
 
   const handleToggleModule = async (moduleId: number) => {
     try {
       setToggling({ type: 'module', id: moduleId });
-      const response = await apiClient.patch(`/api/admin/modules/${moduleId}/toggle`);
+      const response = await apiClient.patch(`/api/organizations/ai-modules/${moduleId}/toggle`);
 
       if (response.data.success) {
         setModules((prev) =>
@@ -117,7 +133,6 @@ export const AdminPlansTab = () => {
   };
 
   const renderPlanCard = (plan: Plan) => {
-    const isToggling = toggling?.type === 'plan' && toggling.id === plan.id;
     const borderColor =
       plan.planType === 'base'
         ? 'border-blue-500'
@@ -126,7 +141,10 @@ export const AdminPlansTab = () => {
           : 'border-purple-500';
 
     return (
-      <Card key={plan.id} className={`relative ${plan.isActive ? borderColor : 'opacity-60'}`}>
+      <Card
+        key={plan.id}
+        className={`relative flex flex-col justify-between ${plan.isActive ? borderColor : 'opacity-60'}`}
+      >
         <div className="flex absolute top-4 right-4 flex-col gap-2 items-end">
           {plan.isActive && (
             <Badge
@@ -142,12 +160,7 @@ export const AdminPlansTab = () => {
               Inactive
             </Badge>
           )}
-          {mostPopularPlanId === plan.id && planStats[plan.id] > 0 && (
-            <Badge className="text-white bg-purple-500">
-              <TrendingUp className="mr-1 w-3 h-3" />
-              Popular
-            </Badge>
-          )}
+          {/* Organization-specific view - no popularity stats */}
         </div>
 
         <CardHeader>
@@ -165,10 +178,7 @@ export const AdminPlansTab = () => {
                 </>
               )}
             </div>
-            <div className="flex items-center mt-2 text-xs text-gray-500">
-              <Users className="inline mr-1 w-3 h-3" />
-              {planStats[plan.id] || 0} organization{planStats[plan.id] !== 1 ? 's' : ''}
-            </div>
+            {/* Organization-specific subscription */}
           </CardTitle>
         </CardHeader>
 
@@ -185,56 +195,88 @@ export const AdminPlansTab = () => {
               <strong>{plan.limits.maxIntegrations}</strong> integrations
             </p>
           </div>
-
-          <Button
-            className="w-full"
-            variant={plan.isActive ? 'destructive' : 'primary'}
-            onClick={() => handleTogglePlan(plan.id)}
-            disabled={isToggling}
-          >
-            {isToggling ? 'Toggling...' : plan.isActive ? 'Disable Plan' : 'Enable Plan'}
-          </Button>
+          {plan.isActive ? (
+            <Button className="w-full" disabled>
+              Current Plan
+            </Button>
+          ) : (
+            <Button
+              onClick={() => handleSwitchPlan(plan.id)}
+              variant="outline"
+              className="w-full"
+              disabled={switching}
+            >
+              {switching ? 'Switching...' : 'Switch to This Plan'}
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
+
+  const basePlans = availablePlans.filter((p) => p.planType === 'base');
+  const bundlePlans = availablePlans.filter((p) => p.planType === 'bundle');
+  const enterprisePlans = availablePlans.filter((p) => p.planType === 'enterprise');
 
   return (
     <div className="space-y-8">
+      {/* Current Subscription */}
+      {currentPlan && (
+        <div>
+          <h2 className="mb-4 text-xl font-semibold text-gray-300">Current Subscription</h2>
+          <p className="mb-4 text-sm text-gray-400">Your organization&apos;s active plan</p>
+          <div className="grid grid-cols-1 gap-6">
+            {renderPlanCard({ ...currentPlan, isActive: true })}
+          </div>
+        </div>
+      )}
+
       {/* Base Platform Plans */}
       <div>
-        <h2 className="mb-2 text-xl font-semibold">Base Platform Plans</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-300">Base Platform Plans</h2>
         <p className="mb-4 text-sm text-gray-400">Core platform plans without AI features</p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {plans.filter((plan) => plan.planType === 'base').map((plan) => renderPlanCard(plan))}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {basePlans.length > 0 ? (
+            basePlans.map((plan) =>
+              renderPlanCard({ ...plan, isActive: plan.id === currentPlan?.id })
+            )
+          ) : (
+            <p className="text-gray-500">No base plans available</p>
+          )}
         </div>
       </div>
 
       {/* Bundle Plans */}
       <div>
-        <h2 className="mb-2 text-xl font-semibold">Bundle Plans</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-300">Bundle Plans</h2>
         <p className="mb-4 text-sm text-gray-400">Complete packages with AI features included</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {plans.filter((plan) => plan.planType === 'bundle').map((plan) => renderPlanCard(plan))}
+          {bundlePlans.length > 0 ? (
+            bundlePlans.map((plan) =>
+              renderPlanCard({ ...plan, isActive: plan.id === currentPlan?.id })
+            )
+          ) : (
+            <p className="text-gray-500">No bundle plans available</p>
+          )}
         </div>
       </div>
 
       {/* Enterprise Plans */}
       <div>
-        <h2 className="mb-2 text-xl font-semibold">Enterprise Plans</h2>
+        <h2 className="mb-2 text-xl font-semibold text-gray-300">Enterprise Plans</h2>
         <p className="mb-4 text-sm text-gray-400">Custom enterprise solutions</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {plans
-            .filter((plan) => plan.planType === 'enterprise')
-            .map((plan) => renderPlanCard(plan))}
+          {enterprisePlans.length > 0 ? (
+            enterprisePlans.map((plan) =>
+              renderPlanCard({ ...plan, isActive: plan.id === currentPlan?.id })
+            )
+          ) : (
+            <p className="text-gray-500">No enterprise plans available</p>
+          )}
         </div>
       </div>
 
@@ -248,7 +290,7 @@ export const AdminPlansTab = () => {
             return (
               <Card
                 key={module.id}
-                className={`relative ${module.isActive ? 'border-purple-500' : 'opacity-60'}`}
+                className={`relative flex flex-col justify-between ${module.isActive ? 'border-purple-500' : 'opacity-60'}`}
               >
                 {module.isActive && (
                   <Badge className="absolute top-4 right-4 text-white bg-green-500">

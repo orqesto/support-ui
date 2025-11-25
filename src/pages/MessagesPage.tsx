@@ -62,7 +62,7 @@ export const MessagesPage = () => {
   const [messages, setMessagesLocal] = useState<Message[]>([]);
   const [pagination, setPaginationLocal] = useState({
     page: 1,
-    limit: 5,
+    limit: 50,
     total: 0,
     totalPages: 0,
     hasMore: false,
