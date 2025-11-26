@@ -358,7 +358,7 @@ export const EmailIntegrationCard = ({
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 items-center justify-center">
                     <Button
                       variant="outline"
                       size="sm"

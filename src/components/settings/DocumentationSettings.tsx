@@ -489,7 +489,8 @@ export const DocumentationSettings = () => {
 
           <div>
             <div className="block mb-2 text-sm font-medium">Visibility</div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center sm:justify-center">
+
               <label className="flex gap-2 items-center cursor-pointer">
                 <input
                   type="radio"
@@ -499,8 +500,8 @@ export const DocumentationSettings = () => {
                   onChange={(e) => setVisibility(e.target.value as 'department')}
                   className="w-4 h-4"
                 />
-                <Lock className="w-4 h-4" />
-                <span className="text-sm">Department only</span>
+                <Lock className="w-4 h-4 " />
+                <span className="text-sm hidden sm:inline">Department only</span>
               </label>
               <label className="flex gap-2 items-center cursor-pointer">
                 <input
@@ -512,7 +513,7 @@ export const DocumentationSettings = () => {
                   className="w-4 h-4"
                 />
                 <Globe className="w-4 h-4" />
-                <span className="text-sm">Shared with all departments</span>
+                <span className="text-sm hidden sm:inline">Shared with all departments</span>
               </label>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">

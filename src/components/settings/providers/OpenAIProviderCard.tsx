@@ -116,7 +116,7 @@ export const OpenAIProviderCard = ({
           <div className="space-y-2">
             {integrations.map((integration) => (
               <div key={integration.id} className="rounded-lg border">
-                <div className="flex justify-between items-center p-3">
+                <div className="flex flex-col justify-between items-center p-3 gap-2">
                   <div className="flex gap-3 items-center">
                     <div
                       className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
@@ -129,7 +129,8 @@ export const OpenAIProviderCard = ({
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 items-center">
+                  <div className="flex flex-wrap gap-2 items-center justify-center">
+
                     {/* Enable/Disable Toggle */}
                     <div className="flex gap-2 items-center">
                       <span className="text-xs text-muted-foreground">

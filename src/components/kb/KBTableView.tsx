@@ -37,19 +37,8 @@ export const KBTableView = ({
   onHide,
   onDelete,
 }: KBTableViewProps) => (
-  <div className="hidden rounded-lg border md:block">
-    <table className="w-full table-fixed">
-      <colgroup>
-        <col className="w-10" />
-        <col />
-        <col className="hidden w-16 md:table-column" />
-        <col className="hidden w-24 lg:table-column" />
-        <col className="hidden w-24 xl:table-column" />
-        <col className="hidden w-16 sm:table-column" />
-        <col className="hidden w-14 lg:table-column" />
-        <col className="w-28" />
-        <col className="w-44" />
-      </colgroup>
+  <div className="hidden md:block rounded-lg border">
+    <table className="w-full table-fixed ">
       <thead className="bg-muted/50">
         <tr className="border-b">
           <th className="px-2 py-3 text-sm font-medium text-left">Type</th>
@@ -85,8 +74,13 @@ export const KBTableView = ({
             <tr key={entry.id} className="border-b hover:bg-muted/50">
               <td className="px-2 py-3">{getTypeIcon(entry.type)}</td>
               <td className="px-3 py-3">
-                <div className="font-medium truncate">{entry.title}</div>
-                <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
+              <div className="font-medium truncate whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
+                {entry.title}
+              </div>
+              <div className="text-sm text-muted-foreground truncate whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
+                {entry.content}
+              </div>
+
               </td>
               <td className="hidden px-3 py-3 text-center md:table-cell">
                 {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' ? (
