@@ -605,7 +605,7 @@ export const OrganizationPage = () => {
             </CardContent>
           </Card>
         )}
-
+          
         {/* Organization Details */}
         <Card>
           <CardHeader>

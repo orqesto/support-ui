@@ -25,7 +25,8 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
       />
 
       {/* Drawer */}
-      <div className="flex overflow-hidden fixed inset-y-0 right-0 z-50 flex-col w-full max-w-2xl shadow-xl bg-background animate-slide-in">
+      <div className="flex overflow-hidden fixed inset-y-0 right-0 z-50 flex-col w-full  max-w-2xl shadow-xl bg-background animate-slide-in m-0">
+    
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
           <h2 className="text-lg font-semibold">{title}</h2>

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Divide } from 'lucide-react';
 import { Button } from './Button';
 
 type PaginationProps = {
@@ -58,7 +58,7 @@ export const Pagination = ({
   };
 
   return (
-    <div className="flex justify-between items-center px-4 py-3 rounded-b-lg border-t border-border bg-card">
+    <div className="flex sm: flex-col sm: gap-2 justify-between items-center px-4 py-3 rounded-b-lg border-t border-border bg-card ">
       <div className="flex items-center text-sm text-muted-foreground">
         Showing <span className="mx-1 font-medium">{startItem}</span> to{' '}
         <span className="mx-1 font-medium">{endItem}</span> of{' '}
@@ -73,7 +73,7 @@ export const Pagination = ({
           disabled={currentPage === 1 || loading}
         >
           <ChevronLeft className="w-4 h-4" />
-          Previous
+          <div className='hidden sm: block'>Previous</div>
         </Button>
 
         <div className="flex gap-1">
@@ -110,7 +110,7 @@ export const Pagination = ({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || loading}
         >
-          Next
+          <div className='hidden sm: block'>Next</div>
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>

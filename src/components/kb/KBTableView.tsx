@@ -38,7 +38,7 @@ export const KBTableView = ({
   onDelete,
 }: KBTableViewProps) => (
   <div className="hidden md:block rounded-lg border">
-    <table className="w-full l:table-fixed ">
+    <table className="w-full table-fixed ">
       <thead className="bg-muted/50">
         <tr className="border-b">
           <th className="w-10 px-2 py-3 text-left text-sm font-medium">Type</th>
@@ -80,8 +80,13 @@ export const KBTableView = ({
             <tr key={entry.id} className="border-b hover:bg-muted/50">
               <td className="px-2 py-3">{getTypeIcon(entry.type)}</td>
               <td className="px-3 py-3">
-                <div className="font-medium truncate">{entry.title}</div>
-                <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
+              <div className="font-medium truncate whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
+                {entry.title}
+              </div>
+              <div className="text-sm text-muted-foreground truncate whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
+                {entry.content}
+              </div>
+
               </td>
               <td className="hidden md:table-cell px-3 py-3 text-center">
                 {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' ? (
