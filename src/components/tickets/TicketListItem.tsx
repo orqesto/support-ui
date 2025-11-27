@@ -1,4 +1,4 @@
-import { Edit2, Send, Trash2, ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import { Edit2, Send, Trash2, ExternalLink as ExternalLinkIcon, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Badge } from '@/components/ui/Badge';
@@ -65,6 +65,15 @@ export const TicketListItem = ({
             <Badge variant="default">{ticket.categoryName}</Badge>
           </div>
         )}
+        {ticket.assigneeName && (
+          <div className="flex gap-2 items-center">
+            <span className="text-xs font-medium text-muted-foreground">Assignee:</span>
+            <Badge variant="secondary" className="flex gap-1 items-center">
+              <User className="w-3 h-3" />
+              {ticket.assigneeName}
+            </Badge>
+          </div>
+        )}
         {ticket.externalId && ticket.externalUrl && (
           <ExternalLink
             href={ticket.externalUrl}
@@ -84,6 +93,12 @@ export const TicketListItem = ({
       <>
         <span className="break-all">From: {ticket.sender}</span>
         {ticket.categoryName && <span>• {ticket.categoryName}</span>}
+        {ticket.assigneeName && (
+          <span className="flex gap-1 items-center">
+            • <User className="w-3 h-3" />
+            {ticket.assigneeName}
+          </span>
+        )}
         <span className="whitespace-nowrap">• {formatDate(ticket.createdAt)}</span>
       </>
     }

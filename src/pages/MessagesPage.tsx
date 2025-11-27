@@ -62,7 +62,7 @@ export const MessagesPage = () => {
   const [messages, setMessagesLocal] = useState<Message[]>([]);
   const [pagination, setPaginationLocal] = useState({
     page: 1,
-    limit: 5,
+    limit: 50,
     total: 0,
     totalPages: 0,
     hasMore: false,
@@ -468,10 +468,17 @@ export const MessagesPage = () => {
       return;
     }
     try {
+      // Clear cache to force fresh data
+      clearCache();
+
+      // Refresh the detail view
       const response = await messageService.getById(selectedMessage.id);
       if (response.success && response.data) {
         setSelectedMessage(response.data);
       }
+
+      // Refresh the list to show updated assignee
+      await fetchMessages(pagination.page, true);
     } catch (error) {
       console.error('Failed to refresh message:', error);
     }

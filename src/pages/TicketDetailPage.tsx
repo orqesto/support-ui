@@ -5,14 +5,26 @@ import { Layout } from '@/components/Layout';
 import { ScrollButtons } from '@/components/ScrollButtons';
 import { TicketDetail } from '@/components/TicketDetail';
 import { Button } from '@/components/ui/Button';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/Dialog';
 import { ticketService } from '@/services/ticket.service';
+import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
 
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const clearCache = useTicketsStore((state) => state.clearCache);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -36,6 +48,26 @@ export const TicketDetailPage = () => {
 
   const handleBack = () => {
     navigate('/tickets');
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!ticket) return;
+
+    try {
+      setDeleting(true);
+      await ticketService.delete(ticket.id);
+      clearCache(); // Clear cache to refresh tickets list
+      setDeleteDialogOpen(false);
+      navigate('/tickets');
+    } catch (error) {
+      console.error('Failed to delete ticket:', error);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -76,13 +108,40 @@ export const TicketDetailPage = () => {
           </div>
 
           <div className="p-6 rounded-lg border bg-card">
-            <TicketDetail
-              ticket={ticket}
-              onDelete={handleBack}
-            />
+            <TicketDetail ticket={ticket} onDelete={handleDeleteClick} />
           </div>
         </div>
       </Layout>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogHeader>
+          <DialogTitle>Delete Ticket</DialogTitle>
+          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
+        </DialogHeader>
+        <DialogContent>
+          <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
+          {ticket && (
+            <div className="p-3 mt-3 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {ticket.title}
+              </p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                Status: <span className="font-medium">{ticket.status}</span> | Priority:{' '}
+                <span className="font-medium">{ticket.priority}</span>
+              </p>
+            </div>
+          )}
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
+            Delete
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </>
   );
 };

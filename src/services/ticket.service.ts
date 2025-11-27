@@ -16,7 +16,34 @@ export type PaginatedResponse<T> = {
   pagination: PaginationMeta;
 };
 
+export type TicketsMetadata = {
+  total: number;
+  totalPages: number;
+  limit: number;
+  open: number;
+  resolved: number;
+  inProgress: number;
+};
+
+export type MetadataResponse = {
+  success: boolean;
+  data: TicketsMetadata;
+};
+
 export const ticketService = {
+  // Get metadata only (counts, no data) - for lazy pagination
+  getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
+    const params = new URLSearchParams({
+      ...filters,
+      limit: limit.toString(),
+    });
+
+    const response = await apiClient.get<MetadataResponse>(
+      `/api/tickets/metadata?${params.toString()}`
+    );
+    return response.data;
+  },
+
   getAll: async (
     filters?: Record<string, string>,
     page = PAGINATION.DEFAULT_PAGE,

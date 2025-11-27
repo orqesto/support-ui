@@ -92,59 +92,57 @@ export const UsageStatsPage = () => {
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-center">
-        <div className="flex gap-4 items-center sm:gap-0">
-
+          <div className="flex gap-4 items-center sm:gap-0">
             <Button variant="ghost" size="sm" onClick={() => navigate('/subscription')}>
               <ArrowLeft className="mr-2 w-4 h-4" />
               Back
             </Button>
             <div>
-            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Billing & Usage</h1>
-              <p className="mt-1 text-gray-600 text-sm sm:text-base">
+              <h1 className="text-xl font-bold sm:text-2xl">Billing & Usage</h1>
+              <p className="mt-1 text-sm text-foreground/70 sm:text-base">
                 AI module costs, usage tracking, and overage monitoring
               </p>
-
             </div>
           </div>
           <Button onClick={exportUsageData} variant="outline" className="py-6">
-  <Download className="mr-2 w-4 h-4" />
-  Export CSV
-</Button>
+            <Download className="mr-2 w-4 h-4" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="p-6">
-              <p className="mb-1 text-sm text-gray-600">Total Used</p>
+              <p className="mb-1 text-sm text-foreground/70">Total Used</p>
               <p className="text-2xl font-bold">{totalUsed.toLocaleString()}</p>
-              <p className="mt-1 text-xs text-gray-500">units this period</p>
+              <p className="mt-1 text-xs text-foreground/60">units this period</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-6">
-              <p className="mb-1 text-sm text-gray-600">Included</p>
+              <p className="mb-1 text-sm text-foreground/70">Included</p>
               <p className="text-2xl font-bold">{totalIncluded.toLocaleString()}</p>
-              <p className="mt-1 text-xs text-gray-500">total limit</p>
+              <p className="mt-1 text-xs text-foreground/60">total limit</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-6">
-              <p className="mb-1 text-sm text-gray-600">Overage</p>
+              <p className="mb-1 text-sm text-foreground/70">Overage</p>
               <p className="text-2xl font-bold text-orange-600">{totalOverage.toLocaleString()}</p>
-              <p className="mt-1 text-xs text-gray-500">extra units</p>
+              <p className="mt-1 text-xs text-foreground/60">extra units</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-6">
-              <p className="mb-1 text-sm text-gray-600">Est. Overage Cost</p>
+              <p className="mb-1 text-sm text-foreground/70">Est. Overage Cost</p>
               <p className="text-2xl font-bold text-red-600">
                 €{(totalOverageCost / 100).toFixed(2)}
               </p>
-              <p className="mt-1 text-xs text-gray-500">this billing period</p>
+              <p className="mt-1 text-xs text-foreground/60">this billing period</p>
             </CardContent>
           </Card>
         </div>

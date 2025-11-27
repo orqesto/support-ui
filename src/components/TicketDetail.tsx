@@ -11,6 +11,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { AssignmentSelect } from '@/components/AssignmentSelect';
 import { ScrollButtons } from '@/components/ScrollButtons';
 import { TicketAttachments } from '@/components/TicketAttachments';
 import { TicketComments } from '@/components/TicketComments';
@@ -18,7 +19,6 @@ import { TranslateButton } from '@/components/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
-import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import type { Ticket, TicketStatus, TicketPriority, Message } from '@/types';
@@ -27,6 +27,7 @@ type TicketDetailProps = {
   ticket: Ticket;
   onPushToJira?: () => void;
   onDelete?: () => void;
+  onRefresh?: () => void;
   isPushingToJira?: boolean;
   showFullPageButton?: boolean;
 };
@@ -53,6 +54,7 @@ export const TicketDetail = ({
   ticket,
   onPushToJira,
   onDelete,
+  onRefresh,
   isPushingToJira,
   showFullPageButton = true,
 }: TicketDetailProps) => {
@@ -109,11 +111,7 @@ export const TicketDetail = ({
             </span>
             {showFullPageButton && !isFullPage && (
               <Link to={`/tickets/${ticket.id}`}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Open in full page"
-                >
+                <Button variant="ghost" size="sm" title="Open in full page">
                   <Maximize2 className="w-4 h-4" />
                 </Button>
               </Link>
@@ -175,16 +173,18 @@ export const TicketDetail = ({
           </div>
           <p className="font-medium">{formatDate(ticket.createdAt)}</p>
         </div>
+      </div>
 
-        {ticket.assigneeId && (
-          <div>
-            <div className="flex gap-2 items-center mb-1 text-sm text-muted-foreground">
-              <User className="w-4 h-4" />
-              Assigned To
-            </div>
-            <p className="font-medium">Agent #{ticket.assigneeId}</p>
-          </div>
-        )}
+      {/* Assignment */}
+      <div className="pt-6 border-t">
+        <p className="mb-2 text-sm text-muted-foreground">Assigned to</p>
+        <AssignmentSelect
+          type="ticket"
+          itemId={ticket.id}
+          currentAssigneeId={ticket.assigneeId}
+          onAssign={onRefresh}
+          className="w-full"
+        />
       </div>
 
       {/* Description */}
@@ -199,11 +199,10 @@ export const TicketDetail = ({
             size="sm"
           />
         </div>
-        <div className="max-w-none break-words prose prose-sm">
-          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
-            <LinkifiedText>{ticket.description}</LinkifiedText>
-          </p>
-        </div>
+        <div
+          className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: ticket.description }}
+        />
       </div>
 
       {/* Linked Messages */}

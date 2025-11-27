@@ -16,7 +16,34 @@ export type PaginatedResponse<T> = {
   pagination: PaginationMeta;
 };
 
+export type MessagesMetadata = {
+  total: number;
+  totalPages: number;
+  limit: number;
+  unprocessed: number;
+  resolved: number;
+  spam: number;
+};
+
+export type MetadataResponse = {
+  success: boolean;
+  metadata: MessagesMetadata;
+};
+
 export const messageService = {
+  // Get metadata only (counts, no data) - for lazy pagination
+  getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
+    const params = new URLSearchParams({
+      ...filters,
+      limit: limit.toString(),
+    });
+
+    const response = await apiClient.get<MetadataResponse>(
+      `/api/messages/metadata?${params.toString()}`
+    );
+    return response.data;
+  },
+
   getAll: async (
     filters?: Record<string, string>,
     page = PAGINATION.DEFAULT_PAGE,
