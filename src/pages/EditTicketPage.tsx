@@ -6,14 +6,16 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { categoryService } from '@/services/category.service';
 import { ticketService } from '@/services/ticket.service';
+import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
 
 export const EditTicketPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const clearCache = useTicketsStore((state) => state.clearCache);
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -98,6 +100,7 @@ export const EditTicketPage = () => {
       });
 
       if (response.success) {
+        clearCache(); // Clear cache to refresh tickets list
         setAlertDialog({
           open: true,
           title: 'Success',
@@ -181,7 +184,9 @@ export const EditTicketPage = () => {
               {ticket?.externalId && (
                 <div className="flex gap-2 items-start p-3 text-sm text-gray-700 bg-gray-100 rounded-md border border-gray-300">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>Warning: This form is disabled because the ticket is synced with Jira.</span>
+                  <span>
+                    Warning: This form is disabled because the ticket is synced with Jira.
+                  </span>
                 </div>
               )}
               <Input
@@ -208,48 +213,54 @@ export const EditTicketPage = () => {
                 />
               </div>
 
-              <Select
+              <ReactSelect
                 label="Status"
                 value={formData.status}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, status: e.target.value as TicketStatus }))
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, status: value as TicketStatus }))
                 }
-                disabled={!!ticket?.externalId}
-              >
-                <option value="pending">Pending</option>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-              </Select>
+                options={[
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'open', label: 'Open' },
+                  { value: 'in_progress', label: 'In Progress' },
+                  { value: 'resolved', label: 'Resolved' },
+                  { value: 'closed', label: 'Closed' },
+                ]}
+                isDisabled={!!ticket?.externalId}
+                placeholder="Select status"
+              />
 
-              <Select
+              <ReactSelect
                 label="Priority"
                 value={formData.priority}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, priority: value as TicketPriority }))
                 }
-                disabled={!!ticket?.externalId}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </Select>
+                options={[
+                  { value: 'low', label: 'Low' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'high', label: 'High' },
+                  { value: 'critical', label: 'Critical' },
+                ]}
+                isDisabled={!!ticket?.externalId}
+                placeholder="Select priority"
+              />
 
-              <Select
+              <ReactSelect
                 label="Category"
                 value={formData.categoryId}
-                onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-                disabled={!!ticket?.externalId}
-              >
-                <option value="">Select a category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
+                options={[
+                  { value: '', label: 'Select a category' },
+                  ...categories.map((cat) => ({
+                    value: String(cat.id),
+                    label: cat.name,
+                  })),
+                ]}
+                isDisabled={!!ticket?.externalId}
+                placeholder="Select a category"
+                isSearchable
+              />
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" isLoading={saving} disabled={!!ticket?.externalId}>

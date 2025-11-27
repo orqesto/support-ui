@@ -24,6 +24,7 @@ type EmailProcessingEvent = {
     status?: string;
     aiSuggestion?: string;
     processed?: number;
+    analyzed?: number; // Number of messages that went through AI analysis
     failed?: number;
     error?: string;
     // Performance timing fields (in milliseconds)
@@ -42,6 +43,7 @@ export type ProcessingSession = {
   total: number;
   current: number;
   processed: number; // Total processed (successful + failed + skipped)
+  analyzed?: number; // Number of messages that went through AI analysis
   successful?: number; // Successfully analyzed
   failed: number; // Failed to process
   skipped?: number; // Skipped (irrelevant/low quality)
@@ -166,9 +168,6 @@ export const useEmailProcessing = (
   // Clear all sessions when organization changes (admin switching context)
   useEffect(() => {
     if (filterByOrganization) {
-      console.log(
-        `[useEmailProcessing] Organization filter changed to ${filterByOrganization}, clearing all sessions`
-      );
       setSessions(new Map());
       // Clear localStorage for stale organization
       localStorage.removeItem('emailProcessing_sessions');
@@ -190,15 +189,6 @@ export const useEmailProcessing = (
     const handleProcessing = (data: unknown) => {
       const event = data as EmailProcessingEvent;
 
-      // DEBUG: Log all events to see what we're receiving
-      console.log('[useEmailProcessing] Event received:', {
-        type: event.type,
-        integrationId: event.integrationId,
-        integrationName: event.integrationName,
-        hasData: !!event.data,
-        data: event.data,
-      });
-
       // If integrationId is provided, track this session separately
       if (event.integrationId) {
         // Filter by department if specified - ignore events from other departments
@@ -207,17 +197,11 @@ export const useEmailProcessing = (
           event.departmentRole &&
           event.departmentRole !== filterByDepartment
         ) {
-          console.log(
-            `[useEmailProcessing] Ignoring event from ${event.departmentRole}, current filter: ${filterByDepartment}`
-          );
           return;
         }
 
         // Filter by organization if specified - ignore events from other organizations
         if (filterByOrganization && event.organizationId !== filterByOrganization) {
-          console.log(
-            `[useEmailProcessing] Ignoring event from org ${event.organizationId}, current filter: ${filterByOrganization}`
-          );
           return;
         }
 
@@ -232,6 +216,8 @@ export const useEmailProcessing = (
 
           switch (event.type) {
             case 'started':
+              // Preserve processed/failed counts from previous cycles (accumulate)
+              // Only reset progress counters for the new cycle
               newSessions.set(sessionKey, {
                 sessionKey,
                 integrationId,
@@ -240,11 +226,12 @@ export const useEmailProcessing = (
                 status: 'started',
                 total: 0,
                 current: 0,
-                processed: 0,
-                failed: 0,
+                processed: existing?.processed ?? 0, // Keep accumulated count
+                failed: existing?.failed ?? 0, // Keep accumulated count
+                analyzed: existing?.analyzed ?? 0, // Keep accumulated analyzed count
                 isProcessing: true,
                 progress: 0,
-                timestamp: Date.now(), // Track when session started
+                timestamp: existing?.timestamp ?? Date.now(), // Keep original start time
               });
               break;
 
@@ -262,38 +249,43 @@ export const useEmailProcessing = (
 
             case 'processing':
               if (existing) {
-                const current = event.data?.current ?? 0;
-                const total = event.data?.total ?? existing.total;
+                const eventCurrent = event.data?.current ?? 0;
+                const eventTotal = event.data?.total ?? 0;
+
+                // Detect phase change: total changes significantly (e.g., 128 → 5)
+                const isNewPhase = eventTotal > 0 && eventTotal !== existing.total;
+
+                // Use event data to update current/total (shows active phase progress)
+                // If new phase but eventCurrent is 0, keep old values until phase actually starts
+                // Also never let current go back to 0 if it was previously > 0
+                const current =
+                  (isNewPhase && eventCurrent === 0) || (eventCurrent === 0 && existing.current > 0)
+                    ? existing.current
+                    : eventCurrent;
+                const total =
+                  isNewPhase && eventCurrent === 0 ? existing.total : eventTotal || existing.total;
+
                 const newProgress = total > 0 ? (current / total) * 100 : 0;
+                const clampedProgress = Math.max(existing.progress ?? 0, newProgress);
 
-                // Only clamp progress if we're in the same phase (total same/increased)
-                // Don't clamp if current decreased (new phase like AI analysis after email fetch)
-                const isNewPhase = current < (existing.current ?? 0);
-                const clampedProgress = isNewPhase
-                  ? newProgress // New phase: use actual progress
-                  : Math.max(existing.progress ?? 0, newProgress); // Same phase: prevent backwards
+                // Reactivate if status was complete
+                const shouldReactivate = existing.status === 'complete';
 
-                // Reactivate if completed but more processing events arrive (AI analysis after email fetch)
-                const shouldReactivate = existing.status === 'complete' && current < total;
-
-                // Keep isProcessing true if:
-                // 1. We're getting processing events (implicit - we're in this case)
-                // 2. Not all messages are done yet (current < total)
-                // 3. OR status is still 'processing' (not complete/error)
-                const stillProcessing =
-                  current < total ||
-                  (existing.status !== 'complete' && existing.status !== 'error');
+                // Keep isProcessing true when getting processing events
+                const stillProcessing = true;
 
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: shouldReactivate ? 'processing' : existing.status,
                   current,
                   total,
+                  // Update analyzed if provided by analyzing stage
+                  ...(event.data?.analyzed !== undefined && { analyzed: event.data.analyzed }),
                   progress: clampedProgress,
                   isProcessing: stillProcessing,
                 });
-              } else {
-                // Create session if it doesn't exist (page refresh during processing)
+              } else if ((event.data?.current ?? 0) > 0) {
+                // Create session only if current > 0 (avoid showing "0/128" on initial events)
                 newSessions.set(sessionKey, {
                   sessionKey,
                   integrationId,
@@ -311,11 +303,29 @@ export const useEmailProcessing = (
               }
               break;
 
-            case 'processed':
+            case 'error':
               if (existing) {
                 newSessions.set(sessionKey, {
                   ...existing,
-                  processed: existing.processed + 1,
+                  failed: existing.failed + 1,
+                  ...(existing.status === 'idle' && {
+                    status: 'error',
+                    error: event.data?.error,
+                  }),
+                });
+              }
+              break;
+
+            case 'processed':
+              if (existing) {
+                // Backend sends cumulative count, not incremental
+                const processed = event.data?.processed ?? existing.processed;
+                // Increment analyzed count for each processed event (messages going through AI)
+                const analyzed = (existing.analyzed ?? 0) + 1;
+                newSessions.set(sessionKey, {
+                  ...existing,
+                  processed,
+                  analyzed, // Track AI-analyzed messages
                 });
               } else {
                 // Create minimal session if processing in progress but page was refreshed
@@ -325,9 +335,10 @@ export const useEmailProcessing = (
                   integrationName,
                   departmentRole, // Use normalized value
                   status: 'processing',
-                  total: 0,
+                  total: event.data?.total ?? 0,
                   current: 0,
-                  processed: 1,
+                  processed: event.data?.processed ?? 1,
+                  analyzed: 1, // Start counting analyzed messages
                   failed: 0,
                   isProcessing: true,
                   progress: 0,
@@ -338,13 +349,24 @@ export const useEmailProcessing = (
 
             case 'complete':
               if (existing) {
+                // Use final totals from backend (already cumulative, not batch)
+                // Backend sends the TOTAL processed count, not incremental
                 const processed = event.data?.processed ?? existing.processed;
                 const failed = event.data?.failed ?? existing.failed;
+                const total = event.data?.total ?? existing.total;
+                const current = processed; // Set current to processed count so widget shows "128/128" not "0/128"
+                // Preserve existing analyzed count - only use event value if it's > 0
+                const analyzed =
+                  (event.data?.analyzed ?? 0) > 0 ? event.data?.analyzed : existing.analyzed;
+
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: 'complete',
+                  current, // Set to processed count
+                  total, // Update total if provided
                   processed,
                   failed,
+                  analyzed, // Use preserved or updated analyzed count
                   isProcessing: false,
                   progress: 100,
                   fetchTime: event.data?.fetchTime,
@@ -354,6 +376,7 @@ export const useEmailProcessing = (
               }
               break;
 
+            // eslint-disable-next-line no-duplicate-case
             case 'error':
               if (existing) {
                 newSessions.set(sessionKey, {
@@ -382,7 +405,6 @@ export const useEmailProcessing = (
 
       // Skip global events when organization filtering is active
       if (filterByOrganization && !event.integrationId) {
-        console.log('[useEmailProcessing] Ignoring global event - organization filter active');
         return;
       }
 
@@ -422,6 +444,7 @@ export const useEmailProcessing = (
           }));
           break;
 
+        // eslint-disable-next-line no-duplicate-case
         case 'complete':
           setState((prev) => ({
             ...prev,
@@ -527,9 +550,6 @@ export const useEmailProcessing = (
         // 1. KB processing started before email polling (bulk import)
         // 2. Page refreshed after email session completed but KB still running
         // For now, ignore orphan KB events to prevent duplicate widgets
-        console.log(
-          `[useEmailProcessing] No email session found for KB event (integration ${kbEvent.messageSourceId}), ignoring to prevent duplicate widget`
-        );
         return newSessions;
       });
     };
@@ -601,9 +621,6 @@ export const useEmailProcessing = (
 
         // No existing session found - KB completed without email session
         // Ignore to prevent creating orphan completed sessions
-        console.log(
-          `[useEmailProcessing] No email session found for KB completion (integration ${kbEvent.messageSourceId}), ignoring`
-        );
         return newSessions;
       });
     };

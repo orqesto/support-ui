@@ -468,10 +468,17 @@ export const MessagesPage = () => {
       return;
     }
     try {
+      // Clear cache to force fresh data
+      clearCache();
+
+      // Refresh the detail view
       const response = await messageService.getById(selectedMessage.id);
       if (response.success && response.data) {
         setSelectedMessage(response.data);
       }
+
+      // Refresh the list to show updated assignee
+      await fetchMessages(pagination.page, true);
     } catch (error) {
       console.error('Failed to refresh message:', error);
     }

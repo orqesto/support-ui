@@ -17,6 +17,7 @@ export type FilterState = {
   showFailed?: boolean;
   excludeKB?: boolean; // Filter out KB messages (show only support requests)
   awaitingCustomerResponse?: boolean;
+  assignedToMe?: boolean; // Filter to show only messages assigned to current user
   search?: string;
 };
 

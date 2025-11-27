@@ -53,8 +53,8 @@ export const DashboardPage = () => {
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
 
-  // Get real-time system health
-  const { health, isWebSocketConnected } = useSystemHealth();
+  // System health polling - check every 5 minutes to minimize API load
+  const { health, isWebSocketConnected } = useSystemHealth(300000);
 
   // Get messages store cache clear function
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
@@ -292,9 +292,9 @@ export const DashboardPage = () => {
           clearInterval(pollingIntervalRef.current);
         }
 
-        // Poll stats aggressively for 60 seconds to catch async processing
+        // Poll stats for 60 seconds to catch async processing
         let attempts = 0;
-        const maxAttempts = 30; // 30 attempts × 2s = 60 seconds
+        const maxAttempts = 12; // 12 attempts × 5s = 60 seconds
         pollingIntervalRef.current = setInterval(async () => {
           attempts++;
           await fetchStats();
@@ -304,7 +304,7 @@ export const DashboardPage = () => {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
-        }, 2000) as unknown as number;
+        }, 5000) as unknown as number;
       }
     } catch (error) {
       console.error('Failed to start ingestion:', error);

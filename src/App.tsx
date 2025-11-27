@@ -53,9 +53,6 @@ const SubscriptionPage = lazy(() =>
 const PricingPage = lazy(() =>
   import('./pages/PricingPage').then((m) => ({ default: m.PricingPage }))
 );
-const AIModulesPage = lazy(() =>
-  import('./pages/AIModulesPage').then((m) => ({ default: m.AIModulesPage }))
-);
 const AdminDashboardPage = lazy(() =>
   import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage }))
 );
@@ -274,18 +271,6 @@ const AppRoutes = () => {
             <Suspense fallback={<LoadingFallback />}>
               <PricingPage />
             </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/ai-modules"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredPermission={Permission.VIEW_SUBSCRIPTION}>
-              <Suspense fallback={<LoadingFallback />}>
-                <AIModulesPage />
-              </Suspense>
-            </ProtectedRoute>
           </PrivateRoute>
         }
       />

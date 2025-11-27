@@ -13,7 +13,6 @@ import {
   Briefcase,
   FileText,
   CreditCard,
-  Zap,
   TrendingUp,
   BookOpen,
 } from 'lucide-react';
@@ -72,12 +71,6 @@ const allNavigation = [
     name: 'Subscription',
     href: '/subscription',
     icon: CreditCard,
-    permission: Permission.VIEW_SUBSCRIPTION,
-  },
-  {
-    name: 'AI Modules',
-    href: '/ai-modules',
-    icon: Zap,
     permission: Permission.VIEW_SUBSCRIPTION,
   },
   { name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },

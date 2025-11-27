@@ -96,6 +96,7 @@ export const MessageProcessingProgress = ({
     total,
     current,
     processed,
+    analyzed,
     successful,
     failed,
     skipped,
@@ -206,8 +207,8 @@ export const MessageProcessingProgress = ({
   useEffect(() => {
     if (status === 'complete' || allMessagesProcessed) {
       // If no messages found (total === 0), close after 30 seconds
-      // If messages were processed (total > 0), keep open for 1 minute to show results
-      const closeDelay = total === 0 ? 30000 : 60000; // 30s for no messages, 1 min for processed messages
+      // If messages were processed (total > 0), keep open for 5 minutes to show results
+      const closeDelay = total === 0 ? 30000 : 300000; // 30s for no messages, 5 min for processed messages
 
       const timer = setTimeout(() => {
         setIsClosed(true);
@@ -227,20 +228,6 @@ export const MessageProcessingProgress = ({
   // Force show if actively processing (ignore isClosed), allow closing only when complete
   // ALWAYS show when processing, even if user closed it before
   const shouldBeVisible = isActivelyProcessing || (hasRecentActivity && !isClosed);
-
-  // Debug log for visibility issues
-  if (import.meta.env.DEV) {
-    console.log(`[MessageProcessingProgress] ${integrationName}:`, {
-      status,
-      isProcessing,
-      isActivelyProcessing,
-      hasRecentActivity,
-      isClosed,
-      shouldBeVisible,
-      total,
-      current,
-    });
-  }
 
   return (
     <div
@@ -349,14 +336,14 @@ export const MessageProcessingProgress = ({
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
-            {/* Show total processed (current progress) */}
-            {current > 0 && (
+            {/* Show total processed (emails saved to DB) */}
+            {(processed > 0 || current > 0) && (
               <div>
                 <div className="flex gap-1 justify-center items-center">
                   <Loader2
                     className={`w-3 h-3 ${isProcessing ? 'animate-spin text-primary' : 'text-muted-foreground'}`}
                   />
-                  <span className="text-lg font-bold">{current}</span>
+                  <span className="text-lg font-bold">{processed > 0 ? processed : current}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Processed</p>
               </div>
@@ -364,7 +351,7 @@ export const MessageProcessingProgress = ({
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <CheckCircle className="w-3 h-3 text-green-500" />
-                <span className="text-lg font-bold">{successful ?? 0}</span>
+                <span className="text-lg font-bold">{analyzed ?? successful ?? 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Analyzed</p>
             </div>

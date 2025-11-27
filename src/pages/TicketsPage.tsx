@@ -739,6 +739,19 @@ export const TicketsPage = () => {
                   }
                 : undefined
             }
+            onRefresh={async () => {
+              // Clear cache to force fresh data
+              clearCache();
+
+              // Refresh the detail view
+              const response = await ticketService.getById(selectedTicket.id);
+              if (response.success && response.data) {
+                setSelectedTicket(response.data);
+              }
+
+              // Refresh the list to show updated assignee
+              await fetchTickets(pagination.page, true);
+            }}
             isPushingToJira={syncing === selectedTicket.id}
           />
         </Drawer>

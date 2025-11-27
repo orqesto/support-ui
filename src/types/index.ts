@@ -51,6 +51,10 @@ export type Message = {
   awaitingCustomerResponse?: boolean;
   // Attachment tracking
   attachmentCount?: number;
+  // Assignment tracking
+  assigneeId?: number | null;
+  assigneeName?: string;
+  assignedAt?: string | null;
 };
 
 export type Ticket = {

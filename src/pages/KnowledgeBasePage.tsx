@@ -117,9 +117,9 @@ export const KnowledgeBasePage = () => {
   const handleApprove = async (id: number) => {
     try {
       await kbService.approve(id);
-      // Update the entry in place without full page refresh
+      // Update entry in place - set approved and unhidden
       setEntries((prev) =>
-        prev.map((entry) => (entry.id === id ? { ...entry, approved: true } : entry))
+        prev.map((entry) => (entry.id === id ? { ...entry, approved: true, hidden: false } : entry))
       );
     } catch (error) {
       console.error('Failed to approve entry:', error);
@@ -135,9 +135,9 @@ export const KnowledgeBasePage = () => {
   const handleHide = async (id: number) => {
     try {
       await kbService.hide(id);
-      // Update the entry in place without full page refresh
+      // Update entry in place - set hidden
       setEntries((prev) =>
-        prev.map((entry) => (entry.id === id ? { ...entry, hidden: true } : entry))
+        prev.map((entry) => (entry.id === id ? { ...entry, hidden: true, approved: false } : entry))
       );
     } catch (error) {
       console.error('Failed to hide entry:', error);
@@ -199,7 +199,6 @@ export const KnowledgeBasePage = () => {
         {/* Tabs for Type Selection */}
         <div className="mb-6 border-b border-border">
           <div className="flex gap-1">
-
             {/* All */}
             <button
               onClick={() => setFilterType('all')}
@@ -250,11 +249,8 @@ export const KnowledgeBasePage = () => {
               <Settings className="hidden sm:block w-4 h-4" />
               Documentation
             </button>
-
           </div>
         </div>
-
-
 
         {/* Filters Card - Hidden in Documentation tab */}
         {filterType !== 'documentation' && (
