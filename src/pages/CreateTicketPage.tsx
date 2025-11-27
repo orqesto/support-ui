@@ -7,8 +7,9 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
+import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
@@ -25,6 +26,7 @@ export const CreateTicketPage = () => {
 
   const [message, setMessage] = useState<Message | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<{
     category?: string;
@@ -36,6 +38,7 @@ export const CreateTicketPage = () => {
     description: '',
     priority: 'medium' as TicketPriority,
     categoryId: '',
+    assigneeId: null as number | null,
     syncToJira: false,
   });
 
@@ -58,6 +61,9 @@ export const CreateTicketPage = () => {
     }
     fetchCategories().catch((error) => {
       console.error('Failed to fetch categories:', error);
+    });
+    fetchUsers().catch((error) => {
+      console.error('Failed to fetch users:', error);
     });
   }, [messageId]);
 
@@ -85,7 +91,7 @@ export const CreateTicketPage = () => {
         }
 
         // Convert plain text to HTML for RichTextEditor
-        const escapeHtml = (text: string) => 
+        const escapeHtml = (text: string) =>
           text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -95,8 +101,8 @@ export const CreateTicketPage = () => {
 
         const htmlDescription = data.content
           .split('\n')
-          .filter(line => line.trim()) // Remove empty lines
-          .map(line => `<p>${escapeHtml(line)}</p>`)
+          .filter((line) => line.trim()) // Remove empty lines
+          .map((line) => `<p>${escapeHtml(line)}</p>`)
           .join('');
 
         setFormData((prev) => ({
@@ -117,6 +123,15 @@ export const CreateTicketPage = () => {
       }
     } catch (error) {
       console.error('Failed to fetch message:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const data = await assignmentService.getAssignableUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error('Failed to fetch assignable users:', error);
     }
   };
 
@@ -176,13 +191,19 @@ export const CreateTicketPage = () => {
     try {
       setEnhancing(true);
       // Call AI service to enhance the description
-      const response = await apiClient.post<ApiResponse<{ enhanced: string }>>('/api/ai/enhance-ticket', {
-        content: formData.description,
-        title: formData.title,
-      });
+      const response = await apiClient.post<ApiResponse<{ enhanced: string }>>(
+        '/api/ai/enhance-ticket',
+        {
+          content: formData.description,
+          title: formData.title,
+        }
+      );
 
       if (response.data.success && response.data.data) {
-        setFormData((prev) => ({ ...prev, description: response.data.data?.enhanced ?? prev.description }));
+        setFormData((prev) => ({
+          ...prev,
+          description: response.data.data?.enhanced ?? prev.description,
+        }));
       }
     } catch (error) {
       console.error('Failed to enhance description:', error);
@@ -205,12 +226,16 @@ export const CreateTicketPage = () => {
 
     setLoading(true);
     try {
-      const response = await ticketService.createWithAttachments({
-        ...formData,
-        messageId: parseInt(messageId),
-        categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
-        syncToJira: formData.syncToJira,
-      }, selectedFiles);
+      const response = await ticketService.createWithAttachments(
+        {
+          ...formData,
+          messageId: parseInt(messageId),
+          categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
+          assigneeId: formData.assigneeId ?? undefined,
+          syncToJira: formData.syncToJira,
+        },
+        selectedFiles
+      );
 
       if (response.success && response.data) {
         const ticketId = response.data.id;
@@ -321,7 +346,9 @@ export const CreateTicketPage = () => {
                       >
                         <File className="w-4 h-4 text-muted-foreground" />
                         <span className="flex-1 text-sm truncate">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatFileSize(file.size)}
+                        </span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -339,18 +366,20 @@ export const CreateTicketPage = () => {
               )}
 
               <div>
-                <Select
+                <ReactSelect
                   label="Priority"
                   value={formData.priority}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, priority: e.target.value as TicketPriority }))
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, priority: value as TicketPriority }))
                   }
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </Select>
+                  options={[
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' },
+                    { value: 'critical', label: 'Critical' },
+                  ]}
+                  placeholder="Select priority"
+                />
                 {aiSuggestions.priority && (
                   <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                     ✨ AI suggested: {aiSuggestions.priority}
@@ -359,23 +388,47 @@ export const CreateTicketPage = () => {
               </div>
 
               <div>
-                <Select
+                <ReactSelect
                   label="Category"
                   value={formData.categoryId}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
+                  options={[
+                    { value: '', label: 'Select a category' },
+                    ...categories.map((cat) => ({
+                      value: String(cat.id),
+                      label: cat.name,
+                    })),
+                  ]}
+                  placeholder="Select a category"
+                  isSearchable
+                />
                 {aiSuggestions.category && (
                   <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                     ✨ AI suggested: {aiSuggestions.category}
                   </p>
                 )}
+              </div>
+
+              <div>
+                <ReactSelect
+                  label="Assigned to"
+                  value={formData.assigneeId ? String(formData.assigneeId) : ''}
+                  onChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assigneeId: value ? Number.parseInt(value, 10) : null,
+                    }))
+                  }
+                  options={[
+                    { value: '', label: 'Unassigned' },
+                    ...users.map((user) => ({
+                      value: String(user.id),
+                      label: `${user.firstName} ${user.lastName} (${user.role})`,
+                    })),
+                  ]}
+                  placeholder="Select assignee"
+                  isSearchable
+                />
               </div>
 
               <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
