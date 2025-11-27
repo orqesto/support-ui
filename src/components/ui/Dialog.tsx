@@ -16,7 +16,7 @@ export const Dialog = ({ open, onOpenChange, children, className }: DialogProps)
   }
 
   return (
-    <div className="flex fixed inset-0 z-50 justify-center items-center">
+    <div className="flex fixed inset-0 z-[60] justify-center items-center">
       <div
         role="button"
         tabIndex={0}

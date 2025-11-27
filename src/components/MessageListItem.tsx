@@ -8,6 +8,7 @@ import {
   Folder,
   Clock,
   BookOpen,
+  User,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,16 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           {getChannelIcon(message.channel)}
           <Badge variant="secondary">{message.channel}</Badge>
           {message.processed && <Badge variant="success">Processed</Badge>}
+          {message.ticketId && (
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center"
+              title={`Linked to ticket #${message.ticketId}`}
+            >
+              <Ticket className="w-3 h-3" />
+              Has Ticket
+            </Badge>
+          )}
           {message.awaitingCustomerResponse && (
             <Badge
               variant="warning"
@@ -138,6 +149,18 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
               KB
             </Badge>
           )}
+
+          {/* Assignee Badge */}
+          {message.assigneeName && (
+            <Badge
+              variant="secondary"
+              className="flex gap-1 items-center"
+              title={`Assigned to ${message.assigneeName}`}
+            >
+              <User className="w-3 h-3" />
+              {message.assigneeName}
+            </Badge>
+          )}
         </>
       }
       content={
@@ -160,6 +183,21 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             <span className="flex gap-1 items-center">
               • <Paperclip className="w-3 h-3" />
               {message.attachmentCount ?? 0} file(s)
+            </span>
+          )}
+          {message.ticketId && (
+            <span
+              className="flex gap-1 items-center"
+              title={`Linked to ticket #${message.ticketId}`}
+            >
+              • <Ticket className="w-3 h-3" />
+              Ticket #{message.ticketId}
+            </span>
+          )}
+          {message.assigneeName && (
+            <span className="flex gap-1 items-center" title={`Assigned to ${message.assigneeName}`}>
+              • <User className="w-3 h-3" />
+              {message.assigneeName}
             </span>
           )}
           {message.processingError && (

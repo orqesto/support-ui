@@ -19,6 +19,7 @@ import {
   Reply,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { AssignmentSelect } from '@/components/AssignmentSelect';
 import { MessageAIAnalysis } from '@/components/MessageAIAnalysis';
 import { MessageAttachments } from '@/components/MessageAttachments';
 import { MessageBadges } from '@/components/MessageBadges';
@@ -271,6 +272,18 @@ export const MessageDetail = ({
             </p>
           )}
         </div>
+      </div>
+
+      {/* Assignment */}
+      <div className="pt-4 border-t">
+        <p className="mb-2 text-sm text-muted-foreground">Assigned to</p>
+        <AssignmentSelect
+          type="message"
+          itemId={message.id}
+          currentAssigneeId={message.assigneeId}
+          onAssign={onRefresh}
+          className="w-full"
+        />
       </div>
 
       {/* KB References - Show if message was used in KB */}

@@ -37,29 +37,34 @@ export const KBTableView = ({
   onHide,
   onDelete,
 }: KBTableViewProps) => (
-  <div className="hidden md:block rounded-lg border">
-    <table className="w-full l:table-fixed ">
+  <div className="hidden rounded-lg border md:block">
+    <table className="w-full table-fixed">
+      <colgroup>
+        <col className="w-10" />
+        <col />
+        <col className="hidden w-16 md:table-column" />
+        <col className="hidden w-24 lg:table-column" />
+        <col className="hidden w-24 xl:table-column" />
+        <col className="hidden w-16 sm:table-column" />
+        <col className="hidden w-14 lg:table-column" />
+        <col className="w-20" />
+        <col className="w-36" />
+      </colgroup>
       <thead className="bg-muted/50">
         <tr className="border-b">
-          <th className="w-10 px-2 py-3 text-left text-sm font-medium">Type</th>
+          <th className="px-2 py-3 text-sm font-medium text-left">Type</th>
           <th className="px-3 py-3 text-sm font-medium text-left">Title</th>
-          <th className="hidden md:table-cell w-20 px-3 py-3 text-sm font-medium text-center">
-            Source
-          </th>
-          <th className="hidden lg:table-cell w-28 px-3 py-3 text-sm font-medium text-left">
-            Category
-          </th>
-          <th className="hidden xl:table-cell w-28 px-3 py-3 text-sm font-medium text-left">
+          <th className="hidden px-3 py-3 text-sm font-medium text-center md:table-cell">Source</th>
+          <th className="hidden px-3 py-3 text-sm font-medium text-left lg:table-cell">Category</th>
+          <th className="hidden px-3 py-3 text-sm font-medium text-left xl:table-cell">
             Department
           </th>
-          <th className="hidden sm:table-cell w-20 px-3 py-3 text-sm font-medium text-center">
+          <th className="hidden px-3 py-3 text-sm font-medium text-center sm:table-cell">
             Quality
           </th>
-          <th className="hidden lg:table-cell w-16 px-3 py-3 text-sm font-medium text-center">
-            Usage
-          </th>
-          <th className="w-24 px-3 py-3 text-sm font-medium text-center">Status</th>
-          <th className="w-32 px-2 py-3 text-sm font-medium text-right">Actions</th>
+          <th className="hidden px-3 py-3 text-sm font-medium text-center lg:table-cell">Usage</th>
+          <th className="px-3 py-3 text-sm font-medium text-center">Status</th>
+          <th className="px-2 py-3 text-sm font-medium text-right">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -83,7 +88,7 @@ export const KBTableView = ({
                 <div className="font-medium truncate">{entry.title}</div>
                 <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
               </td>
-              <td className="hidden md:table-cell px-3 py-3 text-center">
+              <td className="hidden px-3 py-3 text-center md:table-cell">
                 {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' ? (
                   <a
                     href={`/messages?id=${entry.metadata.sourceMessageId}`}
@@ -96,18 +101,18 @@ export const KBTableView = ({
                   <span className="text-sm text-muted-foreground">-</span>
                 )}
               </td>
-              <td className="hidden lg:table-cell px-3 py-3">
-                <Badge className="truncate max-w-full">{entry.category}</Badge>
+              <td className="hidden px-3 py-3 lg:table-cell">
+                <Badge className="max-w-full truncate">{entry.category}</Badge>
               </td>
-              <td className="hidden xl:table-cell px-3 py-3">
-                <Badge className="truncate max-w-full">{entry.departmentRole}</Badge>
+              <td className="hidden px-3 py-3 xl:table-cell">
+                <Badge className="max-w-full truncate">{entry.departmentRole}</Badge>
               </td>
-              <td className="hidden sm:table-cell px-3 py-3 text-center">
+              <td className="hidden px-3 py-3 text-center sm:table-cell">
                 <span className={`font-medium ${getQualityColor(entry.qualityScore)}`}>
                   {(entry.qualityScore * 100).toFixed(0)}%
                 </span>
               </td>
-              <td className="hidden lg:table-cell px-3 py-3 text-center">{entry.usageCount}</td>
+              <td className="hidden px-3 py-3 text-center lg:table-cell">{entry.usageCount}</td>
               <td className="px-3 py-3 text-center">
                 {entry.hidden ? (
                   <Badge className="text-muted-foreground">Hidden</Badge>

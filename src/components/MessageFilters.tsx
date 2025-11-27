@@ -15,6 +15,7 @@ import {
   Clock,
   AlertTriangle,
   BookOpen,
+  UserCheck,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -210,6 +211,16 @@ export const MessageFilters = ({
           excludeSpam: true,
         });
         break;
+      case 'assigned-to-me':
+        // Messages assigned to current user
+        onFilterChange('processed', 'all');
+        setFilters({
+          ...filters,
+          processed: 'all',
+          assignedToMe: true,
+          excludeSpam: true,
+        });
+        break;
     }
   };
 
@@ -317,6 +328,15 @@ export const MessageFilters = ({
             >
               <Clock className="w-3 h-3 text-blue-500" />
               Awaiting Response
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyPreset('assigned-to-me')}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <UserCheck className="w-3 h-3 text-green-500" />
+              Assigned to Me
             </Button>
           </div>
 
