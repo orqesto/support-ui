@@ -25,7 +25,7 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
       />
 
       {/* Drawer */}
-      <div className="flex overflow-hidden fixed inset-y-0 right-0 z-50 flex-col w-full max-w-2xl shadow-xl bg-background animate-slide-in">
+      <div className="flex fixed inset-y-0 right-0 z-50 flex-col w-full max-w-2xl shadow-xl bg-background animate-slide-in">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -35,7 +35,7 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 p-6">{children}</div>
+        <div className="relative overflow-y-auto overflow-x-hidden flex-1 p-6">{children}</div>
 
         {/* Footer */}
         {footer && <div className="p-4 border-t border-border bg-muted">{footer}</div>}
