@@ -81,6 +81,7 @@ export const SubscriptionPage = () => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
+  
 
   const canManage = user
     ? hasPermission(user.role, user.organizationRole, Permission.MANAGE_SUBSCRIPTION)
@@ -221,30 +222,40 @@ export const SubscriptionPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg border">
-          <button
-            onClick={() => handleTabChange('plans')}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'plans'
-                ? 'bg-background text-foreground shadow'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <CreditCard className="inline mr-2 w-4 h-4" />
-            Base Plans
-          </button>
-          <button
-            onClick={() => handleTabChange('ai-modules')}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'ai-modules'
-                ? 'bg-background text-foreground shadow'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Zap className="inline mr-2 w-4 h-4" />
-            AI Modules
-          </button>
-        </div>
+        <Card>
+          <CardContent className="overflow-visible p-0">
+            <div className="overflow-visible border-b">
+              <div className="flex">
+                <button
+                  onClick={() => handleTabChange('plans')}
+                  className={`flex flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
+                    activeTab === 'plans'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 shrink-0" />
+                  <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                    Base Plans
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleTabChange('ai-modules')}
+                  className={`flex flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
+                    activeTab === 'ai-modules'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                >
+                  <Zap className="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 shrink-0" />
+                  <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                    AI Modules
+                  </span>
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Plans Tab */}
         {activeTab === 'plans' && (

@@ -422,7 +422,7 @@ export const MessageFilters = ({
 
       <div className="flex gap-2 items-center min-w-[140px] sm:py-2">
         <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-          <Inbox className="inline hidden mr-1 w-3 h-3 sm:block" />
+          <Inbox className="inline mr-1 w-3 h-3 hidden sm: block" />
           Source:
         </span>
         <ReactSelect

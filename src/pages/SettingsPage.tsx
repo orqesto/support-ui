@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 
 type TabType =
   | 'categories'
+  | 'categries'
   | 'prompts'
   | 'rules'
   | 'ai-providers'
@@ -36,6 +37,7 @@ export const SettingsPage = () => {
       icon: FolderTree,
       description: 'Manage ticket categories and keywords',
     },
+  
     {
       id: 'prompts' as TabType,
       label: 'AI Prompts',

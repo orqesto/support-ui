@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { FileText, MessageSquare, Settings, X, Filter } from 'lucide-react';
+import { FileText, MessageSquareMore, Book, X, Filter, Scroll } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
@@ -22,8 +23,49 @@ import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.serv
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
+type TabType = 'all' | 'qa_pair' | 'document' | 'documentation';
 
 export const KnowledgeBasePage = () => {
+  const location = useLocation();
+  
+  // Get active tab from URL hash, default to 'all'
+  const raw = location.hash.replace('#', '');
+  
+  // Handle tab change by updating URL hash
+  const handleTabChange = (tabId: TabType) => {
+    window.location.hash = tabId;
+    setFilterType(tabId); // Also update filter type for data fetching
+  };
+
+  const tabs = [
+    {
+      id: 'all' as TabType,
+      label: 'All',
+      icon: Scroll,
+      description: 'All knowledge base entries',
+    },
+    {
+      id: 'qa_pair' as TabType,
+      label: 'Q&A Pairs',
+      icon: MessageSquareMore,
+      description: 'Question and answer pairs',
+    },
+    {
+      id: 'document' as TabType,
+      label: 'Documents',
+      icon: FileText,
+      description: 'Document entries',
+    },
+    {
+      id: 'documentation' as TabType,
+      label: 'Documentation',
+      icon: Book,
+      description: 'Documentation settings',
+    },
+  ];
+
+  const activeTab = (tabs.find(t => t.id === raw)?.id ?? 'all') as TabType;
+
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -34,7 +76,7 @@ export const KnowledgeBasePage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [filterType, setFilterType] = useState<FilterType>(activeTab);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
@@ -48,6 +90,7 @@ export const KnowledgeBasePage = () => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
+
   const fetchEntries = async (page = 1) => {
     try {
       setLoading(true);
@@ -72,6 +115,11 @@ export const KnowledgeBasePage = () => {
       setLoading(false);
     }
   };
+
+  // Sync filterType with activeTab when tab changes
+  useEffect(() => {
+    setFilterType(activeTab);
+  }, [activeTab]);
 
   // Refetch when filters change (immediate, no debounce)
   // Skip fetching when on Documentation tab (shows settings, not KB entries)
@@ -196,61 +244,36 @@ export const KnowledgeBasePage = () => {
           </p>
         </div>
 
-        {/* Tabs for Type Selection */}
-        <div className="mb-6 border-b border-border">
-          <div className="flex gap-1">
-            {/* All */}
-            <button
-              onClick={() => setFilterType('all')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'all'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              All ({pagination.total})
-            </button>
-
-            {/* Q&A Pairs */}
-            <button
-              onClick={() => setFilterType('qa_pair')}
-              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'qa_pair'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <MessageSquare className="hidden sm:block w-4 h-4" />
-              Q&A Pairs ({filterType === 'qa_pair' ? pagination.total : '...'})
-            </button>
-
-            {/* Documents */}
-            <button
-              onClick={() => setFilterType('document')}
-              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'document'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <FileText className="hidden sm:block w-4 h-4" />
-              Documents ({filterType === 'document' ? pagination.total : '...'})
-            </button>
-
-            {/* Documentation */}
-            <button
-              onClick={() => setFilterType('documentation')}
-              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'documentation'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <Settings className="hidden sm:block w-4 h-4" />
-              Documentation
-            </button>
-          </div>
-        </div>
+        {/* New Header with Tabs in Card */}
+        <Card>
+          <CardContent className="overflow-visible p-0">
+            <div className="overflow-visible border-b">
+              <div className="flex">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <Button
+                      key={tab.id}
+                      variant="ghost"
+                      onClick={() => handleTabChange(tab.id)}
+                      title={tab.label}
+                      className={`flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
+                        activeTab === tab.id
+                          ? 'border-primary text-primary bg-primary/10 '
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 shrink-0" />
+                      <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                        {tab.label}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filters Card - Hidden in Documentation tab */}
         {filterType !== 'documentation' && (
