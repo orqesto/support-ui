@@ -77,7 +77,11 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
         backgroundColor: isDark ? '#1e293b' : '#ffffff',
         border: '1px solid hsl(var(--border))',
         boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-        zIndex: 9999,
+        zIndex: 99999,
+      }),
+      menuPortal: (base) => ({
+        ...base,
+        zIndex: 99999,
       }),
       menuList: (base) => ({
         ...base,
@@ -141,6 +145,8 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
           styles={customStyles}
           menuPortalTarget={document.body}
           menuPosition="fixed"
+          menuPlacement="auto"
+          closeMenuOnScroll={false}
           {...props}
         />
         {error && (

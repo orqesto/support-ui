@@ -36,7 +36,7 @@ export const Drawer = ({ open, onClose, title, children, footer }: DrawerProps) 
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 p-6">{children}</div>
+        <div className="relative overflow-y-auto overflow-x-hidden flex-1 p-6">{children}</div>
 
         {/* Footer */}
         {footer && <div className="p-4 border-t border-border bg-muted">{footer}</div>}
