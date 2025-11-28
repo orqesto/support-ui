@@ -74,10 +74,10 @@ export const KBTableView = ({
             <tr key={entry.id} className="border-b hover:bg-muted/50">
               <td className="px-2 py-3">{getTypeIcon(entry.type)}</td>
               <td className="px-3 py-3">
-              <div className="font-medium truncate whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
+              <div className="font-medium truncate max-w-[300px]">
                 {entry.title}
               </div>
-              <div className="text-sm text-muted-foreground truncate whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
+              <div className="text-sm text-muted-foreground truncate max-w-[300px]">
                 {entry.content}
               </div>
 

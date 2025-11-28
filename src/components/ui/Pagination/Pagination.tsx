@@ -96,7 +96,7 @@ export const Pagination = ({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || loading}
         >
-          <div className='hidden sm: block'>Next</div>
+          <div className='hidden sm:block'>Next</div>
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>

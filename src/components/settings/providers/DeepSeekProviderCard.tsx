@@ -179,7 +179,7 @@ export const DeepSeekProviderCard = ({
                       disabled={!integration.hasCredentials}
                     >
                       <TestTube2 className="mr-2 w-4 h-4" />
-                       Poke
+                      Poke
                     </Button>
                     <Button
                       variant="outline"

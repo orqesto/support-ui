@@ -489,7 +489,7 @@ export const DocumentationSettings = () => {
 
           <div>
             <div className="block mb-2 text-sm font-medium">Visibility</div>
-            <div className="flex gap-3 justify-center sm:justify-center">
+            <div className="flex gap-3 justify-center">
 
               <label className="flex gap-2 items-center cursor-pointer">
                 <input
