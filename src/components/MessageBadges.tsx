@@ -12,7 +12,12 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { getCategoryDisplay, hasMessageAttachments } from '@/lib/messageHelpers';
+import {
+  getCategoryDisplay,
+  hasMessageAttachments,
+  getSpamCheck,
+  getFilteredCategoryLabel,
+} from '@/lib/messageHelpers';
 import type { Message } from '@/types';
 
 type MessageBadgesProps = {
@@ -31,124 +36,139 @@ const getChannelIcon = (channel: string) => {
   }
 };
 
-export const MessageBadges = ({ message }: MessageBadgesProps) => (
-  <div className="flex gap-3 items-center">
-    <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
-      {getChannelIcon(message.channel)}
-    </div>
-    <div className="flex-1">
-      <div className="flex flex-wrap gap-2 items-center">
-        <Badge variant="secondary">{message.channel}</Badge>
-        {message.processed && <Badge variant="success">Processed</Badge>}
-        {message.awaitingCustomerResponse && (
-          <Badge
-            variant="warning"
-            className="flex gap-1 items-center"
-            title="Waiting for customer to respond"
-          >
-            <Clock className="w-4 h-4" />
-            Awaiting Response
-          </Badge>
-        )}
-        {message.processingError && (
-          <Badge
-            variant="danger"
-            title={message.processingError}
-            className="flex gap-1 items-center"
-          >
-            <XCircle className="w-4 h-4" />
-            Failed
-          </Badge>
-        )}
-        {hasMessageAttachments(message) && (
-          <Badge
-            variant="default"
-            title={`${message.attachmentCount ?? 0} attachment(s)`}
-            className="flex gap-1 items-center"
-          >
-            <Paperclip className="w-4 h-4" />
-            {message.attachmentCount ?? 0}
-          </Badge>
-        )}
+export const MessageBadges = ({ message }: MessageBadgesProps) => {
+  const spamCheck = getSpamCheck(message);
 
-        {/* AI Analysis Badges */}
-        {(message.metadata?.spamCheck as { isSpam?: boolean })?.isSpam === true && (
-          <Badge
-            variant="danger"
-            title={(message.metadata?.spamCheck as { category?: string })?.category}
-            className="flex gap-1 items-center"
-          >
-            <ShieldX className="w-4 h-4" />
-            Spam
-          </Badge>
-        )}
-        {!(message.metadata?.spamCheck as { isSpam?: boolean })?.isSpam &&
-          (message.metadata?.analysis as { isTicketWorthy?: boolean; confidence?: number })
-            ?.isTicketWorthy && (
+  return (
+    <div className="flex gap-3 items-center">
+      <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
+        {getChannelIcon(message.channel)}
+      </div>
+      <div className="flex-1">
+        <div className="flex flex-wrap gap-2 items-center">
+          <Badge variant="secondary">{message.channel}</Badge>
+          {message.processed && <Badge variant="success">Processed</Badge>}
+          {message.awaitingCustomerResponse && (
+            <Badge
+              variant="warning"
+              className="flex gap-1 items-center"
+              title="Waiting for customer to respond"
+            >
+              <Clock className="w-4 h-4" />
+              Awaiting Response
+            </Badge>
+          )}
+          {message.processingError && (
+            <Badge
+              variant="danger"
+              title={message.processingError}
+              className="flex gap-1 items-center"
+            >
+              <XCircle className="w-4 h-4" />
+              Failed
+            </Badge>
+          )}
+          {hasMessageAttachments(message) && (
             <Badge
               variant="default"
-              title={`Confidence: ${Math.round(((message.metadata?.analysis as { confidence?: number })?.confidence ?? 0) * 100)}%`}
+              title={`${message.attachmentCount ?? 0} attachment(s)`}
               className="flex gap-1 items-center"
             >
-              <Ticket className="w-4 h-4" />
-              Ticket Worthy
-            </Badge>
-          )}
-        {(message.metadata?.analysis as { needsMoreInfo?: boolean })?.needsMoreInfo && (
-          <Badge variant="warning" className="flex gap-1 items-center">
-            <AlertTriangle className="w-4 h-4" />
-            Needs Info
-          </Badge>
-        )}
-        {(message.metadata?.analysis as { suggestedPriority?: string })?.suggestedPriority && (
-          <Badge
-            variant={
-              (message.metadata?.analysis as { suggestedPriority?: string })?.suggestedPriority ===
-              'critical'
-                ? 'danger'
-                : (message.metadata?.analysis as { suggestedPriority?: string })
-                      ?.suggestedPriority === 'high'
-                  ? 'warning'
-                  : 'default'
-            }
-            title="AI Suggested Priority"
-          >
-            Priority:{' '}
-            {(message.metadata?.analysis as { suggestedPriority?: string })?.suggestedPriority}
-          </Badge>
-        )}
-        {(message.metadata?.analysis as { suggestedCategory?: string })?.suggestedCategory &&
-          getCategoryDisplay(
-            (message.metadata?.analysis as { suggestedCategory?: string })?.suggestedCategory ?? ''
-          ) && (
-            <Badge
-              variant="secondary"
-              title="AI Suggested Category"
-              className="flex gap-1 items-center"
-            >
-              <Folder className="w-4 h-4" />
-              {getCategoryDisplay(
-                (message.metadata?.analysis as { suggestedCategory?: string })?.suggestedCategory ??
-                  ''
-              )}
+              <Paperclip className="w-4 h-4" />
+              {message.attachmentCount ?? 0}
             </Badge>
           )}
 
-        {message.ticketId && <Badge variant="default">Has Ticket</Badge>}
-        {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
-          <Badge
-            variant="default"
-            className="flex gap-1 items-center bg-purple-600 text-white hover:bg-purple-700"
-            title="Message from Knowledge Base source"
-          >
-            <BookOpen className="w-4 h-4" />
-            Knowledge Base
-          </Badge>
-        )}
-        {message.resolved && (
-          <Badge className="text-white bg-green-600 hover:bg-green-700">✓ Resolved</Badge>
-        )}
+          {/* Message Classification Badge */}
+          {spamCheck?.isSpam === true && (
+            <Badge
+              variant="danger"
+              title={`Spam (${getFilteredCategoryLabel(spamCheck.category)}): ${spamCheck.redFlags?.join(', ') ?? 'Classified as spam'}`}
+              className="flex gap-1 items-center cursor-pointer"
+            >
+              <ShieldX className="w-4 h-4" />
+              {getFilteredCategoryLabel(spamCheck.category)}
+            </Badge>
+          )}
+          {spamCheck?.isSpam === false && spamCheck?.category === 'suspicious' && (
+            <Badge
+              variant="warning"
+              title={`Suspicious: ${spamCheck.redFlags?.join(', ') ?? 'May contain spam indicators'}`}
+              className="flex gap-1 items-center cursor-pointer"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Suspicious
+            </Badge>
+          )}
+          {!spamCheck?.isSpam &&
+            (message.metadata?.analysis as { isTicketWorthy?: boolean; confidence?: number })
+              ?.isTicketWorthy && (
+              <Badge
+                variant="default"
+                title={`Confidence: ${Math.round(((message.metadata?.analysis as { confidence?: number })?.confidence ?? 0) * 100)}%`}
+                className="flex gap-1 items-center"
+              >
+                <Ticket className="w-4 h-4" />
+                Ticket Worthy
+              </Badge>
+            )}
+          {(message.metadata?.analysis as { needsMoreInfo?: boolean })?.needsMoreInfo && (
+            <Badge variant="warning" className="flex gap-1 items-center">
+              <AlertTriangle className="w-4 h-4" />
+              Needs Info
+            </Badge>
+          )}
+          {(message.metadata?.analysis as { suggestedPriority?: string })?.suggestedPriority && (
+            <Badge
+              variant={
+                (message.metadata?.analysis as { suggestedPriority?: string })
+                  ?.suggestedPriority === 'critical'
+                  ? 'danger'
+                  : (message.metadata?.analysis as { suggestedPriority?: string })
+                        ?.suggestedPriority === 'high'
+                    ? 'warning'
+                    : 'default'
+              }
+              title="AI Suggested Priority"
+            >
+              Priority:{' '}
+              {(message.metadata?.analysis as { suggestedPriority?: string })?.suggestedPriority}
+            </Badge>
+          )}
+          {(message.metadata?.analysis as { suggestedCategory?: string })?.suggestedCategory &&
+            getCategoryDisplay(
+              (message.metadata?.analysis as { suggestedCategory?: string })?.suggestedCategory ??
+                ''
+            ) && (
+              <Badge
+                variant="secondary"
+                title="AI Suggested Category"
+                className="flex gap-1 items-center"
+              >
+                <Folder className="w-4 h-4" />
+                {getCategoryDisplay(
+                  (message.metadata?.analysis as { suggestedCategory?: string })
+                    ?.suggestedCategory ?? ''
+                )}
+              </Badge>
+            )}
+
+          {message.ticketId && <Badge variant="default">Has Ticket</Badge>}
+          {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center text-white bg-purple-600 hover:bg-purple-700"
+              title="Message from Knowledge Base source"
+            >
+              <BookOpen className="w-4 h-4" />
+              Knowledge Base
+            </Badge>
+          )}
+          {message.resolved && (
+            <Badge className="text-white bg-green-600 hover:bg-green-700">✓ Resolved</Badge>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};

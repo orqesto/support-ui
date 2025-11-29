@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react';
+import { getSpamCheck, getFilteredCategoryLabel } from '@/lib/messageHelpers';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 
@@ -38,16 +39,7 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
       }
     | undefined;
 
-  const spamCheck = message.metadata?.spamCheck as
-    | {
-        isSpam?: boolean;
-        confidence?: number;
-        category?: string;
-        reason?: string;
-        redFlags?: string[];
-        greenFlags?: string[];
-      }
-    | undefined;
+  const spamCheck = getSpamCheck(message);
 
   // Don't render if no AI analysis data
   if (!analysis && !spamCheck) {
@@ -71,7 +63,7 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
       <div className="space-y-4">
         {/* Status Indicators */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Spam Check */}
+          {/* Message Classification */}
           {spamCheck && (
             <div
               className={`p-3 rounded-lg border ${
@@ -90,18 +82,18 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
                 ) : (
                   <Info className="w-4 h-4 text-gray-600" />
                 )}
-                <span className="text-xs font-semibold">Spam Check</span>
+                <span className="text-xs font-semibold">Message Classification</span>
               </div>
               <p className="text-sm font-medium">
                 {spamCheck.isSpam === false
-                  ? 'Not Spam'
+                  ? 'Actionable'
                   : spamCheck.isSpam === true
-                    ? 'Spam Detected'
+                    ? 'Spam'
                     : 'Unknown'}
               </p>
               {spamCheck.category && (
                 <p className="mt-1 text-xs capitalize text-muted-foreground">
-                  {spamCheck.category}
+                  {getFilteredCategoryLabel(spamCheck.category)}
                 </p>
               )}
             </div>
@@ -127,7 +119,8 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
               <p className="text-sm font-medium">{analysis.isTicketWorthy ? 'Yes' : 'No'}</p>
               {analysis.confidence !== undefined && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Confidence: {typeof analysis.confidence === 'number' 
+                  Confidence:{' '}
+                  {typeof analysis.confidence === 'number'
                     ? `${Math.round(analysis.confidence * 100)}%`
                     : analysis.confidence}
                 </p>
@@ -192,12 +185,12 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
           </div>
         )}
 
-        {/* Spam Reason */}
+        {/* Classification Reason */}
         {spamCheck?.reason && (
           <div className="p-3 rounded-lg border bg-muted border-border">
             <div className="flex gap-2 items-center mb-2">
               <Info className="w-4 h-4 text-gray-600" />
-              <span className="text-xs font-semibold">Detection Reason</span>
+              <span className="text-xs font-semibold">Classification Reason</span>
             </div>
             <p className="text-sm text-muted-foreground">{spamCheck.reason}</p>
           </div>

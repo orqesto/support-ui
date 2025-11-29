@@ -129,9 +129,9 @@ export const useEmailProcessing = (
     }
   }, [sessions]);
 
-  // Auto-timeout stuck sessions after 10 minutes (increased for large KB processing)
+  // Auto-timeout stuck sessions after 20 minutes (increased for throttled processing with large datasets)
   useEffect(() => {
-    const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    const TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 
     const checkInterval = setInterval(() => {
       const now = Date.now();
@@ -146,12 +146,12 @@ export const useEmailProcessing = (
             now - session.timestamp > TIMEOUT_MS;
 
           if (isStuck) {
-            console.warn(`[useEmailProcessing] Session ${key} timed out after 10 minutes`);
+            console.warn(`[useEmailProcessing] Session ${key} timed out after 20 minutes`);
             updated.set(key, {
               ...session,
               status: 'error',
               error:
-                'Processing timeout (5 min) - integration may have connection issues or large dataset',
+                'Processing timeout (20 min) - integration may have connection issues or large dataset',
               isProcessing: false,
             });
             hasChanges = true;
