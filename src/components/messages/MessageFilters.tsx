@@ -235,10 +235,10 @@ export const MessageFilters = ({
             </div>
 
             {/* Primary Filters Row */}
-            <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-col rounded-md shadow-sm sm:inline-flex sm:flex-row">
+            <div className="p-4 rounded-lg border bg-muted/30">
+              <div className="flex flex-col gap-3 rounded-md sm:flex-row sm:flex-wrap sm:items-center">
                 {/* Status Group */}
-                <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+                <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Status:
                   </span>
@@ -279,10 +279,10 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden w-px h-8 sm:block bg-border" />
+                <div className="hidden sm:block w-px h-8 mx-3 bg-border" />
 
                 {/* Channel Group */}
-                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
+                <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Channel:
                   </span>
@@ -295,15 +295,15 @@ export const MessageFilters = ({
                       { value: 'telegram', label: 'Telegram' },
                       { value: 'slack', label: 'Slack' },
                     ]}
-                    className="min-w-[120px] sm: w-full"
+                    className="min-w-[120px] sm:w-auto"
                   />
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden w-px h-8 lg:block bg-border" />
+                <div className="hidden lg:block w-px h-8 mx-3 bg-border" />
 
                 {/* Message Source Group */}
-                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
+                <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     <Inbox className="inline hidden mr-1 w-3 h-3 sm:block" />
                     Source:
@@ -318,15 +318,15 @@ export const MessageFilters = ({
                         label: source.name,
                       })),
                     ]}
-                    className="min-w-[120px] sm: w-full"
+                    className="min-w-[120px] sm:w-auto"
                   />
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden w-px h-8 lg:block bg-border" />
+                <div className="hidden lg:block w-px h-8 mx-3 bg-border" />
 
                 {/* Sort Order */}
-                <div className="flex gap-2 items-center min-w-[140px] sm: py-2">
+                <div className="flex gap-2 items-center min-w-[140px]">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
                     Sort:
                   </span>
@@ -337,7 +337,7 @@ export const MessageFilters = ({
                       { value: 'desc', label: 'Newest First' },
                       { value: 'asc', label: 'Oldest First' },
                     ]}
-                    className="min-w-[120px] sm: w-full"
+                    className="min-w-[120px] sm:w-auto"
                   />
                 </div>
               </div>
