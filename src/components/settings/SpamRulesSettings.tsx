@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -9,128 +8,76 @@ import {
   DialogTitle,
   DialogContent,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/Dialog';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 
+type SpamRuleFormData = {
+  name: string;
+  description: string;
+  pattern: string;
+  category: string;
+  severity: number;
+  active: boolean;
+};
+
 export const SpamRulesSettings = () => {
-  const [rules, setRules] = useState<SpamRule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingRule, setEditingRule] = useState<SpamRule | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [ruleToDelete, setRuleToDelete] = useState<SpamRule | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    pattern: '',
-    category: 'content',
-    severity: 10,
-    active: true,
-  });
-
-  const fetchRules = async () => {
-    try {
-      setLoading(true);
-      const data = await settingsService.getSpamRules();
-      setRules(data);
-    } catch (error) {
-      console.error('Error fetching spam rules:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRules().catch((error) => {
-      console.error('Failed to fetch rules:', error);
-    });
-  }, []);
-
-  const handleEdit = (rule: SpamRule) => {
-    setEditingRule(rule);
-    setFormData({
+  const {
+    loading,
+    rules,
+    editingRule,
+    isCreating,
+    deleteDialogOpen,
+    ruleToDelete,
+    formData,
+    setFormData,
+    handleEdit,
+    handleCreate,
+    handleCancel,
+    handleSave,
+    handleDeleteClick,
+    handleDeleteConfirm,
+    handleDeleteCancel,
+    loadRules,
+  } = useRuleManagement<SpamRule, SpamRuleFormData>({
+    fetchRules: settingsService.getSpamRules,
+    createRule: settingsService.createSpamRule,
+    updateRule: settingsService.updateSpamRule,
+    deleteRule: settingsService.deleteSpamRule,
+    getInitialFormData: () => ({
+      name: '',
+      description: '',
+      pattern: '',
+      category: 'content',
+      severity: 10,
+      active: true,
+    }),
+    getFormDataFromRule: (rule) => ({
       name: rule.name,
       description: rule.description,
       pattern: rule.pattern ?? '',
       category: rule.category,
       severity: rule.severity,
       active: rule.active,
-    });
-  };
+    }),
+  });
 
-  const handleCreate = () => {
-    setIsCreating(true);
-    setFormData({
-      name: '',
-      description: '',
-      pattern: '',
-      category: 'content',
-      severity: 10,
-      active: true,
-    });
-  };
+  const toggleActive = async (id: number) => {
+    const rule = rules.find((r) => r.id === id);
+    if (!rule) return;
 
-  const handleSave = async () => {
     try {
-      if (editingRule) {
-        await settingsService.updateSpamRule(editingRule.id, formData);
-      } else if (isCreating) {
-        await settingsService.createSpamRule(formData);
-      }
-      await fetchRules();
-      setEditingRule(null);
-      setIsCreating(false);
-      setFormData({
-        name: '',
-        description: '',
-        pattern: '',
-        category: 'content',
-        severity: 10,
-        active: true,
+      await settingsService.updateSpamRule(id, {
+        name: rule.name,
+        description: rule.description,
+        pattern: rule.pattern ?? undefined,
+        category: rule.category,
+        severity: rule.severity,
+        active: !rule.active,
       });
-    } catch (error) {
-      console.error('Error saving rule:', error);
-    }
-  };
-
-  const handleCancel = () => {
-    setEditingRule(null);
-    setIsCreating(false);
-    setFormData({
-      name: '',
-      description: '',
-      pattern: '',
-      category: 'content',
-      severity: 10,
-      active: true,
-    });
-  };
-
-  const handleDeleteClick = (rule: SpamRule) => {
-    setRuleToDelete(rule);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!ruleToDelete) {
-      return;
-    }
-    try {
-      await settingsService.deleteSpamRule(ruleToDelete.id);
-      await fetchRules();
-      setDeleteDialogOpen(false);
-      setRuleToDelete(null);
-    } catch (error) {
-      console.error('Error deleting rule:', error);
-    }
-  };
-
-  const toggleActive = async (rule: SpamRule) => {
-    try {
-      await settingsService.updateSpamRule(rule.id, { active: !rule.active });
-      await fetchRules();
+      // Reload rules to show updated state
+      await loadRules();
     } catch (error) {
       console.error('Error toggling rule:', error);
     }
@@ -163,8 +110,8 @@ export const SpamRulesSettings = () => {
             Configure rules and red flags for spam detection
           </p>
         </div>
-        <Button className="sm: h-12" onClick={handleCreate} disabled={isCreating}>
-          <Plus className="mr-2 w-4 h-4 " />
+        <Button className="h-12 sm:" onClick={handleCreate} disabled={isCreating}>
+          <Plus className="mr-2 w-4 h-4" />
           Add Rule
         </Button>
       </div>
@@ -245,15 +192,16 @@ export const SpamRulesSettings = () => {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Select
+              <ReactSelect
                 label="Category"
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              >
-                <option value="sender">Sender</option>
-                <option value="subject">Subject</option>
-                <option value="content">Content</option>
-              </Select>
+                onChange={(value) => setFormData({ ...formData, category: value })}
+                options={[
+                  { value: 'sender', label: 'Sender' },
+                  { value: 'subject', label: 'Subject' },
+                  { value: 'content', label: 'Content' },
+                ]}
+              />
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="severity" className="text-sm font-medium">
@@ -351,15 +299,16 @@ export const SpamRulesSettings = () => {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <Select
+                    <ReactSelect
                       label="Category"
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      <option value="sender">Sender</option>
-                      <option value="subject">Subject</option>
-                      <option value="content">Content</option>
-                    </Select>
+                      onChange={(value) => setFormData({ ...formData, category: value })}
+                      options={[
+                        { value: 'sender', label: 'Sender' },
+                        { value: 'subject', label: 'Subject' },
+                        { value: 'content', label: 'Content' },
+                      ]}
+                    />
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <label htmlFor="severity-edit" className="text-sm font-medium">
@@ -417,7 +366,7 @@ export const SpamRulesSettings = () => {
               </div>
             ) : (
               <>
-               <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
+                <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 items-center">
                       <h4 className="text-lg font-semibold">{rule.name}</h4>
@@ -446,7 +395,7 @@ export const SpamRulesSettings = () => {
                     {rule.pattern && (
                       <div className="mt-2">
                         <p className="mb-1 text-xs font-medium text-muted-foreground">Pattern:</p>
-                        <code className="px-2 py-1 font-mono text-xs rounded bg-muted break-words">
+                        <code className="px-2 py-1 font-mono text-xs break-words rounded bg-muted">
                           {rule.pattern}
                         </code>
                       </div>
@@ -456,7 +405,7 @@ export const SpamRulesSettings = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => toggleActive(rule)}
+                      onClick={() => toggleActive(rule.id)}
                       title={
                         rule.category === 'security'
                           ? 'Security rules cannot be disabled'
@@ -502,12 +451,11 @@ export const SpamRulesSettings = () => {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Spam Rule</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
+      <Dialog open={deleteDialogOpen} onOpenChange={handleDeleteCancel}>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Spam Rule</DialogTitle>
+          </DialogHeader>
           <p>Are you sure you want to delete this spam detection rule?</p>
           {ruleToDelete && (
             <div className="p-4 mt-4 rounded bg-muted">
@@ -515,15 +463,15 @@ export const SpamRulesSettings = () => {
               <p className="mt-1 text-xs text-muted-foreground">{ruleToDelete.description}</p>
             </div>
           )}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDeleteCancel}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteConfirm}>
-            Delete
-          </Button>
-        </DialogFooter>
       </Dialog>
     </div>
   );

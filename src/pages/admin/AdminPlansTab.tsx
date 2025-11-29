@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-
 import { useEffect, useState } from 'react';
 import { Check, X, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';

@@ -9,7 +9,7 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { settingsService, type KnowledgeDetectionRule } from '@/services/settings.service';
 
 const CATEGORIES = [
@@ -375,17 +375,15 @@ export const KnowledgeDetectionRulesSettings = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Select
+              <ReactSelect
                 label="Category"
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label} - {cat.description}
-                  </option>
-                ))}
-              </Select>
+                onChange={(value) => setFormData({ ...formData, category: value })}
+                options={CATEGORIES.map((cat) => ({
+                  value: cat.value,
+                  label: `${cat.label} - ${cat.description}`,
+                }))}
+              />
 
               <div>
                 <label htmlFor="confidence" className="block mb-1 text-sm font-medium">

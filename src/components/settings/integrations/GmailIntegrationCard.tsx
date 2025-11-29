@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Mail, Plus, MoreVertical, Trash2, TestTube2, Calendar, Save } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
