@@ -40,7 +40,7 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
   return (
     <div className={`flex gap-2 items-center ${className ?? ''}`}>
       <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-        <Inbox className="inline w-3 h-3 mr-1" />
+        <Inbox className="inline mr-1 w-3 h-3" />
         Source:
       </span>
       <ReactSelect

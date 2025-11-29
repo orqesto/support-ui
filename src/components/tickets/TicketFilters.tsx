@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { useFilterPanel } from '@/hooks/useFilterPanel';
 import type { JiraIntegration } from '@/services/integrations.service';
 import type { PaginationMeta } from '@/services/ticket.service';
 import type { TicketStatus, TicketPriority } from '@/types';
@@ -69,38 +70,19 @@ export const TicketFilters = ({
   onSyncAll,
   onPendingSearchChange,
 }: TicketFiltersProps) => {
-  const activeFilterCount =
-    (filters.status !== 'all' ? 1 : 0) +
-    (filters.priority !== 'all' ? 1 : 0) +
-    (filters.categoryId !== 'all' ? 1 : 0) +
-    (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
-    (filters.search?.trim() ? 1 : 0) +
-    (filters.syncedToJira ? 1 : 0);
-
-  // Helper to get active filter labels
-  const getActiveFilters = () => {
-    const active: Array<{ key: string; label: string; value: string }> = [];
-
-    if (filters.status !== 'all') {
-      active.push({ key: 'status', label: 'Status', value: filters.status });
-    }
-    if (filters.priority !== 'all') {
-      active.push({ key: 'priority', label: 'Priority', value: filters.priority });
-    }
-    if (filters.categoryId !== 'all') {
-      active.push({ key: 'categoryId', label: 'Category', value: filters.categoryId });
-    }
-    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
-      active.push({ key: 'messageSourceId', label: 'Source', value: filters.messageSourceId });
-    }
-    if (filters.syncedToJira) {
-      active.push({ key: 'syncedToJira', label: 'Jira', value: 'Synced' });
-    }
-
-    return active;
-  };
-
-  const activeFilters = getActiveFilters();
+  const { activeFilterCount, activeFilters } = useFilterPanel({
+    filters,
+    customLabels: {
+      status: 'Status',
+      priority: 'Priority',
+      categoryId: 'Category',
+      messageSourceId: 'Source',
+      syncedToJira: 'Jira',
+    },
+    customValues: {
+      syncedToJira: () => 'Synced',
+    },
+  });
 
   const removeFilter = (key: string) => {
     if (key === 'status') {
@@ -259,8 +241,7 @@ export const TicketFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
-            <div className="flex flex-col sm:inline-flex gap-4 sm:flex-row rounded-md shadow-sm">
-
+              <div className="flex flex-col sm:inline-flex gap-4 sm:flex-row rounded-md shadow-sm">
                 {/* Group 1: Status & Priority */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
@@ -299,15 +280,11 @@ export const TicketFilters = ({
                   />
                 </div>
 
-             
-               
-
                 {/* Message Source Filter */}
                 <MessageSourceFilter
                   value={filters.messageSourceId}
                   onChange={(value) => onFilterChange('messageSourceId', value)}
                 />
-
 
                 {/* Group 2: Sorting */}
                 <div className="flex gap-2 items-center">

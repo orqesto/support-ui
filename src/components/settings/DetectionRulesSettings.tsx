@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/Dialog';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import {
   detectionRuleService,
   type DetectionRule,
@@ -230,20 +230,21 @@ export const DetectionRulesSettings = () => {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Select
+              <ReactSelect
                 label="Category"
                 value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value as DetectionRuleCategory })
+                onChange={(value) =>
+                  setFormData({ ...formData, category: value as DetectionRuleCategory })
                 }
-              >
-                <option value="issue">Issue</option>
-                <option value="help">Help Request</option>
-                <option value="question">Question</option>
-                <option value="access">Access</option>
-                <option value="account">Account</option>
-                <option value="urgent">Urgent</option>
-              </Select>
+                options={[
+                  { value: 'issue', label: 'Issue' },
+                  { value: 'help', label: 'Help Request' },
+                  { value: 'question', label: 'Question' },
+                  { value: 'access', label: 'Access' },
+                  { value: 'account', label: 'Account' },
+                  { value: 'urgent', label: 'Urgent' },
+                ]}
+              />
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="confidence" className="text-sm font-medium">
@@ -343,23 +344,24 @@ export const DetectionRulesSettings = () => {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <Select
+                    <ReactSelect
                       label="Category"
                       value={formData.category}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setFormData({
                           ...formData,
-                          category: e.target.value as DetectionRuleCategory,
+                          category: value as DetectionRuleCategory,
                         })
                       }
-                    >
-                      <option value="issue">Issue</option>
-                      <option value="help">Help Request</option>
-                      <option value="question">Question</option>
-                      <option value="access">Access</option>
-                      <option value="account">Account</option>
-                      <option value="urgent">Urgent</option>
-                    </Select>
+                      options={[
+                        { value: 'issue', label: 'Issue' },
+                        { value: 'help', label: 'Help Request' },
+                        { value: 'question', label: 'Question' },
+                        { value: 'access', label: 'Access' },
+                        { value: 'account', label: 'Account' },
+                        { value: 'urgent', label: 'Urgent' },
+                      ]}
+                    />
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <label htmlFor="confidence-edit" className="text-sm font-medium">

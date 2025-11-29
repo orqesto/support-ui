@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { MessageSquare, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { integrationsService } from '@/services/integrations.service';
+import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 
 type TelegramConfig = {
   botToken: string;
@@ -15,127 +14,35 @@ export const TelegramIntegrationCard = ({
   onRefresh,
   onShowAlert,
 }: IntegrationCardProps) => {
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-
-  const [config, setConfig] = useState<TelegramConfig>({
-    botToken: '',
+  const {
+    showForm,
+    saving,
+    testing,
+    deleting,
+    deleteConfirm,
+    editingId,
+    config,
+    setShowForm,
+    setConfig,
+    setDeleteConfirm,
+    resetForm,
+    loadForEdit,
+    saveIntegration,
+    testConnection,
+    deleteIntegration,
+  } = useIntegrationCard<TelegramConfig>({
+    integrationType: 'telegram',
+    integrationDisplayName: 'Telegram Bot',
+    initialConfig: { botToken: '' },
+    onRefresh,
+    onShowAlert,
   });
 
   const telegramIntegrations = integrations.filter((i) => i.type === 'telegram');
 
-  const resetForm = () => {
-    setConfig({ botToken: '' });
-    setShowForm(false);
-    setEditingId(null);
-  };
-
-  const loadForEdit = (id: number, currentConfig: TelegramConfig) => {
-    setEditingId(id);
-    setConfig(currentConfig);
-    setShowForm(true);
-  };
-
-  const saveIntegration = async () => {
-    setSaving(true);
-    try {
-      const response = await integrationsService.upsert({
-        name: 'Telegram Bot',
-        type: 'telegram',
-        enabled: true,
-        config,
-      });
-
-      if (response.success) {
-        await onRefresh();
-        resetForm();
-        onShowAlert({
-          open: true,
-          title: 'Success',
-          description: 'Telegram integration saved successfully!',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to save Telegram integration:', error);
-      onShowAlert({
-        open: true,
-        title: 'Error',
-        description: 'Failed to save Telegram integration',
-        variant: 'error',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const testConnection = async (id: number, name: string) => {
-    setTesting(id);
-    try {
-      const response = await integrationsService.test(id);
-      if (response.success) {
-        onShowAlert({
-          open: true,
-          title: 'Test Successful',
-          description: `${name} connection test successful!`,
-          variant: 'success',
-        });
-      } else {
-        onShowAlert({
-          open: true,
-          title: 'Test Failed',
-          description: `${name} connection test failed: ${response.message}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to test ${name} connection:`, error);
-      onShowAlert({
-        open: true,
-        title: 'Test Failed',
-        description: `Failed to test ${name} connection`,
-        variant: 'error',
-      });
-    } finally {
-      setTesting(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteConfirm) {
-      return;
-    }
-
-    const { id, name } = deleteConfirm;
-    setDeleting(id);
-    setDeleteConfirm(null);
-
-    try {
-      const response = await integrationsService.delete(id, 'telegram');
-      if (response.success) {
-        await onRefresh();
-      } else {
-        onShowAlert({
-          open: true,
-          title: 'Error',
-          description: `Failed to delete ${name}: ${response.error ?? 'Unknown error'}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to delete ${name}:`, error);
-      onShowAlert({
-        open: true,
-        title: 'Error',
-        description: `Failed to delete ${name}. Check console for details.`,
-        variant: 'error',
-      });
-    } finally {
-      setDeleting(null);
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      deleteIntegration(deleteConfirm.id, deleteConfirm.name);
     }
   };
 
@@ -150,7 +57,7 @@ export const TelegramIntegrationCard = ({
             </CardTitle>
             <Button
               size="sm"
-              className='py-5'
+              className="py-5"
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
@@ -211,7 +118,9 @@ export const TelegramIntegrationCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setDeleteConfirm({ id: integration.id, name: integration.name })}
+                      onClick={() =>
+                        setDeleteConfirm({ id: integration.id, name: integration.name })
+                      }
                       isLoading={deleting === integration.id}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
@@ -252,7 +161,11 @@ export const TelegramIntegrationCard = ({
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button onClick={saveIntegration} isLoading={saving} disabled={!config.botToken}>
+                <Button
+                  onClick={() => saveIntegration()}
+                  isLoading={saving}
+                  disabled={!config.botToken}
+                >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Telegram
                 </Button>

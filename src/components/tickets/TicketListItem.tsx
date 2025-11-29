@@ -75,14 +75,7 @@ export const TicketListItem = ({
           </div>
         )}
         {ticket.externalId && ticket.externalUrl && (
-          <ExternalLink
-            href={ticket.externalUrl}
-            className="text-xs"
-            onClick={() => {
-              // eslint-disable-next-line no-console
-              console.log('Opening Jira URL:', ticket.externalUrl);
-            }}
-          >
+          <ExternalLink href={ticket.externalUrl} className="text-xs">
             {ticket.externalId}
           </ExternalLink>
         )}

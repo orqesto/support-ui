@@ -1,8 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable react/no-unescaped-entities */
-
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, TrendingUp, Zap, Check } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -221,7 +216,7 @@ export const SubscriptionPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg border">
+        <div className="flex gap-1 p-1 rounded-lg border bg-muted">
           <button
             onClick={() => handleTabChange('plans')}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -491,7 +486,7 @@ export const SubscriptionPage = () => {
 
                       {/* Usage (if enabled) */}
                       {enabled && enabledData && (
-                        <div className="p-3 mb-4 bg-muted/50 rounded-lg border">
+                        <div className="p-3 mb-4 rounded-lg border bg-muted/50">
                           <p className="mb-2 text-sm font-medium">Current Usage</p>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-foreground/70">
@@ -500,7 +495,7 @@ export const SubscriptionPage = () => {
                             </span>
                             <span className="font-semibold">{usagePercentage.toFixed(1)}%</span>
                           </div>
-                          <div className="mt-2 w-full h-2 bg-muted rounded-full">
+                          <div className="mt-2 w-full h-2 rounded-full bg-muted">
                             <div
                               className="h-2 bg-blue-600 rounded-full transition-all"
                               style={{ width: `${Math.min(usagePercentage, 100)}%` }}

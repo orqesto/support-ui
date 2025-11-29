@@ -15,7 +15,7 @@ import {
   ScrollText,
   Mail,
 } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -230,14 +230,11 @@ export const DocumentationSettings = () => {
 
   const handleDeleteConfirm = async () => {
     if (!deleteDialog.docId) {
-      console.warn('Delete confirm called but no docId');
       return;
     }
 
-    console.log('Deleting documentation:', deleteDialog.docId);
     try {
       await documentationService.deleteDocumentation(deleteDialog.docId);
-      console.log('Documentation deleted successfully');
       await loadDocumentation();
       setDeleteDialog({ open: false, docId: null });
     } catch (error) {
@@ -276,7 +273,7 @@ export const DocumentationSettings = () => {
             </Card>
             <Card className="p-4">
               <div className="flex gap-3 items-centersm:items-center flex-col sm:flex-row text-center sm:text-left">
-              <FileText className="w-8 h-8 text-green-500 hidden sm:block" />
+                <FileText className="w-8 h-8 text-green-500 hidden sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalChunks}</p>
                   <p className="text-sm text-muted-foreground">Chunks</p>
@@ -285,7 +282,7 @@ export const DocumentationSettings = () => {
             </Card>
             <Card className="p-4">
               <div className="flex gap-3 items-center sm:items-center flex-col sm:flex-row text-center sm:text-left">
-              <CheckCircle className="w-8 h-8 text-purple-500 hidden sm:block" />
+                <CheckCircle className="w-8 h-8 text-purple-500 hidden sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalReferences}</p>
                   <p className="text-sm text-muted-foreground">Times Used</p>

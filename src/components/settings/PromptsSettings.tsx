@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';

@@ -1,8 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable react/no-unescaped-entities */
-
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

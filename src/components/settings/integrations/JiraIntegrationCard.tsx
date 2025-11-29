@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ExternalLink, Plus, Save, TestTube2, Trash2, Edit, Star } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import { integrationsService } from '@/services/integrations.service';
 
 type JiraConfig = {
@@ -18,131 +19,41 @@ export const JiraIntegrationCard = ({
   onRefresh,
   onShowAlert,
 }: IntegrationCardProps) => {
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [settingDefault, setSettingDefault] = useState<number | null>(null);
-
-  const [config, setConfig] = useState<JiraConfig>({
-    apiUrl: '',
-    email: '',
-    apiToken: '',
-    projectKey: '',
+  const {
+    showForm,
+    saving,
+    testing,
+    deleting,
+    deleteConfirm,
+    editingId,
+    config,
+    setShowForm,
+    setConfig,
+    setDeleteConfirm,
+    resetForm,
+    loadForEdit,
+    saveIntegration: saveIntegrationBase,
+    testConnection,
+    deleteIntegration,
+  } = useIntegrationCard<JiraConfig>({
+    integrationType: 'jira',
+    integrationDisplayName: 'Jira Integration',
+    initialConfig: { apiUrl: '', email: '', apiToken: '', projectKey: '' },
+    onRefresh,
+    onShowAlert,
   });
+
+  // Jira-specific state
+  const [settingDefault, setSettingDefault] = useState<number | null>(null);
 
   const jiraIntegrations = integrations.filter((i) => i.type === 'jira');
 
-  const resetForm = () => {
-    setConfig({ apiUrl: '', email: '', apiToken: '', projectKey: '' });
-    setShowForm(false);
-    setEditingId(null);
-  };
+  // Jira-specific: custom name includes project key
+  const saveIntegration = () => saveIntegrationBase(`Jira-${config.projectKey}`);
 
-  const loadForEdit = (id: number, currentConfig: JiraConfig) => {
-    setEditingId(id);
-    setConfig(currentConfig);
-    setShowForm(true);
-  };
-
-  const saveIntegration = async () => {
-    setSaving(true);
-    try {
-      const response = await integrationsService.upsert({
-        name: `Jira-${config.projectKey}`,
-        type: 'jira',
-        enabled: true,
-        config,
-      });
-
-      if (response.success) {
-        await onRefresh();
-        resetForm();
-        onShowAlert({
-          open: true,
-          title: 'Success',
-          description: 'Jira integration saved successfully!',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to save Jira integration:', error);
-      onShowAlert({
-        open: true,
-        title: 'Error',
-        description: 'Failed to save Jira integration',
-        variant: 'error',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const testConnection = async (id: number, name: string) => {
-    setTesting(id);
-    try {
-      const response = await integrationsService.test(id);
-      if (response.success) {
-        onShowAlert({
-          open: true,
-          title: 'Test Successful',
-          description: `${name} connection test successful!`,
-          variant: 'success',
-        });
-      } else {
-        onShowAlert({
-          open: true,
-          title: 'Test Failed',
-          description: `${name} connection test failed: ${response.message}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to test ${name} connection:`, error);
-      onShowAlert({
-        open: true,
-        title: 'Test Failed',
-        description: `Failed to test ${name} connection`,
-        variant: 'error',
-      });
-    } finally {
-      setTesting(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteConfirm) {
-      return;
-    }
-
-    const { id, name } = deleteConfirm;
-    setDeleting(id);
-    setDeleteConfirm(null);
-
-    try {
-      const response = await integrationsService.delete(id, 'jira');
-      if (response.success) {
-        await onRefresh();
-      } else {
-        onShowAlert({
-          open: true,
-          title: 'Error',
-          description: `Failed to delete ${name}: ${response.error ?? 'Unknown error'}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to delete ${name}:`, error);
-      onShowAlert({
-        open: true,
-        title: 'Error',
-        description: `Failed to delete ${name}. Check console for details.`,
-        variant: 'error',
-      });
-    } finally {
-      setDeleting(null);
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      deleteIntegration(deleteConfirm.id, deleteConfirm.name);
     }
   };
 
@@ -265,7 +176,9 @@ export const JiraIntegrationCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setDeleteConfirm({ id: integration.id, name: integration.name })}
+                      onClick={() =>
+                        setDeleteConfirm({ id: integration.id, name: integration.name })
+                      }
                       isLoading={deleting === integration.id}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
