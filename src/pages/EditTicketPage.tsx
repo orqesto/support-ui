@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';

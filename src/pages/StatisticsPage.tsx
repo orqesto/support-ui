@@ -16,7 +16,7 @@ import {
   FileText,
   CheckCircle,
 } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { documentationService } from '@/services/documentation.service';

@@ -68,7 +68,7 @@ export const SignupPage = () => {
         setInvitationEmail(email);
         setOrganizationName(data.data.invitation.organizationName || 'the organization');
         setInvitationRole(data.data.invitation.role);
-      } catch (err) {
+      } catch {
         setError('Failed to validate invitation. Please try again.');
       } finally {
         setIsValidatingToken(false);
@@ -133,9 +133,9 @@ export const SignupPage = () => {
       } else {
         setError(response.message ?? 'Registration failed');
       }
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
       } else {
         setError('An error occurred during registration');
       }

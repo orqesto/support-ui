@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Users, Plug, MessageSquare } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { apiClient } from '@/lib/api-client';
 
 type UsageLimits = {

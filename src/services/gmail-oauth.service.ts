@@ -147,7 +147,8 @@ export const gmailOAuthService = {
                 if (popup && !popup.closed) {
                   popup.close();
                 }
-              } catch (e) {
+              } catch (error) {
+                console.error('Failed to close popup:', error);
                 // Ignore errors closing popup
               }
 
@@ -192,7 +193,8 @@ export const gmailOAuthService = {
                 if (popup && !popup.closed) {
                   popup.close();
                 }
-              } catch (e) {
+              } catch (error) {
+                console.error('Failed to close popup:', error);
                 // Ignore errors closing popup
               }
 
@@ -234,7 +236,8 @@ export const gmailOAuthService = {
                   });
                 }
               }
-            } catch (e) {
+            } catch (error) {
+              console.error('Failed to check popup state:', error);
               // Can't access popup.closed due to CORS, keep checking
             }
           }, 1000);

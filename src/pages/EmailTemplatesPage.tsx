@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Mail, Eye, RefreshCw, AlertCircle } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';

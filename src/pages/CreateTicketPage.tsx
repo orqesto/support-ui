@@ -1,8 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Paperclip, X, File, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
-import RichTextEditor from '@/components/RichTextEditor';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -16,6 +15,7 @@ import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
+import RichTextEditor from '@/components/shared/RichTextEditor';
 
 export const CreateTicketPage = () => {
   const [searchParams] = useSearchParams();
@@ -328,7 +328,9 @@ export const CreateTicketPage = () => {
                 </div>
                 <RichTextEditor
                   content={formData.description}
-                  onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
+                  onChange={(html: string) =>
+                    setFormData((prev) => ({ ...prev, description: html }))
+                  }
                   placeholder="Enter ticket description..."
                   minHeight="200px"
                 />
@@ -452,7 +454,7 @@ export const CreateTicketPage = () => {
               </div>
 
               <div className="flex gap-2 justify-between items-center pt-4">
-                <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border cursor-pointer text-foreground bg-background border-border hover:bg-accent transition-colors">
+                <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">
                   <Paperclip className="w-4 h-4" />
                   <span>Attach Files</span>
                   <input

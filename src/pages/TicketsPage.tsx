@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Ticket, RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
-import { TicketDetail } from '@/components/TicketDetail';
+import { Layout } from '@/components/layout/Layout';
+import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { TicketFilters } from '@/components/tickets/TicketFilters';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -171,7 +171,7 @@ export const TicketsPage = () => {
     const paramId = ticketIdParam ? parseInt(ticketIdParam) : null;
 
     // Only fetch if URL has an ID and it's different from the currently selected ticket
-    if (paramId && (!selectedTicket || selectedTicket.id !== paramId)) {
+    if (paramId && (selectedTicket?.id !== paramId)) {
       const fetchAndOpenTicket = async () => {
         try {
           const response = await ticketService.getById(paramId);

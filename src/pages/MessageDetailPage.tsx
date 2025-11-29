@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ScrollButtons } from '@/components/ScrollButtons';
 import { Button } from '@/components/ui/Button';
