@@ -311,6 +311,7 @@ export const useEmailProcessing = (
                   ...(existing.status === 'idle' && {
                     status: 'error',
                     error: event.data?.error,
+                    isProcessing: false,
                   }),
                 });
               }
@@ -372,21 +373,6 @@ export const useEmailProcessing = (
                   fetchTime: event.data?.fetchTime,
                   processTime: event.data?.processTime,
                   totalTime: event.data?.totalTime,
-                });
-              }
-              break;
-
-            // eslint-disable-next-line no-duplicate-case
-            case 'error':
-              if (existing) {
-                newSessions.set(sessionKey, {
-                  ...existing,
-                  failed: existing.failed + 1,
-                  ...(existing.status === 'idle' && {
-                    status: 'error',
-                    error: event.data?.error,
-                    isProcessing: false,
-                  }),
                 });
               }
               break;

@@ -8,6 +8,7 @@ export type FilterState = {
   channel?: 'all' | 'email' | 'telegram' | 'slack';
   messageSourceId?: string; // 'all' or integration ID
   showSpam?: boolean;
+  showSuspicious?: boolean; // Show only suspicious messages (needs review)
   excludeSpam?: boolean; // Filter out spam messages (show only legitimate)
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
@@ -53,6 +54,7 @@ const defaultFilters: FilterState = {
   channel: 'all',
   messageSourceId: 'all',
   showSpam: false,
+  showSuspicious: false,
   excludeSpam: false,
   showNeedsInfo: false,
   showWorthy: false,
@@ -152,6 +154,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           [key]: value,
           // Clear all secondary filters
           showSpam: false,
+          showSuspicious: false,
           excludeSpam: false,
           showNeedsInfo: false,
           showWorthy: false,

@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { auditLogService } from '@/services/auditLog.service';
@@ -98,7 +99,9 @@ export const AuditLogsPage = () => {
     setCurrentPage(page);
   };
 
-  const getActionBadgeVariant = (action: string): 'default' | 'success' | 'warning' | 'danger' | 'secondary' => {
+  const getActionBadgeVariant = (
+    action: string
+  ): 'default' | 'success' | 'warning' | 'danger' | 'secondary' => {
     if (action.includes('create')) {
       return 'success';
     }
@@ -155,49 +158,44 @@ export const AuditLogsPage = () => {
               <CardContent className="p-4">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <label htmlFor="action-filter" className="block mb-1 text-sm font-medium">
-                      Action
-                    </label>
-                    <select
+                    <ReactSelect
+                      label="Action"
                       id="action-filter"
                       value={localFilters.action}
-                      onChange={(e) => {
-                        setLocalFilters({ ...localFilters, action: e.target.value });
+                      onChange={(value) => {
+                        setLocalFilters({ ...localFilters, action: value });
                       }}
-                      className="px-3 py-2 w-full rounded-md border bg-background"
-                    >
-                      <option value="">All Actions</option>
-                      <option value="user.create">User Create</option>
-                      <option value="user.update">User Update</option>
-                      <option value="user.delete">User Delete</option>
-                      <option value="ticket.create">Ticket Create</option>
-                      <option value="ticket.update">Ticket Update</option>
-                      <option value="message.create">Message Create</option>
-                      <option value="integration.create">Integration Create</option>
-                      <option value="settings.update">Settings Update</option>
-                    </select>
+                      options={[
+                        { value: '', label: 'All Actions' },
+                        { value: 'user.create', label: 'User Create' },
+                        { value: 'user.update', label: 'User Update' },
+                        { value: 'user.delete', label: 'User Delete' },
+                        { value: 'ticket.create', label: 'Ticket Create' },
+                        { value: 'message.create', label: 'Message Create' },
+                        { value: 'integration.create', label: 'Integration Create' },
+                        { value: 'settings.update', label: 'Settings Update' },
+                      ]}
+                    />
                   </div>
 
                   <div>
-                    <label htmlFor="entity-filter" className="block mb-1 text-sm font-medium">
-                      Entity
-                    </label>
-                    <select
+                    <ReactSelect
+                      label="Entity"
                       id="entity-filter"
                       value={localFilters.entity}
-                      onChange={(e) => {
-                        setLocalFilters({ ...localFilters, entity: e.target.value });
+                      onChange={(value) => {
+                        setLocalFilters({ ...localFilters, entity: value });
                       }}
-                      className="px-3 py-2 w-full rounded-md border bg-background"
-                    >
-                      <option value="">All Entities</option>
-                      <option value="user">User</option>
-                      <option value="ticket">Ticket</option>
-                      <option value="message">Message</option>
-                      <option value="integration">Integration</option>
-                      <option value="category">Category</option>
-                      <option value="settings">Settings</option>
-                    </select>
+                      options={[
+                        { value: '', label: 'All Entities' },
+                        { value: 'user', label: 'User' },
+                        { value: 'ticket', label: 'Ticket' },
+                        { value: 'message', label: 'Message' },
+                        { value: 'integration', label: 'Integration' },
+                        { value: 'category', label: 'Category' },
+                        { value: 'settings', label: 'Settings' },
+                      ]}
+                    />
                   </div>
 
                   <div className="flex gap-2 items-end">
