@@ -240,8 +240,8 @@ export const TicketFilters = ({
             </div>
 
             {/* Primary Filters Row */}
-            <div className="p-3 rounded-lg border bg-muted/30">
-              <div className="flex flex-col sm:inline-flex gap-4 sm:flex-row rounded-md shadow-sm">
+            <div className="p-4 rounded-lg border bg-muted/30">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4 rounded-md sm:items-center">
                 {/* Group 1: Status & Priority */}
                 <div className="flex gap-2 items-center">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
