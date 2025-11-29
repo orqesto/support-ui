@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings, BarChart3 } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AdminPlansTab } from './admin/AdminPlansTab';
 import { AdminUsageTab } from './admin/AdminUsageTab';
 

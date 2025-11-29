@@ -43,7 +43,7 @@ export const SlackIntegrationCard = ({
 
   const handleDelete = () => {
     if (deleteConfirm) {
-      deleteIntegration(deleteConfirm.id, deleteConfirm.name);
+      void deleteIntegration(deleteConfirm.id, deleteConfirm.name);
     }
   };
 

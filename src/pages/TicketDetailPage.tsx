@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { ScrollButtons } from '@/components/ScrollButtons';
-import { TicketDetail } from '@/components/TicketDetail';
+import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,

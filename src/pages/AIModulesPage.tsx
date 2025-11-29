@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, CreditCard, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -52,12 +52,16 @@ export const AIModulesPage = () => {
     const fetchModules = async () => {
       try {
         const [modulesRes, myModulesRes] = await Promise.all([
-          apiClient.get('/api/subscriptions/modules'),
-          apiClient.get('/api/subscriptions/my-modules'),
+          apiClient.get<{ success: boolean; data: { modules: AIModule[] } }>(
+            '/api/subscriptions/modules'
+          ),
+          apiClient.get<{ success: boolean; data: { modules: EnabledModule[] } }>(
+            '/api/subscriptions/my-modules'
+          ),
         ]);
 
-        setAvailableModules(modulesRes.data.data.modules || []);
-        setEnabledModules(myModulesRes.data.data.modules || []);
+        setAvailableModules(modulesRes.data.data.modules);
+        setEnabledModules(myModulesRes.data.data.modules);
       } catch (error) {
         console.error('Failed to load modules:', error);
       } finally {
@@ -90,8 +94,11 @@ export const AIModulesPage = () => {
       await apiClient.post(endpoint);
 
       // Refresh module data after toggle
-      const myModulesRes = await apiClient.get('/api/subscriptions/my-modules');
-      setEnabledModules(myModulesRes.data.data.modules || []);
+      const myModulesRes = await apiClient.get<{
+        success: boolean;
+        data: { modules: EnabledModule[] };
+      }>('/api/subscriptions/my-modules');
+      setEnabledModules(myModulesRes.data.data.modules);
 
       // Show success notification
       setAlertDialog({

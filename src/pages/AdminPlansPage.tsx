@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, X, Zap, Users, TrendingUp, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -47,19 +47,19 @@ export const AdminPlansPage = () => {
     try {
       setLoading(true);
       const [plansRes, modulesRes, statsRes] = await Promise.all([
-        apiClient.get('/api/admin/plans'),
-        apiClient.get('/api/admin/modules'),
-        apiClient.get('/api/admin/plans/stats'),
+        apiClient.get<{ success: boolean; data: Plan[] }>('/api/admin/plans'),
+        apiClient.get<{ success: boolean; data: Module[] }>('/api/admin/modules'),
+        apiClient.get<{ success: boolean; data: Record<number, number> }>('/api/admin/plans/stats'),
       ]);
 
       if (plansRes.data.success) {
-        setPlans(plansRes.data.data as Plan[]);
+        setPlans(plansRes.data.data);
       }
       if (modulesRes.data.success) {
-        setModules(modulesRes.data.data as Module[]);
+        setModules(modulesRes.data.data);
       }
       if (statsRes.data.success) {
-        setPlanStats(statsRes.data.data as Record<number, number>);
+        setPlanStats(statsRes.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
@@ -81,7 +81,9 @@ export const AdminPlansPage = () => {
   const handleTogglePlan = async (planId: number) => {
     try {
       setToggling({ type: 'plan', id: planId });
-      const response = await apiClient.patch(`/api/admin/plans/${planId}/toggle`);
+      const response = await apiClient.patch<{ success: boolean; data: { isActive: boolean } }>(
+        `/api/admin/plans/${planId}/toggle`
+      );
 
       if (response.data.success) {
         setPlans((prev) =>
@@ -100,7 +102,9 @@ export const AdminPlansPage = () => {
   const handleToggleModule = async (moduleId: number) => {
     try {
       setToggling({ type: 'module', id: moduleId });
-      const response = await apiClient.patch(`/api/admin/modules/${moduleId}/toggle`);
+      const response = await apiClient.patch<{ success: boolean; data: { isActive: boolean } }>(
+        `/api/admin/modules/${moduleId}/toggle`
+      );
 
       if (response.data.success) {
         setModules((prev) =>

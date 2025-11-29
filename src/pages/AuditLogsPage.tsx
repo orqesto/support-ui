@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FileText, RefreshCw, Filter, X } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
