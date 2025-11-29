@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Mail, RefreshCw } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -355,7 +355,7 @@ export const MessagesPage = () => {
     const paramId = messageIdParam ? parseInt(messageIdParam) : null;
 
     // Only fetch if URL has an ID and it's different from the currently selected message
-    if (paramId && (!selectedMessage || selectedMessage.id !== paramId)) {
+    if (paramId && (selectedMessage?.id !== paramId)) {
       // Fetch the specific message by ID (it might be filtered out)
       const fetchAndOpenMessage = async () => {
         try {

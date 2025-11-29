@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, TrendingUp, Zap, Check } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -89,16 +89,22 @@ export const SubscriptionPage = () => {
     const fetchData = async () => {
       try {
         const [subRes, usageRes, modulesRes, myModulesRes] = await Promise.all([
-          apiClient.get('/api/subscriptions/current'),
-          apiClient.get('/api/subscriptions/usage'),
-          apiClient.get('/api/subscriptions/modules'),
-          apiClient.get('/api/subscriptions/my-modules'),
+          apiClient.get<{ success: boolean; data: Subscription }>('/api/subscriptions/current'),
+          apiClient.get<{ success: boolean; data: { usage: UsageModule[] } }>(
+            '/api/subscriptions/usage'
+          ),
+          apiClient.get<{ success: boolean; data: { modules: AIModule[] } }>(
+            '/api/subscriptions/modules'
+          ),
+          apiClient.get<{ success: boolean; data: { modules: EnabledModule[] } }>(
+            '/api/subscriptions/my-modules'
+          ),
         ]);
 
         setSubscription(subRes.data.data);
-        setUsage(usageRes.data.data.usage || []);
-        setAvailableModules(modulesRes.data.data.modules || []);
-        setEnabledModules(myModulesRes.data.data.modules || []);
+        setUsage(usageRes.data.data.usage);
+        setAvailableModules(modulesRes.data.data.modules);
+        setEnabledModules(myModulesRes.data.data.modules);
       } catch (error) {
         console.error('Failed to load subscription:', error);
       } finally {
@@ -133,8 +139,11 @@ export const SubscriptionPage = () => {
 
     try {
       await apiClient.post(endpoint);
-      const myModulesRes = await apiClient.get('/api/subscriptions/my-modules');
-      setEnabledModules(myModulesRes.data.data.modules || []);
+      const myModulesRes = await apiClient.get<{
+        success: boolean;
+        data: { modules: EnabledModule[] };
+      }>('/api/subscriptions/my-modules');
+      setEnabledModules(myModulesRes.data.data.modules);
 
       setAlertDialog({
         open: true,

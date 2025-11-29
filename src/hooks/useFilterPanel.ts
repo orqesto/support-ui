@@ -76,7 +76,9 @@ export const useFilterPanel = <T extends Record<string, unknown>>({
           ? customValues[key](value)
           : typeof value === 'boolean'
             ? 'Yes'
-            : String(value);
+            : typeof value === 'string' || typeof value === 'number'
+              ? String(value)
+              : JSON.stringify(value);
 
         active.push({ key, label, value: displayValue });
       }

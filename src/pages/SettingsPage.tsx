@@ -1,6 +1,6 @@
 import { Settings, FolderTree, ShieldAlert, Inbox, Cog, BrainCog, Zap } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '@/components/settings/CategoriesSettings';
 import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
