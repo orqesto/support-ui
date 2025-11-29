@@ -13,7 +13,13 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ListCard } from '@/components/ui/ListCard';
-import { getChannelIcon, getCategoryDisplay, hasMessageAttachments } from '@/lib/messageHelpers';
+import {
+  getChannelIcon,
+  getCategoryDisplay,
+  hasMessageAttachments,
+  getSpamCheck,
+  getFilteredCategoryLabel,
+} from '@/lib/messageHelpers';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
 
@@ -33,12 +39,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
       }
     | undefined;
 
-  const spamCheck = message.metadata?.spamCheck as
-    | {
-        isSpam?: boolean;
-        category?: string;
-      }
-    | undefined;
+  const spamCheck = getSpamCheck(message);
 
   const hasAttachments = hasMessageAttachments(message);
 
@@ -90,11 +91,25 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             </Badge>
           )}
 
-          {/* AI Analysis Badges */}
+          {/* Message Classification Badge */}
           {spamCheck?.isSpam === true && (
-            <Badge variant="danger" title={spamCheck.category} className="flex gap-1 items-center">
+            <Badge
+              variant="danger"
+              title={`Spam (${getFilteredCategoryLabel(spamCheck.category)}): ${spamCheck.redFlags?.join(', ') ?? 'Classified as spam'}`}
+              className="flex gap-1 items-center cursor-pointer"
+            >
               <ShieldX className="w-3 h-3" />
-              Spam
+              {getFilteredCategoryLabel(spamCheck.category)}
+            </Badge>
+          )}
+          {spamCheck?.isSpam === false && spamCheck?.category === 'suspicious' && (
+            <Badge
+              variant="warning"
+              title={`Suspicious: ${spamCheck.redFlags?.join(', ') ?? 'May contain spam indicators'}`}
+              className="flex gap-1 items-center cursor-pointer"
+            >
+              <AlertTriangle className="w-3 h-3" />
+              Suspicious
             </Badge>
           )}
           {!spamCheck?.isSpam && analysis?.isTicketWorthy && (
@@ -142,7 +157,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
             <Badge
               variant="default"
-              className="flex gap-1 items-center bg-purple-600 text-white"
+              className="flex gap-1 items-center text-white bg-purple-600"
               title="Message from Knowledge Base source"
             >
               <BookOpen className="w-3 h-3" />
