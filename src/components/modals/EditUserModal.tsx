@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { RoleInfoCard } from '@/components/RoleInfoCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -18,6 +17,7 @@ import { organizationService, type Organization } from '@/services/organization.
 import { useAuthStore } from '@/stores/authStore';
 import type { User, DepartmentRole } from '@/types';
 import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
+import { RoleInfoCard } from '../admin/RoleInfoCard';
 
 type EditUserModalProps = {
   isOpen: boolean;
