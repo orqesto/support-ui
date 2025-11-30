@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
-import { CreateOrganizationModal } from '@/components/CreateOrganizationModal';
 import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -19,6 +18,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { organizationService } from '@/services/organization.service';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
+import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
 
 export const OrganizationPage = () => {
   const { canManageOrganization, isAdmin } = usePermissions();

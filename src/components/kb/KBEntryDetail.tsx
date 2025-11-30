@@ -1,9 +1,9 @@
 import { CheckCircle, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { FormattedKBContent } from '@/components/FormattedKBContent';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import type { KBEntry } from '@/services/kb.service';
+import { FormattedKBContent } from '../shared/FormattedKBContent';
 
 type KBEntryDetailProps = {
   entry: KBEntry | null;
@@ -27,7 +27,7 @@ export const KBEntryDetail = ({
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex-none p-6 border-b">
-          <div className="flex justify-between items-start gap-4 mb-4">
+          <div className="flex gap-4 justify-between items-start mb-4">
             <h2 className="text-2xl font-semibold">{entry.title}</h2>
             <div className="flex gap-2">
               {entry.hidden ? (
@@ -79,8 +79,8 @@ export const KBEntryDetail = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
-          <h3 className="text-lg font-semibold mb-3">Content</h3>
+        <div className="overflow-auto flex-1 p-6">
+          <h3 className="mb-3 text-lg font-semibold">Content</h3>
           <FormattedKBContent content={entry.content} />
         </div>
 

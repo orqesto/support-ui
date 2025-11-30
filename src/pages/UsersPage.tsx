@@ -12,10 +12,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { EditUserModal } from '@/components/EditUserModal';
-import { InviteUserModal } from '@/components/InviteUserModal';
 import { Layout } from '@/components/layout/Layout';
-import { RoleInfoCard } from '@/components/RoleInfoCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -30,6 +27,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUsersStore } from '@/stores/usersStore';
 import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
+import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
+import { InviteUserModal } from '@/components/modals/InviteUserModal';
+import { EditUserModal } from '@/components/modals/EditUserModal';
 
 export const UsersPage = () => {
   const { canManageUsers, isAdmin, hasPermission } = usePermissions();
