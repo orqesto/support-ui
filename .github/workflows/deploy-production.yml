@@ -26,7 +26,7 @@ jobs:
 
       - name: Build frontend
         env:
-          VITE_API_URL: https://odly.ai/api
+          VITE_API_URL: https://odly.ai
         run: npm run build
 
       - name: Install SSH Key
