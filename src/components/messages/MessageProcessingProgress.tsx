@@ -9,6 +9,7 @@ import {
   ChevronUp,
   type LucideIcon,
 } from 'lucide-react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import type { ProcessingSession } from '@/hooks/useEmailProcessing';
@@ -53,11 +54,18 @@ export const MessageProcessingProgress = ({
     return saved === 'true';
   });
 
+  // Detect mobile viewport
+  const isMobile = useMediaQuery('(max-width: 768px)');
+
   // Draggable position state - stack widgets vertically with offset based on index
   const WIDGET_HEIGHT = 200; // Approximate height per widget
   const STACK_OFFSET = WIDGET_HEIGHT + 16; // Offset between stacked widgets
 
   const [position, setPosition] = useState<Position>(() => {
+    // On mobile, ignore saved position
+    if (isMobile) {
+      return { x: 0, y: 0 };
+    }
     const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_position`);
     if (saved) {
       try {
@@ -122,8 +130,9 @@ export const MessageProcessingProgress = ({
     );
   }, [position, session.sessionKey]);
 
-  // Drag handlers
+  // Drag handlers (desktop only)
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return; // No dragging on mobile
     if ((e.target as HTMLElement).tagName === 'BUTTON') {
       return; // Don't drag if clicking buttons
     }
@@ -232,21 +241,38 @@ export const MessageProcessingProgress = ({
 
   return (
     <div
-      className="fixed z-50 w-80 rounded-lg border shadow-2xl bg-card text-card-foreground"
+      className={
+        isMobile
+          ? 'fixed right-0 bottom-0 left-0 z-50 max-w-full rounded-t-lg border-t shadow-2xl border-x bg-card text-card-foreground'
+          : 'fixed z-50 w-80 rounded-lg border shadow-2xl bg-card text-card-foreground'
+      }
       style={{
         display: shouldBeVisible ? 'block' : 'none', // Hide with CSS, don't unmount
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        cursor: isDragging ? 'grabbing' : 'grab',
+        ...(isMobile
+          ? {
+              // Mobile: bottom sheet, stacked with offset
+              bottom: `${index * 60}px`,
+              maxHeight: '70vh',
+            }
+          : {
+              // Desktop: draggable
+              left: `${position.x}px`,
+              top: `${position.y}px`,
+              cursor: isDragging ? 'grabbing' : 'grab',
+            }),
       }}
     >
-      {/* Header - Always visible - Draggable */}
+      {/* Header - Always visible - Draggable on desktop */}
       <div
         role="button"
         tabIndex={0}
-        className="flex justify-between items-center p-3 border-b select-none bg-muted/30 cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-        title="Drag to move widget"
+        className={
+          isMobile
+            ? 'flex justify-between items-center p-3 border-b select-none bg-muted/30'
+            : 'flex justify-between items-center p-3 border-b select-none bg-muted/30 cursor-grab active:cursor-grabbing'
+        }
+        onMouseDown={isMobile ? undefined : handleMouseDown}
+        title={isMobile ? undefined : 'Drag to move widget'}
       >
         <div className="flex flex-1 gap-2 items-center">
           {allMessagesProcessed || status === 'complete' ? (
@@ -309,7 +335,13 @@ export const MessageProcessingProgress = ({
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="overflow-y-auto p-3 space-y-3 max-h-96">
+        <div
+          className={
+            isMobile
+              ? 'overflow-y-auto p-3 space-y-3 max-h-[60vh]'
+              : 'overflow-y-auto p-3 space-y-3 max-h-96'
+          }
+        >
           {/* Progress Bar */}
           {total > 0 && (
             <div className="space-y-2">
