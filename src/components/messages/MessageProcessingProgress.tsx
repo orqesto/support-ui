@@ -94,6 +94,7 @@ export const MessageProcessingProgress = ({
   const {
     status,
     total,
+    emailTotal,
     current,
     processed,
     analyzed,
@@ -332,7 +333,7 @@ export const MessageProcessingProgress = ({
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <SourceIcon className="w-3 h-3 text-blue-500" />
-                <span className="text-lg font-bold">{total}</span>
+                <span className="text-lg font-bold">{emailTotal ?? total}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
