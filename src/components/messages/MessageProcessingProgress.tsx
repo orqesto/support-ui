@@ -247,23 +247,24 @@ export const MessageProcessingProgress = ({
     <div
       className={
         isMobile
-          ? 'fixed right-0 bottom-0 left-0 z-50 max-w-full rounded-t-lg border-t shadow-2xl border-x bg-card text-card-foreground'
+          ? 'fixed right-0 bottom-0 left-0 max-w-full rounded-t-lg border-t shadow-2xl border-x bg-card text-card-foreground'
           : 'fixed z-50 w-80 rounded-lg border shadow-2xl bg-card text-card-foreground'
       }
       style={{
         display: shouldBeVisible ? 'block' : 'none', // Hide with CSS, don't unmount
         ...(isMobile
           ? {
-              // Mobile: bottom sheet, stacked with smaller offset
-              // Collapsed widgets: 48px, Expanded: 60px per widget
-              bottom: `${index * (isExpanded ? 60 : 48)}px`,
+              // Mobile: bottom sheet, fixed offset per widget with proper z-index layering
+              bottom: `${index * 52}px`, // Fixed 52px offset per widget
               maxHeight: '70vh',
+              zIndex: 50 - index, // Lower widgets have higher z-index (appear on top)
             }
           : {
               // Desktop: draggable
               left: `${position.x}px`,
               top: `${position.y}px`,
               cursor: isDragging ? 'grabbing' : 'grab',
+              zIndex: 50,
             }),
       }}
     >
