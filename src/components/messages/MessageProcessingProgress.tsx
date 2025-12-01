@@ -181,9 +181,10 @@ export const MessageProcessingProgress = ({
   useEffect(() => {
     if (status === 'complete' && total > 0) {
       setIsClosed(false);
-      setIsExpanded(true); // Auto-expand to show performance results
+      // Mobile: auto-collapse to save space, Desktop: auto-expand to show results
+      setIsExpanded(!isMobile);
     }
-  }, [status, total]);
+  }, [status, total, isMobile]);
 
   // Auto-reopen when processing starts (even if widget was closed)
   // Only auto-reopen if:
@@ -216,9 +217,12 @@ export const MessageProcessingProgress = ({
   // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
     if (status === 'complete' || allMessagesProcessed) {
-      // If no messages found (total === 0), close after 30 seconds
-      // If messages were processed (total > 0), keep open for 5 minutes to show results
-      const closeDelay = total === 0 ? 30000 : 300000; // 30s for no messages, 5 min for processed messages
+      // Mobile: shorter delays to avoid clutter
+      // Desktop: longer delays to review results
+      const noMessagesDelay = isMobile ? 15000 : 30000; // 15s mobile, 30s desktop
+      const withMessagesDelay = isMobile ? 60000 : 300000; // 1min mobile, 5min desktop
+
+      const closeDelay = total === 0 ? noMessagesDelay : withMessagesDelay;
 
       const timer = setTimeout(() => {
         setIsClosed(true);
@@ -228,7 +232,7 @@ export const MessageProcessingProgress = ({
 
       return () => clearTimeout(timer);
     }
-  }, [status, allMessagesProcessed, total, session.sessionKey, onClose]);
+  }, [status, allMessagesProcessed, total, session.sessionKey, onClose, isMobile]);
 
   // Show widget ONLY if there's activity
   const isActivelyProcessing =
@@ -250,8 +254,9 @@ export const MessageProcessingProgress = ({
         display: shouldBeVisible ? 'block' : 'none', // Hide with CSS, don't unmount
         ...(isMobile
           ? {
-              // Mobile: bottom sheet, stacked with offset
-              bottom: `${index * 60}px`,
+              // Mobile: bottom sheet, stacked with smaller offset
+              // Collapsed widgets: 48px, Expanded: 60px per widget
+              bottom: `${index * (isExpanded ? 60 : 48)}px`,
               maxHeight: '70vh',
             }
           : {
@@ -268,7 +273,7 @@ export const MessageProcessingProgress = ({
         tabIndex={0}
         className={
           isMobile
-            ? 'flex justify-between items-center p-3 border-b select-none bg-muted/30'
+            ? 'flex justify-between items-center px-3 py-2 border-b select-none bg-muted/30'
             : 'flex justify-between items-center p-3 border-b select-none bg-muted/30 cursor-grab active:cursor-grabbing'
         }
         onMouseDown={isMobile ? undefined : handleMouseDown}
@@ -338,7 +343,7 @@ export const MessageProcessingProgress = ({
         <div
           className={
             isMobile
-              ? 'overflow-y-auto p-3 space-y-3 max-h-[60vh]'
+              ? 'overflow-y-auto p-2 space-y-2 max-h-[60vh]'
               : 'overflow-y-auto p-3 space-y-3 max-h-96'
           }
         >
