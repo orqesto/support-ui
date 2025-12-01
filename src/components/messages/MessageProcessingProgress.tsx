@@ -9,10 +9,10 @@ import {
   ChevronUp,
   type LucideIcon,
 } from 'lucide-react';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import type { ProcessingSession } from '@/hooks/useEmailProcessing';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 type Position = { x: number; y: number };
 

@@ -66,6 +66,15 @@
     @apply min-h-screen bg-background;
   }
 
+  /* Prevent mobile zoom on input focus by ensuring min font-size 16px */
+  @media (max-width: 768px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
   /* Custom Scrollbar Styles */
   /* Firefox */
   * {
