@@ -47,8 +47,8 @@ export const KBTableView = ({
         <col className="hidden w-24 xl:table-column" />
         <col className="hidden w-16 sm:table-column" />
         <col className="hidden w-14 lg:table-column" />
-        <col className="w-20" />
-        <col className="w-36" />
+        <col className="w-28" />
+        <col className="w-44" />
       </colgroup>
       <thead className="bg-muted/50">
         <tr className="border-b">

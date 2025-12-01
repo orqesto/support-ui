@@ -66,6 +66,7 @@ export const DashboardPage = () => {
   // Filter by department to only show processing for user's department
   const {
     status: processingStatus,
+    stage: processingStage,
     processed: processedCount,
     isProcessing,
   } = useEmailProcessing(true, selectedDepartment ?? undefined);
@@ -495,7 +496,9 @@ export const DashboardPage = () => {
                   <Loader2 className="w-3 h-3 animate-spin" />
                   {processingStatus === 'complete'
                     ? 'Processing completed. Widget will close automatically...'
-                    : 'Email processing in progress. Please wait...'}
+                    : processingStage === 'kb-processing'
+                      ? 'Building knowledge base from attachments...'
+                      : 'Email processing in progress. Please wait...'}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-3">
