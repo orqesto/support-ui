@@ -14,6 +14,8 @@ import {
   Quote,
   Globe,
   Sparkles,
+  Languages,
+  Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
@@ -27,6 +29,9 @@ import {
 } from '@/components/ui/Dialog';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
+import { useSupportedLanguages } from '@/hooks/useTranslation';
+import { ReactSelect } from '@/components/ui/ReactSelect';
+import { apiClient } from '@/lib/api-client';
 
 type SimilarMessage = {
   messageId?: number;
@@ -74,6 +79,17 @@ export const SimilarMessagesDialog = ({
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
   const [useAiResponse, setUseAiResponse] = useState(false);
+  const [translatedAiResponse, setTranslatedAiResponse] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const { languages, fetchLanguages } = useSupportedLanguages();
+
+  useEffect(() => {
+    if (open) {
+      void fetchLanguages();
+    }
+  }, [open, fetchLanguages]);
 
   useEffect(() => {
     if (open && messageId) {
@@ -161,6 +177,30 @@ export const SimilarMessagesDialog = ({
     }
   };
 
+  const handleTranslateAiResponse = async () => {
+    if (!aiResponse || !selectedLanguage) return;
+
+    setIsTranslating(true);
+    try {
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { translated: { content: string } };
+      }>('/api/translation/text/translate', {
+        text: aiResponse,
+        targetLanguage: selectedLanguage,
+      });
+
+      if (response.data.success) {
+        setTranslatedAiResponse(response.data.data.translated.content);
+        setShowTranslation(true);
+      }
+    } catch (error) {
+      console.error('Translation failed:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const getSimilarityColor = (similarity: number): string => {
     if (similarity >= 0.9) {
       return 'text-green-600 dark:text-green-400';
@@ -242,12 +282,64 @@ export const SimilarMessagesDialog = ({
                   </div>
                 </div>
 
+                {/* Translation Controls */}
+                <div className="flex gap-2 items-center mb-3">
+                  <ReactSelect
+                    value={selectedLanguage}
+                    onChange={setSelectedLanguage}
+                    options={
+                      languages && languages.length > 0
+                        ? languages.map((lang) => ({
+                            value: lang.code,
+                            label: lang.name,
+                          }))
+                        : [{ value: 'en', label: 'English' }]
+                    }
+                    className="flex-1"
+                    placeholder="Select language..."
+                  />
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleTranslateAiResponse();
+                    }}
+                    disabled={isTranslating || !selectedLanguage}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {isTranslating ? (
+                      <>
+                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                        Translating...
+                      </>
+                    ) : (
+                      <>
+                        <Languages className="mr-2 w-4 h-4" />
+                        Translate
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Original Response */}
                 <div className="p-3 bg-gradient-to-br rounded border from-primary/5 to-primary/10 border-primary/20">
                   <p className="mb-2 text-sm font-medium text-muted-foreground">
-                    Suggested Answer:
+                    {showTranslation && translatedAiResponse ? 'Original:' : 'Suggested Answer:'}
                   </p>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
                 </div>
+
+                {/* Translated Response */}
+                {showTranslation && translatedAiResponse && (
+                  <div className="p-3 mt-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded border border-blue-200 dark:from-blue-950/20 dark:to-blue-900/30 dark:border-blue-800">
+                    <p className="mb-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                      Translated to {languages?.find((l) => l.code === selectedLanguage)?.name}:
+                    </p>
+                    <p className="text-sm leading-relaxed text-blue-900 whitespace-pre-wrap dark:text-blue-100">
+                      {translatedAiResponse}
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex gap-2 items-center mt-3 text-xs text-muted-foreground">
                   <Sparkles className="w-3 h-3" />

@@ -36,8 +36,51 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
     const fetchSimilarTickets = async () => {
       try {
         setLoading(true);
-        const response = await ticketService.getSimilar(messageId, { limit: 3, minSimilarity: 0.7 });
-        setSimilarTickets(response.data ?? []);
+        // Try both endpoints: tickets and resolved messages
+        const [ticketsResponse, messagesResponse] = await Promise.allSettled([
+          ticketService.getSimilar(messageId, { limit: 3, minSimilarity: 0.7 }),
+          import('@/services/message.service').then(({ messageService }) =>
+            messageService.getSimilarResolvedMessages(messageId, 3, 0.7)
+          ),
+        ]);
+
+        const tickets =
+          ticketsResponse.status === 'fulfilled' ? (ticketsResponse.value.data ?? []) : [];
+        const messages =
+          messagesResponse.status === 'fulfilled' ? (messagesResponse.value.data ?? []) : [];
+
+        // Map resolved messages to ticket format
+        const mappedMessages: SimilarTicket[] = messages.map((msg: unknown) => {
+          const m = msg as {
+            messageId?: number;
+            content: string;
+            subject?: string | null;
+            directReply: string;
+            similarity: number;
+            repliedAt?: string | null;
+          };
+          return {
+            ticketId: 0, // No ticket for direct replies
+            messageId: m.messageId ?? 0,
+            messageContent: m.content,
+            messageSubject: m.subject ?? null,
+            similarity: m.similarity,
+            ticketStatus: 'resolved',
+            ticketTitle: m.subject ?? 'Direct Reply',
+            responses: [
+              {
+                id: 0,
+                content: m.directReply,
+                channel: 'email',
+                sentAt: m.repliedAt ?? null,
+              },
+            ],
+          };
+        });
+
+        // Combine and deduplicate results
+        const allResults = [...tickets, ...mappedMessages];
+        setSimilarTickets(allResults);
       } catch (error) {
         console.error('Failed to fetch similar tickets:', error);
         setSimilarTickets([]);
@@ -89,8 +132,8 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
       </div>
 
       <p className="mb-4 text-xs text-yellow-700 dark:text-yellow-300">
-        These tickets had similar issues and were successfully resolved. You can use these responses as
-        a starting point.
+        These tickets had similar issues and were successfully resolved. You can use these responses
+        as a starting point.
       </p>
 
       <div className="space-y-3">
@@ -101,10 +144,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1 min-w-0">
-                <Link
-                  to={`/tickets/${ticket.ticketId}`}
-                  className="flex gap-2 items-center group"
-                >
+                <Link to={`/tickets/${ticket.ticketId}`} className="flex gap-2 items-center group">
                   <h4 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
                     {ticket.ticketTitle}
                   </h4>
