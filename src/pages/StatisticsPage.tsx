@@ -216,21 +216,12 @@ export const StatisticsPage = () => {
                     <p className="text-sm text-muted-foreground">Total Entries</p>
                   </div>
                   <div className="p-4 rounded-lg border bg-card">
-                    <p className="text-2xl font-bold text-blue-600">
-                      {kbEntries.filter((e) => e.type === 'qa_pair').length}
-                    </p>
                     <p className="text-sm text-muted-foreground">Q&A Pairs</p>
                   </div>
                   <div className="p-4 rounded-lg border bg-card">
-                    <p className="text-2xl font-bold text-purple-600">
-                      {kbEntries.filter((e) => e.type === 'document').length}
-                    </p>
                     <p className="text-sm text-muted-foreground">Documents</p>
                   </div>
                   <div className="p-4 rounded-lg border bg-card">
-                    <p className="text-2xl font-bold text-indigo-600">
-                      {kbEntries.filter((e) => e.type === 'manual_entry').length}
-                    </p>
                     <p className="text-sm text-muted-foreground">Business Knowledge</p>
                   </div>
                 </div>

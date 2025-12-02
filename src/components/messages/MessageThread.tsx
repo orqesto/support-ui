@@ -151,15 +151,16 @@ export const MessageThread = ({
         const customerEmails: Message[] = [];
 
         allMessages.forEach((msg: Message) => {
-          // Check if this is a system reply
+          // Check if this is a system reply using multiple indicators
           const isSystemReply = msg.metadata?.isSystemReply === true;
+          const isOutgoingMessage = msg.isOutgoing === true;
           const isFromSupport =
             msg.sender.includes('gmail.com') ||
             msg.sender.toLowerCase().includes('support') ||
             msg.sender === 'me';
 
-          // System emails: explicit system replies OR from support addresses
-          if (isSystemReply || (isFromSupport && msg.resolved)) {
+          // System emails: outgoing messages OR explicit system replies OR from support addresses
+          if (isOutgoingMessage || isSystemReply || (isFromSupport && msg.resolved)) {
             systemEmails.push(msg);
           } else {
             customerEmails.push(msg);
@@ -239,7 +240,7 @@ export const MessageThread = ({
       {expanded && (
         <div className="mt-4">
           {loading && (
-            <div className="py-8 py-2 text-sm text-center text-muted-foreground">
+            <div className="py-8 text-sm text-center text-muted-foreground">
               <div className="mx-auto mb-2 w-6 h-6 rounded-full border-2 animate-spin border-primary border-t-transparent" />
               Loading conversation...
             </div>

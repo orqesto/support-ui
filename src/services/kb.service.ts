@@ -13,6 +13,14 @@ export type KBEntry = {
   usageCount: number;
   createdAt: string;
   metadata?: Record<string, unknown>;
+  typeData?: {
+    documentContent?: string;
+    attachmentId?: number;
+    originalFilename?: string;
+    fileType?: string;
+    messageId?: number;
+    [key: string]: unknown;
+  };
 };
 
 export type PaginationMeta = {
@@ -54,6 +62,11 @@ export const kbService = {
     const response = await apiClient.get<PaginatedResponse<KBEntry>>(
       `/api/knowledge-base/entries${queryString ? `?${queryString}` : ''}`
     );
+    return response.data;
+  },
+
+  getById: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<KBEntry>>(`/api/knowledge-base/entries/${id}`);
     return response.data;
   },
 

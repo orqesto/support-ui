@@ -279,7 +279,7 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden sm:block w-px h-8 mx-3 bg-border" />
+                <div className="hidden mx-3 w-px h-8 sm:block bg-border" />
 
                 {/* Channel Group */}
                 <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
@@ -300,7 +300,7 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden lg:block w-px h-8 mx-3 bg-border" />
+                <div className="hidden mx-3 w-px h-8 lg:block bg-border" />
 
                 {/* Message Source Group */}
                 <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
@@ -323,7 +323,7 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Divider - hidden on mobile */}
-                <div className="hidden lg:block w-px h-8 mx-3 bg-border" />
+                <div className="hidden mx-3 w-px h-8 lg:block bg-border" />
 
                 {/* Sort Order */}
                 <div className="flex gap-2 items-center min-w-[140px]">
@@ -334,8 +334,8 @@ export const MessageFilters = ({
                     value={sorting.sortOrder}
                     onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
                     options={[
-                      { value: 'desc', label: 'Newest First' },
-                      { value: 'asc', label: 'Oldest First' },
+                      { value: 'desc', label: 'Oldest First' },
+                      { value: 'asc', label: 'Newest First' },
                     ]}
                     className="min-w-[120px] sm:w-auto"
                   />
