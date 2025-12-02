@@ -44,6 +44,7 @@ export type Message = {
   analysisProvider?: string | null;
   analysisModel?: string | null;
   // Direct reply tracking
+  isOutgoing?: boolean;
   directReply?: string | null;
   repliedBy?: number | null;
   repliedAt?: string | null;
