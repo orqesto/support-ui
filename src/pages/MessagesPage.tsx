@@ -1,40 +1,50 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Mail, RefreshCw } from 'lucide-react';
+import { Mail, RefreshCw, ShieldX } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/Layout';
 import { MessageDetail } from '@/components/MessageDetail';
 import { MessageFilters } from '@/components/MessageFilters';
 import { MessageListItem } from '@/components/MessageListItem';
+import { SpamLogListItem } from '@/components/SpamLogListItem';
+import { SpamFilters } from '@/components/SpamFilters';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/Dialog';
+import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent, DialogFooter, } from '@/components/ui/Dialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
+import { SpamLogDetail } from '@/pages/SpamLogDetail';
 import { messageService } from '@/services/message.service';
+import { spamLogService, type SpamLog, type SpamLogFilters } from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
 
+type TabType = 'planss' | 'ai-modules';
+
 export const MessagesPage = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [refreshing, setRefreshing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const urlSyncedRef = useRef(false); // Track if URL params were synced
+  const urlSyncedRef = useRef(false);
+  
+  const getTabFromUrl = useCallback(() => {
+    const tab = searchParams.get('tab') as TabType;
+    return tab === 'planss' || tab === 'ai-modules' ? tab : 'planss';
+  }, [searchParams]);
+
+  const [activeTab, setActiveTab] = useState<TabType>(getTabFromUrl);
+  const [loading, setLoading] = useState(false);
+  const [spamLogs, setSpamLogs] = useState<SpamLog[]>([]);
+  const [selectedSpamLog, setSelectedSpamLog] = useState<SpamLog | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -43,7 +53,6 @@ export const MessagesPage = () => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
   // Zustand stores
   const token = useAuthStore((state) => state.token);
@@ -68,22 +77,141 @@ export const MessagesPage = () => {
     hasMore: false,
   });
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
-  const fetchingRef = useRef(false); // Track if fetch is in progress
+  const [spamLogFilters, setSpamLogFilters] = useState<SpamLogFilters>({
+    status: 'all',
+    category: 'all',
+    channel: 'all',
+    sortOrder: 'desc',
+  });
+  const [pendingSpamSearch, setPendingSpamSearch] = useState('');
+  const fetchingRef = useRef(false);
+
+  const activeFilterCount =
+    (filters.processed !== 'all' ? 1 : 0) +
+    (filters.channel !== 'all' ? 1 : 0) +
+    ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy)
+      ? 1
+      : 0) +
+    (filters.hasAttachments ? 1 : 0) +
+    (filters.hasReplies ? 1 : 0) +
+    (filters.hasTicket !== undefined ? 1 : 0) +
+    (filters.showFailed ? 1 : 0) +
+    (filters.awaitingCustomerResponse ? 1 : 0) +
+    (filters.search?.trim() ? 1 : 0);
+
+  // Calculate active spam log filter count
+  const activeSpamFilterCount =
+    (spamLogFilters.status && spamLogFilters.status !== 'all' ? 1 : 0) +
+    (spamLogFilters.category && spamLogFilters.category !== 'all' ? 1 : 0) +
+    (spamLogFilters.channel && spamLogFilters.channel !== 'all' ? 1 : 0) +
+    (spamLogFilters.minScore !== undefined || spamLogFilters.maxScore !== undefined ? 1 : 0) +
+    (pendingSpamSearch?.trim() ? 1 : 0);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tab);
+    setSearchParams(newParams);
+  };
+
+  const handleSpamFilterChange = (key: string, value: string | boolean) => {
+    if (key === 'search') {
+      setPendingSpamSearch(value as string);
+    } else {
+      setSpamLogFilters({ ...spamLogFilters, [key]: value });
+    }
+  };
+
+  const handleSpamSearch = () => {
+    void fetchSpamLogs(1, true);
+  };
+
+  const handleSpamSearchBlur = () => {
+    if (!pendingSpamSearch.trim() && spamLogFilters.search) {
+      setSpamLogFilters({ ...spamLogFilters, search: undefined });
+    }
+  };
+
+  const clearSpamFilters = async () => {
+    setSpamLogFilters({
+      status: 'all',
+      category: 'all',
+      channel: 'all',
+      sortOrder: 'desc',
+    });
+    setPendingSpamSearch('');
+    await fetchSpamLogs(1, true);
+  };
+
+  const fetchSpamLogs = useCallback(async (page = 1, force = false) => {
+    if (fetchingRef.current && !force) return;
+    
+    fetchingRef.current = true;
+    setLoading(true);
+    
+    try {
+      const apiFilters: SpamLogFilters = {
+        sortOrder: spamLogFilters.sortOrder,
+      };
+      
+      if (spamLogFilters.status && spamLogFilters.status !== 'all') {
+        apiFilters.status = spamLogFilters.status;
+      }
+      
+      if (spamLogFilters.category && spamLogFilters.category !== 'all') {
+        apiFilters.category = spamLogFilters.category;
+      }
+      
+      if (spamLogFilters.channel && spamLogFilters.channel !== 'all') {
+        apiFilters.channel = spamLogFilters.channel;
+      }
+      
+      if (pendingSpamSearch?.trim()) {
+        apiFilters.search = pendingSpamSearch.trim();
+      }
+      
+      if (spamLogFilters.minScore !== undefined) {
+        apiFilters.minScore = spamLogFilters.minScore;
+      }
+      
+      if (spamLogFilters.maxScore !== undefined) {
+        apiFilters.maxScore = spamLogFilters.maxScore;
+      }
+      
+      if (spamLogFilters.startDate) {
+        apiFilters.startDate = spamLogFilters.startDate;
+      }
+      
+      if (spamLogFilters.endDate) {
+        apiFilters.endDate = spamLogFilters.endDate;
+      }
+      
+      const response = await spamLogService.getAll(apiFilters, page, pagination.limit, spamLogFilters.sortOrder);
+      
+      if (response.success && response.data) {
+        setSpamLogs(response.data);
+        setPaginationLocal(response.pagination);
+      }
+    } catch (error) {
+      console.error('Failed to fetch spam logs:', error);
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
+  }, [spamLogFilters, pendingSpamSearch, pagination.limit, token]);
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
-      // Check cache first
       if (!force) {
         const cached = getCached(page);
         if (cached) {
           setMessagesLocal(cached.messages);
           setPaginationLocal(cached.pagination);
-          setLoading(false); // ← FIX: Set loading to false on cache hit
+          setLoading(false); 
           return;
         }
       }
 
-      // Prevent duplicate simultaneous calls (e.g., from React StrictMode)
       if (fetchingRef.current && !force) {
         return;
       }
@@ -91,9 +219,7 @@ export const MessagesPage = () => {
       fetchingRef.current = true;
       setLoading(true);
       try {
-        // Build API filters
         const apiFilters: Record<string, string> = {};
-        // ⚠️ CRITICAL: Read filters fresh from store, not from closure!
         const currentFilters = useMessagesStore.getState().filters;
 
         if (currentFilters.processed !== 'all') {
@@ -105,7 +231,6 @@ export const MessagesPage = () => {
         if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
           apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
-        // Add metadata-based filters
         if (currentFilters.showSpam) {
           apiFilters.showSpam = 'true';
         }
@@ -149,13 +274,10 @@ export const MessagesPage = () => {
         );
 
         if (response.success && response.data) {
-          // Update cache
           setMessages(response.data, response.pagination);
-          // Update local state
           setMessagesLocal(response.data);
           setPaginationLocal(response.pagination);
 
-          // If current page exceeds total pages, reset to page 1
           if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
             await fetchMessages(1);
           }
@@ -170,37 +292,32 @@ export const MessagesPage = () => {
     [getCached, setMessages, pagination.limit]
   );
 
-  // Fetch on mount and when filters or sorting change
+  // Load data based on active tab
   useEffect(() => {
-    // Skip initial fetch if URL sync hasn't happened yet
-    if (!urlSyncedRef.current) {
-      return;
-    }
+    if (!urlSyncedRef.current) return;
 
-    fetchMessages(1).catch((error) => {
-      console.error('Failed to fetch messages:', error);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    filters.processed,
-    filters.channel,
-    filters.messageSourceId,
-    filters.showSpam,
-    filters.excludeSpam,
-    filters.showWorthy,
-    filters.showNeedsInfo,
-    filters.hasAttachments,
-    filters.hasReplies,
-    filters.hasTicket,
-    filters.showFailed,
-    filters.awaitingCustomerResponse,
-    filters.search,
-    sorting.sortOrder,
-  ]);
+    if (activeTab === 'ai-modules') {
+      void fetchSpamLogs(1);
+    } else {
+      void fetchMessages(1);
+    }
+  }, [activeTab, filters.search, filters.channel, sorting.sortOrder, spamLogFilters, fetchSpamLogs, fetchMessages]);
 
   const handlePageChange = async (page: number) => {
-    await fetchMessages(page);
+    if (activeTab === 'ai-modules') {
+      await fetchSpamLogs(page);
+    } else {
+      await fetchMessages(page);
+    }
   };
+
+  // Sync URL tab
+  useEffect(() => {
+    const newTab = getTabFromUrl();
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  }, [searchParams, activeTab, getTabFromUrl]);
 
   // Sync URL parameters with filters on mount
   useEffect(() => {
@@ -216,6 +333,7 @@ export const MessagesPage = () => {
     const urlTicket = searchParams.get('ticket');
     const urlFailed = searchParams.get('failed');
     const urlSearch = searchParams.get('search');
+    const urlTab = searchParams.get('tab');
 
     const urlFilters: Partial<typeof filters> = {};
     let hasUrlFilters = false;
@@ -269,82 +387,71 @@ export const MessagesPage = () => {
       hasUrlFilters = true;
     }
 
-    // Mark URL sync as complete FIRST to prevent filter effect from running on mount
+    const tabToLoad = urlTab && (urlTab === 'planss' || urlTab === 'ai-modules') ? urlTab : 'planss';
+    
     urlSyncedRef.current = true;
+    setActiveTab(tabToLoad);
 
-    // Apply URL filters to store if any exist (triggers filter effect)
     if (hasUrlFilters) {
       setFilters(urlFilters);
+    }
+
+   
+    if (tabToLoad === 'ai-modules') {
+      void fetchSpamLogs(1).catch((error) => {
+        console.error('Failed to fetch spam logs:', error);
+      });
     } else {
-      // No URL filters - fetch with default filters
-      fetchMessages(1).catch((error) => {
+      void fetchMessages(1).catch((error) => {
         console.error('Failed to fetch messages:', error);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  }, []);
 
-  // Sync filters to URL whenever they change
+  // Sync filters to URL
   useEffect(() => {
     const params = new URLSearchParams();
+    params.set('tab', activeTab);
 
-    // Preserve message ID if present
     const messageIdParam = searchParams.get('id');
     if (messageIdParam) {
       params.set('id', messageIdParam);
     }
 
-    // Add filters to URL (only non-default values)
     if (filters.processed && filters.processed !== 'all') {
       params.set('processed', filters.processed);
     }
-    if (filters.channel && filters.channel !== 'all') {
-      params.set('channel', filters.channel);
-    }
-    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
-      params.set('source', filters.messageSourceId);
-    }
-    if (filters.showSpam) {
-      params.set('spam', 'true');
-    }
-    if (filters.excludeSpam) {
-      params.set('excludeSpam', 'true');
-    }
-    if (filters.showWorthy) {
-      params.set('worthy', 'true');
-    }
-    if (filters.showNeedsInfo) {
-      params.set('needsInfo', 'true');
-    }
-    if (filters.hasAttachments) {
-      params.set('attachments', 'true');
-    }
-    if (filters.hasReplies) {
-      params.set('replies', 'true');
-    }
-    if (filters.hasTicket !== undefined) {
-      params.set('ticket', filters.hasTicket.toString());
-    }
-    if (filters.showFailed) {
-      params.set('failed', 'true');
-    }
-    if (filters.search) {
-      params.set('search', filters.search);
-    }
 
-    // Update URL without triggering navigation
-    setSearchParams(params, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, setSearchParams]); // searchParams intentionally omitted to prevent circular dependency
+    const currentUrl = searchParams.toString();
+    const newUrl = params.toString();
+    
+    if (currentUrl !== newUrl) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [filters, activeTab, setSearchParams, searchParams]);
 
   // Auto-open message from query param
   useEffect(() => {
     const messageIdParam = searchParams.get('id');
     const paramId = messageIdParam ? parseInt(messageIdParam) : null;
+    const tab = searchParams.get('tab') as TabType;
 
-    // Only fetch if URL has an ID and it's different from the currently selected message
-    if (paramId && (!selectedMessage || selectedMessage.id !== paramId)) {
-      // Fetch the specific message by ID (it might be filtered out)
+    if (tab === 'ai-modules' && paramId) {
+      // Fetch spam log
+      const fetchAndOpenSpamLog = async () => {
+        try {
+          const response = await spamLogService.getById(paramId);
+          if (response.success && response.data) {
+            setSelectedSpamLog(response.data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch spam log:', error);
+        }
+      };
+      void fetchAndOpenSpamLog();
+    } else if (paramId && (!selectedMessage || selectedMessage.id !== paramId)) {
+      // Fetch regular message
       const fetchAndOpenMessage = async () => {
         try {
           const response = await messageService.getById(paramId);
@@ -355,41 +462,33 @@ export const MessagesPage = () => {
           console.error('Failed to fetch message:', error);
         }
       };
-      fetchAndOpenMessage().catch((error) => {
-        console.error('Failed to fetch message:', error);
-      });
-    } else if (!paramId && selectedMessage) {
-      // URL cleared but message still selected - clear selection
+      void fetchAndOpenMessage();
+    } else if (!paramId) {
       setSelectedMessage(null);
+      setSelectedSpamLog(null);
     }
   }, [searchParams, selectedMessage]);
 
   const handleFilterChange = (key: string, value: string | boolean) => {
-    // Primary filters: processed, channel, messageSourceId
     const primaryFilters = ['processed', 'channel', 'messageSourceId'];
 
     if (key === 'search') {
       setPendingSearch(value as string);
-      // If clearing search (empty value), immediately apply to show all results
       if (!(value as string).trim()) {
         updateSecondaryFilter('search', '');
       }
     } else if (primaryFilters.includes(key)) {
-      // Primary filter change: keeps other primary filters, clears secondary
       updatePrimaryFilter(key as 'processed' | 'channel' | 'messageSourceId', value as string);
     } else {
-      // Secondary filter change: keeps all filters
       updateSecondaryFilter(key as keyof typeof filters, value);
     }
   };
 
   const handleSearch = () => {
-    // Trigger actual search when button clicked or Enter pressed
     updateSecondaryFilter('search', pendingSearch);
   };
 
   const handleSearchBlur = () => {
-    // If search is empty on blur, clear the search filter to show all data
     if (!pendingSearch.trim() && filters.search) {
       updateSecondaryFilter('search', '');
     }
@@ -398,7 +497,11 @@ export const MessagesPage = () => {
   const clearFilters = async () => {
     clearFiltersStore();
     setPendingSearch('');
-    await fetchMessages(pagination.page, true); // Keep current page, force refresh
+    if (activeTab === 'ai-modules') {
+      await fetchSpamLogs(1, true);
+    } else {
+      await fetchMessages(1, true);
+    }
   };
 
   const handleApprove = (message: Message) => {
@@ -406,7 +509,6 @@ export const MessagesPage = () => {
   };
 
   const handleResolve = async () => {
-    // Refresh the messages list after resolving
     await fetchMessages(pagination.page, true);
     setSelectedMessage(null);
   };
@@ -428,15 +530,11 @@ export const MessagesPage = () => {
       await messageService.markAsUnprocessed(message.id);
       clearCache();
 
-      // Refetch the messages list
       await fetchMessages(pagination.page, true);
 
-      // Refetch the specific message to get updated data
       const response = await messageService.getById(reopenedMessageId);
       if (response.success && response.data) {
         setSelectedMessage(response.data);
-
-        // Update URL to include message ID (keeps filters intact)
         const params = new URLSearchParams(searchParams);
         params.set('id', reopenedMessageId.toString());
         setSearchParams(params);
@@ -459,25 +557,23 @@ export const MessagesPage = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchMessages(pagination.page, true);
+    if (activeTab === 'ai-modules') {
+      await fetchSpamLogs(pagination.page, true);
+    } else {
+      await fetchMessages(pagination.page, true);
+    }
     setRefreshing(false);
   };
 
   const handleRefreshMessage = async () => {
-    if (!selectedMessage) {
-      return;
-    }
+    if (!selectedMessage) return;
+    
     try {
-      // Clear cache to force fresh data
       clearCache();
-
-      // Refresh the detail view
       const response = await messageService.getById(selectedMessage.id);
       if (response.success && response.data) {
         setSelectedMessage(response.data);
       }
-
-      // Refresh the list to show updated assignee
       await fetchMessages(pagination.page, true);
     } catch (error) {
       console.error('Failed to refresh message:', error);
@@ -499,9 +595,12 @@ export const MessagesPage = () => {
       setRefreshing(true);
       await apiClient.post('/api/messages/check-emails');
 
-      // Wait a bit for emails to be processed, then refresh
       setTimeout(async () => {
-        await fetchMessages(1, true);
+        if (activeTab === 'ai-modules') {
+          await fetchSpamLogs(1, true);
+        } else {
+          await fetchMessages(1, true);
+        }
         setRefreshing(false);
       }, 2000);
     } catch (error) {
@@ -522,9 +621,7 @@ export const MessagesPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!messageToDelete) {
-      return;
-    }
+    if (!messageToDelete) return;
 
     setDeleting(true);
     try {
@@ -547,18 +644,28 @@ export const MessagesPage = () => {
     }
   };
 
-  const activeFilterCount =
-    (filters.processed !== 'all' ? 1 : 0) +
-    (filters.channel !== 'all' ? 1 : 0) +
-    ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy)
-      ? 1
-      : 0) +
-    (filters.hasAttachments ? 1 : 0) +
-    (filters.hasReplies ? 1 : 0) +
-    (filters.hasTicket !== undefined ? 1 : 0) +
-    (filters.showFailed ? 1 : 0) +
-    (filters.awaitingCustomerResponse ? 1 : 0) +
-    (filters.search?.trim() ? 1 : 0);
+  const handleDeleteSpamLog = async (_log: SpamLog) => {
+    try {
+      await spamLogService.cleanup({ maxEntries: 1 });
+      setSelectedSpamLog(null);
+      await fetchSpamLogs(pagination.page, true);
+    } catch (error) {
+      console.error('Failed to delete spam log:', error);
+    }
+  };
+
+  const handleUpdateSpamLogStatus = async (log: SpamLog, status: SpamLog['status'], notes?: string) => {
+    try {
+      await spamLogService.updateStatus(log.id, status, notes);
+      await fetchSpamLogs(pagination.page, true);
+      const updated = await spamLogService.getById(log.id);
+      if (updated.success && updated.data) {
+        setSelectedSpamLog(updated.data);
+      }
+    } catch (error) {
+      console.error('Failed to update spam log status:', error);
+    }
+  };
 
   return (
     <Layout>
@@ -588,75 +695,192 @@ export const MessagesPage = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6">
-          <MessageFilters
-            filters={filters}
-            sorting={sorting}
-            pendingSearch={pendingSearch}
-            activeFilterCount={activeFilterCount}
-            pagination={pagination}
-            onFilterChange={handleFilterChange}
-            onSearch={handleSearch}
-            onSearchBlur={handleSearchBlur}
-            onClearFilters={clearFilters}
-            onSortingChange={(sortOrder) => setSorting({ sortOrder })}
-            setPendingSearch={setPendingSearch}
-            setFilters={setFilters}
-          />
-        </div>
+        {/* Tabs */}
+        <Card>
+          <CardContent className="overflow-visible p-0">
+            <div className="overflow-visible border-b">
+              <div className="flex">
+                <button
+                  onClick={() => handleTabChange('planss')}
+                  className={`flex flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
+                    activeTab === 'planss'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                >
+                  <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                    Base Plans
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleTabChange('ai-modules')}
+                  className={`flex flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
+                    activeTab === 'ai-modules'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                > 
+                  <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                    AI Modules
+                  </span>
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              // Index key is safe: array is immutable (recreated from text split), no reordering
-              // eslint-disable-next-line react/no-array-index-key
-              <Card key={`skeleton-${i}`} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                  <div className="w-1/2 h-4 bg-gray-200 rounded" />
+        {/* Base Plans Tab */}
+        {activeTab === 'planss' && (
+          <> 
+            {/* Filters */}
+            <div className="mb-6">
+              <MessageFilters
+                filters={filters}
+                sorting={sorting}
+                pendingSearch={pendingSearch}
+                activeFilterCount={activeFilterCount}
+                pagination={pagination}
+                onFilterChange={handleFilterChange}
+                onSearch={handleSearch}
+                onSearchBlur={handleSearchBlur}
+                onClearFilters={clearFilters}
+                onSortingChange={(sortOrder) => setSorting({ sortOrder })}
+                setPendingSearch={setPendingSearch}
+                setFilters={setFilters}
+              />
+            </div>
+
+            {loading ? (
+              <div className="space-y-4">
+                {[1,2,3,4,5].map((id) => (
+                  <Card key={`skeleton-${id}`} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                      <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : messages.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                  <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
+                  <p className="text-muted-foreground">
+                    {activeFilterCount > 0 ? 'No messages match your filters' : 'No messages available'}
+                  </p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : messages.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-              <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
-              <p className="text-muted-foreground">
-                {activeFilterCount > 0 ? 'No messages match your filters' : 'No messages available'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {messages.map((message) => (
-              <MessageListItem
-                key={message.id}
-                message={message}
-                onOpen={(msg) => {
-                  setSelectedMessage(msg);
-                  setSearchParams({ id: msg.id.toString() });
-                }}
+            ) : (
+              <div className="grid gap-4">
+                {messages.map((message) => (
+                  <MessageListItem
+                    key={message.id}
+                    message={message}
+                    onOpen={(msg) => {
+                      setSelectedMessage(msg);
+                      const params = new URLSearchParams(searchParams);
+                      params.set('id', msg.id.toString());
+                      params.set('tab', 'planss');
+                      setSearchParams(params);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && messages.length > 0 && (
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={handlePageChange}
+                loading={loading}
               />
-            ))}
-          </div>
+            )}
+          </>
         )}
 
-        {/* Pagination */}
-        {!loading && messages.length > 0 && (
-          <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            total={pagination.total}
-            limit={pagination.limit}
-            onPageChange={handlePageChange}
-            loading={loading}
-          />
+        {/* AI Modules Tab */}
+        {activeTab === 'ai-modules' && (
+          <>
+            {/* Filters */}
+            <div className="mb-6">
+              <SpamFilters
+                filters={spamLogFilters}
+                pendingSearch={pendingSpamSearch}
+                activeFilterCount={activeSpamFilterCount}
+                pagination={pagination}
+                onFilterChange={handleSpamFilterChange}
+                onSearch={handleSpamSearch}
+                onSearchBlur={handleSpamSearchBlur}
+                onClearFilters={clearSpamFilters}
+                onSortingChange={(sortOrder) => setSpamLogFilters({ ...spamLogFilters, sortOrder })}
+                setPendingSearch={setPendingSpamSearch}
+                setFilters={setSpamLogFilters}
+              />
+            </div>
+
+            {loading ? (
+              <div className="space-y-4">
+                {[1,2,3,4,5].map((id) => (
+                  <Card key={`spam-skeleton-${id}`} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                      <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : spamLogs.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <ShieldX className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                  <h3 className="mb-2 text-lg font-semibold">No spam logs found</h3>
+                  <p className="text-muted-foreground">
+                    {activeSpamFilterCount > 0 
+                      ? 'No spam logs match your filters' 
+                      : 'No spam logs available'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {spamLogs.map((log) => (
+                  <SpamLogListItem
+                    key={log.id}
+                    log={log}
+                    onOpen={(log) => {
+                      setSelectedSpamLog(log);
+                      const params = new URLSearchParams(searchParams);
+                      params.set('id', log.id.toString());
+                      params.set('tab', 'ai-modules');
+                      setSearchParams(params);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && spamLogs.length > 0 && (
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={handlePageChange}
+                loading={loading}
+              />
+            )}
+          </>
         )}
+
       </div>
 
+      {/* Delete Message Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogHeader>
           <DialogTitle>Delete Message</DialogTitle>
@@ -688,7 +912,6 @@ export const MessagesPage = () => {
         <Drawer
           open={!!selectedMessage}
           onClose={() => {
-            // Remove only the 'id' parameter, keep all filter parameters
             const params = new URLSearchParams(searchParams);
             params.delete('id');
             setSearchParams(params);
@@ -705,7 +928,6 @@ export const MessagesPage = () => {
             }}
             onReopen={async () => {
               await handleReopen(selectedMessage);
-              // Message stays open after reopening (handleReopen handles this)
             }}
             onDelete={() => {
               handleDeleteClick(selectedMessage);
@@ -723,6 +945,36 @@ export const MessagesPage = () => {
               } catch (error) {
                 console.error('Failed to navigate to message:', error);
               }
+            }}
+          />
+        </Drawer>
+      )}
+
+      {/* Spam Log Detail Drawer */}
+      {selectedSpamLog && (
+        <Drawer
+          open={!!selectedSpamLog}
+          onClose={() => {
+            const params = new URLSearchParams(searchParams);
+            params.delete('id');
+            setSearchParams(params);
+            setSelectedSpamLog(null);
+          }}
+          title="Spam Log Details"
+        >
+          <SpamLogDetail
+            log={selectedSpamLog}
+            onUpdateStatus={async (status, notes) => {
+              await handleUpdateSpamLogStatus(selectedSpamLog, status, notes);
+            }}
+            onDelete={async () => {
+              await handleDeleteSpamLog(selectedSpamLog);
+            }}
+            onClose={() => {
+              const params = new URLSearchParams(searchParams);
+              params.delete('id');
+              setSearchParams(params);
+              setSelectedSpamLog(null);
             }}
           />
         </Drawer>

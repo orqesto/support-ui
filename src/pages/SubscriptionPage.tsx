@@ -257,6 +257,8 @@ export const SubscriptionPage = () => {
           </CardContent>
         </Card>
 
+
+      
         {/* Plans Tab */}
         {activeTab === 'plans' && (
           <>

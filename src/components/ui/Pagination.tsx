@@ -73,7 +73,7 @@ export const Pagination = ({
           disabled={currentPage === 1 || loading}
         >
           <ChevronLeft className="w-4 h-4" />
-          <div className='hidden sm: block'>Previous</div>
+          <div className='hidden sm:block'>Previous</div>
         </Button>
 
         <div className="flex gap-1">
