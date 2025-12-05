@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-
 import { useEffect, useState } from 'react';
 import { Check, X, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -49,15 +46,27 @@ export const AdminPlansTab = () => {
       setLoading(true);
       const [subscriptionRes, availablePlansRes, modulesRes] = await Promise.all([
         apiClient
-          .get('/api/organizations/subscription')
-          .catch(() => ({ data: { success: false } })),
-        apiClient.get('/api/organizations/available-plans'),
-        apiClient.get('/api/organizations/ai-modules'),
+          .get<{ success: boolean; data?: unknown }>('/api/organizations/subscription')
+          .catch(() => ({ data: { success: false as const } })),
+        apiClient.get<{ success: boolean; data: unknown }>('/api/organizations/available-plans'),
+        apiClient.get<{ success: boolean; data: unknown }>('/api/organizations/ai-modules'),
       ]);
 
-      if (subscriptionRes.data.success) {
+      if (subscriptionRes.data.success && subscriptionRes.data.data) {
         // Current subscription
-        const sub = subscriptionRes.data.data;
+        const sub = subscriptionRes.data.data as {
+          planId: number;
+          planName: string;
+          planDisplayName: string;
+          planPrice: number;
+          planCurrency: string;
+          status: string;
+          planLimits: {
+            maxUsers: number;
+            maxMessagesPerMonth?: number;
+            maxIntegrations: number;
+          };
+        };
         setCurrentPlan({
           id: sub.planId,
           name: sub.planName,
@@ -100,7 +109,10 @@ export const AdminPlansTab = () => {
 
     try {
       setSwitching(true);
-      const response = await apiClient.patch('/api/organizations/subscription/plan', { planId });
+      const response = await apiClient.patch<{ success: boolean }>(
+        '/api/organizations/subscription/plan',
+        { planId }
+      );
 
       if (response.data.success) {
         // Refresh data to show new plan
@@ -116,7 +128,9 @@ export const AdminPlansTab = () => {
   const handleToggleModule = async (moduleId: number) => {
     try {
       setToggling({ type: 'module', id: moduleId });
-      const response = await apiClient.patch(`/api/organizations/ai-modules/${moduleId}/toggle`);
+      const response = await apiClient.patch<{ success: boolean; data: { isActive: boolean } }>(
+        `/api/organizations/ai-modules/${moduleId}/toggle`
+      );
 
       if (response.data.success) {
         setModules((prev) =>

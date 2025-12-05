@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { Zap, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import DepartmentBadge from '@/components/DepartmentBadge';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { integrationsService } from '@/services/integrations.service';
+import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 
 type SlackConfig = {
   botToken: string;
@@ -16,128 +15,35 @@ export const SlackIntegrationCard = ({
   onRefresh,
   onShowAlert,
 }: IntegrationCardProps) => {
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-
-  const [config, setConfig] = useState<SlackConfig>({
-    botToken: '',
-    signingSecret: '',
+  const {
+    showForm,
+    saving,
+    testing,
+    deleting,
+    deleteConfirm,
+    editingId,
+    config,
+    setShowForm,
+    setConfig,
+    setDeleteConfirm,
+    resetForm,
+    loadForEdit,
+    saveIntegration,
+    testConnection,
+    deleteIntegration,
+  } = useIntegrationCard<SlackConfig>({
+    integrationType: 'slack',
+    integrationDisplayName: 'Slack Workspace',
+    initialConfig: { botToken: '', signingSecret: '' },
+    onRefresh,
+    onShowAlert,
   });
 
   const slackIntegrations = integrations.filter((i) => i.type === 'slack');
 
-  const resetForm = () => {
-    setConfig({ botToken: '', signingSecret: '' });
-    setShowForm(false);
-    setEditingId(null);
-  };
-
-  const loadForEdit = (id: number, currentConfig: SlackConfig) => {
-    setEditingId(id);
-    setConfig(currentConfig);
-    setShowForm(true);
-  };
-
-  const saveIntegration = async () => {
-    setSaving(true);
-    try {
-      const response = await integrationsService.upsert({
-        name: 'Slack Workspace',
-        type: 'slack',
-        enabled: true,
-        config,
-      });
-
-      if (response.success) {
-        await onRefresh();
-        resetForm();
-        onShowAlert({
-          open: true,
-          title: 'Success',
-          description: 'Slack integration saved successfully!',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to save Slack integration:', error);
-      onShowAlert({
-        open: true,
-        title: 'Error',
-        description: 'Failed to save Slack integration',
-        variant: 'error',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const testConnection = async (id: number, name: string) => {
-    setTesting(id);
-    try {
-      const response = await integrationsService.test(id);
-      if (response.success) {
-        onShowAlert({
-          open: true,
-          title: 'Test Successful',
-          description: `${name} connection test successful!`,
-          variant: 'success',
-        });
-      } else {
-        onShowAlert({
-          open: true,
-          title: 'Test Failed',
-          description: `${name} connection test failed: ${response.message}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to test ${name} connection:`, error);
-      onShowAlert({
-        open: true,
-        title: 'Test Failed',
-        description: `Failed to test ${name} connection`,
-        variant: 'error',
-      });
-    } finally {
-      setTesting(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteConfirm) {
-      return;
-    }
-
-    const { id, name } = deleteConfirm;
-    setDeleting(id);
-    setDeleteConfirm(null);
-
-    try {
-      const response = await integrationsService.delete(id, 'slack');
-      if (response.success) {
-        await onRefresh();
-      } else {
-        onShowAlert({
-          open: true,
-          title: 'Error',
-          description: `Failed to delete ${name}: ${response.error ?? 'Unknown error'}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to delete ${name}:`, error);
-      onShowAlert({
-        open: true,
-        title: 'Error',
-        description: `Failed to delete ${name}. Check console for details.`,
-        variant: 'error',
-      });
-    } finally {
-      setDeleting(null);
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      void deleteIntegration(deleteConfirm.id, deleteConfirm.name);
     }
   };
 
@@ -152,13 +58,13 @@ export const SlackIntegrationCard = ({
             </CardTitle>
             <Button
               size="sm"
-              className='py-5'
+              className="py-5"
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
+              <Plus className="hidden mr-1 w-4 h-4 sm:block" />
               Add Slack
             </Button>
           </div>
@@ -176,7 +82,7 @@ export const SlackIntegrationCard = ({
                       className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2 items-center">
                         <p className="font-medium">{integration.name}</p>
                         {integration.departmentRole && (
                           <DepartmentBadge department={integration.departmentRole} size="sm" />
@@ -211,7 +117,9 @@ export const SlackIntegrationCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setDeleteConfirm({ id: integration.id, name: integration.name })}
+                      onClick={() =>
+                        setDeleteConfirm({ id: integration.id, name: integration.name })
+                      }
                       isLoading={deleting === integration.id}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
@@ -267,7 +175,7 @@ export const SlackIntegrationCard = ({
               </p>
               <div className="flex gap-2">
                 <Button
-                  onClick={saveIntegration}
+                  onClick={() => saveIntegration()}
                   isLoading={saving}
                   disabled={!config.botToken || !config.signingSecret}
                 >

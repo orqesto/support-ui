@@ -1,17 +1,8 @@
 import { useState } from 'react';
-import {
-  Brain,
-  Plus,
-  Save,
-  Trash2,
-  Edit,
-  TestTube2,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Brain, Plus, Save, Trash2, Edit, TestTube2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import type { Integration } from '@/services/integrations.service';
 import type { AIModel } from '@/types/aiProviders';
 
@@ -85,12 +76,12 @@ export const PerplexityProviderCard = ({
       ...config,
       apiKey: config.apiKey.includes('•') ? '' : config.apiKey,
     };
-    
+
     // Only save if we have a real API key
     if (!configToSave.apiKey) {
       return; // User didn't change the API key, skip save
     }
-    
+
     onSave(configToSave);
     handleReset();
   };
@@ -105,7 +96,7 @@ export const PerplexityProviderCard = ({
           </CardTitle>
           <Button
             size="sm"
-            className='py-5'
+            className="py-5"
             onClick={() => {
               handleReset();
               setShowForm(!showForm);
@@ -140,11 +131,21 @@ export const PerplexityProviderCard = ({
                       <span className="text-xs text-muted-foreground">
                         {integration.enabled ? 'Enabled' : 'Disabled'}
                       </span>
-                      <label className="relative inline-flex items-center cursor-pointer" aria-label={`Toggle ${integration.name}`}>
+                      <label
+                        className="relative inline-flex items-center cursor-pointer"
+                        aria-label={`Toggle ${integration.name}`}
+                      >
                         <input
                           type="checkbox"
                           checked={integration.enabled}
-                          onChange={() => onToggleEnabled(integration.id, integration.enabled, integration.name, integration.type)}
+                          onChange={() =>
+                            onToggleEnabled(
+                              integration.id,
+                              integration.enabled,
+                              integration.name,
+                              integration.type
+                            )
+                          }
                           disabled={toggling === integration.id}
                           className="sr-only peer"
                         />
@@ -231,19 +232,17 @@ export const PerplexityProviderCard = ({
                   placeholder="pplx-..."
                 />
               </div>
-              <Select
-                label="Default Model"
+              <ReactSelect
+                label="Model"
                 value={config.defaultModel}
-                onChange={(e) => setConfig({ ...config, defaultModel: e.target.value })}
-              >
-                {models
+                onChange={(value) => setConfig({ ...config, defaultModel: value })}
+                options={models
                   .filter((m) => m.type === 'chat')
-                  .map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-              </Select>
+                  .map((model) => ({
+                    value: model.id,
+                    label: model.name,
+                  }))}
+              />
               <div>
                 <label htmlFor="baseUrl" className="text-sm font-medium">
                   Base URL (Optional)

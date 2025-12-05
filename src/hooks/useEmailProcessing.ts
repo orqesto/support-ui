@@ -21,7 +21,7 @@ type EmailProcessingEvent = {
     messageId?: string;
     sender?: string;
     subject?: string;
-    status?: string;
+    status?: string; // Stage: 'fetching', 'analyzing', 'kb-processing', 'complete'
     aiSuggestion?: string;
     processed?: number;
     analyzed?: number; // Number of messages that went through AI analysis
@@ -40,7 +40,9 @@ export type ProcessingSession = {
   integrationName: string;
   departmentRole?: string; // Department this integration belongs to
   status: ProcessingStatus;
+  stage?: string; // Current stage: 'fetching', 'analyzing', 'kb-processing', 'complete'
   total: number;
+  emailTotal?: number; // Original email total (preserved during KB processing)
   current: number;
   processed: number; // Total processed (successful + failed + skipped)
   analyzed?: number; // Number of messages that went through AI analysis
@@ -64,6 +66,7 @@ export type ProcessingSession = {
 
 type EmailProcessingState = {
   status: ProcessingStatus;
+  stage?: string; // Current stage: 'fetching', 'analyzing', 'kb-processing', 'complete'
   total: number;
   current: number;
   processed: number;
@@ -84,6 +87,7 @@ export const useEmailProcessing = (
   const [socket, setSocket] = useState<Socket | null>(null);
   const [state, setState] = useState<EmailProcessingState>({
     status: 'idle',
+    stage: undefined,
     total: 0,
     current: 0,
     processed: 0,
@@ -129,9 +133,9 @@ export const useEmailProcessing = (
     }
   }, [sessions]);
 
-  // Auto-timeout stuck sessions after 10 minutes (increased for large KB processing)
+  // Auto-timeout stuck sessions after 20 minutes (increased for throttled processing with large datasets)
   useEffect(() => {
-    const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    const TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 
     const checkInterval = setInterval(() => {
       const now = Date.now();
@@ -146,12 +150,12 @@ export const useEmailProcessing = (
             now - session.timestamp > TIMEOUT_MS;
 
           if (isStuck) {
-            console.warn(`[useEmailProcessing] Session ${key} timed out after 10 minutes`);
+            console.warn(`[useEmailProcessing] Session ${key} timed out after 20 minutes`);
             updated.set(key, {
               ...session,
               status: 'error',
               error:
-                'Processing timeout (5 min) - integration may have connection issues or large dataset',
+                'Processing timeout (20 min) - integration may have connection issues or large dataset',
               isProcessing: false,
             });
             hasChanges = true;
@@ -251,9 +255,16 @@ export const useEmailProcessing = (
               if (existing) {
                 const eventCurrent = event.data?.current ?? 0;
                 const eventTotal = event.data?.total ?? 0;
+                const eventStage = event.data?.status; // Get stage from event data
 
-                // Detect phase change: total changes significantly (e.g., 128 → 5)
+                // Detect phase change: total changes significantly (e.g., 312 → 50)
                 const isNewPhase = eventTotal > 0 && eventTotal !== existing.total;
+                const isKBPhase = eventStage === 'kb-processing';
+
+                // Preserve email total: update during email phases, freeze during KB phase
+                const emailTotal = isKBPhase
+                  ? (existing.emailTotal ?? existing.total) // Freeze at KB start
+                  : eventTotal || existing.total; // Keep updating during email processing
 
                 // Use event data to update current/total (shows active phase progress)
                 // If new phase but eventCurrent is 0, keep old values until phase actually starts
@@ -266,7 +277,11 @@ export const useEmailProcessing = (
                   isNewPhase && eventCurrent === 0 ? existing.total : eventTotal || existing.total;
 
                 const newProgress = total > 0 ? (current / total) * 100 : 0;
-                const clampedProgress = Math.max(existing.progress ?? 0, newProgress);
+                // Only clamp if total hasn't changed (prevents flickering)
+                // Allow progress to decrease when new messages are found (isNewPhase)
+                const clampedProgress = isNewPhase
+                  ? newProgress
+                  : Math.max(existing.progress ?? 0, newProgress);
 
                 // Reactivate if status was complete
                 const shouldReactivate = existing.status === 'complete';
@@ -277,8 +292,10 @@ export const useEmailProcessing = (
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: shouldReactivate ? 'processing' : existing.status,
+                  stage: eventStage, // Track current stage
                   current,
                   total,
+                  emailTotal, // Preserve original email count
                   // Update analyzed if provided by analyzing stage
                   ...(event.data?.analyzed !== undefined && { analyzed: event.data.analyzed }),
                   progress: clampedProgress,
@@ -311,6 +328,7 @@ export const useEmailProcessing = (
                   ...(existing.status === 'idle' && {
                     status: 'error',
                     error: event.data?.error,
+                    isProcessing: false,
                   }),
                 });
               }
@@ -372,21 +390,6 @@ export const useEmailProcessing = (
                   fetchTime: event.data?.fetchTime,
                   processTime: event.data?.processTime,
                   totalTime: event.data?.totalTime,
-                });
-              }
-              break;
-
-            // eslint-disable-next-line no-duplicate-case
-            case 'error':
-              if (existing) {
-                newSessions.set(sessionKey, {
-                  ...existing,
-                  failed: existing.failed + 1,
-                  ...(existing.status === 'idle' && {
-                    status: 'error',
-                    error: event.data?.error,
-                    isProcessing: false,
-                  }),
                 });
               }
               break;

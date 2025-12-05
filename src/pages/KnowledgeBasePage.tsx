@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';

@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable react/no-unescaped-entities */
-
 import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Download, TrendingDown, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -32,8 +27,10 @@ export const UsageStatsPage = () => {
   useEffect(() => {
     const fetchUsage = async () => {
       try {
-        const res = await apiClient.get('/api/subscriptions/usage');
-        setUsage(res.data.data.usage || []);
+        const res = await apiClient.get<{ success: boolean; data: { usage: UsageModule[] } }>(
+          '/api/subscriptions/usage'
+        );
+        setUsage(res.data.data.usage);
       } catch (error) {
         console.error('Failed to load usage:', error);
       } finally {

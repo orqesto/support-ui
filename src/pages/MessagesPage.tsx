@@ -2,10 +2,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Mail, RefreshCw, ShieldX } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/Layout';
-import { MessageDetail } from '@/components/MessageDetail';
-import { MessageFilters } from '@/components/MessageFilters';
-import { MessageListItem } from '@/components/MessageListItem';
 import { SpamLogListItem } from '@/components/SpamLogListItem';
 import { SpamFilters } from '@/components/SpamFilters';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -22,6 +18,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
+import { MessageFilters } from '@/components/messages/MessageFilters';
+import { MessageListItem } from '@/components/messages/MessageListItem';
+import { MessageDetail } from '@/components/messages/MessageDetail';
+import { Layout } from '@/components/layout/Layout';
 
 type TabType = 'messages' | 'spam';
 
@@ -329,6 +329,9 @@ export const MessagesPage = () => {
         if (currentFilters.showSpam) {
           apiFilters.showSpam = 'true';
         }
+        if (currentFilters.showSuspicious) {
+          apiFilters.showSuspicious = 'true';
+        }
         if (currentFilters.excludeSpam) {
           apiFilters.excludeSpam = 'true';
         }
@@ -420,6 +423,7 @@ export const MessagesPage = () => {
     const urlChannel = searchParams.get('channel');
     const urlMessageSource = searchParams.get('source');
     const urlSpam = searchParams.get('spam');
+    const urlSuspicious = searchParams.get('suspicious');
     const urlExcludeSpam = searchParams.get('excludeSpam');
     const urlWorthy = searchParams.get('worthy');
     const urlNeedsInfo = searchParams.get('needsInfo');
@@ -447,6 +451,10 @@ export const MessagesPage = () => {
     }
     if (urlSpam === 'true') {
       urlFilters.showSpam = true;
+      hasUrlFilters = true;
+    }
+    if (urlSuspicious === 'true') {
+      urlFilters.showSuspicious = true;
       hasUrlFilters = true;
     }
     if (urlExcludeSpam === 'true') {

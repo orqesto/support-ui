@@ -7,6 +7,7 @@ import {
   XCircle,
   MessageCircle,
 } from 'lucide-react';
+import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { DeepSeekProviderCard } from '@/components/settings/providers/DeepSeekProviderCard';
 import { OpenAIProviderCard } from '@/components/settings/providers/OpenAIProviderCard';
@@ -318,7 +319,9 @@ export const AIProvidersSettings = () => {
           return { ...integration, enabled: isEnabling };
         }
         // Disable other AI providers if we're enabling this one
-        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity'].includes(integration.type);
+        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity'].includes(
+          integration.type
+        );
         if (isEnabling && isAIProvider) {
           return { ...integration, enabled: false };
         }
@@ -339,8 +342,8 @@ export const AIProvidersSettings = () => {
         type,
         disableOtherAIProviders: isEnabling, // Signal backend to disable other AI providers
       };
-      
-      const response = await integrationsService.update(id, updatePayload)
+
+      const response = await integrationsService.update(id, updatePayload);
       if (response.success) {
         // Confirm with server data
         await fetchIntegrations();
@@ -444,6 +447,9 @@ export const AIProvidersSettings = () => {
 
   return (
     <div className="space-y-6">
+      {/* AI Provider Health Check - Show when AI provider is configured */}
+      {hasAnyProvider && <AIProviderHealthCheck />}
+
       {/* AI Auto-Reply Toggle - Show when AI provider is configured */}
       {hasAnyProvider && (
         <Card>

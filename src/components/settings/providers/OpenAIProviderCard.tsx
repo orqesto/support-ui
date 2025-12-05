@@ -1,17 +1,8 @@
 import { useState } from 'react';
-import {
-  Brain,
-  Plus,
-  Save,
-  Trash2,
-  Edit,
-  TestTube2,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Brain, Plus, Save, Trash2, Edit, TestTube2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import type { Integration } from '@/services/integrations.service';
 import type { AIModel } from '@/types/aiProviders';
 
@@ -88,12 +79,12 @@ export const OpenAIProviderCard = ({
       ...config,
       apiKey: config.apiKey.includes('•') ? '' : config.apiKey,
     };
-    
+
     // Only save if we have a real API key
     if (!configToSave.apiKey) {
       return; // User didn't change the API key, skip save
     }
-    
+
     onSave(configToSave);
     handleReset();
   };
@@ -108,7 +99,7 @@ export const OpenAIProviderCard = ({
           </CardTitle>
           <Button
             size="sm"
-            className='py-5'
+            className="py-5"
             onClick={() => {
               handleReset();
               setShowForm(!showForm);
@@ -145,11 +136,21 @@ export const OpenAIProviderCard = ({
                       <span className="text-xs text-muted-foreground">
                         {integration.enabled ? 'Enabled' : 'Disabled'}
                       </span>
-                      <label className="relative inline-flex items-center cursor-pointer" aria-label={`Toggle ${integration.name}`}>
+                      <label
+                        className="relative inline-flex items-center cursor-pointer"
+                        aria-label={`Toggle ${integration.name}`}
+                      >
                         <input
                           type="checkbox"
                           checked={integration.enabled}
-                          onChange={() => onToggleEnabled(integration.id, integration.enabled, integration.name, integration.type)}
+                          onChange={() =>
+                            onToggleEnabled(
+                              integration.id,
+                              integration.enabled,
+                              integration.name,
+                              integration.type
+                            )
+                          }
                           disabled={toggling === integration.id}
                           className="sr-only peer"
                         />
@@ -236,19 +237,17 @@ export const OpenAIProviderCard = ({
                   placeholder="sk-..."
                 />
               </div>
-              <Select
+              <ReactSelect
                 label="Default Chat Model"
                 value={config.defaultChatModel}
-                onChange={(e) => setConfig({ ...config, defaultChatModel: e.target.value })}
-              >
-                {models
+                onChange={(value) => setConfig({ ...config, defaultChatModel: value })}
+                options={models
                   .filter((m) => m.type === 'chat')
-                  .map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-              </Select>
+                  .map((model) => ({
+                    value: model.id,
+                    label: model.name,
+                  }))}
+              />
               <div>
                 <label htmlFor="organization" className="text-sm font-medium">
                   Organization ID (Optional)
@@ -275,7 +274,11 @@ export const OpenAIProviderCard = ({
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleSave} isLoading={saving === 'openai'} disabled={!config.apiKey}>
+              <Button
+                onClick={handleSave}
+                isLoading={saving === 'openai'}
+                disabled={!config.apiKey}
+              >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} OpenAI
               </Button>
@@ -287,9 +290,7 @@ export const OpenAIProviderCard = ({
         )}
 
         {integrations.length === 0 && !showForm && (
-          <p className="py-2 text-sm text-center text-muted-foreground">
-            No OpenAI configuration
-          </p>
+          <p className="py-2 text-sm text-center text-muted-foreground">No OpenAI configuration</p>
         )}
       </CardContent>
     </Card>

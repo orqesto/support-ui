@@ -26,7 +26,7 @@ jobs:
 
       - name: Build frontend
         env:
-          VITE_API_URL: https://steward.it.com
+          VITE_API_URL: https://odly.ai
         run: npm run build
 
       - name: Install SSH Key
@@ -84,7 +84,7 @@ jobs:
             cat > /etc/nginx/sites-available/frontend << 'EOF'
           server {
               listen 80;
-              server_name steward.it.com www.steward.it.com 164.90.237.39;
+              server_name odly.ai www.odly.ai 164.90.237.39;
               root /var/www/frontend;
               index index.html;
 
@@ -168,6 +168,7 @@ jobs:
           ENDSSH
 
       - name: Restore SSL Certificate
+        continue-on-error: true
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -175,12 +176,21 @@ jobs:
           ssh ${SSH_USER}@${SSH_HOST} << 'ENDSSH'
             set -e
 
-            echo "🔒 Restoring SSL certificate..."
+            echo "🔒 Attempting SSL certificate setup..."
 
-            # Re-apply SSL configuration (certbot modifies nginx config)
-            certbot --nginx -d steward.it.com -d www.steward.it.com --non-interactive --redirect
-
-            echo "✅ SSL certificate restored"
+            # Check if DNS is configured before attempting SSL
+            if nslookup odly.ai | grep -q "164.90.237.39"; then
+              # Re-apply SSL configuration (certbot modifies nginx config)
+              certbot --nginx -d odly.ai -d www.odly.ai \
+                --non-interactive \
+                --agree-tos \
+                --redirect \
+                -m admin@odly.ai || echo "⚠️ SSL setup failed (will retry on next deploy)"
+              echo "✅ SSL certificate restored"
+            else
+              echo "⚠️ DNS not configured yet - skipping SSL setup"
+              echo "💡 Configure DNS: A record odly.ai → 164.90.237.39"
+            fi
           ENDSSH
 
       - name: Verify Deployment
@@ -211,6 +221,6 @@ jobs:
           echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 Frontend: https://steward.it.com" >> $GITHUB_STEP_SUMMARY
-          echo "- 📚 API Docs: http://steward.it.com:3001/api-docs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🏥 Backend Health: http://steward.it.com:3001/health" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend: http://odly.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 API Docs: http://odly.ai:3001/api-docs" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏥 Backend Health: http://odly.ai:3001/health" >> $GITHUB_STEP_SUMMARY

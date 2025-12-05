@@ -1,8 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../Button';
-import { getPaginationContainerClasses, getPaginationPageButtonClasses } 
-  from '@/components/pagination/pagination.styles';
-
+import { getPaginationContainerClasses, getPaginationPageButtonClasses } from './pagination.styles';
 import type { PaginationProps } from './pagination.types';
 
 export const Pagination = ({

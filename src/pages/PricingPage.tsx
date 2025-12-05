@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable react/no-unescaped-entities */
-
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -66,12 +61,14 @@ export const PricingPage = () => {
     const fetchPricing = async () => {
       try {
         const [plansRes, modulesRes] = await Promise.all([
-          apiClient.get('/api/subscriptions/plans'),
-          apiClient.get('/api/subscriptions/modules'),
+          apiClient.get<{ success: boolean; data: { plans: Plan[] } }>('/api/subscriptions/plans'),
+          apiClient.get<{ success: boolean; data: { modules: AIModule[] } }>(
+            '/api/subscriptions/modules'
+          ),
         ]);
 
-        setPlans(plansRes.data.data.plans || []);
-        setModules(modulesRes.data.data.modules || []);
+        setPlans(plansRes.data.data.plans);
+        setModules(modulesRes.data.data.modules);
       } catch (error) {
         console.error('Failed to load pricing:', error);
       } finally {
@@ -129,12 +126,22 @@ export const PricingPage = () => {
       }, 1500);
     } catch (error: unknown) {
       console.error('Failed to upgrade plan:', error);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-      const message = (error as any)?.response?.data?.error || 'Failed to upgrade plan';
+      const message =
+        error instanceof Error &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data &&
+        typeof error.response.data.error === 'string'
+          ? error.response.data.error
+          : 'Failed to upgrade plan';
       setAlertDialog({
         open: true,
         title: 'Error',
-        description: message as string,
+        description: message,
         variant: 'error',
         confirmAction: false,
       });

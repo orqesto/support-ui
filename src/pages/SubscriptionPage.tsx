@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable react/no-unescaped-entities */
-
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, TrendingUp, Zap, Check } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
+import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -95,16 +90,22 @@ export const SubscriptionPage = () => {
     const fetchData = async () => {
       try {
         const [subRes, usageRes, modulesRes, myModulesRes] = await Promise.all([
-          apiClient.get('/api/subscriptions/current'),
-          apiClient.get('/api/subscriptions/usage'),
-          apiClient.get('/api/subscriptions/modules'),
-          apiClient.get('/api/subscriptions/my-modules'),
+          apiClient.get<{ success: boolean; data: Subscription }>('/api/subscriptions/current'),
+          apiClient.get<{ success: boolean; data: { usage: UsageModule[] } }>(
+            '/api/subscriptions/usage'
+          ),
+          apiClient.get<{ success: boolean; data: { modules: AIModule[] } }>(
+            '/api/subscriptions/modules'
+          ),
+          apiClient.get<{ success: boolean; data: { modules: EnabledModule[] } }>(
+            '/api/subscriptions/my-modules'
+          ),
         ]);
 
         setSubscription(subRes.data.data);
-        setUsage(usageRes.data.data.usage || []);
-        setAvailableModules(modulesRes.data.data.modules || []);
-        setEnabledModules(myModulesRes.data.data.modules || []);
+        setUsage(usageRes.data.data.usage);
+        setAvailableModules(modulesRes.data.data.modules);
+        setEnabledModules(myModulesRes.data.data.modules);
       } catch (error) {
         console.error('Failed to load subscription:', error);
       } finally {
@@ -139,8 +140,11 @@ export const SubscriptionPage = () => {
 
     try {
       await apiClient.post(endpoint);
-      const myModulesRes = await apiClient.get('/api/subscriptions/my-modules');
-      setEnabledModules(myModulesRes.data.data.modules || []);
+      const myModulesRes = await apiClient.get<{
+        success: boolean;
+        data: { modules: EnabledModule[] };
+      }>('/api/subscriptions/my-modules');
+      setEnabledModules(myModulesRes.data.data.modules);
 
       setAlertDialog({
         open: true,
@@ -504,7 +508,7 @@ export const SubscriptionPage = () => {
 
                       {/* Usage (if enabled) */}
                       {enabled && enabledData && (
-                        <div className="p-3 mb-4 bg-muted/50 rounded-lg border">
+                        <div className="p-3 mb-4 rounded-lg border bg-muted/50">
                           <p className="mb-2 text-sm font-medium">Current Usage</p>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-foreground/70">
@@ -513,7 +517,7 @@ export const SubscriptionPage = () => {
                             </span>
                             <span className="font-semibold">{usagePercentage.toFixed(1)}%</span>
                           </div>
-                          <div className="mt-2 w-full h-2 bg-muted rounded-full">
+                          <div className="mt-2 w-full h-2 rounded-full bg-muted">
                             <div
                               className="h-2 bg-blue-600 rounded-full transition-all"
                               style={{ width: `${Math.min(usagePercentage, 100)}%` }}
