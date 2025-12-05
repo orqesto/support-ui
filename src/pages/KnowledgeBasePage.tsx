@@ -64,7 +64,7 @@ export const KnowledgeBasePage = () => {
     },
   ];
 
-  const activeTab = (tabs.find(t => t.id === raw)?.id ?? 'all') as TabType;
+  const activeTab = (tabs.find(t => t.id === raw)?.id ?? 'all');
 
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({

@@ -1,9 +1,7 @@
 // src/components/SpamLogDetail.tsx
 import { useState } from 'react';
 import {
-  ShieldX,
   CheckCircle,
-  XCircle,
   Mail,
   Calendar,
   Flag,
@@ -28,13 +26,11 @@ type SpamLogDetailProps = {
 
 export const SpamLogDetail = ({
   log,
-  onUpdateStatus,
   onDelete,
   onReanalyze,
   onExport,
   onClose,
 }: SpamLogDetailProps) => {
-  const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
 
@@ -48,17 +44,6 @@ export const SpamLogDetail = ({
       minute: '2-digit',
       second: '2-digit'
     });
-  };
-
-  const handleStatusUpdate = async (status: SpamLog['status'], notes?: string) => {
-    if (!onUpdateStatus) return;
-    
-    setUpdating(true);
-    try {
-      await onUpdateStatus(status, notes);
-    } finally {
-      setUpdating(false);
-    }
   };
 
   const handleDelete = async () => {

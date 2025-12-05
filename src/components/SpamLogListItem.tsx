@@ -69,12 +69,10 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => {
       const minutes = pad(d.getMinutes());
       const seconds = pad(d.getSeconds());
       return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };
-
-  console.log('Full log object:', log);
 
   return (
     <ListCard

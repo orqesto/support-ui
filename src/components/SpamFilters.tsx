@@ -141,9 +141,9 @@ export const SpamFilters = ({
           {/* Active Filter Pills */}
           {activeFilters.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter, index) => (
+              {activeFilters.map((filter) => (
                 <Badge
-                  key={`${filter.key}-${index}`}
+                  key={`${filter.key}-${filter.value}`}
                   variant="secondary"
                   className="flex gap-1 items-center py-1 pr-1 pl-2 text-xs group"
                 >
@@ -295,16 +295,15 @@ export const SpamFilters = ({
                           type="number"
                           min="0"
                           max="300"
-                          value={filters.minScore === undefined ? '' : filters.minScore}
+                          value={filters.minScore ?? ''}
                           onChange={e => {
-                            let val = e.target.value;
+                            const val = e.target.value;
                             if (val === '' || val === null) {
                               setFilters({ ...filters, minScore: undefined });
                               onFilterChange('minScore', '');
                             } else {
-                              let num = Number(val);
+                              const num = Math.max(0, Math.min(300, Number(val)));
                               if (!isNaN(num)) {
-                                num = Math.max(0, Math.min(300, num));
                                 setFilters({ ...filters, minScore: num });
                                 onFilterChange('minScore', String(num));
                               }
@@ -320,16 +319,15 @@ export const SpamFilters = ({
                           min="0"
                           max="300"
                           placeholder="300"
-                          value={filters.maxScore === undefined ? '' : filters.maxScore}
+                          value={filters.maxScore ?? ''}
                           onChange={e => {
-                            let val = e.target.value;
+                            const val = e.target.value;
                             if (val === '' || val === null) {
                               setFilters({ ...filters, maxScore: undefined });
                               onFilterChange('maxScore', '');
                             } else {
-                              let num = Number(val);
+                              const num = Math.max(0, Math.min(300, Number(val)));
                               if (!isNaN(num)) {
-                                num = Math.max(0, Math.min(300, num));
                                 setFilters({ ...filters, maxScore: num });
                                 onFilterChange('maxScore', String(num));
                               }
@@ -357,15 +355,15 @@ export const SpamFilters = ({
                           max="100"
                           value={filters.minConfidence !== undefined ? Math.round(filters.minConfidence * 100) : ''}
                           onChange={e => {
-                            let val = e.target.value;
+                            const val = e.target.value;
                             if (val === '' || val === null) {
                               setFilters({ ...filters, minConfidence: undefined });
                               onFilterChange('minConfidence', '');
                             } else {
-                              let num = Number(val);
+                              const num = Number(val);
                               if (!isNaN(num)) {
-                                let percent = Math.max(0, Math.min(100, num));
-                                let floatVal = percent / 100;
+                                const percent = Math.max(0, Math.min(100, num));
+                                const floatVal = percent / 100;
                                 setFilters({ ...filters, minConfidence: floatVal });
                                 onFilterChange('minConfidence', String(floatVal));
                               }
@@ -383,15 +381,15 @@ export const SpamFilters = ({
                           placeholder="100"
                           value={filters.maxConfidence !== undefined ? Math.round(filters.maxConfidence * 100) : ''}
                           onChange={e => {
-                            let val = e.target.value;
+                            const val = e.target.value;
                             if (val === '' || val === null) {
                               setFilters({ ...filters, maxConfidence: undefined });
                               onFilterChange('maxConfidence', '');
                             } else {
-                              let num = Number(val);
+                              const num = Number(val);
                               if (!isNaN(num)) {
-                                let percent = Math.max(0, Math.min(100, num));
-                                let floatVal = percent / 100;
+                                const percent = Math.max(0, Math.min(100, num));
+                                const floatVal = percent / 100;
                                 setFilters({ ...filters, maxConfidence: floatVal });
                                 onFilterChange('maxConfidence', String(floatVal));
                               }
@@ -422,7 +420,7 @@ export const SpamFilters = ({
                               ...filters,
                               startDate: value,
                             });
-                            onFilterChange('startDate', value || '');
+                            onFilterChange('startDate', value ?? '');
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
@@ -438,7 +436,7 @@ export const SpamFilters = ({
                               ...filters,
                               endDate: value,
                             });
-                            onFilterChange('endDate', value || '');
+                            onFilterChange('endDate', value ?? '');
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
