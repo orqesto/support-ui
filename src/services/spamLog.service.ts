@@ -36,11 +36,15 @@ export type SpamLogFilters = {
   category?: 'spam' | 'promotional' | 'transactional' | 'invalid_response' | 'other' | 'all';
   minScore?: number;
   maxScore?: number;
+  minConfidence?: number;
+  maxConfidence?: number;
   reviewed?: boolean;
   startDate?: string;
   endDate?: string;
   search?: string;
   sortOrder?: 'asc' | 'desc';
+  // optional sortBy field to indicate which property to sort on (e.g. 'detectedAt' or 'severity')
+  sortBy?: string;
   channel?: string;
   sender?: string;
 };

@@ -125,37 +125,8 @@ export const SpamLogDetail = ({
       </div>
 
       {/* Status update buttons */}
-      {onUpdateStatus && (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant={log.status === 'confirmed' ? 'destructive' : 'outline'}
-            onClick={() => handleStatusUpdate('confirmed')}
-            disabled={updating || log.status === 'confirmed'}
-          >
-            <ShieldX className="mr-2 w-4 h-4" />
-            Confirm Spam
-          </Button>
-          <Button
-            size="sm"
-            variant={log.status === 'false_positive' ? 'secondary' : 'outline'}
-            onClick={() => handleStatusUpdate('false_positive')}
-            disabled={updating || log.status === 'false_positive'}
-          >
-            <XCircle className="mr-2 w-4 h-4" />
-            Mark as False Positive
-          </Button>
-          <Button
-            size="sm"
-            variant={log.status === 'whitelisted' ? 'secondary' : 'outline'}
-            onClick={() => handleStatusUpdate('whitelisted')}
-            disabled={updating || log.status === 'whitelisted'}
-          >
-            <CheckCircle className="mr-2 w-4 h-4" />
-            Whitelist Sender
-          </Button>
-        </div>
-      )}
+     
+      
 
       {/* Main content */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -181,15 +152,7 @@ export const SpamLogDetail = ({
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">Score: {log.severity ? log.severity.toFixed(2) : '0.00'}</Badge>
                 <Badge className="capitalize">{log.category.replace('_', ' ')}</Badge>
-                <Badge
-                    variant={
-                        log.status === 'confirmed' ? 'warning' :
-                        log.status === 'false_positive' ? 'success' :
-                        log.status === 'whitelisted' ? 'default' : 'secondary'
-                    }
-                    >
-                    {log.status}
-                    </Badge>
+                
               </div>
               <p className="text-sm"><strong>Reason:</strong> {log.reason}</p>
             </div>

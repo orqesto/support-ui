@@ -4,10 +4,8 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Zap,
-  Clock,
-  AlertTriangle,
 } from 'lucide-react';
+// removed unused icons for presets
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -19,6 +17,7 @@ type SpamFiltersProps = {
   filters: SpamLogFilters;
   pendingSearch: string;
   activeFilterCount: number;
+  detectedAt: string;  
   pagination: {
     page: number;
     limit: number;
@@ -28,7 +27,7 @@ type SpamFiltersProps = {
   onSearch: () => void;
   onSearchBlur: () => void;
   onClearFilters: () => void;
-  onSortingChange: (sortOrder: 'asc' | 'desc') => void;
+  onSortingChange: (sortBy: string, sortOrder: 'asc' | 'desc') => void; 
   setPendingSearch: (value: string) => void;
   setFilters: (filters: Partial<SpamLogFilters>) => void;
 };
@@ -37,6 +36,7 @@ export const SpamFilters = ({
   filters,
   pendingSearch,
   activeFilterCount,
+  detectedAt,
   pagination,
   onFilterChange,
   onSearch,
@@ -48,7 +48,11 @@ export const SpamFilters = ({
 }: SpamFiltersProps) => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Helper to get active filter labels
+  const handleSortingChange = (sortBy: string, sortOrder: 'asc' | 'desc') => {
+    onSortingChange(sortBy, sortOrder);
+    setFilters({ ...filters, sortBy, sortOrder });
+  };
+  // Helper to build active filter pills
   const getActiveFilters = () => {
     const active: Array<{ key: string; label: string; value: string }> = [];
 
@@ -63,8 +67,11 @@ export const SpamFilters = ({
     }
     if (filters.minScore !== undefined || filters.maxScore !== undefined) {
       const min = filters.minScore ?? 0;
-      const max = filters.maxScore ?? 100;
+      const max = filters.maxScore ?? 300;
       active.push({ key: 'severity', label: 'Severity', value: `${min}-${max}` });
+    }
+    if (filters.search) {
+      active.push({ key: 'search', label: 'Search', value: filters.search });
     }
 
     return active;
@@ -73,9 +80,7 @@ export const SpamFilters = ({
   const activeFilters = getActiveFilters();
 
   const removeFilter = (key: string) => {
-    if (key === 'status') {
-      setFilters({ ...filters, status: 'all' });
-    } else if (key === 'category') {
+    if (key === 'category') {
       setFilters({ ...filters, category: 'all' });
     } else if (key === 'channel') {
       setFilters({ ...filters, channel: 'all' });
@@ -84,49 +89,21 @@ export const SpamFilters = ({
     }
   };
 
-  // Quick filter presets
-  const applyPreset = (presetName: string) => {
-    switch (presetName) {
-      case 'pending':
-        setFilters({
-          ...filters,
-          status: 'pending',
-        });
-        onSortingChange('desc');
-        break;
-      case 'high-severity':
-        setFilters({
-          ...filters,
-          minScore: 70,
-          maxScore: 100,
-          status: 'pending',
-        });
-        onSortingChange('desc');
-        break;
-      case 'recent':
-        setFilters({
-          ...filters,
-          status: 'all',
-        });
-        onSortingChange('desc');
-        break;
-      case 'confirmed':
-        setFilters({
-          ...filters,
-          status: 'confirmed',
-        });
-        onSortingChange('desc');
-        break;
-      case 'false-positives':
-        setFilters({
-          ...filters,
-          status: 'false_positive',
-        });
-        onSortingChange('desc');
-        break;
-    }
-  };
+  // Quick presets removed
+  const sortOptions = [
+    { value: 'desc', label: `Newest ` },
+    { value: 'asc', label: `Oldest ` },
+  ];
+  const severitySortOptions = [
+    { value: 'desc', label: 'Highest severity' },
+    { value: 'asc', label: 'Lowest severity' },
+  ];
+  const confidenceSortOptions = [
+    { value: 'desc', label: 'Highest confidence' },
+    { value: 'asc', label: 'Lowest confidence' },
+  ];
 
+ 
   return (
     <Card>
       <CardContent className="p-4">
@@ -184,53 +161,7 @@ export const SpamFilters = ({
             </div>
           )}
 
-          {/* Quick Filter Presets */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-medium text-muted-foreground">Quick Filters:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('pending')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Clock className="w-3 h-3" />
-              Pending Review
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('high-severity')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <AlertTriangle className="w-3 h-3 text-orange-500" />
-              High Severity
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('recent')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Zap className="w-3 h-3" />
-              Recent
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('confirmed')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              Confirmed
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('false-positives')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              False Positives
-            </Button>
-          </div>
+          {/* Quick Filters removed */}
 
           {/* Filter Controls */}
           <div className="flex flex-col gap-3">
@@ -254,55 +185,6 @@ export const SpamFilters = ({
             {/* Primary Filters Row */}
             <div className="p-3 rounded-lg border bg-muted/30">
               <div className="flex flex-col gap-4 md:gap-6">
-                <div className="w-full">
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                      Status:
-                    </span>
-                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                      <Button
-                        variant={filters.status === 'pending' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('status', 'pending')}
-                        className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-                      >
-                        Pending
-                      </Button>
-                      <Button
-                        variant={filters.status === 'confirmed' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('status', 'confirmed')}
-                        className="h-8 text-xs rounded-none border-r-0"
-                      >
-                        Confirmed
-                      </Button>
-                      <Button
-                        variant={filters.status === 'false_positive' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('status', 'false_positive')}
-                        className="h-8 text-xs rounded-none border-r-0"
-                      >
-                        False Positive
-                      </Button>
-                      <Button
-                        variant={filters.status === 'whitelisted' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('status', 'whitelisted')}
-                        className="h-8 text-xs rounded-none border-r-0"
-                      >
-                        Whitelisted
-                      </Button>
-                      <Button
-                        variant={filters.status === 'all' || !filters.status ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('status', 'all')}
-                        className="h-8 text-xs rounded-r-md rounded-l-none"
-                      >
-                        All
-                      </Button>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:flex-wrap lg:flex-nowrap md:items-center">
                   <div className="flex gap-2 items-center min-w-[140px] sm:py-2">
@@ -331,16 +213,37 @@ export const SpamFilters = ({
 
                   <div className="flex gap-2 items-center min-w-[140px] sm:py-2">
                     <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                      Sort:
+                      Time:
                     </span>
                     <ReactSelect
-                      value={filters.sortOrder ?? 'desc'}
-                      onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-                      options={[
-                        { value: 'desc', label: 'Newest First' },
-                        { value: 'asc', label: 'Oldest First' },
-                      ]}
+                      value={filters.sortBy === 'detectedAt' ? (filters.sortOrder ?? 'desc') : 'desc'}
+                      onChange={(value) => handleSortingChange(detectedAt, value as 'asc' | 'desc')}
+                      options={sortOptions}
                       className="min-w-[120px] sm:w-full"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 items-center min-w-[180px] sm:py-2">
+                    <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                      Severity:
+                    </span>
+                    <ReactSelect
+                      value={filters.sortBy === 'severity' ? (filters.sortOrder ?? 'desc') : 'desc'}
+                      onChange={(value) => handleSortingChange('severity', value as 'asc' | 'desc')}
+                      options={severitySortOptions}
+                      className="min-w-[140px] sm:w-full"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 items-center min-w-[180px] sm:py-2">
+                    <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                      Confidence:
+                    </span>
+                    <ReactSelect
+                      value={filters.sortBy === 'confidence' ? (filters.sortOrder ?? 'desc') : 'desc'}
+                      onChange={(value) => handleSortingChange('confidence', value as 'asc' | 'desc')}
+                      options={confidenceSortOptions}
+                      className="min-w-[140px] sm:w-full"
                     />
                   </div>
                 </div>
@@ -383,7 +286,7 @@ export const SpamFilters = ({
                 <div className="space-y-3">
                   <label className="block">
                     <span className="text-xs font-semibold text-muted-foreground mb-2 block">
-                      Severity Range (0-100):
+                      Severity Range (0-300):
                     </span>
                     <div className="flex gap-3 items-center">
                       <div className="flex-1">
@@ -391,14 +294,21 @@ export const SpamFilters = ({
                         <input
                           type="number"
                           min="0"
-                          max="100"
-                          value={filters.minScore ?? 0}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0;
-                            setFilters({
-                              ...filters,
-                              minScore: value,
-                            });
+                          max="300"
+                          value={filters.minScore === undefined ? '' : filters.minScore}
+                          onChange={e => {
+                            let val = e.target.value;
+                            if (val === '' || val === null) {
+                              setFilters({ ...filters, minScore: undefined });
+                              onFilterChange('minScore', '');
+                            } else {
+                              let num = Number(val);
+                              if (!isNaN(num)) {
+                                num = Math.max(0, Math.min(300, num));
+                                setFilters({ ...filters, minScore: num });
+                                onFilterChange('minScore', String(num));
+                              }
+                            }
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
@@ -408,14 +318,22 @@ export const SpamFilters = ({
                         <input
                           type="number"
                           min="0"
-                          max="100"
-                          value={filters.maxScore ?? 100}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 100;
-                            setFilters({
-                              ...filters,
-                              maxScore: value,
-                            });
+                          max="300"
+                          placeholder="300"
+                          value={filters.maxScore === undefined ? '' : filters.maxScore}
+                          onChange={e => {
+                            let val = e.target.value;
+                            if (val === '' || val === null) {
+                              setFilters({ ...filters, maxScore: undefined });
+                              onFilterChange('maxScore', '');
+                            } else {
+                              let num = Number(val);
+                              if (!isNaN(num)) {
+                                num = Math.max(0, Math.min(300, num));
+                                setFilters({ ...filters, maxScore: num });
+                                onFilterChange('maxScore', String(num));
+                              }
+                            }
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
@@ -428,40 +346,56 @@ export const SpamFilters = ({
                 <div className="space-y-3">
                   <label className="block">
                     <span className="text-xs font-semibold text-muted-foreground mb-2 block">
-                      Confidence (Detection Accuracy):
+                      Confidence Range (0-100%):
                     </span>
                     <div className="flex gap-3 items-center">
                       <div className="flex-1">
-                        <label className="text-xs text-muted-foreground block mb-1">Min Confidence</label>
+                        <label className="text-xs text-muted-foreground block mb-1">Min %</label>
                         <input
                           type="number"
-                          min="0"
+                     
                           max="100"
-                          value={filters.minScore ?? 0}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0;
-                            setFilters({
-                              ...filters,
-                              minScore: value,
-                            });
+                          value={filters.minConfidence !== undefined ? Math.round(filters.minConfidence * 100) : ''}
+                          onChange={e => {
+                            let val = e.target.value;
+                            if (val === '' || val === null) {
+                              setFilters({ ...filters, minConfidence: undefined });
+                              onFilterChange('minConfidence', '');
+                            } else {
+                              let num = Number(val);
+                              if (!isNaN(num)) {
+                                let percent = Math.max(0, Math.min(100, num));
+                                let floatVal = percent / 100;
+                                setFilters({ ...filters, minConfidence: floatVal });
+                                onFilterChange('minConfidence', String(floatVal));
+                              }
+                            }
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
                       </div>
-                      <div className="text-xs text-muted-foreground text-center px-2">to</div>
                       <div className="flex-1">
-                        <label className="text-xs text-muted-foreground block mb-1">Max Confidence</label>
+                        <label className="text-xs text-muted-foreground block mb-1">Max %</label>
                         <input
                           type="number"
                           min="0"
                           max="100"
-                          value={filters.maxScore ?? 100}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 100;
-                            setFilters({
-                              ...filters,
-                              maxScore: value,
-                            });
+                          placeholder="100"
+                          value={filters.maxConfidence !== undefined ? Math.round(filters.maxConfidence * 100) : ''}
+                          onChange={e => {
+                            let val = e.target.value;
+                            if (val === '' || val === null) {
+                              setFilters({ ...filters, maxConfidence: undefined });
+                              onFilterChange('maxConfidence', '');
+                            } else {
+                              let num = Number(val);
+                              if (!isNaN(num)) {
+                                let percent = Math.max(0, Math.min(100, num));
+                                let floatVal = percent / 100;
+                                setFilters({ ...filters, maxConfidence: floatVal });
+                                onFilterChange('maxConfidence', String(floatVal));
+                              }
+                            }
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
@@ -483,10 +417,12 @@ export const SpamFilters = ({
                           type="date"
                           value={filters.startDate ?? ''}
                           onChange={(e) => {
+                            const value = e.target.value || undefined;
                             setFilters({
                               ...filters,
-                              startDate: e.target.value || undefined,
+                              startDate: value,
                             });
+                            onFilterChange('startDate', value || '');
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />
@@ -497,10 +433,12 @@ export const SpamFilters = ({
                           type="date"
                           value={filters.endDate ?? ''}
                           onChange={(e) => {
+                            const value = e.target.value || undefined;
                             setFilters({
                               ...filters,
-                              endDate: e.target.value || undefined,
+                              endDate: value,
                             });
+                            onFilterChange('endDate', value || '');
                           }}
                           className="w-full px-2 py-1 text-xs border rounded bg-background border-input"
                         />

@@ -1,9 +1,8 @@
 // src/components/SpamLogListItem.tsx
-import { ExternalLink, ShieldX, AlertTriangle, CheckCircle, XCircle, Mail } from 'lucide-react';
+import { ExternalLink, CheckCircle, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ListCard } from '@/components/ui/ListCard';
-import { formatDate } from '@/lib/utils';
 import type { SpamLog } from '@/services/spamLog.service';
 
 type SpamLogListItemProps = {
@@ -16,37 +15,24 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => {
   // Add defensive check at the beginning
   if (!log) return null;
 
-  const getStatusBadge = () => {
-    const statusConfig = {
-      pending: { variant: 'warning' as const, icon: AlertTriangle, label: 'Pending' },
-      confirmed: { variant: 'danger' as const, icon: ShieldX, label: 'Confirmed' },
-      false_positive: { variant: 'success' as const, icon: CheckCircle, label: 'False Positive' },
-      whitelisted: { variant: 'default' as const, icon: CheckCircle, label: 'Whitelisted' },
-      blocked: { variant: 'danger' as const, icon: ShieldX, label: 'Blocked' },
-      allowed: { variant: 'success' as const, icon: CheckCircle, label: 'Allowed' },
-      review: { variant: 'warning' as const, icon: AlertTriangle, label: 'Needs Review' },
-      spam: { variant: 'danger' as const, icon: ShieldX, label: 'Spam' },
-      ham: { variant: 'success' as const, icon: CheckCircle, label: 'Not Spam' },
-      approved: { variant: 'success' as const, icon: CheckCircle, label: 'Approved' },
-      rejected: { variant: 'danger' as const, icon: XCircle, label: 'Rejected' },
-    } as const;
-
-   
-    const normalizedStatus = (log.status || 'unknown').toLowerCase().trim().replace(/\s+/g, '_');
+  const getConfidenceBadge = () => {
+    const confidence = log.confidence ?? 0;
+    const percentage = Math.round(confidence * 100);
     
-    
-    const config = statusConfig[normalizedStatus as keyof typeof statusConfig] || {
-      variant: 'outline' as const,
-      icon: AlertTriangle,
-      label: log.status || 'Unknown',
-    };
-
-    const Icon = config.icon;
+    // Choose variant based on confidence level
+    let variant: 'success' | 'warning' | 'danger' | 'default' = 'default';
+    if (percentage >= 80) {
+      variant = 'success';
+    } else if (percentage >= 50) {
+      variant = 'warning';
+    } else {
+      variant = 'danger';
+    }
 
     return (
-      <Badge variant={config.variant} className="flex gap-1 items-center">
-        <Icon className="w-3 h-3" />
-        {config.label}
+      <Badge variant={variant} className="flex gap-1 items-center">
+        <CheckCircle className="w-3 h-3" />
+        {percentage}%
       </Badge>
     );
   };
@@ -72,18 +58,20 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => {
   
   // Format date to be human-readable
   const getRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return formatDate(dateString);
+    try {
+      const d = new Date(dateString);
+      if (Number.isNaN(d.getTime())) return dateString;
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const day = pad(d.getDate());
+      const month = pad(d.getMonth() + 1);
+      const year = d.getFullYear();
+      const hours = pad(d.getHours());
+      const minutes = pad(d.getMinutes());
+      const seconds = pad(d.getSeconds());
+      return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+    } catch (e) {
+      return dateString;
+    }
   };
 
   console.log('Full log object:', log);
@@ -94,7 +82,7 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => {
         <>
           <Mail className="w-4 h-4" />
           <Badge variant="secondary">{log.channel}</Badge>
-          {getStatusBadge()}
+          {getConfidenceBadge()}
           {getCategoryBadge()}
           <Badge className="font-mono">
             Score: {spamScore ? spamScore.toFixed(2) : '0'} {/* Safe fallback */}
