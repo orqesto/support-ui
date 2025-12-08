@@ -182,6 +182,19 @@ export const KnowledgeBasePage = () => {
     }
   };
 
+  const handleUpdate = (updatedEntry: KBEntry) => {
+    // Update entry in the list
+    setEntries((prev) =>
+      prev.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry))
+    );
+    setAlertDialog({
+      open: true,
+      title: 'Success',
+      description: 'KB entry updated successfully',
+      variant: 'success',
+    });
+  };
+
   // Handle opening entry - update URL with ID
   const handleOpenEntry = (entry: KBEntry) => {
     setSelectedEntry(entry);
@@ -525,6 +538,7 @@ export const KnowledgeBasePage = () => {
           onApprove={handleApprove}
           onHide={handleHide}
           onDelete={handleDeleteClick}
+          onUpdate={handleUpdate}
         />
 
         {/* Alert Dialog */}

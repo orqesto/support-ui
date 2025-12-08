@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, Trash2, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/Dialog';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
@@ -13,6 +23,7 @@ type KBEntryDetailProps = {
   onApprove: (id: number) => void;
   onHide: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
+  onUpdate?: (entry: KBEntry) => void;
 };
 
 export const KBEntryDetail = ({
@@ -21,9 +32,14 @@ export const KBEntryDetail = ({
   onApprove,
   onHide,
   onDelete,
+  onUpdate,
 }: KBEntryDetailProps) => {
   const [fullEntry, setFullEntry] = useState<KBEntry | null>(null);
   const [loading, setLoading] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', content: '', category: '' });
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Fetch full entry content when drawer opens
   useEffect(() => {
@@ -45,6 +61,40 @@ export const KBEntryDetail = ({
       setFullEntry(null);
     }
   }, [entry?.id, entry]);
+
+  const handleEditClick = () => {
+    if (displayEntry) {
+      setEditForm({
+        title: displayEntry.title,
+        content: displayEntry.content,
+        category: displayEntry.category,
+      });
+      setEditError(null);
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!displayEntry) return;
+
+    setSaving(true);
+    try {
+      const response = await kbService.update(displayEntry.id, editForm);
+      if (response.success && response.data) {
+        setFullEntry(response.data);
+        if (onUpdate) {
+          onUpdate(response.data);
+        }
+        setEditDialogOpen(false);
+      }
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : 'Failed to update entry. Please try again.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading || !entry) return null;
 
@@ -192,19 +242,6 @@ export const KBEntryDetail = ({
                   (displayEntry.typeData as { originalFilename?: string })?.originalFilename ??
                   (displayEntry.metadata as { originalFilename?: string })?.originalFilename;
 
-                // Debug: log what we have
-                if (!attachmentId || !filename) {
-                  console.log('KB Entry Attachment Debug:', {
-                    id: displayEntry.id,
-                    hasTypeData: !!displayEntry.typeData,
-                    hasMetadata: !!displayEntry.metadata,
-                    typeData: displayEntry.typeData,
-                    metadata: displayEntry.metadata,
-                    attachmentId,
-                    filename,
-                  });
-                }
-
                 if (typeof attachmentId === 'number' && typeof filename === 'string') {
                   const handleDownload = async () => {
                     try {
@@ -290,6 +327,10 @@ export const KBEntryDetail = ({
         {/* Actions Footer */}
         <div className="flex-none p-6 border-t bg-muted/20">
           <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={handleEditClick}>
+              <Edit className="mr-2 w-4 h-4" />
+              Edit
+            </Button>
             {!entry.approved && !entry.hidden && (
               <Button variant="primary" onClick={() => onApprove(entry.id)}>
                 <CheckCircle className="mr-2 w-4 h-4" />
@@ -321,6 +362,66 @@ export const KBEntryDetail = ({
           </div>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogHeader>
+          <DialogTitle>Edit KB Entry</DialogTitle>
+          <DialogClose onClose={() => setEditDialogOpen(false)} />
+        </DialogHeader>
+        <DialogContent>
+          {editError && (
+            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+              {editError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="edit-title" className="block text-sm font-medium mb-1">
+                Title
+              </label>
+              <Input
+                id="edit-title"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                placeholder="Entry title"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-category" className="block text-sm font-medium mb-1">
+                Category
+              </label>
+              <Input
+                id="edit-category"
+                value={editForm.category}
+                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                placeholder="Category"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-content" className="block text-sm font-medium mb-1">
+                Content
+              </label>
+              <Textarea
+                id="edit-content"
+                value={editForm.content}
+                onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                placeholder="Entry content"
+                rows={10}
+                className="font-mono text-sm"
+              />
+            </div>
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSaveEdit} isLoading={saving}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </Drawer>
   );
 };
