@@ -30,7 +30,8 @@ import { useMessagesStore } from '@/stores/messagesStore';
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalMessages: 0,
+    supportMessages: 0,
+    kbMessages: 0,
     unprocessedMessages: 0,
     totalTickets: 0,
     pendingTickets: 0,
@@ -115,21 +116,30 @@ export const DashboardPage = () => {
     try {
       // Fetch with limit=1 to get total counts from pagination metadata (we don't need the actual records)
       const [
-        allMessagesResponse,
+        supportMessagesResponse,
+        kbMessagesResponse,
         unprocessedMessagesResponse,
         allTicketsResponse,
         pendingTicketsResponse,
       ] = await Promise.all([
-        messageService.getAll(undefined, 1, 1), // Only need pagination.total, not the records
-        messageService.getAll({ processed: 'unprocessed' }, 1, 1),
+        messageService.getAll({ excludeKB: 'true' }, 1, 1), // Support messages only (no KB)
+        messageService.getAll({ showKBOnly: 'true' }, 1, 1), // KB messages only
+        messageService.getAll({ processed: 'unprocessed', excludeKB: 'true' }, 1, 1), // Unprocessed support messages only
         ticketService.getAll(undefined, 1, 1),
         ticketService.getAll({ status: 'pending' }, 1, 1),
       ]);
 
-      if (allMessagesResponse.success) {
+      if (supportMessagesResponse.success) {
         setStats((prev) => ({
           ...prev,
-          totalMessages: allMessagesResponse.pagination.total,
+          supportMessages: supportMessagesResponse.pagination.total,
+        }));
+      }
+
+      if (kbMessagesResponse.success) {
+        setStats((prev) => ({
+          ...prev,
+          kbMessages: kbMessagesResponse.pagination.total,
         }));
       }
 
@@ -205,7 +215,8 @@ export const DashboardPage = () => {
     const socket = getSocket();
 
     const handleStatsUpdate = (updatedStats: {
-      totalMessages?: number;
+      supportMessages?: number;
+      kbMessages?: number;
       unprocessedMessages?: number;
       totalTickets?: number;
       pendingTickets?: number;
@@ -322,12 +333,12 @@ export const DashboardPage = () => {
 
   const statCards = [
     {
-      title: 'Total Messages',
-      value: stats.totalMessages,
+      title: 'Support Messages',
+      value: stats.supportMessages,
       icon: Mail,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
-      onClick: () => navigate('/messages?processed=all'),
+      onClick: () => navigate('/messages?processed=all&excludeKB=true'),
     },
     {
       title: 'Unprocessed Messages',
@@ -335,7 +346,15 @@ export const DashboardPage = () => {
       icon: Clock,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
-      onClick: () => navigate('/messages?processed=unprocessed'),
+      onClick: () => navigate('/messages?processed=unprocessed&excludeKB=true'),
+    },
+    {
+      title: 'Knowledge Base',
+      value: stats.kbMessages,
+      icon: Inbox,
+      color: 'text-cyan-600 dark:text-cyan-400',
+      bg: 'bg-cyan-50 dark:bg-cyan-950/50',
+      onClick: () => navigate('/messages?showKBOnly=true'),
     },
     {
       title: 'Total Tickets',
@@ -372,8 +391,8 @@ export const DashboardPage = () => {
         </div>
 
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
               // Index key is safe: array is immutable (recreated from text split), no reordering
               // eslint-disable-next-line react/no-array-index-key
               <Card key={`skeleton-${i}`} className="animate-pulse">
@@ -388,7 +407,7 @@ export const DashboardPage = () => {
             ))}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {statCards.map((stat) => {
               const Icon = stat.icon;
               return (
@@ -425,7 +444,9 @@ export const DashboardPage = () => {
                           Awaiting response
                         </>
                       )}
-                      {(stat.title === 'Total Messages' || stat.title === 'Total Tickets') && (
+                      {(stat.title === 'Support Messages' ||
+                        stat.title === 'Knowledge Base' ||
+                        stat.title === 'Total Tickets') && (
                         <>
                           <BarChart3 className="w-3 h-3" />
                           All time
