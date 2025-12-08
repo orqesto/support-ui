@@ -84,6 +84,14 @@ export const kbService = {
     return response.data;
   },
 
+  update: async (id: number, data: { title?: string; content?: string; category?: string }) => {
+    const response = await apiClient.patch<ApiResponse<KBEntry>>(
+      `/api/knowledge-base/entries/${id}`,
+      data
+    );
+    return response.data;
+  },
+
   delete: async (id: number) => {
     const response = await apiClient.delete<ApiResponse<null>>(`/api/knowledge-base/entries/${id}`);
     return response.data;
