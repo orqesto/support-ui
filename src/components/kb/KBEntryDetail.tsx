@@ -371,13 +371,13 @@ export const KBEntryDetail = ({
         </DialogHeader>
         <DialogContent>
           {editError && (
-            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+            <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
               {editError}
             </div>
           )}
           <div className="space-y-4">
             <div>
-              <label htmlFor="edit-title" className="block text-sm font-medium mb-1">
+              <label htmlFor="edit-title" className="block mb-1 text-sm font-medium">
                 Title
               </label>
               <Input
@@ -388,7 +388,7 @@ export const KBEntryDetail = ({
               />
             </div>
             <div>
-              <label htmlFor="edit-category" className="block text-sm font-medium mb-1">
+              <label htmlFor="edit-category" className="block mb-1 text-sm font-medium">
                 Category
               </label>
               <Input
@@ -399,7 +399,7 @@ export const KBEntryDetail = ({
               />
             </div>
             <div>
-              <label htmlFor="edit-content" className="block text-sm font-medium mb-1">
+              <label htmlFor="edit-content" className="block mb-1 text-sm font-medium">
                 Content
               </label>
               <Textarea
