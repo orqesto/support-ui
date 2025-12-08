@@ -447,7 +447,7 @@ export const MessageDetail = ({
               {suggestedAnswer.sourceId && (
                 <Button
                   onClick={() =>
-                    window.open(`/knowledge-base?highlight=${suggestedAnswer.sourceId}`, '_blank')
+                    window.open(`/knowledge-base?id=${suggestedAnswer.sourceId}`, '_blank')
                   }
                   variant="outline"
                   title="View source in Knowledge Base"

@@ -62,6 +62,12 @@ export type ProcessingSession = {
   kbQAPairs?: number;
   kbStandaloneKnowledge?: number;
   kbDocuments?: number;
+  // KB message processing progress
+  kbMessagesTotal?: number;
+  kbMessagesProcessed?: number;
+  kbMessagesSuccessful?: number;
+  kbMessagesFailed?: number;
+  kbMessagesSkipped?: number;
 };
 
 type EmailProcessingState = {
@@ -236,6 +242,11 @@ export const useEmailProcessing = (
                 isProcessing: true,
                 progress: 0,
                 timestamp: existing?.timestamp ?? Date.now(), // Keep original start time
+                // Initialize KB counters to 0 so widget shows KB section from start
+                kbEntriesTotal: 0,
+                kbQAPairs: 0,
+                kbDocuments: 0,
+                kbStandaloneKnowledge: 0,
               });
               break;
 
@@ -277,14 +288,17 @@ export const useEmailProcessing = (
                   isNewPhase && eventCurrent === 0 ? existing.total : eventTotal || existing.total;
 
                 const newProgress = total > 0 ? (current / total) * 100 : 0;
-                // Only clamp if total hasn't changed (prevents flickering)
-                // Allow progress to decrease when new messages are found (isNewPhase)
-                const clampedProgress = isNewPhase
-                  ? newProgress
-                  : Math.max(existing.progress ?? 0, newProgress);
 
                 // Reactivate if status was complete
                 const shouldReactivate = existing.status === 'complete';
+
+                // Only clamp if total hasn't changed (prevents flickering)
+                // Allow progress to decrease when new messages are found (isNewPhase)
+                // ALSO reset progress when reactivating from complete status
+                const clampedProgress =
+                  isNewPhase || shouldReactivate
+                    ? newProgress
+                    : Math.max(existing.progress ?? 0, newProgress);
 
                 // Keep isProcessing true when getting processing events
                 const stillProcessing = true;
@@ -316,6 +330,11 @@ export const useEmailProcessing = (
                   isProcessing: true,
                   progress: 0,
                   timestamp: Date.now(), // Track when session started
+                  // Initialize KB counters to 0
+                  kbEntriesTotal: 0,
+                  kbQAPairs: 0,
+                  kbDocuments: 0,
+                  kbStandaloneKnowledge: 0,
                 });
               }
               break;
@@ -361,6 +380,11 @@ export const useEmailProcessing = (
                   isProcessing: true,
                   progress: 0,
                   timestamp: Date.now(), // Track when session started
+                  // Initialize KB counters to 0
+                  kbEntriesTotal: 0,
+                  kbQAPairs: 0,
+                  kbDocuments: 0,
+                  kbStandaloneKnowledge: 0,
                 });
               }
               break;
@@ -528,23 +552,6 @@ export const useEmailProcessing = (
           if (!existing) {
             return newSessions;
           }
-          // Prevent progress from jumping backwards when total increases
-          const clampedProgress = Math.max(existing.progress ?? 0, kbEvent.progress ?? 0);
-          newSessions.set(existingKey, {
-            ...existing,
-            status: kbEvent.status === 'processing' ? 'processing' : existing.status,
-            total: Math.max(existing.total, kbEvent.messages.total),
-            current: Math.max(existing.current, kbEvent.messages.processed),
-            processed: Math.max(existing.processed, kbEvent.messages.processed),
-            successful: kbEvent.messages.successful,
-            failed: Math.max(existing.failed, kbEvent.messages.failed),
-            skipped: kbEvent.messages.skipped,
-            progress: clampedProgress,
-            kbEntriesTotal: kbEvent.kbEntries?.total,
-            kbQAPairs: kbEvent.kbEntries?.qaPairs,
-            kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge,
-            kbDocuments: kbEvent.kbEntries?.documents,
-          });
           return newSessions;
         }
 
@@ -552,7 +559,50 @@ export const useEmailProcessing = (
         // This can happen if:
         // 1. KB processing started before email polling (bulk import)
         // 2. Page refreshed after email session completed but KB still running
-        // For now, ignore orphan KB events to prevent duplicate widgets
+        // 3. Email processing completed and cleaned up, but KB still running
+        // CREATE a new session for standalone KB processing
+        const integrationId = kbEvent.messageSourceId;
+        const departmentRole = kbEvent.departmentRole ?? 'general';
+        const sessionKey = `${integrationId}-${departmentRole}`;
+
+        // Only create if status is processing (not idle)
+        if (kbEvent.status === 'processing' && kbEvent.messages.total > 0) {
+          newSessions.set(sessionKey, {
+            sessionKey,
+            integrationId,
+            integrationName: kbEvent.messageSourceName,
+            departmentRole,
+            status: 'processing',
+            stage: 'kb-processing',
+            total: kbEvent.messages.total,
+            current: kbEvent.messages.processed,
+            processed: kbEvent.messages.processed,
+            successful: kbEvent.messages.successful,
+            failed: kbEvent.messages.failed,
+            skipped: kbEvent.messages.skipped,
+            isProcessing: true,
+            progress: kbEvent.progress ?? 0,
+            timestamp: Date.now(),
+            // KB entry counters (how many saved)
+            kbEntriesTotal: kbEvent.kbEntries?.total ?? 0,
+            kbQAPairs: kbEvent.kbEntries?.qaPairs ?? 0,
+            kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge ?? 0,
+            kbDocuments: kbEvent.kbEntries?.documents ?? 0,
+            // KB message processing progress (how many analyzed)
+            kbMessagesTotal: kbEvent.messages.total,
+            kbMessagesProcessed: kbEvent.messages.processed,
+            kbMessagesSuccessful: kbEvent.messages.successful,
+            kbMessagesFailed: kbEvent.messages.failed,
+            kbMessagesSkipped: kbEvent.messages.skipped,
+          });
+          console.log('[KB Progress] Created new standalone KB session:', {
+            key: sessionKey,
+            total: kbEvent.kbEntries?.total,
+            qaPairs: kbEvent.kbEntries?.qaPairs,
+            docs: kbEvent.kbEntries?.documents,
+          });
+        }
+
         return newSessions;
       });
     };
@@ -608,6 +658,13 @@ export const useEmailProcessing = (
           if (!existing) {
             return newSessions;
           }
+          console.log('[KB Completed] Final counts:', {
+            key: existingKey,
+            total: kbEvent.kbEntries?.total,
+            qaPairs: kbEvent.kbEntries?.qaPairs,
+            docs: kbEvent.kbEntries?.documents,
+            info: kbEvent.kbEntries?.standaloneKnowledge,
+          });
           newSessions.set(existingKey, {
             ...existing,
             status: 'complete',
@@ -618,12 +675,48 @@ export const useEmailProcessing = (
             kbQAPairs: kbEvent.kbEntries?.qaPairs,
             kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge,
             kbDocuments: kbEvent.kbEntries?.documents,
+            // KB message processing progress (how many analyzed)
+            kbMessagesTotal: kbEvent.messages?.total,
+            kbMessagesProcessed: kbEvent.messages?.processed,
+            kbMessagesSuccessful: kbEvent.messages?.successful,
+            kbMessagesFailed: kbEvent.messages?.failed,
+            kbMessagesSkipped: kbEvent.messages?.skipped,
           });
           return newSessions;
         }
 
         // No existing session found - KB completed without email session
-        // Ignore to prevent creating orphan completed sessions
+        // Create a completed session to show the final results
+        const integrationId = kbEvent.messageSourceId;
+        const departmentRole = kbEvent.departmentRole ?? 'general';
+        const sessionKey = `${integrationId}-${departmentRole}`;
+
+        // Create a brief completed session to show results
+        if (kbEvent.messages.total > 0) {
+          newSessions.set(sessionKey, {
+            sessionKey,
+            integrationId,
+            integrationName: kbEvent.messageSourceName,
+            departmentRole,
+            status: 'complete',
+            stage: 'kb-processing',
+            total: kbEvent.messages.total,
+            current: kbEvent.messages.processed,
+            processed: kbEvent.messages.processed,
+            successful: kbEvent.messages.successful,
+            failed: kbEvent.messages.failed,
+            skipped: kbEvent.messages.skipped,
+            isProcessing: false,
+            progress: 100,
+            timestamp: Date.now(),
+            totalTime: kbEvent.duration,
+            kbEntriesTotal: kbEvent.kbEntries?.total,
+            kbQAPairs: kbEvent.kbEntries?.qaPairs,
+            kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge,
+            kbDocuments: kbEvent.kbEntries?.documents,
+          });
+        }
+
         return newSessions;
       });
     };
