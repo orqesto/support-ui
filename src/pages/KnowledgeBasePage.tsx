@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FileText, MessageSquareMore, Book, X, Filter, Scroll } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
@@ -27,10 +27,10 @@ type TabType = 'all' | 'qa_pair' | 'document' | 'documentation';
 
 export const KnowledgeBasePage = () => {
   const location = useLocation();
-  
+
   // Get active tab from URL hash, default to 'all'
   const raw = location.hash.replace('#', '');
-  
+
   // Handle tab change by updating URL hash
   const handleTabChange = (tabId: TabType) => {
     window.location.hash = tabId;
@@ -64,8 +64,9 @@ export const KnowledgeBasePage = () => {
     },
   ];
 
-  const activeTab = (tabs.find(t => t.id === raw)?.id ?? 'all');
+  const activeTab = tabs.find((t) => t.id === raw)?.id ?? 'all';
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -129,6 +130,36 @@ export const KnowledgeBasePage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, filterStatus, searchQuery]);
+
+  // Handle ID URL parameter (e.g., /knowledge-base?id=123)
+  // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam && !selectedEntry) {
+      const id = parseInt(idParam, 10);
+      if (!isNaN(id)) {
+        // Fetch and open the specific entry
+        void kbService
+          .getById(id)
+          .then((response: { data: KBEntry }) => {
+            setSelectedEntry(response.data);
+          })
+          .catch((error: Error) => {
+            console.error('Failed to fetch KB entry:', error);
+            setAlertDialog({
+              open: true,
+              title: 'Entry Not Found',
+              description: 'Could not find the requested knowledge base entry.',
+              variant: 'error',
+            });
+            // Remove invalid ID from URL
+            const params = new URLSearchParams(searchParams);
+            params.delete('id');
+            setSearchParams(params, { replace: true });
+          });
+      }
+    }
+  }, [searchParams, selectedEntry, setSearchParams]);
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
@@ -196,6 +227,20 @@ export const KnowledgeBasePage = () => {
         variant: 'error',
       });
     }
+  };
+
+  // Handle opening entry - update URL with ID
+  const handleOpenEntry = (entry: KBEntry) => {
+    setSelectedEntry(entry);
+    setSearchParams({ id: entry.id.toString() });
+  };
+
+  // Handle closing entry - remove ID from URL
+  const handleCloseEntry = () => {
+    setSelectedEntry(null);
+    const params = new URLSearchParams(searchParams);
+    params.delete('id');
+    setSearchParams(params);
   };
 
   const handleDeleteClick = (entry: KBEntry) => {
@@ -389,7 +434,7 @@ export const KnowledgeBasePage = () => {
                   <KBEntryCard
                     key={entry.id}
                     entry={entry}
-                    onView={setSelectedEntry}
+                    onView={handleOpenEntry}
                     onApprove={handleApprove}
                     onHide={handleHide}
                     onDelete={handleDeleteClick}
@@ -402,7 +447,7 @@ export const KnowledgeBasePage = () => {
             <KBTableView
               entries={entries}
               loading={loading}
-              onView={setSelectedEntry}
+              onView={handleOpenEntry}
               onApprove={handleApprove}
               onHide={handleHide}
               onDelete={handleDeleteClick}
@@ -492,17 +537,17 @@ export const KnowledgeBasePage = () => {
                 </Button>
               </DialogFooter>
             </Dialog>
-
-            {/* Entry Detail Drawer */}
-            <KBEntryDetail
-              entry={selectedEntry}
-              onClose={() => setSelectedEntry(null)}
-              onApprove={handleApprove}
-              onHide={handleHide}
-              onDelete={handleDeleteClick}
-            />
           </>
         )}
+
+        {/* Entry Detail Drawer */}
+        <KBEntryDetail
+          entry={selectedEntry}
+          onClose={handleCloseEntry}
+          onApprove={handleApprove}
+          onHide={handleHide}
+          onDelete={handleDeleteClick}
+        />
 
         {/* Alert Dialog */}
         <AlertDialog

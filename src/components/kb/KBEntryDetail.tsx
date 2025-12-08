@@ -3,6 +3,7 @@ import { CheckCircle, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
+import { apiClient } from '@/lib/api-client';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 
@@ -85,23 +86,102 @@ export const KBEntryDetail = ({
               <span className="text-muted-foreground">Usage Count:</span>
               <div className="font-medium">{displayEntry.usageCount}</div>
             </div>
-            {displayEntry.metadata && typeof displayEntry.metadata.sourceMessageId === 'number' && (
-              <div>
-                <span className="text-muted-foreground">Source Message:</span>
-                <div className="font-medium">
-                  <a
-                    href={`/messages?id=${displayEntry.metadata.sourceMessageId}`}
-                    className="text-blue-600 hover:text-blue-700 hover:underline"
-                  >
-                    #{displayEntry.metadata.sourceMessageId}
-                  </a>
-                </div>
-              </div>
-            )}
             <div>
               <span className="text-muted-foreground">Type:</span>
               <div className="font-medium capitalize">{displayEntry.type.replace('_', ' ')}</div>
             </div>
+
+            {/* Source Messages for Q&A pairs */}
+            {displayEntry.type === 'qa_pair' &&
+              displayEntry.typeData &&
+              typeof displayEntry.typeData === 'object' &&
+              (() => {
+                const typeData = displayEntry.typeData as {
+                  questionMessageId?: number;
+                  answerMessageId?: number;
+                  sourceMessageIds?: number[];
+                  threadId?: string;
+                };
+
+                const hasQuestionAnswer =
+                  typeof typeData.questionMessageId === 'number' &&
+                  typeof typeData.answerMessageId === 'number';
+                const hasSourceMessages =
+                  Array.isArray(typeData.sourceMessageIds) && typeData.sourceMessageIds.length > 0;
+
+                if (!hasQuestionAnswer && !hasSourceMessages) return null;
+
+                return (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Source Messages:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {hasQuestionAnswer && (
+                        <>
+                          {/* Question Message */}
+                          <a
+                            href={`/messages?id=${typeData.questionMessageId}`}
+                            className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400"
+                            title="Question Message"
+                          >
+                            ❓ Question: #{typeData.questionMessageId}
+                          </a>
+
+                          {/* Answer Message - always show even if same as question */}
+                          <a
+                            href={`/messages?id=${typeData.answerMessageId}`}
+                            className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 rounded hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
+                            title="Answer Message"
+                          >
+                            ✅ Answer: #{typeData.answerMessageId}
+                            {typeData.answerMessageId === typeData.questionMessageId && (
+                              <span className="ml-1 text-[10px] opacity-70">(same)</span>
+                            )}
+                          </a>
+                        </>
+                      )}
+
+                      {/* All thread messages (excluding question and answer) */}
+                      {hasSourceMessages &&
+                        typeData.sourceMessageIds?.map((msgId) => {
+                          // Skip if already shown as question or answer
+                          if (
+                            msgId === typeData.questionMessageId ||
+                            msgId === typeData.answerMessageId
+                          ) {
+                            return null;
+                          }
+                          return (
+                            <a
+                              key={msgId}
+                              href={`/messages?id=${msgId}`}
+                              className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400"
+                              title="Other Thread Message"
+                            >
+                              💬 #{msgId}
+                            </a>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+            {/* Fallback: single source message from metadata */}
+            {displayEntry.type !== 'qa_pair' &&
+              displayEntry.metadata &&
+              typeof displayEntry.metadata.sourceMessageId === 'number' && (
+                <div>
+                  <span className="text-muted-foreground">Source Message:</span>
+                  <div className="font-medium">
+                    <a
+                      href={`/messages?id=${displayEntry.metadata.sourceMessageId}`}
+                      className="text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      #{displayEntry.metadata.sourceMessageId}
+                    </a>
+                  </div>
+                </div>
+              )}
             {displayEntry.type === 'document' &&
               (() => {
                 // Try to get attachment info from typeData first, then metadata
@@ -126,17 +206,34 @@ export const KBEntryDetail = ({
                 }
 
                 if (typeof attachmentId === 'number' && typeof filename === 'string') {
+                  const handleDownload = async () => {
+                    try {
+                      const response = await apiClient.get<Blob>(
+                        `/api/attachments/${attachmentId}/download`,
+                        { responseType: 'blob' }
+                      );
+                      const url = URL.createObjectURL(response.data);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (error) {
+                      console.error('Download failed:', error);
+                    }
+                  };
+
                   return (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Original File:</span>
                       <div className="font-medium">
-                        <a
-                          href={`/api/attachments/${attachmentId}/download`}
-                          download
-                          className="inline-flex gap-2 items-center text-blue-600 hover:text-blue-700 hover:underline"
+                        <button
+                          type="button"
+                          onClick={handleDownload}
+                          className="inline-flex gap-2 items-center p-0 text-blue-600 bg-transparent border-none cursor-pointer hover:text-blue-700 hover:underline"
                         >
                           📎 {filename}
-                        </a>
+                        </button>
                       </div>
                     </div>
                   );
