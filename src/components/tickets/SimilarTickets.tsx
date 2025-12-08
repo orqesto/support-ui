@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { ticketService } from '@/services/ticket.service';
+import { messageService } from '@/services/message.service';
 
 type SimilarTicket = {
   ticketId: number;
@@ -39,9 +40,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
         // Try both endpoints: tickets and resolved messages
         const [ticketsResponse, messagesResponse] = await Promise.allSettled([
           ticketService.getSimilar(messageId, { limit: 3, minSimilarity: 0.7 }),
-          import('@/services/message.service').then(({ messageService }) =>
-            messageService.getSimilarResolvedMessages(messageId, 3, 0.7)
-          ),
+          messageService.getSimilarResolvedMessages(messageId, 3, 0.7),
         ]);
 
         const tickets =
@@ -108,7 +107,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
     return (
       <div className="p-4 rounded-lg border bg-muted/30">
         <div className="flex gap-2 items-center mb-2">
-          <Lightbulb className="w-4 h-4 text-yellow-600 dark:text-yellow-400 animate-pulse" />
+          <Lightbulb className="w-4 h-4 text-yellow-600 animate-pulse dark:text-yellow-400" />
           <span className="text-sm font-medium">Finding similar tickets...</span>
         </div>
       </div>
@@ -120,7 +119,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
   }
 
   return (
-    <div className="p-4 rounded-lg border bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950/20 dark:to-amber-950/20 border-yellow-200 dark:border-yellow-800">
+    <div className="p-4 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200 dark:from-yellow-950/20 dark:to-amber-950/20 dark:border-yellow-800">
       <div className="flex gap-2 items-center mb-3">
         <Lightbulb className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
         <h3 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
@@ -140,39 +139,39 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
         {similarTickets.map((ticket) => (
           <div
             key={ticket.ticketId}
-            className="p-3 rounded-lg border bg-white dark:bg-gray-900 border-yellow-200 dark:border-yellow-800"
+            className="p-3 bg-white rounded-lg border border-yellow-200 dark:bg-gray-900 dark:border-yellow-800"
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1 min-w-0">
                 <Link to={`/tickets/${ticket.ticketId}`} className="flex gap-2 items-center group">
-                  <h4 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                  <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
                     {ticket.ticketTitle}
                   </h4>
-                  <ExternalLink className="flex-shrink-0 w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
                 </Link>
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                   {ticket.messageSubject ?? ticket.messageContent}
                 </p>
               </div>
               <Badge
                 variant="secondary"
-                className="flex-shrink-0 ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                className="flex-shrink-0 ml-2 text-xs text-green-700 bg-green-100 dark:bg-green-900 dark:text-green-300"
               >
                 {Math.round(ticket.similarity * 100)}% match
               </Badge>
             </div>
 
             {ticket.responses.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-yellow-100 dark:border-yellow-900">
+              <div className="pt-3 mt-3 border-t border-yellow-100 dark:border-yellow-900">
                 <p className="mb-2 text-xs font-medium text-yellow-800 dark:text-yellow-200">
                   Successful Response{ticket.responses.length > 1 ? 's' : ''}:
                 </p>
                 {ticket.responses.map((response) => (
                   <div
                     key={response.id}
-                    className="mb-2 last:mb-0 p-2 rounded bg-gray-50 dark:bg-gray-800"
+                    className="p-2 mb-2 bg-gray-50 rounded last:mb-0 dark:bg-gray-800"
                   >
-                    <div className="flex justify-between items-start gap-2 mb-2">
+                    <div className="flex gap-2 justify-between items-start mb-2">
                       <Badge variant="secondary" className="text-xs border">
                         via {response.channel}
                       </Badge>
@@ -182,7 +181,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3 mb-2">
+                    <p className="mb-2 text-sm whitespace-pre-wrap text-foreground line-clamp-3">
                       {response.content}
                     </p>
                     <div className="flex gap-2">
@@ -204,12 +203,12 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
                       >
                         {copiedId === response.id ? (
                           <>
-                            <CheckCircle className="w-3 h-3 mr-1" />
+                            <CheckCircle className="mr-1 w-3 h-3" />
                             Copied!
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3 h-3 mr-1" />
+                            <Copy className="mr-1 w-3 h-3" />
                             Copy
                           </>
                         )}

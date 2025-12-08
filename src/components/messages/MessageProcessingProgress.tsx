@@ -7,6 +7,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -419,6 +420,112 @@ export const MessageProcessingProgress = ({
               <p className="text-[10px] text-muted-foreground">Failed</p>
             </button>
           </div>
+
+          {/* KB Processing Progress - Show if KB data is present (even if 0) */}
+          {(kbEntriesTotal !== undefined ||
+            kbQAPairs !== undefined ||
+            kbDocuments !== undefined ||
+            kbStandaloneKnowledge !== undefined) && (
+            <div className="pt-2 border-t">
+              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1.5 flex items-center gap-1">
+                <BookOpen className="w-3 h-3" />
+                Knowledge Base
+                {isProcessing && <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />}
+              </p>
+
+              {/* KB Message Processing Progress Bar */}
+              {session.kbMessagesTotal !== undefined && session.kbMessagesTotal > 0 && (
+                <div className="mb-2 space-y-1">
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>
+                      Analyzing: {session.kbMessagesProcessed ?? 0} / {session.kbMessagesTotal}
+                    </span>
+                    <span>
+                      {Math.round(
+                        ((session.kbMessagesProcessed ?? 0) / session.kbMessagesTotal) * 100
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-purple-200 dark:bg-purple-900">
+                    <div
+                      className="h-full bg-purple-600 transition-all duration-300 dark:bg-purple-400"
+                      style={{
+                        width: `${Math.min(100, ((session.kbMessagesProcessed ?? 0) / session.kbMessagesTotal) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-around text-center">
+                {kbEntriesTotal !== undefined && (
+                  <div>
+                    <div className="flex gap-1 justify-center items-center">
+                      <span
+                        className={`text-lg font-bold ${
+                          kbEntriesTotal > 0
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {kbEntriesTotal}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Total</p>
+                  </div>
+                )}
+                {kbQAPairs !== undefined && (
+                  <div>
+                    <div className="flex gap-1 justify-center items-center">
+                      <span
+                        className={`text-lg font-bold ${
+                          kbQAPairs > 0
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {kbQAPairs}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Q&A</p>
+                  </div>
+                )}
+                {kbDocuments !== undefined && (
+                  <div>
+                    <div className="flex gap-1 justify-center items-center">
+                      <span
+                        className={`text-lg font-bold ${
+                          kbDocuments > 0
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {kbDocuments}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Docs</p>
+                  </div>
+                )}
+                {kbStandaloneKnowledge !== undefined && (
+                  <div>
+                    <div className="flex gap-1 justify-center items-center">
+                      <span
+                        className={`text-lg font-bold ${
+                          kbStandaloneKnowledge > 0
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {kbStandaloneKnowledge}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Info</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (

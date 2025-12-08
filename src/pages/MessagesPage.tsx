@@ -197,6 +197,7 @@ export const MessagesPage = () => {
     filters.hasReplies,
     filters.hasTicket,
     filters.showFailed,
+    filters.excludeKB,
     filters.awaitingCustomerResponse,
     filters.search,
     sorting.sortOrder,
@@ -355,7 +356,7 @@ export const MessagesPage = () => {
     const paramId = messageIdParam ? parseInt(messageIdParam) : null;
 
     // Only fetch if URL has an ID and it's different from the currently selected message
-    if (paramId && (selectedMessage?.id !== paramId)) {
+    if (paramId && selectedMessage?.id !== paramId) {
       // Fetch the specific message by ID (it might be filtered out)
       const fetchAndOpenMessage = async () => {
         try {

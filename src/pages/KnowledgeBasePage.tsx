@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FileText, MessageSquare, Settings, X, Filter } from 'lucide-react';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
@@ -24,6 +25,7 @@ type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
 
 export const KnowledgeBasePage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -81,6 +83,36 @@ export const KnowledgeBasePage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, filterStatus, searchQuery]);
+
+  // Handle ID URL parameter (e.g., /knowledge-base?id=123)
+  // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam && !selectedEntry) {
+      const id = parseInt(idParam, 10);
+      if (!isNaN(id)) {
+        // Fetch and open the specific entry
+        void kbService
+          .getById(id)
+          .then((response: { data: KBEntry }) => {
+            setSelectedEntry(response.data);
+          })
+          .catch((error: Error) => {
+            console.error('Failed to fetch KB entry:', error);
+            setAlertDialog({
+              open: true,
+              title: 'Entry Not Found',
+              description: 'Could not find the requested knowledge base entry.',
+              variant: 'error',
+            });
+            // Remove invalid ID from URL
+            const params = new URLSearchParams(searchParams);
+            params.delete('id');
+            setSearchParams(params, { replace: true });
+          });
+      }
+    }
+  }, [searchParams, selectedEntry, setSearchParams]);
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
@@ -150,6 +182,20 @@ export const KnowledgeBasePage = () => {
     }
   };
 
+  // Handle opening entry - update URL with ID
+  const handleOpenEntry = (entry: KBEntry) => {
+    setSelectedEntry(entry);
+    setSearchParams({ id: entry.id.toString() });
+  };
+
+  // Handle closing entry - remove ID from URL
+  const handleCloseEntry = () => {
+    setSelectedEntry(null);
+    const params = new URLSearchParams(searchParams);
+    params.delete('id');
+    setSearchParams(params);
+  };
+
   const handleDeleteClick = (entry: KBEntry) => {
     setEntryToDelete(entry);
     setDeleteDialogOpen(true);
@@ -208,7 +254,7 @@ export const KnowledgeBasePage = () => {
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              All ({pagination.total})
+              All
             </button>
 
             {/* Q&A Pairs */}
@@ -220,8 +266,8 @@ export const KnowledgeBasePage = () => {
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <MessageSquare className="hidden sm:block w-4 h-4" />
-              Q&A Pairs ({filterType === 'qa_pair' ? pagination.total : '...'})
+              <MessageSquare className="hidden w-4 h-4 sm:block" />
+              Q&A Pairs
             </button>
 
             {/* Documents */}
@@ -233,8 +279,8 @@ export const KnowledgeBasePage = () => {
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <FileText className="hidden sm:block w-4 h-4" />
-              Documents ({filterType === 'document' ? pagination.total : '...'})
+              <FileText className="hidden w-4 h-4 sm:block" />
+              Documents
             </button>
 
             {/* Documentation */}
@@ -246,7 +292,7 @@ export const KnowledgeBasePage = () => {
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <Settings className="hidden sm:block w-4 h-4" />
+              <Settings className="hidden w-4 h-4 sm:block" />
               Documentation
             </button>
           </div>
@@ -366,7 +412,7 @@ export const KnowledgeBasePage = () => {
                   <KBEntryCard
                     key={entry.id}
                     entry={entry}
-                    onView={setSelectedEntry}
+                    onView={handleOpenEntry}
                     onApprove={handleApprove}
                     onHide={handleHide}
                     onDelete={handleDeleteClick}
@@ -379,7 +425,7 @@ export const KnowledgeBasePage = () => {
             <KBTableView
               entries={entries}
               loading={loading}
-              onView={setSelectedEntry}
+              onView={handleOpenEntry}
               onApprove={handleApprove}
               onHide={handleHide}
               onDelete={handleDeleteClick}
@@ -469,17 +515,17 @@ export const KnowledgeBasePage = () => {
                 </Button>
               </DialogFooter>
             </Dialog>
-
-            {/* Entry Detail Drawer */}
-            <KBEntryDetail
-              entry={selectedEntry}
-              onClose={() => setSelectedEntry(null)}
-              onApprove={handleApprove}
-              onHide={handleHide}
-              onDelete={handleDeleteClick}
-            />
           </>
         )}
+
+        {/* Entry Detail Drawer */}
+        <KBEntryDetail
+          entry={selectedEntry}
+          onClose={handleCloseEntry}
+          onApprove={handleApprove}
+          onHide={handleHide}
+          onDelete={handleDeleteClick}
+        />
 
         {/* Alert Dialog */}
         <AlertDialog

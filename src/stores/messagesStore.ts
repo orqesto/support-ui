@@ -62,6 +62,7 @@ const defaultFilters: FilterState = {
   hasReplies: false,
   hasTicket: undefined,
   showFailed: false,
+  excludeKB: true, // Default: hide KB messages in support view
   awaitingCustomerResponse: false,
 };
 
@@ -162,6 +163,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           hasReplies: false,
           hasTicket: undefined,
           showFailed: false,
+          excludeKB: true, // Reset to default: hide KB messages
           awaitingCustomerResponse: false,
           search: undefined,
         },
