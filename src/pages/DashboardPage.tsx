@@ -354,7 +354,7 @@ export const DashboardPage = () => {
       icon: Inbox,
       color: 'text-cyan-600 dark:text-cyan-400',
       bg: 'bg-cyan-50 dark:bg-cyan-950/50',
-      onClick: () => navigate('/messages?showKBOnly=true'),
+      onClick: () => navigate('/knowledge-base'),
     },
     {
       title: 'Total Tickets',
