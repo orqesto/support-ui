@@ -1,6 +1,6 @@
 import React from 'react';
 
-type DepartmentRole = 'support' | 'sales' | 'billing' | 'general';
+type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
 interface DepartmentBadgeProps {
   department: DepartmentRole;
@@ -37,6 +37,12 @@ const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
       colors:
         'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700',
       icon: '💳',
+    },
+    hr: {
+      label: 'HR',
+      colors:
+        'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
+      icon: '👥',
     },
   };
 

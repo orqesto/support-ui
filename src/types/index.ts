@@ -4,7 +4,7 @@ export type ChannelType = 'email' | 'telegram' | 'slack' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general';
+export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
 export type User = {
   id: number;

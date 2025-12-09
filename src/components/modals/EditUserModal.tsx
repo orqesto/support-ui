@@ -42,12 +42,13 @@ type EditUserModalProps = {
 
 const globalRoles: GlobalRole[] = ['admin', 'user'];
 const orgRoles: OrganizationRole[] = ['org_admin', 'moderator', 'support', 'associate'];
-const departments: DepartmentRole[] = ['support', 'sales', 'billing', 'general'];
+const departments: DepartmentRole[] = ['support', 'sales', 'billing', 'general', 'hr'];
 const departmentLabels: Record<DepartmentRole, string> = {
   support: 'Support',
   sales: 'Sales',
   billing: 'Billing',
   general: 'General',
+  hr: 'HR',
 };
 
 export const EditUserModal = ({
