@@ -209,19 +209,6 @@ export const Layout = ({ children }: LayoutProps) => {
         if (closedSessions.has(sessionKey)) {
           return false;
         }
-
-        // Filter by current department (only show sessions for selected department)
-        // TODO: Make this configurable - for now show all during processing
-        // if (
-        //   selectedDepartmentRole &&
-        //   session.departmentRole &&
-        //   session.departmentRole !== selectedDepartmentRole
-        // ) {
-        //   return false;
-        // }
-
-        // Show if processing or recently completed
-        // Include 'started' and 'processing' statuses to show restored sessions on page refresh
         const shouldShow =
           session.isProcessing ||
           session.status === 'started' ||
@@ -232,7 +219,7 @@ export const Layout = ({ children }: LayoutProps) => {
       })
       .map(([_, session]) => session);
     return filtered;
-  }, [sessions, closedSessions, selectedDepartmentRole]);
+  }, [sessions, closedSessions]);
 
   // Filter navigation based on permissions
   const navigation = useMemo(

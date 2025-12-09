@@ -9,6 +9,7 @@ const DEPARTMENT_LABELS: Record<DepartmentRole, string> = {
   support: 'Support',
   sales: 'Sales',
   billing: 'Billing',
+  hr: 'HR',
 };
 
 const DEPARTMENT_DESCRIPTIONS: Record<DepartmentRole, string> = {
@@ -16,6 +17,7 @@ const DEPARTMENT_DESCRIPTIONS: Record<DepartmentRole, string> = {
   sales: 'Sales inquiries & demos',
   billing: 'Billing, invoices & payments',
   general: 'General inquiries',
+  hr: 'HR & employee relations',
 };
 
 export const DepartmentSwitcher = () => {
