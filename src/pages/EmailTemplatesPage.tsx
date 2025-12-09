@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 
-type TemplateType = 'invitation' | 'verification';
+type TemplateType = 'invitation' | 'verification' | 'auto_reply' | 'password_reset';
 
 type Template = {
   type: TemplateType;
@@ -23,6 +23,16 @@ const TEMPLATES: Template[] = [
     type: 'verification',
     name: 'Email Verification',
     description: 'Email sent to verify user email addresses after registration',
+  },
+  {
+    type: 'password_reset',
+    name: 'Password Reset',
+    description: 'Email sent when users request to reset their password',
+  },
+  {
+    type: 'auto_reply',
+    name: 'Auto Reply',
+    description: 'Automated response sent when AI needs more information from customers',
   },
 ];
 
