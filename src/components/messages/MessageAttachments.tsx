@@ -119,7 +119,7 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
               </div>
             </div>
             <a
-              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${attachment.url}`}
+              href={`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}${attachment.url}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
@@ -129,7 +129,7 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
             </a>
           </div>
         ))}
-        
+
         {/* Email attachments (from rawData) */}
         {emailAttachments?.map((attachment) => (
           <div
@@ -170,7 +170,8 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
           <p className="flex gap-2 items-start text-xs text-amber-600 dark:text-amber-400">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
-              Email attachments will be available for download once a ticket is created from this message.
+              Email attachments will be available for download once a ticket is created from this
+              message.
             </span>
           </p>
         </div>

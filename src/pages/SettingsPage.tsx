@@ -1,4 +1,14 @@
-import { Settings, FolderTree, ShieldAlert, Inbox, Cog, BrainCog, Zap } from 'lucide-react';
+import {
+  Settings,
+  FolderTree,
+  ShieldAlert,
+  Inbox,
+  Cog,
+  BrainCog,
+  Zap,
+  Database,
+  User,
+} from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
@@ -7,22 +17,30 @@ import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSett
 import { PromptsSettings } from '@/components/settings/PromptsSettings';
 import { RulesSettings } from '@/components/settings/RulesSettings';
 import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
+import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
+import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 
 type TabType =
+  | 'profile'
   | 'categories'
   | 'prompts'
   | 'rules'
   | 'ai-providers'
   | 'message-sources'
-  | 'ticket-automation';
+  | 'ticket-automation'
+  | 'system-management';
 
 export const SettingsPage = () => {
   const location = useLocation();
+  const { hasPermission } = usePermissions();
+  const canManageSystem = hasPermission(Permission.MANAGE_ORGANIZATION);
 
-  // Get active tab from URL hash, default to 'categories'
-  const activeTab = (location.hash.replace('#', '') || 'categories') as TabType;
+  // Get active tab from URL hash, default to 'profile'
+  const activeTab = (location.hash.replace('#', '') || 'profile') as TabType;
 
   // Handle tab change by updating URL hash
   const handleTabChange = (tabId: TabType) => {
@@ -30,6 +48,12 @@ export const SettingsPage = () => {
   };
 
   const tabs = [
+    {
+      id: 'profile' as TabType,
+      label: 'Profile',
+      icon: User,
+      description: 'Manage your account and password',
+    },
     {
       id: 'categories' as TabType,
       label: 'Categories',
@@ -68,6 +92,19 @@ export const SettingsPage = () => {
     },
   ];
 
+  // Add System Management tab only for admins
+  const allTabs = canManageSystem
+    ? [
+        ...tabs,
+        {
+          id: 'system-management' as TabType,
+          label: 'System',
+          icon: Database,
+          description: 'Manage queues, cleanup data, and nuclear options (Admin only)',
+        },
+      ]
+    : tabs;
+
   return (
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
@@ -86,12 +123,11 @@ export const SettingsPage = () => {
           </div>
         </div>
 
-
         <Card>
           <CardContent className="overflow-visible p-0">
             <div className="overflow-visible border-b">
               <div className="flex">
-                {tabs.map((tab) => {
+                {allTabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <Button
@@ -117,12 +153,14 @@ export const SettingsPage = () => {
 
             {/* Tab Content */}
             <div className="p-6" key={activeTab}>
+              {activeTab === 'profile' && <ProfileSettings />}
               {activeTab === 'categories' && <CategoriesSettings />}
               {activeTab === 'prompts' && <PromptsSettings />}
               {activeTab === 'rules' && <RulesSettings />}
               {activeTab === 'ai-providers' && <AIProvidersSettings />}
               {activeTab === 'message-sources' && <MessageSourcesSettings />}
               {activeTab === 'ticket-automation' && <TicketAutomationSettings />}
+              {activeTab === 'system-management' && <SystemManagementSettings />}
             </div>
           </CardContent>
         </Card>

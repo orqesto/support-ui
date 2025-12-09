@@ -16,6 +16,7 @@
     "migrate:imports": "tsx scripts/migrate-imports.ts"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.4.0",
     "@tanstack/react-query": "^5.17.0",
     "@tiptap/extension-link": "^3.10.7",
     "@tiptap/extension-placeholder": "^3.10.7",

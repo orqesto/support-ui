@@ -1,26 +1,57 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Turnstile } from '@/components/common/Turnstile';
 import { authService } from '@/services/auth.service';
 
 export const ForgotPasswordPage = () => {
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Pre-fill email from login page if provided
+  useEffect(() => {
+    const state = location.state as { email?: string } | null;
+    if (state?.email) {
+      setEmail(state.email);
+    }
+  }, [location]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      setError('Email address is required');
+      return;
+    }
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    // Validate captcha
+    if (!captchaToken) {
+      setError('Please complete the security check');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await authService.forgotPassword(email);
+      await authService.forgotPassword(email.trim(), captchaToken || undefined);
       setSuccess(true);
-    } catch {
-      setError('An error occurred. Please try again.');
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'An error occurred. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +110,13 @@ export const ForgotPasswordPage = () => {
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" isLoading={isLoading}>
+            <div className="flex justify-center">
+              <Turnstile
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() => setError('Security check failed. Please try again.')}
+              />
+            </div>
+            <Button type="submit" className="w-full" isLoading={isLoading} disabled={!captchaToken}>
               Send reset link
             </Button>
             <Link to="/login">

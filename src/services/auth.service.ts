@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import type { LoginRequest, LoginResponse, ApiResponse } from '@/types';
 
 export const authService = {
-  verifyUser: async (data: { organizationSlug: string; email: string }) => {
+  verifyUser: async (data: { organizationSlug: string; email: string; captchaToken?: string }) => {
     const response = await apiClient.post<ApiResponse<{ exists: boolean; message?: string }>>(
       '/api/auth/verify-user',
       data
@@ -10,7 +10,7 @@ export const authService = {
     return response.data;
   },
 
-  login: async (credentials: LoginRequest) => {
+  login: async (credentials: { captchaToken?: string } & LoginRequest) => {
     const response = await apiClient.post<ApiResponse<LoginResponse>>(
       '/api/auth/login',
       credentials
@@ -46,9 +46,10 @@ export const authService = {
     return response.data;
   },
 
-  forgotPassword: async (email: string) => {
+  forgotPassword: async (email: string, captchaToken?: string) => {
     const response = await apiClient.post<ApiResponse<null>>('/api/auth/forgot-password', {
       email,
+      captchaToken,
     });
     return response.data;
   },
@@ -57,6 +58,14 @@ export const authService = {
     const response = await apiClient.post<ApiResponse<null>>('/api/auth/reset-password', {
       token,
       password,
+    });
+    return response.data;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const response = await apiClient.post<ApiResponse<null>>('/api/auth/change-password', {
+      currentPassword,
+      newPassword,
     });
     return response.data;
   },
