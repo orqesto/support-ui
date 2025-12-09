@@ -8,7 +8,7 @@ export type Category = {
   name: string;
   description: string | null;
   keywords: string | null;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general';
+  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
   createdAt: string;
   updatedAt: string;
 };
@@ -20,7 +20,7 @@ export type PromptTemplate = {
   description: string | null;
   prompt: string;
   active: boolean;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general';
+  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
   createdAt: string;
   updatedAt: string;
 };
@@ -33,7 +33,7 @@ export type SpamRule = {
   category: string;
   severity: number;
   active: boolean;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general';
+  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
   createdAt: string;
   updatedAt: string;
 };

@@ -6,7 +6,7 @@ export interface TicketingSystem {
   name: string;
   type: 'jira' | 'asana' | 'linear' | 'clickup' | 'monday';
   enabled: boolean;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general';
+  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
   isDefault: boolean;
   config: Record<string, unknown>;
   createdAt: string;

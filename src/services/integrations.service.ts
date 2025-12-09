@@ -80,7 +80,7 @@ export type BaseIntegration = {
     | 'perplexity'
     | 'local_embeddings';
   enabled: boolean;
-  departmentRole?: 'support' | 'sales' | 'billing' | 'general';
+  departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
   isDefault?: boolean;
   isKnowledgeBase?: boolean; // If true, extract Q&A pairs for KB (email/gmail only)
   createdAt: string;
