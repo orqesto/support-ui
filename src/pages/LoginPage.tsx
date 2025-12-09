@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Turnstile } from '@/components/common/Turnstile';
 import { authService } from '@/services/auth.service';
 import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -18,6 +19,7 @@ export const LoginPage = () => {
   const [step, setStep] = useState<'verify' | 'password'>('verify');
   const [userVerified, setUserVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const login = useAuthStore((state) => state.login);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const navigate = useNavigate();
@@ -40,7 +42,11 @@ export const LoginPage = () => {
 
     try {
       // Verify user exists in organization
-      const verifyResponse = await authService.verifyUser({ organizationSlug, email });
+      const verifyResponse = await authService.verifyUser({
+        organizationSlug,
+        email,
+        captchaToken: captchaToken ?? undefined,
+      });
 
       if (verifyResponse.success) {
         setUserVerified(true);
@@ -62,7 +68,12 @@ export const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await authService.login({ organizationSlug, email, password });
+      const response = await authService.login({
+        organizationSlug,
+        email,
+        password,
+        captchaToken: captchaToken ?? undefined,
+      });
       if (response.success && response.data) {
         login(response.data.token, response.data.user);
 
@@ -109,6 +120,7 @@ export const LoginPage = () => {
     setPassword('');
     setError('');
     setInfo('');
+    setCaptchaToken(null);
   };
 
   return (
@@ -123,7 +135,7 @@ export const LoginPage = () => {
             <Input
               label="Organization"
               type="text"
-              placeholder="arasaka"
+              placeholder="organization"
               value={organizationSlug}
               onChange={(e) => setOrganizationSlug(e.target.value.toLowerCase())}
               disabled={userVerified}
@@ -132,7 +144,7 @@ export const LoginPage = () => {
             <Input
               label="Email"
               type="email"
-              placeholder="admin@arasaka.com"
+              placeholder="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={userVerified}
@@ -144,7 +156,7 @@ export const LoginPage = () => {
                   <Input
                     label="Password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
+                    placeholder="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -161,6 +173,7 @@ export const LoginPage = () => {
                 <div className="mt-2 text-right">
                   <Link
                     to="/forgot-password"
+                    state={{ email }}
                     className="text-sm transition-colors text-primary hover:text-primary/80"
                   >
                     Forgot password?
@@ -168,6 +181,7 @@ export const LoginPage = () => {
                 </div>
               </div>
             )}
+
             {info && <div className="p-3 text-sm text-blue-700 bg-blue-50 rounded-md">{info}</div>}
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
@@ -199,12 +213,18 @@ export const LoginPage = () => {
             <div className="py-2 text-sm text-center text-muted-foreground">
               Don&apos;t have an account? Contact your administrator for an invitation.
             </div>
-            <div className="mt-4 py-2 text-sm text-center text-muted-foreground">
+            <div className="py-2 mt-4 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
               <p className="font-medium">admin@arasaka.com / password123</p>
             </div>
           </form>
         </CardContent>
+        <div className="flex justify-center">
+          <Turnstile
+            onSuccess={(token) => setCaptchaToken(token)}
+            onError={() => setError('Security check failed. Please try again.')}
+          />
+        </div>
       </Card>
     </div>
   );
