@@ -28,12 +28,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        set({ 
-          token: null, 
-          user: null, 
-          isAuthenticated: false, 
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
           selectedOrganizationId: null,
-          selectedDepartmentRole: null 
+          selectedDepartmentRole: null,
         });
       },
 
