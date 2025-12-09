@@ -224,7 +224,7 @@ export const EmailTemplatesPage = () => {
                       srcDoc={previewHtml}
                       title="Email Preview"
                       className="w-full h-[600px] bg-white"
-                      sandbox=""
+                      sandbox="allow-same-origin"
                     />
                   </div>
                 )}
