@@ -117,6 +117,13 @@ export const useEmailProcessing = (
           if (session.status === 'complete' || session.status === 'error') {
             return false;
           }
+          // Filter by department if specified - prevents cross-department widgets on reload
+          if (filterByDepartment && session.departmentRole !== filterByDepartment) {
+            return false;
+          }
+          // Filter by organization if specified - prevents cross-organization widgets on reload
+          // Note: organizationId not stored in session, so we can't filter by it during restoration
+          // This is OK because organization context changes clear all sessions (lines 179-185)
           return timestamp > thirtyMinutesAgo;
         });
         return new Map(filtered);
@@ -183,6 +190,22 @@ export const useEmailProcessing = (
       localStorage.removeItem('emailProcessing_sessions');
     }
   }, [filterByOrganization]);
+
+  // Filter sessions when department filter changes (user switching departments)
+  useEffect(() => {
+    if (filterByDepartment) {
+      setSessions((prev) => {
+        const filtered = new Map<string, ProcessingSession>();
+        for (const [key, session] of prev.entries()) {
+          // Only keep sessions matching the selected department
+          if (session.departmentRole === filterByDepartment) {
+            filtered.set(key, session);
+          }
+        }
+        return filtered;
+      });
+    }
+  }, [filterByDepartment]);
 
   useEffect(() => {
     // Always get socket instance (for connection status)

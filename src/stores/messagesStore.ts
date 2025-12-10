@@ -18,6 +18,7 @@ export type FilterState = {
   showFailed?: boolean;
   excludeKB?: boolean; // Filter out KB messages (show only support requests)
   awaitingCustomerResponse?: boolean;
+  customerResponded?: boolean; // Show customer responses needing agent attention
   assignedToMe?: boolean; // Filter to show only messages assigned to current user
   search?: string;
 };
@@ -64,6 +65,7 @@ const defaultFilters: FilterState = {
   showFailed: false,
   excludeKB: true, // Default: hide KB messages in support view
   awaitingCustomerResponse: false,
+  customerResponded: false,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>

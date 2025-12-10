@@ -81,83 +81,6 @@ export const MessageFilters = ({
     void fetchSources();
   }, []);
 
-  // Helper to get active filter labels
-  const getActiveFilters = () => {
-    const active: Array<{ key: string; label: string; value: string }> = [];
-
-    if (filters.processed !== 'all') {
-      active.push({ key: 'processed', label: 'Status', value: filters.processed ?? '' });
-    }
-    if (filters.channel !== 'all') {
-      active.push({ key: 'channel', label: 'Channel', value: filters.channel ?? '' });
-    }
-    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
-      const source = messageSources.find((s) => s.id.toString() === filters.messageSourceId);
-      active.push({
-        key: 'messageSourceId',
-        label: 'Source',
-        value: source?.name ?? filters.messageSourceId,
-      });
-    }
-    if (filters.showSpam) {
-      active.push({ key: 'showSpam', label: 'Filter', value: 'Spam' });
-    }
-    if (filters.excludeSpam) {
-      active.push({ key: 'excludeSpam', label: 'Filter', value: 'Exclude Spam' });
-    }
-    if (filters.showWorthy) {
-      active.push({ key: 'showWorthy', label: 'Filter', value: 'Ticket Worthy' });
-    }
-    if (filters.showNeedsInfo) {
-      active.push({ key: 'showNeedsInfo', label: 'Filter', value: 'Needs Info' });
-    }
-    if (filters.hasAttachments) {
-      active.push({ key: 'hasAttachments', label: 'Filter', value: 'Has Attachments' });
-    }
-    if (filters.hasReplies) {
-      active.push({ key: 'hasReplies', label: 'Filter', value: 'Has Replies' });
-    }
-    if (filters.hasTicket === true) {
-      active.push({ key: 'hasTicket', label: 'Filter', value: 'Has Ticket' });
-    }
-    if (filters.hasTicket === false) {
-      active.push({ key: 'hasTicket', label: 'Filter', value: 'No Ticket' });
-    }
-    if (filters.showFailed) {
-      active.push({ key: 'showFailed', label: 'Filter', value: 'Failed' });
-    }
-    if (filters.awaitingCustomerResponse) {
-      active.push({ key: 'awaitingCustomerResponse', label: 'Filter', value: 'Awaiting Response' });
-    }
-
-    return active;
-  };
-
-  const activeFilters = getActiveFilters();
-
-  const removeFilter = (key: string) => {
-    if (key === 'processed') {
-      onFilterChange('processed', 'all');
-    } else if (key === 'channel') {
-      onFilterChange('channel', 'all');
-    } else if (key === 'messageSourceId') {
-      onFilterChange('messageSourceId', 'all');
-    } else if (
-      key === 'showSpam' ||
-      key === 'excludeSpam' ||
-      key === 'showWorthy' ||
-      key === 'showNeedsInfo' ||
-      key === 'hasAttachments' ||
-      key === 'hasReplies' ||
-      key === 'showFailed' ||
-      key === 'awaitingCustomerResponse'
-    ) {
-      setFilters({ ...filters, [key]: false });
-    } else if (key === 'hasTicket') {
-      setFilters({ ...filters, hasTicket: undefined });
-    }
-  };
-
   return (
     <Card>
       <CardContent className="p-4">
@@ -183,37 +106,18 @@ export const MessageFilters = ({
               )}
             </div>
             <div className="flex gap-2 items-center">
-              {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 shrink-0">
-                  <X className="mr-1 w-3 h-3" />
-                  Clear All
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearFilters}
+                className="h-8 shrink-0"
+                disabled={activeFilterCount === 0}
+              >
+                <X className="mr-1 w-3 h-3" />
+                Clear All
+              </Button>
             </div>
           </div>
-
-          {/* Active Filter Pills */}
-          {activeFilters.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter, index) => (
-                <Badge
-                  key={`${filter.key}-${index}`}
-                  variant="secondary"
-                  className="flex gap-1 items-center py-1 pr-1 pl-2 text-xs group"
-                >
-                  <span className="font-normal text-muted-foreground">{filter.label}:</span>
-                  <span className="font-medium capitalize">{filter.value}</span>
-                  <button
-                    onClick={() => removeFilter(filter.key)}
-                    className="ml-1 rounded-full hover:bg-muted-foreground/20 transition-colors p-0.5"
-                    aria-label={`Remove ${filter.label} filter`}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
 
           {/* Filter Controls */}
           <div className="flex flex-col gap-3">
@@ -305,7 +209,7 @@ export const MessageFilters = ({
                 {/* Message Source Group */}
                 <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    <Inbox className="inline hidden mr-1 w-3 h-3 sm:block" />
+                    <Inbox className="hidden mr-1 w-3 h-3 sm:block" />
                     Source:
                   </span>
                   <ReactSelect
@@ -334,8 +238,8 @@ export const MessageFilters = ({
                     value={sorting.sortOrder}
                     onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
                     options={[
-                      { value: 'desc', label: 'Oldest First' },
-                      { value: 'asc', label: 'Newest First' },
+                      { value: 'desc', label: 'Newest First' },
+                      { value: 'asc', label: 'Oldest First' },
                     ]}
                     className="min-w-[120px] sm:w-auto"
                   />
@@ -376,7 +280,7 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Contextual Filters - shown based on status */}
-                <div className="flex flex-wrap gap-3 items-center">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-wrap lg:gap-3">
                   {/* Spam filters - available for all messages (processed or not) */}
                   <label className="flex gap-2 items-center cursor-pointer">
                     <input
@@ -566,6 +470,21 @@ export const MessageFilters = ({
                     <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
                       <Clock className="w-3 h-3 text-blue-500" />
                       <span>Awaiting Response</span>
+                    </div>
+                  </label>
+
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.customerResponded ?? false}
+                      onChange={(e) =>
+                        setFilters({ ...filters, customerResponded: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                      <MessageCircle className="w-3 h-3 text-orange-500" />
+                      <span>Customer Replied</span>
                     </div>
                   </label>
 

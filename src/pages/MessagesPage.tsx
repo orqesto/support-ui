@@ -139,6 +139,9 @@ export const MessagesPage = () => {
         if (currentFilters.awaitingCustomerResponse) {
           apiFilters.awaitingCustomerResponse = 'true';
         }
+        if (currentFilters.customerResponded) {
+          apiFilters.customerResponded = 'true';
+        }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
@@ -199,6 +202,7 @@ export const MessagesPage = () => {
     filters.showFailed,
     filters.excludeKB,
     filters.awaitingCustomerResponse,
+    filters.customerResponded,
     filters.search,
     sorting.sortOrder,
   ]);
@@ -575,6 +579,7 @@ export const MessagesPage = () => {
     (filters.hasTicket !== undefined ? 1 : 0) +
     (filters.showFailed ? 1 : 0) +
     (filters.awaitingCustomerResponse ? 1 : 0) +
+    (filters.customerResponded ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
 
   return (
