@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Mail, RefreshCw } from 'lucide-react';
+import { Mail, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -18,6 +18,11 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService } from '@/services/message.service';
+import {
+  spamLogService,
+  type SpamLog,
+  type SpamLogFilters as SpamFiltersType,
+} from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 import type { Message } from '@/types';
@@ -25,16 +30,27 @@ import { Permission } from '@/types/roles';
 import { MessageFilters } from '@/components/messages/MessageFilters';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
+import { SpamLogFilters as SpamFiltersComponent } from '@/components/spam/SpamLogFilters';
+import { SpamLogListItem } from '@/components/spam/SpamLogListItem';
+import { SpamLogDetail } from '@/components/spam/SpamLogDetail';
+import { Tabs, type Tab } from '@/components/ui/Tabs';
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'messages' | 'spam'>('messages');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
   const urlSyncedRef = useRef(false); // Track if URL params were synced
+
+  // Spam log state
+  const [spamLogs, setSpamLogs] = useState<SpamLog[]>([]);
+  const [selectedSpamLog, setSelectedSpamLog] = useState<SpamLog | null>(null);
+  const [spamFilters, setSpamFilters] = useState<SpamFiltersType>({});
+  const [pendingSpamSearch, setPendingSpamSearch] = useState('');
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -176,6 +192,35 @@ export const MessagesPage = () => {
     [getCached, setMessages, pagination.limit]
   );
 
+  const fetchSpamLogs = useCallback(
+    async (page = 1, force = false) => {
+      if (fetchingRef.current && !force) {
+        return;
+      }
+
+      fetchingRef.current = true;
+      setLoading(true);
+      try {
+        const response = await spamLogService.getAll(spamFilters, page, pagination.limit);
+
+        if (response.success && response.data) {
+          setSpamLogs(response.data);
+          setPaginationLocal(response.pagination);
+
+          if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
+            await fetchSpamLogs(1);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch spam logs:', error);
+      } finally {
+        setLoading(false);
+        fetchingRef.current = false;
+      }
+    },
+    [spamFilters, pagination.limit]
+  );
+
   // Fetch on mount and when filters or sorting change
   useEffect(() => {
     // Skip initial fetch if URL sync hasn't happened yet
@@ -207,8 +252,42 @@ export const MessagesPage = () => {
     sorting.sortOrder,
   ]);
 
+  // Fetch spam logs when spam tab is active
+  useEffect(() => {
+    if (!urlSyncedRef.current) return;
+
+    if (activeTab === 'spam') {
+      fetchSpamLogs(1).catch((error) => {
+        console.error('Failed to fetch spam logs:', error);
+      });
+    }
+  }, [activeTab, fetchSpamLogs]);
+
+  // Fetch spam logs when filters change
+  useEffect(() => {
+    if (!urlSyncedRef.current) return;
+    if (activeTab !== 'spam') return;
+
+    fetchSpamLogs(1).catch((error) => {
+      console.error('Failed to fetch spam logs:', error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    spamFilters.channel,
+    spamFilters.category,
+    spamFilters.departmentRole,
+    spamFilters.messageSourceId,
+    spamFilters.days,
+    spamFilters.search,
+    spamFilters.sortOrder,
+  ]);
+
   const handlePageChange = async (page: number) => {
-    await fetchMessages(page);
+    if (activeTab === 'messages') {
+      await fetchMessages(page);
+    } else {
+      await fetchSpamLogs(page);
+    }
   };
 
   // Sync URL parameters with filters on mount
@@ -418,6 +497,19 @@ export const MessagesPage = () => {
     await fetchMessages(pagination.page, true); // Keep current page, force refresh
   };
 
+  const handleTabSwitch = (tab: 'messages' | 'spam') => {
+    if (tab === 'messages') {
+      // Clear spam filters when switching to messages
+      setSpamFilters({});
+      setPendingSpamSearch('');
+    } else {
+      // Clear message filters when switching to spam logs
+      clearFiltersStore();
+      setPendingSearch('');
+    }
+    setActiveTab(tab);
+  };
+
   const handleApprove = (message: Message) => {
     navigate(`/tickets/create?messageId=${message.id}`);
   };
@@ -610,72 +702,200 @@ export const MessagesPage = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6">
-          <MessageFilters
-            filters={filters}
-            sorting={sorting}
-            pendingSearch={pendingSearch}
-            activeFilterCount={activeFilterCount}
-            pagination={pagination}
-            onFilterChange={handleFilterChange}
-            onSearch={handleSearch}
-            onSearchBlur={handleSearchBlur}
-            onClearFilters={clearFilters}
-            onSortingChange={(sortOrder) => setSorting({ sortOrder })}
-            setPendingSearch={setPendingSearch}
-            setFilters={setFilters}
-          />
-        </div>
+        {/* Tabs */}
+        <Tabs
+          tabs={
+            [
+              {
+                id: 'messages' as const,
+                label: 'Messages',
+                icon: Mail,
+                description: 'View and manage incoming messages',
+              },
+              {
+                id: 'spam' as const,
+                label: 'Spam Logs',
+                icon: ShieldAlert,
+                description: 'Review detected spam and false positives',
+              },
+            ] satisfies Tab<'messages' | 'spam'>[]
+          }
+          activeTab={activeTab}
+          onTabChange={handleTabSwitch}
+          variant="default"
+          size="md"
+          fullWidth
+        />
 
-        {loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              // Index key is safe: array is immutable (recreated from text split), no reordering
-              // eslint-disable-next-line react/no-array-index-key
-              <Card key={`skeleton-${i}`} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                  <div className="w-1/2 h-4 bg-gray-200 rounded" />
+        {/* Content based on active tab */}
+        {activeTab === 'messages' ? (
+          <>
+            {/* Message Filters */}
+            <div className="mb-6">
+              <MessageFilters
+                filters={filters}
+                sorting={sorting}
+                pendingSearch={pendingSearch}
+                activeFilterCount={activeFilterCount}
+                pagination={pagination}
+                onFilterChange={handleFilterChange}
+                onSearch={handleSearch}
+                onSearchBlur={handleSearchBlur}
+                onClearFilters={clearFilters}
+                onSortingChange={(sortOrder) => setSorting({ sortOrder })}
+                setPendingSearch={setPendingSearch}
+                setFilters={setFilters}
+              />
+            </div>
+
+            {loading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  // Index key is safe: array is immutable (recreated from text split), no reordering
+                  // eslint-disable-next-line react/no-array-index-key
+                  <Card key={`skeleton-${i}`} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                      <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : messages.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                  <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
+                  <p className="text-muted-foreground">
+                    {activeFilterCount > 0
+                      ? 'No messages match your filters'
+                      : 'No messages available'}
+                  </p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : messages.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-              <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
-              <p className="text-muted-foreground">
-                {activeFilterCount > 0 ? 'No messages match your filters' : 'No messages available'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {messages.map((message) => (
-              <MessageListItem
-                key={message.id}
-                message={message}
-                onOpen={(msg) => {
-                  setSelectedMessage(msg);
-                  setSearchParams({ id: msg.id.toString() });
-                }}
-              />
-            ))}
-          </div>
-        )}
+            ) : (
+              <div className="grid gap-4">
+                {messages.map((message) => (
+                  <MessageListItem
+                    key={message.id}
+                    message={message}
+                    onOpen={(msg) => {
+                      setSelectedMessage(msg);
+                      setSearchParams({ id: msg.id.toString() });
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
-        {/* Pagination */}
-        {!loading && messages.length > 0 && (
-          <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            total={pagination.total}
-            limit={pagination.limit}
-            onPageChange={handlePageChange}
-            loading={loading}
-          />
+            {/* Pagination */}
+            {!loading && messages.length > 0 && (
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={handlePageChange}
+                loading={loading}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {/* Spam Log Filters */}
+            <div className="mb-6">
+              <SpamFiltersComponent
+                filters={spamFilters}
+                pendingSearch={pendingSpamSearch}
+                activeFilterCount={
+                  (spamFilters.channel ? 1 : 0) +
+                  (spamFilters.category ? 1 : 0) +
+                  (spamFilters.departmentRole ? 1 : 0) +
+                  (spamFilters.messageSourceId ? 1 : 0) +
+                  (spamFilters.days && spamFilters.days !== 30 ? 1 : 0) +
+                  (spamFilters.search ? 1 : 0)
+                }
+                pagination={pagination}
+                onFilterChange={(key, value) => {
+                  const newFilters = { ...spamFilters };
+                  // Remove filter if 'all' is selected, value is empty, or days is set to default (30)
+                  if (
+                    value === 'all' ||
+                    value === '' ||
+                    value === undefined ||
+                    (key === 'days' && value === 30)
+                  ) {
+                    delete newFilters[key as keyof typeof newFilters];
+                  } else {
+                    newFilters[key as keyof typeof newFilters] = value as never;
+                  }
+                  setSpamFilters(newFilters);
+                }}
+                onSearch={() => {
+                  setSpamFilters({ ...spamFilters, search: pendingSpamSearch });
+                }}
+                onSearchBlur={() => {
+                  setSpamFilters({ ...spamFilters, search: pendingSpamSearch });
+                }}
+                onClearFilters={() => {
+                  setSpamFilters({});
+                  setPendingSpamSearch('');
+                }}
+                onSortingChange={(sortOrder) => {
+                  const newFilters = { ...spamFilters };
+                  // Remove sortOrder if it's the default ('desc')
+                  if (sortOrder === 'desc') {
+                    delete newFilters.sortOrder;
+                  } else {
+                    newFilters.sortOrder = sortOrder;
+                  }
+                  setSpamFilters(newFilters);
+                }}
+                setPendingSearch={setPendingSpamSearch}
+                setFilters={setSpamFilters}
+              />
+            </div>
+
+            {/* Spam Logs List */}
+            {loading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 5 }, (_, i) => i).map((i) => (
+                  <Card key={`spam-skeleton-${i}`} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                      <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : spamLogs.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                  <h3 className="mb-2 text-lg font-semibold">No spam logs found</h3>
+                  <p className="text-muted-foreground">No spam has been detected recently</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {spamLogs.map((log) => (
+                  <SpamLogListItem key={log.id} log={log} onOpen={setSelectedSpamLog} />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && spamLogs.length > 0 && (
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={handlePageChange}
+                loading={loading}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -747,6 +967,17 @@ export const MessagesPage = () => {
               }
             }}
           />
+        </Drawer>
+      )}
+
+      {/* Spam Log Detail Drawer */}
+      {selectedSpamLog && (
+        <Drawer
+          open={!!selectedSpamLog}
+          onClose={() => setSelectedSpamLog(null)}
+          title="Spam Log Details"
+        >
+          <SpamLogDetail log={selectedSpamLog} onClose={() => setSelectedSpamLog(null)} />
         </Drawer>
       )}
 

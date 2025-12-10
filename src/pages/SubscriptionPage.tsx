@@ -1,3 +1,11 @@
+/**
+ * TODO: Finish Subscription Page Implementation
+ * - Complete billing integration logic
+ * - Implement plan upgrade/downgrade flows
+ * - Add payment method management
+ * - Implement usage limits and warnings
+ * - Add subscription cancellation workflow
+ */
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, TrendingUp, Zap, Check } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';

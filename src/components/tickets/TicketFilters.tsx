@@ -150,12 +150,16 @@ export const TicketFilters = ({
               )}
             </div>
             <div className="flex gap-2 items-center">
-              {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 shrink-0">
-                  <X className="mr-1 w-3 h-3" />
-                  Clear All
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearFilters}
+                className="h-8 shrink-0"
+                disabled={activeFilterCount === 0}
+              >
+                <X className="mr-1 w-3 h-3" />
+                Clear All
+              </Button>
             </div>
           </div>
 

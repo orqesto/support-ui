@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FileText, MessageSquare, Settings, X, Filter } from 'lucide-react';
+import { FileText, MessageSquare, Settings, X, Filter, Library } from 'lucide-react';
+import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
@@ -256,60 +257,41 @@ export const KnowledgeBasePage = () => {
         </div>
 
         {/* Tabs for Type Selection */}
-        <div className="mb-6 border-b border-border">
-          <div className="flex gap-1">
-            {/* All */}
-            <button
-              onClick={() => setFilterType('all')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'all'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              All
-            </button>
-
-            {/* Q&A Pairs */}
-            <button
-              onClick={() => setFilterType('qa_pair')}
-              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'qa_pair'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <MessageSquare className="hidden w-4 h-4 sm:block" />
-              Q&A Pairs
-            </button>
-
-            {/* Documents */}
-            <button
-              onClick={() => setFilterType('document')}
-              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'document'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <FileText className="hidden w-4 h-4 sm:block" />
-              Documents
-            </button>
-
-            {/* Documentation */}
-            <button
-              onClick={() => setFilterType('documentation')}
-              className={`flex items-center gap-0 sm:gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterType === 'documentation'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <Settings className="hidden w-4 h-4 sm:block" />
-              Documentation
-            </button>
-          </div>
-        </div>
+        <Tabs
+          tabs={
+            [
+              {
+                id: 'all' as const,
+                label: 'All',
+                icon: Library,
+                description: 'View all knowledge base entries',
+              },
+              {
+                id: 'qa_pair' as const,
+                label: 'Q&A Pairs',
+                icon: MessageSquare,
+                description: 'Questions and answers extracted from messages',
+              },
+              {
+                id: 'document' as const,
+                label: 'Documents',
+                icon: FileText,
+                description: 'Processed documents and attachments',
+              },
+              {
+                id: 'documentation' as const,
+                label: 'Documentation',
+                icon: Settings,
+                description: 'Configure KB extraction rules and settings',
+              },
+            ] satisfies Tab<FilterType>[]
+          }
+          activeTab={filterType}
+          onTabChange={setFilterType}
+          variant="default"
+          size="md"
+          fullWidth
+        />
 
         {/* Filters Card - Hidden in Documentation tab */}
         {filterType !== 'documentation' && (
