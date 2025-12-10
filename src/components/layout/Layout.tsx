@@ -12,8 +12,8 @@ import {
   Building2,
   Briefcase,
   FileText,
-  // CreditCard, // TODO: Uncomment when Subscription page is ready
-  // TrendingUp, // TODO: Uncomment when Usage Stats page is ready
+  CreditCard,
+  TrendingUp,
   BookOpen,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -54,13 +54,12 @@ const allNavigation = [
     icon: BarChart3,
     permission: Permission.VIEW_STATISTICS,
   },
-  // TODO: Finish Usage Stats implementation
-  // {
-  //   name: 'Usage Stats',
-  //   href: '/usage-stats',
-  //   icon: TrendingUp,
-  //   permission: Permission.VIEW_USAGE_STATS,
-  // },
+  {
+    name: 'Usage Stats',
+    href: '/usage-stats',
+    icon: TrendingUp,
+    permission: Permission.VIEW_USAGE_STATS,
+  },
   { name: 'Organization', href: '/organization', icon: Building2 },
   {
     name: 'Settings',
@@ -68,13 +67,12 @@ const allNavigation = [
     icon: Settings,
     permission: Permission.VIEW_ORGANIZATION_SETTINGS,
   },
-  // TODO: Finish Subscription implementation
-  // {
-  //   name: 'Subscription',
-  //   href: '/subscription',
-  //   icon: CreditCard,
-  //   permission: Permission.VIEW_SUBSCRIPTION,
-  // },
+  {
+    name: 'Subscription',
+    href: '/subscription',
+    icon: CreditCard,
+    permission: Permission.VIEW_SUBSCRIPTION,
+  },
   { name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
   {
     name: 'Email Templates',

@@ -47,20 +47,18 @@ const EmailTemplatesPage = lazy(() =>
 const AuditLogsPage = lazy(() =>
   import('./pages/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage }))
 );
-// TODO: Finish Subscription implementation
-// const SubscriptionPage = lazy(() =>
-//   import('./pages/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage }))
-// );
+const SubscriptionPage = lazy(() =>
+  import('./pages/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage }))
+);
 const PricingPage = lazy(() =>
   import('./pages/PricingPage').then((m) => ({ default: m.PricingPage }))
 );
 const AdminDashboardPage = lazy(() =>
   import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage }))
 );
-// TODO: Finish Usage Stats implementation
-// const UsageStatsPage = lazy(() =>
-//   import('./pages/UsageStatsPage').then((m) => ({ default: m.UsageStatsPage }))
-// );
+const UsageStatsPage = lazy(() =>
+  import('./pages/UsageStatsPage').then((m) => ({ default: m.UsageStatsPage }))
+);
 const KnowledgeBasePage = lazy(() =>
   import('./pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage }))
 );
@@ -254,8 +252,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      {/* TODO: Finish Subscription implementation */}
-      {/* <Route
+      <Route
         path="/subscription"
         element={
           <PrivateRoute>
@@ -266,7 +263,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           </PrivateRoute>
         }
-      /> */}
+      />
       <Route
         path="/pricing"
         element={
@@ -277,8 +274,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      {/* TODO: Finish Usage Stats implementation */}
-      {/* <Route
+      <Route
         path="/usage-stats"
         element={
           <PrivateRoute>
@@ -289,7 +285,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           </PrivateRoute>
         }
-      /> */}
+      />
       <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
