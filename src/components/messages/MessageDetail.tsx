@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Check,
   Send,
@@ -25,7 +25,7 @@ import { MessageAttachments } from './MessageAttachments';
 import { MessageBadges } from './MessageBadges';
 import { MessageKBReferences } from './MessageKBReferences';
 import { MessageThread } from './MessageThread';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { SimilarTickets } from '@/components/tickets/SimilarTickets';
@@ -78,6 +78,7 @@ export const MessageDetail = ({
   const [submitting, setSubmitting] = useState(false);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const editorRef = useRef<RichTextEditorHandle>(null);
   const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -168,11 +169,15 @@ export const MessageDetail = ({
   const handleSelectSimilarAnswer = (answer: string) => {
     setReplyContent(convertTextToHtml(answer));
     setShowReplyForm(true);
+    // Focus editor after content is set
+    setTimeout(() => editorRef.current?.focus(), 100);
   };
 
   const handleUseResponse = (content: string) => {
     setReplyContent(convertTextToHtml(content));
     setShowReplyForm(true);
+    // Focus editor after content is set
+    setTimeout(() => editorRef.current?.focus(), 100);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -566,6 +571,7 @@ export const MessageDetail = ({
                 {message.ticketId ? 'Reply' : message.resolved ? 'Follow-up Reply' : 'Quick Reply'}
               </label>
               <RichTextEditor
+                ref={editorRef}
                 content={replyContent}
                 onChange={setReplyContent}
                 placeholder={
