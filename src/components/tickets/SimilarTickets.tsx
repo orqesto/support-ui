@@ -10,6 +10,7 @@ import { messageService } from '@/services/message.service';
 type SimilarTicket = {
   ticketId: number;
   messageId: number;
+  documentationId?: number;
   messageContent: string;
   messageSubject: string | null;
   similarity: number;
@@ -20,6 +21,11 @@ type SimilarTicket = {
     content: string;
     channel: string;
     sentAt: string | null;
+  }>;
+  references?: Array<{
+    documentationId: number;
+    documentTitle: string;
+    similarity: number;
   }>;
 };
 
@@ -48,40 +54,58 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
         const messages =
           messagesResponse.status === 'fulfilled' ? (messagesResponse.value.data ?? []) : [];
 
-        // Map resolved messages to ticket format
-        const mappedMessages: SimilarTicket[] = messages.map((msg: unknown) => {
+        // Map resolved messages to ticket format (handles both KB docs and actual messages)
+        const mappedMessages: SimilarTicket[] = messages.map((msg: unknown, idx: number) => {
           const m = msg as {
             messageId?: number;
+            documentationId?: number;
+            source?: string;
             content: string;
             subject?: string | null;
+            documentTitle?: string;
             directReply: string;
             similarity: number;
             repliedAt?: string | null;
+            references?: Array<{
+              documentationId: number;
+              documentTitle: string;
+              similarity: number;
+            }>;
           };
+
+          // KB documentation items use documentationId, actual messages use messageId
+          // Use negative IDs for KB items to avoid route conflicts
+          const effectiveMessageId = m.messageId ?? -(m.documentationId ?? idx + 1000);
+          const isKBItem = m.source === 'documentation' || (!m.messageId && m.documentationId);
+
           return {
-            ticketId: 0, // No ticket for direct replies
-            messageId: m.messageId ?? 0,
+            ticketId: 0, // No ticket
+            messageId: effectiveMessageId,
+            documentationId: m.documentationId,
             messageContent: m.content,
             messageSubject: m.subject ?? null,
             similarity: m.similarity,
             ticketStatus: 'resolved',
-            ticketTitle: m.subject ?? 'Direct Reply',
+            ticketTitle: isKBItem
+              ? (m.documentTitle ?? 'Knowledge Base')
+              : (m.subject ?? 'Direct Reply'),
             responses: [
               {
-                id: 0,
+                id: effectiveMessageId,
                 content: m.directReply,
-                channel: 'email',
+                channel: isKBItem ? 'kb' : 'email',
                 sentAt: m.repliedAt ?? null,
               },
             ],
+            references: m.references,
           };
         });
 
         // Combine and deduplicate results
         const allResults = [...tickets, ...mappedMessages];
         setSimilarTickets(allResults);
-      } catch (error) {
-        console.error('Failed to fetch similar tickets:', error);
+      } catch {
+        // Silently handle errors - similar tickets are optional UI enhancement
         setSimilarTickets([]);
       } finally {
         setLoading(false);
@@ -123,7 +147,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
       <div className="flex gap-2 items-center mb-3">
         <Lightbulb className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
         <h3 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-          💡 Similar Resolved Tickets
+          💡 Similar Resolved Issues
         </h3>
         <Badge variant="secondary" className="ml-auto">
           {similarTickets.length} found
@@ -131,27 +155,72 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
       </div>
 
       <p className="mb-4 text-xs text-yellow-700 dark:text-yellow-300">
-        These tickets had similar issues and were successfully resolved. You can use these responses
-        as a starting point.
+        Similar issues that were successfully resolved. Includes both tickets and direct message
+        replies. You can use these responses as a starting point.
       </p>
 
       <div className="space-y-3">
         {similarTickets.map((ticket) => (
           <div
-            key={ticket.ticketId}
+            key={`${ticket.ticketId}-${ticket.messageId}`}
             className="p-3 bg-white rounded-lg border border-yellow-200 dark:bg-gray-900 dark:border-yellow-800"
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1 min-w-0">
-                <Link to={`/tickets/${ticket.ticketId}`} className="flex gap-2 items-center group">
-                  <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
-                    {ticket.ticketTitle}
-                  </h4>
-                  <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
-                </Link>
+                {ticket.ticketId > 0 ? (
+                  <Link
+                    to={`/tickets/${ticket.ticketId}`}
+                    className="flex gap-2 items-center group"
+                  >
+                    <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
+                      {ticket.ticketTitle}
+                    </h4>
+                    <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
+                  </Link>
+                ) : ticket.documentationId ? (
+                  <Link
+                    to={`/knowledge-base?id=${ticket.documentationId}`}
+                    className="flex gap-2 items-center group"
+                  >
+                    <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
+                      {ticket.ticketTitle}
+                    </h4>
+                    <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
+                  </Link>
+                ) : ticket.messageId > 0 ? (
+                  <Link
+                    to={`/messages/${ticket.messageId}`}
+                    className="flex gap-2 items-center group"
+                  >
+                    <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
+                      {ticket.ticketTitle}
+                    </h4>
+                    <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
+                  </Link>
+                ) : (
+                  <h4 className="text-sm font-medium truncate">{ticket.ticketTitle}</h4>
+                )}
                 <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                   {ticket.messageSubject ?? ticket.messageContent}
                 </p>
+                {ticket.references && ticket.references.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {ticket.references.map((ref) => (
+                      <Link
+                        key={ref.documentationId}
+                        to={`/knowledge-base?id=${ref.documentationId}`}
+                        className="inline-block"
+                      >
+                        <Badge
+                          variant="secondary"
+                          className="text-xs text-blue-700 bg-blue-50 border border-blue-200 transition-colors cursor-pointer hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900"
+                        >
+                          📄 {ref.documentTitle} ({Math.round(ref.similarity * 100)}%)
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
               <Badge
                 variant="secondary"
