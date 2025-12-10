@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Settings, BarChart3 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
+import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { AdminPlansTab } from './admin/AdminPlansTab';
 import { AdminUsageTab } from './admin/AdminUsageTab';
 
@@ -21,44 +22,32 @@ export const AdminDashboardPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex -mb-px space-x-8">
-            <button
-              onClick={() => setActiveTab('plans')}
-              className={`
-                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
-                ${
-                  activeTab === 'plans'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }
-              `}
-            >
-              <Settings className="w-5 h-5" />
-              Plans & Modules
-            </button>
-            <button
-              onClick={() => setActiveTab('usage')}
-              className={`
-                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
-                ${
-                  activeTab === 'usage'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }
-              `}
-            >
-              <BarChart3 className="w-5 h-5" />
-              Organization Usage
-            </button>
-          </nav>
-        </div>
-
-        {/* Tab Content */}
-        <div className="mt-6">
+        <Tabs
+          tabs={
+            [
+              {
+                id: 'plans' as const,
+                label: 'Plans & Modules',
+                icon: Settings,
+                description: 'Manage subscription plans and modules',
+              },
+              {
+                id: 'usage' as const,
+                label: 'Organization Usage',
+                icon: BarChart3,
+                description: 'Monitor organization resource usage',
+              },
+            ] satisfies Tab<TabType>[]
+          }
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          variant="default"
+          size="md"
+          fullWidth
+        >
           {activeTab === 'plans' && <AdminPlansTab />}
           {activeTab === 'usage' && <AdminUsageTab />}
-        </div>
+        </Tabs>
       </div>
     </Layout>
   );
