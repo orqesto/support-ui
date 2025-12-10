@@ -105,12 +105,13 @@ export const DocumentationSettings = () => {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [visibility, setVisibility] = useState<'department' | 'organization'>('department');
   const [documentType, setDocumentType] = useState<DocumentType>('general');
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<
+    Record<string, { status: 'pending' | 'uploading' | 'success' | 'error'; error?: string }>
+  >({});
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; docId: number | null }>({
     open: false,
     docId: null,
@@ -156,11 +157,11 @@ export const DocumentationSettings = () => {
   }, [docs]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      // Auto-fill title from filename
-      setTitle(file.name.replace(/\.[^/.]+$/, ''));
+    const files = Array.from(event.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+      // Reset the input so same files can be selected again
+      event.target.value = '';
     }
   };
 
@@ -181,39 +182,99 @@ export const DocumentationSettings = () => {
     e.stopPropagation();
     setIsDragging(false);
 
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      // Check file type
-      const validTypes = ['.pdf', '.txt', '.md'];
+    const files = Array.from(e.dataTransfer.files || []);
+    const validTypes = ['.pdf', '.txt', '.md'];
+    const validFiles = files.filter((file) => {
       const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
-      if (validTypes.includes(fileExt)) {
-        setSelectedFile(file);
-        setTitle(file.name.replace(/\.[^/.]+$/, ''));
-      }
+      return validTypes.includes(fileExt);
+    });
+
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
     }
   };
 
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile || !title.trim()) {
+    if (selectedFiles.length === 0) {
       return;
     }
 
     try {
       setUploading(true);
-      await documentationService.uploadDocumentation(
-        selectedFile,
-        title,
-        description,
-        visibility,
-        documentType
-      );
 
-      // Reset form
-      setSelectedFile(null);
-      setTitle('');
-      setDescription('');
-      setVisibility('department');
-      setDocumentType('general');
+      // Initialize progress tracking
+      const progress: Record<
+        string,
+        { status: 'pending' | 'uploading' | 'success' | 'error'; error?: string }
+      > = {};
+      selectedFiles.forEach((file) => {
+        progress[file.name] = { status: 'pending' };
+      });
+      setUploadProgress(progress);
+
+      // Upload all files in parallel
+      const uploadPromises = selectedFiles.map(async (file) => {
+        try {
+          // Update status to uploading
+          setUploadProgress((prev) => ({
+            ...prev,
+            [file.name]: { status: 'uploading' },
+          }));
+
+          // Auto-generate title from filename
+          const title = file.name.replace(/\.[^/.]+$/, '');
+
+          await documentationService.uploadDocumentation(
+            file,
+            title,
+            '', // Empty description for batch uploads
+            visibility,
+            documentType
+          );
+
+          // Update status to success
+          setUploadProgress((prev) => ({
+            ...prev,
+            [file.name]: { status: 'success' },
+          }));
+        } catch (error) {
+          // Detect OCR-related errors and provide helpful guidance
+          const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+          const isOCRError =
+            errorMessage.toLowerCase().includes('only images') ||
+            errorMessage.toLowerCase().includes('scanned') ||
+            errorMessage.toLowerCase().includes('no extractable text');
+
+          const userFriendlyError = isOCRError
+            ? '📄 Scanned PDF detected! Use Knowledge Base sources (they have OCR) or convert to text-searchable PDF first.'
+            : errorMessage;
+
+          // Update status to error
+          setUploadProgress((prev) => ({
+            ...prev,
+            [file.name]: {
+              status: 'error',
+              error: userFriendlyError,
+            },
+          }));
+          throw error;
+        }
+      });
+
+      // Wait for all uploads
+      await Promise.allSettled(uploadPromises);
+
+      // Reset form after 2 seconds to show results
+      setTimeout(() => {
+        setSelectedFiles([]);
+        setUploadProgress({});
+        setVisibility('department');
+        setDocumentType('general');
+      }, 2000);
 
       // Reload documentation list
       await loadDocumentation();
@@ -263,8 +324,8 @@ export const DocumentationSettings = () => {
         {stats && (
           <div className="grid grid-cols-3 gap-4">
             <Card className="p-4">
-              <div className="flex gap-3 items-center sm:items-center flex-col sm:flex-row text-center sm:text-left">
-                <BookOpen className="w-8 h-8 text-blue-500 hidden sm:block" />
+              <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
+                <BookOpen className="hidden w-8 h-8 text-blue-500 sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalDocs}</p>
                   <p className="text-sm text-muted-foreground">Documents</p>
@@ -272,8 +333,8 @@ export const DocumentationSettings = () => {
               </div>
             </Card>
             <Card className="p-4">
-              <div className="flex gap-3 items-centersm:items-center flex-col sm:flex-row text-center sm:text-left">
-                <FileText className="w-8 h-8 text-green-500 hidden sm:block" />
+              <div className="flex flex-col gap-3 text-center items-centersm:items-center sm:flex-row sm:text-left">
+                <FileText className="hidden w-8 h-8 text-green-500 sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalChunks}</p>
                   <p className="text-sm text-muted-foreground">Chunks</p>
@@ -281,8 +342,8 @@ export const DocumentationSettings = () => {
               </div>
             </Card>
             <Card className="p-4">
-              <div className="flex gap-3 items-center sm:items-center flex-col sm:flex-row text-center sm:text-left">
-                <CheckCircle className="w-8 h-8 text-purple-500 hidden sm:block" />
+              <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
+                <CheckCircle className="hidden w-8 h-8 text-purple-500 sm:block" />
                 <div>
                   <p className="text-2xl font-bold">{stats.totalReferences}</p>
                   <p className="text-sm text-muted-foreground">Times Used</p>
@@ -297,7 +358,7 @@ export const DocumentationSettings = () => {
       <Card className="p-6">
         <h3 className="mb-4 text-lg font-semibold">Upload New Documentation</h3>
 
-        <div className="space-y-4 sm:items-center flex-col sm:flex-row text-center sm:text-left">
+        <div className="flex-col space-y-4 text-center sm:items-center sm:flex-row sm:text-left">
           <div>
             <div className="block mb-2 text-sm font-medium">File (PDF, TXT, or Markdown)</div>
             <div
@@ -322,6 +383,7 @@ export const DocumentationSettings = () => {
                     id="doc-file"
                     type="file"
                     accept=".pdf,.txt,.md"
+                    multiple={true}
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -329,20 +391,92 @@ export const DocumentationSettings = () => {
                     htmlFor="doc-file"
                     className="inline-flex gap-2 items-center px-4 py-2 text-sm font-semibold rounded-md transition-colors cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
                   >
-                    Choose file
+                    <Upload className="w-4 h-4" />
+                    {selectedFiles.length > 0 ? 'Add more files' : 'Choose file'}
                   </label>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    or drag and drop your file here
+                    Hold <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Cmd</kbd> (Mac) or{' '}
+                    <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Ctrl</kbd> (Windows) to
+                    select multiple files
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    or drag & drop multiple files • PDF, TXT, Markdown
                   </p>
                 </div>
 
-                {selectedFile ? (
-                  <div className="flex gap-2 items-center px-3 py-2 rounded-md border bg-background">
-                    <FileText className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">{selectedFile.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({formatFileSize(selectedFile.size)})
-                    </span>
+                {/* AI Helper - PDF Requirements */}
+                <div className="p-4 mt-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+                  <div className="flex gap-2 items-start">
+                    <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <div className="text-left">
+                      <p className="mb-2 text-sm font-semibold text-blue-900 dark:text-blue-100">
+                        📄 PDF Requirements
+                      </p>
+                      <ul className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
+                        <li>
+                          • <strong>Text-searchable PDFs:</strong> ✅ Automatic table detection &
+                          conversion
+                        </li>
+                        <li>
+                          • <strong>Scanned/Image PDFs:</strong> ✅ Automatic OCR (all pages,
+                          ~20-30s per page)
+                        </li>
+                        <li>
+                          • <strong>PDFs with tables:</strong> ✅ Auto-converted to Markdown tables
+                        </li>
+                        <li>
+                          • <strong>TXT/Markdown:</strong> ✅ Perfect support, including tables
+                        </li>
+                      </ul>
+                      <p className="mt-2 text-xs italic text-blue-700 dark:text-blue-300">
+                        💡 Scanned PDFs: All pages auto-processed. Large docs may take 3-5 minutes!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedFiles.length > 0 ? (
+                  <div className="space-y-2 w-full">
+                    <p className="text-sm font-medium">{selectedFiles.length} file(s) selected:</p>
+                    {selectedFiles.map((file, index) => {
+                      const progress = uploadProgress[file.name];
+                      return (
+                        <div
+                          key={`${file.name}-${index}`}
+                          className="flex gap-2 justify-between items-center px-3 py-2 rounded-md border bg-background"
+                        >
+                          <div className="flex flex-1 gap-2 items-center min-w-0">
+                            <FileText className="w-4 h-4 text-primary shrink-0" />
+                            <span className="text-sm font-medium truncate">{file.name}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              ({formatFileSize(file.size)})
+                            </span>
+                          </div>
+                          <div className="flex gap-2 items-center shrink-0">
+                            {progress?.status === 'uploading' && (
+                              <Clock className="w-4 h-4 text-blue-500 animate-spin" />
+                            )}
+                            {progress?.status === 'success' && (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            )}
+                            {progress?.status === 'error' && (
+                              <span title={progress.error}>
+                                <AlertCircle className="w-4 h-4 text-red-500" />
+                              </span>
+                            )}
+                            {!uploading && (
+                              <button
+                                onClick={() => handleRemoveFile(index)}
+                                className="p-1 rounded transition-colors hover:bg-destructive/10"
+                                type="button"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
@@ -351,34 +485,6 @@ export const DocumentationSettings = () => {
                 )}
               </div>
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="doc-title" className="block mb-2 text-sm font-medium">
-              Title *
-            </label>
-            <input
-              id="doc-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter document title"
-              className="px-3 py-2 w-full rounded-md border dark:bg-gray-800 dark:border-gray-700"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="doc-description" className="block mb-2 text-sm font-medium">
-              Description (optional)
-            </label>
-            <textarea
-              id="doc-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of the document content"
-              rows={3}
-              className="px-3 py-2 w-full rounded-md border dark:bg-gray-800 dark:border-gray-700"
-            />
           </div>
 
           <div>
@@ -442,9 +548,11 @@ export const DocumentationSettings = () => {
             </p>
           </div>
 
-          <Button onClick={handleUpload} disabled={!selectedFile || !title.trim() || uploading}>
-            <Upload className="mr-2 w-4 h-4 " />
-            {uploading ? 'Uploading...' : 'Upload Documentation'}
+          <Button onClick={handleUpload} disabled={selectedFiles.length === 0 || uploading}>
+            <Upload className="mr-2 w-4 h-4" />
+            {uploading
+              ? `Uploading ${selectedFiles.length} file(s)...`
+              : `Upload ${selectedFiles.length > 0 ? selectedFiles.length : ''} ${selectedFiles.length === 1 ? 'File' : 'Files'}`}
           </Button>
         </div>
       </Card>
