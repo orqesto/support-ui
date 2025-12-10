@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
 export const paginationContainerVariants = cva(
-  'flex justify-between items-center px-4 py-3 rounded-b-lg border-t border-border bg-card',
+  'flex flex-col gap-2 justify-between items-center px-4 py-3 rounded-b-lg border-t border-border bg-card',
   {
     variants: {
       size: {

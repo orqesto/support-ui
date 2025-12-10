@@ -28,6 +28,7 @@ export const SearchInput = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSearch) {
+      e.preventDefault();
       onSearch();
     }
   };
@@ -46,6 +47,21 @@ export const SearchInput = ({
     onChange('');
     if (inputRef.current) {
       inputRef.current.focus();
+    }
+    // Trigger search after clearing
+    if (onSearch) {
+      onSearch();
+    }
+  };
+
+  const handleBlur = () => {
+    wasFocusedRef.current = false;
+    if (onBlur) {
+      onBlur();
+    }
+    // Trigger search on blur
+    if (onSearch) {
+      onSearch();
     }
   };
 
@@ -79,10 +95,7 @@ export const SearchInput = ({
         onFocus={() => {
           wasFocusedRef.current = true;
         }}
-        onBlur={() => {
-          wasFocusedRef.current = false;
-          onBlur?.();
-        }}
+        onBlur={handleBlur}
         className={getSearchInputClasses(size)}
       />
 
@@ -108,7 +121,7 @@ export const SearchInput = ({
             onMouseDown={(e) => e.preventDefault()}
             className={cn(
               getSearchButtonClasses(size),
-              'text-white/60 hover:text-primary dark:text-white/40'
+              'text-white/60 hover:text-primary dark:text-white/40 hidden sm:block'
             )}
             title="Search"
             aria-label="Search"

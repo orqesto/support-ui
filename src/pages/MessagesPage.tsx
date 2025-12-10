@@ -7,14 +7,7 @@ import { SpamFilters } from '@/components/SpamFilters';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/Dialog';
+import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent, DialogFooter, } from '@/components/ui/Dialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
@@ -41,7 +34,7 @@ export const MessagesPage = () => {
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
   const urlSyncedRef = useRef(false);
-
+  
   const getTabFromUrl = useCallback(() => {
     const tab = searchParams.get('tab') as TabType;
     if (!tab) return 'messages';
@@ -131,12 +124,14 @@ export const MessagesPage = () => {
   };
 
   const handleSpamSearch = () => {
+    console.log('[SPAM] handleSpamSearch called with pendingSpamSearch:', pendingSpamSearch);
     void fetchSpamLogs(1, true);
   };
 
   const handleSpamSearchBlur = () => {
-    if (!pendingSpamSearch.trim() && spamLogFilters.search) {
-      setSpamLogFilters({ ...spamLogFilters, search: undefined });
+    console.log('[SPAM] handleSpamSearchBlur called with pendingSpamSearch:', pendingSpamSearch);
+    if (!pendingSpamSearch.trim()) {
+      void fetchSpamLogs(1, true);
     }
   };
 
@@ -151,150 +146,162 @@ export const MessagesPage = () => {
     await fetchSpamLogs(1, true);
   };
 
-  const fetchSpamLogs = useCallback(
-    async (page = 1, force = false) => {
-      if (fetchingRef.current && !force) return;
-
-      fetchingRef.current = true;
-      setLoading(true);
-
-      try {
-        const apiFilters: SpamLogFilters = {
-          sortOrder: spamLogFilters.sortOrder,
-        };
-        if (spamLogFilters.sortBy) {
-          apiFilters.sortBy = spamLogFilters.sortBy;
-        }
-
-        if (spamLogFilters.status && spamLogFilters.status !== 'all') {
-          apiFilters.status = spamLogFilters.status;
-        }
-
-        if (spamLogFilters.category && spamLogFilters.category !== 'all') {
-          apiFilters.category = spamLogFilters.category;
-        }
-
-        if (spamLogFilters.channel && spamLogFilters.channel !== 'all') {
-          apiFilters.channel = spamLogFilters.channel;
-        }
-
-        if (pendingSpamSearch?.trim()) {
-          apiFilters.search = pendingSpamSearch.trim();
-        }
-
-        if (spamLogFilters.minScore !== undefined) {
-          apiFilters.minScore = spamLogFilters.minScore;
-        }
-
-        if (spamLogFilters.maxScore !== undefined) {
-          apiFilters.maxScore = spamLogFilters.maxScore;
-        }
-
-        if (spamLogFilters.minConfidence !== undefined) {
-          apiFilters.minConfidence = spamLogFilters.minConfidence;
-        }
-
-        if (spamLogFilters.maxConfidence !== undefined) {
-          apiFilters.maxConfidence = spamLogFilters.maxConfidence;
-        }
-
-        if (spamLogFilters.startDate) {
-          apiFilters.startDate = spamLogFilters.startDate;
-        }
-
-        if (spamLogFilters.endDate) {
-          apiFilters.endDate = spamLogFilters.endDate;
-        }
-
-        const response = await spamLogService.getAll(
-          apiFilters,
-          page,
-          pagination.limit,
-          spamLogFilters.sortOrder
-        );
-
-        if (response.success && response.data) {
-          // Client-side filtering for severity and confidence
-          let filteredData = response.data;
-
-          // Filter by severity range
-          if (spamLogFilters.minScore !== undefined || spamLogFilters.maxScore !== undefined) {
-            filteredData = filteredData.filter((log) => {
-              const sev = log.severity ?? 0;
-              const min = spamLogFilters.minScore ?? 0;
-              const max = spamLogFilters.maxScore ?? 300;
-              return sev >= min && sev <= max;
-            });
-          }
-
-          // Filter by confidence range
-          if (
-            spamLogFilters.minConfidence !== undefined ||
-            spamLogFilters.maxConfidence !== undefined
-          ) {
-            filteredData = filteredData.filter((log) => {
-              const conf = log.confidence ?? 0;
-              const min = spamLogFilters.minConfidence ?? 0;
-              const max = spamLogFilters.maxConfidence ?? 1;
-              return conf >= min && conf <= max;
-            });
-          }
-
-          // Filter by date range
-          if (spamLogFilters.startDate || spamLogFilters.endDate) {
-            filteredData = filteredData.filter((log) => {
-              const logDate = new Date(log.detectedAt).getTime();
-              const start = spamLogFilters.startDate
-                ? new Date(spamLogFilters.startDate).getTime()
-                : 0;
-              const end = spamLogFilters.endDate
-                ? new Date(spamLogFilters.endDate).setHours(23, 59, 59, 999)
-                : Infinity;
-              return logDate >= start && logDate <= end;
-            });
-          }
-
-          const sortSpamLogs = (logs: SpamLog[], order?: 'asc' | 'desc', sortBy?: string) => {
-            const copy = [...logs];
-            if (sortBy === 'severity') {
-              return copy.sort((a, b) => {
-                const va = a.severity ?? 0;
-                const vb = b.severity ?? 0;
-                return order === 'asc' ? va - vb : vb - va;
-              });
-            }
-            if (sortBy === 'confidence') {
-              return copy.sort((a, b) => {
-                const va = a.confidence ?? 0;
-                const vb = b.confidence ?? 0;
-                return order === 'asc' ? va - vb : vb - va;
-              });
-            }
-            // default: sort by detectedAt
-            return copy.sort((a, b) => {
-              const ta = new Date(a.detectedAt).getTime();
-              const tb = new Date(b.detectedAt).getTime();
-              return order === 'asc' ? ta - tb : tb - ta;
-            });
-          };
-
-          const ordered = sortSpamLogs(
-            filteredData,
-            spamLogFilters.sortOrder,
-            spamLogFilters.sortBy
-          );
-          setSpamLogs(ordered);
-          setPaginationLocal(response.pagination);
-        }
-      } catch (error) {
-        console.error('Failed to fetch spam logs:', error);
-      } finally {
-        setLoading(false);
-        fetchingRef.current = false;
+  const fetchSpamLogs = useCallback(async (page = 1, force = false) => {
+    if (fetchingRef.current && !force) return;
+    
+    fetchingRef.current = true;
+    setLoading(true);
+    
+    try {
+      const apiFilters: SpamLogFilters = {
+        sortOrder: spamLogFilters.sortOrder,
+      };
+      if (spamLogFilters.sortBy) {
+        apiFilters.sortBy = spamLogFilters.sortBy;
       }
-    },
-    [spamLogFilters, pendingSpamSearch, pagination.limit, token]
-  );
+      
+      if (spamLogFilters.status && spamLogFilters.status !== 'all') {
+        apiFilters.status = spamLogFilters.status;
+      }
+      
+      if (spamLogFilters.category && spamLogFilters.category !== 'all') {
+        apiFilters.category = spamLogFilters.category;
+      }
+      
+      if (spamLogFilters.channel && spamLogFilters.channel !== 'all') {
+        apiFilters.channel = spamLogFilters.channel;
+      }
+      
+      if (pendingSpamSearch) {
+        apiFilters.search = pendingSpamSearch;
+        console.log('[SPAM] fetchSpamLogs: Adding search to apiFilters:', pendingSpamSearch);
+      }
+      
+      console.log('[SPAM] fetchSpamLogs: Final apiFilters:', apiFilters);
+      
+      if (spamLogFilters.minScore !== undefined) {
+        apiFilters.minScore = spamLogFilters.minScore;
+      }
+      
+      if (spamLogFilters.maxScore !== undefined) {
+        apiFilters.maxScore = spamLogFilters.maxScore;
+      }
+      
+      if (spamLogFilters.minConfidence !== undefined) {
+        apiFilters.minConfidence = spamLogFilters.minConfidence;
+      }
+      
+      if (spamLogFilters.maxConfidence !== undefined) {
+        apiFilters.maxConfidence = spamLogFilters.maxConfidence;
+      }
+      
+      if (spamLogFilters.startDate) {
+        apiFilters.startDate = spamLogFilters.startDate;
+      }
+      
+      if (spamLogFilters.endDate) {
+        apiFilters.endDate = spamLogFilters.endDate;
+      }
+      
+      const response = await spamLogService.getAll(apiFilters, page, pagination.limit, spamLogFilters.sortOrder);
+      
+      if (response.success && response.data) {
+        // Client-side filtering for severity and confidence
+        let filteredData = response.data;
+        
+        // Filter by search term (since backend doesn't handle it properly)
+        if (pendingSpamSearch) {
+          const searchTerm = pendingSpamSearch.toLowerCase();
+          console.log('[SPAM] Applying client-side search filter:', searchTerm);
+          filteredData = filteredData.filter(log => {
+            const id = log.id?.toString() || '';
+            const email = log.senderEmail?.toLowerCase() || '';
+            const subject = log.subject?.toLowerCase() || '';
+            const content = log.content?.toLowerCase() || '';
+            const snippet = log.contentSnippet?.toLowerCase() || '';
+            
+            return (
+              id.includes(searchTerm) ||
+              email.includes(searchTerm) ||
+              subject.includes(searchTerm) ||
+              content.includes(searchTerm) ||
+              snippet.includes(searchTerm)
+            );
+          });
+          console.log('[SPAM] Filtered results:', filteredData.length);
+        }
+        
+        // Filter by severity range
+        if (spamLogFilters.minScore !== undefined || spamLogFilters.maxScore !== undefined) {
+          filteredData = filteredData.filter(log => {
+            const sev = log.severity ?? 0;
+            const min = spamLogFilters.minScore ?? 0;
+            const max = spamLogFilters.maxScore ?? 300;
+            return sev >= min && sev <= max;
+          });
+        }
+        
+        // Filter by confidence range
+        if (spamLogFilters.minConfidence !== undefined || spamLogFilters.maxConfidence !== undefined) {
+          filteredData = filteredData.filter(log => {
+            const conf = log.confidence ?? 0;
+            const min = spamLogFilters.minConfidence ?? 0;
+            const max = spamLogFilters.maxConfidence ?? 1;
+            return conf >= min && conf <= max;
+          });
+        }
+        
+        // Filter by date range
+        if (spamLogFilters.startDate || spamLogFilters.endDate) {
+          filteredData = filteredData.filter(log => {
+            const logDate = new Date(log.detectedAt).getTime();
+            const start = spamLogFilters.startDate ? new Date(spamLogFilters.startDate).getTime() : 0;
+            const end = spamLogFilters.endDate ? new Date(spamLogFilters.endDate).setHours(23, 59, 59, 999) : Infinity;
+            return logDate >= start && logDate <= end;
+          });
+        }
+        
+        const sortSpamLogs = (logs: SpamLog[], order?: 'asc' | 'desc', sortBy?: string) => {
+          const copy = [...logs];
+          if (sortBy === 'severity') {
+            return copy.sort((a, b) => {
+              const va = a.severity ?? 0;
+              const vb = b.severity ?? 0;
+              return order === 'asc' ? va - vb : vb - va;
+            });
+          }
+          if (sortBy === 'confidence') {
+            return copy.sort((a, b) => {
+              const va = a.confidence ?? 0;
+              const vb = b.confidence ?? 0;
+              return order === 'asc' ? va - vb : vb - va;
+            });
+          }
+          // default: sort by detectedAt
+          return copy.sort((a, b) => {
+            const ta = new Date(a.detectedAt).getTime();
+            const tb = new Date(b.detectedAt).getTime();
+            return order === 'asc' ? ta - tb : tb - ta;
+          });
+        };
+
+        const ordered = sortSpamLogs(filteredData, spamLogFilters.sortOrder, spamLogFilters.sortBy);
+        setSpamLogs(ordered);
+        
+        // Update pagination with filtered count
+        setPaginationLocal({
+          ...response.pagination,
+          total: filteredData.length,
+          totalPages: Math.ceil(filteredData.length / pagination.limit),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch spam logs:', error);
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
+  }, [spamLogFilters, pendingSpamSearch, pagination.limit, token]);
 
   // When sort order or sortBy changes client-side, re-order current spamLogs
   useEffect(() => {
@@ -328,7 +335,7 @@ export const MessagesPage = () => {
         if (cached) {
           setMessagesLocal(cached.messages);
           setPaginationLocal(cached.pagination);
-          setLoading(false);
+          setLoading(false); 
           return;
         }
       }
@@ -385,8 +392,8 @@ export const MessagesPage = () => {
         if (currentFilters.awaitingCustomerResponse) {
           apiFilters.awaitingCustomerResponse = 'true';
         }
-        if (currentFilters.search?.trim()) {
-          apiFilters.search = currentFilters.search.trim();
+        if (currentFilters.search) {
+          apiFilters.search = currentFilters.search;
         }
 
         const currentSorting = useMessagesStore.getState().sorting;
@@ -398,11 +405,40 @@ export const MessagesPage = () => {
         );
 
         if (response.success && response.data) {
-          setMessages(response.data, response.pagination);
-          setMessagesLocal(response.data);
-          setPaginationLocal(response.pagination);
+          let filteredMessages = response.data;
+          
+          // Apply client-side search filter if backend doesn't handle it
+          if (currentFilters.search) {
+            const searchTerm = currentFilters.search.toLowerCase();
+            console.log('[MESSAGES] Applying client-side search filter:', searchTerm);
+            filteredMessages = filteredMessages.filter(msg => {
+              const id = msg.id?.toString() || '';
+              const sender = msg.sender?.toLowerCase() || '';
+              const subject = msg.subject?.toLowerCase() || '';
+              const content = msg.content?.toLowerCase() || '';
+              
+              return (
+                id.includes(searchTerm) ||
+                sender.includes(searchTerm) ||
+                subject.includes(searchTerm) ||
+                content.includes(searchTerm)
+              );
+            });
+            console.log('[MESSAGES] Filtered results:', filteredMessages.length, '/', response.data.length);
+          }
+          
+          // Update pagination with filtered count
+          const updatedPagination = {
+            ...response.pagination,
+            total: filteredMessages.length,
+            totalPages: Math.ceil(filteredMessages.length / pagination.limit),
+          };
+          
+          setMessages(filteredMessages, updatedPagination);
+          setMessagesLocal(filteredMessages);
+          setPaginationLocal(updatedPagination);
 
-          if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
+          if (page > updatedPagination.totalPages && updatedPagination.totalPages > 0) {
             await fetchMessages(1);
           }
         }
@@ -425,15 +461,7 @@ export const MessagesPage = () => {
     } else {
       void fetchMessages(1);
     }
-  }, [
-    activeTab,
-    filters.search,
-    filters.channel,
-    sorting.sortOrder,
-    spamLogFilters,
-    fetchSpamLogs,
-    fetchMessages,
-  ]);
+  }, [activeTab, filters.search, filters.channel, sorting.sortOrder, spamLogFilters, fetchSpamLogs, fetchMessages]);
 
   const handlePageChange = async (page: number) => {
     if (activeTab === 'spam') {
@@ -443,13 +471,14 @@ export const MessagesPage = () => {
     }
   };
 
-  // Sync URL tab
+  // Sync URL tab (only once on mount or when URL changes externally)
   useEffect(() => {
     const newTab = getTabFromUrl();
     if (newTab !== activeTab) {
       setActiveTab(newTab);
     }
-  }, [searchParams, activeTab, getTabFromUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get('tab')]); // Only react to tab parameter changes
 
   // Sync URL parameters with filters on mount
   useEffect(() => {
@@ -525,7 +554,7 @@ export const MessagesPage = () => {
     }
 
     const tabToLoad = urlTab && (urlTab === 'messages' || urlTab === 'spam') ? urlTab : 'messages';
-
+    
     urlSyncedRef.current = true;
     setActiveTab(tabToLoad);
 
@@ -533,6 +562,7 @@ export const MessagesPage = () => {
       setFilters(urlFilters);
     }
 
+   
     if (tabToLoad === 'spam') {
       void fetchSpamLogs(1).catch((error) => {
         console.error('Failed to fetch spam logs:', error);
@@ -547,25 +577,30 @@ export const MessagesPage = () => {
 
   // Sync filters to URL
   useEffect(() => {
-    const params = new URLSearchParams();
-    params.set('tab', activeTab);
-
-    const messageIdParam = searchParams.get('id');
-    if (messageIdParam) {
-      params.set('id', messageIdParam);
+    if (!urlSyncedRef.current) return; // Don't sync until initial load is complete
+    
+    const params = new URLSearchParams(searchParams);
+    
+    // Only update tab if it has changed
+    const currentTabParam = searchParams.get('tab');
+    if (currentTabParam !== activeTab) {
+      params.set('tab', activeTab);
     }
 
     if (filters.processed && filters.processed !== 'all') {
       params.set('processed', filters.processed);
+    } else {
+      params.delete('processed');
     }
 
     const currentUrl = searchParams.toString();
     const newUrl = params.toString();
-
+    
     if (currentUrl !== newUrl) {
       setSearchParams(params, { replace: true });
     }
-  }, [filters, activeTab, setSearchParams, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.processed, activeTab]); // Only react to actual filter/tab changes, not all searchParams
 
   // Auto-open message from query param
   useEffect(() => {
@@ -586,7 +621,7 @@ export const MessagesPage = () => {
         }
       };
       void fetchAndOpenSpamLog();
-    } else if (paramId && selectedMessage?.id !== paramId) {
+    } else if (paramId && (!selectedMessage || selectedMessage.id !== paramId)) {
       // Fetch regular message
       const fetchAndOpenMessage = async () => {
         try {
@@ -621,12 +656,26 @@ export const MessagesPage = () => {
   };
 
   const handleSearch = () => {
+    console.log('[MESSAGES] handleSearch called with pendingSearch:', pendingSearch);
     updateSecondaryFilter('search', pendingSearch);
+    // Force fetch with new search term
+    if (activeTab === 'spam') {
+      void fetchSpamLogs(1, true);
+    } else {
+      void fetchMessages(1, true);
+    }
   };
 
   const handleSearchBlur = () => {
+    console.log('[MESSAGES] handleSearchBlur called with pendingSearch:', pendingSearch);
     if (!pendingSearch.trim() && filters.search) {
       updateSecondaryFilter('search', '');
+      // Clear search and refresh
+      if (activeTab === 'spam') {
+        void fetchSpamLogs(1, true);
+      } else {
+        void fetchMessages(1, true);
+      }
     }
   };
 
@@ -703,7 +752,7 @@ export const MessagesPage = () => {
 
   const handleRefreshMessage = async () => {
     if (!selectedMessage) return;
-
+    
     try {
       clearCache();
       const response = await messageService.getById(selectedMessage.id);
@@ -780,9 +829,9 @@ export const MessagesPage = () => {
     }
   };
 
-  const handleDeleteSpamLog = async (_log: SpamLog) => {
+  const handleDeleteSpamLog = async (log: SpamLog) => {
     try {
-      await spamLogService.cleanup({ maxEntries: 1 });
+      await spamLogService.delete(log.id);
       setSelectedSpamLog(null);
       await fetchSpamLogs(pagination.page, true);
     } catch (error) {
@@ -790,11 +839,7 @@ export const MessagesPage = () => {
     }
   };
 
-  const handleUpdateSpamLogStatus = async (
-    log: SpamLog,
-    status: SpamLog['status'],
-    notes?: string
-  ) => {
+  const handleUpdateSpamLogStatus = async (log: SpamLog, status: SpamLog['status'], notes?: string) => {
     try {
       await spamLogService.updateStatus(log.id, status, notes);
       await fetchSpamLogs(pagination.page, true);
@@ -848,7 +893,7 @@ export const MessagesPage = () => {
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
                   }`}
                 >
-                  <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                  <span className=" sm:text-xs md:text-sm font-medium truncate">
                     Messages
                   </span>
                 </button>
@@ -859,8 +904,8 @@ export const MessagesPage = () => {
                       ? 'border-primary text-primary bg-primary/10'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
                   }`}
-                >
-                  <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
+                > 
+                  <span className=" sm:text-xs md:text-sm font-medium truncate">
                     Spam Detection
                   </span>
                 </button>
@@ -871,7 +916,7 @@ export const MessagesPage = () => {
 
         {/* Messages Tab */}
         {activeTab === 'messages' && (
-          <>
+          <> 
             {/* Filters */}
             <div className="mb-6">
               <MessageFilters
@@ -892,7 +937,7 @@ export const MessagesPage = () => {
 
             {loading ? (
               <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((id) => (
+                {[1,2,3,4,5].map((id) => (
                   <Card key={`skeleton-${id}`} className="animate-pulse">
                     <CardContent className="p-6">
                       <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
@@ -907,9 +952,7 @@ export const MessagesPage = () => {
                   <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
                   <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
                   <p className="text-muted-foreground">
-                    {activeFilterCount > 0
-                      ? 'No messages match your filters'
-                      : 'No messages available'}
+                    {activeFilterCount > 0 ? 'No messages match your filters' : 'No messages available'}
                   </p>
                 </CardContent>
               </Card>
@@ -960,9 +1003,7 @@ export const MessagesPage = () => {
                 onSearch={handleSpamSearch}
                 onSearchBlur={handleSpamSearchBlur}
                 onClearFilters={clearSpamFilters}
-                onSortingChange={(sortBy, sortOrder) =>
-                  setSpamLogFilters({ ...spamLogFilters, sortOrder, sortBy })
-                }
+                onSortingChange={(sortBy, sortOrder) => setSpamLogFilters({ ...spamLogFilters, sortOrder, sortBy })}
                 setPendingSearch={setPendingSpamSearch}
                 setFilters={setSpamLogFilters}
               />
@@ -970,7 +1011,7 @@ export const MessagesPage = () => {
 
             {loading ? (
               <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((id) => (
+                {[1,2,3,4,5].map((id) => (
                   <Card key={`spam-skeleton-${id}`} className="animate-pulse">
                     <CardContent className="p-6">
                       <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
@@ -985,8 +1026,8 @@ export const MessagesPage = () => {
                   <ShieldX className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
                   <h3 className="mb-2 text-lg font-semibold">No spam logs found</h3>
                   <p className="text-muted-foreground">
-                    {activeSpamFilterCount > 0
-                      ? 'No spam logs match your filters'
+                    {activeSpamFilterCount > 0 
+                      ? 'No spam logs match your filters' 
                       : 'No spam logs available'}
                   </p>
                 </CardContent>
@@ -1022,6 +1063,7 @@ export const MessagesPage = () => {
             )}
           </>
         )}
+
       </div>
 
       {/* Delete Message Dialog */}

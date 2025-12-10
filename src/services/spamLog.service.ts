@@ -87,9 +87,12 @@ export const spamLogService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<SpamLog[]>>(
-      `/api/spam-logs?${params.toString()}`
-    );
+    const url = `/api/spam-logs?${params.toString()}`;
+    console.log('[SpamLogService] Requesting:', url);
+    console.log('[SpamLogService] Search param:', filters?.search);
+
+    const response = await apiClient.get<PaginatedResponse<SpamLog[]>>(url);
+    console.log('[SpamLogService] Response:', response.data);
     return response.data;
   },
 
@@ -135,6 +138,13 @@ export const spamLogService = {
     const response = await apiClient.put<ApiResponse<SpamLog>>(
       `/api/spam-logs/${id}/status`,
       { status, notes }
+    );
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await apiClient.delete<ApiResponse<{ deleted: boolean }>>(
+      `/api/spam-logs/${id}`
     );
     return response.data;
   },

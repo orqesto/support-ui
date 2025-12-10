@@ -11,7 +11,7 @@ export const cardVariants = cva('rounded-lg border shadow-sm bg-card text-card-f
     padding: {
       none: 'p-0',
       sm: 'p-4',
-      md: 'p-6',
+      md: 'p-2',
       lg: 'p-8',
     },
   },

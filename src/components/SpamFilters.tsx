@@ -52,6 +52,8 @@ export const SpamFilters = ({
     onSortingChange(sortBy, sortOrder);
     setFilters({ ...filters, sortBy, sortOrder });
   };
+
+
   // Helper to build active filter pills
   const getActiveFilters = () => {
     const active: Array<{ key: string; label: string; value: string }> = [];
@@ -170,13 +172,19 @@ export const SpamFilters = ({
               <SearchInput
                 value={pendingSearch}
                 onChange={(value) => {
+                  console.log('[SpamFilters] SearchInput onChange:', value);
                   setPendingSearch(value);
-                  onFilterChange('search', value);
                 }}
-                onSearch={onSearch}
-                onBlur={onSearchBlur}
+                onSearch={() => {
+                  console.log('[SpamFilters] SearchInput onSearch called with pendingSearch:', pendingSearch);
+                  onSearch();
+                }}
+                onBlur={() => {
+                  console.log('[SpamFilters] SearchInput onBlur called with pendingSearch:', pendingSearch);
+                  onSearchBlur();
+                }}
                 showSearchButton={true}
-                placeholder="Search by email, subject, content..."
+                placeholder="Search by ID, email, subject, content..."
                 className="flex-1 min-w-[200px] sm:min-w-[300px]"
                 size="sm"
               />

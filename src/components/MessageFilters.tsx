@@ -347,11 +347,17 @@ export const MessageFilters = ({
               <SearchInput
                 value={pendingSearch}
                 onChange={(value) => {
+                  console.log('[MessageFilters] SearchInput onChange:', value);
                   setPendingSearch(value);
-                  onFilterChange('search', value);
                 }}
-                onSearch={onSearch}
-                onBlur={onSearchBlur}
+                onSearch={() => {
+                  console.log('[MessageFilters] SearchInput onSearch called with pendingSearch:', pendingSearch);
+                  onSearch();
+                }}
+                onBlur={() => {
+                  console.log('[MessageFilters] SearchInput onBlur called with pendingSearch:', pendingSearch);
+                  onSearchBlur();
+                }}
                 showSearchButton={true}
                 placeholder="Search by ID, email, subject, content..."
                 className="flex-1 min-w-[200px] sm:min-w-[300px]"

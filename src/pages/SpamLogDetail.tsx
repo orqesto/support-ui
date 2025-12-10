@@ -118,7 +118,7 @@ export const SpamLogDetail = ({
         {/* Left column - Info */}
         <Card>
           <CardContent className="space-y-4 pt-6">
-            <div className="space-y-2">
+            <div className="space-y-2">x
               <h4 className="font-semibold flex items-center gap-2">
                 <Mail className="w-4 h-4" />
                 Sender Information

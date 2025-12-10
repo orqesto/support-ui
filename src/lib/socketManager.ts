@@ -51,12 +51,10 @@ export const subscribeToEvent = (event: string, callback: EventCallback) => {
 
     // Add single listener to socket that broadcasts to all subscribers
     socket.on(event, (data: unknown) => {
-      console.log(`📧 Event received: ${event}`, data);
-
+     
       const callbacks = eventListeners.get(event);
       if (callbacks) {
-        console.log(`  ↳ Broadcasting to ${callbacks.size} subscriber(s)`);
-        // Call each unique callback
+       
         callbacks.forEach((cb) => cb(data));
       }
     });
