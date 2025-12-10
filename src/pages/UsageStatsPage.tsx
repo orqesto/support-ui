@@ -1,3 +1,12 @@
+/**
+ * TODO: Finish Usage Stats Page Implementation
+ * - Implement detailed usage tracking and analytics
+ * - Add time-series charts for usage trends
+ * - Implement usage breakdowns by department/user
+ * - Add export functionality for usage reports
+ * - Implement usage alerts and notifications
+ * - Connect with actual usage data from backend
+ */
 import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Download, TrendingDown, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

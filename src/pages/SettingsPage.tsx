@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '@/components/settings/CategoriesSettings';
 import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
@@ -19,8 +20,6 @@ import { RulesSettings } from '@/components/settings/RulesSettings';
 import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 
@@ -123,47 +122,23 @@ export const SettingsPage = () => {
           </div>
         </div>
 
-        <Card>
-          <CardContent className="overflow-visible p-0">
-            <div className="overflow-visible border-b">
-              <div className="flex">
-                {allTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <Button
-                      key={tab.id}
-                      variant="ghost"
-                      onClick={() => handleTabChange(tab.id)}
-                      title={tab.label}
-                      className={`flex-1 h-auto rounded-none items-center justify-center gap-1 sm:gap-2 px-1 py-2 sm:px-2 sm:py-3 md:px-4 md:py-4 border-b-2 transition-colors min-w-0 ${
-                        activeTab === tab.id
-                          ? 'border-primary text-primary bg-primary/10 '
-                          : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 shrink-0" />
-                      <span className="text-[10px] hidden sm:block sm:text-xs md:text-sm font-medium truncate">
-                        {tab.label}
-                      </span>
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tab Content */}
-            <div className="p-6" key={activeTab}>
-              {activeTab === 'profile' && <ProfileSettings />}
-              {activeTab === 'categories' && <CategoriesSettings />}
-              {activeTab === 'prompts' && <PromptsSettings />}
-              {activeTab === 'rules' && <RulesSettings />}
-              {activeTab === 'ai-providers' && <AIProvidersSettings />}
-              {activeTab === 'message-sources' && <MessageSourcesSettings />}
-              {activeTab === 'ticket-automation' && <TicketAutomationSettings />}
-              {activeTab === 'system-management' && <SystemManagementSettings />}
-            </div>
-          </CardContent>
-        </Card>
+        <Tabs
+          tabs={allTabs as Tab<TabType>[]}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          variant="default"
+          size="md"
+          fullWidth
+        >
+          {activeTab === 'profile' && <ProfileSettings />}
+          {activeTab === 'categories' && <CategoriesSettings />}
+          {activeTab === 'prompts' && <PromptsSettings />}
+          {activeTab === 'rules' && <RulesSettings />}
+          {activeTab === 'ai-providers' && <AIProvidersSettings />}
+          {activeTab === 'message-sources' && <MessageSourcesSettings />}
+          {activeTab === 'ticket-automation' && <TicketAutomationSettings />}
+          {activeTab === 'system-management' && <SystemManagementSettings />}
+        </Tabs>
       </div>
     </Layout>
   );
