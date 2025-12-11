@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp, Mail } from 'lucide-react';
+import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -85,7 +85,7 @@ export const SpamLogFilters = ({
             onClick={onClearFilters}
             disabled={activeFilterCount === 0}
           >
-            <X className="mr-1 w-4 h-4" />
+            <X className="mr-1 w-3 h-3 hidden sm:block" />
             Clear All
           </Button>
         </div>
@@ -103,101 +103,168 @@ export const SpamLogFilters = ({
         />
 
         {/* Quick Filters + Inline Controls */}
-        <div className="flex flex-wrap gap-3 items-center mb-3">
-          {/* Category Quick Filters */}
-          <div className="flex gap-1 items-center">
-            <span className="mr-2 text-sm font-medium">Category:</span>
-            <Button
-              size="sm"
-              variant={!filters.category ? 'primary' : 'outline'}
-              onClick={() => onFilterChange('category', '')}
-              className="h-8"
-            >
-              All
-            </Button>
-            <Button
-              size="sm"
-              variant={filters.category === 'spam' ? 'primary' : 'outline'}
-              onClick={() => onFilterChange('category', 'spam')}
-              className="h-8"
-            >
-              Spam
-            </Button>
-            <Button
-              size="sm"
-              variant={filters.category === 'promotional' ? 'primary' : 'outline'}
-              onClick={() => onFilterChange('category', 'promotional')}
-              className="h-8"
-            >
-              Promotional
-            </Button>
-            <Button
-              size="sm"
-              variant={filters.category === 'scam' ? 'primary' : 'outline'}
-              onClick={() => onFilterChange('category', 'scam')}
-              className="h-8"
-            >
-              Scam
-            </Button>
-            <Button
-              size="sm"
-              variant={filters.category === 'phishing' ? 'primary' : 'outline'}
-              onClick={() => onFilterChange('category', 'phishing')}
-              className="h-8"
-            >
-              Phishing
-            </Button>
-          </div>
+        <div className="p-4 rounded-lg border bg-muted/30">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            {/* Category Quick Filters */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1">
+              <span className="text-xs font-semibold text-muted-foreground sm:whitespace-nowrap sm:mr-2">
+                Category:
+              </span>
+              {/* Mobile: 2x3 grid */}
+              <div className="flex flex-col gap-2 sm:hidden">
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={!filters.category ? 'primary' : 'outline'}
+                    onClick={() => onFilterChange('category', '')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={filters.category === 'spam' ? 'primary' : 'outline'}
+                    onClick={() => onFilterChange('category', 'spam')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    Spam
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={filters.category === 'promotional' ? 'primary' : 'outline'}
+                    onClick={() => onFilterChange('category', 'promotional')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    Promo
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={filters.category === 'scam' ? 'primary' : 'outline'}
+                    onClick={() => onFilterChange('category', 'scam')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    Scam
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={filters.category === 'phishing' ? 'primary' : 'outline'}
+                    onClick={() => onFilterChange('category', 'phishing')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    Phishing
+                  </Button>
+                </div>
+              </div>
+              {/* Tablet+: single row */}
+              <div className="hidden gap-1 sm:flex">
+                <Button
+                  size="sm"
+                  variant={!filters.category ? 'primary' : 'outline'}
+                  onClick={() => onFilterChange('category', '')}
+                  className="h-8 text-xs"
+                >
+                  All
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filters.category === 'spam' ? 'primary' : 'outline'}
+                  onClick={() => onFilterChange('category', 'spam')}
+                  className="h-8 text-xs"
+                >
+                  Spam
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filters.category === 'promotional' ? 'primary' : 'outline'}
+                  onClick={() => onFilterChange('category', 'promotional')}
+                  className="h-8 text-xs"
+                >
+                  Promotional
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filters.category === 'scam' ? 'primary' : 'outline'}
+                  onClick={() => onFilterChange('category', 'scam')}
+                  className="h-8 text-xs"
+                >
+                  Scam
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filters.category === 'phishing' ? 'primary' : 'outline'}
+                  onClick={() => onFilterChange('category', 'phishing')}
+                  className="h-8 text-xs"
+                >
+                  Phishing
+                </Button>
+              </div>
+            </div>
 
-          {/* Channel Dropdown */}
-          <div className="flex gap-2 items-center">
-            <span className="text-sm font-medium">Channel:</span>
-            <ReactSelect
-              value={filters.channel ?? 'all'}
-              onChange={(value) => onFilterChange('channel', value)}
-              options={[
-                { value: 'all', label: 'All' },
-                { value: 'email', label: 'Email' },
-                { value: 'telegram', label: 'Telegram' },
-                { value: 'slack', label: 'Slack' },
-              ]}
-              className="w-32"
-            />
-          </div>
-        </div>
+            {/* Divider - hidden on mobile */}
+            <div className="hidden mx-3 w-px h-8 sm:block bg-border" />
 
-        {/* Second Row: Source + Sort */}
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex gap-2 items-center">
-            <Mail className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Source:</span>
-            <ReactSelect
-              value={filters.messageSourceId?.toString() ?? 'all'}
-              onChange={(value) =>
-                onFilterChange('messageSourceId', value === 'all' ? '' : Number(value))
-              }
-              options={[
-                { value: 'all', label: 'All Sources' },
-                ...messageSources.map((source) => ({
-                  value: source.id.toString(),
-                  label: source.name,
-                })),
-              ]}
-              className="w-40"
-            />
-          </div>
+            {/* Channel Dropdown */}
+            <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
+              <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                Channel:
+              </span>
+              <ReactSelect
+                value={filters.channel ?? 'all'}
+                onChange={(value) => onFilterChange('channel', value)}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'email', label: 'Email' },
+                  { value: 'telegram', label: 'Telegram' },
+                  { value: 'slack', label: 'Slack' },
+                ]}
+                className="flex-1 sm:min-w-[120px] sm:flex-initial"
+              />
+            </div>
 
-          <div className="flex gap-2 items-center">
-            <span className="text-sm font-medium">Sort:</span>
-            <ReactSelect
-              value={filters.sortOrder ?? 'desc'}
-              onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-              options={[
-                { value: 'desc', label: 'Newest First' },
-                { value: 'asc', label: 'Oldest First' },
-              ]}
-              className="w-40"
-            />
+            {/* Divider - hidden on mobile */}
+            <div className="hidden mx-3 w-px h-8 lg:block bg-border" />
+
+            {/* Message Source Group */}
+            <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
+              <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                Source:
+              </span>
+              <ReactSelect
+                value={filters.messageSourceId?.toString() ?? 'all'}
+                onChange={(value) =>
+                  onFilterChange('messageSourceId', value === 'all' ? '' : Number(value))
+                }
+                options={[
+                  { value: 'all', label: 'All Sources' },
+                  ...messageSources.map((source) => ({
+                    value: source.id.toString(),
+                    label: source.name,
+                  })),
+                ]}
+                className="flex-1 sm:min-w-[120px] sm:flex-initial"
+              />
+            </div>
+
+            {/* Divider - hidden on mobile */}
+            <div className="hidden mx-3 w-px h-8 lg:block bg-border" />
+
+            {/* Sort Order */}
+            <div className="flex gap-2 items-center min-w-[140px]">
+              <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                Sort:
+              </span>
+              <ReactSelect
+                value={filters.sortOrder ?? 'desc'}
+                onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+                options={[
+                  { value: 'desc', label: 'Newest First' },
+                  { value: 'asc', label: 'Oldest First' },
+                ]}
+                className="flex-1 sm:min-w-[120px] sm:flex-initial"
+              />
+            </div>
           </div>
         </div>
 

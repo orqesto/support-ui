@@ -83,7 +83,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
         <div>
           <h3 className="mb-2 text-sm font-semibold">Content</h3>
           <div className="p-4 max-h-96 overflow-y-auto rounded-lg bg-muted">
-            <p className="text-sm break-all whitespace-pre-wrap">{log.content}</p>
+            <p className="text-sm break-all ">{log.content}</p>
           </div>
         </div>
       )}

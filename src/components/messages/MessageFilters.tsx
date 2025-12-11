@@ -6,7 +6,6 @@ import {
   XCircle,
   MessageCircle,
   Ticket,
-  Inbox,
   ShieldX,
   Info,
   ChevronDown,
@@ -113,7 +112,7 @@ export const MessageFilters = ({
                 className="h-8 shrink-0"
                 disabled={activeFilterCount === 0}
               >
-                <X className="mr-1 w-3 h-3" />
+                <X className="mr-1 w-3 h-3 hidden sm:block" />
                 Clear All
               </Button>
             </div>
@@ -140,18 +139,66 @@ export const MessageFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-4 rounded-lg border bg-muted/30">
-              <div className="flex flex-col gap-3 rounded-md sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 {/* Status Group */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1">
+                  <span className="text-xs font-semibold text-muted-foreground sm:whitespace-nowrap sm:mr-2">
                     Status:
                   </span>
-                  <div className="flex flex-col gap-2 w-full rounded-md shadow-sm sm:inline-flex sm:flex-row sm:w-auto">
+                  {/* Mobile: 2x2 grid */}
+                  <div className="flex flex-col gap-2 sm:hidden">
+                    <div className="flex gap-2">
+                      <Button
+                        variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => onFilterChange('processed', 'all')}
+                        className="h-8 text-xs flex-1"
+                      >
+                        All
+                      </Button>
+                      <Button
+                        variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => onFilterChange('processed', 'unprocessed')}
+                        className="h-8 text-xs flex-1"
+                      >
+                        Unprocessed
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={filters.processed === 'processed' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => onFilterChange('processed', 'processed')}
+                        className="h-8 text-xs flex-1"
+                      >
+                        Processed
+                      </Button>
+                      <Button
+                        variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => onFilterChange('processed', 'resolved')}
+                        className="h-8 text-xs flex-1"
+                      >
+                        Resolved
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Tablet+: single row */}
+                  <div className="hidden gap-1 sm:flex">
+                    <Button
+                      variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => onFilterChange('processed', 'all')}
+                      className="h-8 text-xs"
+                    >
+                      All
+                    </Button>
                     <Button
                       variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('processed', 'unprocessed')}
-                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
+                      className="h-8 text-xs"
                     >
                       Unprocessed
                     </Button>
@@ -159,7 +206,7 @@ export const MessageFilters = ({
                       variant={filters.processed === 'processed' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('processed', 'processed')}
-                      className="h-8 text-xs rounded-none border-r-0"
+                      className="h-8 text-xs"
                     >
                       Processed
                     </Button>
@@ -167,17 +214,9 @@ export const MessageFilters = ({
                       variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('processed', 'resolved')}
-                      className="h-8 text-xs rounded-none border-r-0"
+                      className="h-8 text-xs"
                     >
                       Resolved
-                    </Button>
-                    <Button
-                      variant={filters.processed === 'all' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => onFilterChange('processed', 'all')}
-                      className="h-8 text-xs rounded-r-md rounded-l-none"
-                    >
-                      All
                     </Button>
                   </div>
                 </div>
@@ -199,7 +238,7 @@ export const MessageFilters = ({
                       { value: 'telegram', label: 'Telegram' },
                       { value: 'slack', label: 'Slack' },
                     ]}
-                    className="min-w-[120px] sm:w-auto"
+                    className="flex-1 sm:min-w-[120px] sm:flex-initial"
                   />
                 </div>
 
@@ -209,7 +248,6 @@ export const MessageFilters = ({
                 {/* Message Source Group */}
                 <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
                   <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    <Inbox className="hidden mr-1 w-3 h-3 sm:block" />
                     Source:
                   </span>
                   <ReactSelect
@@ -222,7 +260,7 @@ export const MessageFilters = ({
                         label: source.name,
                       })),
                     ]}
-                    className="min-w-[120px] sm:w-auto"
+                    className="flex-1 sm:min-w-[120px] sm:flex-initial"
                   />
                 </div>
 
@@ -241,7 +279,7 @@ export const MessageFilters = ({
                       { value: 'desc', label: 'Newest First' },
                       { value: 'asc', label: 'Oldest First' },
                     ]}
-                    className="min-w-[120px] sm:w-auto"
+                    className="flex-1 sm:min-w-[120px] sm:flex-initial"
                   />
                 </div>
               </div>

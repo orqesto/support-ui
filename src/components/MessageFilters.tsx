@@ -6,17 +6,13 @@ import {
   XCircle,
   MessageCircle,
   Ticket,
-  Inbox,
   ShieldX,
   Info,
   ChevronDown,
   ChevronUp,
-  Zap,
   Clock,
-  AlertTriangle,
   BookOpen,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -79,387 +75,225 @@ export const MessageFilters = ({
     void fetchSources();
   }, []);
 
-  // Helper to get active filter labels
-  const getActiveFilters = () => {
-    const active: Array<{ key: string; label: string; value: string }> = [];
-
-    if (filters.processed !== 'all') {
-      active.push({ key: 'processed', label: 'Status', value: filters.processed ?? '' });
-    }
-    if (filters.channel !== 'all') {
-      active.push({ key: 'channel', label: 'Channel', value: filters.channel ?? '' });
-    }
-    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
-      const source = messageSources.find((s) => s.id.toString() === filters.messageSourceId);
-      active.push({
-        key: 'messageSourceId',
-        label: 'Source',
-        value: source?.name ?? filters.messageSourceId,
-      });
-    }
-    if (filters.showSpam) {
-      active.push({ key: 'showSpam', label: 'Filter', value: 'Spam' });
-    }
-    if (filters.excludeSpam) {
-      active.push({ key: 'excludeSpam', label: 'Filter', value: 'Exclude Spam' });
-    }
-    if (filters.showWorthy) {
-      active.push({ key: 'showWorthy', label: 'Filter', value: 'Ticket Worthy' });
-    }
-    if (filters.showNeedsInfo) {
-      active.push({ key: 'showNeedsInfo', label: 'Filter', value: 'Needs Info' });
-    }
-    if (filters.hasAttachments) {
-      active.push({ key: 'hasAttachments', label: 'Filter', value: 'Has Attachments' });
-    }
-    if (filters.hasReplies) {
-      active.push({ key: 'hasReplies', label: 'Filter', value: 'Has Replies' });
-    }
-    if (filters.hasTicket === true) {
-      active.push({ key: 'hasTicket', label: 'Filter', value: 'Has Ticket' });
-    }
-    if (filters.hasTicket === false) {
-      active.push({ key: 'hasTicket', label: 'Filter', value: 'No Ticket' });
-    }
-    if (filters.showFailed) {
-      active.push({ key: 'showFailed', label: 'Filter', value: 'Failed' });
-    }
-    if (filters.awaitingCustomerResponse) {
-      active.push({ key: 'awaitingCustomerResponse', label: 'Filter', value: 'Awaiting Response' });
-    }
-
-    return active;
-  };
-
-  const activeFilters = getActiveFilters();
-
-  const removeFilter = (key: string) => {
-    if (key === 'processed') {
-      onFilterChange('processed', 'all');
-    } else if (key === 'channel') {
-      onFilterChange('channel', 'all');
-    } else if (key === 'messageSourceId') {
-      onFilterChange('messageSourceId', 'all');
-    } else if (
-      key === 'showSpam' ||
-      key === 'excludeSpam' ||
-      key === 'showWorthy' ||
-      key === 'showNeedsInfo' ||
-      key === 'hasAttachments' ||
-      key === 'hasReplies' ||
-      key === 'showFailed' ||
-      key === 'awaitingCustomerResponse'
-    ) {
-      setFilters({ ...filters, [key]: false });
-    } else if (key === 'hasTicket') {
-      setFilters({ ...filters, hasTicket: undefined });
-    }
-  };
-
-  // Quick filter presets
-  const applyPreset = (presetName: string) => {
-    switch (presetName) {
-      case 'needs-review':
-        // Unprocessed messages without tickets
-        onFilterChange('processed', 'unprocessed');
-        setFilters({
-          ...filters,
-          processed: 'unprocessed',
-          hasTicket: false,
-          excludeSpam: true,
-          showSpam: false,
-        });
-        break;
-      case 'urgent':
-        // Processed, ticket-worthy messages that need attention
-        onFilterChange('processed', 'processed');
-        setFilters({
-          ...filters,
-          processed: 'processed',
-          showWorthy: true,
-          excludeSpam: true,
-        });
-        break;
-      case 'recent':
-        // All recent messages, newest first
-        onFilterChange('processed', 'all');
-        onSortingChange('desc');
-        setFilters({
-          ...filters,
-          processed: 'all',
-          excludeSpam: false,
-          showSpam: false,
-        });
-        break;
-      case 'failed':
-        // Failed messages that need attention
-        onFilterChange('processed', 'all');
-        setFilters({
-          ...filters,
-          processed: 'all',
-          showFailed: true,
-        });
-        break;
-      case 'awaiting-response':
-        // Messages awaiting customer response (any status)
-        onFilterChange('processed', 'all');
-        setFilters({
-          ...filters,
-          processed: 'all',
-          awaitingCustomerResponse: true,
-          excludeSpam: true,
-        });
-        break;
-    }
-  };
-
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="flex flex-wrap gap-3 justify-between items-center">
-            <div className="flex flex-wrap gap-3 items-center">
-              <div className="flex gap-2 items-center">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Filters</span>
-                {activeFilterCount > 0 && (
-                  <Badge variant="default" className="text-xs">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </div>
-              {pagination.total > 0 && (
-                <span className="text-xs whitespace-nowrap text-muted-foreground">
-                  {(pagination.page - 1) * pagination.limit + 1}-
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                  {pagination.total}
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2 items-center">
-              {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 shrink-0">
-                  <X className="mr-1 w-3 h-3" />
-                  Clear All
-                </Button>
-              )}
-            </div>
+        {/* Header */}
+        <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
+          <div className="flex gap-2 items-center">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">Filters</span>
+            {pagination.total > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {(pagination.page - 1) * pagination.limit + 1}-
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                {pagination.total}
+              </span>
+            )}
           </div>
 
-          {/* Active Filter Pills */}
-          {activeFilters.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter, index) => (
-                <Badge
-                  key={`${filter.key}-${index}`}
-                  variant="secondary"
-                  className="flex gap-1 items-center py-1 pr-1 pl-2 text-xs group"
-                >
-                  <span className="font-normal text-muted-foreground">{filter.label}:</span>
-                  <span className="font-medium capitalize">{filter.value}</span>
-                  <button
-                    onClick={() => removeFilter(filter.key)}
-                    className="ml-1 rounded-full hover:bg-muted-foreground/20 transition-colors p-0.5"
-                    aria-label={`Remove ${filter.label} filter`}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onClearFilters}
+            disabled={activeFilterCount === 0}
+          >
+            <X className="mr-1 w-3 h-3 hidden sm:block" />
+            Clear All
+          </Button>
+        </div>
+
+        {/* Search */}
+        <SearchInput
+          value={pendingSearch}
+          onChange={(value) => {
+            setPendingSearch(value);
+            onFilterChange('search', value);
+          }}
+          onSearch={onSearch}
+          onBlur={onSearchBlur}
+          showSearchButton={true}
+          placeholder="Search by ID, email, subject, content..."
+          className="mb-4"
+          size="sm"
+        />
+
+        {/* Primary Filters Row */}
+        <div className="p-4 rounded-lg border bg-muted/30">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+
+            {/* Status Group */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-xs font-semibold text-muted-foreground sm:whitespace-nowrap sm:mr-2">
+                Status:
+              </span>
+              {/* Mobile: 2x2 grid */}
+              <div className="flex flex-col gap-2 sm:hidden">
+                <div className="flex gap-2">
+                  <Button
+                    variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => onFilterChange('processed', 'unprocessed')}
+                    className="h-8 text-xs flex-1"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
+                    Unprocessed
+                  </Button>
+                  <Button
+                    variant={filters.processed === 'processed' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => onFilterChange('processed', 'processed')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    Processed
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => onFilterChange('processed', 'resolved')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    Resolved
+                  </Button>
+                  <Button
+                    variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => onFilterChange('processed', 'all')}
+                    className="h-8 text-xs flex-1"
+                  >
+                    All
+                  </Button>
+                </div>
+              </div>
+              {/* Tablet+: single row */}
+              <div className="hidden gap-1 sm:flex">
+                <Button
+                  variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => onFilterChange('processed', 'unprocessed')}
+                  className="h-8 text-xs"
+                >
+                  Unprocessed
+                </Button>
+                <Button
+                  variant={filters.processed === 'processed' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => onFilterChange('processed', 'processed')}
+                  className="h-8 text-xs"
+                >
+                  Processed
+                </Button>
+                <Button
+                  variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => onFilterChange('processed', 'resolved')}
+                  className="h-8 text-xs"
+                >
+                  Resolved
+                </Button>
+                <Button
+                  variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => onFilterChange('processed', 'all')}
+                  className="h-8 text-xs"
+                >
+                  All
+                </Button>
+              </div>
             </div>
-          )}
 
-          {/* Quick Filter Presets */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-medium text-muted-foreground">Quick Filters:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('needs-review')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Clock className="w-3 h-3" />
-              Needs Review
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('urgent')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <AlertTriangle className="w-3 h-3 text-orange-500" />
-              Urgent
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('recent')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Zap className="w-3 h-3" />
-              Recent
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('failed')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <XCircle className="w-3 h-3 text-red-500" />
-              Failed
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('awaiting-response')}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Clock className="w-3 h-3 text-blue-500" />
-              Awaiting Response
-            </Button>
-          </div>
+            {/* Divider - hidden on mobile */}
+            <div className="hidden mx-3 w-px h-8 sm:block bg-border" />
 
-          {/* Filter Controls */}
-          <div className="flex flex-col gap-3">
-            {/* Row 1: Search */}
-            <div className="flex flex-wrap gap-3 items-center">
-              <SearchInput
-                value={pendingSearch}
-                onChange={(value) => {
-                  setPendingSearch(value);
-                  onFilterChange('search', value);
-                }}
-                onSearch={onSearch}
-                onBlur={onSearchBlur}
-                showSearchButton={true}
-                placeholder="Search by ID, email, subject, content..."
-                className="flex-1 min-w-[200px] sm:min-w-[300px]"
-                size="sm"
+            {/* Channel Group */}
+            <div className="flex gap-2 items-center min-w-[140px] ">
+              <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                Channel:
+              </span>
+              <ReactSelect
+                value={filters.channel}
+                onChange={(value) => onFilterChange('channel', value)}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'email', label: 'Email' },
+                  { value: 'telegram', label: 'Telegram' },
+                  { value: 'slack', label: 'Slack' },
+                ]}
+                className="flex-1 sm:min-w-[120px] sm:flex-initial"
               />
             </div>
 
-            {/* Primary Filters Row */}
-            <div className="p-3 rounded-lg border bg-muted/30">
-  <div className="flex flex-col gap-4 md:gap-6">
-    <div className="w-full">
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">Status:</span>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button
-            variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('processed', 'unprocessed')}
-            className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-          >
-            Unprocessed
-          </Button>
-          <Button
-            variant={filters.processed === 'processed' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('processed', 'processed')}
-            className="h-8 text-xs rounded-none border-r-0"
-          >
-            Processed
-          </Button>
-          <Button
-            variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('processed', 'resolved')}
-            className="h-8 text-xs rounded-none border-r-0"
-          >
-            Resolved
-          </Button>
-          <Button
-            variant={filters.processed === 'all' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('processed', 'all')}
-            className="h-8 text-xs rounded-r-md rounded-l-none"
-          >
-            All
-          </Button>
-        </div>
-      </div>
-    </div>
+            {/* Divider - hidden on mobile */}
+            <div className="hidden mx-3 w-px h-8 lg:block bg-border" />
 
-    <div className="flex flex-col gap-3 md:flex-row md:flex-wrap lg:flex-nowrap md:items-center">
-      <div className="flex gap-2 items-center min-w-[140px] sm:py-2">
-        <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">Channel:</span>
-        <ReactSelect
-          value={filters.channel}
-          onChange={(value) => onFilterChange('channel', value)}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'email', label: 'Email' },
-            { value: 'telegram', label: 'Telegram' },
-            { value: 'slack', label: 'Slack' },
-          ]}
-          className="min-w-[120px] sm:w-full"
-        />
-      </div>
-
-      <div className="hidden w-px h-8 lg:block bg-border" />
-
-      <div className="flex gap-2 items-center min-w-[140px] sm:py-2">
-        <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-          <Inbox className="inline hidden mr-1 w-3 h-3 sm:block" />
-          Source:
-        </span>
-        <ReactSelect
-          value={filters.messageSourceId ?? 'all'}
-          onChange={(value) => onFilterChange('messageSourceId', value)}
-          options={[
-            { value: 'all', label: 'All Sources' },
-            ...messageSources.map((source) => ({ value: source.id.toString(), label: source.name })),
-          ]}
-          className="min-w-[120px] sm:w-full"
-        />
-      </div>
-
-      <div className="hidden w-px h-8 lg:block bg-border" />
-
-      <div className="flex gap-2 items-center min-w-[140px] sm:py-2">
-        <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">Sort:</span>
-        <ReactSelect
-          value={sorting.sortOrder}
-          onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-          options={[
-            { value: 'desc', label: 'Newest First' },
-            { value: 'asc', label: 'Oldest First' },
-          ]}
-          className="min-w-[120px] sm:w-full"
-        />
-      </div>
-    </div>
-  </div>
-</div>
-
-
-            {/* Advanced Filters Toggle */}
-            <div className="flex justify-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="gap-2 h-8 text-xs"
-              >
-                {showAdvancedFilters ? (
-                  <>
-                    <ChevronUp className="w-3 h-3" />
-                    Hide Advanced Filters
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3 h-3" />
-                    Show Advanced Filters
-                  </>
-                )}
-              </Button>
+            {/* Message Source Group */}
+            <div className="flex gap-2 items-center min-w-[140px] sm:pr-4">
+              <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                Source:
+              </span>
+              <ReactSelect
+                value={filters.messageSourceId ?? 'all'}
+                onChange={(value) => onFilterChange('messageSourceId', value)}
+                options={[
+                  { value: 'all', label: 'All Sources' },
+                  ...messageSources.map((source) => ({
+                    value: source.id.toString(),
+                    label: source.name,
+                  })),
+                ]}
+                className="flex-1 sm:min-w-[120px] sm:flex-initial"
+              />
             </div>
 
-            {/* Advanced Filters Section */}
-            {showAdvancedFilters && (
-              <div className="p-3 space-y-3 rounded-lg border bg-muted/10">
+            {/* Divider - hidden on mobile */}
+            <div className="hidden mx-3 w-px h-8 lg:block bg-border" />
+
+            {/* Sort Order */}
+            <div className="flex gap-2 items-center min-w-[140px]">
+              <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                Sort:
+              </span>
+              <ReactSelect
+                value={sorting.sortOrder}
+                onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+                options={[
+                  { value: 'desc', label: 'Newest First' },
+                  { value: 'asc', label: 'Oldest First' },
+                ]}
+                className="flex-1 sm:min-w-[120px] sm:flex-initial"
+              />
+            </div>
+          </div>
+        </div>
+
+
+        {/* Advanced Filters Toggle */}
+        <div className="flex justify-center mt-4">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="text-xs"
+          >
+            {showAdvancedFilters ? (
+              <>
+                <ChevronUp className="mr-1 w-3 h-3" />
+                Hide Advanced Filters
+              </>
+            ) : (
+              <>
+                <ChevronDown className="mr-1 w-3 h-3" />
+                Show Advanced Filters
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Advanced Filters Section */}
+        {showAdvancedFilters && (
+          <div className="pt-4 mt-4 border-t">
+            <div className="space-y-3">
                 <div className="flex gap-2 items-center">
                   <Filter className="w-3 h-3 text-muted-foreground" />
                   <span className="text-xs font-semibold text-muted-foreground">
@@ -637,11 +471,10 @@ export const MessageFilters = ({
                       <span>Exclude KB</span>
                     </div>
                   </label>
-                </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

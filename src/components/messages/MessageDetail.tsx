@@ -224,13 +224,16 @@ export const MessageDetail = ({
 
   return (
     <div className="relative space-y-6">
+      
       {/* Only show ScrollButtons in drawer mode (not full-page, page has its own) */}
       {!isFullPage && <ScrollButtons bottomTarget="[data-message-actions]" />}
       {/* Header Section */}
       <div className="space-y-4">
+        <MessageBadges message={message} />
         <div className="flex gap-3 justify-between items-center">
-          <MessageBadges message={message} />
-          <div className="flex flex-shrink-0 gap-2">
+          {/* сюда */}
+          
+          <div className="flex flex-shrink-0 gap-2 items-center">
             {showFullPageButton && !isFullPage && (
               <Link to={`/messages/${message.id}`}>
                 <Button variant="ghost" size="sm" title="Open in full page">
@@ -246,24 +249,26 @@ export const MessageDetail = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Message ID</p>
-            <p className="font-mono text-sm">#{message.id}</p>
-          </div>
+        
+          
           <div>
             <p className="text-sm text-muted-foreground">From</p>
             <p className="text-lg font-semibold truncate">{message.sender}</p>
           </div>
-        </div>
-
-        {message.subject && (
-          <div>
-            <p className="text-sm text-muted-foreground">Subject</p>
-            <p className="font-medium">{message.subject}</p>
-          </div>
-        )}
-
+          
+        
+        <div className="grid grid-cols-2 gap-4">
+            {message.subject && (
+              <div>
+                <p className="text-sm text-muted-foreground">Subject</p>
+                <p className="font-medium">{message.subject}</p>
+              </div>
+            )}
+            <div>
+                <p className="text-sm text-muted-foreground">Message ID</p>
+                <p className="font-mono text-sm">#{message.id}</p>
+              </div>
+            </div>
         <div>
           <p className="text-sm text-muted-foreground">Received</p>
           <p className="text-sm">

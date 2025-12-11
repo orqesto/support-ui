@@ -32,7 +32,7 @@ export const Drawer = ({
           </Button>
         </div>
 
-        <div className="relative overflow-y-auto overflow-x-hidden flex-1 p-6">{children}</div>
+        <div className="relative overflow-y-auto overflow-x-hidden flex-1 px-6">{children}</div>
 
         {footer && <div className="p-4 border-t border-border bg-muted">{footer}</div>}
       </div>
