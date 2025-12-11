@@ -206,6 +206,7 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
               { value: 'support', label: 'Support - Customer support team' },
               { value: 'sales', label: 'Sales - Sales team' },
               { value: 'billing', label: 'Billing - Billing/finance team' },
+              { value: 'hr', label: 'HR - Human resources team' },
               { value: 'general', label: 'General - General/shared/admin' },
             ]}
             required
