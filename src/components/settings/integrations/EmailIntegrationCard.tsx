@@ -20,6 +20,13 @@ type EmailConfig = {
   lookbackDays?: number;
   bulkImportDays?: number;
   bulkImportMaxResults?: number;
+  smtp?: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    secure: boolean;
+  };
 };
 
 const searchCriteriaOptions = [
@@ -572,6 +579,132 @@ export const EmailIntegrationCard = ({
                       max="2000"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Max for bulk imports</p>
+                  </div>
+
+                  {/* SMTP Configuration for Sending Replies */}
+                  <div className="col-span-2 pt-4 border-t">
+                    <h5 className="mb-3 text-sm font-semibold">
+                      📤 SMTP Settings (For Sending Replies)
+                    </h5>
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Configure SMTP to send replies from this email address. Leave empty to use
+                      global SMTP settings.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">SMTP Host</label>
+                        <input
+                          type="text"
+                          value={config.smtp?.host ?? ''}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              smtp: {
+                                ...config.smtp,
+                                host: e.target.value,
+                                port: config.smtp?.port ?? 587,
+                                user: config.smtp?.user ?? '',
+                                password: config.smtp?.password ?? '',
+                                secure: config.smtp?.secure ?? false,
+                              },
+                            })
+                          }
+                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                          placeholder="smtp.gmail.com or mail.privateemail.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP Port</label>
+                        <input
+                          type="number"
+                          value={config.smtp?.port ?? 587}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              smtp: {
+                                ...config.smtp,
+                                host: config.smtp?.host ?? '',
+                                port: parseInt(e.target.value) || 587,
+                                user: config.smtp?.user ?? '',
+                                password: config.smtp?.password ?? '',
+                                secure: config.smtp?.secure ?? false,
+                              },
+                            })
+                          }
+                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="587 or 465"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP Username</label>
+                        <input
+                          type="email"
+                          value={config.smtp?.user ?? ''}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              smtp: {
+                                ...config.smtp,
+                                host: config.smtp?.host ?? '',
+                                port: config.smtp?.port ?? 587,
+                                user: e.target.value,
+                                password: config.smtp?.password ?? '',
+                                secure: config.smtp?.secure ?? false,
+                              },
+                            })
+                          }
+                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                          placeholder="Same as email above"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP Password</label>
+                        <input
+                          type="password"
+                          value={config.smtp?.password ?? ''}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              smtp: {
+                                ...config.smtp,
+                                host: config.smtp?.host ?? '',
+                                port: config.smtp?.port ?? 587,
+                                user: config.smtp?.user ?? '',
+                                password: e.target.value,
+                                secure: config.smtp?.secure ?? false,
+                              },
+                            })
+                          }
+                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                          placeholder="•••••••••"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="checkbox"
+                            checked={config.smtp?.secure ?? false}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                smtp: {
+                                  ...config.smtp,
+                                  host: config.smtp?.host ?? '',
+                                  port: config.smtp?.port ?? 587,
+                                  user: config.smtp?.user ?? '',
+                                  password: config.smtp?.password ?? '',
+                                  secure: e.target.checked,
+                                },
+                              })
+                            }
+                            className="rounded"
+                          />
+                          <label className="text-sm">
+                            Use SSL (port 465) instead of TLS (port 587)
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
