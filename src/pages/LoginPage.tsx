@@ -54,6 +54,9 @@ export const LoginPage = () => {
         setUserVerified(true);
         setStep('password');
         setInfo(`Welcome! Please enter your password.`);
+        // Reset CAPTCHA after successful verification for fresh token on login
+        turnstileRef.current?.reset();
+        setCaptchaToken(null);
       } else {
         setError(verifyResponse.message ?? 'User not found in this organization');
         // Reset CAPTCHA on error
