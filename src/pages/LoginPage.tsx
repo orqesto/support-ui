@@ -1,10 +1,11 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Turnstile } from '@/components/common/Turnstile';
+import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
 import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -20,6 +21,7 @@ export const LoginPage = () => {
   const [userVerified, setUserVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
   const login = useAuthStore((state) => state.login);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const navigate = useNavigate();
@@ -54,9 +56,15 @@ export const LoginPage = () => {
         setInfo(`Welcome! Please enter your password.`);
       } else {
         setError(verifyResponse.message ?? 'User not found in this organization');
+        // Reset CAPTCHA on error
+        turnstileRef.current?.reset();
+        setCaptchaToken(null);
       }
     } catch {
       setError('Unable to verify user. Please check your organization and email.');
+      // Reset CAPTCHA on error
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -106,9 +114,15 @@ export const LoginPage = () => {
         navigate('/dashboard');
       } else {
         setError(response.message ?? 'Invalid password');
+        // Reset CAPTCHA on error
+        turnstileRef.current?.reset();
+        setCaptchaToken(null);
       }
     } catch {
       setError('Invalid password. Please try again.');
+      // Reset CAPTCHA on error
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -221,6 +235,7 @@ export const LoginPage = () => {
         </CardContent>
         <div className="flex justify-center">
           <Turnstile
+            ref={turnstileRef}
             onSuccess={(token) => setCaptchaToken(token)}
             onError={() => setError('Security check failed. Please try again.')}
           />
