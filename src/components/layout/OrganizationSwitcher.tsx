@@ -51,10 +51,15 @@ export const OrganizationSwitcher = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGlobalAdmin]); // Only run when admin status changes
 
-  // Log current organization on mount and when it changes
+  // Refresh organizations when dropdown opens to show newly created ones
   useEffect(() => {
-    // Organization tracking handled by store
-  }, [selectedOrganizationId, organizations]);
+    if (isOpen && isGlobalAdmin) {
+      loadOrganizations().catch((error) => {
+        console.error('Failed to load organizations:', error);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleSelectOrganization = (orgId: number) => {
     setSelectedOrganization(orgId);
