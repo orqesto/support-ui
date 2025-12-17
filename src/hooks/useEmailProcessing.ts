@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
 import {
@@ -494,7 +495,6 @@ export const useEmailProcessing = (
           }));
           break;
 
-        // eslint-disable-next-line no-duplicate-case
         case 'complete':
           setState((prev) => ({
             ...prev,

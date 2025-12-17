@@ -332,11 +332,7 @@ export const MessageThread = ({
 
                       {/* Customer Email Content */}
                       <div className="ml-10 text-sm whitespace-pre-wrap break-words">
-                        <LinkifiedText>
-                          {pair.customerEmail.content.length > 500 && !isCurrentMessage
-                            ? `${pair.customerEmail.content.substring(0, 500)}...`
-                            : pair.customerEmail.content}
-                        </LinkifiedText>
+                        <LinkifiedText>{pair.customerEmail.content}</LinkifiedText>
                       </div>
 
                       {/* AI Analysis for Customer Email */}
@@ -388,11 +384,7 @@ export const MessageThread = ({
 
                           {/* System Reply Content */}
                           <div className="ml-10 text-sm whitespace-pre-wrap break-words text-foreground/80">
-                            <LinkifiedText>
-                              {pair.systemReply.content.length > 500
-                                ? `${pair.systemReply.content.substring(0, 500)}...`
-                                : pair.systemReply.content}
-                            </LinkifiedText>
+                            <LinkifiedText>{pair.systemReply.content}</LinkifiedText>
                           </div>
 
                           {/* Reply Status */}
