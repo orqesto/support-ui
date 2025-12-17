@@ -11,7 +11,6 @@ type MessageSourceFilterProps = {
 
 export const MessageSourceFilter = ({ value, onChange, className }: MessageSourceFilterProps) => {
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSources = async () => {
@@ -26,21 +25,15 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
         }
       } catch (error) {
         console.error('Failed to fetch message sources:', error);
-      } finally {
-        setLoading(false);
       }
     };
     void fetchSources();
   }, []);
 
-  if (loading || messageSources.length === 0) {
-    return null;
-  }
-
   return (
     <div className={`flex gap-2 items-center ${className ?? ''}`}>
       <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-        <Inbox className="inline mr-1 w-3 h-3" />
+        <Inbox className="inline mr-1 w-3 h-3 hidden sm: block" />
         Source:
       </span>
       <ReactSelect
@@ -50,7 +43,10 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
           { value: 'all', label: 'All Sources' },
           ...messageSources.map((source) => ({
             value: source.id.toString(),
-            label: source.name,
+            label:
+              source.name.length > 15
+                ? source.name.slice(0, 15) + '...'
+                : source.name,
           })),
         ]}
         className="min-w-[120px]"

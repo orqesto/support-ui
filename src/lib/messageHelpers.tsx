@@ -1,4 +1,5 @@
 import { Mail, MessageSquare, Send } from 'lucide-react';
+import { MESSAGE_CATEGORY_LABELS, type MessageCategory } from '@/constants/messageCategories';
 
 export const getChannelIcon = (channel: string) => {
   switch (channel) {
@@ -41,25 +42,5 @@ export const getSpamCheck = (message: {
   metadata?: Record<string, unknown> | null;
 }): SpamCheckData | undefined => message.metadata?.spamCheck as SpamCheckData | undefined;
 
-export const getFilteredCategoryLabel = (category?: string): string => {
-  if (!category) return 'Filtered';
-
-  switch (category) {
-    case 'promotional':
-      return 'Promotional';
-    case 'transactional':
-      return 'Transactional';
-    case 'invalid':
-      return 'Invalid Response';
-    case 'unsubscribe':
-      return 'Unsubscribe';
-    case 'spam':
-    case 'scam':
-    case 'phishing':
-      return 'Spam';
-    case 'legitimate':
-      return 'Legitimate';
-    default:
-      return 'Filtered';
-  }
-};
+export const getFilteredCategoryLabel = (category?: string): string =>
+  MESSAGE_CATEGORY_LABELS[category as MessageCategory] ?? 'Filtered';

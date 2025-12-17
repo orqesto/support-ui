@@ -56,6 +56,10 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
         margin: 0,
         padding: 0,
         color: 'hsl(var(--foreground))',
+        opacity: 0,
+        pointerEvents: 'none',
+        width: 0,
+        minWidth: 0,
       }),
       indicatorSeparator: () => ({
         display: 'none',

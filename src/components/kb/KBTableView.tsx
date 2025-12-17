@@ -117,15 +117,7 @@ export const KBTableView = ({
                 )}
               </td>
               <td className="px-2 py-3 text-right">
-                <div className="flex gap-1 justify-end">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onView(entry)}
-                    title="View details"
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </Button>
+                <div className="flex flex-col gap-2 items-end xl:flex-row xl:justify-end xl:items-center xl:gap-1">
                   {!entry.approved && !entry.hidden && (
                     <Button
                       size="sm"
@@ -163,6 +155,14 @@ export const KBTableView = ({
                     className="text-red-600 hover:text-red-700"
                   >
                     <Trash2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onView(entry)}
+                    title="View details"
+                  >
+                    <Maximize2 className="w-4 h-4" />
                   </Button>
                 </div>
               </td>

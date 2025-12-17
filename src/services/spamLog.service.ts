@@ -35,8 +35,10 @@ export type SpamLogFilters = {
   days?: number;
   search?: string;
   sortOrder?: 'asc' | 'desc';
+  sortConfidence?: 'asc' | 'desc';
   startDate?: string;
   endDate?: string;
+  confidence?: number;
 };
 
 export type SpamLogStats = {
@@ -119,6 +121,19 @@ const getAll = async (
   if (filters.search) {
     params.append('search', filters.search);
   }
+
+
+  if (filters.confidence !== undefined) {
+    params.append('confidence', filters.confidence.toString());
+  }
+  if (filters.sortOrder) {
+    params.append('sortOrder', filters.sortOrder);
+  }
+  if (filters.sortConfidence) {
+    params.append('sortConfidence', filters.sortConfidence);
+  }
+
+  console.log('📡 [spamLog.service] Sending API request with params:', Object.fromEntries(params));
 
   const response = await apiClient.get<GetSpamLogsResponse>(`/api/spam-logs?${params.toString()}`);
   return response.data;

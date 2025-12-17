@@ -201,10 +201,25 @@ export const MessagesPage = () => {
       fetchingRef.current = true;
       setLoading(true);
       try {
+        console.log('🔄 fetchSpamLogs called with filters:', spamFilters);
         const response = await spamLogService.getAll(spamFilters, page, pagination.limit);
 
         if (response.success && response.data) {
-          setSpamLogs(response.data);
+          // Client-side sorting since backend only sorts current page
+          const sortedData = [...response.data].sort((a, b) => {
+            const aId = a.id || 0;
+            const bId = b.id || 0;
+            return spamFilters.sortOrder === 'asc' ? aId - bId : bId - aId;
+          });
+
+          console.log('📥 Received spam logs (after sorting):', {
+            count: sortedData.length,
+            firstId: sortedData[0]?.id,
+            lastId: sortedData[sortedData.length - 1]?.id,
+            sortOrder: spamFilters.sortOrder,
+          });
+          
+          setSpamLogs(sortedData);
           setPaginationLocal(response.pagination);
 
           if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
@@ -460,7 +475,7 @@ export const MessagesPage = () => {
     }
   }, [searchParams, selectedMessage]);
 
-  const handleFilterChange = (key: string, value: string | boolean) => {
+  const handleFilterChange = (key: string, value: string | number | boolean | undefined) => {
     // Primary filters: processed, channel, messageSourceId
     const primaryFilters = ['processed', 'channel', 'messageSourceId'];
 
@@ -475,7 +490,7 @@ export const MessagesPage = () => {
       updatePrimaryFilter(key as 'processed' | 'channel' | 'messageSourceId', value as string);
     } else {
       // Secondary filter change: keeps all filters
-      updateSecondaryFilter(key as keyof typeof filters, value);
+      updateSecondaryFilter(key as keyof typeof filters, value as string | boolean | undefined);
     }
   };
 
@@ -744,7 +759,6 @@ export const MessagesPage = () => {
                 onClearFilters={clearFilters}
                 onSortingChange={(sortOrder) => setSorting({ sortOrder })}
                 setPendingSearch={setPendingSearch}
-                setFilters={setFilters}
               />
             </div>
 
@@ -816,7 +830,7 @@ export const MessagesPage = () => {
                   (spamFilters.search ? 1 : 0)
                 }
                 pagination={pagination}
-                onFilterChange={(key, value) => {
+                onFilterChange={(key: string, value: string | number | boolean | undefined) => {
                   const newFilters = { ...spamFilters };
                   // Remove filter if 'all' is selected, value is empty, or days is set to default (30)
                   if (
@@ -842,32 +856,31 @@ export const MessagesPage = () => {
                   setPendingSpamSearch('');
                 }}
                 onSortingChange={(sortOrder) => {
-                  const newFilters = { ...spamFilters };
-                  // Remove sortOrder if it's the default ('desc')
-                  if (sortOrder === 'desc') {
-                    delete newFilters.sortOrder;
-                  } else {
-                    newFilters.sortOrder = sortOrder;
-                  }
-                  setSpamFilters(newFilters);
+                  console.log('🚀 MessagesPage onSortingChange called:', {
+                    sortOrder,
+                    currentSpamFilters: spamFilters,
+                  });
+                  setSpamFilters({ ...spamFilters, sortOrder });
+                  console.log('✅ setSpamFilters called with:', { ...spamFilters, sortOrder });
                 }}
                 setPendingSearch={setPendingSpamSearch}
-                setFilters={setSpamFilters}
               />
             </div>
 
             {/* Spam Logs List */}
             {loading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }, (_, i) => i).map((i) => (
-                  <Card key={`spam-skeleton-${i}`} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                      <div className="w-1/2 h-4 bg-gray-200 rounded" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <>
+                <div className="space-y-4">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Card key={`spam-skeleton-${i}`} className="animate-pulse">
+                      <CardContent className="p-6">
+                        <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                        <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             ) : spamLogs.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">

@@ -231,7 +231,7 @@ export const MessageDetail = ({
       <div className="space-y-4">
         <MessageBadges message={message} />
         <div className="flex gap-3 justify-between items-center">
-          {/* сюда */}
+   
           
           <div className="flex flex-shrink-0 gap-2 items-center">
             {showFullPageButton && !isFullPage && (

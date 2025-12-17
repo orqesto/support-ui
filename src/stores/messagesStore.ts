@@ -4,6 +4,7 @@ import type { PaginationMeta } from '@/services/message.service';
 import type { Message } from '@/types';
 
 export type FilterState = {
+  sortOrder?: 'asc' | 'desc';
   processed?: 'all' | 'unprocessed' | 'processed' | 'resolved';
   channel?: 'all' | 'email' | 'telegram' | 'slack';
   messageSourceId?: string; // 'all' or integration ID
