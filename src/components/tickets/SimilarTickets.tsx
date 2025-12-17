@@ -101,9 +101,27 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
           };
         });
 
-        // Combine and deduplicate results
-        const allResults = [...tickets, ...mappedMessages];
-        setSimilarTickets(allResults);
+        // Combine and deduplicate by messageId (prefer tickets over mapped messages)
+        const messageIdSet = new Set<number>();
+        const deduplicated: SimilarTicket[] = [];
+
+        // Add tickets first (higher priority)
+        for (const ticket of tickets) {
+          if (!messageIdSet.has(ticket.messageId)) {
+            messageIdSet.add(ticket.messageId);
+            deduplicated.push(ticket);
+          }
+        }
+
+        // Add mapped messages only if messageId not already present
+        for (const message of mappedMessages) {
+          if (!messageIdSet.has(message.messageId)) {
+            messageIdSet.add(message.messageId);
+            deduplicated.push(message);
+          }
+        }
+
+        setSimilarTickets(deduplicated);
       } catch {
         // Silently handle errors - similar tickets are optional UI enhancement
         setSimilarTickets([]);
@@ -162,7 +180,9 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
       <div className="space-y-3">
         {similarTickets.map((ticket) => (
           <div
-            key={`${ticket.ticketId}-${ticket.messageId}`}
+            key={
+              ticket.documentationId ? `doc-${ticket.documentationId}` : `msg-${ticket.messageId}`
+            }
             className="p-3 bg-white rounded-lg border border-yellow-200 dark:bg-gray-900 dark:border-yellow-800"
           >
             <div className="flex justify-between items-start mb-2">
