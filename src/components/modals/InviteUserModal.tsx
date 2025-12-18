@@ -16,9 +16,17 @@ type InviteUserModalProps = {
     departmentRole: string,
     organizationId: number
   ) => Promise<void>;
+  prefilledEmail?: string;
+  prefilledOrganizationId?: number;
 };
 
-export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalProps) => {
+export const InviteUserModal = ({
+  isOpen,
+  onClose,
+  onInvite,
+  prefilledEmail,
+  prefilledOrganizationId,
+}: InviteUserModalProps) => {
   const { isAdmin } = usePermissions();
   const user = useAuthStore((state) => state.user);
   const [email, setEmail] = useState('');
@@ -37,7 +45,10 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
           const result = await organizationService.getAll();
           const orgs = result.data || [];
           setOrganizations(orgs);
-          if (orgs.length > 0 && !organizationId) {
+          // Preselect organization: prefilled > current organizationId > first org
+          if (prefilledOrganizationId) {
+            setOrganizationId(prefilledOrganizationId);
+          } else if (orgs.length > 0 && !organizationId) {
             setOrganizationId(orgs[0].id);
           }
         } else {
@@ -54,11 +65,22 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
     };
 
     if (isOpen) {
+      // Reset to prefilled email if provided
+      if (prefilledEmail) {
+        setEmail(prefilledEmail);
+      }
       loadOrganizations().catch((error) => {
         console.error('Failed to load organizations:', error);
       });
     }
-  }, [isOpen, isAdmin, user?.organizationId, organizationId]);
+  }, [
+    isOpen,
+    isAdmin,
+    user?.organizationId,
+    organizationId,
+    prefilledEmail,
+    prefilledOrganizationId,
+  ]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -161,9 +183,6 @@ export const InviteUserModal = ({ isOpen, onClose, onInvite }: InviteUserModalPr
             value={String(organizationId ?? '')}
             onChange={(value) => setOrganizationId(Number(value))}
             options={[
-              ...(isAdmin && organizations.length > 0
-                ? [{ value: '', label: 'Select organization...' }]
-                : []),
               ...(organizations.length === 0
                 ? [{ value: '', label: 'Loading organizations...' }]
                 : []),
