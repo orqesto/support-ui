@@ -162,19 +162,44 @@ export const MessagesPage = () => {
           apiFilters.search = currentFilters.search.trim();
         }
 
-        const currentSorting = useMessagesStore.getState().sorting;
-        const response = await messageService.getAll(
+        // Fetch threads instead of individual messages
+        const response = await messageService.getThreads(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
           page,
-          pagination.limit,
-          currentSorting.sortOrder
+          pagination.limit
         );
 
         if (response.success && response.data) {
-          // Update cache
-          setMessages(response.data, response.pagination);
-          // Update local state
-          setMessagesLocal(response.data);
+          // Transform threads into Message objects for MessageListItem
+          const messagesFromThreads: Message[] = response.data.map((thread) => {
+            const baseMessage = thread.latestMessage ?? {
+              id: 0,
+              content: '',
+              sender: thread.sender,
+              channel: thread.channel,
+              createdAt: thread.lastMessageAt,
+              metadata: {},
+            };
+
+            // Enhance message with thread metadata
+            return {
+              ...baseMessage,
+              // Add thread info to metadata
+              metadata: {
+                ...((baseMessage.metadata as Record<string, unknown>) ?? {}),
+                isThreadView: true,
+                threadId: thread.threadId,
+                threadMessageCount: thread.messageCount,
+                threadHasUnread: thread.hasUnread,
+                threadHasTicket: thread.hasTicket,
+                threadIsResolved: thread.isResolved,
+              },
+            } as Message;
+          });
+
+          // Update cache and local state
+          setMessages(messagesFromThreads, response.pagination);
+          setMessagesLocal(messagesFromThreads);
           setPaginationLocal(response.pagination);
 
           // If current page exceeds total pages, reset to page 1
@@ -779,9 +804,37 @@ export const MessagesPage = () => {
                   <MessageListItem
                     key={message.id}
                     message={message}
-                    onOpen={(msg) => {
-                      setSelectedMessage(msg);
-                      setSearchParams({ id: msg.id.toString() });
+                    onOpen={async (msg) => {
+                      // Check if this is a thread view message
+                      const threadMeta = msg.metadata as {
+                        isThreadView?: boolean;
+                        threadId?: string;
+                      };
+
+                      if (threadMeta?.isThreadView && msg.id) {
+                        // Fetch all messages in the thread
+                        try {
+                          const { data: threadMessages } = await messageService.getThreadMessages(
+                            msg.id
+                          );
+                          // Open the first unprocessed message or the latest message
+                          if (threadMessages && threadMessages.length > 0) {
+                            const messageToShow =
+                              threadMessages.find((m) => !m.processed) ?? threadMessages[0];
+                            setSelectedMessage(messageToShow);
+                            setSearchParams({ id: messageToShow.id.toString() });
+                          }
+                        } catch (error) {
+                          console.error('Failed to fetch thread messages:', error);
+                          // Fallback to showing the clicked message
+                          setSelectedMessage(msg);
+                          setSearchParams({ id: msg.id.toString() });
+                        }
+                      } else {
+                        // Regular message, just open it
+                        setSelectedMessage(msg);
+                        setSearchParams({ id: msg.id.toString() });
+                      }
                     }}
                   />
                 ))}
