@@ -125,7 +125,7 @@ export const MessageThread = ({
 }: MessageThreadProps) => {
   const [conversationPairs, setConversationPairs] = useState<ConversationPair[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true); // Auto-expand by default
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -141,6 +141,20 @@ export const MessageThread = ({
         const response = await messageService.getThreadMessages(messageId);
         const allMessages = response.data ?? [];
 
+        console.log('🧵 Thread Messages Fetched:', {
+          messageId,
+          currentThreadId,
+          totalMessages: allMessages.length,
+          messages: allMessages.map((m) => ({
+            id: m.id,
+            sender: m.sender,
+            content: m.content.substring(0, 50),
+            isOutgoing: m.isOutgoing,
+            directReply: !!m.directReply,
+            threadId: m.threadId,
+          })),
+        });
+
         // Sort by creation date
         allMessages.sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -154,17 +168,35 @@ export const MessageThread = ({
           // Check if this is a system reply using multiple indicators
           const isSystemReply = msg.metadata?.isSystemReply === true;
           const isOutgoingMessage = msg.isOutgoing === true;
+          const isBotSender = msg.sender.toLowerCase() === 'bot';
           const isFromSupport =
             msg.sender.includes('gmail.com') ||
             msg.sender.toLowerCase().includes('support') ||
             msg.sender === 'me';
 
-          // System emails: outgoing messages OR explicit system replies OR from support addresses
-          if (isOutgoingMessage || isSystemReply || (isFromSupport && msg.resolved)) {
+          // System messages: outgoing OR bot sender OR explicit system replies OR from support addresses
+          // NOTE: Don't check directReply - that field is on CUSTOMER messages containing bot's response
+          if (
+            isOutgoingMessage ||
+            isBotSender ||
+            isSystemReply ||
+            (isFromSupport && msg.resolved)
+          ) {
             systemEmails.push(msg);
           } else {
             customerEmails.push(msg);
           }
+        });
+
+        console.log('🧵 Categorized Messages:', {
+          customerEmails: customerEmails.length,
+          systemEmails: systemEmails.length,
+          customers: customerEmails.map((m) => ({ id: m.id, sender: m.sender })),
+          systems: systemEmails.map((m) => ({
+            id: m.id,
+            sender: m.sender,
+            isOutgoing: m.isOutgoing,
+          })),
         });
 
         // Create conversation pairs
@@ -172,22 +204,49 @@ export const MessageThread = ({
         const usedReplies = new Set<number>();
 
         customerEmails.forEach((customerMsg) => {
-          // Find the first system reply that came after this customer email
-          const reply = systemEmails.find((sysMsg) => {
-            if (usedReplies.has(sysMsg.id)) {
-              return false;
+          let reply: Message | undefined;
+
+          // First check if this customer message has a directReply field (bot response stored on it)
+          if (customerMsg.directReply && customerMsg.repliedAt) {
+            // Create a virtual bot message from the directReply field
+            reply = {
+              ...customerMsg,
+              id: customerMsg.id + 0.5, // Virtual ID
+              sender: 'bot',
+              content: customerMsg.directReply,
+              isOutgoing: true,
+              createdAt: customerMsg.repliedAt,
+              directReply: customerMsg.directReply,
+            };
+          } else {
+            // Otherwise, find the first system message that came after this customer email
+            reply = systemEmails.find((sysMsg) => {
+              if (usedReplies.has(sysMsg.id)) {
+                return false;
+              }
+              return (
+                new Date(sysMsg.createdAt).getTime() > new Date(customerMsg.createdAt).getTime()
+              );
+            });
+
+            if (reply) {
+              usedReplies.add(reply.id);
             }
-            return new Date(sysMsg.createdAt).getTime() > new Date(customerMsg.createdAt).getTime();
-          });
+          }
 
           pairs.push({
             customerEmail: customerMsg,
             systemReply: reply,
           });
+        });
 
-          if (reply) {
-            usedReplies.add(reply.id);
-          }
+        console.log('🧵 Created Pairs:', {
+          totalPairs: pairs.length,
+          pairs: pairs.map((p) => ({
+            customer: p.customerEmail.id,
+            hasReply: !!p.systemReply,
+            replyId: p.systemReply?.id,
+          })),
         });
 
         setConversationPairs(pairs);
@@ -384,7 +443,15 @@ export const MessageThread = ({
 
                           {/* System Reply Content */}
                           <div className="ml-10 text-sm whitespace-pre-wrap break-words text-foreground/80">
-                            <LinkifiedText>{pair.systemReply.content}</LinkifiedText>
+                            {/* Show directReply if it exists (bot replies), otherwise show content */}
+                            {pair.systemReply.directReply ? (
+                              <div
+                                className="max-w-none prose prose-sm dark:prose-invert"
+                                dangerouslySetInnerHTML={{ __html: pair.systemReply.directReply }}
+                              />
+                            ) : (
+                              <LinkifiedText>{pair.systemReply.content}</LinkifiedText>
+                            )}
                           </div>
 
                           {/* Reply Status */}

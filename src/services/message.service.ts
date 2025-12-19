@@ -30,6 +30,18 @@ export type MetadataResponse = {
   metadata: MessagesMetadata;
 };
 
+export type MessageThread = {
+  threadId: string;
+  messageCount: number;
+  sender: string;
+  channel: string;
+  hasUnread: boolean;
+  hasTicket: boolean;
+  isResolved: boolean;
+  lastMessageAt: Date;
+  latestMessage: Message | null;
+};
+
 export const messageService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
@@ -40,6 +52,24 @@ export const messageService = {
 
     const response = await apiClient.get<MetadataResponse>(
       `/api/messages/metadata?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Get grouped message threads
+  getThreads: async (
+    filters?: Record<string, string>,
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT
+  ) => {
+    const params = new URLSearchParams({
+      ...filters,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    const response = await apiClient.get<PaginatedResponse<MessageThread[]>>(
+      `/api/messages/threads?${params.toString()}`
     );
     return response.data;
   },
