@@ -637,8 +637,9 @@ export const MessageDetail = ({
         )}
       </div>
 
-      {/* Show existing direct reply if present */}
-      {message.directReply && message.repliedAt && (
+      {/* Show existing direct reply if present - only when NOT showing thread view */}
+      {/* If threadId exists, replies are shown in MessageThread component below */}
+      {message.directReply && message.repliedAt && !message.threadId && (
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
           <div className="flex justify-between items-start mb-2">
             <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">

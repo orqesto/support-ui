@@ -43,12 +43,27 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
   const hasAttachments = hasMessageAttachments(message);
 
+  // Check if this is a thread view message
+  const threadInfo = message.metadata as {
+    isThreadView?: boolean;
+    threadMessageCount?: number;
+    threadId?: string;
+    threadHasUnread?: boolean;
+    threadHasTicket?: boolean;
+    threadIsResolved?: boolean;
+  };
+
   return (
     <ListCard
       header={
         <>
           {getChannelIcon(message.channel)}
           <Badge variant="secondary">{message.channel}</Badge>
+          {threadInfo?.isThreadView && threadInfo.threadMessageCount && (
+            <Badge variant="default" className="text-xs font-semibold">
+              {threadInfo.threadMessageCount} {threadInfo.threadMessageCount === 1 ? 'msg' : 'msgs'}
+            </Badge>
+          )}
           {message.processed && <Badge variant="success">Processed</Badge>}
           {message.ticketId && (
             <Badge
