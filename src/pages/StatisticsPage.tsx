@@ -841,17 +841,27 @@ export const StatisticsPage = () => {
 
         {/* SLA Performance Tab */}
         {activeTab === 'sla' && (
-          <div className="space-y-6">
-            <SLAOverviewCards />
+          <div className="space-y-6 pb-6">
+            {/* Overview Cards */}
+            <div className="animate-in fade-in duration-500">
+              <SLAOverviewCards />
+            </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500 delay-100">
               <SLAByChannelChart />
               <SLAByPriorityTable />
             </div>
 
-            <SLATrendChart />
+            {/* Trend Chart */}
+            <div className="animate-in fade-in duration-500 delay-200">
+              <SLATrendChart />
+            </div>
 
-            <SLABreachList />
+            {/* Breaches List */}
+            <div className="animate-in fade-in duration-500 delay-300">
+              <SLABreachList />
+            </div>
           </div>
         )}
       </div>
