@@ -35,16 +35,22 @@ export const SLABreachList = () => {
 
   if (!data || data.breaches.length === 0) {
     return (
-      <Card>
+      <Card className="border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-orange-500" />
+          <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+            <AlertTriangle className="h-5 w-5" />
             Recent SLA Breaches (0)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            No recent SLA breaches. Great work! 🎉
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🎉</div>
+            <p className="text-lg font-medium text-green-700 dark:text-green-400 mb-2">
+              Perfect Performance!
+            </p>
+            <p className="text-sm text-green-600 dark:text-green-500">
+              No SLA breaches in the last 24 hours
+            </p>
           </div>
         </CardContent>
       </Card>
