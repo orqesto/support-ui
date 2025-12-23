@@ -2,11 +2,11 @@ import React from 'react';
 
 type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
-interface DepartmentBadgeProps {
+type DepartmentBadgeProps = {
   department: DepartmentRole;
   showIcon?: boolean;
   size?: 'sm' | 'md' | 'lg';
-}
+};
 
 const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
   department,
