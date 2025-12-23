@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Ticket } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
@@ -57,54 +57,86 @@ export const SLAByPriorityTable = () => {
     })
     .filter(Boolean);
 
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Ticket className="h-5 w-5" />
+            Ticket SLA by Priority
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center h-[300px] text-center">
+            <Ticket className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <p className="text-muted-foreground font-medium mb-1">No Ticket Data</p>
+            <p className="text-sm text-muted-foreground/70">
+              Priority statistics will appear here once tickets are created
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
-        <CardTitle>Ticket SLA by Priority</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Ticket className="h-5 w-5 text-primary" />
+          Ticket SLA by Priority
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-2 px-2">Priority</th>
-                <th className="text-center py-2 px-2">Total</th>
-                <th className="text-center py-2 px-2">First Response Target</th>
-                <th className="text-center py-2 px-2">Avg First Response</th>
-                <th className="text-center py-2 px-2">Breached</th>
-                <th className="text-center py-2 px-2">Resolution Target</th>
-                <th className="text-center py-2 px-2">Avg Resolution</th>
-                <th className="text-center py-2 px-2">Breached</th>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left py-3 px-3 font-semibold">Priority</th>
+                <th className="text-center py-3 px-3 font-semibold">Total</th>
+                <th className="text-center py-3 px-3 font-semibold">First Response Target</th>
+                <th className="text-center py-3 px-3 font-semibold">Avg First Response</th>
+                <th className="text-center py-3 px-3 font-semibold">Breached</th>
+                <th className="text-center py-3 px-3 font-semibold">Resolution Target</th>
+                <th className="text-center py-3 px-3 font-semibold">Avg Resolution</th>
+                <th className="text-center py-3 px-3 font-semibold">Breached</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row?.priority} className="border-b last:border-0">
-                  <td className="py-2 px-2">
+                <tr
+                  key={row?.priority}
+                  className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                >
+                  <td className="py-3 px-3">
                     <Badge variant={row?.variant}>{row?.priority}</Badge>
                   </td>
-                  <td className="text-center py-2 px-2">{row?.total}</td>
-                  <td className="text-center py-2 px-2">{row?.firstResponseTarget}m</td>
-                  <td className="text-center py-2 px-2">{row?.avgFirstResponse}m</td>
-                  <td className="text-center py-2 px-2">
+                  <td className="text-center py-3 px-3 font-medium">{row?.total}</td>
+                  <td className="text-center py-3 px-3 text-muted-foreground">
+                    {row?.firstResponseTarget}m
+                  </td>
+                  <td className="text-center py-3 px-3 font-medium">{row?.avgFirstResponse}m</td>
+                  <td className="text-center py-3 px-3">
                     <span
                       className={
                         (row?.firstResponseBreached ?? 0) > 0
-                          ? 'text-red-600 dark:text-red-400 font-semibold'
-                          : 'text-green-600 dark:text-green-400'
+                          ? 'text-red-600 dark:text-red-400 font-bold'
+                          : 'text-green-600 dark:text-green-400 font-bold'
                       }
                     >
                       {row?.firstResponseBreached}
                     </span>
                   </td>
-                  <td className="text-center py-2 px-2">{row?.resolutionTarget}h</td>
-                  <td className="text-center py-2 px-2">{row?.avgResolution}h</td>
-                  <td className="text-center py-2 px-2">
+                  <td className="text-center py-3 px-3 text-muted-foreground">
+                    {row?.resolutionTarget}h
+                  </td>
+                  <td className="text-center py-3 px-3 font-medium">{row?.avgResolution}h</td>
+                  <td className="text-center py-3 px-3">
                     <span
                       className={
                         (row?.resolutionBreached ?? 0) > 0
-                          ? 'text-red-600 dark:text-red-400 font-semibold'
-                          : 'text-green-600 dark:text-green-400'
+                          ? 'text-red-600 dark:text-red-400 font-bold'
+                          : 'text-green-600 dark:text-green-400 font-bold'
                       }
                     >
                       {row?.resolutionBreached}

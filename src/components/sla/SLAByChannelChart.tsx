@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Inbox } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -66,10 +66,35 @@ export const SLAByChannelChart = () => {
     },
   ].filter((item) => item.total > 0);
 
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Inbox className="h-5 w-5" />
+            Message SLA by Channel
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center h-[300px] text-center">
+            <Inbox className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <p className="text-muted-foreground font-medium mb-1">No Message Data</p>
+            <p className="text-sm text-muted-foreground/70">
+              Channel statistics will appear here once messages are processed
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
-        <CardTitle>Message SLA by Channel</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Inbox className="h-5 w-5 text-primary" />
+          Message SLA by Channel
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
