@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 
-export interface TicketingSystem {
+export type TicketingSystem = {
   id: number;
   organizationId: number;
   name: string;
@@ -11,13 +11,13 @@ export interface TicketingSystem {
   config: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-}
+};
 
-export interface ApiResponse<T> {
+export type ApiResponse<T> = {
   success: boolean;
   data: T;
   message?: string;
-}
+};
 
 /**
  * Service for managing ticketing system integrations (Jira, Asana, Linear, etc.)

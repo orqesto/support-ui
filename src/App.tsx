@@ -62,6 +62,9 @@ const UsageStatsPage = lazy(() =>
 const KnowledgeBasePage = lazy(() =>
   import('./pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage }))
 );
+const SLADashboardPage = lazy(() =>
+  import('./pages/SLADashboardPage').then((m) => ({ default: m.SLADashboardPage }))
+);
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-screen bg-background">
@@ -184,6 +187,16 @@ const AppRoutes = () => {
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
               <StatisticsPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/sla"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <SLADashboardPage />
             </Suspense>
           </PrivateRoute>
         }
