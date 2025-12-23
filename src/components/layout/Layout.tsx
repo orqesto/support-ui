@@ -15,7 +15,6 @@ import {
   CreditCard,
   TrendingUp,
   BookOpen,
-  Activity,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -53,12 +52,6 @@ const allNavigation = [
     name: 'Statistics',
     href: '/statistics',
     icon: BarChart3,
-    permission: Permission.VIEW_STATISTICS,
-  },
-  {
-    name: 'SLA Performance',
-    href: '/sla',
-    icon: Activity,
     permission: Permission.VIEW_STATISTICS,
   },
   {

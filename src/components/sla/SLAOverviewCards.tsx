@@ -13,8 +13,8 @@ export const SLAOverviewCards = () => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i}>
+        {Array.from({ length: 4 }, (_, i) => (
+          <Card key={`skeleton-${i}`}>
             <CardHeader>
               <Loader2 className="h-4 w-4 animate-spin" />
             </CardHeader>

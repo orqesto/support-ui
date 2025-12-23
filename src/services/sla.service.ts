@@ -137,7 +137,7 @@ export type SLABreachEvent = {
 
 const getSummary = async (): Promise<SLASummary> => {
   const response = await apiClient.get('/api/sla/summary');
-  return response.data;
+  return response.data as SLASummary;
 };
 
 const getStatistics = async (params?: {
@@ -146,7 +146,7 @@ const getStatistics = async (params?: {
   days?: number;
 }): Promise<SLAStatistics> => {
   const response = await apiClient.get('/api/sla/statistics', { params });
-  return response.data;
+  return response.data as SLAStatistics;
 };
 
 const getBreaches = async (params?: {
@@ -154,7 +154,7 @@ const getBreaches = async (params?: {
   type?: 'message' | 'ticket';
 }): Promise<SLABreachesResponse> => {
   const response = await apiClient.get('/api/sla/breaches', { params });
-  return response.data;
+  return response.data as SLABreachesResponse;
 };
 
 const getTrends = async (params?: {
@@ -162,7 +162,7 @@ const getTrends = async (params?: {
   interval?: 'hour' | 'day' | 'week';
 }): Promise<SLATrendsResponse> => {
   const response = await apiClient.get('/api/sla/trends', { params });
-  return response.data;
+  return response.data as SLATrendsResponse;
 };
 
 export const slaService = {
