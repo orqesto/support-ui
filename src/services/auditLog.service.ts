@@ -13,7 +13,7 @@ export type AuditLog = {
   userEmail: string | null;
 };
 
-export interface AuditLogFilters {
+export type AuditLogFilters = {
   action?: string;
   entity?: string;
   userId?: number;
@@ -21,16 +21,16 @@ export interface AuditLogFilters {
   endDate?: string;
   page?: number;
   limit?: number;
-}
+};
 
-export interface AuditLogStats {
+export type AuditLogStats = {
   actionCounts: Array<{ action: string; count: number }>;
   entityCounts: Array<{ entity: string; count: number }>;
   userActivity: Array<{ userId: number | null; userEmail: string | null; count: number }>;
   period: string;
-}
+};
 
-export interface AuditLogsResponse {
+export type AuditLogsResponse = {
   logs: AuditLog[];
   pagination: {
     page: number;
@@ -38,12 +38,12 @@ export interface AuditLogsResponse {
     total: number;
     totalPages: number;
   };
-}
+};
 
 export const auditLogService = {
   async getAll(filters?: AuditLogFilters): Promise<AuditLogsResponse> {
     const params = new URLSearchParams();
-    
+
     if (filters?.action) {
       params.append('action', filters.action);
     }

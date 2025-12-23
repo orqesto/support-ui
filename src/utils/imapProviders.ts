@@ -3,11 +3,11 @@
  * Auto-detects IMAP settings based on email domain
  */
 
-export interface ImapConfig {
+export type ImapConfig = {
   host: string;
   port: number;
   secure: boolean;
-}
+};
 
 const IMAP_PROVIDERS: Record<string, ImapConfig> = {
   'gmail.com': {
