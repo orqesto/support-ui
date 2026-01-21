@@ -7,18 +7,19 @@ import { Input } from '@/components/ui/Input';
 import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
-import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 
 export const LoginPage = () => {
   const [organizationSlug, setOrganizationSlug] = useState('');
+  const [userOrganizations, setUserOrganizations] = useState<
+    Array<{ id: number; name: string; slug: string }>
+  >([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<'verify' | 'password'>('verify');
-  const [userVerified, setUserVerified] = useState(false);
+  const [step, setStep] = useState<'email' | 'selectOrg' | 'password'>('email');
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -43,34 +44,56 @@ export const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      // Verify user exists in organization
+      // Verify user exists
       const verifyResponse = await authService.verifyUser({
-        organizationSlug,
         email,
         captchaToken: captchaToken ?? undefined,
       });
 
-      if (verifyResponse.success) {
-        setUserVerified(true);
-        setStep('password');
-        setInfo(`Welcome! Please enter your password.`);
+      if (verifyResponse.success && verifyResponse.data) {
+        setUserOrganizations(verifyResponse.data.organizations);
+        
+        if (verifyResponse.data.organizations.length === 0) {
+          setError('No organizations found for this user');
+        } else if (verifyResponse.data.organizations.length === 1) {
+          // Auto-select single organization and go straight to password
+          setOrganizationSlug(verifyResponse.data.organizations[0].slug);
+          setStep('password');
+          setInfo('Welcome! Please enter your password.');
+        } else {
+          // Multiple orgs - show org selector
+          setStep('selectOrg');
+          setInfo(`Welcome! You have access to ${verifyResponse.data.organizations.length} organizations. Please select one to continue.`);
+        }
+        
         // Reset CAPTCHA after successful verification for fresh token on login
         turnstileRef.current?.reset();
         setCaptchaToken(null);
       } else {
-        setError(verifyResponse.message ?? 'User not found in this organization');
+        setError(verifyResponse.message ?? 'User not found');
         // Reset CAPTCHA on error
         turnstileRef.current?.reset();
         setCaptchaToken(null);
       }
     } catch {
-      setError('Unable to verify user. Please check your organization and email.');
+      setError('Unable to verify user. Please check your email.');
       // Reset CAPTCHA on error
       turnstileRef.current?.reset();
       setCaptchaToken(null);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSelectOrg = (e: FormEvent) => {
+    e.preventDefault();
+    if (!organizationSlug) {
+      setError('Please select an organization');
+      return;
+    }
+    setError('');
+    setStep('password');
+    setInfo('Please enter your password.');
   };
 
   const handleLogin = async (e: FormEvent) => {
@@ -88,30 +111,13 @@ export const LoginPage = () => {
       if (response.success && response.data) {
         login(response.data.token, response.data.user);
 
-        // Set user's organization context
-        // For non-admins, use their organizationId from the user object
-        // For admins, fetch available organizations
+        // Set user's organization context from login response
         if (response.data.user.organizationId) {
-          // Non-admin user - use their assigned organization
           setSelectedOrganization(response.data.user.organizationId);
           // eslint-disable-next-line no-console
           console.log(
-            `✅ [LOGIN] Auto-selected user's organization (ID: ${response.data.user.organizationId})`
+            `✅ [LOGIN] Logged into organization (ID: ${response.data.user.organizationId})`
           );
-        } else if (response.data.user.role === 'admin') {
-          // Global admin - fetch organizations
-          try {
-            const orgsResponse = await organizationService.getAll('', 1, 100);
-            if (orgsResponse.data.length > 0) {
-              setSelectedOrganization(orgsResponse.data[0].id);
-              // eslint-disable-next-line no-console
-              console.log(
-                `✅ [LOGIN] Auto-selected organization: ${orgsResponse.data[0].name} (ID: ${orgsResponse.data[0].id})`
-              );
-            }
-          } catch (orgError) {
-            console.error('Failed to load organizations:', orgError);
-          }
         }
 
         navigate('/dashboard');
@@ -131,13 +137,21 @@ export const LoginPage = () => {
     }
   };
 
-  const handleBack = () => {
-    setStep('verify');
-    setUserVerified(false);
+  const handleBackToEmail = () => {
+    setStep('email');
     setPassword('');
     setError('');
     setInfo('');
     setCaptchaToken(null);
+    setOrganizationSlug('');
+    setUserOrganizations([]);
+  };
+
+  const handleBackToOrgSelect = () => {
+    setStep('selectOrg');
+    setPassword('');
+    setError('');
+    setInfo('Please select an organization.');
   };
 
   return (
@@ -148,25 +162,48 @@ export const LoginPage = () => {
           <CardDescription>Enter your credentials to access the support system</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={step === 'verify' ? handleVerifyUser : handleLogin} className="space-y-4">
-            <Input
-              label="Organization"
-              type="text"
-              placeholder="organization"
-              value={organizationSlug}
-              onChange={(e) => setOrganizationSlug(e.target.value.toLowerCase())}
-              disabled={userVerified}
-              required
-            />
-            <Input
-              label="Email"
-              type="email"
-              placeholder="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={userVerified}
-              required
-            />
+          <form
+            onSubmit={
+              step === 'email'
+                ? handleVerifyUser
+                : step === 'selectOrg'
+                  ? handleSelectOrg
+                  : handleLogin
+            }
+            className="space-y-4"
+          >
+            {step === 'email' && (
+              <Input
+                label="Email"
+                type="email"
+                placeholder="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            )}
+            {step === 'selectOrg' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Organization
+                </label>
+                <select
+                  value={organizationSlug}
+                  onChange={(e) => setOrganizationSlug(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  required
+                >
+                  <option value="" disabled>
+                    Select organization
+                  </option>
+                  {userOrganizations.map((org) => (
+                    <option key={org.id} value={org.slug}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {step === 'password' && (
               <div>
                 <div className="relative">
@@ -206,11 +243,11 @@ export const LoginPage = () => {
               </div>
             )}
             <div className="flex gap-2">
-              {step === 'password' && (
+              {(step === 'selectOrg' || step === 'password') && (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleBack}
+                  onClick={step === 'selectOrg' ? handleBackToEmail : handleBackToOrgSelect}
                   disabled={isLoading}
                   className="w-24"
                 >
@@ -219,12 +256,16 @@ export const LoginPage = () => {
               )}
               <Button type="submit" className="flex-1" disabled={isLoading}>
                 {isLoading
-                  ? step === 'verify'
+                  ? step === 'email'
                     ? 'Verifying...'
-                    : 'Signing in...'
-                  : step === 'verify'
+                    : step === 'selectOrg'
+                      ? 'Loading...'
+                      : 'Signing in...'
+                  : step === 'email'
                     ? 'Continue'
-                    : 'Sign in'}
+                    : step === 'selectOrg'
+                      ? 'Continue'
+                      : 'Sign in'}
               </Button>
             </div>
             <div className="py-2 text-sm text-center text-muted-foreground">
@@ -232,7 +273,7 @@ export const LoginPage = () => {
             </div>
             <div className="py-2 mt-4 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
-              <p className="font-medium">admin@arasaka.com / password123</p>
+              <p className="font-medium">dmytro.skumin@gmail.com / password123</p>
             </div>
           </form>
         </CardContent>
