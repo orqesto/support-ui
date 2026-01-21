@@ -2,11 +2,14 @@ import { apiClient } from '@/lib/api-client';
 import type { LoginRequest, LoginResponse, ApiResponse } from '@/types';
 
 export const authService = {
-  verifyUser: async (data: { organizationSlug: string; email: string; captchaToken?: string }) => {
-    const response = await apiClient.post<ApiResponse<{ exists: boolean; message?: string }>>(
-      '/api/auth/verify-user',
-      data
-    );
+  verifyUser: async (data: { email: string; captchaToken?: string }) => {
+    const response = await apiClient.post<
+      ApiResponse<{
+        exists: boolean;
+        organizations: Array<{ id: number; name: string; slug: string }>;
+        message?: string;
+      }>
+    >('/api/auth/verify-user', data);
     return response.data;
   },
 
