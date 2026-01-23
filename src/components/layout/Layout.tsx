@@ -265,7 +265,7 @@ export const Layout = ({ children }: LayoutProps) => {
         >
           <div className="flex overflow-hidden flex-col h-full">
             <div className="flex justify-between items-center px-4 h-16 border-b">
-              <h1 className="text-xl font-bold">Support System</h1>
+              <h1 className="text-xl font-bold">Odly</h1>
               <Button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
                 <X className="w-6 h-6" />
               </Button>
