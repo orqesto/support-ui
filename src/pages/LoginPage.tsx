@@ -159,7 +159,7 @@ export const LoginPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>Enter your credentials to access the support system</CardDescription>
+          <CardDescription>Enter your credentials to access Odly</CardDescription>
         </CardHeader>
         <CardContent>
           <form
