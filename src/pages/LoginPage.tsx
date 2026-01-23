@@ -273,7 +273,7 @@ export const LoginPage = () => {
             </div>
             <div className="py-2 mt-4 text-sm text-center text-muted-foreground">
               <p>Demo credentials:</p>
-              <p className="font-medium">dmytro.skumin@gmail.com / password123</p>
+              <p className="font-medium">support@arasaka.com / password123</p>
             </div>
           </form>
         </CardContent>
