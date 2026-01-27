@@ -822,18 +822,24 @@ export const MessagesPage = () => {
                             const messageToShow =
                               threadMessages.find((m) => !m.processed) ?? threadMessages[0];
                             setSelectedMessage(messageToShow);
-                            setSearchParams({ id: messageToShow.id.toString() });
+                            const params = new URLSearchParams(searchParams);
+                            params.set('id', messageToShow.id.toString());
+                            setSearchParams(params);
                           }
                         } catch (error) {
                           console.error('Failed to fetch thread messages:', error);
                           // Fallback to showing the clicked message
                           setSelectedMessage(msg);
-                          setSearchParams({ id: msg.id.toString() });
+                          const params = new URLSearchParams(searchParams);
+                          params.set('id', msg.id.toString());
+                          setSearchParams(params);
                         }
                       } else {
                         // Regular message, just open it
                         setSelectedMessage(msg);
-                        setSearchParams({ id: msg.id.toString() });
+                        const params = new URLSearchParams(searchParams);
+                        params.set('id', msg.id.toString());
+                        setSearchParams(params);
                       }
                     }}
                   />
