@@ -122,9 +122,9 @@ export const DashboardPage = () => {
         allTicketsResponse,
         pendingTicketsResponse,
       ] = await Promise.all([
-        messageService.getAll({ excludeKB: 'true' }, 1, 1), // Support messages only (no KB)
-        messageService.getAll({ showKBOnly: 'true' }, 1, 1), // KB messages only
-        messageService.getAll({ processed: 'unprocessed', excludeKB: 'true' }, 1, 1), // Unprocessed support messages only
+        messageService.getThreads({ excludeKB: 'true' }, 1, 1), // Support threads only (no KB)
+        messageService.getAll({ showKBOnly: 'true' }, 1, 1), // KB messages only (not threaded)
+        messageService.getThreads({ processed: 'unprocessed', excludeKB: 'true' }, 1, 1), // Unprocessed threads only
         ticketService.getAll(undefined, 1, 1),
         ticketService.getAll({ status: 'pending' }, 1, 1),
       ]);
