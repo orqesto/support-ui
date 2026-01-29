@@ -392,18 +392,18 @@ export const MessagesPage = () => {
       hasUrlFilters = true;
     }
 
-    // Mark URL sync as complete FIRST to prevent filter effect from running on mount
-    urlSyncedRef.current = true;
-
-    // Apply URL filters to store if any exist (triggers filter effect)
+    // Apply URL filters to store if any exist
     if (hasUrlFilters) {
       setFilters(urlFilters);
-    } else {
-      // No URL filters - fetch with default filters
-      fetchMessages(1).catch((error) => {
-        console.error('Failed to fetch messages:', error);
-      });
     }
+
+    // Mark URL sync as complete
+    urlSyncedRef.current = true;
+
+    // Fetch messages with current filters (either from URL or defaults)
+    fetchMessages(1).catch((error) => {
+      console.error('Failed to fetch messages:', error);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
