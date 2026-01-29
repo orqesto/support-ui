@@ -323,6 +323,7 @@ export const MessagesPage = () => {
     const urlSpam = searchParams.get('spam');
     const urlSuspicious = searchParams.get('suspicious');
     const urlExcludeSpam = searchParams.get('excludeSpam');
+    const urlExcludeKB = searchParams.get('excludeKB');
     const urlWorthy = searchParams.get('worthy');
     const urlNeedsInfo = searchParams.get('needsInfo');
     const urlAttachments = searchParams.get('attachments');
@@ -356,6 +357,10 @@ export const MessagesPage = () => {
     }
     if (urlExcludeSpam === 'true') {
       urlFilters.excludeSpam = true;
+      hasUrlFilters = true;
+    }
+    if (urlExcludeKB === 'true') {
+      urlFilters.excludeKB = true;
       hasUrlFilters = true;
     }
     if (urlWorthy === 'true') {
