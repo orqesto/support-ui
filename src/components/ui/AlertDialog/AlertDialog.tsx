@@ -21,7 +21,7 @@ export const AlertDialog = ({
     info: Info,
   };
 
-  const Icon = icons[variant || 'info'];
+  const Icon = icons[variant ?? 'info'];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -34,7 +34,7 @@ export const AlertDialog = ({
             <Icon className={getAlertDialogIconClasses(variant)} />
           </div>
           <div className="flex-1">
-            <p className="text-sm text-foreground whitespace-pre-wrap">{description}</p>
+            <p className="text-sm whitespace-pre-wrap text-foreground">{description}</p>
           </div>
         </div>
       </DialogContent>

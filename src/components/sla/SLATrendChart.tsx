@@ -18,7 +18,7 @@ export const SLATrendChart = () => {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
           </div>
         </CardContent>
       </Card>

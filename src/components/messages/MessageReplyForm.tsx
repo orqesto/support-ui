@@ -47,7 +47,7 @@ export const MessageReplyForm = ({ onSend, onCancel, submitting }: MessageReplyF
           <div className="flex flex-wrap gap-2">
             {selectedFiles.map((file, index) => (
               <div
-                key={index}
+                key={file.name}
                 className="flex gap-2 items-center px-3 py-1.5 text-sm rounded-md border bg-background"
               >
                 <File className="w-3 h-3" />

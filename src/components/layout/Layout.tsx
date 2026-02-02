@@ -266,14 +266,13 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex overflow-hidden flex-col h-full">
             <div className="flex justify-between items-center px-4 h-16 border-b">
               <h1 className="text-xl font-bold">
-                <Link
-                  to={`/`}>
+                <Link to="/">
                   <img
                     src="/odly_blue_logo.png"
                     alt="odly"
                     width={120}
                     height={32}
-                    className="h-8 w-auto object-contain"
+                    className="object-contain w-auto h-8"
                   />
                 </Link>
               </h1>

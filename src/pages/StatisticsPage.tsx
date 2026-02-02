@@ -29,11 +29,19 @@ import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { statisticsService, type StatisticsData } from '@/services/statistics.service';
+import { useLocation } from 'react-router-dom';
 
 type TabType = 'overview' | 'sla';
 
 export const StatisticsPage = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const location = useLocation();
+  // Get active tab from URL hash, default to 'overview'
+  const activeTab = (location.hash.replace('#', '') || 'overview') as TabType;
+
+  // Handle tab change by updating URL hash
+  const handleTabChange = (tabId: TabType) => {
+    window.location.hash = tabId;
+  };
   const [stats, setStats] = useState<StatisticsData | null>(null);
   const [kbStats, setKbStats] = useState<{
     totalDocs: number;
@@ -146,7 +154,7 @@ export const StatisticsPage = () => {
           <div className="flex gap-1">
             <button
               type="button"
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabChange('overview')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
                 activeTab === 'overview'
@@ -161,7 +169,7 @@ export const StatisticsPage = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('sla')}
+              onClick={() => handleTabChange('sla')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
                 activeTab === 'sla'

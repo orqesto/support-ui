@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { FileText, MessageSquare, Settings, X, Filter, Library } from 'lucide-react';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
@@ -26,7 +26,11 @@ type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
 
 export const KnowledgeBasePage = () => {
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Get active tab from URL hash, default to 'all'
+  const activeTab = (location.hash.replace('#', '') || 'all') as FilterType;
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -37,8 +41,13 @@ export const KnowledgeBasePage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const filterType = activeTab; // Use hash-based tab as filter type
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+
+  // Handle tab change by updating URL hash
+  const handleTabChange = (tabId: FilterType) => {
+    window.location.hash = tabId;
+  };
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -136,7 +145,7 @@ export const KnowledgeBasePage = () => {
   };
 
   const clearFilters = () => {
-    setFilterType('all');
+    handleTabChange('all');
     setFilterStatus('all');
     setSearchQuery('');
     setPendingSearch('');
@@ -287,7 +296,7 @@ export const KnowledgeBasePage = () => {
             ] satisfies Tab<FilterType>[]
           }
           activeTab={filterType}
-          onTabChange={setFilterType}
+          onTabChange={handleTabChange}
           variant="default"
           size="md"
           fullWidth

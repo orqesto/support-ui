@@ -188,6 +188,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      <Route path="/sla" element={<Navigate to="/statistics#sla" replace />} />
       <Route
         path="/settings"
         element={
