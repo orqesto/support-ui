@@ -41,7 +41,7 @@ export const Tooltip = ({
 
   return (
     <div
-      className="relative inline-flex"
+      className="inline-flex relative"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

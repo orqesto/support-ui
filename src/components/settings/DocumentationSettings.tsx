@@ -157,7 +157,7 @@ export const DocumentationSettings = () => {
   }, [docs]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+    const files = Array.from(event.target.files ?? []);
     if (files.length > 0) {
       setSelectedFiles((prev) => [...prev, ...files]);
       // Reset the input so same files can be selected again
@@ -442,6 +442,7 @@ export const DocumentationSettings = () => {
                       const progress = uploadProgress[file.name];
                       return (
                         <div
+                          // eslint-disable-next-line react/no-array-index-key
                           key={`${file.name}-${index}`}
                           className="flex gap-2 justify-between items-center px-3 py-2 rounded-md border bg-background"
                         >

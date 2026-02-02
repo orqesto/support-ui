@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Settings, BarChart3 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { AdminPlansTab } from './admin/AdminPlansTab';
@@ -8,7 +8,15 @@ import { AdminUsageTab } from './admin/AdminUsageTab';
 type TabType = 'plans' | 'usage';
 
 export const AdminDashboardPage = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('plans');
+  const location = useLocation();
+
+  // Get active tab from URL hash, default to 'plans'
+  const activeTab = (location.hash.replace('#', '') || 'plans') as TabType;
+
+  // Handle tab change by updating URL hash
+  const handleTabChange = (tabId: TabType) => {
+    window.location.hash = tabId;
+  };
 
   return (
     <Layout>
@@ -40,7 +48,7 @@ export const AdminDashboardPage = () => {
             ] satisfies Tab<TabType>[]
           }
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           variant="default"
           size="md"
           fullWidth

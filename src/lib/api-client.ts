@@ -15,7 +15,6 @@ apiClient.interceptors.request.use(
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('✅ [API] Auth token added to request');
     } else {
       console.warn('⚠️ [API] No auth token found!');
     }

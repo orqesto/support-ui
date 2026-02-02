@@ -371,7 +371,7 @@ export const EmailIntegrationCard = ({
                       size="sm"
                       onClick={() => {
                         const emailConfig = (integration.config as { email?: EmailConfig }).email;
-                        const currentDays = emailConfig?.bulkImportDays || 0;
+                        const currentDays = emailConfig?.bulkImportDays ?? 0;
                         setEditBulkImport({
                           id: integration.id,
                           name: integration.name,
