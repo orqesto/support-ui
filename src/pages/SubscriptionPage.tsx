@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, TrendingUp, Zap, Check } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -68,16 +68,22 @@ type TabType = 'plans' | 'ai-modules';
 
 export const SubscriptionPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const { user } = useAuthStore();
+
+  // Get active tab from URL hash, default to 'plans'
+  const activeTab = (location.hash.replace('#', '') || 'plans') as TabType;
+
+  // Handle tab change by updating URL hash
+  const handleTabChange = (tabId: TabType) => {
+    window.location.hash = tabId;
+  };
+
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [usage, setUsage] = useState<UsageModule[]>([]);
   const [availableModules, setAvailableModules] = useState<AIModule[]>([]);
   const [enabledModules, setEnabledModules] = useState<EnabledModule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>(
-    (searchParams.get('tab') as TabType) || 'plans'
-  );
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -122,11 +128,6 @@ export const SubscriptionPage = () => {
 
     void fetchData();
   }, []);
-
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    setSearchParams({ tab });
-  };
 
   const isModuleEnabled = (moduleId: number) =>
     enabledModules.some((m) => m.moduleId === moduleId && m.isEnabled);

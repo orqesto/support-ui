@@ -88,8 +88,6 @@ export const useResolveMessageToKB = () => {
         details?: KBProcessingDetails;
       };
 
-      console.log('📊 KB Processing Response:', data);
-
       const { description, hasIssues } = buildFeedbackMessage(data.details);
 
       // Don't refresh yet - return alert and refresh function

@@ -115,7 +115,7 @@ export const forceDisconnect = () => {
 
 // Join organization-specific room for targeted event delivery
 export const joinOrganizationRoom = (organizationId: number) => {
-  if (socket && socket.connected) {
+  if (socket?.connected) {
     console.log(`🏢 Joining organization room: org-${organizationId}`);
     socket.emit('join-organization', organizationId);
   } else {
@@ -125,7 +125,7 @@ export const joinOrganizationRoom = (organizationId: number) => {
 
 // Leave organization room
 export const leaveOrganizationRoom = (organizationId: number) => {
-  if (socket && socket.connected) {
+  if (socket?.connected) {
     console.log(`🚪 Leaving organization room: org-${organizationId}`);
     socket.emit('leave-organization', organizationId);
   }
