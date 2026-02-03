@@ -466,7 +466,7 @@ export const DashboardPage = () => {
         {/* Ingestion Controls */}
         <div className="grid gap-4 md:grid-cols-2">
           {/* Primary Actions */}
-          <Card className="bg-gradient-to-br to-transparent border-primary/20 from-primary/5">
+          <Card>
             <CardHeader>
               <CardTitle className="flex gap-2 items-center">
                 <PlayCircle className="w-5 h-5 text-primary" />
