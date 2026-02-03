@@ -307,7 +307,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="p-4 border-t">
               {/* Current Context Indicator */}
               {(user?.role === 'admin' && selectedOrganizationId) || selectedDepartmentRole ? (
-                <div className="mb-3 p-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="mb-3 p-2.5 rounded-lg bg-muted/10 border border-primary/20">
                   <p className="mb-2 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
                     Workspace
                   </p>

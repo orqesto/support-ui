@@ -55,12 +55,21 @@ export type SearchResult = {
   documentTitle: string;
 };
 
+export type DocumentationProgress = {
+  stage: 'extracting' | 'chunking' | 'embedding' | 'saving' | 'complete' | 'unknown';
+  percentage: number;
+  current?: number;
+  total?: number;
+  message?: string;
+};
+
 const uploadDocumentation = async (
   file: File,
   title: string,
   description?: string,
   visibility?: 'department' | 'organization',
-  documentType?: DocumentType
+  documentType?: DocumentType,
+  onUploadProgress?: (progressEvent: { loaded: number; total?: number; progress?: number }) => void
 ): Promise<Documentation> => {
   const formData = new FormData();
   formData.append('file', file);
@@ -78,6 +87,18 @@ const uploadDocumentation = async (
   const response = await apiClient.post<Documentation>('/api/documentation', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: (progressEvent) => {
+      if (onUploadProgress) {
+        const progress = progressEvent.total
+          ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          : 0;
+        onUploadProgress({
+          loaded: progressEvent.loaded,
+          total: progressEvent.total,
+          progress,
+        });
+      }
     },
   });
   return response.data;
@@ -110,10 +131,24 @@ const getStats = async (): Promise<DocumentationStats> => {
   return response.data;
 };
 
+const getDocumentationContent = async (id: number): Promise<{ content: string; chunkIndex: number }[]> => {
+  const response = await apiClient.get<{ content: string; chunkIndex: number }[]>(
+    `/api/documentation/${id}/content`
+  );
+  return response.data;
+};
+
+const getProgress = async (id: number): Promise<DocumentationProgress> => {
+  const response = await apiClient.get<DocumentationProgress>(`/api/documentation/${id}/progress`);
+  return response.data;
+};
+
 export const documentationService = {
   uploadDocumentation,
   listDocumentation,
   getDocumentation,
+  getDocumentationContent,
+  getProgress,
   deleteDocumentation,
   searchDocumentation,
   getStats,
