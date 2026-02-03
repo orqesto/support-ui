@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import systemService from '@/services/system.service';
@@ -27,6 +28,7 @@ export const SystemManagementSettings = () => {
   const canManageSystem = hasPermission(Permission.MANAGE_ORGANIZATION);
   const [loading, setLoading] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -116,11 +118,13 @@ export const SystemManagementSettings = () => {
   };
 
   const handleDeleteMessages = () => {
+    const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
+    const scope = dept ? `${dept} department` : 'your organization';
     void handleAction(
-      'Delete All Messages',
-      'This will permanently delete all messages for your organization. This action cannot be undone.',
+      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Messages`,
+      `This will permanently delete all messages for ${scope}. This action cannot be undone.`,
       async () => {
-        await systemService.deleteAllMessages();
+        await systemService.deleteAllMessages(dept);
       },
       'DELETE MESSAGES',
       true
@@ -128,11 +132,13 @@ export const SystemManagementSettings = () => {
   };
 
   const handleDeleteTickets = () => {
+    const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
+    const scope = dept ? `${dept} department` : 'your organization';
     void handleAction(
-      'Delete All Tickets',
-      'This will permanently delete all tickets for your organization. This action cannot be undone.',
+      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Tickets`,
+      `This will permanently delete all tickets for ${scope}. This action cannot be undone.`,
       async () => {
-        await systemService.deleteAllTickets();
+        await systemService.deleteAllTickets(dept);
       },
       'DELETE TICKETS',
       true
@@ -140,11 +146,13 @@ export const SystemManagementSettings = () => {
   };
 
   const handleDeleteKB = () => {
+    const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
+    const scope = dept ? `${dept} department` : 'your organization';
     void handleAction(
-      'Delete All Knowledge Base',
-      'This will permanently delete all KB entries and documentation for your organization. This action cannot be undone.',
+      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Knowledge Base`,
+      `This will permanently delete all KB entries and documentation for ${scope}. This action cannot be undone.`,
       async () => {
-        await systemService.deleteAllKB();
+        await systemService.deleteAllKB(dept);
       },
       'DELETE KB',
       true
@@ -229,6 +237,29 @@ export const SystemManagementSettings = () => {
           <Database className="w-5 h-5 text-red-500" />
           Data Cleanup
         </h3>
+
+        {/* Department Filter */}
+        <div className="mb-4 pb-4 border-b border-red-200 dark:border-red-900">
+          <ReactSelect
+            label="Department Scope"
+            value={selectedDepartment}
+            onChange={(value) => setSelectedDepartment(value)}
+            options={[
+              { value: 'all', label: 'All Departments' },
+              { value: 'support', label: 'Support' },
+              { value: 'sales', label: 'Sales' },
+              { value: 'billing', label: 'Billing' },
+              { value: 'hr', label: 'HR' },
+              { value: 'general', label: 'General' },
+            ]}
+            placeholder="Select department scope"
+          />
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Filter cleanup operations by department. Select "All Departments" to affect the entire
+            organization.
+          </p>
+        </div>
+
         <div className="space-y-3">
           <div className="flex justify-between items-start">
             <div>
