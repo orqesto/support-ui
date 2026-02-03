@@ -14,17 +14,23 @@ import {
   Scale,
   ScrollText,
   Mail,
+  Download,
+  Eye,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent } from '@/components/ui/Dialog/Dialog';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { formatDate } from '@/lib/utils';
 import {
   documentationService,
   type Documentation,
   type DocumentType,
+  type DocumentationProgress,
 } from '@/services/documentation.service';
 
 const formatFileSize = (bytes: number): string => {
@@ -110,12 +116,25 @@ export const DocumentationSettings = () => {
   const [documentType, setDocumentType] = useState<DocumentType>('general');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<
-    Record<string, { status: 'pending' | 'uploading' | 'success' | 'error'; error?: string }>
+    Record<string, { status: 'pending' | 'uploading' | 'success' | 'error'; progress: number; error?: string }>
   >({});
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; docId: number | null }>({
     open: false,
     docId: null,
   });
+  const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set());
+  const [viewerDialog, setViewerDialog] = useState<{
+    open: boolean;
+    doc: Documentation | null;
+    content: string;
+    loading: boolean;
+  }>({
+    open: false,
+    doc: null,
+    content: '',
+    loading: false,
+  });
+  const [docProgress, setDocProgress] = useState<Record<number, DocumentationProgress>>({});
 
   const loadDocumentation = async (isInitialLoad = false) => {
     try {
@@ -141,17 +160,43 @@ export const DocumentationSettings = () => {
     void loadDocumentation(true);
   }, []);
 
-  // Separate effect for polling that only runs when there are processing documents
+  // Poll progress for processing documents
   useEffect(() => {
-    const hasProcessing = docs.some((doc) => doc.status === 'processing');
+    const processingDocs = docs.filter((doc) => doc.status === 'processing');
 
-    if (!hasProcessing) {
+    if (processingDocs.length === 0) {
       return;
     }
 
+    const fetchProgress = async () => {
+      const progressPromises = processingDocs.map(async (doc) => {
+        try {
+          const progress = await documentationService.getProgress(doc.id);
+          return { id: doc.id, progress };
+        } catch (error) {
+          console.error(`Failed to fetch progress for doc ${doc.id}:`, error);
+          return null;
+        }
+      });
+
+      const results = await Promise.all(progressPromises);
+      const newProgress: Record<number, DocumentationProgress> = {};
+      results.forEach((result) => {
+        if (result) {
+          newProgress[result.id] = result.progress;
+        }
+      });
+      setDocProgress(newProgress);
+    };
+
+    // Fetch immediately
+    void fetchProgress();
+
+    // Then poll every 2 seconds
     const interval = setInterval(() => {
-      void loadDocumentation(false);
-    }, 10000);
+      void fetchProgress();
+      void loadDocumentation(false); // Refresh list periodically
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [docs]);
@@ -209,10 +254,10 @@ export const DocumentationSettings = () => {
       // Initialize progress tracking
       const progress: Record<
         string,
-        { status: 'pending' | 'uploading' | 'success' | 'error'; error?: string }
+        { status: 'pending' | 'uploading' | 'success' | 'error'; progress: number; error?: string }
       > = {};
       selectedFiles.forEach((file) => {
-        progress[file.name] = { status: 'pending' };
+        progress[file.name] = { status: 'pending', progress: 0 };
       });
       setUploadProgress(progress);
 
@@ -222,7 +267,7 @@ export const DocumentationSettings = () => {
           // Update status to uploading
           setUploadProgress((prev) => ({
             ...prev,
-            [file.name]: { status: 'uploading' },
+            [file.name]: { status: 'uploading', progress: 0 },
           }));
 
           // Auto-generate title from filename
@@ -233,13 +278,19 @@ export const DocumentationSettings = () => {
             title,
             '', // Empty description for batch uploads
             visibility,
-            documentType
+            documentType,
+            (progressEvent) => {
+              setUploadProgress((prev) => ({
+                ...prev,
+                [file.name]: { status: 'uploading', progress: progressEvent.progress ?? 0 },
+              }));
+            }
           );
 
           // Update status to success
           setUploadProgress((prev) => ({
             ...prev,
-            [file.name]: { status: 'success' },
+            [file.name]: { status: 'success', progress: 100 },
           }));
         } catch (error) {
           // Detect OCR-related errors and provide helpful guidance
@@ -258,6 +309,7 @@ export const DocumentationSettings = () => {
             ...prev,
             [file.name]: {
               status: 'error',
+              progress: 0,
               error: userFriendlyError,
             },
           }));
@@ -287,6 +339,56 @@ export const DocumentationSettings = () => {
 
   const handleDeleteClick = (id: number) => {
     setDeleteDialog({ open: true, docId: id });
+  };
+
+  const handleToggleDoc = (id: number) => {
+    setSelectedDocs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAll = () => {
+    if (selectedDocs.size === docs.length) {
+      setSelectedDocs(new Set());
+    } else {
+      setSelectedDocs(new Set(docs.map((doc) => doc.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedDocs.size === 0) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedDocs).map((id) => documentationService.deleteDocumentation(id))
+      );
+      setSelectedDocs(new Set());
+      await loadDocumentation();
+    } catch (error) {
+      console.error('Failed to delete documentation:', error);
+    }
+  };
+
+  const handleViewContent = async (doc: Documentation) => {
+    setViewerDialog({ open: true, doc, content: '', loading: true });
+    try {
+      const chunks = await documentationService.getDocumentationContent(doc.id);
+      const fullContent = chunks.map((chunk) => chunk.content).join('\n\n');
+      setViewerDialog((prev) => ({ ...prev, content: fullContent, loading: false }));
+    } catch (error) {
+      console.error('Failed to load documentation content:', error);
+      setViewerDialog((prev) => ({
+        ...prev,
+        content: 'Failed to load content. Please try again.',
+        loading: false,
+      }));
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -444,37 +546,58 @@ export const DocumentationSettings = () => {
                         <div
                           // eslint-disable-next-line react/no-array-index-key
                           key={`${file.name}-${index}`}
-                          className="flex gap-2 justify-between items-center px-3 py-2 rounded-md border bg-background"
+                          className="px-3 py-2 rounded-md border bg-background"
                         >
-                          <div className="flex flex-1 gap-2 items-center min-w-0">
-                            <FileText className="w-4 h-4 text-primary shrink-0" />
-                            <span className="text-sm font-medium truncate">{file.name}</span>
-                            <span className="text-xs text-muted-foreground shrink-0">
-                              ({formatFileSize(file.size)})
-                            </span>
-                          </div>
-                          <div className="flex gap-2 items-center shrink-0">
-                            {progress?.status === 'uploading' && (
-                              <Clock className="w-4 h-4 text-blue-500 animate-spin" />
-                            )}
-                            {progress?.status === 'success' && (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            )}
-                            {progress?.status === 'error' && (
-                              <span title={progress.error}>
-                                <AlertCircle className="w-4 h-4 text-red-500" />
+                          <div className="flex gap-2 justify-between items-center mb-2">
+                            <div className="flex flex-1 gap-2 items-center min-w-0">
+                              <FileText className="w-4 h-4 text-primary shrink-0" />
+                              <span className="text-sm font-medium truncate">{file.name}</span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                ({formatFileSize(file.size)})
                               </span>
-                            )}
-                            {!uploading && (
-                              <button
-                                onClick={() => handleRemoveFile(index)}
-                                className="p-1 rounded transition-colors hover:bg-destructive/10"
-                                type="button"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                              </button>
-                            )}
+                            </div>
+                            <div className="flex gap-2 items-center shrink-0">
+                              {progress?.status === 'uploading' && (
+                                <Clock className="w-4 h-4 text-blue-500 animate-spin" />
+                              )}
+                              {progress?.status === 'success' && (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              )}
+                              {progress?.status === 'error' && (
+                                <span title={progress.error}>
+                                  <AlertCircle className="w-4 h-4 text-red-500" />
+                                </span>
+                              )}
+                              {!uploading && (
+                                <button
+                                  onClick={() => handleRemoveFile(index)}
+                                  className="p-1 rounded transition-colors hover:bg-destructive/10"
+                                  type="button"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                </button>
+                              )}
+                            </div>
                           </div>
+                          {progress?.status === 'uploading' && (
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Uploading...</span>
+                                <span className="font-medium text-primary">{progress.progress}%</span>
+                              </div>
+                              <div className="overflow-hidden h-1.5 rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full transition-all duration-300 bg-primary"
+                                  style={{ width: `${progress.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                          {progress?.status === 'error' && progress.error && (
+                            <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+                              {progress.error}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -560,7 +683,45 @@ export const DocumentationSettings = () => {
 
       {/* Documentation List */}
       <Card className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">Uploaded Documentation</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Uploaded Documentation</h3>
+          {docs.length > 0 && (
+            <div className="flex gap-2 items-center">
+              {selectedDocs.size > 0 && (
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedDocs.size} selected
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkDelete}
+                  >
+                    <Trash2 className="mr-2 w-4 h-4" />
+                    Delete Selected
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleAll}
+              >
+                {selectedDocs.size === docs.length ? (
+                  <>
+                    <CheckSquare className="mr-2 w-4 h-4" />
+                    Deselect All
+                  </>
+                ) : (
+                  <>
+                    <Square className="mr-2 w-4 h-4" />
+                    Select All
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
 
         {docs.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
@@ -573,9 +734,23 @@ export const DocumentationSettings = () => {
             {docs.map((doc) => (
               <div
                 key={doc.id}
-                className="flex justify-between items-start p-4 rounded-lg border transition-colors dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className={`flex justify-between items-start p-4 rounded-lg border transition-colors dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                  selectedDocs.has(doc.id) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : ''
+                }`}
               >
-                <div className="flex-1 min-w-0">
+                <div className="flex gap-3 items-start flex-1 min-w-0">
+                  <button
+                    onClick={() => handleToggleDoc(doc.id)}
+                    className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
+                    aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
+                  >
+                    {selectedDocs.has(doc.id) ? (
+                      <CheckSquare className="w-5 h-5 text-primary" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
                   <div className="flex gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
@@ -615,21 +790,70 @@ export const DocumentationSettings = () => {
                     )}
                   </div>
 
+                  {doc.status === 'processing' && docProgress[doc.id] && (
+                    <div className="mt-3 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {docProgress[doc.id].message || 'Processing...'}
+                        </span>
+                        <span className="font-medium text-primary">
+                          {docProgress[doc.id].percentage}%
+                        </span>
+                      </div>
+                      <div className="overflow-hidden h-2 rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full transition-all duration-300 bg-primary"
+                          style={{ width: `${docProgress[doc.id].percentage}%` }}
+                        />
+                      </div>
+                      {docProgress[doc.id].current !== undefined && docProgress[doc.id].total && (
+                        <p className="text-xs text-muted-foreground">
+                          {docProgress[doc.id].current} / {docProgress[doc.id].total} chunks
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {doc.processingError && (
                     <div className="p-2 mt-2 text-sm text-red-800 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
                       Error: {doc.processingError}
                     </div>
                   )}
+                  </div>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteClick(doc.id)}
-                  className="flex-shrink-0 ml-4"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-2 flex-shrink-0 ml-4">
+                  {doc.status === 'ready' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewContent(doc)}
+                      title="View content"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      // Extract filename from URL path (e.g., /uploads/documentation/file.pdf -> file.pdf)
+                      const filename = doc.url.split('/').pop();
+                      window.open(`/api/documentation/download/${filename}`, '_blank');
+                    }}
+                    title="Download file"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteClick(doc.id)}
+                    title="Delete documentation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -646,6 +870,42 @@ export const DocumentationSettings = () => {
         cancelText="Cancel"
         variant="danger"
       />
+
+      {/* Documentation Viewer Modal */}
+      <Dialog
+        open={viewerDialog.open}
+        onOpenChange={(open) => !open && setViewerDialog({ open: false, doc: null, content: '', loading: false })}
+        size="lg"
+      >
+        <DialogHeader>
+          <div className="flex-1 min-w-0 pr-4">
+            <DialogTitle>{viewerDialog.doc?.title}</DialogTitle>
+            <p className="text-sm text-muted-foreground truncate">
+              {viewerDialog.doc?.originalFilename} · {viewerDialog.doc?.chunkCount} chunks
+            </p>
+          </div>
+          <DialogClose onClose={() => setViewerDialog({ open: false, doc: null, content: '', loading: false })} />
+        </DialogHeader>
+        <DialogContent className="overflow-auto max-h-[60vh] bg-gray-50 dark:bg-gray-900">
+          {viewerDialog.loading ? (
+            <div className="flex flex-col justify-center items-center py-12 text-center">
+              <Clock className="mb-4 w-12 h-12 text-primary animate-spin" />
+              <p className="text-muted-foreground">Loading content...</p>
+            </div>
+          ) : (
+            <div
+              className="p-4 bg-white rounded border font-mono text-sm leading-6 dark:bg-gray-800 dark:border-gray-700"
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                overflowWrap: 'anywhere'
+              }}
+            >
+              {viewerDialog.content}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
