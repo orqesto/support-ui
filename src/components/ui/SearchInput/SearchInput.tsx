@@ -113,7 +113,7 @@ export const SearchInput = ({
             title="Search"
             aria-label="Search"
           >
-            <Search className={getSearchIconClasses(size)} />
+            {/* <Search className={getSearchIconClasses(size)} /> */}
           </Button>
         )}
       </div>

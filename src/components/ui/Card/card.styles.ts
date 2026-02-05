@@ -17,7 +17,7 @@ export const cardVariants = cva('rounded-lg border shadow-sm bg-card text-card-f
   },
   defaultVariants: {
     variant: 'default',
-    padding: 'md',
+    padding: 'sm',
   },
 });
 
@@ -31,7 +31,7 @@ export const cardHeaderVariants = cva('flex flex-col space-y-1.5', {
     },
   },
   defaultVariants: {
-    padding: 'md',
+    padding: 'sm',
   },
 });
 
@@ -45,7 +45,7 @@ export const cardContentVariants = cva('', {
     },
   },
   defaultVariants: {
-    padding: 'md',
+    padding: 'sm',
   },
 });
 
@@ -59,7 +59,7 @@ export const cardFooterVariants = cva('flex items-center', {
     },
   },
   defaultVariants: {
-    padding: 'md',
+    padding: 'sm',
   },
 });
 
