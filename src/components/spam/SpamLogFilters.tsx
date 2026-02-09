@@ -67,8 +67,8 @@ export const SpamLogFilters = ({
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
-          <div className="flex gap-2 items-center">
-            <Filter className="w-4 h-4 text-muted-foreground" />
+          <div className="flex flex items-center">
+            <Filter className="w-4 h-4 text-muted-foreground hidden sm:block" />
             <span className="text-sm font-semibold">Filters</span>
             {pagination.total > 0 && (
               <span className="text-sm text-muted-foreground">
@@ -105,7 +105,7 @@ export const SpamLogFilters = ({
         {/* Quick Filters + Inline Controls */}
         <div className="flex flex-wrap gap-3 items-center mb-3">
           {/* Category Quick Filters */}
-          <div className="flex gap-1 items-center">
+          <div className="flex flex-col gap-2 w-full rounded-md shadow-sm sm:inline-flex sm:flex-row sm:w-auto">
             <span className="mr-2 text-sm font-medium">Category:</span>
             <Button
               size="sm"
@@ -150,8 +150,14 @@ export const SpamLogFilters = ({
           </div>
 
           {/* Channel Dropdown */}
-          <div className="flex gap-2 items-center">
-            <span className="text-sm font-medium">Channel:</span>
+          
+        </div>
+
+        {/* Second Row: Source + Sort */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+          {/* Channel */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm font-medium w-full sm:w-auto">Channel:</span>
             <ReactSelect
               value={filters.channel ?? 'all'}
               onChange={(value) => onFilterChange('channel', value)}
@@ -161,16 +167,13 @@ export const SpamLogFilters = ({
                 { value: 'telegram', label: 'Telegram' },
                 { value: 'slack', label: 'Slack' },
               ]}
-              className="w-32"
+              className="w-full sm:w-40"
             />
           </div>
-        </div>
 
-        {/* Second Row: Source + Sort */}
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex gap-2 items-center">
-            <Mail className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Source:</span>
+          {/* Source */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm font-medium w-full sm:w-auto">Source:</span>
             <ReactSelect
               value={filters.messageSourceId?.toString() ?? 'all'}
               onChange={(value) =>
@@ -183,23 +186,25 @@ export const SpamLogFilters = ({
                   label: source.name,
                 })),
               ]}
-              className="w-40"
+              className="w-full sm:w-40"
             />
           </div>
 
-          <div className="flex gap-2 items-center">
-            <span className="text-sm font-medium">Sort:</span>
-            <ReactSelect
-              value={filters.sortOrder ?? 'desc'}
-              onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-              options={[
-                { value: 'desc', label: 'Newest First' },
-                { value: 'asc', label: 'Oldest First' },
-              ]}
-              className="w-40"
-            />
-          </div>
-        </div>
+  {/* Sort */}
+  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+    <span className="text-sm font-medium w-full sm:w-auto">Sort:</span>
+    <ReactSelect
+      value={filters.sortOrder ?? 'desc'}
+      onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+      options={[
+        { value: 'desc', label: 'Newest First' },
+        { value: 'asc', label: 'Oldest First' },
+      ]}
+      className="w-full sm:w-40"
+    />
+  </div>
+</div>
+
 
         {/* Advanced Filters Toggle */}
         <div className="flex justify-center mt-4">
