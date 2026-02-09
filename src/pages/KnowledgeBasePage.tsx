@@ -437,13 +437,18 @@ export const KnowledgeBasePage = () => {
 
             {/* Pagination Controls */}
             {!loading && pagination.totalPages > 1 && (
-              <div className="flex gap-2 justify-between items-center mt-4">
-                <div className="text-sm text-muted-foreground">
+              <div className="flex flex-wrap justify-center sm:justify-between items-center gap-3 mt-4">
+                
+                {/* Showing text */}
+                <div className="w-full sm:w-auto text-center sm:text-left text-sm text-muted-foreground">
                   Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
                   {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
                   {pagination.total} entries
                 </div>
-                <div className="flex gap-2">
+
+                {/* Pagination */}
+                <div className="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
+                  
                   <Button
                     size="sm"
                     variant="outline"
@@ -452,7 +457,8 @@ export const KnowledgeBasePage = () => {
                   >
                     Previous
                   </Button>
-                  <div className="flex gap-1">
+
+                  <div className="flex flex-wrap justify-center gap-1">
                     {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                       const pageNum =
                         pagination.totalPages <= 5
@@ -462,6 +468,7 @@ export const KnowledgeBasePage = () => {
                             : pagination.page >= pagination.totalPages - 2
                               ? pagination.totalPages - 4 + i
                               : pagination.page - 2 + i;
+
                       return (
                         <Button
                           key={pageNum}
@@ -474,6 +481,7 @@ export const KnowledgeBasePage = () => {
                       );
                     })}
                   </div>
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -482,9 +490,11 @@ export const KnowledgeBasePage = () => {
                   >
                     Next
                   </Button>
+
                 </div>
               </div>
             )}
+
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

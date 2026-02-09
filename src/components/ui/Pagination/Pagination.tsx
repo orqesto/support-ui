@@ -48,25 +48,29 @@ export const Pagination = ({
   };
 
   return (
-    <div className={getPaginationContainerClasses(size)}>
-      <div className="flex items-center text-sm text-muted-foreground">
+    <div
+      className={`flex flex-wrap justify-center sm:justify-between items-center gap-2 px-4 py-3 rounded-b-lg border-t border-border bg-card`}
+    >
+      {/* Информация о показе элементов */}
+      <div className="flex flex-wrap justify-center sm:justify-start items-center text-sm text-muted-foreground w-full sm:w-auto">
         Showing <span className="mx-1 font-medium">{startItem}</span> to{' '}
         <span className="mx-1 font-medium">{endItem}</span> of{' '}
         <span className="mx-1 font-medium">{total}</span> results
       </div>
 
-      <div className="flex gap-2 items-center">
+      {/* Кнопки пагинации */}
+      <div className="flex flex-wrap justify-center gap-2 items-center w-full sm:w-auto">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1 || loading}
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 mr-1" />
           Previous
         </Button>
 
-        <div className="flex gap-1">
+        <div className="flex flex-wrap justify-center gap-1">
           {getPageNumbers().map((page) =>
             typeof page === 'number' ? (
               <Button
@@ -97,9 +101,10 @@ export const Pagination = ({
           disabled={currentPage === totalPages || loading}
         >
           Next
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
       </div>
     </div>
   );
+
 };
