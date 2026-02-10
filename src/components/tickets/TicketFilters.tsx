@@ -238,7 +238,7 @@ export const TicketFilters = ({
                 onBlur={onSearchBlur}
                 showSearchButton={true}
                 placeholder="Search by ID, title, description..."
-                className="flex-1 min-w-[300px]"
+                className="flex-1 min-w-[200px]"
                 size="sm"
               />
             </div>

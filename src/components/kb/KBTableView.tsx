@@ -38,8 +38,9 @@ export const KBTableView = ({
   onDelete,
 }: KBTableViewProps) => (
   <div className="hidden rounded-lg border md:block">
-    <table className="w-full table-fixed">
-      <colgroup>
+    <table className="w-full table-auto">
+
+       <colgroup className="hidden lg:table-column-group">
         <col className="w-10" />
         <col />
         <col className="hidden w-16 md:table-column" />
