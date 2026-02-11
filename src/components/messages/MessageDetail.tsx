@@ -42,6 +42,7 @@ import {
 import { useResolveMessageToKB } from '@/hooks/useResolveMessageToKB';
 import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
+import { stripHtml } from '@/lib/stripHtml';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 
@@ -360,7 +361,7 @@ export const MessageDetail = ({
         </div>
         <div className="max-w-none break-words prose prose-sm">
           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
-            <LinkifiedText>{message.content}</LinkifiedText>
+            <LinkifiedText>{stripHtml(message.content)}</LinkifiedText>
           </p>
         </div>
       </div>

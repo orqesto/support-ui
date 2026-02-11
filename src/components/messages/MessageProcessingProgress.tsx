@@ -123,6 +123,16 @@ export const MessageProcessingProgress = ({
     kbDocuments,
   } = session;
 
+  // Derive fetch-phase progress: during fetch, current=0 but processed tracks fetch count
+  const isFetchPhase = session.stage === 'fetching' && current === 0 && processed > 0;
+  const displayCurrent = isFetchPhase ? processed : current;
+  const displayProgress = isFetchPhase
+    ? (total > 0 ? (processed / total) * 100 : 0)
+    : progress;
+  const progressLabel = isFetchPhase
+    ? 'Fetching'
+    : (session.stage === 'analyzing' ? 'Analyzing' : 'Processing');
+
   // Save position to localStorage with session-specific key
   useEffect(() => {
     localStorage.setItem(
@@ -218,12 +228,18 @@ export const MessageProcessingProgress = ({
   // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
     if (status === 'complete' || allMessagesProcessed) {
-      // Mobile: shorter delays to avoid clutter
-      // Desktop: longer delays to review results
-      const noMessagesDelay = isMobile ? 15000 : 30000; // 15s mobile, 30s desktop
-      const withMessagesDelay = isMobile ? 60000 : 300000; // 1min mobile, 5min desktop
+      // Backend 'complete' event: close promptly (user can still review while visible)
+      // Frontend-detected allMessagesProcessed: longer delay to review results
+      const backendComplete = status === 'complete';
+      let closeDelay: number;
 
-      const closeDelay = total === 0 ? noMessagesDelay : withMessagesDelay;
+      if (total === 0) {
+        closeDelay = isMobile ? 5000 : 10000; // Quick close: nothing happened
+      } else if (backendComplete) {
+        closeDelay = isMobile ? 10000 : 15000; // Backend confirmed done: 10-15s to review
+      } else {
+        closeDelay = isMobile ? 60000 : 300000; // Frontend detected: longer review time
+      }
 
       const timer = setTimeout(() => {
         setIsClosed(true);
@@ -354,14 +370,14 @@ export const MessageProcessingProgress = ({
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>
-                  Processing: {current} / {total}
+                  {progressLabel}: {displayCurrent} / {total}
                 </span>
-                <span>{Math.round(progress)}%</span>
+                <span>{Math.round(displayProgress)}%</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2.5">
                 <div
                   className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, displayProgress))}%` }}
                 />
               </div>
             </div>

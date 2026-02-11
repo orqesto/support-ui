@@ -277,6 +277,17 @@ export const MessagesPage = () => {
     sorting.sortOrder,
   ]);
 
+  // Fetch messages when messages tab is active
+  useEffect(() => {
+    if (!urlSyncedRef.current) return;
+
+    if (activeTab === 'messages') {
+      fetchMessages(1).catch((error) => {
+        console.error('Failed to fetch messages:', error);
+      });
+    }
+  }, [activeTab, fetchMessages]);
+
   // Fetch spam logs when spam tab is active
   useEffect(() => {
     if (!urlSyncedRef.current) return;
@@ -537,6 +548,7 @@ export const MessagesPage = () => {
       clearFiltersStore();
       setPendingSearch('');
     }
+    
     setActiveTab(tab);
   };
 

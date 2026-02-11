@@ -6,7 +6,6 @@ import {
   XCircle,
   MessageCircle,
   Ticket,
-  Inbox,
   ShieldX,
   Info,
   ChevronDown,
@@ -98,7 +97,7 @@ export const MessageFilters = ({
                 )}
               </div>
               {pagination.total > 0 && (
-                <span className="text-xs whitespace-nowrap text-muted-foreground">
+                <span className="text-sm whitespace-nowrap text-muted-foreground">
                   {(pagination.page - 1) * pagination.limit + 1}-
                   {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
                   {pagination.total}
@@ -203,7 +202,6 @@ export const MessageFilters = ({
                   {/* Message Source Group */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                     <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
-                      <Inbox className="hidden sm:inline w-3 h-3 mr-1" />
                       Source:
                     </span>
                     <ReactSelect

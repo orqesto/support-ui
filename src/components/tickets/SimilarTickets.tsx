@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
+import { stripHtml } from '@/lib/stripHtml';
 import { ticketService } from '@/services/ticket.service';
 import { messageService } from '@/services/message.service';
 
@@ -271,7 +272,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
                       )}
                     </div>
                     <p className="mb-2 text-sm whitespace-pre-wrap text-foreground line-clamp-3">
-                      {response.content}
+                      {stripHtml(response.content)}
                     </p>
                     <div className="flex gap-2">
                       {onUseResponse && (

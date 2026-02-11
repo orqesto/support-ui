@@ -6,6 +6,7 @@ import {
   Shield,
   RefreshCw,
   Mail,
+  UserPlus,
   Trash2,
   Info,
   ChevronDown,
@@ -29,6 +30,7 @@ import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
+import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { EditUserModal } from '@/components/modals/EditUserModal';
 
 export const UsersPage = () => {
@@ -37,6 +39,7 @@ export const UsersPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: User | null }>({
@@ -120,6 +123,26 @@ export const UsersPage = () => {
   ) => {
     await invitationService.invite(email, role, departmentRole, organizationId);
     // Optionally refresh users list or show a success message
+  };
+
+  const handleCreateUser = async (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName?: string;
+    position?: string;
+    role?: 'admin' | 'user';
+    organizationRole: 'org_admin' | 'moderator' | 'support' | 'associate';
+    departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  }) => {
+    await userService.create(data);
+    await fetchUsers();
+    setAlertDialog({
+      open: true,
+      title: 'User Created',
+      description: `User ${data.email} has been created successfully.`,
+      variant: 'success',
+    });
   };
 
   const handleEditUser = (user: User) => {
@@ -259,7 +282,15 @@ export const UsersPage = () => {
               Refresh
             </Button>
             <PermissionGuard permission={Permission.CREATE_USERS}>
-              <Button className="flex-1 sm:flex-none" onClick={() => setIsInviteModalOpen(true)}>
+              <Button className="flex-1 sm:flex-none" onClick={() => setIsCreateModalOpen(true)}>
+                <UserPlus className="mr-2 w-4 h-4" />
+                Create User
+              </Button>
+              <Button 
+                className="flex-1 sm:flex-none" 
+                variant="outline"
+                onClick={() => setIsInviteModalOpen(true)}
+              >
                 <Mail className="mr-2 w-4 h-4" />
                 Invite User
               </Button>
@@ -585,6 +616,13 @@ export const UsersPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreate={handleCreateUser}
+      />
 
       {/* Invite User Modal */}
       <InviteUserModal
