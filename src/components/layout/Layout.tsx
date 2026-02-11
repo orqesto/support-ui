@@ -71,7 +71,7 @@ const allNavigation = [
     name: 'Subscription',
     href: '/subscription',
     icon: CreditCard,
-    permission: Permission.VIEW_SUBSCRIPTION,
+    adminOnly: true, // Only visible to global admins
   },
   { name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
   {

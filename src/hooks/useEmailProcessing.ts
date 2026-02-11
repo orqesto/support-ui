@@ -28,6 +28,7 @@ type EmailProcessingEvent = {
     analyzed?: number; // Number of messages that went through AI analysis
     failed?: number;
     error?: string;
+    found?: number; // Number of messages fetched so far (used in 'found' events)
     // Performance timing fields (in milliseconds)
     fetchTime?: number;
     processTime?: number;
@@ -144,6 +145,9 @@ export const useEmailProcessing = (
       } catch (error) {
         console.error('[useEmailProcessing] Failed to save sessions:', error);
       }
+    } else {
+      // Clear stale data when all sessions are removed
+      localStorage.removeItem('emailProcessing_sessions');
     }
   }, [sessions]);
 
@@ -182,6 +186,25 @@ export const useEmailProcessing = (
 
     return () => clearInterval(checkInterval);
   }, []);
+
+  // Auto-reset legacy 'complete' status after a delay
+  // This ensures ALL hook instances (DashboardPage, Layout, etc.) clear the status,
+  // not just the one whose widget calls removeSession
+  useEffect(() => {
+    if (state.status === 'complete') {
+      const timer = setTimeout(() => {
+        setState({
+          status: 'idle',
+          total: 0,
+          current: 0,
+          processed: 0,
+          failed: 0,
+          isProcessing: false,
+        });
+      }, 20000); // 20s — matches widget close delay + buffer
+      return () => clearTimeout(timer);
+    }
+  }, [state.status]);
 
   // Clear all sessions when organization changes (admin switching context)
   useEffect(() => {
@@ -252,6 +275,7 @@ export const useEmailProcessing = (
             case 'started':
               // Preserve processed/failed counts from previous cycles (accumulate)
               // Only reset progress counters for the new cycle
+              // IMPORTANT: Create new timestamp for each cycle to detect overlapping fetches
               newSessions.set(sessionKey, {
                 sessionKey,
                 integrationId,
@@ -265,7 +289,7 @@ export const useEmailProcessing = (
                 analyzed: existing?.analyzed ?? 0, // Keep accumulated analyzed count
                 isProcessing: true,
                 progress: 0,
-                timestamp: existing?.timestamp ?? Date.now(), // Keep original start time
+                timestamp: Date.now(), // NEW timestamp for THIS cycle (detect overlapping cycles)
                 // Initialize KB counters to 0 so widget shows KB section from start
                 kbEntriesTotal: 0,
                 kbQAPairs: 0,
@@ -274,23 +298,103 @@ export const useEmailProcessing = (
               });
               break;
 
-            case 'found':
+            case 'found': {
+              const total = event.data?.total ?? 0;
+              const found = event.data?.found ?? 0;
               if (existing) {
-                const total = event.data?.total ?? 0;
+                const fetchedCount = found > 0 ? found : (existing.processed ?? 0);
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: 'processing',
+                  stage: 'fetching',
                   total,
+                  processed: fetchedCount,
                   isProcessing: true, // Explicitly set when messages are found
+                });
+              } else {
+                // Create session from 'found' event if 'started' was missed
+                // (e.g. WebSocket connected after processing began)
+                newSessions.set(sessionKey, {
+                  sessionKey,
+                  integrationId,
+                  integrationName,
+                  departmentRole,
+                  status: 'processing',
+                  stage: 'fetching',
+                  total,
+                  current: 0,
+                  processed: found > 0 ? found : 0,
+                  failed: 0,
+                  isProcessing: true,
+                  progress: 0,
+                  timestamp: Date.now(),
+                  kbEntriesTotal: 0,
+                  kbQAPairs: 0,
+                  kbDocuments: 0,
+                  kbStandaloneKnowledge: 0,
                 });
               }
               break;
+            }
 
             case 'processing':
               if (existing) {
                 const eventCurrent = event.data?.current ?? 0;
                 const eventTotal = event.data?.total ?? 0;
                 const eventStage = event.data?.status; // Get stage from event data
+
+                // Check if the existing session is VERY old (stale from previous page load)
+                const sessionAge = Date.now() - (existing.timestamp ?? 0);
+                const isStaleSession = sessionAge > 60000; // Older than 60 seconds
+                const isRecentlyReset = sessionAge < 30000; // Within 30 seconds of reset
+
+                // If session is very old AND new total is different, this is a NEW cycle
+                // Reset the session with the new data
+                if (isStaleSession && eventTotal > 0 && eventTotal !== existing.total) {
+                  console.warn(
+                    `[Email Processing] Resetting stale session (${sessionAge}ms old)`,
+                    { sessionKey, oldTotal: existing.total, newTotal: eventTotal }
+                  );
+                  newSessions.set(sessionKey, {
+                    sessionKey,
+                    integrationId: existing.integrationId,
+                    integrationName: existing.integrationName,
+                    departmentRole: existing.departmentRole,
+                    status: 'processing',
+                    total: eventTotal,
+                    current: eventCurrent,
+                    processed: existing.processed ?? 0,
+                    failed: existing.failed ?? 0,
+                    analyzed: existing.analyzed ?? 0,
+                    isProcessing: true,
+                    progress: eventTotal > 0 ? (eventCurrent / eventTotal) * 100 : 0,
+                    timestamp: Date.now(), // New timestamp
+                  });
+                  break;
+                }
+
+                // After reset, reject events with HIGHER totals (old session events)
+                if (isRecentlyReset && eventTotal > existing.total && existing.total > 0) {
+                  console.warn(
+                    `[Email Processing] Ignoring old event after reset: ${eventTotal} > ${existing.total}`,
+                    { sessionKey, eventTotal, existingTotal: existing.total, sessionAge }
+                  );
+                  return newSessions; // Skip this event
+                }
+
+                // IGNORE stale events from overlapping cycles (lower total than current)
+                if (
+                  eventTotal > 0 &&
+                  eventTotal < existing.total &&
+                  existing.total > 20 &&
+                  !isRecentlyReset
+                ) {
+                  console.warn(
+                    `[Email Processing] Ignoring stale event: ${eventTotal} < ${existing.total}`,
+                    { sessionKey, eventTotal, existingTotal: existing.total, sessionAge }
+                  );
+                  return newSessions; // Skip this event entirely
+                }
 
                 // Detect phase change: total changes significantly (e.g., 312 → 50)
                 const isNewPhase = eventTotal > 0 && eventTotal !== existing.total;
@@ -775,6 +879,19 @@ export const useEmailProcessing = (
       // Also clear from localStorage
       localStorage.removeItem(`emailProcessingWidget_${sessionKey}_closed`);
       localStorage.removeItem(`emailProcessingWidget_${sessionKey}_position`);
+
+      // Reset legacy single-session state when no active sessions remain
+      if (updated.size === 0) {
+        setState({
+          status: 'idle',
+          total: 0,
+          current: 0,
+          processed: 0,
+          failed: 0,
+          isProcessing: false,
+        });
+      }
+
       return updated;
     });
   }, []);

@@ -8,12 +8,14 @@ import {
   Zap,
   Database,
   User,
+  MessageSquare,
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { CategoriesSettings } from '@/components/settings/CategoriesSettings';
+import { ChatWidgetSettings } from '@/components/settings/ChatWidgetSettings';
 import { MessageSourcesSettings } from '@/components/settings/MessageSourcesSettings';
 import { PromptsSettings } from '@/components/settings/PromptsSettings';
 import { RulesSettings } from '@/components/settings/RulesSettings';
@@ -30,6 +32,7 @@ type TabType =
   | 'rules'
   | 'ai-providers'
   | 'message-sources'
+  | 'chat-widgets'
   | 'ticket-automation'
   | 'system-management';
 
@@ -84,6 +87,12 @@ export const SettingsPage = () => {
       description: 'Configure Email, Telegram, Slack integrations',
     },
     {
+      id: 'chat-widgets' as TabType,
+      label: 'Chat Widgets',
+      icon: MessageSquare,
+      description: 'Create embeddable AI chat widgets for your website',
+    },
+    {
       id: 'ticket-automation' as TabType,
       label: 'Ticket Automation',
       icon: Zap,
@@ -106,7 +115,7 @@ export const SettingsPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-2 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
@@ -136,6 +145,7 @@ export const SettingsPage = () => {
           {activeTab === 'rules' && <RulesSettings />}
           {activeTab === 'ai-providers' && <AIProvidersSettings />}
           {activeTab === 'message-sources' && <MessageSourcesSettings />}
+          {activeTab === 'chat-widgets' && <ChatWidgetSettings />}
           {activeTab === 'ticket-automation' && <TicketAutomationSettings />}
           {activeTab === 'system-management' && <SystemManagementSettings />}
         </Tabs>
