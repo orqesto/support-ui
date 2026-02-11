@@ -679,6 +679,24 @@ export const useEmailProcessing = (
           if (!existing) {
             return newSessions;
           }
+
+          // Merge KB progress into existing email session
+          newSessions.set(existingKey, {
+            ...existing,
+            stage: 'kb-processing',
+            isProcessing: true,
+            // KB entry counters (how many saved)
+            kbEntriesTotal: kbEvent.kbEntries?.total ?? existing.kbEntriesTotal ?? 0,
+            kbQAPairs: kbEvent.kbEntries?.qaPairs ?? existing.kbQAPairs ?? 0,
+            kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge ?? existing.kbStandaloneKnowledge ?? 0,
+            kbDocuments: kbEvent.kbEntries?.documents ?? existing.kbDocuments ?? 0,
+            // KB message processing progress
+            kbMessagesTotal: kbEvent.messages.total,
+            kbMessagesProcessed: kbEvent.messages.processed,
+            kbMessagesSuccessful: kbEvent.messages.successful,
+            kbMessagesFailed: kbEvent.messages.failed,
+            kbMessagesSkipped: kbEvent.messages.skipped,
+          });
           return newSessions;
         }
 

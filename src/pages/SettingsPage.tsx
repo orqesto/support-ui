@@ -22,8 +22,7 @@ import { RulesSettings } from '@/components/settings/RulesSettings';
 import { TicketAutomationSettings } from '@/components/settings/TicketAutomationSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
-import { usePermissions } from '@/hooks/usePermissions';
-import { Permission } from '@/types/roles';
+import { useAuthStore } from '@/stores/authStore';
 
 type TabType =
   | 'profile'
@@ -38,8 +37,8 @@ type TabType =
 
 export const SettingsPage = () => {
   const location = useLocation();
-  const { hasPermission } = usePermissions();
-  const canManageSystem = hasPermission(Permission.MANAGE_ORGANIZATION);
+  const user = useAuthStore((state) => state.user);
+  const isGlobalAdmin = user?.role === 'admin';
 
   // Get active tab from URL hash, default to 'profile'
   const activeTab = (location.hash.replace('#', '') || 'profile') as TabType;
@@ -75,22 +74,10 @@ export const SettingsPage = () => {
       description: 'Configure spam, detection, and KB extraction rules',
     },
     {
-      id: 'ai-providers' as TabType,
-      label: 'AI Providers',
-      icon: BrainCog,
-      description: 'Configure OpenAI, Anthropic and models',
-    },
-    {
       id: 'message-sources' as TabType,
       label: 'Message Sources',
       icon: Inbox,
       description: 'Configure Email, Telegram, Slack integrations',
-    },
-    {
-      id: 'chat-widgets' as TabType,
-      label: 'Chat Widgets',
-      icon: MessageSquare,
-      description: 'Create embeddable AI chat widgets for your website',
     },
     {
       id: 'ticket-automation' as TabType,
@@ -100,18 +87,32 @@ export const SettingsPage = () => {
     },
   ];
 
-  // Add System Management tab only for admins
-  const allTabs = canManageSystem
-    ? [
-        ...tabs,
-        {
-          id: 'system-management' as TabType,
-          label: 'System',
-          icon: Database,
-          description: 'Manage queues, cleanup data, and nuclear options (Admin only)',
-        },
-      ]
-    : tabs;
+  // Add global-admin-only tabs
+  const allTabs = [
+    ...tabs,
+    ...(isGlobalAdmin
+      ? [
+          {
+            id: 'ai-providers' as TabType,
+            label: 'AI Providers',
+            icon: BrainCog,
+            description: 'Configure OpenAI, Anthropic and models',
+          },
+          {
+            id: 'chat-widgets' as TabType,
+            label: 'Chat Widgets',
+            icon: MessageSquare,
+            description: 'Create embeddable AI chat widgets for your website',
+          },
+          {
+            id: 'system-management' as TabType,
+            label: 'System',
+            icon: Database,
+            description: 'Manage queues, cleanup data, and nuclear options (Admin only)',
+          },
+        ]
+      : []),
+  ];
 
   return (
     <Layout>
@@ -143,11 +144,11 @@ export const SettingsPage = () => {
           {activeTab === 'categories' && <CategoriesSettings />}
           {activeTab === 'prompts' && <PromptsSettings />}
           {activeTab === 'rules' && <RulesSettings />}
-          {activeTab === 'ai-providers' && <AIProvidersSettings />}
           {activeTab === 'message-sources' && <MessageSourcesSettings />}
-          {activeTab === 'chat-widgets' && <ChatWidgetSettings />}
           {activeTab === 'ticket-automation' && <TicketAutomationSettings />}
-          {activeTab === 'system-management' && <SystemManagementSettings />}
+          {isGlobalAdmin && activeTab === 'ai-providers' && <AIProvidersSettings />}
+          {isGlobalAdmin && activeTab === 'chat-widgets' && <ChatWidgetSettings />}
+          {isGlobalAdmin && activeTab === 'system-management' && <SystemManagementSettings />}
         </Tabs>
       </div>
     </Layout>
