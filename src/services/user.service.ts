@@ -53,4 +53,19 @@ export const userService = {
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/api/users/${id}`);
   },
+
+  // Create user directly (admin only)
+  create: async (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName?: string;
+    position?: string;
+    role?: 'admin' | 'user';
+    organizationRole?: 'org_admin' | 'moderator' | 'support' | 'associate';
+    departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  }): Promise<User> => {
+    const response: AxiosResponse<ApiResponse<User>> = await apiClient.post('/api/users', data);
+    return response.data.data as User;
+  },
 };

@@ -46,6 +46,12 @@ export const DashboardPage = () => {
   // Ref to track polling interval for cleanup
   const pollingIntervalRef = useRef<number | null>(null);
 
+  // State for "no new messages" feedback
+  const [noNewMessagesInfo, setNoNewMessagesInfo] = useState<{
+    show: boolean;
+    type: 'email' | 'telegram' | 'all' | null;
+  }>({ show: false, type: null });
+
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -80,34 +86,53 @@ export const DashboardPage = () => {
 
   // Auto-refresh stats when email processing completes
   useEffect(() => {
-    // Detect transition from processing to complete
-    if (
-      prevProcessingStatus.current === 'processing' &&
-      processingStatus === 'complete' &&
-      processedCount > 0
-    ) {
-      // Clear caches to force fresh data fetch
-      clearMessagesCache();
+    // Detect transition to complete (from any prior state: idle, started, processing, etc.)
+    const wasNotComplete = prevProcessingStatus.current !== 'complete';
+    const isNowComplete = processingStatus === 'complete';
 
-      // Refresh dashboard stats
-      fetchStats().catch((error) => {
-        console.error('Failed to refresh stats after processing:', error);
-      });
+    if (wasNotComplete && isNowComplete) {
+      if (processedCount > 0) {
+        // Clear caches to force fresh data fetch
+        clearMessagesCache();
+
+        // Refresh dashboard stats
+        fetchStats().catch((error) => {
+          console.error('Failed to refresh stats after email processing:', error);
+        });
+      } else {
+        // No messages processed - show "no new messages" feedback
+        setNoNewMessagesInfo({ show: true, type: 'email' });
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          setNoNewMessagesInfo({ show: false, type: null });
+        }, 5000);
+      }
     }
     prevProcessingStatus.current = processingStatus;
   }, [processingStatus, processedCount, clearMessagesCache]);
 
   // Auto-refresh stats when telegram processing completes
   useEffect(() => {
-    // Detect transition from processing to complete
-    if (prevIsTelegramProcessing.current && !isTelegramProcessing && telegramProcessedCount > 0) {
-      // Clear caches to force fresh data fetch
-      clearMessagesCache();
+    // Detect transition from processing to not processing
+    if (prevIsTelegramProcessing.current && !isTelegramProcessing) {
+      if (telegramProcessedCount > 0) {
+        // Clear caches
+        clearMessagesCache();
 
-      // Refresh dashboard stats
-      fetchStats().catch((error) => {
-        console.error('Failed to refresh stats after processing:', error);
-      });
+        // Refresh dashboard stats
+        fetchStats().catch((error) => {
+          console.error('Failed to refresh stats after telegram processing:', error);
+        });
+      } else {
+        // No messages processed - show "no new messages" feedback  
+        setNoNewMessagesInfo({ show: true, type: 'telegram' });
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          setNoNewMessagesInfo({ show: false, type: null });
+        }, 5000);
+      }
     }
     prevIsTelegramProcessing.current = isTelegramProcessing;
   }, [isTelegramProcessing, telegramProcessedCount, clearMessagesCache]);
@@ -520,6 +545,18 @@ export const DashboardPage = () => {
                     : processingStage === 'kb-processing'
                       ? 'Building knowledge base from attachments...'
                       : 'Email processing in progress. Please wait...'}
+                </p>
+              )}
+              {noNewMessagesInfo.show && (
+                <p className="flex gap-1 justify-center items-center text-xs text-green-600 dark:text-green-400">
+                  <CheckCircle className="w-3 h-3" />
+                  All caught up! No new{' '}
+                  {noNewMessagesInfo.type === 'email'
+                    ? 'emails'
+                    : noNewMessagesInfo.type === 'telegram'
+                      ? 'Telegram messages'
+                      : 'messages'}{' '}
+                  found.
                 </p>
               )}
               <div className="grid grid-cols-2 gap-3">

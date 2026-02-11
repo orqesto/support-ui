@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Zap } from 'lucide-react';
+import { ArrowLeft, Check, Zap, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/authStore';
 
 type Plan = {
   id: number;
@@ -56,6 +57,8 @@ export const PricingPage = () => {
     confirmAction: false,
   });
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const isGlobalAdmin = user?.role === 'admin';
 
   useEffect(() => {
     const fetchPricing = async () => {
@@ -80,7 +83,7 @@ export const PricingPage = () => {
   }, []);
 
   const handleSelectPlan = (planName: string) => {
-    if (planName === 'admin') {
+    if (planName === 'admin' && !isGlobalAdmin) {
       setAlertDialog({
         open: true,
         title: 'Not Available',
@@ -153,6 +156,7 @@ export const PricingPage = () => {
 
   const basePlans = plans.filter((p) => p.planType === 'base');
   const bundlePlans = plans.filter((p) => p.planType === 'bundle');
+  const enterprisePlans = plans.filter((p) => p.planType === 'enterprise' && (isGlobalAdmin || p.name !== 'admin'));
 
   const getFeatureLabel = (key: string): string => {
     const labels: Record<string, string> = {
@@ -283,6 +287,79 @@ export const PricingPage = () => {
             })}
           </div>
         </div>
+
+        {/* Admin/Enterprise Plans - Only for Global Admins */}
+        {isGlobalAdmin && enterprisePlans.length > 0 && (
+          <div>
+            <h2 className="mb-6 text-2xl font-bold flex items-center gap-2">
+              <Shield className="w-6 h-6 text-purple-600" />
+              Administrator Plans
+            </h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {enterprisePlans.map((plan) => (
+                <Card key={plan.id} className="border-purple-500 border-2">
+                  <CardHeader>
+                    <CardTitle className="text-center">
+                      <div className="flex gap-2 justify-center items-center mb-2">
+                        <Shield className="w-6 h-6 text-purple-600" />
+                        <span className="text-2xl font-bold">{plan.displayName}</span>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-4xl font-bold">
+                          {plan.currency === 'EUR' ? '€' : '$'}
+                          {(plan.price / 100).toFixed(0)}
+                        </span>
+                        <span className="text-gray-400">/{plan.billingInterval}</span>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+
+                  <CardContent>
+                    {/* Limits */}
+                    <div className="pb-6 mb-6 space-y-2 border-b">
+                      <p className="text-sm text-gray-400">
+                        <strong>{plan.limits.maxUsers.toLocaleString()}</strong> users
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        <strong>
+                          {plan.limits.maxMessagesPerMonth
+                            ? plan.limits.maxMessagesPerMonth.toLocaleString()
+                            : '—'}
+                        </strong>{' '}
+                        messages/month
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        <strong>{plan.limits.maxIntegrations}</strong> integrations
+                      </p>
+                    </div>
+
+                    {/* Features */}
+                    <div className="mb-6 space-y-3">
+                      {Object.entries(plan.features)
+                        .filter(([_, enabled]) => enabled)
+                        .slice(0, 8)
+                        .map(([key]) => (
+                          <div key={key} className="flex gap-2 items-start">
+                            <Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm">{getFeatureLabel(key)}</span>
+                          </div>
+                        ))}
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      variant="primary"
+                      onClick={() => handleSelectPlan(plan.name)}
+                      disabled={upgrading === plan.name}
+                    >
+                      {upgrading === plan.name ? 'Processing...' : 'Select Plan'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Bundle Plans */}
         {bundlePlans.length > 0 && (
