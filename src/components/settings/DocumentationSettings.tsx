@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Upload,
   FileText,
@@ -135,8 +135,10 @@ export const DocumentationSettings = () => {
     loading: false,
   });
   const [docProgress, setDocProgress] = useState<Record<number, DocumentationProgress>>({});
+  const docsRef = useRef<Documentation[]>([]);
+  docsRef.current = docs;
 
-  const loadDocumentation = async (isInitialLoad = false) => {
+  const loadDocumentation = useCallback(async (isInitialLoad = false) => {
     try {
       if (isInitialLoad) {
         setLoading(true);
@@ -154,27 +156,34 @@ export const DocumentationSettings = () => {
         setLoading(false);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadDocumentation(true);
-  }, []);
+  }, [loadDocumentation]);
+
+  // Stable key: only re-run when the set of processing doc IDs changes
+  const processingDocIds = docs
+    .filter((doc) => doc.status === 'processing')
+    .map((doc) => doc.id)
+    .sort()
+    .join(',');
 
   // Poll progress for processing documents
   useEffect(() => {
-    const processingDocs = docs.filter((doc) => doc.status === 'processing');
-
-    if (processingDocs.length === 0) {
+    if (!processingDocIds) {
       return;
     }
 
+    const ids = processingDocIds.split(',').map(Number);
+
     const fetchProgress = async () => {
-      const progressPromises = processingDocs.map(async (doc) => {
+      const progressPromises = ids.map(async (id) => {
         try {
-          const progress = await documentationService.getProgress(doc.id);
-          return { id: doc.id, progress };
+          const progress = await documentationService.getProgress(id);
+          return { id, progress };
         } catch (error) {
-          console.error(`Failed to fetch progress for doc ${doc.id}:`, error);
+          console.error(`Failed to fetch progress for doc ${id}:`, error);
           return null;
         }
       });
@@ -192,14 +201,14 @@ export const DocumentationSettings = () => {
     // Fetch immediately
     void fetchProgress();
 
-    // Then poll every 2 seconds
+    // Then poll every 3 seconds
     const interval = setInterval(() => {
       void fetchProgress();
-      void loadDocumentation(false); // Refresh list periodically
-    }, 2000);
+      void loadDocumentation(false);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [docs]);
+  }, [processingDocIds, loadDocumentation]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);

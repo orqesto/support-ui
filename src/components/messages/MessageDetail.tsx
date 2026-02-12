@@ -292,10 +292,8 @@ export const MessageDetail = ({
         />
       </div>
 
-      {/* KB References - Show if message was used in KB */}
-      {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
-        <MessageKBReferences messageId={message.id} />
-      )}
+      {/* KB References - Show KB entries created from this message */}
+      <MessageKBReferences messageId={message.id} />
 
       <div className="space-y-4">
         {/* Link to Ticket */}

@@ -481,12 +481,37 @@ export const MessageFilters = ({
                   <label className="flex gap-2 items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={filters.excludeKB ?? false}
-                      onChange={(e) => setFilters({ ...filters, excludeKB: e.target.checked })}
+                      checked={filters.showKBOnly ?? false}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          showKBOnly: e.target.checked,
+                          excludeKB: false,
+                        })
+                      }
                       className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
                     />
                     <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
                       <BookOpen className="w-3 h-3 text-purple-500" />
+                      <span>Only KB</span>
+                    </div>
+                  </label>
+
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.excludeKB ?? false}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          excludeKB: e.target.checked,
+                          showKBOnly: false,
+                        })
+                      }
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                      <BookOpen className="w-3 h-3 text-green-500" />
                       <span>Exclude KB</span>
                     </div>
                   </label>

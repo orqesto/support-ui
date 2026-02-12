@@ -22,6 +22,8 @@ import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
 import { getSocket } from '@/lib/socketManager';
 import { ingestionService } from '@/services/ingestion.service';
 import { integrationsService } from '@/services/integrations.service';
+import { documentationService } from '@/services/documentation.service';
+import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -142,14 +144,16 @@ export const DashboardPage = () => {
       // Fetch with limit=1 to get total counts from pagination metadata (we don't need the actual records)
       const [
         supportMessagesResponse,
-        kbMessagesResponse,
+        kbEntriesResponse,
+        docStatsResponse,
         unprocessedMessagesResponse,
         allTicketsResponse,
         pendingTicketsResponse,
       ] = await Promise.all([
-        messageService.getThreads({ excludeKB: 'true' }, 1, 1), // Support threads only (no KB)
-        messageService.getAll({ showKBOnly: 'true' }, 1, 1), // KB messages only (not threaded)
-        messageService.getThreads({ processed: 'unprocessed', excludeKB: 'true' }, 1, 1), // Unprocessed threads only
+        messageService.getThreads({ excludeKB: 'true' }, 1, 1), // Active support threads (excluding KB; resolved excluded by default)
+        kbService.getAll({ limit: 1 }), // KB entries count (Q&A pairs, extracted docs)
+        documentationService.getStats(), // Uploaded documentation stats
+        messageService.getThreads({ processed: 'unprocessed', excludeKB: 'true' }, 1, 1), // Unprocessed support threads only (excluding KB)
         ticketService.getAll(undefined, 1, 1),
         ticketService.getAll({ status: 'pending' }, 1, 1),
       ]);
@@ -161,12 +165,13 @@ export const DashboardPage = () => {
         }));
       }
 
-      if (kbMessagesResponse.success) {
-        setStats((prev) => ({
-          ...prev,
-          kbMessages: kbMessagesResponse.pagination.total,
-        }));
-      }
+      // Combine KB entries + uploaded documentation for total KB content count
+      const kbEntryCount = kbEntriesResponse?.success ? kbEntriesResponse.data.pagination.total : 0;
+      const docCount = docStatsResponse?.totalDocs ?? 0;
+      setStats((prev) => ({
+        ...prev,
+        kbMessages: kbEntryCount + docCount,
+      }));
 
       if (unprocessedMessagesResponse.success) {
         setStats((prev) => ({
@@ -363,7 +368,7 @@ export const DashboardPage = () => {
       icon: Mail,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
-      onClick: () => navigate('/messages?processed=all&excludeKB=true'),
+      onClick: () => navigate('/messages?excludeKB=true'),
     },
     {
       title: 'Unprocessed Messages',
@@ -371,7 +376,7 @@ export const DashboardPage = () => {
       icon: Clock,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
-      onClick: () => navigate('/messages?processed=unprocessed&excludeKB=true'),
+      onClick: () => navigate('/messages?processed=unprocessed'),
     },
     {
       title: 'Knowledge Base',
@@ -469,8 +474,13 @@ export const DashboardPage = () => {
                           Awaiting response
                         </>
                       )}
-                      {(stat.title === 'Support Messages' ||
-                        stat.title === 'Knowledge Base' ||
+                      {stat.title === 'Support Messages' && (
+                        <>
+                          <BarChart3 className="w-3 h-3" />
+                          Active
+                        </>
+                      )}
+                      {(stat.title === 'Knowledge Base' ||
                         stat.title === 'Total Tickets') && (
                         <>
                           <BarChart3 className="w-3 h-3" />

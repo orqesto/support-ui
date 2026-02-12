@@ -149,6 +149,9 @@ export const MessagesPage = () => {
         if (currentFilters.showFailed) {
           apiFilters.showFailed = 'true';
         }
+        if (currentFilters.showKBOnly) {
+          apiFilters.showKBOnly = 'true';
+        }
         if (currentFilters.excludeKB) {
           apiFilters.excludeKB = 'true';
         }
@@ -163,10 +166,12 @@ export const MessagesPage = () => {
         }
 
         // Fetch threads instead of individual messages
+        const currentSorting = useMessagesStore.getState().sorting;
         const response = await messageService.getThreads(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
           page,
-          pagination.limit
+          pagination.limit,
+          currentSorting.sortOrder
         );
 
         if (response.success && response.data) {
@@ -270,6 +275,7 @@ export const MessagesPage = () => {
     filters.hasReplies,
     filters.hasTicket,
     filters.showFailed,
+    filters.showKBOnly,
     filters.excludeKB,
     filters.awaitingCustomerResponse,
     filters.customerResponded,
@@ -334,6 +340,7 @@ export const MessagesPage = () => {
     const urlSpam = searchParams.get('spam');
     const urlSuspicious = searchParams.get('suspicious');
     const urlExcludeSpam = searchParams.get('excludeSpam');
+    const urlShowKBOnly = searchParams.get('showKBOnly');
     const urlExcludeKB = searchParams.get('excludeKB');
     const urlWorthy = searchParams.get('worthy');
     const urlNeedsInfo = searchParams.get('needsInfo');
@@ -368,6 +375,10 @@ export const MessagesPage = () => {
     }
     if (urlExcludeSpam === 'true') {
       urlFilters.excludeSpam = true;
+      hasUrlFilters = true;
+    }
+    if (urlShowKBOnly === 'true') {
+      urlFilters.showKBOnly = true;
       hasUrlFilters = true;
     }
     if (urlExcludeKB === 'true') {
@@ -464,6 +475,12 @@ export const MessagesPage = () => {
     }
     if (filters.showFailed) {
       params.set('failed', 'true');
+    }
+    if (filters.showKBOnly) {
+      params.set('showKBOnly', 'true');
+    }
+    if (filters.excludeKB) {
+      params.set('excludeKB', 'true');
     }
     if (filters.search) {
       params.set('search', filters.search);
@@ -712,6 +729,7 @@ export const MessagesPage = () => {
     (filters.hasReplies ? 1 : 0) +
     (filters.hasTicket !== undefined ? 1 : 0) +
     (filters.showFailed ? 1 : 0) +
+    ((filters.showKBOnly ?? filters.excludeKB) ? 1 : 0) +
     (filters.awaitingCustomerResponse ? 1 : 0) +
     (filters.customerResponded ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0);
@@ -841,6 +859,12 @@ export const MessagesPage = () => {
                             setSelectedMessage(messageToShow);
                             const params = new URLSearchParams(searchParams);
                             params.set('id', messageToShow.id.toString());
+                            setSearchParams(params);
+                          } else {
+                            // No thread found — fall back to showing the clicked message
+                            setSelectedMessage(msg);
+                            const params = new URLSearchParams(searchParams);
+                            params.set('id', msg.id.toString());
                             setSearchParams(params);
                           }
                         } catch (error) {
