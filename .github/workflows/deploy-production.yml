@@ -113,6 +113,6 @@ jobs:
           echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 Frontend: http://odly.ai" >> $GITHUB_STEP_SUMMARY
-          echo "- 📚 API Docs: http://odly.ai:3001/api-docs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🏥 Backend Health: http://odly.ai:3001/health" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend: http://app.odly.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 API Docs: http://app.odly.ai:3001/api-docs" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏥 Backend Health: http://app.odly.ai:3001/health" >> $GITHUB_STEP_SUMMARY
