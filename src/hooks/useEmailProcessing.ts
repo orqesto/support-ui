@@ -680,11 +680,24 @@ export const useEmailProcessing = (
             return newSessions;
           }
 
-          // Merge KB progress into existing email session
+          // Merge KB progress into existing session
+          // For standalone KB sessions (no emailTotal), also update top-level counters
+          const isStandaloneKB = !existing.emailTotal && existing.stage === 'kb-processing';
           newSessions.set(existingKey, {
             ...existing,
             stage: 'kb-processing',
-            isProcessing: true,
+            isProcessing: kbEvent.status === 'processing',
+            // Update top-level counters for standalone KB sessions
+            ...(isStandaloneKB ? {
+              total: kbEvent.messages.total,
+              current: kbEvent.messages.processed,
+              processed: kbEvent.messages.processed,
+              successful: kbEvent.messages.successful,
+              analyzed: kbEvent.messages.successful,
+              failed: kbEvent.messages.failed,
+              skipped: kbEvent.messages.skipped,
+              progress: kbEvent.progress ?? 0,
+            } : {}),
             // KB entry counters (how many saved)
             kbEntriesTotal: kbEvent.kbEntries?.total ?? existing.kbEntriesTotal ?? 0,
             kbQAPairs: kbEvent.kbEntries?.qaPairs ?? existing.kbQAPairs ?? 0,

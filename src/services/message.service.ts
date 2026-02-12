@@ -60,13 +60,18 @@ export const messageService = {
   getThreads: async (
     filters?: Record<string, string>,
     page = PAGINATION.DEFAULT_PAGE,
-    limit = PAGINATION.DEFAULT_LIMIT
+    limit = PAGINATION.DEFAULT_LIMIT,
+    sortOrder?: 'asc' | 'desc'
   ) => {
     const params = new URLSearchParams({
       ...filters,
       page: page.toString(),
       limit: limit.toString(),
     });
+
+    if (sortOrder) {
+      params.append('sortOrder', sortOrder);
+    }
 
     const response = await apiClient.get<PaginatedResponse<MessageThread[]>>(
       `/api/messages/threads?${params.toString()}`
