@@ -16,6 +16,7 @@ export type FilterState = {
   hasReplies?: boolean;
   hasTicket?: boolean;
   showFailed?: boolean;
+  showKBOnly?: boolean; // Show only KB messages
   excludeKB?: boolean; // Filter out KB messages (show only support requests)
   awaitingCustomerResponse?: boolean;
   customerResponded?: boolean; // Show customer responses needing agent attention
@@ -63,7 +64,8 @@ const defaultFilters: FilterState = {
   hasReplies: false,
   hasTicket: undefined,
   showFailed: false,
-  excludeKB: true, // Default: hide KB messages in support view
+  showKBOnly: false,
+  excludeKB: false, // KB messages now flow through normal processing
   awaitingCustomerResponse: false,
   customerResponded: false,
 };
@@ -165,7 +167,8 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           hasReplies: false,
           hasTicket: undefined,
           showFailed: false,
-          excludeKB: true, // Reset to default: hide KB messages
+          showKBOnly: false,
+          excludeKB: false, // KB messages now flow through normal processing
           awaitingCustomerResponse: false,
           search: undefined,
         },
