@@ -372,7 +372,7 @@ export const MessageProcessingProgress = ({
                 <span>
                   {progressLabel}: {displayCurrent} / {total}
                 </span>
-                <span>{Math.round(displayProgress)}%</span>
+                <span>{Math.min(100, Math.round(displayProgress))}%</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2.5">
                 <div
@@ -388,7 +388,7 @@ export const MessageProcessingProgress = ({
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <SourceIcon className="w-3 h-3 text-blue-500" />
-                <span className="text-lg font-bold">{emailTotal ?? total}</span>
+                <span className="text-lg font-bold">{emailTotal || total || processed || 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
@@ -437,11 +437,12 @@ export const MessageProcessingProgress = ({
             </button>
           </div>
 
-          {/* KB Processing Progress - Show if KB data is present (even if 0) */}
-          {(kbEntriesTotal !== undefined ||
-            kbQAPairs !== undefined ||
-            kbDocuments !== undefined ||
-            kbStandaloneKnowledge !== undefined) && (
+          {/* KB Processing Progress - Show only when KB entries exist or KB processing is active */}
+          {((kbEntriesTotal ?? 0) > 0 ||
+            (kbQAPairs ?? 0) > 0 ||
+            (kbDocuments ?? 0) > 0 ||
+            (kbStandaloneKnowledge ?? 0) > 0 ||
+            session.stage === 'kb-processing') && (
             <div className="pt-2 border-t">
               <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1.5 flex items-center gap-1">
                 <BookOpen className="w-3 h-3" />
@@ -457,9 +458,9 @@ export const MessageProcessingProgress = ({
                       Analyzing: {session.kbMessagesProcessed ?? 0} / {session.kbMessagesTotal}
                     </span>
                     <span>
-                      {Math.round(
+                      {Math.min(100, Math.round(
                         ((session.kbMessagesProcessed ?? 0) / session.kbMessagesTotal) * 100
-                      )}
+                      ))}
                       %
                     </span>
                   </div>
