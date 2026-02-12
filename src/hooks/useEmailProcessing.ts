@@ -273,9 +273,8 @@ export const useEmailProcessing = (
 
           switch (event.type) {
             case 'started':
-              // Preserve processed/failed counts from previous cycles (accumulate)
-              // Only reset progress counters for the new cycle
-              // IMPORTANT: Create new timestamp for each cycle to detect overlapping fetches
+              // Reset ALL counters for new cycle - stale counts from previous sessions
+              // cause confusing display (e.g. Found: 0, Processed: 100 after deletion)
               newSessions.set(sessionKey, {
                 sessionKey,
                 integrationId,
@@ -284,13 +283,12 @@ export const useEmailProcessing = (
                 status: 'started',
                 total: 0,
                 current: 0,
-                processed: existing?.processed ?? 0, // Keep accumulated count
-                failed: existing?.failed ?? 0, // Keep accumulated count
-                analyzed: existing?.analyzed ?? 0, // Keep accumulated analyzed count
+                processed: 0,
+                failed: 0,
+                analyzed: 0,
                 isProcessing: true,
                 progress: 0,
                 timestamp: Date.now(), // NEW timestamp for THIS cycle (detect overlapping cycles)
-                // Initialize KB counters to 0 so widget shows KB section from start
                 kbEntriesTotal: 0,
                 kbQAPairs: 0,
                 kbDocuments: 0,
