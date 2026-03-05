@@ -19,6 +19,7 @@ import {
   getFilteredCategoryLabel,
 } from '@/lib/messageHelpers';
 import type { Message } from '@/types';
+import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 
 type MessageBadgesProps = {
   message: Message;
@@ -98,6 +99,33 @@ export const MessageBadges = ({ message }: MessageBadgesProps) => {
             >
               <AlertTriangle className="w-4 h-4" />
               Suspicious
+            </Badge>
+          )}
+
+          {/* Contradiction Detection Badge */}
+          {(message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined)?.result
+            ?.hasContradiction && (
+            <Badge
+              variant="warning"
+              title="Contradicts previous statement"
+              className="flex gap-1 items-center"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Contradiction
+            </Badge>
+          )}
+
+          {/* Unusual Attachments Badge */}
+          {(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed | undefined)
+            ?.hasUnusualAttachments && (
+            <Badge
+              variant="warning"
+              title={`${(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed).count} attachment(s), some unusual for this organization`}
+              className="flex gap-1 items-center"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <Paperclip className="w-4 h-4" />
+              Unusual
             </Badge>
           )}
           {!spamCheck?.isSpam &&

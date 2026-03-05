@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp, Mail } from 'lucide-react';
+import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -150,7 +150,6 @@ export const SpamLogFilters = ({
           </div>
 
           {/* Channel Dropdown */}
-          
         </div>
 
         {/* Second Row: Source + Sort */}
@@ -190,21 +189,20 @@ export const SpamLogFilters = ({
             />
           </div>
 
-  {/* Sort */}
-  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-    <span className="text-sm font-medium w-full sm:w-auto">Sort:</span>
-    <ReactSelect
-      value={filters.sortOrder ?? 'desc'}
-      onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-      options={[
-        { value: 'desc', label: 'Newest First' },
-        { value: 'asc', label: 'Oldest First' },
-      ]}
-      className="w-full sm:w-40"
-    />
-  </div>
-</div>
-
+          {/* Sort */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm font-medium w-full sm:w-auto">Sort:</span>
+            <ReactSelect
+              value={filters.sortOrder ?? 'desc'}
+              onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+              options={[
+                { value: 'desc', label: 'Newest First' },
+                { value: 'asc', label: 'Oldest First' },
+              ]}
+              className="w-full sm:w-40"
+            />
+          </div>
+        </div>
 
         {/* Advanced Filters Toggle */}
         <div className="flex justify-center mt-4">

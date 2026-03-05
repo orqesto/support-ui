@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { chatWidgetService, type ChatWidget, type CreateChatWidgetRequest } from '@/services/chatWidget.service';
+import {
+  chatWidgetService,
+  type ChatWidget,
+  type CreateChatWidgetRequest,
+} from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -11,10 +15,21 @@ interface ChatWidgetModalProps {
   widget: ChatWidget | null;
   onClose: () => void;
   onSuccess: () => void;
-  onShowAlert: (alert: { open: boolean; title: string; description: string; variant: 'info' | 'warning' | 'error' | 'success' }) => void;
+  onShowAlert: (alert: {
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'info' | 'warning' | 'error' | 'success';
+  }) => void;
 }
 
-export const ChatWidgetModal = ({ open, widget, onClose, onSuccess, onShowAlert }: ChatWidgetModalProps) => {
+export const ChatWidgetModal = ({
+  open,
+  widget,
+  onClose,
+  onSuccess,
+  onShowAlert,
+}: ChatWidgetModalProps) => {
   const [formData, setFormData] = useState<CreateChatWidgetRequest>({
     name: '',
     departmentRole: 'support',
@@ -33,8 +48,8 @@ export const ChatWidgetModal = ({ open, widget, onClose, onSuccess, onShowAlert 
       setFormData({
         name: widget.name,
         departmentRole: widget.departmentRole,
-        welcomeMessage: widget.welcomeMessage || '',
-        placeholder: widget.placeholder || '',
+        welcomeMessage: widget.welcomeMessage ?? '',
+        placeholder: widget.placeholder ?? '',
         primaryColor: widget.primaryColor,
         position: widget.position,
         collectUserInfo: widget.collectUserInfo,
@@ -131,7 +146,12 @@ export const ChatWidgetModal = ({ open, widget, onClose, onSuccess, onShowAlert 
               label="Department"
               id="department"
               value={formData.departmentRole}
-              onChange={(value) => setFormData({ ...formData, departmentRole: value as 'support' | 'sales' | 'billing' | 'general' | 'hr' })}
+              onChange={(value) =>
+                setFormData({
+                  ...formData,
+                  departmentRole: value as 'support' | 'sales' | 'billing' | 'general' | 'hr',
+                })
+              }
               options={[
                 { value: 'support', label: 'Support' },
                 { value: 'sales', label: 'Sales' },
@@ -187,7 +207,9 @@ export const ChatWidgetModal = ({ open, widget, onClose, onSuccess, onShowAlert 
                 label="Position"
                 id="position"
                 value={formData.position}
-                onChange={(value) => setFormData({ ...formData, position: value as 'bottom-right' | 'bottom-left' })}
+                onChange={(value) =>
+                  setFormData({ ...formData, position: value as 'bottom-right' | 'bottom-left' })
+                }
                 options={[
                   { value: 'bottom-right', label: 'Bottom Right' },
                   { value: 'bottom-left', label: 'Bottom Left' },

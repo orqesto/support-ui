@@ -8,6 +8,7 @@ import {
   Zap,
   CheckCircle,
 } from 'lucide-react';
+import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { MessageSourceFilter } from '@/components/filters/MessageSourceFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +25,7 @@ type FilterState = {
   priority: TicketPriority | 'all';
   categoryId: string;
   messageSourceId?: string;
+  assigneeId?: string;
   search?: string;
   syncedToJira?: boolean;
 };
@@ -77,6 +79,7 @@ export const TicketFilters = ({
       priority: 'Priority',
       categoryId: 'Category',
       messageSourceId: 'Source',
+      assigneeId: 'Assignee',
       syncedToJira: 'Jira',
     },
     customValues: {
@@ -93,6 +96,8 @@ export const TicketFilters = ({
       onFilterChange('categoryId', 'all');
     } else if (key === 'messageSourceId') {
       onFilterChange('messageSourceId', 'all');
+    } else if (key === 'assigneeId') {
+      onFilterChange('assigneeId', 'all');
     } else if (key === 'syncedToJira') {
       onFilterChange('syncedToJira', 'false');
     }
@@ -288,6 +293,12 @@ export const TicketFilters = ({
                 <MessageSourceFilter
                   value={filters.messageSourceId}
                   onChange={(value) => onFilterChange('messageSourceId', value)}
+                />
+
+                {/* Assignee Filter */}
+                <AssigneeFilter
+                  value={filters.assigneeId}
+                  onChange={(value) => onFilterChange('assigneeId', value)}
                 />
 
                 {/* Group 2: Sorting */}
