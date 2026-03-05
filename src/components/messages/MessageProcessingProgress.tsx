@@ -121,17 +121,33 @@ export const MessageProcessingProgress = ({
     kbQAPairs,
     kbStandaloneKnowledge,
     kbDocuments,
+    kbMessagesTotal,
   } = session;
 
+  // When in KB-processing mode, use KB-specific totals for the main progress display
+  const isKBMode = session.stage === 'kb-processing' && (kbMessagesTotal ?? 0) > 0;
+  const effectiveTotal = isKBMode ? (kbMessagesTotal ?? 0) : total;
+  const effectiveCurrent = isKBMode ? (session.kbMessagesProcessed ?? 0) : current;
+
   // Derive fetch-phase progress: during fetch, current=0 but processed tracks fetch count
-  const isFetchPhase = session.stage === 'fetching' && current === 0 && processed > 0;
-  const displayCurrent = isFetchPhase ? processed : current;
+  const isFetchPhase = session.stage === 'fetching' && effectiveCurrent === 0 && processed > 0;
+  const rawCurrent = isFetchPhase ? processed : effectiveCurrent;
+  // Cap displayCurrent at total to prevent showing "100 / 52" type issues
+  const displayCurrent = effectiveTotal > 0 ? Math.min(rawCurrent, effectiveTotal) : rawCurrent;
   const displayProgress = isFetchPhase
-    ? (total > 0 ? (processed / total) * 100 : 0)
-    : progress;
+    ? effectiveTotal > 0
+      ? Math.min(100, (processed / effectiveTotal) * 100)
+      : 0
+    : isKBMode
+      ? effectiveTotal > 0
+        ? Math.min(100, (effectiveCurrent / effectiveTotal) * 100)
+        : 0
+      : Math.min(100, progress);
   const progressLabel = isFetchPhase
     ? 'Fetching'
-    : (session.stage === 'analyzing' ? 'Analyzing' : 'Processing');
+    : session.stage === 'analyzing' || isKBMode
+      ? 'Analyzing'
+      : 'Processing';
 
   // Save position to localStorage with session-specific key
   useEffect(() => {
@@ -366,12 +382,10 @@ export const MessageProcessingProgress = ({
           }
         >
           {/* Progress Bar */}
-          {total > 0 && (
+          {effectiveTotal > 0 && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>
-                  {progressLabel}: {displayCurrent} / {total}
-                </span>
+                <span>{`${progressLabel}: ${displayCurrent} / ${effectiveTotal}`}</span>
                 <span>{Math.min(100, Math.round(displayProgress))}%</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2.5">
@@ -388,18 +402,20 @@ export const MessageProcessingProgress = ({
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <SourceIcon className="w-3 h-3 text-blue-500" />
-                <span className="text-lg font-bold">{emailTotal || total || processed || 0}</span>
+                <span className="text-lg font-bold">{(emailTotal ?? total) || 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
-            {/* Show total processed (emails saved to DB) */}
-            {(processed > 0 || current > 0) && (
+            {/* Show total processed (emails saved to DB) - cap at Found to prevent overflow */}
+            {(processed > 0 || current > 0 || (isKBMode && effectiveCurrent > 0)) && (
               <div>
                 <div className="flex gap-1 justify-center items-center">
                   <Loader2
                     className={`w-3 h-3 ${isProcessing ? 'animate-spin text-primary' : 'text-muted-foreground'}`}
                   />
-                  <span className="text-lg font-bold">{processed > 0 ? processed : current}</span>
+                  <span className="text-lg font-bold">
+                    {Math.min(processed > 0 ? processed : current, (emailTotal ?? total) || 999)}
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Processed</p>
               </div>
@@ -437,8 +453,9 @@ export const MessageProcessingProgress = ({
             </button>
           </div>
 
-          {/* KB Processing Progress - Show only when KB entries exist or KB processing is active */}
-          {((kbEntriesTotal ?? 0) > 0 ||
+          {/* KB Processing Progress - Show when KB messages are being processed or entries exist */}
+          {((kbMessagesTotal ?? 0) > 0 ||
+            (kbEntriesTotal ?? 0) > 0 ||
             (kbQAPairs ?? 0) > 0 ||
             (kbDocuments ?? 0) > 0 ||
             (kbStandaloneKnowledge ?? 0) > 0 ||
@@ -451,29 +468,31 @@ export const MessageProcessingProgress = ({
               </p>
 
               {/* KB Message Processing Progress Bar */}
-              {session.kbMessagesTotal !== undefined && session.kbMessagesTotal > 0 && (
-                <div className="mb-2 space-y-1">
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>
-                      Analyzing: {session.kbMessagesProcessed ?? 0} / {session.kbMessagesTotal}
-                    </span>
-                    <span>
-                      {Math.min(100, Math.round(
-                        ((session.kbMessagesProcessed ?? 0) / session.kbMessagesTotal) * 100
-                      ))}
-                      %
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-purple-200 dark:bg-purple-900">
-                    <div
-                      className="h-full bg-purple-600 transition-all duration-300 dark:bg-purple-400"
-                      style={{
-                        width: `${Math.min(100, ((session.kbMessagesProcessed ?? 0) / session.kbMessagesTotal) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
+              {session.kbMessagesTotal !== undefined &&
+                session.kbMessagesTotal > 0 &&
+                (() => {
+                  const kbProcessed = session.kbMessagesProcessed ?? 0;
+                  const kbTotal = session.kbMessagesTotal;
+                  const kbPct = Math.min(100, Math.round((kbProcessed / kbTotal) * 100));
+                  return (
+                    <div className="mb-2 space-y-1">
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>
+                          {session.status === 'complete'
+                            ? `Analyzed: ${kbProcessed} / ${kbTotal}`
+                            : `Analyzing: ${kbProcessed} messages...`}
+                        </span>
+                        <span>{kbPct}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-purple-200 dark:bg-purple-900">
+                        <div
+                          className="h-full bg-purple-600 transition-all duration-300 dark:bg-purple-400"
+                          style={{ width: `${kbPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
               <div className="flex justify-around text-center">
                 {kbEntriesTotal !== undefined && (

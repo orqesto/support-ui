@@ -21,6 +21,7 @@ export type FilterState = {
   awaitingCustomerResponse?: boolean;
   customerResponded?: boolean; // Show customer responses needing agent attention
   assignedToMe?: boolean; // Filter to show only messages assigned to current user
+  assigneeId?: string; // Filter by specific assignee ('all', 'unassigned', or user ID)
   search?: string;
 };
 
@@ -68,6 +69,7 @@ const defaultFilters: FilterState = {
   excludeKB: false, // KB messages now flow through normal processing
   awaitingCustomerResponse: false,
   customerResponded: false,
+  assigneeId: 'all',
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
@@ -170,6 +172,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           showKBOnly: false,
           excludeKB: false, // KB messages now flow through normal processing
           awaitingCustomerResponse: false,
+          assigneeId: 'all',
           search: undefined,
         },
         cache: {}, // Clear cache on filter change

@@ -84,6 +84,7 @@ export const TicketsPage = () => {
     const urlPriority = searchParams.get('priority');
     const urlCategory = searchParams.get('category');
     const urlMessageSource = searchParams.get('source');
+    const urlAssignee = searchParams.get('assignee');
     const urlJira = searchParams.get('jira');
     const urlSearch = searchParams.get('search');
 
@@ -113,6 +114,10 @@ export const TicketsPage = () => {
     }
     if (urlMessageSource) {
       urlFilters.messageSourceId = urlMessageSource;
+      hasUrlFilters = true;
+    }
+    if (urlAssignee) {
+      urlFilters.assigneeId = urlAssignee;
       hasUrlFilters = true;
     }
     if (urlJira === 'true' || urlJira === 'false') {
@@ -154,6 +159,9 @@ export const TicketsPage = () => {
     if (filters.messageSourceId && filters.messageSourceId !== 'all') {
       params.set('source', filters.messageSourceId);
     }
+    if (filters.assigneeId && filters.assigneeId !== 'all') {
+      params.set('assignee', filters.assigneeId);
+    }
     if (filters.syncedToJira !== undefined) {
       params.set('jira', filters.syncedToJira.toString());
     }
@@ -171,7 +179,7 @@ export const TicketsPage = () => {
     const paramId = ticketIdParam ? parseInt(ticketIdParam) : null;
 
     // Only fetch if URL has an ID and it's different from the currently selected ticket
-    if (paramId && (selectedTicket?.id !== paramId)) {
+    if (paramId && selectedTicket?.id !== paramId) {
       const fetchAndOpenTicket = async () => {
         try {
           const response = await ticketService.getById(paramId);
@@ -223,6 +231,10 @@ export const TicketsPage = () => {
         }
         if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
           apiFilters.messageSourceId = currentFilters.messageSourceId;
+        }
+        if (currentFilters.assigneeId && currentFilters.assigneeId !== 'all') {
+          apiFilters.assigneeId =
+            currentFilters.assigneeId === 'unassigned' ? '0' : currentFilters.assigneeId;
         }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();

@@ -70,6 +70,7 @@ export type ProcessingSession = {
   kbMessagesSuccessful?: number;
   kbMessagesFailed?: number;
   kbMessagesSkipped?: number;
+  kbTotalFinalized?: boolean; // True when backend knows the definitive total (IMAP batch complete)
 };
 
 type EmailProcessingState = {
@@ -304,7 +305,7 @@ export const useEmailProcessing = (
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: 'processing',
-                  stage: 'fetching',
+                  stage: existing.stage === 'kb-processing' ? 'kb-processing' : 'fetching',
                   total,
                   processed: fetchedCount,
                   isProcessing: true, // Explicitly set when messages are found
@@ -406,12 +407,14 @@ export const useEmailProcessing = (
                 // Use event data to update current/total (shows active phase progress)
                 // If new phase but eventCurrent is 0, keep old values until phase actually starts
                 // Also never let current go back to 0 if it was previously > 0
-                const current =
+                const rawCurrent =
                   (isNewPhase && eventCurrent === 0) || (eventCurrent === 0 && existing.current > 0)
                     ? existing.current
                     : eventCurrent;
                 const total =
                   isNewPhase && eventCurrent === 0 ? existing.total : eventTotal || existing.total;
+                // Cap current at total to prevent impossible states like "100 / 52"
+                const current = total > 0 ? Math.min(rawCurrent, total) : rawCurrent;
 
                 const newProgress = total > 0 ? (current / total) * 100 : 0;
 
@@ -429,10 +432,12 @@ export const useEmailProcessing = (
                 // Keep isProcessing true when getting processing events
                 const stillProcessing = true;
 
+                // Once in KB-processing stage, don't let email:processing events revert it
+                const preserveKBStage = existing.stage === 'kb-processing' && eventStage !== 'kb-processing';
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: shouldReactivate ? 'processing' : existing.status,
-                  stage: eventStage, // Track current stage
+                  stage: preserveKBStage ? existing.stage : eventStage,
                   current,
                   total,
                   emailTotal, // Preserve original email count
@@ -484,7 +489,10 @@ export const useEmailProcessing = (
                 // Backend sends cumulative count, not incremental
                 const processed = event.data?.processed ?? existing.processed;
                 // Increment analyzed count for each processed event (messages going through AI)
-                const analyzed = (existing.analyzed ?? 0) + 1;
+                // Skip increment if KB events are managing the analyzed count (via aiAnalysisCalls)
+                const analyzed = existing.stage === 'kb-processing'
+                  ? (existing.analyzed ?? 0) // KB events set this directly
+                  : (existing.analyzed ?? 0) + 1;
                 newSessions.set(sessionKey, {
                   ...existing,
                   processed,
@@ -627,8 +635,11 @@ export const useEmailProcessing = (
 
     // Handle KB progress events (different format from email events)
     const handleKBProgress = (data: unknown) => {
+      console.log('🔔 [Frontend] Received kb:progress event:', JSON.stringify(data, null, 2));
+      
       const kbEvent = data as {
         messageSourceId: number;
+        organizationId?: number;
         status: string;
         messageSourceName: string;
         progress: number;
@@ -646,7 +657,39 @@ export const useEmailProcessing = (
           documents: number;
         };
         departmentRole?: string; // May include department
+        totalFinalized?: boolean; // True when backend knows the definitive total
+        aiAnalysisCalls?: number; // Number of AI analysis completions
       };
+
+      // Filter by department if specified - ignore events from other departments
+      if (
+        filterByDepartment &&
+        kbEvent.departmentRole &&
+        kbEvent.departmentRole !== filterByDepartment
+      ) {
+        console.log(`❌ [Frontend] Rejecting kb:progress - department mismatch: ${kbEvent.departmentRole} !== ${filterByDepartment}`);
+        return;
+      }
+
+      // Filter by organization if specified - ignore events from other organizations
+      if (filterByOrganization && kbEvent.organizationId !== filterByOrganization) {
+        console.log(`❌ [Frontend] Rejecting kb:progress - org mismatch: ${kbEvent.organizationId} !== ${filterByOrganization}`);
+        return;
+      }
+
+      console.log('✅ [Frontend] Processing kb:progress event for integration:', kbEvent.messageSourceId);
+      console.log('📊 [Frontend KB Progress] Raw event data:', {
+        status: kbEvent.status,
+        messagesTotal: kbEvent.messages?.total,
+        messagesProcessed: kbEvent.messages?.processed,
+        messagesSuccessful: kbEvent.messages?.successful,
+        messagesFailed: kbEvent.messages?.failed,
+        messagesSkipped: kbEvent.messages?.skipped,
+        kbEntriesTotal: kbEvent.kbEntries?.total,
+        kbQAPairs: kbEvent.kbEntries?.qaPairs,
+        kbDocs: kbEvent.kbEntries?.documents,
+        departmentRole: kbEvent.departmentRole,
+      });
 
       // Try to find existing email processing session first
       // Check all possible session keys for this integration
@@ -675,26 +718,58 @@ export const useEmailProcessing = (
         if (existingKey) {
           const existing = newSessions.get(existingKey);
           if (!existing) {
+            console.log(`❌ [Frontend] Existing session not found for key: ${existingKey}`);
             return newSessions;
+          }
+
+          console.log(`📝 [Frontend] Merging KB data into existing session ${existingKey}:`, {
+            existingStage: existing.stage,
+            existingEmailTotal: existing.emailTotal,
+            existingKBTotal: existing.kbMessagesTotal,
+            existingKBProcessed: existing.kbMessagesProcessed,
+            newKBMessagesTotal: kbEvent.messages?.total,
+            newKBMessagesProcessed: kbEvent.messages?.processed,
+            newKBEntriesTotal: kbEvent.kbEntries?.total,
+          });
+
+          // Total can increase as more messages are discovered during IMAP sync
+          // This is normal — only log for debugging, not as a warning
+          if (existing.kbMessagesTotal && kbEvent.messages?.total && existing.kbMessagesTotal !== kbEvent.messages.total) {
+            console.log(`📊 [Frontend] KB Total updated: ${existing.kbMessagesTotal} → ${kbEvent.messages.total} (processed: ${kbEvent.messages.processed})`);
           }
 
           // Merge KB progress into existing session
           // For standalone KB sessions (no emailTotal), also update top-level counters
           const isStandaloneKB = !existing.emailTotal && existing.stage === 'kb-processing';
-          newSessions.set(existingKey, {
+          
+          // Once totalFinalized is true, never decrease the total (prevents visual jumps
+          // from backend sending different totals for different mailboxes)
+          const incomingTotal = kbEvent.messages.total;
+          const existingFinalized = existing.kbTotalFinalized;
+          const newKBTotal = existingFinalized && existing.kbMessagesTotal
+            ? Math.max(existing.kbMessagesTotal, incomingTotal)
+            : incomingTotal;
+          // Ensure processed never exceeds total
+          const newKBProcessed = Math.min(kbEvent.messages.processed, newKBTotal);
+          // Calculate progress that never goes backwards
+          const newProgress = newKBTotal > 0 ? Math.round((newKBProcessed / newKBTotal) * 100) : 0;
+          const safeProgress = Math.max(newProgress, existing.progress ?? 0);
+          
+          const updatedSession = {
             ...existing,
             stage: 'kb-processing',
             isProcessing: kbEvent.status === 'processing',
+            // Always update analyzed from KB events (aiAnalysisCalls tracks AI completions)
+            analyzed: kbEvent.aiAnalysisCalls ?? kbEvent.messages.successful ?? existing.analyzed ?? 0,
             // Update top-level counters for standalone KB sessions
             ...(isStandaloneKB ? {
-              total: kbEvent.messages.total,
-              current: kbEvent.messages.processed,
-              processed: kbEvent.messages.processed,
+              total: newKBTotal,
+              current: newKBProcessed,
+              processed: newKBProcessed,
               successful: kbEvent.messages.successful,
-              analyzed: kbEvent.messages.successful,
               failed: kbEvent.messages.failed,
               skipped: kbEvent.messages.skipped,
-              progress: kbEvent.progress ?? 0,
+              progress: safeProgress,
             } : {}),
             // KB entry counters (how many saved)
             kbEntriesTotal: kbEvent.kbEntries?.total ?? existing.kbEntriesTotal ?? 0,
@@ -702,12 +777,22 @@ export const useEmailProcessing = (
             kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge ?? existing.kbStandaloneKnowledge ?? 0,
             kbDocuments: kbEvent.kbEntries?.documents ?? existing.kbDocuments ?? 0,
             // KB message processing progress
-            kbMessagesTotal: kbEvent.messages.total,
-            kbMessagesProcessed: kbEvent.messages.processed,
+            kbMessagesTotal: newKBTotal,
+            kbMessagesProcessed: newKBProcessed,
             kbMessagesSuccessful: kbEvent.messages.successful,
             kbMessagesFailed: kbEvent.messages.failed,
             kbMessagesSkipped: kbEvent.messages.skipped,
+            kbTotalFinalized: kbEvent.totalFinalized ?? existing.kbTotalFinalized ?? false,
+          };
+          
+          console.log(`✅ [Frontend] Updated session ${existingKey} with KB data:`, {
+            stage: updatedSession.stage,
+            kbMessagesTotal: updatedSession.kbMessagesTotal,
+            kbMessagesProcessed: updatedSession.kbMessagesProcessed,
+            kbEntriesTotal: updatedSession.kbEntriesTotal,
           });
+          
+          newSessions.set(existingKey, updatedSession);
           return newSessions;
         }
 
@@ -717,18 +802,24 @@ export const useEmailProcessing = (
         // 2. Page refreshed after email session completed but KB still running
         // 3. Email processing completed and cleaned up, but KB still running
         // CREATE a new session for standalone KB processing
+        console.log(`🆕 [Frontend] No existing session found, creating standalone KB session`);
+        
         const integrationId = kbEvent.messageSourceId;
         const departmentRole = kbEvent.departmentRole ?? 'general';
         const sessionKey = `${integrationId}-${departmentRole}`;
 
+        console.log(`📋 [Frontend] Standalone KB session key: ${sessionKey}, status: ${kbEvent.status}, total: ${kbEvent.messages.total}`);
+
         // Only create if status is processing (not idle)
         if (kbEvent.status === 'processing' && kbEvent.messages.total > 0) {
-          newSessions.set(sessionKey, {
+          console.log(`✅ [Frontend] Creating standalone KB session ${sessionKey} with ${kbEvent.messages.total} messages`);
+          
+          const newSession = {
             sessionKey,
             integrationId,
             integrationName: kbEvent.messageSourceName,
             departmentRole,
-            status: 'processing',
+            status: 'processing' as const,
             stage: 'kb-processing',
             total: kbEvent.messages.total,
             current: kbEvent.messages.processed,
@@ -750,13 +841,20 @@ export const useEmailProcessing = (
             kbMessagesSuccessful: kbEvent.messages.successful,
             kbMessagesFailed: kbEvent.messages.failed,
             kbMessagesSkipped: kbEvent.messages.skipped,
-          });
-          console.log('[KB Progress] Created new standalone KB session:', {
+            kbTotalFinalized: kbEvent.totalFinalized ?? false,
+          };
+          
+          newSessions.set(sessionKey, newSession);
+          
+          console.log('✅ [Frontend] Created standalone KB session:', {
             key: sessionKey,
             total: kbEvent.kbEntries?.total,
             qaPairs: kbEvent.kbEntries?.qaPairs,
             docs: kbEvent.kbEntries?.documents,
+            kbMessagesTotal: newSession.kbMessagesTotal,
           });
+        } else {
+          console.log(`❌ [Frontend] Not creating standalone KB session - status: ${kbEvent.status}, total: ${kbEvent.messages.total}`);
         }
 
         return newSessions;
@@ -837,6 +935,7 @@ export const useEmailProcessing = (
             kbMessagesSuccessful: kbEvent.messages?.successful,
             kbMessagesFailed: kbEvent.messages?.failed,
             kbMessagesSkipped: kbEvent.messages?.skipped,
+            kbTotalFinalized: true, // Completed = total is known
           });
           return newSessions;
         }

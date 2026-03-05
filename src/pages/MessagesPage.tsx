@@ -161,6 +161,10 @@ export const MessagesPage = () => {
         if (currentFilters.customerResponded) {
           apiFilters.customerResponded = 'true';
         }
+        if (currentFilters.assigneeId && currentFilters.assigneeId !== 'all') {
+          apiFilters.assigneeId =
+            currentFilters.assigneeId === 'unassigned' ? '0' : currentFilters.assigneeId;
+        }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
@@ -279,6 +283,7 @@ export const MessagesPage = () => {
     filters.excludeKB,
     filters.awaitingCustomerResponse,
     filters.customerResponded,
+    filters.assigneeId,
     filters.search,
     sorting.sortOrder,
   ]);
@@ -565,7 +570,7 @@ export const MessagesPage = () => {
       clearFiltersStore();
       setPendingSearch('');
     }
-    
+
     setActiveTab(tab);
   };
 
@@ -668,9 +673,10 @@ export const MessagesPage = () => {
       await apiClient.post('/api/messages/check-emails');
 
       // Wait a bit for emails to be processed, then refresh
-      setTimeout(async () => {
-        await fetchMessages(1, true);
-        setRefreshing(false);
+      setTimeout(() => {
+        fetchMessages(1, true)
+          .catch((error) => console.error('Failed to fetch messages:', error))
+          .finally(() => setRefreshing(false));
       }, 2000);
     } catch (error) {
       console.error('Failed to sync emails:', error);

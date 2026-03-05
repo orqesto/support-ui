@@ -274,4 +274,26 @@ export const messageService = {
     >(`/api/messages/${id}/kb-references`);
     return response.data;
   },
+
+  checkContradiction: async (id: number) => {
+    const response = await apiClient.post<
+      ApiResponse<{
+        triggeredBy: 'manual_request';
+        claimToVerify: string;
+        checkedAt: string;
+        result: {
+          hasContradiction: boolean;
+          contradictingMessageId?: number;
+          contradictingMessageDate?: string;
+          originalStatement?: string;
+          currentStatement?: string;
+          confidence: 'high' | 'medium' | 'low';
+          explanation?: string;
+        };
+        tokenUsage?: number;
+        costEstimate?: number;
+      }>
+    >(`/api/messages/${id}/check-contradiction`, {});
+    return response.data;
+  },
 };

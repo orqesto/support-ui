@@ -13,6 +13,7 @@ import {
   Clock,
   BookOpen,
 } from 'lucide-react';
+import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -140,101 +141,106 @@ export const MessageFilters = ({
             {/* Primary Filters Row */}
             <div className="p-4 rounded-lg border bg-muted/30">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center w-full">
-                  {/* Status Group */}
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
-                      Status:
-                    </span>
-                    <div className="flex flex-col sm:flex-row w-full sm:w-auto rounded-md shadow-sm">
-                      <Button
-                        variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('processed', 'unprocessed')}
-                        className="h-8 text-xs rounded-r-none rounded-l-md border-r-0 w-full sm:w-auto"
-                      >
-                        Unprocessed
-                      </Button>
-                      <Button
-                        variant={filters.processed === 'processed' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('processed', 'processed')}
-                        className="h-8 text-xs rounded-none border-r-0 w-full sm:w-auto"
-                      >
-                        Processed
-                      </Button>
-                      <Button
-                        variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('processed', 'resolved')}
-                        className="h-8 text-xs rounded-none border-r-0 w-full sm:w-auto"
-                      >
-                        Resolved
-                      </Button>
-                      <Button
-                        variant={filters.processed === 'all' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => onFilterChange('processed', 'all')}
-                        className="h-8 text-xs rounded-r-md rounded-l-none w-full sm:w-auto"
-                      >
-                        All
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Channel Group */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                    <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
-                      Channel:
-                    </span>
-                    <ReactSelect
-                      value={filters.channel}
-                      onChange={(value) => onFilterChange('channel', value)}
-                      options={[
-                        { value: 'all', label: 'All' },
-                        { value: 'email', label: 'Email' },
-                        { value: 'telegram', label: 'Telegram' },
-                        { value: 'slack', label: 'Slack' },
-                      ]}
-                      className="w-full sm:w-40"
-                    />
-                  </div>
-
-                  {/* Message Source Group */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                    <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
-                      Source:
-                    </span>
-                    <ReactSelect
-                      value={filters.messageSourceId ?? 'all'}
-                      onChange={(value) => onFilterChange('messageSourceId', value)}
-                      options={[
-                        { value: 'all', label: 'All Sources' },
-                        ...messageSources.map((source) => ({
-                          value: source.id.toString(),
-                          label: source.name,
-                        })),
-                      ]}
-                      className="w-full sm:w-40"
-                    />
-                  </div>
-
-                  {/* Sort Order */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                    <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
-                      Sort:
-                    </span>
-                    <ReactSelect
-                      value={sorting.sortOrder}
-                      onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-                      options={[
-                        { value: 'desc', label: 'Newest First' },
-                        { value: 'asc', label: 'Oldest First' },
-                      ]}
-                      className="w-full sm:w-40"
-                    />
+                {/* Status Group */}
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                    Status:
+                  </span>
+                  <div className="flex flex-col sm:flex-row w-full sm:w-auto rounded-md shadow-sm">
+                    <Button
+                      variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => onFilterChange('processed', 'unprocessed')}
+                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0 w-full sm:w-auto"
+                    >
+                      Unprocessed
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'processed' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => onFilterChange('processed', 'processed')}
+                      className="h-8 text-xs rounded-none border-r-0 w-full sm:w-auto"
+                    >
+                      Processed
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => onFilterChange('processed', 'resolved')}
+                      className="h-8 text-xs rounded-none border-r-0 w-full sm:w-auto"
+                    >
+                      Resolved
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => onFilterChange('processed', 'all')}
+                      className="h-8 text-xs rounded-r-md rounded-l-none w-full sm:w-auto"
+                    >
+                      All
+                    </Button>
                   </div>
                 </div>
 
+                {/* Channel Group */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                    Channel:
+                  </span>
+                  <ReactSelect
+                    value={filters.channel}
+                    onChange={(value) => onFilterChange('channel', value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'email', label: 'Email' },
+                      { value: 'telegram', label: 'Telegram' },
+                      { value: 'slack', label: 'Slack' },
+                    ]}
+                    className="w-full sm:w-40"
+                  />
+                </div>
+
+                {/* Message Source Group */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                    Source:
+                  </span>
+                  <ReactSelect
+                    value={filters.messageSourceId ?? 'all'}
+                    onChange={(value) => onFilterChange('messageSourceId', value)}
+                    options={[
+                      { value: 'all', label: 'All Sources' },
+                      ...messageSources.map((source) => ({
+                        value: source.id.toString(),
+                        label: source.name,
+                      })),
+                    ]}
+                    className="w-full sm:w-40"
+                  />
+                </div>
+
+                {/* Assignee Filter */}
+                <AssigneeFilter
+                  value={filters.assigneeId}
+                  onChange={(value) => onFilterChange('assigneeId', value)}
+                />
+
+                {/* Sort Order */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                    Sort:
+                  </span>
+                  <ReactSelect
+                    value={sorting.sortOrder}
+                    onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+                    options={[
+                      { value: 'desc', label: 'Newest First' },
+                      { value: 'asc', label: 'Oldest First' },
+                    ]}
+                    className="w-full sm:w-40"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Advanced Filters Toggle */}

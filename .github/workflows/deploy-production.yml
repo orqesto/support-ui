@@ -1,17 +1,49 @@
-name: Deploy Frontend to Production
+name: Deploy Frontend
 
 on:
   push:
     branches:
+      - staging
       - main
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Choose environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  # Determine environment: manual input takes precedence, then branch-based
+  TARGET_ENV: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }}
 
 jobs:
   deploy-frontend:
-    name: Deploy Frontend to DigitalOcean
+    name: Deploy Frontend (${{ github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }})
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }}
 
     steps:
+      - name: Set Environment Variables
+        id: env
+        run: |
+          if [ "${{ env.TARGET_ENV }}" = "staging" ]; then
+            echo "VITE_API_URL=https://api.stg.odly.ai" >> $GITHUB_OUTPUT
+            echo "VITE_APP_URL=https://stg.odly.ai" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=/var/www/frontend-staging" >> $GITHUB_OUTPUT
+            echo "NGINX_CONF=stg.odly.ai" >> $GITHUB_OUTPUT
+            echo "ENV_LABEL=STAGING" >> $GITHUB_OUTPUT
+          else
+            echo "VITE_API_URL=https://api.odly.ai" >> $GITHUB_OUTPUT
+            echo "VITE_APP_URL=https://odly.ai" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=/var/www/frontend" >> $GITHUB_OUTPUT
+            echo "NGINX_CONF=app.odly.ai" >> $GITHUB_OUTPUT
+            echo "ENV_LABEL=PRODUCTION" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -26,7 +58,8 @@ jobs:
 
       - name: Build frontend
         env:
-          VITE_API_URL: https://app.odly.ai
+          VITE_API_URL: ${{ steps.env.outputs.VITE_API_URL }}
+          VITE_APP_URL: ${{ steps.env.outputs.VITE_APP_URL }}
         run: npm run build
 
       - name: Install SSH Key
@@ -43,14 +76,16 @@ jobs:
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
+          DEPLOY_PATH: ${{ steps.env.outputs.DEPLOY_PATH }}
         run: |
-          ssh ${SSH_USER}@${SSH_HOST} << 'ENDSSH'
+          ssh ${SSH_USER}@${SSH_HOST} << ENDSSH
             set -e
 
             echo "🚀 Starting frontend deployment..."
+            DEPLOY_PATH="${DEPLOY_PATH}"
 
             # Create frontend directory if it doesn't exist
-            mkdir -p /var/www/frontend
+            mkdir -p \$DEPLOY_PATH
 
             # Install nginx if not installed
             if ! command -v nginx &> /dev/null; then
@@ -59,16 +94,18 @@ jobs:
               apt-get install -y nginx
             fi
 
-            echo "✅ Frontend directory ready"
+            echo "✅ Frontend directory ready: \$DEPLOY_PATH"
           ENDSSH
 
       - name: Copy built files
+        env:
+          DEPLOY_PATH: ${{ steps.env.outputs.DEPLOY_PATH }}
         run: |
           rsync -avz --delete \
-            ./dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/frontend/
+            ./dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${DEPLOY_PATH}/
 
           # Fix permissions after rsync
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'chown -R www-data:www-data /var/www/frontend'
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "chown -R www-data:www-data ${DEPLOY_PATH}"
 
       # Note: Nginx configuration for app.odly.ai is managed manually on the server
       # Do not regenerate configs here to avoid conflicts with landing page (odly.ai)
@@ -88,12 +125,13 @@ jobs:
       - name: Verify Deployment
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
+          APP_URL: ${{ steps.env.outputs.VITE_APP_URL }}
         run: |
           echo "🏥 Running health check..."
           sleep 3
 
           # Check if frontend is accessible
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${SSH_HOST}/ || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${APP_URL}/ || echo "000")
 
           if [ "$HTTP_CODE" = "200" ]; then
             echo "✅ Frontend health check passed!"
@@ -104,15 +142,20 @@ jobs:
 
       - name: Deployment Summary
         if: always()
+        env:
+          ENV_NAME: ${{ steps.env.outputs.ENV_LABEL }}
+          APP_URL: ${{ steps.env.outputs.VITE_APP_URL }}
+          API_URL: ${{ steps.env.outputs.VITE_API_URL }}
         run: |
-          echo "## Frontend Deployment Summary 📋" >> $GITHUB_STEP_SUMMARY
+          echo "## Frontend Deployment Summary 📋 - ${ENV_NAME}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${ENV_NAME}" >> $GITHUB_STEP_SUMMARY
           echo "- **Server IP**: ${{ secrets.SSH_HOST }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 Frontend: http://app.odly.ai" >> $GITHUB_STEP_SUMMARY
-          echo "- 📚 API Docs: http://app.odly.ai:3001/api-docs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🏥 Backend Health: http://app.odly.ai:3001/health" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend: ${APP_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 API: ${API_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏥 Backend Health: ${API_URL}/health" >> $GITHUB_STEP_SUMMARY

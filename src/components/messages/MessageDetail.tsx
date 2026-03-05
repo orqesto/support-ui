@@ -20,11 +20,13 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
+import { ContradictionAlert } from './ContradictionAlert';
 import { MessageAIAnalysis } from './MessageAIAnalysis';
 import { MessageAttachments } from './MessageAttachments';
 import { MessageBadges } from './MessageBadges';
 import { MessageKBReferences } from './MessageKBReferences';
 import { MessageThread } from './MessageThread';
+import type { ContradictionCheckMetadata } from '@/types/ai';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
@@ -81,6 +83,7 @@ export const MessageDetail = ({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const editorRef = useRef<RichTextEditorHandle>(null);
   const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
+  const [checkingContradiction, setCheckingContradiction] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -157,6 +160,48 @@ export const MessageDetail = ({
           await result.refresh(); // Refresh AFTER dialog is shown
         },
       });
+    }
+  };
+
+  const handleCheckContradiction = async () => {
+    if (!message.threadId) {
+      setAlertDialog({
+        open: true,
+        title: 'No Thread',
+        description:
+          'This message is not part of a thread. Contradiction detection requires message history.',
+        variant: 'warning',
+      });
+      return;
+    }
+
+    try {
+      setCheckingContradiction(true);
+      const response = await messageService.checkContradiction(message.id);
+
+      if (response.success && response.data) {
+        onRefresh?.();
+        setAlertDialog({
+          open: true,
+          title: response.data.result.hasContradiction
+            ? 'Contradiction Detected'
+            : 'No Contradiction Found',
+          description: response.data.result.hasContradiction
+            ? `Found contradiction with confidence: ${response.data.result.confidence}`
+            : 'The message appears consistent with previous statements in the thread.',
+          variant: response.data.result.hasContradiction ? 'warning' : 'success',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to check contradiction:', err);
+      setAlertDialog({
+        open: true,
+        title: 'Check Failed',
+        description: 'Failed to check for contradictions. Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setCheckingContradiction(false);
     }
   };
 
@@ -339,6 +384,13 @@ export const MessageDetail = ({
           </div>
         )}
       </div>
+
+      {/* Contradiction Detection Alert */}
+      {!!message.metadata?.contradictionCheck && (
+        <ContradictionAlert
+          contradictionCheck={message.metadata.contradictionCheck as ContradictionCheckMetadata}
+        />
+      )}
 
       {/* Similar Resolved Tickets - AI-powered suggestions */}
       {!message.ticketId && !message.resolved && (
@@ -752,6 +804,28 @@ export const MessageDetail = ({
                 <LinkIcon className="mr-2 w-4 h-4" />
                 {linkCopied ? 'Link Copied!' : 'Copy Link'}
               </Button>
+              {message.threadId && (
+                <Button
+                  onClick={handleCheckContradiction}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  disabled={checkingContradiction}
+                  title="Check for contradictions with previous messages"
+                >
+                  {checkingContradiction ? (
+                    <>
+                      <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="mr-2 w-4 h-4" />
+                      Check Contradiction
+                    </>
+                  )}
+                </Button>
+              )}
               {onReopen && (
                 <Button onClick={handleReopenClick} variant="outline" size="sm" className="flex-1">
                   <RotateCcw className="mr-2 w-4 h-4" />

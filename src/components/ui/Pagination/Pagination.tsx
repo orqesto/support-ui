@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../Button';
-import { getPaginationContainerClasses, getPaginationPageButtonClasses } from './pagination.styles';
+import { getPaginationPageButtonClasses } from './pagination.styles';
 import type { PaginationProps } from './pagination.types';
 
 export const Pagination = ({
@@ -10,7 +10,6 @@ export const Pagination = ({
   limit,
   onPageChange,
   loading = false,
-  size = 'md',
 }: PaginationProps) => {
   const startItem = (currentPage - 1) * limit + 1;
   const endItem = Math.min(currentPage * limit, total);
@@ -48,17 +47,15 @@ export const Pagination = ({
   };
 
   return (
-    <div
-      className={`flex flex-wrap justify-center sm:justify-between items-center gap-2 px-4 py-3 rounded-b-lg border-t border-border bg-card`}
-    >
-      {/* Информация о показе элементов */}
+    <div className="flex flex-wrap justify-center sm:justify-between items-center gap-2 px-4 py-3 rounded-b-lg border-t border-border bg-card">
+      {/* Information about shown items */}
       <div className="flex flex-wrap justify-center sm:justify-start items-center text-sm text-muted-foreground w-full sm:w-auto">
         Showing <span className="mx-1 font-medium">{startItem}</span> to{' '}
         <span className="mx-1 font-medium">{endItem}</span> of{' '}
         <span className="mx-1 font-medium">{total}</span> results
       </div>
 
-      {/* Кнопки пагинации */}
+      {/* Pagination buttons */}
       <div className="flex flex-wrap justify-center gap-2 items-center w-full sm:w-auto">
         <Button
           variant="outline"
@@ -106,5 +103,4 @@ export const Pagination = ({
       </div>
     </div>
   );
-
 };

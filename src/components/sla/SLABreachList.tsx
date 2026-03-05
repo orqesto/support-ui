@@ -90,8 +90,16 @@ export const SLABreachList = () => {
           {data.breaches.map((breach) => (
             <div
               key={`${breach.type}-${breach.id}`}
+              role="button"
+              tabIndex={0}
               className="flex justify-between items-center p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800"
               onClick={() => handleBreachClick(breach)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleBreachClick(breach);
+                }
+              }}
             >
               <div className="flex-1">
                 <div className="flex flex-wrap gap-2 items-center">
@@ -105,7 +113,7 @@ export const SLABreachList = () => {
                 </div>
 
                 <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {breach.subject || breach.title || 'No subject'}
+                  {breach.subject ?? breach.title ?? 'No subject'}
                 </p>
 
                 <p className="mt-1 text-xs text-muted-foreground">From: {breach.sender}</p>
