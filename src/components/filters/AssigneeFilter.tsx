@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
+import { useAuthStore } from '@/stores/authStore';
 
 type AssigneeFilterProps = {
   value?: string;
@@ -12,12 +13,15 @@ type AssigneeFilterProps = {
 export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const data = await assignmentService.getAssignableUsers();
+        const data = await assignmentService.getAssignableUsers(
+          selectedDepartmentRole ?? undefined
+        );
         setUsers(data);
       } catch (error) {
         console.error('Failed to fetch assignable users:', error);
@@ -27,7 +31,7 @@ export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterPro
     };
 
     fetchUsers().catch(console.error);
-  }, []);
+  }, [selectedDepartmentRole]);
 
   const options = [
     { value: 'all', label: 'All Assignees' },
