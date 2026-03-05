@@ -166,11 +166,15 @@ export const DashboardPage = () => {
       }
 
       // Combine KB entries + uploaded documentation for total KB content count
-      const kbEntryCount = kbEntriesResponse?.success ? kbEntriesResponse.data.pagination.total : 0;
-      const docCount = docStatsResponse?.totalDocs ?? 0;
+      const kbEntryCount = kbEntriesResponse?.success ? Number(kbEntriesResponse.data.pagination.total) : 0;
+      const docCount = Number(docStatsResponse?.totalDocs ?? 0);
+      const calculatedTotal = kbEntryCount + docCount;
+      console.log('kbEntryCount', kbEntryCount)
+      console.log('docCount', docCount)
+      console.log(`✅ [fetchStats] Setting kbMessages to ${calculatedTotal}`);
       setStats((prev) => ({
         ...prev,
-        kbMessages: kbEntryCount + docCount,
+        kbMessages: calculatedTotal,
       }));
 
       if (unprocessedMessagesResponse.success) {
@@ -251,9 +255,15 @@ export const DashboardPage = () => {
       totalTickets?: number;
       pendingTickets?: number;
     }) => {
+      console.log('📡 [WebSocket] Stats update received:', updatedStats);
+      // Temporarily disable kbMessages override to verify frontend calculation is correct
+      const { kbMessages, ...safeUpdates } = updatedStats;
+      if (kbMessages !== undefined) {
+        console.warn(`🚫 [WebSocket] Blocked kbMessages update: ${kbMessages} (frontend calculated value is correct)`);
+      }
       setStats((prev) => ({
         ...prev,
-        ...updatedStats,
+        ...safeUpdates, // Apply other updates but ignore kbMessages
       }));
     };
 

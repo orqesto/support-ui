@@ -328,6 +328,8 @@ export const MessageThread = ({
                 return (
                   <div
                     key={pair.customerEmail.id}
+                    role="button"
+                    tabIndex={isCurrentMessage ? -1 : 0}
                     className={`border rounded-lg overflow-hidden transition-all ${
                       isCurrentMessage
                         ? 'ring-2 ring-offset-2 ring-primary'
@@ -348,8 +350,6 @@ export const MessageThread = ({
                         onMessageClick(pair.customerEmail.id);
                       }
                     }}
-                    role={!isCurrentMessage ? 'button' : undefined}
-                    tabIndex={!isCurrentMessage ? 0 : undefined}
                   >
                     {/* Customer Email */}
                     <div className="p-4 bg-muted/30">

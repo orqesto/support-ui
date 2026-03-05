@@ -19,6 +19,7 @@ export type Documentation = {
   url: string;
   status: 'processing' | 'ready' | 'failed';
   processingError: string | null;
+  enabled: boolean;
   chunkCount: number;
   embeddingProvider: string | null;
   embeddingModel: string | null;
@@ -118,6 +119,11 @@ const deleteDocumentation = async (id: number): Promise<void> => {
   await apiClient.delete(`/api/documentation/${id}`);
 };
 
+const toggleEnabled = async (id: number, enabled: boolean): Promise<Documentation> => {
+  const response = await apiClient.patch<Documentation>(`/api/documentation/${id}/enabled`, { enabled });
+  return response.data;
+};
+
 const searchDocumentation = async (query: string, limit?: number): Promise<SearchResult[]> => {
   const response = await apiClient.post<SearchResult[]>('/api/documentation/search', {
     query,
@@ -150,6 +156,7 @@ export const documentationService = {
   getDocumentationContent,
   getProgress,
   deleteDocumentation,
+  toggleEnabled,
   searchDocumentation,
   getStats,
 };

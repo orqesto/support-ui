@@ -17,13 +17,20 @@ import {
   Download,
   Eye,
   CheckSquare,
+  Power,
   Square,
 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent } from '@/components/ui/Dialog/Dialog';
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogContent,
+} from '@/components/ui/Dialog/Dialog';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { formatDate } from '@/lib/utils';
 import {
@@ -116,7 +123,10 @@ export const DocumentationSettings = () => {
   const [documentType, setDocumentType] = useState<DocumentType>('general');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<
-    Record<string, { status: 'pending' | 'uploading' | 'success' | 'error'; progress: number; error?: string }>
+    Record<
+      string,
+      { status: 'pending' | 'uploading' | 'success' | 'error'; progress: number; error?: string }
+    >
   >({});
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; docId: number | null }>({
     open: false,
@@ -415,6 +425,18 @@ export const DocumentationSettings = () => {
     }
   };
 
+  const handleToggleEnabled = async (doc: Documentation) => {
+    try {
+      const updatedDoc = await documentationService.toggleEnabled(doc.id, !doc.enabled);
+      // Update the doc in the list
+      setDocs((prev: Documentation[]) =>
+        prev.map((d: Documentation) => (d.id === doc.id ? updatedDoc : d))
+      );
+    } catch (error) {
+      console.error('Failed to toggle documentation enabled status:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -473,9 +495,17 @@ export const DocumentationSettings = () => {
           <div>
             <div className="block mb-2 text-sm font-medium">File (PDF, TXT, or Markdown)</div>
             <div
+              role="button"
+              tabIndex={0}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  document.getElementById('doc-file')?.click();
+                }
+              }}
               className={`relative rounded-lg border-2 border-dashed transition-all ${
                 isDragging
                   ? 'border-primary bg-primary/5 scale-[1.02]'
@@ -592,7 +622,9 @@ export const DocumentationSettings = () => {
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs">
                                 <span className="text-muted-foreground">Uploading...</span>
-                                <span className="font-medium text-primary">{progress.progress}%</span>
+                                <span className="font-medium text-primary">
+                                  {progress.progress}%
+                                </span>
                               </div>
                               <div className="overflow-hidden h-1.5 rounded-full bg-muted">
                                 <div
@@ -701,21 +733,13 @@ export const DocumentationSettings = () => {
                   <span className="text-sm text-muted-foreground">
                     {selectedDocs.size} selected
                   </span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleBulkDelete}
-                  >
+                  <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
                     <Trash2 className="mr-2 w-4 h-4" />
                     Delete Selected
                   </Button>
                 </>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleAll}
-              >
+              <Button variant="outline" size="sm" onClick={handleToggleAll}>
                 {selectedDocs.size === docs.length ? (
                   <>
                     <CheckSquare className="mr-2 w-4 h-4" />
@@ -744,7 +768,9 @@ export const DocumentationSettings = () => {
               <div
                 key={doc.id}
                 className={`flex justify-between items-start p-4 rounded-lg border transition-colors dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                  selectedDocs.has(doc.id) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : ''
+                  selectedDocs.has(doc.id)
+                    ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                    : ''
                 }`}
               >
                 <div className="flex gap-3 items-start flex-1 min-w-0">
@@ -760,74 +786,74 @@ export const DocumentationSettings = () => {
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
-                  <div className="flex gap-2 items-center mb-1">
-                    <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
-                    <h4 className="font-semibold truncate">{doc.title}</h4>
-                    {getDocumentTypeBadge(doc.documentType)}
-                    <DepartmentBadge department={doc.departmentRole} size="sm" />
-                    {doc.visibility === 'organization' ? (
-                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                        <Globe className="w-3 h-3" />
-                        Shared
-                      </span>
-                    ) : (
-                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full dark:bg-gray-800 dark:text-gray-300">
-                        <Lock className="w-3 h-3" />
-                        Private
-                      </span>
-                    )}
-                    {getStatusBadge(doc.status)}
-                  </div>
-
-                  {doc.description && (
-                    <p className="mb-2 text-sm text-muted-foreground">{doc.description}</p>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span>{doc.originalFilename}</span>
-                    <span>{formatFileSize(doc.size)}</span>
-                    {doc.chunkCount > 0 && <span>{doc.chunkCount} chunks</span>}
-                    {doc.timesReferenced > 0 && (
-                      <span className="inline-flex gap-1 items-center font-medium text-purple-600 dark:text-purple-400">
-                        <BarChart3 className="w-3 h-3" />
-                        Used {doc.timesReferenced} {doc.timesReferenced === 1 ? 'time' : 'times'}
-                      </span>
-                    )}
-                    <span>Uploaded {formatDate(doc.createdAt)}</span>
-                    {doc.lastReferencedAt && (
-                      <span>Last used {formatDate(doc.lastReferencedAt)}</span>
-                    )}
-                  </div>
-
-                  {doc.status === 'processing' && docProgress[doc.id] && (
-                    <div className="mt-3 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          {docProgress[doc.id].message || 'Processing...'}
+                    <div className="flex gap-2 items-center mb-1">
+                      <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
+                      <h4 className="font-semibold truncate">{doc.title}</h4>
+                      {getDocumentTypeBadge(doc.documentType)}
+                      <DepartmentBadge department={doc.departmentRole} size="sm" />
+                      {doc.visibility === 'organization' ? (
+                        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                          <Globe className="w-3 h-3" />
+                          Shared
                         </span>
-                        <span className="font-medium text-primary">
-                          {docProgress[doc.id].percentage}%
+                      ) : (
+                        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full dark:bg-gray-800 dark:text-gray-300">
+                          <Lock className="w-3 h-3" />
+                          Private
                         </span>
-                      </div>
-                      <div className="overflow-hidden h-2 rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full transition-all duration-300 bg-primary"
-                          style={{ width: `${docProgress[doc.id].percentage}%` }}
-                        />
-                      </div>
-                      {docProgress[doc.id].current !== undefined && docProgress[doc.id].total && (
-                        <p className="text-xs text-muted-foreground">
-                          {docProgress[doc.id].current} / {docProgress[doc.id].total} chunks
-                        </p>
+                      )}
+                      {getStatusBadge(doc.status)}
+                    </div>
+
+                    {doc.description && (
+                      <p className="mb-2 text-sm text-muted-foreground">{doc.description}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                      <span>{doc.originalFilename}</span>
+                      <span>{formatFileSize(doc.size)}</span>
+                      {doc.chunkCount > 0 && <span>{doc.chunkCount} chunks</span>}
+                      {doc.timesReferenced > 0 && (
+                        <span className="inline-flex gap-1 items-center font-medium text-purple-600 dark:text-purple-400">
+                          <BarChart3 className="w-3 h-3" />
+                          Used {doc.timesReferenced} {doc.timesReferenced === 1 ? 'time' : 'times'}
+                        </span>
+                      )}
+                      <span>Uploaded {formatDate(doc.createdAt)}</span>
+                      {doc.lastReferencedAt && (
+                        <span>Last used {formatDate(doc.lastReferencedAt)}</span>
                       )}
                     </div>
-                  )}
 
-                  {doc.processingError && (
-                    <div className="p-2 mt-2 text-sm text-red-800 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
-                      Error: {doc.processingError}
-                    </div>
-                  )}
+                    {doc.status === 'processing' && docProgress[doc.id] && (
+                      <div className="mt-3 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            {docProgress[doc.id].message ?? 'Processing...'}
+                          </span>
+                          <span className="font-medium text-primary">
+                            {docProgress[doc.id].percentage}%
+                          </span>
+                        </div>
+                        <div className="overflow-hidden h-2 rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full transition-all duration-300 bg-primary"
+                            style={{ width: `${docProgress[doc.id].percentage}%` }}
+                          />
+                        </div>
+                        {docProgress[doc.id].current !== undefined && docProgress[doc.id].total && (
+                          <p className="text-xs text-muted-foreground">
+                            {docProgress[doc.id].current} / {docProgress[doc.id].total} chunks
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {doc.processingError && (
+                      <div className="p-2 mt-2 text-sm text-red-800 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
+                        Error: {doc.processingError}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -842,6 +868,17 @@ export const DocumentationSettings = () => {
                       <Eye className="w-4 h-4" />
                     </Button>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleEnabled(doc)}
+                    title={
+                      doc.enabled ? 'Disable in suggested answers' : 'Enable in suggested answers'
+                    }
+                    className={doc.enabled ? 'text-green-600' : 'text-gray-400'}
+                  >
+                    <Power className="w-4 h-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -883,7 +920,9 @@ export const DocumentationSettings = () => {
       {/* Documentation Viewer Modal */}
       <Dialog
         open={viewerDialog.open}
-        onOpenChange={(open) => !open && setViewerDialog({ open: false, doc: null, content: '', loading: false })}
+        onOpenChange={(open) =>
+          !open && setViewerDialog({ open: false, doc: null, content: '', loading: false })
+        }
         size="lg"
       >
         <DialogHeader>
@@ -893,7 +932,9 @@ export const DocumentationSettings = () => {
               {viewerDialog.doc?.originalFilename} · {viewerDialog.doc?.chunkCount} chunks
             </p>
           </div>
-          <DialogClose onClose={() => setViewerDialog({ open: false, doc: null, content: '', loading: false })} />
+          <DialogClose
+            onClose={() => setViewerDialog({ open: false, doc: null, content: '', loading: false })}
+          />
         </DialogHeader>
         <DialogContent className="overflow-auto max-h-[60vh] bg-gray-50 dark:bg-gray-900">
           {viewerDialog.loading ? (
@@ -907,7 +948,7 @@ export const DocumentationSettings = () => {
               style={{
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
-                overflowWrap: 'anywhere'
+                overflowWrap: 'anywhere',
               }}
             >
               {viewerDialog.content}
