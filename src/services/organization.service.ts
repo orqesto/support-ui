@@ -119,7 +119,12 @@ export const organizationService = {
 
   getAutoReply: async () => {
     const response = await apiClient.get<
-      ApiResponse<{ enabled: boolean; requestMissingInfo: boolean; suggestSolutions: boolean; highConfidenceThreshold: number }>
+      ApiResponse<{
+        enabled: boolean;
+        requestMissingInfo: boolean;
+        suggestSolutions: boolean;
+        highConfidenceThreshold: number;
+      }>
     >('/api/organizations/auto-reply');
     return {
       enabled: response.data.data?.enabled ?? false,
@@ -129,11 +134,20 @@ export const organizationService = {
     };
   },
 
-  updateAutoReply: async (data: { enabled?: boolean; requestMissingInfo?: boolean; suggestSolutions?: boolean; highConfidenceThreshold?: number }) => {
+  updateAutoReply: async (data: {
+    enabled?: boolean;
+    requestMissingInfo?: boolean;
+    suggestSolutions?: boolean;
+    highConfidenceThreshold?: number;
+  }) => {
     const response = await apiClient.patch<
-      ApiResponse<{ enabled: boolean; requestMissingInfo: boolean; suggestSolutions: boolean; highConfidenceThreshold: number }>
-    >('/api/organizations/auto-reply', data
-    );
+      ApiResponse<{
+        enabled: boolean;
+        requestMissingInfo: boolean;
+        suggestSolutions: boolean;
+        highConfidenceThreshold: number;
+      }>
+    >('/api/organizations/auto-reply', data);
     return response.data;
   },
 };
