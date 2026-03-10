@@ -84,7 +84,8 @@ export const MessagesPage = () => {
     hasMore: false,
   });
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
-  const fetchingRef = useRef(false); // Track if fetch is in progress
+  const messagesFetchingRef = useRef(false);
+  const spamFetchingRef = useRef(false);
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
@@ -100,11 +101,11 @@ export const MessagesPage = () => {
       }
 
       // Prevent duplicate simultaneous calls (e.g., from React StrictMode)
-      if (fetchingRef.current && !force) {
+      if (messagesFetchingRef.current && !force) {
         return;
       }
 
-      fetchingRef.current = true;
+      messagesFetchingRef.current = true;
       setLoading(true);
       try {
         // Build API filters
@@ -220,7 +221,7 @@ export const MessagesPage = () => {
         console.error('Failed to fetch messages:', error);
       } finally {
         setLoading(false);
-        fetchingRef.current = false;
+        messagesFetchingRef.current = false;
       }
     },
     [getCached, setMessages, pagination.limit]
@@ -228,11 +229,11 @@ export const MessagesPage = () => {
 
   const fetchSpamLogs = useCallback(
     async (page = 1, force = false) => {
-      if (fetchingRef.current && !force) {
+      if (spamFetchingRef.current && !force) {
         return;
       }
 
-      fetchingRef.current = true;
+      spamFetchingRef.current = true;
       setLoading(true);
       try {
         const response = await spamLogService.getAll(spamFilters, page, pagination.limit);
@@ -249,7 +250,7 @@ export const MessagesPage = () => {
         console.error('Failed to fetch spam logs:', error);
       } finally {
         setLoading(false);
-        fetchingRef.current = false;
+        spamFetchingRef.current = false;
       }
     },
     [spamFilters, pagination.limit]

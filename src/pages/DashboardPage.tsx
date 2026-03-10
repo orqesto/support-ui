@@ -104,7 +104,7 @@ export const DashboardPage = () => {
       } else {
         // No messages processed - show "no new messages" feedback
         setNoNewMessagesInfo({ show: true, type: 'email' });
-        
+
         // Auto-hide after 5 seconds
         setTimeout(() => {
           setNoNewMessagesInfo({ show: false, type: null });
@@ -127,9 +127,9 @@ export const DashboardPage = () => {
           console.error('Failed to refresh stats after telegram processing:', error);
         });
       } else {
-        // No messages processed - show "no new messages" feedback  
+        // No messages processed - show "no new messages" feedback
         setNoNewMessagesInfo({ show: true, type: 'telegram' });
-        
+
         // Auto-hide after 5 seconds
         setTimeout(() => {
           setNoNewMessagesInfo({ show: false, type: null });
@@ -166,11 +166,13 @@ export const DashboardPage = () => {
       }
 
       // Combine KB entries + uploaded documentation for total KB content count
-      const kbEntryCount = kbEntriesResponse?.success ? Number(kbEntriesResponse.data.pagination.total) : 0;
+      const kbEntryCount = kbEntriesResponse?.success
+        ? Number(kbEntriesResponse.data.pagination.total)
+        : 0;
       const docCount = Number(docStatsResponse?.totalDocs ?? 0);
       const calculatedTotal = kbEntryCount + docCount;
-      console.log('kbEntryCount', kbEntryCount)
-      console.log('docCount', docCount)
+      console.log('kbEntryCount', kbEntryCount);
+      console.log('docCount', docCount);
       console.log(`✅ [fetchStats] Setting kbMessages to ${calculatedTotal}`);
       setStats((prev) => ({
         ...prev,
@@ -259,7 +261,9 @@ export const DashboardPage = () => {
       // Temporarily disable kbMessages override to verify frontend calculation is correct
       const { kbMessages, ...safeUpdates } = updatedStats;
       if (kbMessages !== undefined) {
-        console.warn(`🚫 [WebSocket] Blocked kbMessages update: ${kbMessages} (frontend calculated value is correct)`);
+        console.warn(
+          `🚫 [WebSocket] Blocked kbMessages update: ${kbMessages} (frontend calculated value is correct)`
+        );
       }
       setStats((prev) => ({
         ...prev,
@@ -347,15 +351,15 @@ export const DashboardPage = () => {
         // Poll stats for 60 seconds to catch async processing
         let attempts = 0;
         const maxAttempts = 12; // 12 attempts × 5s = 60 seconds
-        pollingIntervalRef.current = setInterval(async () => {
+        pollingIntervalRef.current = setInterval(() => {
           attempts++;
-          await fetchStats();
-
-          // Stop polling after max attempts
-          if (attempts >= maxAttempts && pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
+          void fetchStats().then(() => {
+            // Stop polling after max attempts
+            if (attempts >= maxAttempts && pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          });
         }, 5000) as unknown as number;
       }
     } catch (error) {
@@ -490,8 +494,7 @@ export const DashboardPage = () => {
                           Active
                         </>
                       )}
-                      {(stat.title === 'Knowledge Base' ||
-                        stat.title === 'Total Tickets') && (
+                      {(stat.title === 'Knowledge Base' || stat.title === 'Total Tickets') && (
                         <>
                           <BarChart3 className="w-3 h-3" />
                           All time

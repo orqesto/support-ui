@@ -13,6 +13,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
+import { LeadQualificationPanel } from './LeadQualificationPanel';
 import { TicketAttachments } from './TicketAttachments';
 import { TicketComments } from './TicketComments';
 import { TranslateButton } from '@/components/shared/TranslateButton';
@@ -243,10 +244,21 @@ export const TicketDetail = ({
         </div>
       )}
 
-      {/* Metadata */}
+      {/* Lead Qualification Panel */}
+      {!!ticket.metadata?.leadState && (
+        <div className="pt-6 border-t">
+          <LeadQualificationPanel
+            leadState={
+              ticket.metadata.leadState as Parameters<typeof LeadQualificationPanel>[0]['leadState']
+            }
+          />
+        </div>
+      )}
+
+      {/* Metadata (non-lead-qual tickets only) */}
       {ticket.metadata &&
+        !ticket.metadata.leadState &&
         (() => {
-          // Filter out embedding field
           const { embedding, ...displayMetadata } = ticket.metadata;
           return Object.keys(displayMetadata).length > 0 ? (
             <div className="pt-6 border-t">
