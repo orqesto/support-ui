@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import {
@@ -108,12 +108,12 @@ export const SearchInput = ({
             onMouseDown={(e) => e.preventDefault()}
             className={cn(
               getSearchButtonClasses(size),
-              'text-white/60 hover:text-primary dark:text-white/40'
+              'text-black/60 hover:text-primary dark:text-white/40'
             )}
             title="Search"
             aria-label="Search"
           >
-            {/* <Search className={getSearchIconClasses(size)} /> */}
+            <Search className={getSearchIconClasses(size)} />
           </Button>
         )}
       </div>

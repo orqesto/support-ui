@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { Lock, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Lock, User, Tag, X } from 'lucide-react';
+import { userService } from '@/services/user.service';
+import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
@@ -8,6 +10,39 @@ import { useAuthStore } from '@/stores/authStore';
 export const ProfileSettings = () => {
   const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(false);
+
+  const [skillValues, setSkillValues] = useState<Record<string, string[]>>({});
+  const [canEditSkills, setCanEditSkills] = useState(false);
+  const [routingKeys, setRoutingKeys] = useState<Array<{ id: number; key: string; description: string | null }>>([]);
+  const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (user?.id) {
+      void userService.getSelfSkillValues().then(setSkillValues).catch(() => setSkillValues({}));
+      void userService.getSelfCanEditSkills().then(setCanEditSkills).catch(() => setCanEditSkills(false));
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    void organizationService.getRoutingKeys().then(setRoutingKeys).catch(() => setRoutingKeys([]));
+  }, []);
+
+  const handleAddValue = (key: string) => {
+    const raw = skillInputs[key]?.trim() ?? '';
+    if (!raw) return;
+    const newVals = raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
+    setSkillValues((prev) => ({ ...prev, [key]: merged }));
+    setSkillInputs((prev) => ({ ...prev, [key]: '' }));
+    void userService.setSelfSkillValues(key, merged);
+  };
+
+  const handleRemoveValue = (key: string, value: string) => {
+    const next = (skillValues[key] ?? []).filter((v) => v !== value);
+    setSkillValues((prev) => ({ ...prev, [key]: next }));
+    void userService.setSelfSkillValues(key, next);
+  };
+
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -23,39 +58,23 @@ export const ProfileSettings = () => {
     e.preventDefault();
     setNotification(null);
 
-    // Validation
     if (passwords.new.length < 8) {
-      setNotification({
-        type: 'error',
-        message: 'New password must be at least 8 characters',
-      });
+      setNotification({ type: 'error', message: 'New password must be at least 8 characters' });
       return;
     }
-
     if (passwords.new !== passwords.confirm) {
-      setNotification({
-        type: 'error',
-        message: 'New passwords do not match',
-      });
+      setNotification({ type: 'error', message: 'New passwords do not match' });
       return;
     }
-
     if (passwords.new === passwords.current) {
-      setNotification({
-        type: 'error',
-        message: 'New password must be different from current password',
-      });
+      setNotification({ type: 'error', message: 'New password must be different from current password' });
       return;
     }
 
     setLoading(true);
-
     try {
       await authService.changePassword(passwords.current, passwords.new);
-      setNotification({
-        type: 'success',
-        message: 'Password changed successfully',
-      });
+      setNotification({ type: 'success', message: 'Password changed successfully' });
       setPasswords({ current: '', new: '', confirm: '' });
     } catch (error) {
       setNotification({
@@ -107,6 +126,92 @@ export const ProfileSettings = () => {
           </div>
         </div>
       </div>
+
+      {/* Routing Skills */}
+      {routingKeys.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
+            <Tag className="w-5 h-5 text-blue-500" />
+            Routing Skills
+          </h3>
+          <div className="space-y-3">
+            {routingKeys.map(({ key, description }) => {
+              const values = skillValues[key] ?? [];
+              if (!canEditSkills && values.length === 0) return null;
+              return (
+                <div key={key} className="p-3 rounded-md border border-border bg-muted/20">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {key}
+                    </span>
+                    {description && (
+                      <span className="text-xs text-muted-foreground">{description}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {values.map((val) => (
+                      <span
+                        key={val}
+                        className="flex gap-1 items-center px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                      >
+                        {val}
+                        {canEditSkills && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveValue(key, val)}
+                            className="hover:text-red-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                    {values.length === 0 && (
+                      <span className="text-xs text-muted-foreground italic">None set</span>
+                    )}
+                  </div>
+                  {canEditSkills && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={skillInputs[key] ?? ''}
+                        onChange={(e) =>
+                          setSkillInputs((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddValue(key);
+                          }
+                        }}
+                        placeholder="e.g. de, en (comma-separated)"
+                        className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddValue(key)}
+                        className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {!canEditSkills && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Contact your administrator to update your routing skills.
+            </p>
+          )}
+          {canEditSkills && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Tickets matching your skill values will be routed to you automatically.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Change Password */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">

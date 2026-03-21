@@ -290,3 +290,75 @@ export const settingsService = {
   updateKnowledgeDetectionRule,
   deleteKnowledgeDetectionRule,
 };
+
+// ==================== Labels ====================
+
+export type Label = {
+  id: number;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const getLabels = async (): Promise<Label[]> => {
+  const response: AxiosResponse<ApiResponse<Label[]>> = await apiClient.get('/api/labels');
+  return response.data.data as Label[];
+};
+
+const createLabel = async (data: { name: string; color: string }): Promise<Label> => {
+  const response: AxiosResponse<ApiResponse<Label>> = await apiClient.post('/api/labels', data);
+  return response.data.data as Label;
+};
+
+const updateLabel = async (id: number, data: { name?: string; color?: string }): Promise<Label> => {
+  const response: AxiosResponse<ApiResponse<Label>> = await apiClient.put(`/api/labels/${id}`, data);
+  return response.data.data as Label;
+};
+
+const deleteLabel = async (id: number): Promise<void> => {
+  await apiClient.delete(`/api/labels/${id}`);
+};
+
+const getTicketLabels = async (ticketId: number): Promise<Label[]> => {
+  const response: AxiosResponse<ApiResponse<Label[]>> = await apiClient.get(
+    `/api/labels/tickets/${ticketId}`
+  );
+  return response.data.data as Label[];
+};
+
+const assignLabelToTicket = async (ticketId: number, labelId: number): Promise<void> => {
+  await apiClient.post(`/api/labels/tickets/${ticketId}/${labelId}`);
+};
+
+const removeLabelFromTicket = async (ticketId: number, labelId: number): Promise<void> => {
+  await apiClient.delete(`/api/labels/tickets/${ticketId}/${labelId}`);
+};
+
+const getMessageLabels = async (messageId: number): Promise<Label[]> => {
+  const response: AxiosResponse<ApiResponse<Label[]>> = await apiClient.get(
+    `/api/labels/messages/${messageId}`
+  );
+  return response.data.data as Label[];
+};
+
+const assignLabelToMessage = async (messageId: number, labelId: number): Promise<void> => {
+  await apiClient.post(`/api/labels/messages/${messageId}/${labelId}`);
+};
+
+const removeLabelFromMessage = async (messageId: number, labelId: number): Promise<void> => {
+  await apiClient.delete(`/api/labels/messages/${messageId}/${labelId}`);
+};
+
+export const labelService = {
+  getLabels,
+  createLabel,
+  updateLabel,
+  deleteLabel,
+  getTicketLabels,
+  assignLabelToTicket,
+  removeLabelFromTicket,
+  getMessageLabels,
+  assignLabelToMessage,
+  removeLabelFromMessage,
+};

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb, Copy, CheckCircle, ExternalLink } from 'lucide-react';
+import { Lightbulb, Copy, CheckCircle, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +38,7 @@ type SimilarTicketsProps = {
 export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps) => {
   const [similarTickets, setSimilarTickets] = useState<SimilarTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -162,23 +163,27 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
   }
 
   return (
-    <div className="p-4 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200 dark:from-yellow-950/20 dark:to-amber-950/20 dark:border-yellow-800">
-      <div className="flex gap-2 items-center mb-3">
-        <Lightbulb className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-        <h3 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-          💡 Similar Resolved Issues
-        </h3>
+    <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200 dark:from-yellow-950/20 dark:to-amber-950/20 dark:border-yellow-800">
+      <button
+        className="flex gap-2 items-center p-4 w-full text-left transition-colors hover:bg-yellow-100/50 dark:hover:bg-yellow-900/20"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? (
+          <ChevronDown className="w-4 h-4 text-yellow-700 dark:text-yellow-400 shrink-0" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-yellow-700 dark:text-yellow-400 shrink-0" />
+        )}
+        <Lightbulb className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+        <span className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
+          Similar Resolved Issues
+        </span>
         <Badge variant="secondary" className="ml-auto">
           {similarTickets.length} found
         </Badge>
-      </div>
+      </button>
 
-      <p className="mb-4 text-xs text-yellow-700 dark:text-yellow-300">
-        Similar issues that were successfully resolved. Includes both tickets and direct message
-        replies. You can use these responses as a starting point.
-      </p>
-
-      <div className="space-y-3">
+      {expanded && (
+      <div className="px-4 pb-4 space-y-3">
         {similarTickets.map((ticket) => (
           <div
             key={
@@ -311,6 +316,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 };

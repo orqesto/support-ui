@@ -141,19 +141,6 @@ export const MessageThread = ({
         const response = await messageService.getThreadMessages(messageId);
         const allMessages = response.data ?? [];
 
-        console.log('🧵 Thread Messages Fetched:', {
-          messageId,
-          currentThreadId,
-          totalMessages: allMessages.length,
-          messages: allMessages.map((m) => ({
-            id: m.id,
-            sender: m.sender,
-            content: m.content.substring(0, 50),
-            isOutgoing: m.isOutgoing,
-            directReply: !!m.directReply,
-            threadId: m.threadId,
-          })),
-        });
 
         // Sort by creation date
         allMessages.sort(
@@ -188,16 +175,6 @@ export const MessageThread = ({
           }
         });
 
-        console.log('🧵 Categorized Messages:', {
-          customerEmails: customerEmails.length,
-          systemEmails: systemEmails.length,
-          customers: customerEmails.map((m) => ({ id: m.id, sender: m.sender })),
-          systems: systemEmails.map((m) => ({
-            id: m.id,
-            sender: m.sender,
-            isOutgoing: m.isOutgoing,
-          })),
-        });
 
         // Create conversation pairs
         const pairs: ConversationPair[] = [];
@@ -240,14 +217,6 @@ export const MessageThread = ({
           });
         });
 
-        console.log('🧵 Created Pairs:', {
-          totalPairs: pairs.length,
-          pairs: pairs.map((p) => ({
-            customer: p.customerEmail.id,
-            hasReply: !!p.systemReply,
-            replyId: p.systemReply?.id,
-          })),
-        });
 
         setConversationPairs(pairs);
       } catch (err) {
