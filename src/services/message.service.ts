@@ -1,6 +1,18 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
-import type { Message, ApiResponse } from '@/types';
+import type { Message, ApiResponse, MessageStatus, TicketPriority } from '@/types';
+
+export type MessageNote = {
+  id: number;
+  messageId: number;
+  userId: number | null;
+  authorName: string;
+  content: string;
+  isInternal: boolean;
+  createdAt: string;
+  updatedAt: string;
+  user?: { id: number; firstName: string; lastName: string | null; email: string } | null;
+};
 
 export type PaginationMeta = {
   page: number;
@@ -30,6 +42,26 @@ export type MetadataResponse = {
   metadata: MessagesMetadata;
 };
 
+export type MessageContact = {
+  sender: string;
+  messageCount: number;
+  subjectCount: number;
+  lastMessageAt: string;
+  hasUnread: boolean;
+  hasTicket: boolean;
+  isLead: boolean;
+};
+
+export type MessageContactSubject = {
+  normalizedSubject: string;
+  displaySubject: string;
+  messageCount: number;
+  lastMessageAt: string;
+  latestMessageId: number;
+  isLead: boolean;
+  hasTicket: boolean;
+};
+
 export type MessageThread = {
   threadId: string;
   messageCount: number;
@@ -38,6 +70,8 @@ export type MessageThread = {
   hasUnread: boolean;
   hasTicket: boolean;
   isResolved: boolean;
+  isLead: boolean;
+  lastReplyFromClient: boolean;
   lastMessageAt: Date;
   latestMessage: Message | null;
 };
@@ -166,6 +200,13 @@ export const messageService = {
     return response.data;
   },
 
+  classify: async (id: number, action: 'approve' | 'mark_suspicious') => {
+    const response = await apiClient.patch<ApiResponse<void>>(`/api/messages/${id}/classify`, {
+      action,
+    });
+    return response.data;
+  },
+
   getThreadMessages: async (id: number) => {
     const response = await apiClient.get<ApiResponse<Message[]>>(`/api/messages/${id}/thread`);
     return response.data;
@@ -275,6 +316,59 @@ export const messageService = {
     return response.data;
   },
 
+  // ─── Message ticket parity ───────────────────────────────────────────────
+
+  getNotes: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<MessageNote[]>>(`/api/messages/${id}/notes`);
+    return response.data;
+  },
+
+  addNote: async (id: number, content: string) => {
+    const response = await apiClient.post<ApiResponse<MessageNote>>(`/api/messages/${id}/notes`, {
+      content,
+    });
+    return response.data;
+  },
+
+  setStatus: async (id: number, status: MessageStatus) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; status: MessageStatus }>>(
+      `/api/messages/${id}/status`,
+      { status }
+    );
+    return response.data;
+  },
+
+  setPriority: async (id: number, priority: TicketPriority) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; priority: TicketPriority }>>(
+      `/api/messages/${id}/priority`,
+      { priority }
+    );
+    return response.data;
+  },
+
+  setCategory: async (id: number, categoryId: number | null) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; categoryId: number | null }>>(
+      `/api/messages/${id}/category`,
+      { categoryId }
+    );
+    return response.data;
+  },
+
+  close: async (id: number) => {
+    const response = await apiClient.post<
+      ApiResponse<{ id: number; status: string; closedAt: string }>
+    >(`/api/messages/${id}/close`, {});
+    return response.data;
+  },
+
+  markAsLead: async (id: number, isLead: boolean) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; isLead: boolean }>>(
+      `/api/messages/${id}/lead`,
+      { isLead }
+    );
+    return response.data;
+  },
+
   checkContradiction: async (id: number) => {
     const response = await apiClient.post<
       ApiResponse<{
@@ -294,6 +388,26 @@ export const messageService = {
         costEstimate?: number;
       }>
     >(`/api/messages/${id}/check-contradiction`, {});
+    return response.data;
+  },
+
+  getContacts: async (filters?: Record<string, string>, page = 1, limit = 50) => {
+    const params = new URLSearchParams({
+      ...filters,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const response = await apiClient.get<PaginatedResponse<MessageContact[]>>(
+      `/api/messages/contacts?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  getContactSubjects: async (sender: string, filters?: Record<string, string>) => {
+    const params = new URLSearchParams({ ...filters, sender });
+    const response = await apiClient.get<{ success: boolean; data: MessageContactSubject[] }>(
+      `/api/messages/contacts/subjects?${params.toString()}`
+    );
     return response.data;
   },
 };

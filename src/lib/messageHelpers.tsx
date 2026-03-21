@@ -1,14 +1,15 @@
 import { Mail, MessageSquare, Send } from 'lucide-react';
 
-export const getChannelIcon = (channel: string) => {
+export const getChannelIcon = (channel: string | null | undefined) => {
   switch (channel) {
     case 'email':
       return <Mail className="w-4 h-4" />;
     case 'slack':
     case 'telegram':
+    case 'chat':
       return <MessageSquare className="w-4 h-4" />;
     default:
-      return <Send className="w-4 h-4" />;
+      return <Mail className="w-4 h-4" />;
   }
 };
 
@@ -35,7 +36,14 @@ type SpamCheckData = {
   reason?: string;
   redFlags?: string[];
   greenFlags?: string[];
+  handling?: string;
+  intent?: string;
 };
+
+const FILTERED_HANDLINGS = new Set(['ignore', 'archive', 'flag_security']);
+
+export const isFilteredSpamCheck = (spamCheck?: SpamCheckData): boolean =>
+  !!spamCheck?.handling && FILTERED_HANDLINGS.has(spamCheck.handling);
 
 export const getSpamCheck = (message: {
   metadata?: Record<string, unknown> | null;

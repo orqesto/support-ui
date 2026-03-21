@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Tag, X } from 'lucide-react';
+import { userService } from '@/services/user.service';
+import { organizationService, type Organization } from '@/services/organization.service';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -13,7 +15,6 @@ import {
 } from '@/components/ui/Dialog';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
-import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { User, DepartmentRole } from '@/types';
 import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
@@ -82,6 +83,12 @@ export const EditUserModal = ({
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
 
+  // Skill values state
+  const [skillValues, setSkillValues] = useState<Record<string, string[]>>({});
+  const [routingKeys, setRoutingKeys] = useState<Array<{ id: number; key: string; description: string | null }>>([]);
+  const [canEditSkills, setCanEditSkillsState] = useState(false);
+  const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
+
   // Check if user is editing their own profile
   const isEditingSelf = currentUser && user && currentUser.id === user.id;
   const canEditRoles = isAdmin ?? (canManageUsers && !isEditingSelf);
@@ -129,8 +136,37 @@ export const EditUserModal = ({
       setOrganizationRole(user.organizationRole ?? 'associate');
       setSelectedDepartments(user.departmentRoles ?? ['support']);
       setSelectedOrgId(user.organizationId);
+      void userService.getSkillValues(user.id).then(setSkillValues).catch(() => setSkillValues({}));
+      void userService.getCanEditSkills(user.id).then(setCanEditSkillsState).catch(() => setCanEditSkillsState(false));
     }
   }, [user]);
+
+  useEffect(() => {
+    void organizationService.getRoutingKeys().then(setRoutingKeys).catch(() => setRoutingKeys([]));
+  }, []);
+
+  const handleAddValue = (key: string) => {
+    const raw = skillInputs[key]?.trim() ?? '';
+    if (!raw || !user) return;
+    const newVals = raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
+    setSkillValues((prev) => ({ ...prev, [key]: merged }));
+    setSkillInputs((prev) => ({ ...prev, [key]: '' }));
+    void userService.setSkillValues(user.id, key, merged);
+  };
+
+  const handleRemoveValue = (key: string, value: string) => {
+    if (!user) return;
+    const next = (skillValues[key] ?? []).filter((v) => v !== value);
+    setSkillValues((prev) => ({ ...prev, [key]: next }));
+    void userService.setSkillValues(user.id, key, next);
+  };
+
+  const handleToggleCanEditSkills = (checked: boolean) => {
+    if (!user) return;
+    setCanEditSkillsState(checked);
+    void userService.setCanEditSkills(user.id, checked);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -389,7 +425,7 @@ export const EditUserModal = ({
                         </label>
                       ))}
                     </div>
-                    <p className="mt-1 -mt-2 text-xs text-muted-foreground">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       User can access tickets and messages from selected departments
                     </p>
                   </div>
@@ -437,6 +473,102 @@ export const EditUserModal = ({
                   <div className="px-3 py-2 text-sm rounded-md bg-muted">{position ?? '—'}</div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Position can only be changed by administrators
+                  </p>
+                </div>
+              )}
+              {/* Routing skill values for auto-routing */}
+              {canManageUsers && (
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="flex gap-1 items-center text-sm font-medium">
+                      <Tag className="w-3.5 h-3.5" />
+                      Routing Skills
+                    </label>
+                    <label className="flex gap-2 items-center cursor-pointer">
+                      <span className="text-xs text-muted-foreground">Allow self-edit</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={canEditSkills}
+                        onClick={() => handleToggleCanEditSkills(!canEditSkills)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
+                          canEditSkills ? 'bg-primary' : 'bg-muted-foreground/30'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                            canEditSkills ? 'translate-x-4' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </label>
+                  </div>
+                  {routingKeys.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No routing keys defined. Add routing keys in Organization Settings.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {routingKeys.map(({ key, description }) => (
+                        <div key={key} className="p-3 rounded-md border border-border bg-muted/20">
+                          <div className="flex justify-between items-baseline mb-2">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {key}
+                            </span>
+                            {description && (
+                              <span className="text-xs text-muted-foreground">{description}</span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {(skillValues[key] ?? []).map((val) => (
+                              <span
+                                key={val}
+                                className="flex gap-1 items-center px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                              >
+                                {val}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveValue(key, val)}
+                                  className="hover:text-red-500"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))}
+                            {(skillValues[key] ?? []).length === 0 && (
+                              <span className="text-xs text-muted-foreground italic">None set</span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={skillInputs[key] ?? ''}
+                              onChange={(e) =>
+                                setSkillInputs((prev) => ({ ...prev, [key]: e.target.value }))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddValue(key);
+                                }
+                              }}
+                              placeholder="e.g. de, en (comma-separated)"
+                              className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddValue(key)}
+                              className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Skill values are matched against incoming message attributes for auto-assignment.
                   </p>
                 </div>
               )}

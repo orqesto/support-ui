@@ -1,15 +1,16 @@
-/**
- * TODO: Finish Usage Stats Page Implementation
- * - Implement detailed usage tracking and analytics
- * - Add time-series charts for usage trends
- * - Implement usage breakdowns by department/user
- * - Add export functionality for usage reports
- * - Implement usage alerts and notifications
- * - Connect with actual usage data from backend
- */
 import { useEffect, useState } from 'react';
-import { AlertCircle, ArrowLeft, Download, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Download, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -28,18 +29,37 @@ type UsageModule = {
   unitName: string;
 };
 
+type HistoryRow = { date: string; moduleName: string; displayName: string; total: number };
+
+// Pivot history rows into recharts-friendly [{date, moduleA, moduleB, ...}]
+function pivotHistory(rows: HistoryRow[]): Record<string, string | number>[] {
+  const byDate = new Map<string, Record<string, string | number>>();
+  for (const row of rows) {
+    if (!byDate.has(row.date)) byDate.set(row.date, { date: row.date });
+    const entry = byDate.get(row.date)!;
+    entry[row.displayName] = (Number(entry[row.displayName] ?? 0)) + Number(row.total);
+  }
+  return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899'];
+
 export const UsageStatsPage = () => {
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageModule[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [historyDays, setHistoryDays] = useState(30);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUsage = async () => {
       try {
-        const res = await apiClient.get<{ success: boolean; data: { usage: UsageModule[] } }>(
-          '/api/subscriptions/usage'
-        );
-        setUsage(res.data.data.usage);
+        const [usageRes, historyRes] = await Promise.all([
+          apiClient.get<{ success: boolean; data: { usage: UsageModule[] } }>('/api/subscriptions/usage'),
+          apiClient.get<{ success: boolean; data: { history: HistoryRow[] } }>(`/api/subscriptions/usage/history?days=${historyDays}`),
+        ]);
+        setUsage(usageRes.data.data.usage);
+        setHistory(historyRes.data.data.history);
       } catch (error) {
         console.error('Failed to load usage:', error);
       } finally {
@@ -48,7 +68,7 @@ export const UsageStatsPage = () => {
     };
 
     void fetchUsage();
-  }, []);
+  }, [historyDays]);
 
   const totalUsed = usage.reduce((sum, m) => sum + m.current, 0);
   const totalIncluded = usage.reduce((sum, m) => sum + m.included, 0);
@@ -152,6 +172,86 @@ export const UsageStatsPage = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Usage alerts — modules >= 80% */}
+        {usage.filter((m) => m.included > 0 && (m.current / m.included) >= 0.8).length > 0 && (
+          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+            <CardContent className="p-4">
+              <div className="flex gap-2 items-start">
+                <AlertTriangle className="mt-0.5 w-4 h-4 text-orange-600 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-orange-800 dark:text-orange-400">Usage Alert</p>
+                  {usage
+                    .filter((m) => m.included > 0 && (m.current / m.included) >= 0.8)
+                    .map((m) => (
+                      <p key={m.moduleName} className="text-sm text-orange-700 dark:text-orange-300">
+                        <span className="font-medium">{m.displayName}</span> is at{' '}
+                        {((m.current / m.included) * 100).toFixed(0)}% of limit
+                        {m.overage > 0 && ` (+${m.overage.toLocaleString()} overage)`}
+                      </p>
+                    ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Time-series chart */}
+        {history.length > 0 && (() => {
+          const chartData = pivotHistory(history);
+          const moduleNames = [...new Set(history.map((r) => r.displayName))];
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium">Daily Usage Trend</CardTitle>
+                  <div className="flex rounded-md border border-border overflow-hidden">
+                    {[7, 30, 90].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setHistoryDays(d)}
+                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                          historyDays === d
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {d}d
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v: string) => v.slice(5)} // MM-DD
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    {moduleNames.map((name, i) => (
+                      <Area
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stackId="1"
+                        stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                        fill={CHART_COLORS[i % CHART_COLORS.length]}
+                        fillOpacity={0.15}
+                      />
+                    ))}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Module Usage Details */}
         <Card>
