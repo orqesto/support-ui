@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ExternalLink as ExternalLinkIcon,
   Edit2,
@@ -9,11 +9,13 @@ import {
   Mail,
   Link as LinkIcon,
   Maximize2,
+  Tag,
+  X,
+  Plus,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
-import { LeadQualificationPanel } from './LeadQualificationPanel';
 import { TicketAttachments } from './TicketAttachments';
 import { TicketComments } from './TicketComments';
 import { TranslateButton } from '@/components/shared/TranslateButton';
@@ -22,6 +24,9 @@ import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
+import { labelService, type Label } from '@/services/settings.service';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message } from '@/types';
 
 type TicketDetailProps = {
@@ -61,9 +66,26 @@ export const TicketDetail = ({
 }: TicketDetailProps) => {
   const location = useLocation();
   const isFullPage = location.pathname.startsWith('/tickets/');
+  const { hasPermission } = usePermissions();
+  const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
   const [linkedMessages, setLinkedMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
+  const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const labelPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showLabelPicker) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (labelPickerRef.current && !labelPickerRef.current.contains(e.target as Node)) {
+        setShowLabelPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showLabelPicker]);
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/tickets?id=${ticket.id}`;
@@ -76,6 +98,30 @@ export const TicketDetail = ({
       .catch((err) => {
         console.error('Failed to copy link:', err);
       });
+  };
+
+  useEffect(() => {
+    Promise.all([
+      labelService.getTicketLabels(ticket.id),
+      labelService.getLabels(),
+    ])
+      .then(([tl, al]) => { setTicketLabels(tl); setAllLabels(al); })
+      .catch(console.error);
+  }, [ticket.id]);
+
+  const handleToggleLabel = async (label: Label) => {
+    const assigned = ticketLabels.some((l) => l.id === label.id);
+    try {
+      if (assigned) {
+        await labelService.removeLabelFromTicket(ticket.id, label.id);
+        setTicketLabels((prev) => prev.filter((l) => l.id !== label.id));
+      } else {
+        await labelService.assignLabelToTicket(ticket.id, label.id);
+        setTicketLabels((prev) => [...prev, label]);
+      }
+    } catch (error) {
+      console.error('Failed to toggle label:', error);
+    }
   };
 
   useEffect(() => {
@@ -133,6 +179,61 @@ export const TicketDetail = ({
                 <Badge variant="default">{ticket.categoryName}</Badge>
               </div>
             )}
+            {/* Labels */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {ticketLabels.map((label) => (
+                <span
+                  key={label.id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                  style={{ backgroundColor: label.color }}
+                >
+                  {label.name}
+                  {hasManageLabels && (
+                    <button
+                      onClick={() => handleToggleLabel(label)}
+                      className="opacity-70 hover:opacity-100 ml-0.5"
+                      title={`Remove ${label.name}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {hasManageLabels && <div className="relative" ref={labelPickerRef}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-1.5 text-xs"
+                  onClick={() => setShowLabelPicker((v) => !v)}
+                  title="Add label"
+                >
+                  <Tag className="w-3 h-3 mr-1" />
+                  <Plus className="w-3 h-3" />
+                </Button>
+                {showLabelPicker && allLabels.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-lg border bg-card shadow-md p-1">
+                    {allLabels.map((label) => {
+                      const isAssigned = ticketLabels.some((l) => l.id === label.id);
+                      return (
+                        <button
+                          key={label.id}
+                          onClick={() => handleToggleLabel(label)}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent text-left"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: label.color }}
+                          />
+                          <span className="flex-1">{label.name}</span>
+                          {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>}
+            </div>
+
             {ticket.externalId && ticket.externalUrl && (
               <ExternalLink href={ticket.externalUrl}>{ticket.externalId}</ExternalLink>
             )}
@@ -244,20 +345,8 @@ export const TicketDetail = ({
         </div>
       )}
 
-      {/* Lead Qualification Panel */}
-      {!!ticket.metadata?.leadState && (
-        <div className="pt-6 border-t">
-          <LeadQualificationPanel
-            leadState={
-              ticket.metadata.leadState as Parameters<typeof LeadQualificationPanel>[0]['leadState']
-            }
-          />
-        </div>
-      )}
-
-      {/* Metadata (non-lead-qual tickets only) */}
+      {/* Metadata */}
       {ticket.metadata &&
-        !ticket.metadata.leadState &&
         (() => {
           const { embedding, ...displayMetadata } = ticket.metadata;
           return Object.keys(displayMetadata).length > 0 ? (

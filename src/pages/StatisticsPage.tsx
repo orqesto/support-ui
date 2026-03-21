@@ -16,6 +16,10 @@ import {
   FileText,
   CheckCircle,
   Activity,
+  Users,
+  Clock,
+  Ticket,
+  StickyNote,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
@@ -28,19 +32,36 @@ import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
-import { statisticsService, type StatisticsData } from '@/services/statistics.service';
-import { useLocation } from 'react-router-dom';
+import { statisticsService, type StatisticsData, type UserStatEntry } from '@/services/statistics.service';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-type TabType = 'overview' | 'sla';
+type TabType = 'overview' | 'sla' | 'team';
+const VALID_TABS: TabType[] = ['overview', 'sla', 'team'];
+
+const DAYS_OPTIONS = [
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+  { label: '90 days', value: 90 },
+];
+
+function fullName(entry: UserStatEntry): string {
+  return entry.lastName ? `${entry.firstName} ${entry.lastName}` : entry.firstName;
+}
+
+function formatAvgReply(hours: number | null): string {
+  if (hours === null) return '—';
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  return `${hours.toFixed(1)}h`;
+}
 
 export const StatisticsPage = () => {
   const location = useLocation();
-  // Get active tab from URL hash, default to 'overview'
-  const activeTab = (location.hash.replace('#', '') || 'overview') as TabType;
+  const navigate = useNavigate();
+  const hashTab = location.hash.replace('#', '') as TabType;
+  const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'overview';
 
-  // Handle tab change by updating URL hash
   const handleTabChange = (tabId: TabType) => {
-    window.location.hash = tabId;
+    navigate(`/statistics#${tabId}`, { replace: true });
   };
   const [stats, setStats] = useState<StatisticsData | null>(null);
   const [kbStats, setKbStats] = useState<{
@@ -51,6 +72,13 @@ export const StatisticsPage = () => {
   const [kbEntries, setKbEntries] = useState<KBEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Team tab state
+  const [teamData, setTeamData] = useState<UserStatEntry[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamRefreshing, setTeamRefreshing] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [teamDays, setTeamDays] = useState(30);
 
   const fetchStatistics = async () => {
     try {
@@ -82,6 +110,32 @@ export const StatisticsPage = () => {
     setRefreshing(true);
     await fetchStatistics();
   };
+
+  const fetchTeamStats = async (days: number, isRefresh = false) => {
+    if (isRefresh) setTeamRefreshing(true);
+    else setTeamLoading(true);
+    setTeamError(null);
+    try {
+      const response = await statisticsService.getTeamStats(days);
+      if (response.success && response.data) {
+        setTeamData(response.data);
+      } else {
+        setTeamError('Failed to load team stats.');
+      }
+    } catch {
+      setTeamError('Failed to load team stats.');
+    } finally {
+      setTeamLoading(false);
+      setTeamRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'team') {
+      void fetchTeamStats(teamDays);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, teamDays]);
 
   const isSpamOrScam = (categoryName: string) => {
     const lowerName = categoryName.toLowerCase();
@@ -147,6 +201,12 @@ export const StatisticsPage = () => {
               Refresh
             </Button>
           )}
+          {activeTab === 'team' && (
+            <Button variant="outline" size="sm" onClick={() => void fetchTeamStats(teamDays, true)} isLoading={teamRefreshing}>
+              <RefreshCw className="mr-2 w-4 h-4" />
+              Refresh
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
@@ -180,6 +240,21 @@ export const StatisticsPage = () => {
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4" />
                 SLA Performance
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('team')}
+              className={cn(
+                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
+                activeTab === 'team'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Team Performance
               </div>
             </button>
           </div>
@@ -256,6 +331,54 @@ export const StatisticsPage = () => {
               </Card>
             </div>
 
+            {/* Message Status Breakdown */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground">Active</p>
+                  <p className="mt-1 text-2xl font-bold text-blue-600">{stats.overview.activeMessages}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {stats.overview.totalMessages > 0
+                      ? `${((stats.overview.activeMessages / stats.overview.totalMessages) * 100).toFixed(0)}% of total`
+                      : '—'}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground">Resolved</p>
+                  <p className="mt-1 text-2xl font-bold text-green-600">{stats.overview.resolvedMessages}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {stats.overview.totalMessages > 0
+                      ? `${((stats.overview.resolvedMessages / stats.overview.totalMessages) * 100).toFixed(0)}% of total`
+                      : '—'}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground">Closed</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-600">{stats.overview.closedMessages}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {stats.overview.totalMessages > 0
+                      ? `${((stats.overview.closedMessages / stats.overview.totalMessages) * 100).toFixed(0)}% of total`
+                      : '—'}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground">Filtered</p>
+                  <p className="mt-1 text-2xl font-bold text-orange-600">{stats.overview.filteredMessages}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {stats.overview.totalMessages > 0
+                      ? `${((stats.overview.filteredMessages / stats.overview.totalMessages) * 100).toFixed(0)}% of total`
+                      : '—'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Knowledge Base Statistics */}
             {kbStats && (
               <Card>
@@ -275,12 +398,15 @@ export const StatisticsPage = () => {
                         <p className="text-sm text-muted-foreground">Total Entries</p>
                       </div>
                       <div className="p-4 rounded-lg border bg-card">
+                        <p className="text-2xl font-bold">{kbEntries.filter((e) => e.type === 'qa_pair').length}</p>
                         <p className="text-sm text-muted-foreground">Q&A Pairs</p>
                       </div>
                       <div className="p-4 rounded-lg border bg-card">
+                        <p className="text-2xl font-bold">{kbEntries.filter((e) => e.type === 'document').length}</p>
                         <p className="text-sm text-muted-foreground">Documents</p>
                       </div>
                       <div className="p-4 rounded-lg border bg-card">
+                        <p className="text-2xl font-bold">{kbEntries.filter((e) => e.type === 'manual_entry').length}</p>
                         <p className="text-sm text-muted-foreground">Business Knowledge</p>
                       </div>
                     </div>
@@ -850,26 +976,135 @@ export const StatisticsPage = () => {
         {/* SLA Performance Tab */}
         {activeTab === 'sla' && (
           <div className="space-y-6 pb-6">
-            {/* Overview Cards */}
             <div className="animate-in fade-in duration-500">
               <SLAOverviewCards />
             </div>
-
-            {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500 delay-100">
               <SLAByChannelChart />
               <SLAByPriorityTable />
             </div>
-
-            {/* Trend Chart */}
             <div className="animate-in fade-in duration-500 delay-200">
               <SLATrendChart />
             </div>
-
-            {/* Breaches List */}
             <div className="animate-in fade-in duration-500 delay-300">
               <SLABreachList />
             </div>
+          </div>
+        )}
+
+        {/* Team Performance Tab */}
+        {activeTab === 'team' && (
+          <div className="space-y-4 pb-6">
+            {/* Days selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Period:</span>
+              <div className="flex rounded-md border border-border overflow-hidden">
+                {DAYS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTeamDays(opt.value)}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium transition-colors',
+                      teamDays === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {teamError && (
+              <Card>
+                <CardContent className="py-4 text-sm text-destructive">{teamError}</CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-medium">
+                  <Users className="w-4 h-4" />
+                  Agent Stats — last {teamDays} days
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Agent</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Role</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+                          <span className="flex items-center justify-end gap-1"><MessageSquare className="w-3.5 h-3.5" />Assigned</span>
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Processed</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Replied</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+                          <span className="flex items-center justify-end gap-1"><Clock className="w-3.5 h-3.5" />Avg Reply</span>
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+                          <span className="flex items-center justify-end gap-1"><Ticket className="w-3.5 h-3.5" />Tkts Assigned</span>
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Tkts Resolved</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+                          <span className="flex items-center justify-end gap-1"><StickyNote className="w-3.5 h-3.5" />Notes</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          // eslint-disable-next-line react/no-array-index-key
+                          <tr key={i} className="border-b border-border">
+                            {Array.from({ length: 9 }).map((__, j) => (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <td key={j} className="px-4 py-3">
+                                <div className="h-4 rounded bg-muted animate-pulse" style={{ width: j === 0 ? '120px' : '60px' }} />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : teamData.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                            No agents found for this organisation.
+                          </td>
+                        </tr>
+                      ) : (
+                        teamData.map((entry) => (
+                          <tr
+                            key={entry.userId}
+                            className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-foreground">{fullName(entry)}</div>
+                              <div className="text-xs text-muted-foreground">{entry.email}</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground capitalize">
+                                {entry.orgRole.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesAssigned}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesProcessed}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesReplied}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                              {formatAvgReply(entry.stats.avgReplyTimeHours)}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsAssigned}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsResolved}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.notesAdded}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 
@@ -435,64 +436,16 @@ export const KnowledgeBasePage = () => {
               onDelete={handleDeleteClick}
             />
 
-            {/* Pagination Controls */}
+            {/* Pagination */}
             {!loading && pagination.totalPages > 1 && (
-              <div className="flex flex-wrap justify-center sm:justify-between items-center gap-3 mt-4">
-                
-                {/* Showing text */}
-                <div className="w-full sm:w-auto text-center sm:text-left text-sm text-muted-foreground">
-                  Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                  {pagination.total} entries
-                </div>
-
-                {/* Pagination */}
-                <div className="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
-                  
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void fetchEntries(pagination.page - 1)}
-                    disabled={pagination.page === 1}
-                  >
-                    Previous
-                  </Button>
-
-                  <div className="flex flex-wrap justify-center gap-1">
-                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                      const pageNum =
-                        pagination.totalPages <= 5
-                          ? i + 1
-                          : pagination.page <= 3
-                            ? i + 1
-                            : pagination.page >= pagination.totalPages - 2
-                              ? pagination.totalPages - 4 + i
-                              : pagination.page - 2 + i;
-
-                      return (
-                        <Button
-                          key={pageNum}
-                          size="sm"
-                          variant={pagination.page === pageNum ? 'primary' : 'outline'}
-                          onClick={() => void fetchEntries(pageNum)}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void fetchEntries(pagination.page + 1)}
-                    disabled={pagination.page === pagination.totalPages}
-                  >
-                    Next
-                  </Button>
-
-                </div>
-              </div>
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={(page) => void fetchEntries(page)}
+                loading={loading}
+              />
             )}
 
 

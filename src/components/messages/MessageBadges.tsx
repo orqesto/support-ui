@@ -1,7 +1,6 @@
 import {
   Mail,
   MessageSquare,
-  Send,
   Clock,
   XCircle,
   Paperclip,
@@ -25,15 +24,16 @@ type MessageBadgesProps = {
   message: Message;
 };
 
-const getChannelIcon = (channel: string) => {
+const getChannelIcon = (channel: string | null | undefined) => {
   switch (channel) {
     case 'email':
       return <Mail className="w-5 h-5" />;
     case 'slack':
     case 'telegram':
+    case 'chat':
       return <MessageSquare className="w-5 h-5" />;
     default:
-      return <Send className="w-5 h-5" />;
+      return <Mail className="w-5 h-5" />;
   }
 };
 
@@ -85,7 +85,7 @@ export const MessageBadges = ({ message }: MessageBadgesProps) => {
             <Badge
               variant="danger"
               title={`Spam (${getFilteredCategoryLabel(spamCheck.category)}): ${spamCheck.redFlags?.join(', ') ?? 'Classified as spam'}`}
-              className="flex gap-1 items-center "
+              className="flex gap-1 items-center"
             >
               <ShieldX className="w-4 h-4" />
               {getFilteredCategoryLabel(spamCheck.category)}
@@ -95,7 +95,7 @@ export const MessageBadges = ({ message }: MessageBadgesProps) => {
             <Badge
               variant="warning"
               title={`Suspicious: ${spamCheck.redFlags?.join(', ') ?? 'May contain spam indicators'}`}
-              className="flex gap-1 items-center "
+              className="flex gap-1 items-center"
             >
               <AlertTriangle className="w-4 h-4" />
               Suspicious

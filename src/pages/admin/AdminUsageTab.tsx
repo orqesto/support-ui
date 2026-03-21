@@ -145,14 +145,19 @@ export const AdminUsageTab = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [editingOrg, setEditingOrg] = useState<number | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
+  const [selectedPlanName, setSelectedPlanName] = useState<string>('');
+  const [planChanging, setPlanChanging] = useState(false);
 
   useEffect(() => {
     const fetchUsage = async () => {
       try {
-        const response = await apiClient.get<{ data: OrganizationUsage[] }>(
-          '/api/admin/organizations/usage'
-        );
-        setOrganizations(response.data.data || []);
+        const [usageRes, plansRes] = await Promise.all([
+          apiClient.get<{ data: OrganizationUsage[] }>('/api/admin/organizations/usage'),
+          apiClient.get<{ success: boolean; data: { plans: Plan[] } }>('/api/subscriptions/plans'),
+        ]);
+        setOrganizations(usageRes.data.data || []);
+        setAvailablePlans(plansRes.data.data.plans || []);
       } catch (error) {
         console.error('Failed to load organizations usage:', error);
       } finally {
@@ -162,6 +167,23 @@ export const AdminUsageTab = () => {
 
     void fetchUsage();
   }, []);
+
+  const handlePlanChange = async (orgId: number) => {
+    if (!selectedPlanName) return;
+    setPlanChanging(true);
+    try {
+      await apiClient.post(`/api/admin/organizations/${orgId}/upgrade`, { planName: selectedPlanName });
+      // Refresh org list
+      const response = await apiClient.get<{ data: OrganizationUsage[] }>('/api/admin/organizations/usage');
+      setOrganizations(response.data.data || []);
+      setEditingOrg(null);
+      setSelectedPlanName('');
+    } catch (error) {
+      console.error('Failed to change plan:', error);
+    } finally {
+      setPlanChanging(false);
+    }
+  };
 
   const sortedOrganizations = [...organizations].sort((a, b) => {
     let compareValue = 0;
@@ -515,29 +537,40 @@ export const AdminUsageTab = () => {
 
                               {/* Edit Mode - Plan Management */}
                               {editingOrg === org.id && (
-                                <div className="p-4 mt-4 bg-blue-50 rounded-lg border border-blue-200">
-                                  <h5 className="mb-3 text-sm font-semibold">
-                                    Change Subscription Plan
-                                  </h5>
-                                  <p className="mb-3 text-xs text-muted-foreground">
-                                    Note: This feature connects to the backend upgrade endpoint. You
-                                    can implement plan selection UI here.
-                                  </p>
+                                <div className="p-4 mt-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                                  <h5 className="mb-3 text-sm font-semibold">Change Subscription Plan</h5>
+                                  <div className="flex flex-wrap gap-2 mb-3">
+                                    {availablePlans.map((plan) => (
+                                      <button
+                                        key={plan.id}
+                                        type="button"
+                                        onClick={() => setSelectedPlanName(plan.name)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                          selectedPlanName === plan.name
+                                            ? 'bg-primary text-primary-foreground border-primary'
+                                            : 'bg-background border-border text-foreground hover:bg-muted'
+                                        }`}
+                                      >
+                                        {plan.displayName}
+                                        {org.plan?.name === plan.name && (
+                                          <span className="ml-1 opacity-60">(current)</span>
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
-                                      onClick={() => {
-                                        // TODO: Implement plan change via API
-                                        // POST /api/admin/organizations/:id/upgrade
-                                        setEditingOrg(null);
-                                      }}
+                                      disabled={!selectedPlanName || planChanging}
+                                      onClick={() => void handlePlanChange(org.id)}
+                                      isLoading={planChanging}
                                     >
                                       Save Changes
                                     </Button>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => setEditingOrg(null)}
+                                      onClick={() => { setEditingOrg(null); setSelectedPlanName(''); }}
                                     >
                                       Cancel
                                     </Button>

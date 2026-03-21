@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react';
-import { getSpamCheck, getFilteredCategoryLabel } from '@/lib/messageHelpers';
+import { getSpamCheck, getFilteredCategoryLabel, isFilteredSpamCheck } from '@/lib/messageHelpers';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 
@@ -40,6 +40,7 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
     | undefined;
 
   const spamCheck = getSpamCheck(message);
+  const isFiltered = isFilteredSpamCheck(spamCheck);
 
   // Don't render if no AI analysis data
   if (!analysis && !spamCheck) {
@@ -217,8 +218,8 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
           </div>
         )}
 
-        {/* Green Flags */}
-        {spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
+        {/* Green Flags — hidden for definitively filtered messages to avoid confusion */}
+        {!isFiltered && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
           <div className="p-3 rounded-lg border bg-green-500/10 dark:bg-green-500/10 border-green-500/20">
             <div className="flex gap-2 items-center mb-2">
               <CheckCircle className="w-4 h-4 text-green-600" />

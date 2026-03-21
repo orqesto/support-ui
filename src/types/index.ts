@@ -3,6 +3,7 @@ import type { GlobalRole, OrganizationRole } from './roles';
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+export type MessageStatus = 'new' | 'in_progress' | 'pending' | 'resolved' | 'closed' | 'filtered';
 
 export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
@@ -50,12 +51,20 @@ export type Message = {
   repliedAt?: string | null;
   resolved?: boolean;
   awaitingCustomerResponse?: boolean;
+  // Lead tracking
+  isLead?: boolean;
   // Attachment tracking
   attachmentCount?: number;
   // Assignment tracking
   assigneeId?: number | null;
   assigneeName?: string;
   assignedAt?: string | null;
+  // Ticket parity fields
+  status?: MessageStatus;
+  priority?: TicketPriority;
+  categoryId?: number | null;
+  closedAt?: string | null;
+  needsHumanReview?: boolean;
 };
 
 export type Ticket = {
@@ -74,6 +83,7 @@ export type Ticket = {
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, unknown>;
+  labels?: { id: number; name: string; color: string }[];
 };
 
 export type Category = {

@@ -54,6 +54,48 @@ export const userService = {
     await apiClient.delete(`/api/users/${id}`);
   },
 
+  // Skill values (structured key→value routing skills) — admin access by user ID
+  getSkillValues: async (userId: number): Promise<Record<string, string[]>> => {
+    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get(`/api/users/${userId}/skill-values`);
+    return response.data.data ?? {};
+  },
+
+  setSkillValues: async (userId: number, key: string, values: string[]): Promise<void> => {
+    await apiClient.put(`/api/users/${userId}/skill-values/${encodeURIComponent(key)}`, { values });
+  },
+
+  deleteSkillKey: async (userId: number, key: string): Promise<void> => {
+    await apiClient.delete(`/api/users/${userId}/skill-values/${encodeURIComponent(key)}`);
+  },
+
+  getCanEditSkills: async (userId: number): Promise<boolean> => {
+    const response: AxiosResponse<ApiResponse<{ canEditSkills: boolean }>> = await apiClient.get(`/api/users/${userId}/can-edit-skills`);
+    return response.data.data?.canEditSkills ?? false;
+  },
+
+  setCanEditSkills: async (userId: number, canEditSkills: boolean): Promise<void> => {
+    await apiClient.patch(`/api/users/${userId}/can-edit-skills`, { canEditSkills });
+  },
+
+  // Self-access skill routes — no elevated permission required
+  getSelfSkillValues: async (): Promise<Record<string, string[]>> => {
+    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get('/api/users/me/skill-values');
+    return response.data.data ?? {};
+  },
+
+  setSelfSkillValues: async (key: string, values: string[]): Promise<void> => {
+    await apiClient.put(`/api/users/me/skill-values/${encodeURIComponent(key)}`, { values });
+  },
+
+  deleteSelfSkillKey: async (key: string): Promise<void> => {
+    await apiClient.delete(`/api/users/me/skill-values/${encodeURIComponent(key)}`);
+  },
+
+  getSelfCanEditSkills: async (): Promise<boolean> => {
+    const response: AxiosResponse<ApiResponse<{ canEditSkills: boolean }>> = await apiClient.get('/api/users/me/can-edit-skills');
+    return response.data.data?.canEditSkills ?? false;
+  },
+
   // Create user directly (admin only)
   create: async (data: {
     email: string;

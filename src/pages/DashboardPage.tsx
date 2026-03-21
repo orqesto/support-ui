@@ -39,6 +39,7 @@ export const DashboardPage = () => {
     pendingTickets: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [ingesting, setIngesting] = useState<string | null>(null);
   const [hasIntegrations, setHasIntegrations] = useState(false);
   const [hasMessageSources, setHasMessageSources] = useState(false);
@@ -47,6 +48,8 @@ export const DashboardPage = () => {
 
   // Ref to track polling interval for cleanup
   const pollingIntervalRef = useRef<number | null>(null);
+  // Ref to track auto-hide timer for "no new messages" banner
+  const noNewMessagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // State for "no new messages" feedback
   const [noNewMessagesInfo, setNoNewMessagesInfo] = useState<{
@@ -103,11 +106,11 @@ export const DashboardPage = () => {
         });
       } else {
         // No messages processed - show "no new messages" feedback
+        if (noNewMessagesTimerRef.current) clearTimeout(noNewMessagesTimerRef.current);
         setNoNewMessagesInfo({ show: true, type: 'email' });
-
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
+        noNewMessagesTimerRef.current = setTimeout(() => {
           setNoNewMessagesInfo({ show: false, type: null });
+          noNewMessagesTimerRef.current = null;
         }, 5000);
       }
     }
@@ -128,11 +131,11 @@ export const DashboardPage = () => {
         });
       } else {
         // No messages processed - show "no new messages" feedback
+        if (noNewMessagesTimerRef.current) clearTimeout(noNewMessagesTimerRef.current);
         setNoNewMessagesInfo({ show: true, type: 'telegram' });
-
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
+        noNewMessagesTimerRef.current = setTimeout(() => {
           setNoNewMessagesInfo({ show: false, type: null });
+          noNewMessagesTimerRef.current = null;
         }, 5000);
       }
     }
@@ -171,9 +174,6 @@ export const DashboardPage = () => {
         : 0;
       const docCount = Number(docStatsResponse?.totalDocs ?? 0);
       const calculatedTotal = kbEntryCount + docCount;
-      console.log('kbEntryCount', kbEntryCount);
-      console.log('docCount', docCount);
-      console.log(`✅ [fetchStats] Setting kbMessages to ${calculatedTotal}`);
       setStats((prev) => ({
         ...prev,
         kbMessages: calculatedTotal,
@@ -203,6 +203,7 @@ export const DashboardPage = () => {
       console.error('Failed to fetch stats:', error);
     } finally {
       setLoading(false);
+      setLastUpdated(new Date());
     }
   };
 
@@ -257,7 +258,6 @@ export const DashboardPage = () => {
       totalTickets?: number;
       pendingTickets?: number;
     }) => {
-      console.log('📡 [WebSocket] Stats update received:', updatedStats);
       // Temporarily disable kbMessages override to verify frontend calculation is correct
       const { kbMessages, ...safeUpdates } = updatedStats;
       if (kbMessages !== undefined) {
@@ -278,12 +278,16 @@ export const DashboardPage = () => {
     };
   }, []);
 
-  // Cleanup polling interval on unmount
+  // Cleanup polling interval and notification timer on unmount
   useEffect(
     () => () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
+      }
+      if (noNewMessagesTimerRef.current) {
+        clearTimeout(noNewMessagesTimerRef.current);
+        noNewMessagesTimerRef.current = null;
       }
     },
     []
@@ -377,11 +381,12 @@ export const DashboardPage = () => {
 
   const statCards = [
     {
-      title: 'Support Messages',
+      title: 'Messages',
       value: stats.supportMessages,
       icon: Mail,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
+      borderColor: '#2563eb',
       onClick: () => navigate('/messages?excludeKB=true'),
     },
     {
@@ -390,7 +395,8 @@ export const DashboardPage = () => {
       icon: Clock,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
-      onClick: () => navigate('/messages?processed=unprocessed'),
+      borderColor: '#ca8a04',
+      onClick: () => navigate('/messages?processed=new'),
     },
     {
       title: 'Knowledge Base',
@@ -398,6 +404,7 @@ export const DashboardPage = () => {
       icon: Inbox,
       color: 'text-cyan-600 dark:text-cyan-400',
       bg: 'bg-cyan-50 dark:bg-cyan-950/50',
+      borderColor: '#0891b2',
       onClick: () => navigate('/knowledge-base'),
     },
     {
@@ -406,6 +413,7 @@ export const DashboardPage = () => {
       icon: TicketIcon,
       color: 'text-green-600 dark:text-green-400',
       bg: 'bg-green-50 dark:bg-green-950/50',
+      borderColor: '#16a34a',
       onClick: () => navigate('/tickets?status=all'),
     },
     {
@@ -414,6 +422,7 @@ export const DashboardPage = () => {
       icon: CheckCircle,
       color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-50 dark:bg-purple-950/50',
+      borderColor: '#9333ea',
       onClick: () => navigate('/tickets?status=pending'),
     },
   ];
@@ -429,9 +438,11 @@ export const DashboardPage = () => {
               Real-time overview of your support operations
             </p>
           </div>
-          <div className="text-right text-s text-muted-foreground">
-            Last updated: {new Date().toLocaleTimeString()}
-          </div>
+          {lastUpdated && (
+            <div className="text-right text-s text-muted-foreground">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -459,7 +470,7 @@ export const DashboardPage = () => {
                   key={stat.title}
                   onClick={stat.onClick}
                   className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
-                  style={{ borderLeftColor: stat.color.replace('text-', '') }}
+                  style={{ borderLeftColor: stat.borderColor }}
                 >
                   <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
@@ -488,7 +499,7 @@ export const DashboardPage = () => {
                           Awaiting response
                         </>
                       )}
-                      {stat.title === 'Support Messages' && (
+                      {stat.title === 'Messages' && (
                         <>
                           <BarChart3 className="w-3 h-3" />
                           Active

@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/Dialog';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import {
@@ -17,6 +16,15 @@ import {
   type DetectionRule,
   type DetectionRuleCategory,
 } from '@/services/detectionRule.service';
+
+const CATEGORY_OPTIONS = [
+  { value: 'issue', label: 'Issue' },
+  { value: 'help', label: 'Help Request' },
+  { value: 'question', label: 'Question' },
+  { value: 'access', label: 'Access' },
+  { value: 'account', label: 'Account' },
+  { value: 'urgent', label: 'Urgent' },
+];
 
 export const DetectionRulesSettings = () => {
   const [rules, setRules] = useState<DetectionRule[]>([]);
@@ -75,14 +83,7 @@ export const DetectionRulesSettings = () => {
 
   const handleCreate = () => {
     setIsCreating(true);
-    setFormData({
-      name: '',
-      description: '',
-      pattern: '',
-      category: 'issue',
-      confidence: 20,
-      active: true,
-    });
+    setFormData({ name: '', description: '', pattern: '', category: 'issue', confidence: 20, active: true });
   };
 
   const handleSave = async () => {
@@ -95,14 +96,6 @@ export const DetectionRulesSettings = () => {
       await fetchRules();
       setEditingRule(null);
       setIsCreating(false);
-      setFormData({
-        name: '',
-        description: '',
-        pattern: '',
-        category: 'issue',
-        confidence: 20,
-        active: true,
-      });
     } catch (error) {
       console.error('Error saving rule:', error);
     }
@@ -111,14 +104,6 @@ export const DetectionRulesSettings = () => {
   const handleCancel = () => {
     setEditingRule(null);
     setIsCreating(false);
-    setFormData({
-      name: '',
-      description: '',
-      pattern: '',
-      category: 'issue',
-      confidence: 20,
-      active: true,
-    });
   };
 
   const handleDeleteClick = (rule: DetectionRule) => {
@@ -127,9 +112,7 @@ export const DetectionRulesSettings = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!ruleToDelete) {
-      return;
-    }
+    if (!ruleToDelete) return;
     try {
       await detectionRuleService.delete(ruleToDelete.id);
       await fetchRules();
@@ -149,38 +132,30 @@ export const DetectionRulesSettings = () => {
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 30) {
-      return 'success';
-    }
-    if (confidence >= 20) {
-      return 'default';
-    }
+  const getConfidenceVariant = (confidence: number): 'success' | 'default' | 'secondary' => {
+    if (confidence >= 30) return 'success';
+    if (confidence >= 20) return 'default';
     return 'secondary';
   };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
         <div>
           <h3 className="text-lg font-semibold">Detection Rules</h3>
           <p className="text-sm text-muted-foreground">
             Configure patterns to identify legitimate support requests
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating}>
+        <Button onClick={handleCreate}>
           <Plus className="mr-2 w-4 h-4" />
           Add Rule
         </Button>
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+      <div className="p-4 rounded-lg border bg-blue-500/10 border-blue-500/20">
         <p className="text-sm text-blue-600 dark:text-blue-400">
           <strong>Pattern Matching:</strong> Use regex or keywords separated by{' '}
           <code className="px-1 rounded bg-blue-500/20">|</code> (pipe). Higher confidence scores
@@ -188,44 +163,181 @@ export const DetectionRulesSettings = () => {
         </p>
       </div>
 
-      {/* New Rule Form */}
-      {isCreating && (
-        <div className="p-4 space-y-4 rounded-lg border bg-card border-border">
-          <h4 className="font-semibold">New Support Rule</h4>
-          <div className="grid gap-4">
+      {/* Rules Table */}
+      {loading ? (
+        <div className="py-12 text-center text-muted-foreground">Loading rules...</div>
+      ) : rules.length === 0 ? (
+        <div className="py-12 text-center text-muted-foreground">
+          No detection rules configured. Add your first rule to get started.
+        </div>
+      ) : (
+        <>
+        <div className="hidden lg:block overflow-x-auto rounded-lg border">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Name</th>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Category</th>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Description</th>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Pattern</th>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-center uppercase text-muted-foreground">Confidence</th>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-center uppercase text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-xs font-medium tracking-wider text-right uppercase text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y bg-background divide-border">
+              {rules.map((rule) => (
+                <tr key={rule.id} className="hover:bg-muted/50">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <p className="text-sm font-medium">{rule.name}</p>
+                    <DepartmentBadge department={rule.departmentRole} size="sm" />
+                  </td>
+                  <td className="px-4 py-3 text-sm whitespace-nowrap">
+                    <Badge variant="secondary" className="capitalize">{rule.category}</Badge>
+                  </td>
+                  <td className="px-4 py-3 max-w-xs text-sm truncate text-muted-foreground">
+                    {rule.description}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {rule.pattern ? (
+                      <code className="block max-w-[180px] truncate px-2 py-0.5 font-mono text-xs rounded bg-muted">
+                        {rule.pattern}
+                      </code>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-center">
+                    <Badge variant={getConfidenceVariant(rule.confidence)}>{rule.confidence}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-center">
+                    <button
+                      onClick={() => toggleActive(rule)}
+                      className="inline-flex gap-1 items-center transition-colors hover:text-primary"
+                    >
+                      {rule.active ? (
+                        <>
+                          <Eye className="w-4 h-4 text-green-600" />
+                          <span className="text-xs text-green-600">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Inactive</span>
+                        </>
+                      )}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
+                    <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(rule)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="lg:hidden space-y-3">
+          {rules.map((rule) => (
+            <div key={rule.id} className="p-4 rounded-lg border bg-card space-y-3">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{rule.name}</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <Badge variant="secondary" className="capitalize">{rule.category}</Badge>
+                    <DepartmentBadge department={rule.departmentRole} size="sm" />
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteClick(rule)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">{rule.description}</p>
+              {rule.pattern && (
+                <code className="block px-2 py-1 font-mono text-xs rounded bg-muted break-all">{rule.pattern}</code>
+              )}
+              <div className="flex flex-wrap gap-2 items-center justify-between">
+                <Badge variant={getConfidenceVariant(rule.confidence)}>{rule.confidence}</Badge>
+                <button
+                  onClick={() => toggleActive(rule)}
+                  className="inline-flex gap-1 items-center transition-colors hover:text-primary"
+                >
+                  {rule.active ? (
+                    <>
+                      <Eye className="w-4 h-4 text-green-600" />
+                      <span className="text-xs text-green-600">Active</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Inactive</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
+      )}
+
+      {/* Edit / Create Dialog */}
+      <Dialog open={isCreating || editingRule !== null} onOpenChange={handleCancel}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{isCreating ? 'Create' : 'Edit'} Detection Rule</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="text-sm font-medium">
-                Rule Name
-              </label>
+              <label className="block mb-1 text-sm font-medium">Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="e.g., urgent_customer_issue"
               />
             </div>
             <div>
-              <label htmlFor="description" className="text-sm font-medium">
-                Description
-              </label>
-              <input
-                type="text"
+              <label className="block mb-1 text-sm font-medium">Description</label>
+              <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="What this rule detects"
+                rows={2}
               />
             </div>
             <div>
-              <label htmlFor="pattern" className="text-sm font-medium">
-                Pattern (regex or keywords)
-              </label>
+              <label className="block mb-1 text-sm font-medium">Pattern (regex or keywords)</label>
               <input
                 type="text"
                 value={formData.pattern}
                 onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-background"
                 placeholder="problem|issue|error|need help"
               />
             </div>
@@ -233,40 +345,26 @@ export const DetectionRulesSettings = () => {
               <ReactSelect
                 label="Category"
                 value={formData.category}
-                onChange={(value) =>
-                  setFormData({ ...formData, category: value as DetectionRuleCategory })
-                }
-                options={[
-                  { value: 'issue', label: 'Issue' },
-                  { value: 'help', label: 'Help Request' },
-                  { value: 'question', label: 'Question' },
-                  { value: 'access', label: 'Access' },
-                  { value: 'account', label: 'Account' },
-                  { value: 'urgent', label: 'Urgent' },
-                ]}
+                onChange={(value) => setFormData({ ...formData, category: value as DetectionRuleCategory })}
+                options={CATEGORY_OPTIONS}
               />
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label htmlFor="confidence" className="text-sm font-medium">
-                    Confidence
-                  </label>
+                  <label className="text-sm font-medium">Confidence</label>
                   <span className="text-sm font-medium text-primary">
                     {formData.confidence}
-                    {formData.confidence >= 30 && ' ✅ Strong Signal'}
-                    {formData.confidence >= 20 && formData.confidence < 30 && ' ℹ️ Moderate Signal'}
-                    {formData.confidence < 20 && ' ⚡ Weak Signal'}
+                    {formData.confidence >= 30 && ' ✅ Strong'}
+                    {formData.confidence >= 20 && formData.confidence < 30 && ' ℹ️ Moderate'}
+                    {formData.confidence < 20 && ' ⚡ Weak'}
                   </span>
                 </div>
                 <input
                   type="range"
-                  id="confidence"
                   min="0"
                   max="100"
                   step="5"
                   value={formData.confidence}
-                  onChange={(e) =>
-                    setFormData({ ...formData, confidence: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => setFormData({ ...formData, confidence: parseInt(e.target.value) })}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -279,226 +377,44 @@ export const DetectionRulesSettings = () => {
             <div className="flex gap-2 items-center">
               <input
                 type="checkbox"
-                id="active-new"
+                id="active"
                 checked={formData.active}
                 onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
                 className="rounded"
               />
-              <label htmlFor="active-new" className="text-sm font-medium">
-                Active (enable this rule)
-              </label>
+              <label htmlFor="active" className="text-sm">Active</label>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={!formData.name || !formData.description}>
-              <Save className="mr-2 w-4 h-4" />
-              Save
-            </Button>
+          <DialogFooter>
             <Button variant="outline" onClick={handleCancel}>
-              <X className="mr-2 w-4 h-4" />
+              <X className="mr-1 w-4 h-4" />
               Cancel
             </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Rules List */}
-      <div className="space-y-3">
-        {rules.map((rule) => (
-          <div key={rule.id} className="p-4 rounded-lg border border-border bg-card">
-            {editingRule?.id === rule.id ? (
-              <div className="space-y-4">
-                <h4 className="font-semibold">Edit Support Rule</h4>
-                <div className="grid gap-4">
-                  <div>
-                    <label htmlFor="name" className="text-sm font-medium">
-                      Rule Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="description" className="text-sm font-medium">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="pattern" className="text-sm font-medium">
-                      Pattern
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.pattern}
-                      onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ReactSelect
-                      label="Category"
-                      value={formData.category}
-                      onChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          category: value as DetectionRuleCategory,
-                        })
-                      }
-                      options={[
-                        { value: 'issue', label: 'Issue' },
-                        { value: 'help', label: 'Help Request' },
-                        { value: 'question', label: 'Question' },
-                        { value: 'access', label: 'Access' },
-                        { value: 'account', label: 'Account' },
-                        { value: 'urgent', label: 'Urgent' },
-                      ]}
-                    />
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <label htmlFor="confidence-edit" className="text-sm font-medium">
-                          Confidence
-                        </label>
-                        <span className="text-sm font-medium text-primary">
-                          {formData.confidence}
-                          {formData.confidence >= 30 && ' ✅ Strong Signal'}
-                          {formData.confidence >= 20 &&
-                            formData.confidence < 30 &&
-                            ' ℹ️ Moderate Signal'}
-                          {formData.confidence < 20 && ' ⚡ Weak Signal'}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        id="confidence-edit"
-                        min="0"
-                        max="100"
-                        step="5"
-                        value={formData.confidence}
-                        onChange={(e) =>
-                          setFormData({ ...formData, confidence: parseInt(e.target.value) })
-                        }
-                        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>0 (Weak)</span>
-                        <span>20 (Moderate)</span>
-                        <span>30+ (Strong)</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      id={`active-${rule.id}`}
-                      checked={formData.active}
-                      onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                      className="rounded"
-                    />
-                    <label htmlFor={`active-${rule.id}`} className="text-sm font-medium">
-                      Active
-                    </label>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSave}>
-                    <Save className="mr-2 w-4 h-4" />
-                    Save
-                  </Button>
-                  <Button variant="outline" onClick={handleCancel}>
-                    <X className="mr-2 w-4 h-4" />
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <h4 className="text-lg font-semibold">{rule.name}</h4>
-                      <DepartmentBadge department={rule.departmentRole} size="sm" />
-                      <Badge variant={rule.active ? 'success' : 'default'}>
-                        {rule.active ? 'Active' : 'Inactive'}
-                      </Badge>
-                      <Badge variant={getConfidenceColor(rule.confidence)}>
-                        Confidence: {rule.confidence}
-                      </Badge>
-                      <Badge variant="secondary" className="capitalize">
-                        {rule.category}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{rule.description}</p>
-                    {rule.pattern && (
-                      <div className="mt-2 break-words">
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">Pattern:</p>
-                        <code className="px-2 py-1 font-mono text-xs rounded bg-muted">
-                          {rule.pattern}
-                        </code>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => toggleActive(rule)}
-                      title={rule.active ? 'Deactivate' : 'Activate'}
-                    >
-                      {rule.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(rule)}>
-                      <Edit2 className="mr-2 w-4 h-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteClick(rule)}
-                      aria-label="Delete support rule"
-                    >
-                      <Trash2 className="mr-2 w-4 h-4" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+            <Button onClick={handleSave} disabled={!formData.name || !formData.description} className="gap-1">
+              <Save className="w-4 h-4" />
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Support Rule</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
         <DialogContent>
-          <p>Are you sure you want to delete this support detection rule?</p>
-          {ruleToDelete && (
-            <div className="p-4 mt-4 rounded bg-muted">
-              <p className="text-sm font-medium">{ruleToDelete.name}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{ruleToDelete.description}</p>
-            </div>
-          )}
+          <DialogHeader>
+            <DialogTitle>Delete Detection Rule</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete &quot;{ruleToDelete?.name}&quot;? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              <Trash2 className="mr-1 w-4 h-4" />
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteConfirm}>
-            Delete
-          </Button>
-        </DialogFooter>
       </Dialog>
     </div>
   );
