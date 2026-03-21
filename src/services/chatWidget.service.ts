@@ -30,6 +30,7 @@ export interface CreateChatWidgetRequest {
   position?: 'bottom-right' | 'bottom-left';
   collectUserInfo?: boolean;
   allowedDomains?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateChatWidgetRequest {
@@ -42,6 +43,7 @@ export interface UpdateChatWidgetRequest {
   collectUserInfo?: boolean;
   allowedDomains?: string[];
   enabled?: boolean;
+  metadata?: Record<string, unknown>;
 }
 
 export const chatWidgetService = {

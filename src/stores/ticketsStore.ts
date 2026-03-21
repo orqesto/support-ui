@@ -8,6 +8,7 @@ type TicketFilters = {
   categoryId: string;
   messageSourceId?: string;
   assigneeId?: string;
+  labelId?: string;
   search?: string;
   syncedToJira?: boolean;
 };

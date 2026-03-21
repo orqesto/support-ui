@@ -56,6 +56,10 @@ export const Permission = {
   VIEW_STATISTICS: 'view_statistics',
   VIEW_REPORTS: 'view_reports',
 
+  // Label Management
+  MANAGE_LABELS: 'manage_labels',
+  VIEW_LABELS: 'view_labels',
+
   // Audit Logs
   VIEW_AUDIT_LOGS: 'view_audit_logs',
 
@@ -104,6 +108,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.PROCESS_MESSAGES,
     Permission.VIEW_STATISTICS,
     Permission.VIEW_REPORTS,
+    Permission.MANAGE_LABELS,
+    Permission.VIEW_LABELS,
     Permission.MANAGE_SUBSCRIPTION,
     Permission.MANAGE_AI_MODULES,
     Permission.VIEW_BILLING,
@@ -128,6 +134,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_MESSAGES,
     Permission.VIEW_MESSAGES,
     Permission.PROCESS_MESSAGES,
+    Permission.MANAGE_LABELS,
+    Permission.VIEW_LABELS,
     Permission.VIEW_STATISTICS,
   ],
 
@@ -141,6 +149,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_MESSAGES,
     Permission.VIEW_MESSAGES,
     Permission.PROCESS_MESSAGES,
+    Permission.VIEW_LABELS,
     Permission.VIEW_STATISTICS,
   ],
 

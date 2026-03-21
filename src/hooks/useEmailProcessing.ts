@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
 import {
@@ -350,10 +349,11 @@ export const useEmailProcessing = (
                 // If session is very old AND new total is different, this is a NEW cycle
                 // Reset the session with the new data
                 if (isStaleSession && eventTotal > 0 && eventTotal !== existing.total) {
-                  console.warn(
-                    `[Email Processing] Resetting stale session (${sessionAge}ms old)`,
-                    { sessionKey, oldTotal: existing.total, newTotal: eventTotal }
-                  );
+                  console.warn(`[Email Processing] Resetting stale session (${sessionAge}ms old)`, {
+                    sessionKey,
+                    oldTotal: existing.total,
+                    newTotal: eventTotal,
+                  });
                   newSessions.set(sessionKey, {
                     sessionKey,
                     integrationId: existing.integrationId,
@@ -433,7 +433,8 @@ export const useEmailProcessing = (
                 const stillProcessing = true;
 
                 // Once in KB-processing stage, don't let email:processing events revert it
-                const preserveKBStage = existing.stage === 'kb-processing' && eventStage !== 'kb-processing';
+                const preserveKBStage =
+                  existing.stage === 'kb-processing' && eventStage !== 'kb-processing';
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: shouldReactivate ? 'processing' : existing.status,
@@ -488,11 +489,12 @@ export const useEmailProcessing = (
               if (existing) {
                 // Backend sends cumulative count, not incremental
                 const processed = event.data?.processed ?? existing.processed;
-                // Increment analyzed count for each processed event (messages going through AI)
-                // Skip increment if KB events are managing the analyzed count (via aiAnalysisCalls)
-                const analyzed = existing.stage === 'kb-processing'
-                  ? (existing.analyzed ?? 0) // KB events set this directly
-                  : (existing.analyzed ?? 0) + 1;
+                // Use backend-provided analyzed count if available (avoids frontend/backend drift).
+                // Fall back to incrementing only if backend doesn't send it.
+                const analyzed =
+                  existing.stage === 'kb-processing'
+                    ? (existing.analyzed ?? 0) // KB events manage this directly
+                    : (event.data?.analyzed ?? (existing.analyzed ?? 0) + 1); // Fallback: increment per event
                 newSessions.set(sessionKey, {
                   ...existing,
                   processed,
@@ -560,7 +562,7 @@ export const useEmailProcessing = (
       // Maintain backward compatibility with legacy single-session state
       // Skip global events when department filtering is active to prevent cross-department interference
       if (filterByDepartment && !event.integrationId) {
-        console.log('[useEmailProcessing] Ignoring global event - department filter active');
+        // Ignoring global event - department filter active
         return;
       }
 
@@ -635,8 +637,6 @@ export const useEmailProcessing = (
 
     // Handle KB progress events (different format from email events)
     const handleKBProgress = (data: unknown) => {
-      console.log('🔔 [Frontend] Received kb:progress event:', JSON.stringify(data, null, 2));
-      
       const kbEvent = data as {
         messageSourceId: number;
         organizationId?: number;
@@ -667,29 +667,13 @@ export const useEmailProcessing = (
         kbEvent.departmentRole &&
         kbEvent.departmentRole !== filterByDepartment
       ) {
-        console.log(`❌ [Frontend] Rejecting kb:progress - department mismatch: ${kbEvent.departmentRole} !== ${filterByDepartment}`);
         return;
       }
 
       // Filter by organization if specified - ignore events from other organizations
       if (filterByOrganization && kbEvent.organizationId !== filterByOrganization) {
-        console.log(`❌ [Frontend] Rejecting kb:progress - org mismatch: ${kbEvent.organizationId} !== ${filterByOrganization}`);
         return;
       }
-
-      console.log('✅ [Frontend] Processing kb:progress event for integration:', kbEvent.messageSourceId);
-      console.log('📊 [Frontend KB Progress] Raw event data:', {
-        status: kbEvent.status,
-        messagesTotal: kbEvent.messages?.total,
-        messagesProcessed: kbEvent.messages?.processed,
-        messagesSuccessful: kbEvent.messages?.successful,
-        messagesFailed: kbEvent.messages?.failed,
-        messagesSkipped: kbEvent.messages?.skipped,
-        kbEntriesTotal: kbEvent.kbEntries?.total,
-        kbQAPairs: kbEvent.kbEntries?.qaPairs,
-        kbDocs: kbEvent.kbEntries?.documents,
-        departmentRole: kbEvent.departmentRole,
-      });
 
       // Try to find existing email processing session first
       // Check all possible session keys for this integration
@@ -718,63 +702,51 @@ export const useEmailProcessing = (
         if (existingKey) {
           const existing = newSessions.get(existingKey);
           if (!existing) {
-            console.log(`❌ [Frontend] Existing session not found for key: ${existingKey}`);
             return newSessions;
-          }
-
-          console.log(`📝 [Frontend] Merging KB data into existing session ${existingKey}:`, {
-            existingStage: existing.stage,
-            existingEmailTotal: existing.emailTotal,
-            existingKBTotal: existing.kbMessagesTotal,
-            existingKBProcessed: existing.kbMessagesProcessed,
-            newKBMessagesTotal: kbEvent.messages?.total,
-            newKBMessagesProcessed: kbEvent.messages?.processed,
-            newKBEntriesTotal: kbEvent.kbEntries?.total,
-          });
-
-          // Total can increase as more messages are discovered during IMAP sync
-          // This is normal — only log for debugging, not as a warning
-          if (existing.kbMessagesTotal && kbEvent.messages?.total && existing.kbMessagesTotal !== kbEvent.messages.total) {
-            console.log(`📊 [Frontend] KB Total updated: ${existing.kbMessagesTotal} → ${kbEvent.messages.total} (processed: ${kbEvent.messages.processed})`);
           }
 
           // Merge KB progress into existing session
           // For standalone KB sessions (no emailTotal), also update top-level counters
           const isStandaloneKB = !existing.emailTotal && existing.stage === 'kb-processing';
-          
+
           // Once totalFinalized is true, never decrease the total (prevents visual jumps
           // from backend sending different totals for different mailboxes)
           const incomingTotal = kbEvent.messages.total;
           const existingFinalized = existing.kbTotalFinalized;
-          const newKBTotal = existingFinalized && existing.kbMessagesTotal
-            ? Math.max(existing.kbMessagesTotal, incomingTotal)
-            : incomingTotal;
+          const newKBTotal =
+            existingFinalized && existing.kbMessagesTotal
+              ? Math.max(existing.kbMessagesTotal, incomingTotal)
+              : incomingTotal;
           // Ensure processed never exceeds total
           const newKBProcessed = Math.min(kbEvent.messages.processed, newKBTotal);
           // Calculate progress that never goes backwards
           const newProgress = newKBTotal > 0 ? Math.round((newKBProcessed / newKBTotal) * 100) : 0;
           const safeProgress = Math.max(newProgress, existing.progress ?? 0);
-          
+
           const updatedSession = {
             ...existing,
             stage: 'kb-processing',
             isProcessing: kbEvent.status === 'processing',
             // Always update analyzed from KB events (aiAnalysisCalls tracks AI completions)
-            analyzed: kbEvent.aiAnalysisCalls ?? kbEvent.messages.successful ?? existing.analyzed ?? 0,
+            analyzed:
+              kbEvent.aiAnalysisCalls ?? kbEvent.messages.successful ?? existing.analyzed ?? 0,
             // Update top-level counters for standalone KB sessions
-            ...(isStandaloneKB ? {
-              total: newKBTotal,
-              current: newKBProcessed,
-              processed: newKBProcessed,
-              successful: kbEvent.messages.successful,
-              failed: kbEvent.messages.failed,
-              skipped: kbEvent.messages.skipped,
-              progress: safeProgress,
-            } : {}),
+            ...(isStandaloneKB
+              ? {
+                  total: newKBTotal,
+                  current: newKBProcessed,
+                  processed: newKBProcessed,
+                  successful: kbEvent.messages.successful,
+                  failed: kbEvent.messages.failed,
+                  skipped: kbEvent.messages.skipped,
+                  progress: safeProgress,
+                }
+              : {}),
             // KB entry counters (how many saved)
             kbEntriesTotal: kbEvent.kbEntries?.total ?? existing.kbEntriesTotal ?? 0,
             kbQAPairs: kbEvent.kbEntries?.qaPairs ?? existing.kbQAPairs ?? 0,
-            kbStandaloneKnowledge: kbEvent.kbEntries?.standaloneKnowledge ?? existing.kbStandaloneKnowledge ?? 0,
+            kbStandaloneKnowledge:
+              kbEvent.kbEntries?.standaloneKnowledge ?? existing.kbStandaloneKnowledge ?? 0,
             kbDocuments: kbEvent.kbEntries?.documents ?? existing.kbDocuments ?? 0,
             // KB message processing progress
             kbMessagesTotal: newKBTotal,
@@ -784,14 +756,7 @@ export const useEmailProcessing = (
             kbMessagesSkipped: kbEvent.messages.skipped,
             kbTotalFinalized: kbEvent.totalFinalized ?? existing.kbTotalFinalized ?? false,
           };
-          
-          console.log(`✅ [Frontend] Updated session ${existingKey} with KB data:`, {
-            stage: updatedSession.stage,
-            kbMessagesTotal: updatedSession.kbMessagesTotal,
-            kbMessagesProcessed: updatedSession.kbMessagesProcessed,
-            kbEntriesTotal: updatedSession.kbEntriesTotal,
-          });
-          
+
           newSessions.set(existingKey, updatedSession);
           return newSessions;
         }
@@ -802,18 +767,12 @@ export const useEmailProcessing = (
         // 2. Page refreshed after email session completed but KB still running
         // 3. Email processing completed and cleaned up, but KB still running
         // CREATE a new session for standalone KB processing
-        console.log(`🆕 [Frontend] No existing session found, creating standalone KB session`);
-        
         const integrationId = kbEvent.messageSourceId;
         const departmentRole = kbEvent.departmentRole ?? 'general';
         const sessionKey = `${integrationId}-${departmentRole}`;
 
-        console.log(`📋 [Frontend] Standalone KB session key: ${sessionKey}, status: ${kbEvent.status}, total: ${kbEvent.messages.total}`);
-
         // Only create if status is processing (not idle)
         if (kbEvent.status === 'processing' && kbEvent.messages.total > 0) {
-          console.log(`✅ [Frontend] Creating standalone KB session ${sessionKey} with ${kbEvent.messages.total} messages`);
-          
           const newSession = {
             sessionKey,
             integrationId,
@@ -843,18 +802,8 @@ export const useEmailProcessing = (
             kbMessagesSkipped: kbEvent.messages.skipped,
             kbTotalFinalized: kbEvent.totalFinalized ?? false,
           };
-          
+
           newSessions.set(sessionKey, newSession);
-          
-          console.log('✅ [Frontend] Created standalone KB session:', {
-            key: sessionKey,
-            total: kbEvent.kbEntries?.total,
-            qaPairs: kbEvent.kbEntries?.qaPairs,
-            docs: kbEvent.kbEntries?.documents,
-            kbMessagesTotal: newSession.kbMessagesTotal,
-          });
-        } else {
-          console.log(`❌ [Frontend] Not creating standalone KB session - status: ${kbEvent.status}, total: ${kbEvent.messages.total}`);
         }
 
         return newSessions;
@@ -912,13 +861,6 @@ export const useEmailProcessing = (
           if (!existing) {
             return newSessions;
           }
-          console.log('[KB Completed] Final counts:', {
-            key: existingKey,
-            total: kbEvent.kbEntries?.total,
-            qaPairs: kbEvent.kbEntries?.qaPairs,
-            docs: kbEvent.kbEntries?.documents,
-            info: kbEvent.kbEntries?.standaloneKnowledge,
-          });
           newSessions.set(existingKey, {
             ...existing,
             status: 'complete',
