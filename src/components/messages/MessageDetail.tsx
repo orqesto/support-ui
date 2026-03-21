@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Check,
   Send,
@@ -17,6 +17,12 @@ import {
   Search,
   Info,
   Reply,
+  XCircle,
+  Tag,
+  Plus,
+  Target,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
@@ -31,6 +37,7 @@ import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/R
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { SimilarTickets } from '@/components/tickets/SimilarTickets';
+import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
@@ -42,11 +49,43 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { useResolveMessageToKB } from '@/hooks/useResolveMessageToKB';
+import { usePermissions } from '@/hooks/usePermissions';
 import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { stripHtml } from '@/lib/stripHtml';
 import { messageService } from '@/services/message.service';
-import type { Message } from '@/types';
+import { categoryService } from '@/services/category.service';
+import { labelService, type Label } from '@/services/settings.service';
+import {
+  organizationService,
+  type LeadQualificationFieldConfig,
+} from '@/services/organization.service';
+import { MessageNotes } from './MessageNotes';
+import type { Message, Category, TicketPriority, MessageStatus } from '@/types';
+import { Permission } from '@/types/roles';
+
+const PRIORITY_LABELS: Record<TicketPriority, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+};
+
+const PRIORITY_COLORS: Record<TicketPriority, string> = {
+  low: 'text-green-700 bg-green-500/25 border-green-500/60 font-semibold',
+  medium: 'text-yellow-700 bg-yellow-500/25 border-yellow-500/60 font-semibold',
+  high: 'text-orange-700 bg-orange-500/25 border-orange-500/60 font-semibold',
+  critical: 'text-red-700 bg-red-500/25 border-red-500/60 font-semibold',
+};
+
+const STATUS_LABELS: Record<MessageStatus, string> = {
+  new: 'Open',
+  in_progress: 'In Progress',
+  pending: 'Pending',
+  resolved: 'Resolved',
+  closed: 'Closed',
+  filtered: 'Filtered',
+};
 
 type MessageDetailProps = {
   message: Message;
@@ -57,6 +96,7 @@ type MessageDetailProps = {
   onResolve?: () => Promise<void>;
   onRefresh?: () => void;
   onMessageNavigate?: (messageId: number) => void;
+  onClassify?: (action: 'approve' | 'mark_suspicious') => Promise<void>;
   showFullPageButton?: boolean;
 };
 
@@ -69,10 +109,13 @@ export const MessageDetail = ({
   onResolve,
   onRefresh,
   onMessageNavigate,
+  onClassify,
   showFullPageButton = true,
 }: MessageDetailProps) => {
   const location = useLocation();
   const isFullPage = location.pathname.startsWith('/messages/');
+  const { hasPermission } = usePermissions();
+  const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -84,6 +127,37 @@ export const MessageDetail = ({
   const editorRef = useRef<RichTextEditorHandle>(null);
   const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
   const [checkingContradiction, setCheckingContradiction] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [updatingPriority, setUpdatingPriority] = useState(false);
+  const [updatingCategory, setUpdatingCategory] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [togglingLead, setTogglingLead] = useState(false);
+  const [classifying, setClassifying] = useState(false);
+
+  const isFiltered = message.status === 'filtered';
+  const isSuspicious =
+    !isFiltered &&
+    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
+  const isActive = !message.resolved && !isFiltered && !isSuspicious && message.status !== 'closed' && message.status !== 'resolved';
+
+  const handleClassify = async (action: 'approve' | 'mark_suspicious') => {
+    if (!onClassify) return;
+    setClassifying(true);
+    try {
+      await onClassify(action);
+    } finally {
+      setClassifying(false);
+    }
+  };
+  const [messageLabels, setMessageLabels] = useState<Label[]>([]);
+  const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [leadState, setLeadState] = useState<
+    Parameters<typeof LeadQualificationPanel>[0]['leadState'] | null
+  >(null);
+  const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
+  const labelPickerRef = useRef<HTMLDivElement>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -91,6 +165,163 @@ export const MessageDetail = ({
     variant?: 'error' | 'success' | 'warning' | 'info';
     onClose?: () => void | Promise<void>;
   }>({ open: false, title: '', description: '' });
+
+  useEffect(() => {
+    categoryService
+      .getAll()
+      .then((res) => {
+        if (res?.success && res.data) setCategories(res.data);
+      })
+      .catch(() => {});
+    organizationService
+      .getLeadConfig()
+      .then((cfg) => {
+        if (cfg.qualificationFields?.length) setLeadFieldDefs(cfg.qualificationFields);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!message.isLead) {
+      setLeadState(null);
+      return;
+    }
+    // Fetch all thread messages and pick the latest leadState across the thread
+    messageService
+      .getThreadMessages(message.id)
+      .then((res) => {
+        const threadMessages = res.data ?? [];
+        // Sort descending by id so we check the latest first
+        const sorted = [...threadMessages].sort((a, b) => b.id - a.id);
+        for (const msg of sorted) {
+          const state = msg.metadata?.leadState;
+          if (state) {
+            setLeadState(state as Parameters<typeof LeadQualificationPanel>[0]['leadState']);
+            return;
+          }
+        }
+        // Fallback: try the message itself
+        const ownState = message.metadata?.leadState;
+        setLeadState(
+          ownState ? (ownState as Parameters<typeof LeadQualificationPanel>[0]['leadState']) : null
+        );
+      })
+      .catch(() => {
+        const ownState = message.metadata?.leadState;
+        setLeadState(
+          ownState ? (ownState as Parameters<typeof LeadQualificationPanel>[0]['leadState']) : null
+        );
+      });
+  }, [message.id, message.isLead, message.metadata]);
+
+  useEffect(() => {
+    Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
+      .then(([ml, al]) => {
+        setMessageLabels(ml);
+        setAllLabels(al);
+      })
+      .catch(() => {});
+  }, [message.id]);
+
+  useEffect(() => {
+    if (!showLabelPicker) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (labelPickerRef.current && !labelPickerRef.current.contains(e.target as Node)) {
+        setShowLabelPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showLabelPicker]);
+
+  const handleToggleLabel = async (label: Label) => {
+    const assigned = messageLabels.some((l) => l.id === label.id);
+    try {
+      if (assigned) {
+        await labelService.removeLabelFromMessage(message.id, label.id);
+        setMessageLabels((prev) => prev.filter((l) => l.id !== label.id));
+      } else {
+        await labelService.assignLabelToMessage(message.id, label.id);
+        setMessageLabels((prev) => [...prev, label]);
+      }
+    } catch (error) {
+      console.error('Failed to toggle label:', error);
+    }
+  };
+
+  const handleSetStatus = async (status: MessageStatus) => {
+    try {
+      setUpdatingStatus(true);
+      await messageService.setStatus(message.id, status);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to set status:', error);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleSetPriority = async (priority: TicketPriority) => {
+    try {
+      setUpdatingPriority(true);
+      await messageService.setPriority(message.id, priority);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to set priority:', error);
+    } finally {
+      setUpdatingPriority(false);
+    }
+  };
+
+  const handleSetCategory = async (categoryId: number | null) => {
+    try {
+      setUpdatingCategory(true);
+      await messageService.setCategory(message.id, categoryId);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to set category:', error);
+    } finally {
+      setUpdatingCategory(false);
+    }
+  };
+
+  const handleToggleLead = async () => {
+    try {
+      setTogglingLead(true);
+      await messageService.markAsLead(message.id, !message.isLead);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to toggle lead:', error);
+    } finally {
+      setTogglingLead(false);
+    }
+  };
+
+  const handleCloseAsNotLead = async () => {
+    try {
+      setClosing(true);
+      // Unmark as lead first, then close
+      await messageService.markAsLead(message.id, false);
+      await messageService.close(message.id);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to close as not-lead:', error);
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  const handleClose = async () => {
+    try {
+      setClosing(true);
+      await messageService.close(message.id);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to close message:', error);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/messages?id=${message.id}`;
@@ -246,6 +477,10 @@ export const MessageDetail = ({
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const enrichment = message.metadata?.enrichment as
+    | { detectedCategory?: string; routingAttributes?: { lang?: string } }
+    | undefined;
+
   const autoReply = message.metadata?.autoReply as
     | {
         sent?: boolean;
@@ -258,11 +493,12 @@ export const MessageDetail = ({
   const suggestedAnswer = message.metadata?.suggestedAnswer as
     | {
         answer: string;
-        similarity: number;
-        source?: 'documentation' | 'similar_ticket' | 'similar_message';
-        sourceId: number;
-        sourceMessageId?: number; // Legacy field
-        documentationId?: number; // KB entry ID for "View Source" link
+        similarity?: number;
+        confidence?: number;
+        source?: 'documentation' | 'similar_ticket' | 'similar_message' | 'lead_qualification';
+        sourceId?: number;
+        sourceMessageId?: number;
+        documentationId?: number;
         documentTitle?: string;
         foundAt: string;
       }
@@ -299,7 +535,16 @@ export const MessageDetail = ({
           </div>
           <div>
             <p className="text-sm text-muted-foreground">From</p>
-            <p className="text-lg font-semibold truncate">{message.sender}</p>
+            <div className="flex gap-2 items-center">
+              <p className="text-lg font-semibold">{message.sender}</p>
+              <Link
+                to={`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`}
+                className="flex-shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                title="View all conversations with this sender"
+              >
+                History
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -336,6 +581,134 @@ export const MessageDetail = ({
           className="w-full"
         />
       </div>
+
+      {/* Priority, Category, Status */}
+      <div className="grid grid-cols-1 gap-3 pt-4 border-t">
+        {/* Priority */}
+        <div>
+          <p className="mb-1 text-sm text-muted-foreground">Priority</p>
+          <div className="flex flex-wrap gap-1">
+            {(['low', 'medium', 'high', 'critical'] as TicketPriority[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => void handleSetPriority(p)}
+                disabled={updatingPriority}
+                className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                  message.priority === p
+                    ? PRIORITY_COLORS[p]
+                    : 'text-muted-foreground border-border hover:bg-accent'
+                }`}
+              >
+                {PRIORITY_LABELS[p]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category */}
+        {categories.length > 0 && (
+          <div>
+            <p className="mb-1 text-sm text-muted-foreground">Category</p>
+            <select
+              value={message.categoryId ?? ''}
+              onChange={(e) =>
+                void handleSetCategory(e.target.value ? Number(e.target.value) : null)
+              }
+              disabled={updatingCategory}
+              className="px-2 py-1 w-full text-sm rounded-md border bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">No category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Status */}
+        <div>
+          <p className="mb-1 text-sm text-muted-foreground">Status</p>
+          <div className="flex flex-wrap gap-1">
+            {(['new', 'in_progress', 'pending', 'resolved', 'closed'] as MessageStatus[]).map(
+              (s) => (
+                <button
+                  key={s}
+                  onClick={() => void handleSetStatus(s)}
+                  disabled={updatingStatus}
+                  className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                    message.status === s
+                      ? 'text-blue-700 bg-blue-500/25 border-blue-500/60 font-semibold'
+                      : 'text-muted-foreground border-border hover:bg-accent'
+                  }`}
+                >
+                  {STATUS_LABELS[s]}
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Labels */}
+      {allLabels.length > 0 && (
+        <div className="pt-4 border-t">
+          <p className="mb-2 text-sm text-muted-foreground">Labels</p>
+          <div className="flex flex-wrap gap-1 items-center">
+            {messageLabels.map((label) => (
+              <span
+                key={label.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                style={{ backgroundColor: label.color }}
+              >
+                {label.name}
+                {hasManageLabels && (
+                  <button
+                    onClick={() => handleToggleLabel(label)}
+                    className="transition-opacity hover:opacity-70"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {hasManageLabels && (
+              <div className="relative" ref={labelPickerRef}>
+                <button
+                  onClick={() => setShowLabelPicker((v) => !v)}
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs text-muted-foreground hover:bg-accent transition-colors border border-dashed border-border"
+                  title="Add label"
+                >
+                  <Tag className="w-3 h-3" />
+                  <Plus className="w-3 h-3" />
+                </button>
+                {showLabelPicker && (
+                  <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-lg border bg-card shadow-md p-1">
+                    {allLabels.map((label) => {
+                      const isAssigned = messageLabels.some((l) => l.id === label.id);
+                      return (
+                        <button
+                          key={label.id}
+                          onClick={() => handleToggleLabel(label)}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent text-left"
+                        >
+                          <span
+                            className="flex-shrink-0 w-3 h-3 rounded-full"
+                            style={{ backgroundColor: label.color }}
+                          />
+                          <span className="flex-1">{label.name}</span>
+                          {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KB References - Show KB entries created from this message */}
       <MessageKBReferences messageId={message.id} />
@@ -462,7 +835,45 @@ export const MessageDetail = ({
         !message.resolved &&
         !message.directReply &&
         !message.repliedBy &&
-        (suggestedAnswer.source === 'documentation' ? (
+        (suggestedAnswer.source === 'lead_qualification' ? (
+          <div className="p-4 mb-6 bg-green-50 rounded-lg border-2 border-green-300 dark:bg-green-950/20 dark:border-green-700">
+            <div className="flex gap-2 items-start mb-3">
+              <div className="p-2 bg-green-100 rounded-full dark:bg-green-900">
+                <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-green-900 dark:text-green-100">
+                  Lead Qualification — Next Question
+                </h3>
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  Send this to continue qualifying the lead
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-white rounded border border-green-200 dark:bg-green-950/40 dark:border-green-800">
+              <p className="text-sm text-green-900 whitespace-pre-wrap break-words overflow-wrap-anywhere dark:text-green-50">
+                <LinkifiedText>{suggestedAnswer.answer}</LinkifiedText>
+              </p>
+            </div>
+
+            <div className="flex gap-2 mt-3">
+              <Button
+                onClick={() => {
+                  setReplyContent(convertTextToHtml(suggestedAnswer.answer));
+                  setShowReplyForm(true);
+                }}
+                className="flex-1"
+              >
+                <Check className="mr-2 w-4 h-4" />
+                Use This Message
+              </Button>
+              <Button onClick={() => setShowReplyForm(true)} variant="outline">
+                Write Different Reply
+              </Button>
+            </div>
+          </div>
+        ) : suggestedAnswer.source === 'documentation' ? (
           <div className="p-4 mb-6 bg-blue-50 rounded-lg border-2 border-blue-300 dark:bg-blue-950/20 dark:border-blue-700">
             <div className="flex gap-2 items-start mb-3">
               <div className="p-2 bg-blue-100 rounded-full dark:bg-blue-900">
@@ -473,7 +884,9 @@ export const MessageDetail = ({
                   AI Found Answer in Documentation
                 </h3>
                 <p className="text-xs text-blue-600 dark:text-blue-400">
-                  {Math.round(suggestedAnswer.similarity * 100)}% similarity
+                  {suggestedAnswer.similarity !== null &&
+                    suggestedAnswer.similarity !== undefined &&
+                    `${Math.round(suggestedAnswer.similarity * 100)}% similarity`}
                   {suggestedAnswer.documentTitle && ` • ${suggestedAnswer.documentTitle}`}
                   {' • Needs your review'}
                 </p>
@@ -530,7 +943,10 @@ export const MessageDetail = ({
                     : 'AI Found Similar Resolved Message'}
                 </h3>
                 <p className="text-xs text-purple-600 dark:text-purple-400">
-                  {Math.round(suggestedAnswer.similarity * 100)}% similarity • Needs your review
+                  {suggestedAnswer.similarity !== null &&
+                    suggestedAnswer.similarity !== undefined &&
+                    `${Math.round(suggestedAnswer.similarity * 100)}% similarity • `}
+                  Needs your review
                 </p>
               </div>
             </div>
@@ -612,7 +1028,9 @@ export const MessageDetail = ({
                 ? 'Send Reply'
                 : message.resolved
                   ? 'Send Follow-up Reply'
-                  : 'Reply Without Creating Ticket'}
+                  : message.isLead
+                    ? 'Reply to Lead'
+                    : 'Reply Without Creating Ticket'}
             </Button>
           </div>
         ) : (
@@ -709,6 +1127,20 @@ export const MessageDetail = ({
         </div>
       )}
 
+      {/* Lead Qualification */}
+      {message.isLead && (
+        <div className="pt-6 border-t">
+          {leadState ? (
+            <LeadQualificationPanel leadState={leadState} fieldDefs={leadFieldDefs} enrichment={enrichment} />
+          ) : (
+            <div className="space-y-1 p-4 rounded-lg border border-violet-500/20 bg-violet-500/5">
+              <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">Lead Qualification</p>
+              <p className="text-xs text-muted-foreground">No qualification data gathered yet. Data is collected as the AI engages with this lead over the conversation.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Email Attachments */}
       <MessageAttachments message={message} />
 
@@ -718,25 +1150,114 @@ export const MessageDetail = ({
       {/* Metadata */}
       {message.metadata &&
         (() => {
-          // Filter out embedding fields and already-displayed analysis/spamCheck
-          const { embedding, embeddingString, analysis, spamCheck, ...displayMetadata } =
-            message.metadata;
-          return Object.keys(displayMetadata).length > 0 ? (
-            <div className="pt-6 border-t">
-              <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-                Additional Information
-              </h3>
-              <div className="p-4 rounded-lg bg-muted">
-                <pre className="overflow-auto text-xs">
-                  {JSON.stringify(displayMetadata, null, 2)}
-                </pre>
-              </div>
-            </div>
-          ) : null;
+          const {
+            embedding: _emb,
+            embeddingString: _embStr,
+            analysis: _analysis,
+            spamCheck: _spamCheck,
+            suggestedAnswer: _sa,
+            autoReply: _ar,
+            leadState: _ls,
+            enrichment: _enr,
+            receivedAt: _ra,
+            isThreadView: _itv,
+            threadId: _tid,
+            threadMessageCount: _tmc,
+            threadHasUnread: _thu,
+            threadHasTicket: _tht,
+            threadIsResolved: _tir,
+            lastReplyFromClient: _lrfc,
+            gmailThreadId,
+            gmailMessageId,
+            integrationId: _integId,
+            messageIdHeader,
+            ...displayMetadata
+          } = message.metadata ?? {};
+
+          const emailDetails = [
+            gmailThreadId && { label: 'Gmail Thread', value: gmailThreadId as string },
+            gmailMessageId && { label: 'Gmail Message', value: gmailMessageId as string },
+            messageIdHeader && { label: 'Message-ID', value: messageIdHeader as string },
+          ].filter(Boolean) as { label: string; value: string }[];
+
+          return (
+            <>
+              {emailDetails.length > 0 && (
+                <div className="pt-6 border-t">
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email Details</h3>
+                  <div className="space-y-1">
+                    {emailDetails.map(({ label, value }) => (
+                      <div key={label} className="flex gap-2 text-xs">
+                        <span className="shrink-0 text-muted-foreground w-28">{label}:</span>
+                        <span className="font-mono break-all">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Object.keys(displayMetadata).length > 0 && (
+                <div className="pt-6 border-t">
+                  <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+                    Additional Information
+                  </h3>
+                  <div className="p-4 rounded-lg bg-muted">
+                    <pre className="overflow-auto text-xs">
+                      {JSON.stringify(displayMetadata, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </>
+          );
         })()}
+
+      {/* Internal Notes */}
+      <div className="pt-6 border-t">
+        <MessageNotes messageId={message.id} />
+      </div>
 
       {/* Actions */}
       <div className="flex flex-col gap-3 pt-6 border-t" data-message-actions>
+        {/* CLASSIFY ACTIONS: filtered (not_analysed) → approve to active */}
+        {isFiltered && onClassify && (
+          <Button
+            onClick={() => void handleClassify('approve')}
+            disabled={classifying}
+            className="w-full"
+            size="lg"
+          >
+            <ShieldCheck className="mr-2 w-4 h-4" />
+            {classifying ? 'Approving…' : 'Approve — Move to Active'}
+          </Button>
+        )}
+
+        {/* CLASSIFY ACTIONS: suspicious → approve to active */}
+        {isSuspicious && onClassify && (
+          <Button
+            onClick={() => void handleClassify('approve')}
+            disabled={classifying}
+            className="w-full"
+            size="lg"
+          >
+            <ShieldCheck className="mr-2 w-4 h-4" />
+            {classifying ? 'Approving…' : 'Not Spam — Move to Active'}
+          </Button>
+        )}
+
+        {/* CLASSIFY ACTIONS: active → mark suspicious */}
+        {isActive && onClassify && (
+          <Button
+            onClick={() => void handleClassify('mark_suspicious')}
+            disabled={classifying}
+            variant="outline"
+            size="sm"
+            className="w-full text-yellow-600 border-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-950"
+          >
+            <ShieldAlert className="mr-2 w-4 h-4" />
+            {classifying ? 'Updating…' : 'Mark as Suspicious'}
+          </Button>
+        )}
+
         {/* UNPROCESSED: Needs human review */}
         {!message.processed && (
           <>
@@ -764,74 +1285,132 @@ export const MessageDetail = ({
           </>
         )}
 
-        {/* PROCESSED (not resolved, no ticket): Ready for action */}
-        {message.processed && !message.resolved && !message.ticketId && (
-          <>
-            {/* Primary actions */}
-            <div className="grid grid-cols-2 gap-3">
-              {onApprove && (
-                <Button onClick={onApprove} size="lg">
-                  <Check className="mr-2 w-4 h-4" />
-                  Create Ticket
-                </Button>
-              )}
-              {!message.resolved && (
+        {/* PROCESSED (not resolved/closed, no ticket): Ready for action */}
+        {message.processed &&
+          !message.resolved &&
+          message.status !== 'closed' &&
+          !message.ticketId && (
+            <>
+              {/* Primary actions */}
+              <div className="grid grid-cols-2 gap-3">
+                {onApprove && (
+                  <Button onClick={onApprove} size="lg">
+                    <Check className="mr-2 w-4 h-4" />
+                    {message.isLead ? 'Create Lead Ticket' : 'Create Ticket'}
+                  </Button>
+                )}
+                {message.isLead ? (
+                  <Button
+                    onClick={handleCloseAsNotLead}
+                    variant="outline"
+                    size="lg"
+                    disabled={closing}
+                    title="Not a lead — unmark and close without KB capture"
+                  >
+                    <XCircle className="mr-2 w-4 h-4" />
+                    {closing ? 'Closing...' : 'Not a Lead — Close'}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleResolveWithoutReply}
+                    variant="secondary"
+                    size="lg"
+                    disabled={resolving}
+                    title="Mark as resolved and save attachments to knowledge base"
+                  >
+                    {resolving ? (
+                      <>
+                        <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2 w-4 h-4" />
+                        Resolve & Save to KB
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              {!message.isLead && (
                 <Button
-                  onClick={handleResolveWithoutReply}
-                  variant="secondary"
-                  size="lg"
-                  disabled={resolving}
-                  title="Mark as resolved and save attachments to knowledge base"
+                  onClick={handleClose}
+                  variant="outline"
+                  size="sm"
+                  disabled={closing}
+                  className="w-full text-muted-foreground"
+                  title="Close without saving to knowledge base"
                 >
-                  {resolving ? (
-                    <>
-                      <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2 w-4 h-4" />
-                      Resolve & Save to KB
-                    </>
-                  )}
+                  <XCircle className="mr-2 w-4 h-4" />
+                  {closing ? 'Closing...' : 'Close (no KB capture)'}
                 </Button>
               )}
-            </div>
 
-            {/* Secondary actions */}
-            <div className="flex gap-2">
-              <Button onClick={handleCopyLink} variant="ghost" size="sm" className="flex-1">
+              {/* Secondary actions */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleToggleLead}
+                  variant="ghost"
+                  size="sm"
+                  className={`flex-1 ${message.isLead ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+                  disabled={togglingLead}
+                  title={message.isLead ? 'Unmark as lead' : 'Mark as lead'}
+                >
+                  <Target className="mr-2 w-4 h-4" />
+                  {togglingLead ? 'Updating...' : message.isLead ? 'Unmark Lead' : 'Mark as Lead'}
+                </Button>
+                <Button onClick={handleCopyLink} variant="ghost" size="sm" className="flex-1">
+                  <LinkIcon className="mr-2 w-4 h-4" />
+                  {linkCopied ? 'Link Copied!' : 'Copy Link'}
+                </Button>
+                {message.threadId && (
+                  <Button
+                    onClick={handleCheckContradiction}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    disabled={checkingContradiction}
+                    title="Check for contradictions with previous messages"
+                  >
+                    {checkingContradiction ? (
+                      <>
+                        <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="mr-2 w-4 h-4" />
+                        Check Contradiction
+                      </>
+                    )}
+                  </Button>
+                )}
+                {onReopen && (
+                  <Button
+                    onClick={handleReopenClick}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <RotateCcw className="mr-2 w-4 h-4" />
+                    Unprocess
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+
+        {/* CLOSED: Done without KB capture */}
+        {message.status === 'closed' && !message.ticketId && (
+          <>
+            <div className="p-3 rounded-lg border bg-muted border-border">
+              <p className="text-sm font-medium text-muted-foreground">Closed (no KB capture)</p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleCopyLink} variant="ghost" size="sm" className="w-full">
                 <LinkIcon className="mr-2 w-4 h-4" />
                 {linkCopied ? 'Link Copied!' : 'Copy Link'}
               </Button>
-              {message.threadId && (
-                <Button
-                  onClick={handleCheckContradiction}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  disabled={checkingContradiction}
-                  title="Check for contradictions with previous messages"
-                >
-                  {checkingContradiction ? (
-                    <>
-                      <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="mr-2 w-4 h-4" />
-                      Check Contradiction
-                    </>
-                  )}
-                </Button>
-              )}
-              {onReopen && (
-                <Button onClick={handleReopenClick} variant="outline" size="sm" className="flex-1">
-                  <RotateCcw className="mr-2 w-4 h-4" />
-                  Reopen
-                </Button>
-              )}
             </div>
           </>
         )}
@@ -897,14 +1476,18 @@ export const MessageDetail = ({
         </DialogContent>
       </Dialog>
 
-      {/* Unresolve Confirmation Dialog */}
+      {/* Unresolve / Unprocess Confirmation Dialog */}
       <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unresolve Message?</DialogTitle>
+            <DialogTitle>
+              {message.resolved ? 'Unresolve Message?' : 'Unprocess Message?'}
+            </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to unresolve this message? This will:
+            {message.resolved
+              ? 'Are you sure you want to unresolve this message? This will:'
+              : 'Are you sure you want to unprocess this message? This will:'}
           </p>
           <ul className="pl-2 space-y-1 text-sm list-disc list-inside text-muted-foreground">
             <li>Mark the message as unprocessed</li>
@@ -919,7 +1502,7 @@ export const MessageDetail = ({
               Cancel
             </Button>
             <Button onClick={handleReopenConfirm} variant="destructive">
-              Unresolve & Clean Up
+              {message.resolved ? 'Unresolve & Clean Up' : 'Unprocess & Clean Up'}
             </Button>
           </DialogFooter>
         </DialogContent>

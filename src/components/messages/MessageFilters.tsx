@@ -12,6 +12,8 @@ import {
   ChevronUp,
   Clock,
   BookOpen,
+  AlertCircle,
+  Target,
 } from 'lucide-react';
 import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Badge } from '@/components/ui/Badge';
@@ -22,6 +24,17 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
+
+const AGE_RANGE_OPTIONS: {
+  value: 'lt24h' | '1to7d' | '1to4w' | 'gt1mo' | undefined;
+  label: string;
+}[] = [
+  { value: undefined, label: 'Any' },
+  { value: 'lt24h', label: '< 24h' },
+  { value: '1to7d', label: '1–7d' },
+  { value: '1to4w', label: '1–4w' },
+  { value: 'gt1mo', label: '> 1mo' },
+];
 
 type MessageFiltersProps = {
   filters: FilterState;
@@ -140,55 +153,121 @@ export const MessageFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-4 rounded-lg border bg-muted/30">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center w-full">
-                {/* Status Group */}
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
-                    Status:
+              <div className="flex flex-col gap-3 w-full sm:flex-row sm:flex-wrap sm:items-center">
+                {/* View Group (classification) */}
+                <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto">
+                  <span className="w-16 text-xs font-semibold text-muted-foreground shrink-0">
+                    View:
                   </span>
-                  <div className="flex flex-col sm:flex-row w-full sm:w-auto rounded-md shadow-sm">
+                  <div className="flex flex-col w-full rounded-md shadow-sm sm:flex-row sm:w-auto">
                     <Button
-                      variant={filters.processed === 'unprocessed' ? 'primary' : 'outline'}
+                      variant={filters.view === 'active' ? 'primary' : 'outline'}
                       size="sm"
-                      onClick={() => onFilterChange('processed', 'unprocessed')}
-                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0 w-full sm:w-auto"
+                      onClick={() => onFilterChange('view', 'active')}
+                      className="w-full h-8 text-xs rounded-r-none rounded-l-md border-r-0 sm:w-auto"
                     >
-                      Unprocessed
+                      Active
                     </Button>
                     <Button
-                      variant={filters.processed === 'processed' ? 'primary' : 'outline'}
+                      variant={filters.view === 'suspicious' ? 'primary' : 'outline'}
                       size="sm"
-                      onClick={() => onFilterChange('processed', 'processed')}
-                      className="h-8 text-xs rounded-none border-r-0 w-full sm:w-auto"
+                      onClick={() => onFilterChange('view', 'suspicious')}
+                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
                     >
-                      Processed
+                      Suspicious
                     </Button>
                     <Button
-                      variant={filters.processed === 'resolved' ? 'primary' : 'outline'}
+                      variant={filters.view === 'not_analysed' ? 'primary' : 'outline'}
                       size="sm"
-                      onClick={() => onFilterChange('processed', 'resolved')}
-                      className="h-8 text-xs rounded-none border-r-0 w-full sm:w-auto"
+                      onClick={() => onFilterChange('view', 'not_analysed')}
+                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                    >
+                      Not Analysed
+                    </Button>
+                    <Button
+                      variant={filters.view === 'resolved' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => onFilterChange('view', 'resolved')}
+                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
                     >
                       Resolved
                     </Button>
                     <Button
-                      variant={filters.processed === 'all' ? 'primary' : 'outline'}
+                      variant={filters.view === 'all' ? 'primary' : 'outline'}
                       size="sm"
-                      onClick={() => onFilterChange('processed', 'all')}
-                      className="h-8 text-xs rounded-r-md rounded-l-none w-full sm:w-auto"
+                      onClick={() => onFilterChange('view', 'all')}
+                      className="w-full h-8 text-xs rounded-r-md rounded-l-none sm:w-auto"
                     >
                       All
                     </Button>
                   </div>
                 </div>
 
+                {/* Progress Group (workflow) */}
+                <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto">
+                  <span className="w-16 text-xs font-semibold text-muted-foreground shrink-0">
+                    Progress:
+                  </span>
+                  <div className="flex flex-col w-full rounded-md shadow-sm sm:flex-row sm:w-auto">
+                    <Button
+                      variant={filters.processed === 'open' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() =>
+                        onFilterChange('processed', filters.processed === 'open' ? 'all' : 'open')
+                      }
+                      className="w-full h-8 text-xs rounded-r-none rounded-l-md border-r-0 sm:w-auto"
+                    >
+                      Open
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'in_progress' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() =>
+                        onFilterChange(
+                          'processed',
+                          filters.processed === 'in_progress' ? 'all' : 'in_progress'
+                        )
+                      }
+                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                    >
+                      In Progress
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'pending' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() =>
+                        onFilterChange(
+                          'processed',
+                          filters.processed === 'pending' ? 'all' : 'pending'
+                        )
+                      }
+                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                    >
+                      Pending
+                    </Button>
+                    <Button
+                      variant={filters.processed === 'closed' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() =>
+                        onFilterChange(
+                          'processed',
+                          filters.processed === 'closed' ? 'all' : 'closed'
+                        )
+                      }
+                      className="w-full h-8 text-xs rounded-r-md rounded-l-none sm:w-auto"
+                    >
+                      Closed
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Channel Group */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
+                  <span className="w-full text-xs font-semibold text-muted-foreground sm:w-auto">
                     Channel:
                   </span>
                   <ReactSelect
-                    value={filters.channel}
+                    value={filters.channel ?? 'all'}
                     onChange={(value) => onFilterChange('channel', value)}
                     options={[
                       { value: 'all', label: 'All' },
@@ -201,8 +280,8 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Message Source Group */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
+                  <span className="w-full text-xs font-semibold text-muted-foreground sm:w-auto">
                     Source:
                   </span>
                   <ReactSelect
@@ -221,13 +300,13 @@ export const MessageFilters = ({
 
                 {/* Assignee Filter */}
                 <AssigneeFilter
-                  value={filters.assigneeId}
+                  value={filters.assigneeId ?? 'all'}
                   onChange={(value) => onFilterChange('assigneeId', value)}
                 />
 
                 {/* Sort Order */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                  <span className="text-xs font-semibold text-muted-foreground w-full sm:w-auto">
+                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
+                  <span className="w-full text-xs font-semibold text-muted-foreground sm:w-auto">
                     Sort:
                   </span>
                   <ReactSelect
@@ -301,26 +380,6 @@ export const MessageFilters = ({
                   <label className="flex gap-2 items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={filters.showSuspicious ?? false}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          showSuspicious: e.target.checked,
-                          showSpam: false,
-                          excludeSpam: false,
-                        })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <ShieldX className="w-3 h-3 text-yellow-500" />
-                      <span>Suspicious</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
                       checked={filters.excludeSpam ?? false}
                       onChange={(e) =>
                         setFilters({
@@ -338,8 +397,8 @@ export const MessageFilters = ({
                     </div>
                   </label>
 
-                  {/* Show Ticket Worthy & Needs Info only for Processed */}
-                  {filters.processed === 'processed' && (
+                  {/* Show Ticket Worthy & Needs Info only for Active tab */}
+                  {filters.view === 'active' && (
                     <>
                       <label className="flex gap-2 items-center cursor-pointer">
                         <input
@@ -372,6 +431,36 @@ export const MessageFilters = ({
                   )}
 
                   {/* Common filters - always visible */}
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.isLead ?? false}
+                      onChange={(e) =>
+                        setFilters({ ...filters, isLead: e.target.checked, isQualifiedLead: false })
+                      }
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                      <Target className="w-3 h-3" />
+                      <span>Leads Only</span>
+                    </div>
+                  </label>
+
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.isQualifiedLead ?? false}
+                      onChange={(e) =>
+                        setFilters({ ...filters, isQualifiedLead: e.target.checked, isLead: false })
+                      }
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
+                      <Target className="w-3 h-3 text-green-600" />
+                      <span>Qualified Leads</span>
+                    </div>
+                  </label>
+
                   <label className="flex gap-2 items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -521,6 +610,41 @@ export const MessageFilters = ({
                       <span>Exclude KB</span>
                     </div>
                   </label>
+
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.needsHumanReview ?? false}
+                      onChange={(e) =>
+                        setFilters({ ...filters, needsHumanReview: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex gap-1 items-center text-xs font-medium text-orange-600 whitespace-nowrap dark:text-orange-400">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Needs Review</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Age range filter */}
+                <div className="pt-2 border-t">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Age</p>
+                  <div className="flex flex-wrap gap-1">
+                    {AGE_RANGE_OPTIONS.map(({ value, label }) => (
+                      <button
+                        key={label}
+                        onClick={() => setFilters({ ...filters, ageRange: value })}
+                        className={`px-2 py-0.5 rounded text-xs font-mono transition-colors ${
+                          filters.ageRange === value
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

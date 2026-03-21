@@ -18,7 +18,7 @@ export const RulesSettings = () => {
     {
       id: 'detection' as RuleType,
       label: 'Detection Rules',
-      description: 'Identify legitimate support messages',
+      description: 'Identify legitimate messages',
     },
     {
       id: 'knowledge' as RuleType,

@@ -67,14 +67,16 @@ export const auditLogService = {
     }
 
     const queryString = params.toString();
-    const { data } = await apiClient.get<AuditLogsResponse>(
+    const { data } = await apiClient.get<{ success: boolean; data: AuditLogsResponse }>(
       `/api/audit-logs${queryString ? `?${queryString}` : ''}`
     );
-    return data;
+    return data.data;
   },
 
   async getStats(): Promise<AuditLogStats> {
-    const { data } = await apiClient.get<AuditLogStats>('/api/audit-logs/stats');
-    return data;
+    const { data } = await apiClient.get<{ success: boolean; data: AuditLogStats }>(
+      '/api/audit-logs/stats'
+    );
+    return data.data;
   },
 };

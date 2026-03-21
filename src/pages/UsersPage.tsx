@@ -286,8 +286,8 @@ export const UsersPage = () => {
                 <UserPlus className="mr-2 w-4 h-4" />
                 Create User
               </Button>
-              <Button 
-                className="flex-1 sm:flex-none" 
+              <Button
+                className="flex-1 sm:flex-none"
                 variant="outline"
                 onClick={() => setIsInviteModalOpen(true)}
               >
@@ -601,15 +601,6 @@ export const UsersPage = () => {
                 <p className="mb-1 text-sm font-medium">{roleDisplayNames.associate}</p>
                 <p className="text-xs text-muted-foreground">
                   Read-only access. Can view tickets and messages, request changes.
-                </p>
-              </div>
-              <div className="p-4 rounded-lg border">
-                <div className="flex gap-2 items-center mb-2">
-                  <Badge variant="secondary">associate</Badge>
-                </div>
-                <p className="mb-1 text-sm font-medium">{roleDisplayNames.associate}</p>
-                <p className="text-xs text-muted-foreground">
-                  View-only access to tickets and messages with ability to request changes.
                 </p>
               </div>
             </div>

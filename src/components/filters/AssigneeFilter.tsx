@@ -14,6 +14,7 @@ export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterPro
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
   const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
+  const currentUser = useAuthStore((state) => state.user);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -36,10 +37,13 @@ export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterPro
   const options = [
     { value: 'all', label: 'All Assignees' },
     { value: 'unassigned', label: 'Unassigned' },
-    ...users.map((user) => ({
-      value: String(user.id),
-      label: `${user.firstName} ${user.lastName}`,
-    })),
+    ...(currentUser ? [{ value: String(currentUser.id), label: 'Me' }] : []),
+    ...users
+      .filter((u) => !currentUser || u.id !== currentUser.id)
+      .map((user) => ({
+        value: String(user.id),
+        label: `${user.firstName} ${user.lastName}`,
+      })),
   ];
 
   return (

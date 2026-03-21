@@ -49,7 +49,7 @@ export const MessageSourcesSettings = () => {
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-foreground">Message Sources</h2>
         <p className="text-sm text-muted-foreground">
-          Configure where your support messages come from - email, chat platforms, and more.
+          Configure where your messages come from - email, chat platforms, and more.
         </p>
       </div>
 

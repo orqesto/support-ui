@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
 import { Ticket, RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -205,7 +204,6 @@ export const TicketsPage = () => {
       if (!force) {
         const cached = getCached(page);
         if (cached) {
-          console.log('✅ Using cached tickets for page', page);
           setTickets(cached.tickets);
           setPagination(cached.pagination);
           setLoading(false); // ← FIX: Set loading to false on cache hit
@@ -213,7 +211,6 @@ export const TicketsPage = () => {
         }
       }
 
-      console.log('🔄 Fetching tickets from API for page', page);
       setLoading(true);
       try {
         // Build API filters - capture current filters
@@ -238,6 +235,9 @@ export const TicketsPage = () => {
         }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
+        }
+        if (currentFilters.labelId) {
+          apiFilters.labelId = currentFilters.labelId;
         }
         if (currentFilters.syncedToJira !== undefined) {
           apiFilters.syncedToJira = currentFilters.syncedToJira.toString();
@@ -315,11 +315,6 @@ export const TicketsPage = () => {
 
     const handleTicketUpdate = (data: unknown) => {
       const ticketUpdate = data as { ticketId: number; jiraKey: string; changedFields?: string[] };
-      console.log('🔄 Ticket updated from Jira:', ticketUpdate);
-
-      // Show notification
-      const fields = ticketUpdate.changedFields?.join(', ') ?? 'fields';
-      console.log(`✅ ${ticketUpdate.jiraKey} synced from Jira (updated: ${fields})`);
 
       // Clear cache to ensure fresh data
       clearCache();
@@ -344,9 +339,7 @@ export const TicketsPage = () => {
       }
     };
 
-    const handleTicketCreated = (data: unknown) => {
-      const ticketData = data as { ticketId: number; organizationId: number };
-      console.log('✨ New ticket created:', ticketData);
+    const handleTicketCreated = (_data: unknown) => {
 
       // Clear cache to ensure fresh data
       clearCache();

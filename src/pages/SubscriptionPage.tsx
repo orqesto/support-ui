@@ -1,11 +1,3 @@
-/**
- * TODO: Finish Subscription Page Implementation
- * - Complete billing integration logic
- * - Implement plan upgrade/downgrade flows
- * - Add payment method management
- * - Implement usage limits and warnings
- * - Add subscription cancellation workflow
- */
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, TrendingUp, Zap, Check } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -65,18 +57,18 @@ type EnabledModule = {
 };
 
 type TabType = 'plans' | 'ai-modules';
+const VALID_TABS: TabType[] = ['plans', 'ai-modules'];
 
 export const SubscriptionPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
 
-  // Get active tab from URL hash, default to 'plans'
-  const activeTab = (location.hash.replace('#', '') || 'plans') as TabType;
+  const hashTab = location.hash.replace('#', '') as TabType;
+  const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'plans';
 
-  // Handle tab change by updating URL hash
   const handleTabChange = (tabId: TabType) => {
-    window.location.hash = tabId;
+    navigate(`/subscription#${tabId}`, { replace: true });
   };
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -395,7 +387,7 @@ export const SubscriptionPage = () => {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Card
                 className="transition-shadow cursor-pointer hover:shadow-md"
-                onClick={() => navigate('/settings/usage')}
+                onClick={() => navigate('/usage-stats')}
               >
                 <CardContent className="p-6">
                   <TrendingUp className="mb-3 w-8 h-8 text-blue-600" />

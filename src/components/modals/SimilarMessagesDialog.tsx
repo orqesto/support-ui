@@ -102,7 +102,6 @@ export const SimilarMessagesDialog = ({
           setAiMode(response.data?.mode ?? null);
           setAiResponse(response.data?.aiResponse?.text ?? null);
           setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
-
           // Convert sources to similar messages format for backward compatibility
           const sources = response.data?.sources ?? [];
           const converted: SimilarMessage[] = sources.map((source) => ({
@@ -133,20 +132,22 @@ export const SimilarMessagesDialog = ({
     }
   }, [open, messageId]);
 
-  const handleUseAnswer = async () => {
+  const handleUseAnswer = async (forceText?: string) => {
     // If AI response is selected
     if (useAiResponse && aiResponse) {
+      // Use translated text if available and no override provided
+      const textToUse = forceText ?? (showTranslation && translatedAiResponse ? translatedAiResponse : aiResponse);
       // Save to message metadata for persistence
       try {
         await messageService.saveSuggestedAnswer(messageId, {
-          answer: aiResponse,
+          answer: textToUse,
           similarity: aiConfidence,
           source: 'ai-generated',
         });
       } catch (error) {
         console.error('Failed to save suggested answer:', error);
       }
-      onSelectAnswer(aiResponse);
+      onSelectAnswer(textToUse);
       onClose();
       return;
     }
@@ -326,25 +327,44 @@ export const SimilarMessagesDialog = ({
                   <p className="mb-2 text-sm font-medium text-muted-foreground">
                     {showTranslation && translatedAiResponse ? 'Original:' : 'Suggested Answer:'}
                   </p>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
+                  <div className="overflow-y-auto min-h-[80px] max-h-[200px]">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
+                  </div>
                 </div>
 
                 {/* Translated Response */}
                 {showTranslation && translatedAiResponse && (
                   <div className="p-3 mt-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded border border-blue-200 dark:from-blue-950/20 dark:to-blue-900/30 dark:border-blue-800">
-                    <p className="mb-2 text-sm font-medium text-blue-700 dark:text-blue-300">
-                      Translated to {languages?.find((l) => l.code === selectedLanguage)?.name}:
-                    </p>
-                    <p className="text-sm leading-relaxed text-blue-900 whitespace-pre-wrap dark:text-blue-100">
-                      {translatedAiResponse}
-                    </p>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                        Translated to {languages?.find((l) => l.code === selectedLanguage)?.name}:
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleUseAnswer(aiResponse);
+                        }}
+                      >
+                        Use original instead
+                      </Button>
+                    </div>
+                    <div className="overflow-y-auto min-h-[80px] max-h-[200px]">
+                      <p className="text-sm leading-relaxed text-blue-900 whitespace-pre-wrap dark:text-blue-100">
+                        {translatedAiResponse}
+                      </p>
+                    </div>
                   </div>
                 )}
 
-                <div className="flex gap-2 items-center mt-3 text-xs text-muted-foreground">
-                  <Sparkles className="w-3 h-3" />
-                  <span>Synthesized from {similarMessages.length} sources (see below)</span>
-                </div>
+                {similarMessages.length > 0 && (
+                  <div className="flex gap-2 items-center mt-3 text-xs text-muted-foreground">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Synthesized from {similarMessages.length} sources (see below)</span>
+                  </div>
+                )}
 
                 {useAiResponse && (
                   <div className="flex justify-center items-center mt-3">
@@ -373,7 +393,7 @@ export const SimilarMessagesDialog = ({
             </div>
           )}
 
-          {!loading && similarMessages.length === 0 && (
+          {!loading && similarMessages.length === 0 && aiMode !== 'ai-generated' && (
             <div className="py-12 text-center rounded-lg border border-dashed">
               <Search className="mx-auto mb-3 w-12 h-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">No similar content found</p>
@@ -389,8 +409,8 @@ export const SimilarMessagesDialog = ({
                 <div
                   key={
                     msg.source === 'documentation'
-                      ? `doc-${msg.documentationId}`
-                      : `msg-${msg.messageId}`
+                      ? `doc-${msg.documentationId}-${index}`
+                      : `msg-${msg.messageId}-${index}`
                   }
                   onClick={() => setSelectedIndex(index)}
                   onKeyDown={(e) => {
@@ -506,7 +526,9 @@ export const SimilarMessagesDialog = ({
                       <p className="mb-1 text-xs font-medium text-muted-foreground">
                         Customer Request:
                       </p>
-                      <p className="text-sm whitespace-pre-wrap line-clamp-3">{msg.content}</p>
+                      <div className="overflow-y-auto min-h-[48px] max-h-[120px]">
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      </div>
                     </div>
                   )}
 
@@ -564,17 +586,19 @@ export const SimilarMessagesDialog = ({
                           </div>
                         )}
                     </div>
-                    <p
-                      className={`text-sm whitespace-pre-wrap ${
-                        msg.source === 'documentation'
-                          ? 'text-blue-900 dark:text-blue-50'
-                          : 'text-green-900 dark:text-green-50'
-                      }`}
-                    >
-                      {showEnglish[index] && msg.directReplyEnglish
-                        ? msg.directReplyEnglish
-                        : msg.directReply}
-                    </p>
+                    <div className="overflow-y-auto min-h-[60px] max-h-[160px]">
+                      <p
+                        className={`text-sm whitespace-pre-wrap ${
+                          msg.source === 'documentation'
+                            ? 'text-blue-900 dark:text-blue-50'
+                            : 'text-green-900 dark:text-green-50'
+                        }`}
+                      >
+                        {showEnglish[index] && msg.directReplyEnglish
+                          ? msg.directReplyEnglish
+                          : msg.directReply}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Reference/Citation */}
@@ -643,9 +667,13 @@ export const SimilarMessagesDialog = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleUseAnswer} disabled={!useAiResponse && selectedIndex === null}>
+          <Button onClick={() => void handleUseAnswer()} disabled={!useAiResponse && selectedIndex === null}>
             <Check className="mr-2 w-4 h-4" />
-            {useAiResponse ? 'Use AI Response' : 'Use This Answer'}
+            {useAiResponse
+              ? showTranslation && translatedAiResponse
+                ? 'Use Translated Response'
+                : 'Use AI Response'
+              : 'Use This Answer'}
           </Button>
         </DialogFooter>
       </DialogContent>

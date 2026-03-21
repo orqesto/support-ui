@@ -240,7 +240,8 @@ export const KnowledgeDetectionRulesSettings = () => {
           No KB detection rules configured. Add your first rule to get started.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <>
+        <div className="hidden lg:block overflow-x-auto rounded-lg border">
           <table className="min-w-full divide-y divide-border">
             <thead className="bg-muted/50">
               <tr>
@@ -324,6 +325,56 @@ export const KnowledgeDetectionRulesSettings = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile cards */}
+        <div className="lg:hidden space-y-3">
+          {rules.map((rule) => (
+            <div key={rule.id} className="p-4 rounded-lg border bg-card space-y-3">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{rule.name}</p>
+                  <span className={`mt-1 inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getCategoryColor(rule.category)}`}>
+                    {rule.category}
+                  </span>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteClick(rule)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">{rule.description}</p>
+              <div className="flex flex-wrap gap-2 items-center justify-between">
+                <Badge variant="default">{rule.confidence}</Badge>
+                <button
+                  onClick={() => toggleActive(rule)}
+                  className="inline-flex gap-1 items-center transition-colors hover:text-primary"
+                >
+                  {rule.active ? (
+                    <>
+                      <Eye className="w-4 h-4 text-green-600" />
+                      <span className="text-xs text-green-600">Active</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Inactive</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       {/* Edit/Create Dialog */}

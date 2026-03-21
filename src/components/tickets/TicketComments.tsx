@@ -117,15 +117,13 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     subscribeToEvent('ticket:comments:updated', handleCommentEvent);
 
     // Polling fallback for Jira-linked tickets (in case webhooks fail)
-    let pollInterval: number | null = null;
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
     if (hasJiraLink) {
-      pollInterval = setInterval(async () => {
-        try {
-          await commentsService.syncFromJira(ticketId);
-          await fetchComments();
-        } catch (error) {
-          console.error('Background sync failed:', error);
-        }
+      pollInterval = setInterval(() => {
+        void commentsService
+          .syncFromJira(ticketId)
+          .then(() => fetchComments())
+          .catch((error: unknown) => console.error('Background sync failed:', error));
       }, 60000); // Poll every 60 seconds
     }
 

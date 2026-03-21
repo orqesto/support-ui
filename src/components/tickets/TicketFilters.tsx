@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Filter,
   X,
@@ -18,6 +19,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import type { JiraIntegration } from '@/services/integrations.service';
 import type { PaginationMeta } from '@/services/ticket.service';
+import { labelService, type Label } from '@/services/settings.service';
 import type { TicketStatus, TicketPriority } from '@/types';
 
 type FilterState = {
@@ -26,6 +28,7 @@ type FilterState = {
   categoryId: string;
   messageSourceId?: string;
   assigneeId?: string;
+  labelId?: string;
   search?: string;
   syncedToJira?: boolean;
 };
@@ -72,6 +75,15 @@ export const TicketFilters = ({
   onSyncAll,
   onPendingSearchChange,
 }: TicketFiltersProps) => {
+  const [labels, setLabels] = useState<Label[]>([]);
+
+  useEffect(() => {
+    labelService
+      .getLabels()
+      .then((data) => setLabels(data))
+      .catch(() => {});
+  }, []);
+
   const { activeFilterCount, activeFilters } = useFilterPanel({
     filters,
     customLabels: {
@@ -80,9 +92,11 @@ export const TicketFilters = ({
       categoryId: 'Category',
       messageSourceId: 'Source',
       assigneeId: 'Assignee',
+      labelId: 'Label',
       syncedToJira: 'Jira',
     },
     customValues: {
+      labelId: (val) => labels.find((l) => l.id.toString() === String(val))?.name ?? String(val),
       syncedToJira: () => 'Synced',
     },
   });
@@ -98,6 +112,8 @@ export const TicketFilters = ({
       onFilterChange('messageSourceId', 'all');
     } else if (key === 'assigneeId') {
       onFilterChange('assigneeId', 'all');
+    } else if (key === 'labelId') {
+      onFilterChange('labelId', '');
     } else if (key === 'syncedToJira') {
       onFilterChange('syncedToJira', 'false');
     }
@@ -300,6 +316,22 @@ export const TicketFilters = ({
                   value={filters.assigneeId}
                   onChange={(value) => onFilterChange('assigneeId', value)}
                 />
+
+                {/* Label Filter */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                    Label:
+                  </span>
+                  <ReactSelect
+                    value={filters.labelId ?? ''}
+                    onChange={(value) => onFilterChange('labelId', value)}
+                    options={[
+                      { value: '', label: 'All' },
+                      ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
+                    ]}
+                    className="min-w-[130px]"
+                  />
+                </div>
 
                 {/* Group 2: Sorting */}
                 <div className="flex gap-2 items-center">
