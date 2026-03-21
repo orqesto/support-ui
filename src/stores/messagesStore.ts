@@ -4,7 +4,8 @@ import type { PaginationMeta } from '@/services/message.service';
 import type { Message } from '@/types';
 
 export type FilterState = {
-  processed?: 'all' | 'unprocessed' | 'processed' | 'resolved';
+  view?: 'all' | 'active' | 'suspicious' | 'not_analysed' | 'resolved'; // classification lens
+  processed?: 'all' | 'open' | 'in_progress' | 'pending' | 'closed'; // workflow progress
   channel?: 'all' | 'email' | 'telegram' | 'slack';
   messageSourceId?: string; // 'all' or integration ID
   showSpam?: boolean;
@@ -13,6 +14,8 @@ export type FilterState = {
   showNeedsInfo?: boolean;
   showWorthy?: boolean;
   hasAttachments?: boolean;
+  isLead?: boolean;
+  isQualifiedLead?: boolean;
   hasReplies?: boolean;
   hasTicket?: boolean;
   showFailed?: boolean;
@@ -20,9 +23,11 @@ export type FilterState = {
   excludeKB?: boolean; // Filter out KB messages (show only support requests)
   awaitingCustomerResponse?: boolean;
   customerResponded?: boolean; // Show customer responses needing agent attention
-  assignedToMe?: boolean; // Filter to show only messages assigned to current user
   assigneeId?: string; // Filter by specific assignee ('all', 'unassigned', or user ID)
   search?: string;
+  departmentRole?: 'all' | 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  needsHumanReview?: boolean; // Escalated messages that need human attention
+  ageRange?: 'lt24h' | '1to7d' | '1to4w' | 'gt1mo';
 };
 
 export type SortingState = {
@@ -46,13 +51,14 @@ type MessagesState = {
   setFilters: (filters: FilterState) => void;
   setSorting: (sorting: SortingState) => void;
   updateFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
-  updatePrimaryFilter: (key: 'processed' | 'channel' | 'messageSourceId', value: string) => void;
+  updatePrimaryFilter: (key: 'view' | 'channel' | 'messageSourceId', value: string) => void;
   updateSecondaryFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
   clearFilters: () => void;
   clearCache: () => void;
 };
 
 const defaultFilters: FilterState = {
+  view: 'active',
   processed: 'all',
   channel: 'all',
   messageSourceId: 'all',
@@ -62,6 +68,8 @@ const defaultFilters: FilterState = {
   showNeedsInfo: false,
   showWorthy: false,
   hasAttachments: false,
+  isLead: false,
+  isQualifiedLead: false,
   hasReplies: false,
   hasTicket: undefined,
   showFailed: false,
@@ -70,6 +78,9 @@ const defaultFilters: FilterState = {
   awaitingCustomerResponse: false,
   customerResponded: false,
   assigneeId: 'all',
+  departmentRole: 'all',
+  needsHumanReview: false,
+  ageRange: undefined,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
@@ -145,37 +156,39 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   // Update primary filter: Keep other primary filters, clear secondary filters
   updatePrimaryFilter: (key, value) => {
     set((state) => {
-      const { processed, channel, messageSourceId } = state.filters;
+      const { view, channel, messageSourceId } = state.filters;
 
       console.log(`🔵 Primary filter changed: ${key} = ${value}`);
-      console.log('   Keeping: processed, channel, messageSourceId');
-      console.log('   Clearing: all secondary filters');
 
       return {
         filters: {
-          // Keep all primary filters
-          processed,
+          view,
           channel,
           messageSourceId,
-          // Update the changed one
           [key]: value,
-          // Clear all secondary filters
+          processed: 'all',
           showSpam: false,
           showSuspicious: false,
           excludeSpam: false,
           showNeedsInfo: false,
           showWorthy: false,
           hasAttachments: false,
+          isLead: false,
+          isQualifiedLead: false,
           hasReplies: false,
           hasTicket: undefined,
           showFailed: false,
           showKBOnly: false,
-          excludeKB: false, // KB messages now flow through normal processing
+          excludeKB: false,
           awaitingCustomerResponse: false,
+          customerResponded: false,
           assigneeId: 'all',
           search: undefined,
+          departmentRole: 'all',
+          needsHumanReview: false,
+          ageRange: undefined,
         },
-        cache: {}, // Clear cache on filter change
+        cache: {},
       };
     });
   },

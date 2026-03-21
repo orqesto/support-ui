@@ -269,7 +269,7 @@ export const CategoriesSettings = () => {
 
                 
                   <div className="flex flex-row sm:flex-col gap-2 items-center sm:items-start justify-center sm:justify-start w-full sm:w-auto">
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(category)}>
+                    <Button size="sm" variant="outline" className="w-full" onClick={() => handleEdit(category)}>
                       <Edit2 className="mr-2 w-4 h-4" />
                       Edit
                     </Button>
@@ -277,6 +277,7 @@ export const CategoriesSettings = () => {
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="w-full"
                       onClick={() => handleDeleteClick(category)}
                       aria-label="Delete category"
                     >

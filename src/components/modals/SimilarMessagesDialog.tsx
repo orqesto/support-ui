@@ -132,20 +132,22 @@ export const SimilarMessagesDialog = ({
     }
   }, [open, messageId]);
 
-  const handleUseAnswer = async () => {
+  const handleUseAnswer = async (forceText?: string) => {
     // If AI response is selected
     if (useAiResponse && aiResponse) {
+      // Use translated text if available and no override provided
+      const textToUse = forceText ?? (showTranslation && translatedAiResponse ? translatedAiResponse : aiResponse);
       // Save to message metadata for persistence
       try {
         await messageService.saveSuggestedAnswer(messageId, {
-          answer: aiResponse,
+          answer: textToUse,
           similarity: aiConfidence,
           source: 'ai-generated',
         });
       } catch (error) {
         console.error('Failed to save suggested answer:', error);
       }
-      onSelectAnswer(aiResponse);
+      onSelectAnswer(textToUse);
       onClose();
       return;
     }
@@ -333,9 +335,22 @@ export const SimilarMessagesDialog = ({
                 {/* Translated Response */}
                 {showTranslation && translatedAiResponse && (
                   <div className="p-3 mt-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded border border-blue-200 dark:from-blue-950/20 dark:to-blue-900/30 dark:border-blue-800">
-                    <p className="mb-2 text-sm font-medium text-blue-700 dark:text-blue-300">
-                      Translated to {languages?.find((l) => l.code === selectedLanguage)?.name}:
-                    </p>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                        Translated to {languages?.find((l) => l.code === selectedLanguage)?.name}:
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleUseAnswer(aiResponse);
+                        }}
+                      >
+                        Use original instead
+                      </Button>
+                    </div>
                     <div className="overflow-y-auto min-h-[80px] max-h-[200px]">
                       <p className="text-sm leading-relaxed text-blue-900 whitespace-pre-wrap dark:text-blue-100">
                         {translatedAiResponse}
@@ -394,8 +409,8 @@ export const SimilarMessagesDialog = ({
                 <div
                   key={
                     msg.source === 'documentation'
-                      ? `doc-${msg.documentationId}`
-                      : `msg-${msg.messageId}`
+                      ? `doc-${msg.documentationId}-${index}`
+                      : `msg-${msg.messageId}-${index}`
                   }
                   onClick={() => setSelectedIndex(index)}
                   onKeyDown={(e) => {
@@ -652,9 +667,13 @@ export const SimilarMessagesDialog = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleUseAnswer} disabled={!useAiResponse && selectedIndex === null}>
+          <Button onClick={() => void handleUseAnswer()} disabled={!useAiResponse && selectedIndex === null}>
             <Check className="mr-2 w-4 h-4" />
-            {useAiResponse ? 'Use AI Response' : 'Use This Answer'}
+            {useAiResponse
+              ? showTranslation && translatedAiResponse
+                ? 'Use Translated Response'
+                : 'Use AI Response'
+              : 'Use This Answer'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -42,6 +42,12 @@ export const ChatWidgetModal = ({
   });
   const [domainsText, setDomainsText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [theme, setTheme] = useState({
+    botBubbleColor: '#ffffff',
+    botTextColor: '#1f2937',
+    borderRadius: 'rounded',
+    fontFamily: '',
+  });
 
   useEffect(() => {
     if (widget) {
@@ -56,6 +62,13 @@ export const ChatWidgetModal = ({
         allowedDomains: widget.allowedDomains,
       });
       setDomainsText(widget.allowedDomains.join('\n'));
+      const t = (widget.metadata?.theme as typeof theme) ?? {};
+      setTheme({
+        botBubbleColor: t.botBubbleColor ?? '#ffffff',
+        botTextColor: t.botTextColor ?? '#1f2937',
+        borderRadius: t.borderRadius ?? 'rounded',
+        fontFamily: t.fontFamily ?? '',
+      });
     } else {
       setFormData({
         name: '',
@@ -68,6 +81,12 @@ export const ChatWidgetModal = ({
         allowedDomains: [],
       });
       setDomainsText('');
+      setTheme({
+        botBubbleColor: '#ffffff',
+        botTextColor: '#1f2937',
+        borderRadius: 'rounded',
+        fontFamily: '',
+      });
     }
   }, [widget, open]);
 
@@ -81,7 +100,11 @@ export const ChatWidgetModal = ({
         .map((d) => d.trim())
         .filter((d) => d.length > 0);
 
-      const data = { ...formData, allowedDomains: domains };
+      const data = {
+        ...formData,
+        allowedDomains: domains,
+        metadata: { theme },
+      };
 
       if (widget) {
         await chatWidgetService.update(widget.id, data);
@@ -246,6 +269,79 @@ export const ChatWidgetModal = ({
               Collect user name and email before chat
             </Label>
           </div>
+
+          <details className="rounded-md border border-input">
+            <summary className="cursor-pointer px-4 py-3">
+              <span className="font-medium">Appearance</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                Customize the widget look to match your website
+              </span>
+            </summary>
+            <div className="space-y-4 px-4 pb-4 pt-2">
+              <div>
+                <ReactSelect
+                  label="Border Radius"
+                  id="borderRadius"
+                  value={theme.borderRadius}
+                  onChange={(value) => setTheme({ ...theme, borderRadius: value as string })}
+                  options={[
+                    { value: 'rounded', label: 'Rounded - default' },
+                    { value: 'sharp', label: 'Sharp' },
+                    { value: 'pill', label: 'Pill' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="botBubbleColor">Bot Bubble Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    id="botBubbleColor"
+                    value={theme.botBubbleColor}
+                    onChange={(e) => setTheme({ ...theme, botBubbleColor: e.target.value })}
+                    className="h-10 w-20"
+                  />
+                  <Input
+                    value={theme.botBubbleColor}
+                    onChange={(e) => setTheme({ ...theme, botBubbleColor: e.target.value })}
+                    placeholder="#ffffff"
+                    className="flex-1 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="botTextColor">Bot Text Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    id="botTextColor"
+                    value={theme.botTextColor}
+                    onChange={(e) => setTheme({ ...theme, botTextColor: e.target.value })}
+                    className="h-10 w-20"
+                  />
+                  <Input
+                    value={theme.botTextColor}
+                    onChange={(e) => setTheme({ ...theme, botTextColor: e.target.value })}
+                    placeholder="#1f2937"
+                    className="flex-1 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="fontFamily">Font Family</Label>
+                <Input
+                  id="fontFamily"
+                  value={theme.fontFamily}
+                  onChange={(e) => setTheme({ ...theme, fontFamily: e.target.value })}
+                  placeholder="inherit from website"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">e.g. Inter, Arial, Georgia</p>
+              </div>
+            </div>
+          </details>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>

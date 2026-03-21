@@ -24,6 +24,27 @@ export type OrganizationMember = {
   joinedAt: string;
 };
 
+export type LeadQualificationFieldConfig = {
+  key: string;
+  label: string;
+  required: boolean;
+};
+
+export type LeadCategoryConfig = {
+  key: string;
+  label: string;
+  priority: 'high' | 'medium' | 'low';
+  autoEscalate?: boolean;
+};
+
+export type OrgLeadConfig = {
+  departments: string[];
+  requiredContactFields: ('name' | 'email' | 'phone' | 'company')[];
+  autoMarkNewSenders: boolean;
+  qualificationFields: LeadQualificationFieldConfig[];
+  categories: LeadCategoryConfig[];
+};
+
 export const organizationService = {
   getAll: async (search?: string, page: number = 1, limit: number = 10) => {
     const params = new URLSearchParams();
@@ -149,5 +170,48 @@ export const organizationService = {
       }>
     >('/api/organizations/auto-reply', data);
     return response.data;
+  },
+
+  getLeadConfig: async (): Promise<OrgLeadConfig> => {
+    const response = await apiClient.get<ApiResponse<OrgLeadConfig>>(
+      '/api/organizations/lead-config'
+    );
+    return response.data.data ?? {
+      departments: ['sales'],
+      requiredContactFields: ['name', 'email'],
+      autoMarkNewSenders: false,
+      qualificationFields: [],
+      categories: [],
+    };
+  },
+
+  updateLeadConfig: async (data: Partial<OrgLeadConfig>) => {
+    const response = await apiClient.patch<ApiResponse<OrgLeadConfig>>(
+      '/api/organizations/lead-config',
+      data
+    );
+    return response.data;
+  },
+
+  getRoutingKeys: async (): Promise<Array<{ id: number; key: string; description: string | null }>> => {
+    const response = await apiClient.get<ApiResponse<Array<{ id: number; key: string; description: string | null }>>>('/api/organizations/routing-keys');
+    return response.data.data ?? [];
+  },
+
+  addRoutingKey: async (key: string, description?: string): Promise<void> => {
+    await apiClient.post('/api/organizations/routing-keys', { key, description });
+  },
+
+  deleteRoutingKey: async (key: string): Promise<void> => {
+    await apiClient.delete(`/api/organizations/routing-keys/${encodeURIComponent(key)}`);
+  },
+
+  getAutoAssign: async (): Promise<{ mode: 'off' | 'match_only' | 'always' }> => {
+    const response = await apiClient.get<ApiResponse<{ mode: 'off' | 'match_only' | 'always' }>>('/api/organizations/auto-assign');
+    return response.data.data ?? { mode: 'always' };
+  },
+
+  updateAutoAssign: async (mode: 'off' | 'match_only' | 'always'): Promise<void> => {
+    await apiClient.patch('/api/organizations/auto-assign', { mode });
   },
 };

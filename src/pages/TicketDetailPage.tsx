@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
@@ -73,8 +73,9 @@ export const TicketDetailPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center h-64">
-          <div className="text-muted-foreground">Loading ticket...</div>
+        <div className="flex justify-center items-center h-64 gap-2 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Loading ticket...
         </div>
       </Layout>
     );

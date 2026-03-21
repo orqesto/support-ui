@@ -160,8 +160,8 @@ export const MessageProcessingProgress = ({
   // Drag handlers (desktop only)
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return; // No dragging on mobile
-    if ((e.target as HTMLElement).tagName === 'BUTTON') {
-      return; // Don't drag if clicking buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return; // Don't drag if clicking buttons or their children (icons, spans)
     }
     setIsDragging(true);
     setDragOffset({
