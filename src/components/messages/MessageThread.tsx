@@ -142,10 +142,12 @@ export const MessageThread = ({
         const allMessages = response.data ?? [];
 
 
-        // Sort by creation date
-        allMessages.sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
+        // Sort by actual message time (receivedAt when available, else createdAt)
+        const msgTime = (m: Message) =>
+          new Date(
+            (m.metadata as { receivedAt?: string } | null)?.receivedAt ?? m.createdAt
+          ).getTime();
+        allMessages.sort((a, b) => msgTime(a) - msgTime(b));
 
         // Separate customer emails from system replies
         const systemEmails: Message[] = [];
@@ -201,9 +203,7 @@ export const MessageThread = ({
               if (usedReplies.has(sysMsg.id)) {
                 return false;
               }
-              return (
-                new Date(sysMsg.createdAt).getTime() > new Date(customerMsg.createdAt).getTime()
-              );
+              return msgTime(sysMsg) > msgTime(customerMsg);
             });
 
             if (reply) {
@@ -412,15 +412,18 @@ export const MessageThread = ({
 
                           {/* System Reply Content */}
                           <div className="ml-10 text-sm whitespace-pre-wrap break-words text-foreground/80">
-                            {/* Show directReply if it exists (bot replies), otherwise show content */}
-                            {pair.systemReply.directReply ? (
-                              <div
-                                className="max-w-none prose prose-sm dark:prose-invert"
-                                dangerouslySetInnerHTML={{ __html: pair.systemReply.directReply }}
-                              />
-                            ) : (
-                              <LinkifiedText>{pair.systemReply.content}</LinkifiedText>
-                            )}
+                            {(() => {
+                              const html = pair.systemReply.directReply ?? pair.systemReply.content;
+                              const isHtml = /<[a-z][\s\S]*>/i.test(html);
+                              return isHtml ? (
+                                <div
+                                  className="max-w-none prose prose-sm dark:prose-invert"
+                                  dangerouslySetInnerHTML={{ __html: html }}
+                                />
+                              ) : (
+                                <LinkifiedText>{html}</LinkifiedText>
+                              );
+                            })()}
                           </div>
 
                           {/* Reply Status */}
