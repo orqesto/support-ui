@@ -3,8 +3,8 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 
 type AssignmentSelectProps = {
-  type: 'message' | 'ticket';
-  itemId: number;
+  type: 'message' | 'ticket' | 'thread';
+  itemId: number | string; // threadId can be string
   currentAssigneeId?: number | null;
   departmentRole?: string;
   onAssign?: () => void;
@@ -42,18 +42,31 @@ export const AssignmentSelect = ({
   const handleAssign = async (value: string) => {
     const userId = value === '' ? null : Number.parseInt(value, 10);
 
+    console.log('[AssignmentSelect] Assigning:', {
+      type,
+      itemId,
+      userId,
+      isThread: type === 'thread',
+    });
+
     try {
       setAssigning(true);
 
       if (type === 'message') {
-        await assignmentService.assignMessage(itemId, userId);
+        console.log('[AssignmentSelect] Calling assignMessage');
+        await assignmentService.assignMessage(itemId as number, userId);
+      } else if (type === 'thread') {
+        console.log('[AssignmentSelect] Calling assignThread with threadId:', itemId);
+        await assignmentService.assignThread(itemId as string, userId);
       } else {
-        await assignmentService.assignTicket(itemId, userId);
+        console.log('[AssignmentSelect] Calling assignTicket');
+        await assignmentService.assignTicket(itemId as number, userId);
       }
 
+      console.log('[AssignmentSelect] Assignment successful, calling onAssign');
       onAssign?.();
     } catch (error) {
-      console.error('Failed to assign:', error);
+      console.error('[AssignmentSelect] Failed to assign:', error);
     } finally {
       setAssigning(false);
     }

@@ -24,6 +24,10 @@ export const assignmentService = {
     await apiClient.patch(`/api/assignments/messages/${messageId}/assign`, { userId });
   },
 
+  async assignThread(threadId: string, userId: number | null): Promise<void> {
+    await apiClient.patch(`/api/assignments/threads/${threadId}/assign`, { userId });
+  },
+
   async assignTicket(ticketId: number, userId: number | null): Promise<void> {
     await apiClient.patch(`/api/assignments/tickets/${ticketId}/assign`, { userId });
   },

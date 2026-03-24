@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services/message.service';
-import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
+import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 
 interface UseMessagesUrlSyncProps {
@@ -27,12 +27,10 @@ export const useMessagesUrlSync = ({
   // On mount: read URL params → store, then trigger initial fetch
   useEffect(() => {
     const urlFilters: Partial<FilterState> = {};
-    let hasUrlFilters = false;
 
     const urlView = searchParams.get('view');
     if (urlView && ['all', 'active', 'suspicious', 'not_analysed', 'resolved'].includes(urlView)) {
       urlFilters.view = urlView as FilterState['view'];
-      hasUrlFilters = true;
     }
     const urlProcessed = searchParams.get('processed');
     if (
@@ -40,62 +38,55 @@ export const useMessagesUrlSync = ({
       ['all', 'open', 'in_progress', 'pending', 'closed'].includes(urlProcessed)
     ) {
       urlFilters.processed = urlProcessed as FilterState['processed'];
-      hasUrlFilters = true;
     }
     const urlChannel = searchParams.get('channel');
     if (urlChannel && ['all', 'email', 'telegram', 'slack'].includes(urlChannel)) {
       urlFilters.channel = urlChannel as FilterState['channel'];
-      hasUrlFilters = true;
     }
     const urlMessageSource = searchParams.get('source');
     if (urlMessageSource) {
       urlFilters.messageSourceId = urlMessageSource;
-      hasUrlFilters = true;
     }
-    if (searchParams.get('spam') === 'true') { urlFilters.showSpam = true; hasUrlFilters = true; }
-    if (searchParams.get('suspicious') === 'true') { urlFilters.showSuspicious = true; hasUrlFilters = true; }
-    if (searchParams.get('excludeSpam') === 'true') { urlFilters.excludeSpam = true; hasUrlFilters = true; }
-    if (searchParams.get('showKBOnly') === 'true') { urlFilters.showKBOnly = true; hasUrlFilters = true; }
-    if (searchParams.get('excludeKB') === 'true') { urlFilters.excludeKB = true; hasUrlFilters = true; }
-    if (searchParams.get('worthy') === 'true') { urlFilters.showWorthy = true; hasUrlFilters = true; }
-    if (searchParams.get('needsInfo') === 'true') { urlFilters.showNeedsInfo = true; hasUrlFilters = true; }
-    if (searchParams.get('attachments') === 'true') { urlFilters.hasAttachments = true; hasUrlFilters = true; }
-    if (searchParams.get('replies') === 'true') { urlFilters.hasReplies = true; hasUrlFilters = true; }
+    if (searchParams.get('spam') === 'true') { urlFilters.showSpam = true; }
+    if (searchParams.get('suspicious') === 'true') { urlFilters.showSuspicious = true; }
+    if (searchParams.get('excludeSpam') === 'true') { urlFilters.excludeSpam = true; }
+    if (searchParams.get('showKBOnly') === 'true') { urlFilters.showKBOnly = true; }
+    if (searchParams.get('excludeKB') === 'true') { urlFilters.excludeKB = true; }
+    if (searchParams.get('worthy') === 'true') { urlFilters.showWorthy = true; }
+    if (searchParams.get('needsInfo') === 'true') { urlFilters.showNeedsInfo = true; }
+    if (searchParams.get('attachments') === 'true') { urlFilters.hasAttachments = true; }
+    if (searchParams.get('replies') === 'true') { urlFilters.hasReplies = true; }
     const urlTicket = searchParams.get('ticket');
     if (urlTicket === 'true' || urlTicket === 'false') {
       urlFilters.hasTicket = urlTicket === 'true';
-      hasUrlFilters = true;
     }
-    if (searchParams.get('failed') === 'true') { urlFilters.showFailed = true; hasUrlFilters = true; }
-    if (searchParams.get('leads') === 'true') { urlFilters.isLead = true; hasUrlFilters = true; }
-    if (searchParams.get('qualifiedLeads') === 'true') { urlFilters.isQualifiedLead = true; hasUrlFilters = true; }
-    if (searchParams.get('awaitingCustomerResponse') === 'true') { urlFilters.awaitingCustomerResponse = true; hasUrlFilters = true; }
-    if (searchParams.get('customerResponded') === 'true') { urlFilters.customerResponded = true; hasUrlFilters = true; }
+    if (searchParams.get('failed') === 'true') { urlFilters.showFailed = true; }
+    if (searchParams.get('leads') === 'true') { urlFilters.isLead = true; }
+    if (searchParams.get('qualifiedLeads') === 'true') { urlFilters.isQualifiedLead = true; }
+    if (searchParams.get('awaitingCustomerResponse') === 'true') { urlFilters.awaitingCustomerResponse = true; }
+    if (searchParams.get('customerResponded') === 'true') { urlFilters.customerResponded = true; }
     const urlAssigneeId = searchParams.get('assigneeId');
     if (urlAssigneeId) {
       urlFilters.assigneeId = urlAssigneeId === '0' ? 'unassigned' : urlAssigneeId;
-      hasUrlFilters = true;
     }
     const urlSearch = searchParams.get('search');
-    if (urlSearch) { urlFilters.search = urlSearch; hasUrlFilters = true; }
+    if (urlSearch) { urlFilters.search = urlSearch; }
     const urlDept = searchParams.get('dept');
     if (urlDept && ['support', 'sales', 'billing', 'general', 'hr'].includes(urlDept)) {
       urlFilters.departmentRole = urlDept as FilterState['departmentRole'];
-      hasUrlFilters = true;
     }
     if (searchParams.get('needsHumanReview') === 'true') {
       urlFilters.needsHumanReview = true;
-      hasUrlFilters = true;
     }
     const urlAgeRange = searchParams.get('ageRange');
     if (urlAgeRange && ['lt24h', '1to7d', '1to4w', 'gt1mo'].includes(urlAgeRange)) {
       urlFilters.ageRange = urlAgeRange as FilterState['ageRange'];
-      hasUrlFilters = true;
     }
 
-    if (hasUrlFilters) {
-      setFilters(urlFilters);
-    }
+    // Always reset to defaults first, then apply URL params on top.
+    // Without this, navigating from /messages?view=not_analysed → /messages?excludeKB=true
+    // would merge and leave view=not_analysed active (setFilters merges with existing state).
+    setFilters({ ...defaultFilters, ...urlFilters });
 
     urlSyncedRef.current = true;
 

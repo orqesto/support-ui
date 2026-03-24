@@ -80,7 +80,9 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
   const receivedAt = (message.metadata as { receivedAt?: string })?.receivedAt ?? message.createdAt;
 
-  const leadMeta = message.metadata as { leadQualifiedAt?: string; leadCategory?: string } | undefined;
+  const leadMeta = message.metadata as
+    | { leadQualifiedAt?: string; leadCategory?: string }
+    | undefined;
 
   const actualPriority = message.priority;
   const suggestedPriority = analysis?.suggestedPriority;
@@ -94,13 +96,12 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-sm">
       <CardContent className="p-3">
-
         {/* Row 1: channel icon + sender + time + Open */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex gap-2 items-center min-w-0">
           <span className="shrink-0 text-muted-foreground">{getChannelIcon(message.channel)}</span>
-          <span className="text-sm font-semibold truncate flex-1 min-w-0">{message.sender}</span>
+          <span className="flex-1 min-w-0 text-sm font-semibold truncate">{message.sender}</span>
           <span
-            className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
+            className="text-xs whitespace-nowrap text-muted-foreground shrink-0"
             title={`Received: ${formatDate(receivedAt)}`}
           >
             <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
@@ -110,7 +111,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             variant="outline"
             size="sm"
             onClick={() => onOpen(message)}
-            className="shrink-0 h-7 gap-1"
+            className="gap-1 h-7 shrink-0"
           >
             <ExternalLink className="w-3 h-3" />
             Open
@@ -119,19 +120,47 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
         {/* Row 2: subject */}
         {message.subject && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5 pl-5">
-            {message.subject}
-          </p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5 pl-5">{message.subject}</p>
         )}
 
         {/* Row 3: content preview */}
-        <p className="text-sm text-muted-foreground line-clamp-2 mt-1 pl-5 break-words">
+        <p className="pl-5 mt-1 text-sm break-words text-muted-foreground line-clamp-2">
           {message.content}
         </p>
 
-        {/* Row 4: badges + ID */}
-        <div className="flex flex-wrap gap-1.5 items-center mt-2">
+        {/* Row 4: Status & Assignee (prominent) */}
+        <div className="flex gap-2 items-center pl-5 mt-2">
+          {/* Status */}
+          {message.status &&
+            message.status !== 'filtered' &&
+            (() => {
+              const cfg = STATUS_BADGE[message.status as MessageStatus];
+              return cfg ? (
+                <Badge
+                  variant={cfg.variant}
+                  className={`flex gap-1 items-center h-5 px-1.5 ${cfg.className ?? ''}`}
+                >
+                  <CircleDot className="w-2.5 h-2.5" />
+                  {cfg.label}
+                </Badge>
+              ) : null;
+            })()}
 
+          {/* Assignee */}
+          {message.assigneeId && (
+            <Badge
+              variant="secondary"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={`Assigned to ${message.assigneeName ?? 'User'}`}
+            >
+              <User className="w-2.5 h-2.5" />
+              {message.assigneeName ?? 'User'}
+            </Badge>
+          )}
+        </div>
+
+        {/* Row 5: Other badges + ID */}
+        <div className="flex flex-wrap gap-1.5 items-center mt-1.5 pl-5">
           {/* Thread msg count */}
           {threadInfo?.isThreadView && threadInfo.threadMessageCount && (
             <Badge variant="default" className="text-xs font-semibold h-5 px-1.5">
@@ -139,31 +168,33 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             </Badge>
           )}
 
-          {/* Status */}
-          {message.status && message.status !== 'filtered' && (() => {
-            const cfg = STATUS_BADGE[message.status as MessageStatus];
-            return cfg ? (
-              <Badge variant={cfg.variant} className={`flex gap-1 items-center h-5 px-1.5 ${cfg.className ?? ''}`}>
-                <CircleDot className="w-2.5 h-2.5" />
-                {cfg.label}
-              </Badge>
-            ) : null;
-          })()}
-
           {/* Ticket */}
           {message.ticketId && (
-            <Badge variant="default" className="flex gap-1 items-center h-5 px-1.5" title={`Ticket #${message.ticketId}`}>
-              <Ticket className="w-2.5 h-2.5" />
-              #{message.ticketId}
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={`Ticket #${message.ticketId}`}
+            >
+              <Ticket className="w-2.5 h-2.5" />#{message.ticketId}
             </Badge>
           )}
 
           {/* Priority */}
           {displayPriority && (
             <Badge
-              variant={displayPriority === 'critical' ? 'danger' : displayPriority === 'high' ? 'warning' : 'default'}
+              variant={
+                displayPriority === 'critical'
+                  ? 'danger'
+                  : displayPriority === 'high'
+                    ? 'warning'
+                    : 'default'
+              }
               className="h-5 px-1.5"
-              title={actualPriority && actualPriority !== 'medium' ? `Priority: ${displayPriority}` : `AI Suggested: ${displayPriority}`}
+              title={
+                actualPriority && actualPriority !== 'medium'
+                  ? `Priority: ${displayPriority}`
+                  : `AI Suggested: ${displayPriority}`
+              }
             >
               {displayPriority}
             </Badge>
@@ -171,15 +202,19 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Category */}
           {analysis?.suggestedCategory && getCategoryDisplay(analysis.suggestedCategory) && (
-            <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5" title="AI Suggested Category">
+            <Badge
+              variant="secondary"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title="AI Suggested Category"
+            >
               <Folder className="w-2.5 h-2.5" />
               {getCategoryDisplay(analysis.suggestedCategory)}
             </Badge>
           )}
 
           {/* Lead */}
-          {message.isLead && (
-            leadMeta?.leadQualifiedAt ? (
+          {message.isLead &&
+            (leadMeta?.leadQualifiedAt ? (
               <Badge
                 variant="success"
                 className="flex gap-1 items-center h-5 px-1.5"
@@ -193,24 +228,35 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
                 <Target className="w-2.5 h-2.5" />
                 Lead
               </Badge>
-            )
-          )}
+            ))}
 
           {/* Lead — client replied */}
-          {message.isLead && threadInfo?.lastReplyFromClient && (threadInfo.threadMessageCount ?? 0) > 1 && (
-            <Badge variant="warning" className="flex gap-1 items-center h-5 px-1.5" title="Lead replied — needs agent attention">
-              <MessageCircle className="w-2.5 h-2.5" />
-              Replied
-            </Badge>
-          )}
+          {message.isLead &&
+            threadInfo?.lastReplyFromClient &&
+            (threadInfo.threadMessageCount ?? 0) > 1 && (
+              <Badge
+                variant="warning"
+                className="flex gap-1 items-center h-5 px-1.5"
+                title="Lead replied — needs agent attention"
+              >
+                <MessageCircle className="w-2.5 h-2.5" />
+                Replied
+              </Badge>
+            )}
 
           {/* Lead — awaiting reply */}
-          {message.isLead && threadInfo?.lastReplyFromClient === false && (threadInfo.threadMessageCount ?? 0) > 1 && (
-            <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5" title="Waiting for lead to respond">
-              <Clock className="w-2.5 h-2.5" />
-              Awaiting
-            </Badge>
-          )}
+          {message.isLead &&
+            threadInfo?.lastReplyFromClient === false &&
+            (threadInfo.threadMessageCount ?? 0) > 1 && (
+              <Badge
+                variant="secondary"
+                className="flex gap-1 items-center h-5 px-1.5"
+                title="Waiting for lead to respond"
+              >
+                <Clock className="w-2.5 h-2.5" />
+                Awaiting
+              </Badge>
+            )}
 
           {/* Spam / suspicious */}
           {spamCheck?.isSpam === true && (
@@ -224,7 +270,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             </Badge>
           )}
           {!spamCheck?.isSpam && spamCheck?.category === 'suspicious' && (
-            <Badge variant="warning" className="flex gap-1 items-center h-5 px-1.5" title={`Suspicious: ${spamCheck.redFlags?.join(', ') ?? ''}`}>
+            <Badge
+              variant="warning"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={`Suspicious: ${spamCheck.redFlags?.join(', ') ?? ''}`}
+            >
               <AlertTriangle className="w-2.5 h-2.5" />
               Suspicious
             </Badge>
@@ -232,7 +282,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Ticket worthy */}
           {!spamCheck?.isSpam && !message.ticketId && analysis?.isTicketWorthy && (
-            <Badge variant="default" className="flex gap-1 items-center h-5 px-1.5" title={`Confidence: ${Math.round((analysis.confidence ?? 0) * 100)}%`}>
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={`Confidence: ${Math.round((analysis.confidence ?? 0) * 100)}%`}
+            >
               <Ticket className="w-2.5 h-2.5" />
               Ticket Worthy
             </Badge>
@@ -248,7 +302,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Awaiting customer response */}
           {message.awaitingCustomerResponse && (
-            <Badge variant="warning" className="flex gap-1 items-center h-5 px-1.5" title="Waiting for customer to respond">
+            <Badge
+              variant="warning"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title="Waiting for customer to respond"
+            >
               <Clock className="w-2.5 h-2.5" />
               Awaiting Response
             </Badge>
@@ -256,7 +314,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Failed */}
           {message.processingError && (
-            <Badge variant="danger" className="flex gap-1 items-center h-5 px-1.5" title={message.processingError}>
+            <Badge
+              variant="danger"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={message.processingError}
+            >
               <XCircle className="w-2.5 h-2.5" />
               Failed
             </Badge>
@@ -264,7 +326,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Attachments */}
           {hasAttachments && (
-            <Badge variant="default" className="flex gap-1 items-center h-5 px-1.5" title={`${message.attachmentCount ?? 0} attachment(s)`}>
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={`${message.attachmentCount ?? 0} attachment(s)`}
+            >
               <Paperclip className="w-2.5 h-2.5" />
               {message.attachmentCount ?? 0}
             </Badge>
@@ -272,23 +338,23 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* KB source */}
           {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
-            <Badge variant="default" className="flex gap-1 items-center h-5 px-1.5 text-white bg-purple-600" title="Knowledge Base source">
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center h-5 px-1.5 text-white bg-purple-600"
+              title="Knowledge Base source"
+            >
               <BookOpen className="w-2.5 h-2.5" />
               KB
             </Badge>
           )}
 
-          {/* Assignee */}
-          {message.assigneeName && (
-            <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5" title={`Assigned to ${message.assigneeName}`}>
-              <User className="w-2.5 h-2.5" />
-              {message.assigneeName}
-            </Badge>
-          )}
-
           {/* Thread unread */}
           {threadInfo?.isThreadView && threadInfo.threadHasUnread && (
-            <Badge variant="default" className="flex gap-1 items-center h-5 px-1.5 text-blue-700 bg-blue-500/10 border-blue-500/20" title="Thread has unread messages">
+            <Badge
+              variant="default"
+              className="flex gap-1 items-center h-5 px-1.5 text-blue-700 bg-blue-500/10 border-blue-500/20"
+              title="Thread has unread messages"
+            >
               <MailOpen className="w-2.5 h-2.5" />
               Unread
             </Badge>
@@ -296,7 +362,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Needs human review */}
           {message.needsHumanReview && (
-            <Badge variant="warning" className="flex gap-1 items-center h-5 px-1.5" title="Flagged for human review">
+            <Badge
+              variant="warning"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title="Flagged for human review"
+            >
               <BellRing className="w-2.5 h-2.5" />
               Review
             </Badge>
@@ -304,7 +374,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* Bot replied */}
           {(message.metadata?.autoReply as { sent?: boolean } | undefined)?.sent && (
-            <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5" title="Auto-reply sent by bot">
+            <Badge
+              variant="secondary"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title="Auto-reply sent by bot"
+            >
               <Bot className="w-2.5 h-2.5" />
               Bot Replied
             </Badge>
@@ -315,7 +389,6 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             #{message.id}
           </span>
         </div>
-
       </CardContent>
     </Card>
   );

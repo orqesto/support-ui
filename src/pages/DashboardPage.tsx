@@ -156,7 +156,7 @@ export const DashboardPage = () => {
         messageService.getThreads({ excludeKB: 'true' }, 1, 1), // Active support threads (excluding KB; resolved excluded by default)
         kbService.getAll({ limit: 1 }), // KB entries count (Q&A pairs, extracted docs)
         documentationService.getStats(), // Uploaded documentation stats
-        messageService.getThreads({ processed: 'unprocessed', excludeKB: 'true' }, 1, 1), // Unprocessed support threads only (excluding KB)
+        messageService.getThreads({ view: 'not_analysed', excludeKB: 'true' }, 1, 1), // Not-analysed threads (filtered but not spam)
         ticketService.getAll(undefined, 1, 1),
         ticketService.getAll({ status: 'pending' }, 1, 1),
       ]);
@@ -396,7 +396,7 @@ export const DashboardPage = () => {
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
       borderColor: '#ca8a04',
-      onClick: () => navigate('/messages?processed=new'),
+      onClick: () => navigate('/messages?view=not_analysed'),
     },
     {
       title: 'Knowledge Base',
