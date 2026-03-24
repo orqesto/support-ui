@@ -57,7 +57,7 @@ type MessagesState = {
   clearCache: () => void;
 };
 
-const defaultFilters: FilterState = {
+export const defaultFilters: FilterState = {
   view: 'active',
   processed: 'all',
   channel: 'all',

@@ -139,7 +139,12 @@ export const MessageDetail = ({
   const isSuspicious =
     !isFiltered &&
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
-  const isActive = !message.resolved && !isFiltered && !isSuspicious && message.status !== 'closed' && message.status !== 'resolved';
+  const isActive =
+    !message.resolved &&
+    !isFiltered &&
+    !isSuspicious &&
+    message.status !== 'closed' &&
+    message.status !== 'resolved';
 
   const handleClassify = async (action: 'approve' | 'mark_suspicious') => {
     if (!onClassify) return;
@@ -572,10 +577,19 @@ export const MessageDetail = ({
 
       {/* Assignment */}
       <div className="pt-4 border-t">
-        <p className="mb-2 text-sm text-muted-foreground">Assigned to</p>
+        <p className="mb-2 text-sm text-muted-foreground">
+          Assigned to {message.subject ? '(Thread)' : '(Message)'}
+        </p>
         <AssignmentSelect
-          type="message"
-          itemId={message.id}
+          type={message.subject ? 'thread' : 'message'}
+          itemId={
+            message.subject
+              ? `subj::${message.subject
+                  .replace(/^((re(\[\d+\])?|fwd|fw)\s*:\s*)*/gi, '')
+                  .trim()
+                  .toLowerCase()}::${message.sender < (message.recipient ?? '') ? message.sender : (message.recipient ?? '')}::${message.sender > (message.recipient ?? '') ? message.sender : (message.recipient ?? '')}`
+              : message.id
+          }
           currentAssigneeId={message.assigneeId}
           onAssign={onRefresh}
           className="w-full"
@@ -765,10 +779,12 @@ export const MessageDetail = ({
         />
       )}
 
-      {/* Similar Resolved Tickets - AI-powered suggestions */}
-      {!message.ticketId && !message.resolved && (
-        <SimilarTickets messageId={message.id} onUseResponse={handleUseResponse} />
-      )}
+      {/* Similar Resolved Tickets - AI-powered suggestions (hidden for lead qualification messages) */}
+      {!message.ticketId &&
+        !message.resolved &&
+        suggestedAnswer?.source !== 'lead_qualification' && (
+          <SimilarTickets messageId={message.id} onUseResponse={handleUseResponse} />
+        )}
 
       {/* Message Content */}
       <div className="pt-6 border-t" data-message-content>
@@ -1131,11 +1147,20 @@ export const MessageDetail = ({
       {message.isLead && (
         <div className="pt-6 border-t">
           {leadState ? (
-            <LeadQualificationPanel leadState={leadState} fieldDefs={leadFieldDefs} enrichment={enrichment} />
+            <LeadQualificationPanel
+              leadState={leadState}
+              fieldDefs={leadFieldDefs}
+              enrichment={enrichment}
+            />
           ) : (
-            <div className="space-y-1 p-4 rounded-lg border border-violet-500/20 bg-violet-500/5">
-              <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">Lead Qualification</p>
-              <p className="text-xs text-muted-foreground">No qualification data gathered yet. Data is collected as the AI engages with this lead over the conversation.</p>
+            <div className="p-4 space-y-1 rounded-lg border border-violet-500/20 bg-violet-500/5">
+              <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">
+                Lead Qualification
+              </p>
+              <p className="text-xs text-muted-foreground">
+                No qualification data gathered yet. Data is collected as the AI engages with this
+                lead over the conversation.
+              </p>
             </div>
           )}
         </div>
@@ -1184,11 +1209,13 @@ export const MessageDetail = ({
             <>
               {emailDetails.length > 0 && (
                 <div className="pt-6 border-t">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email Details</h3>
+                  <h3 className="mb-2 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+                    Email Details
+                  </h3>
                   <div className="space-y-1">
                     {emailDetails.map(({ label, value }) => (
                       <div key={label} className="flex gap-2 text-xs">
-                        <span className="shrink-0 text-muted-foreground w-28">{label}:</span>
+                        <span className="w-28 shrink-0 text-muted-foreground">{label}:</span>
                         <span className="font-mono break-all">{value}</span>
                       </div>
                     ))}

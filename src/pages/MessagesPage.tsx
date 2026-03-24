@@ -18,10 +18,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService } from '@/services/message.service';
-import {
-  type SpamLog,
-  type SpamLogFilters as SpamFiltersType,
-} from '@/services/spamLog.service';
+import { type SpamLog, type SpamLogFilters as SpamFiltersType } from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 import type { Message } from '@/types';
@@ -56,7 +53,13 @@ export const MessagesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [contactsPagination, setContactsPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [contactsPagination, setContactsPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1,
+    hasMore: false,
+  });
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -361,9 +364,19 @@ export const MessagesPage = () => {
             </div>
 
             {/* Display mode toggle */}
-            <div className="flex items-center gap-1 mb-2">
+            <div className="flex gap-1 items-center mb-2">
               <button
-                onClick={() => { setDisplayMode('threads'); setSearchParams((p) => { p.delete('mode'); p.delete('sender'); return p; }, { replace: true }); }}
+                onClick={() => {
+                  setDisplayMode('threads');
+                  setSearchParams(
+                    (p) => {
+                      p.delete('mode');
+                      p.delete('sender');
+                      return p;
+                    },
+                    { replace: true }
+                  );
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   displayMode === 'threads'
                     ? 'bg-primary text-primary-foreground'
@@ -375,7 +388,16 @@ export const MessagesPage = () => {
                 Threads
               </button>
               <button
-                onClick={() => { setDisplayMode('contacts'); setSearchParams((p) => { p.set('mode', 'contacts'); return p; }, { replace: true }); }}
+                onClick={() => {
+                  setDisplayMode('contacts');
+                  setSearchParams(
+                    (p) => {
+                      p.set('mode', 'contacts');
+                      return p;
+                    },
+                    { replace: true }
+                  );
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   displayMode === 'contacts'
                     ? 'bg-primary text-primary-foreground'
@@ -394,18 +416,22 @@ export const MessagesPage = () => {
                   const f: Record<string, string> = {};
                   if (filters.view && filters.view !== 'all') f.view = filters.view;
                   if (filters.channel && filters.channel !== 'all') f.channel = filters.channel;
-                  if (filters.processed && filters.processed !== 'all') f.processed = filters.processed as string;
+                  if (filters.processed && filters.processed !== 'all')
+                    f.processed = filters.processed as string;
                   if (filters.isLead) f.isLead = 'true';
-                  if (filters.hasTicket !== undefined) f.hasTicket = filters.hasTicket ? 'true' : 'false';
+                  if (filters.hasTicket !== undefined)
+                    f.hasTicket = filters.hasTicket ? 'true' : 'false';
                   if (filters.showSpam) f.showSpam = 'true';
                   if (filters.excludeSpam) f.excludeSpam = 'true';
                   if (filters.showNeedsInfo) f.showNeedsInfo = 'true';
                   if (filters.showWorthy) f.showWorthy = 'true';
                   if (filters.hasAttachments) f.hasAttachments = 'true';
                   if (filters.awaitingCustomerResponse) f.awaitingCustomerResponse = 'true';
-                  if (filters.assigneeId && filters.assigneeId !== 'all') f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+                  if (filters.assigneeId && filters.assigneeId !== 'all')
+                    f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
                   if (filters.search?.trim()) f.search = filters.search.trim();
-                  if (filters.messageSourceId && filters.messageSourceId !== 'all') f.messageSourceId = filters.messageSourceId;
+                  if (filters.messageSourceId && filters.messageSourceId !== 'all')
+                    f.messageSourceId = filters.messageSourceId;
                   return f;
                 })()}
                 focusSender={searchParams.get('sender') ?? undefined}
@@ -459,7 +485,8 @@ export const MessagesPage = () => {
                           );
                           if (threadMessages && threadMessages.length > 0) {
                             const messageToShow =
-                              threadMessages.find((m) => !m.processed) ?? threadMessages[0];
+                              threadMessages.find((m) => m.isOutgoing === false) ??
+                              threadMessages[0];
                             setSelectedMessage(messageToShow);
                             const params = new URLSearchParams(searchParams);
                             params.set('id', messageToShow.id.toString());
