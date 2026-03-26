@@ -1,4 +1,4 @@
-export type AIProvider = 'openai' | 'anthropic' | 'deepseek' | 'perplexity';
+export type AIProvider = 'openai' | 'anthropic' | 'deepseek' | 'perplexity' | 'qwen' | 'ollama';
 
 export type AIModelType = 'chat' | 'embedding';
 
@@ -29,6 +29,15 @@ export type AIProviderConfig = {
   };
   perplexity?: {
     apiKey: string;
+    baseUrl?: string;
+    defaultModel?: string;
+  };
+  qwen?: {
+    apiKey: string;
+    baseUrl?: string;
+    defaultModel?: string;
+  };
+  ollama?: {
     baseUrl?: string;
     defaultModel?: string;
   };

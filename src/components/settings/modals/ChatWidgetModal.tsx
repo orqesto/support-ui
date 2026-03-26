@@ -283,7 +283,7 @@ export const ChatWidgetModal = ({
                   label="Border Radius"
                   id="borderRadius"
                   value={theme.borderRadius}
-                  onChange={(value) => setTheme({ ...theme, borderRadius: value as string })}
+                  onChange={(value) => setTheme({ ...theme, borderRadius: value })}
                   options={[
                     { value: 'rounded', label: 'Rounded - default' },
                     { value: 'sharp', label: 'Sharp' },

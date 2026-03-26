@@ -238,7 +238,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
         console.error('Failed to fetch messages:', error);
       });
     }
-  }, [activeTab, fetchMessages]);
+  }, [activeTab, fetchMessages, urlSyncedRef]);
 
   // Fetch spam logs when spam tab becomes active
   useEffect(() => {
@@ -249,7 +249,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
         console.error('Failed to fetch spam logs:', error);
       });
     }
-  }, [activeTab, fetchSpamLogs]);
+  }, [activeTab, fetchSpamLogs, urlSyncedRef]);
 
   // Fetch spam logs when spam filters change
   useEffect(() => {

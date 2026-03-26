@@ -78,6 +78,8 @@ export type BaseIntegration = {
     | 'anthropic'
     | 'deepseek'
     | 'perplexity'
+    | 'qwen'
+    | 'ollama'
     | 'local_embeddings';
   enabled: boolean;
   departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
@@ -139,6 +141,27 @@ export type LocalEmbeddingsIntegration = BaseIntegration & {
   config: LocalEmbeddingsConfig;
 };
 
+export type QwenConfig = {
+  apiKey: string;
+  baseUrl?: string;
+  defaultModel?: string;
+};
+
+export type QwenIntegration = BaseIntegration & {
+  type: 'qwen';
+  config: QwenConfig;
+};
+
+export type OllamaConfig = {
+  baseUrl?: string;
+  defaultModel?: string;
+};
+
+export type OllamaIntegration = BaseIntegration & {
+  type: 'ollama';
+  config: OllamaConfig;
+};
+
 export type Integration =
   | EmailIntegration
   | GmailIntegration
@@ -149,7 +172,9 @@ export type Integration =
   | AnthropicIntegration
   | DeepSeekIntegration
   | PerplexityIntegration
-  | LocalEmbeddingsIntegration;
+  | LocalEmbeddingsIntegration
+  | QwenIntegration
+  | OllamaIntegration;
 
 export type ApiResponse<T> = {
   success: boolean;

@@ -15,29 +15,26 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 
+type UsageItem = {
+  current: number;
+  limit: number;
+  percentage: number;
+  warning: boolean;
+  critical: boolean;
+};
+
 type UsageLimits = {
   maxUsers: number;
   maxIntegrations: number;
   maxMessagesPerMonth: number;
-  maxOrganizations: number;
+  maxAICallsPerMonth: number;
 };
 
 type Usage = {
-  users: {
-    current: number;
-    limit: number;
-    percentage: number;
-  };
-  integrations: {
-    current: number;
-    limit: number;
-    percentage: number;
-  };
-  messagesThisMonth: {
-    current: number;
-    limit: number;
-    percentage: number;
-  };
+  users: UsageItem;
+  integrations: UsageItem;
+  messagesThisMonth: UsageItem;
+  aiCalls: UsageItem;
 };
 
 type Plan = {
@@ -58,20 +55,6 @@ type Subscription = {
   trialEndsAt: string | null;
 };
 
-type AIModule = {
-  moduleId: number;
-  moduleName: string;
-  displayName: string;
-  currentUsage: number;
-  includedUnits: number;
-  overage: number;
-  monthlyFee: number;
-  overagePrice: number;
-  estimatedOverageCost: number;
-  unitName: string;
-  periodEnd: string;
-};
-
 type OrganizationUsage = {
   id: number;
   name: string;
@@ -79,7 +62,6 @@ type OrganizationUsage = {
   createdAt: string;
   subscription: Subscription | null;
   plan: Plan | null;
-  enabledModules: AIModule[];
   limits: UsageLimits;
   usage: Usage;
 };
@@ -227,9 +209,10 @@ export const AdminUsageTab = () => {
 
   const atRiskCount = organizations.filter(
     (org) =>
-      org.usage.users.percentage >= 80 ||
-      org.usage.integrations.percentage >= 80 ||
-      org.usage.messagesThisMonth.percentage >= 80
+      org.usage.users.warning ||
+      org.usage.integrations.warning ||
+      org.usage.messagesThisMonth.warning ||
+      org.usage.aiCalls.warning
   ).length;
 
   if (loading) {
@@ -281,9 +264,10 @@ export const AdminUsageTab = () => {
                   {
                     organizations.filter(
                       (org) =>
-                        org.usage.users.percentage >= 100 ||
-                        org.usage.integrations.percentage >= 100 ||
-                        org.usage.messagesThisMonth.percentage >= 100
+                        org.usage.users.critical ||
+                        org.usage.integrations.critical ||
+                        org.usage.messagesThisMonth.critical ||
+                        org.usage.aiCalls.critical
                     ).length
                   }
                 </p>
@@ -330,7 +314,7 @@ export const AdminUsageTab = () => {
                 <th className="hidden px-3 py-3 text-sm font-medium text-center md:table-cell">
                   <div className="flex gap-1 justify-center items-center">
                     <Zap className="w-4 h-4" />
-                    Modules
+                    AI Calls
                   </div>
                 </th>
                 <th
@@ -424,14 +408,14 @@ export const AdminUsageTab = () => {
                         )}
                       </td>
                       <td className="hidden px-3 py-3 text-center md:table-cell">
-                        {org.enabledModules.length > 0 ? (
-                          <div className="text-sm">
-                            <span className="font-medium">{org.enabledModules.length}</span>
-                            <span className="text-muted-foreground"> active</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
+                        <div className="space-y-1">
+                          {getUsageBadge(
+                            org.usage.aiCalls.current,
+                            org.usage.aiCalls.limit,
+                            org.usage.aiCalls.percentage
+                          )}
+                          <UsageProgressBar percentage={org.usage.aiCalls.percentage} />
+                        </div>
                       </td>
                       <td className="px-3 py-3">
                         <div className="space-y-1">
@@ -579,69 +563,47 @@ export const AdminUsageTab = () => {
                               )}
                             </div>
 
-                            {/* AI Modules */}
+                            {/* AI Usage */}
                             <div className="space-y-2">
                               <h4 className="text-sm font-semibold text-muted-foreground">
-                                AI Modules Usage
+                                AI Usage This Month
                               </h4>
-                              {org.enabledModules.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                  {org.enabledModules.map((module) => (
-                                    <div
-                                      key={module.moduleId}
-                                      className="p-4 rounded-lg border bg-card border-border"
-                                    >
-                                      <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                          <div className="text-sm font-medium">
-                                            {module.displayName}
-                                          </div>
-                                          <div className="text-xs text-muted-foreground">
-                                            {formatCurrency(module.monthlyFee, 'EUR')}/month
-                                          </div>
-                                        </div>
-                                        <Zap className="w-4 h-4 text-amber-500" />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <div className="flex justify-between text-xs">
-                                          <span className="text-muted-foreground">Usage:</span>
-                                          <span className="font-medium">
-                                            {module.currentUsage} / {module.includedUnits}{' '}
-                                            {module.unitName}s
-                                          </span>
-                                        </div>
-                                        <UsageProgressBar
-                                          percentage={
-                                            (module.currentUsage / module.includedUnits) * 100
-                                          }
-                                        />
-                                        {module.overage > 0 && (
-                                          <div className="p-2 text-xs bg-red-50 rounded border border-red-200">
-                                            <div className="flex justify-between">
-                                              <span className="font-medium text-red-700">
-                                                Overage:
-                                              </span>
-                                              <span className="text-red-600">
-                                                {module.overage} {module.unitName}s
-                                              </span>
-                                            </div>
-                                            <div className="flex justify-between mt-1">
-                                              <span className="text-red-700">Est. Cost:</span>
-                                              <span className="font-semibold text-red-600">
-                                                {formatCurrency(module.estimatedOverageCost, 'EUR')}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
+                              <div className="p-4 rounded-lg border bg-card border-border">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <div className="text-sm font-medium">AI API Calls</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      All AI features combined
                                     </div>
-                                  ))}
+                                  </div>
+                                  <Zap className="w-4 h-4 text-amber-500" />
                                 </div>
-                              ) : (
-                                <div className="py-4 text-sm text-center rounded-lg border border-dashed text-muted-foreground">
-                                  No AI modules enabled
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Usage:</span>
+                                    <span className="font-medium">
+                                      {org.usage.aiCalls.current.toLocaleString()} /{' '}
+                                      {org.usage.aiCalls.limit.toLocaleString()} calls
+                                    </span>
+                                  </div>
+                                  <UsageProgressBar percentage={org.usage.aiCalls.percentage} />
+                                  {org.usage.aiCalls.critical && (
+                                    <div className="p-2 text-xs bg-red-50 rounded border border-red-200">
+                                      <span className="font-medium text-red-700">
+                                        AI call limit reached! Some AI features may be unavailable.
+                                      </span>
+                                    </div>
+                                  )}
+                                  {org.usage.aiCalls.warning && !org.usage.aiCalls.critical && (
+                                    <div className="p-2 text-xs bg-orange-50 rounded border border-orange-200">
+                                      <span className="font-medium text-orange-700">
+                                        Approaching AI call limit ({org.usage.aiCalls.percentage}%
+                                        used)
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </div>
                         </td>
