@@ -851,6 +851,7 @@ export const MessageDetail = ({
         !message.resolved &&
         !message.directReply &&
         !message.repliedBy &&
+        !(suggestedAnswer.source === 'lead_qualification' && leadState?.stage === 'escalated') &&
         (suggestedAnswer.source === 'lead_qualification' ? (
           <div className="p-4 mb-6 bg-green-50 rounded-lg border-2 border-green-300 dark:bg-green-950/20 dark:border-green-700">
             <div className="flex gap-2 items-start mb-3">
