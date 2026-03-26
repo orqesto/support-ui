@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { BrainCog } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BrainCog, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { LeadQualificationSettings } from './LeadQualificationSettings';
 import { PromptsSettings } from './PromptsSettings';
+import { apiClient } from '@/lib/api-client';
 
 type AISection = 'prompts' | 'lead-qualification';
 
@@ -12,6 +14,17 @@ const sections = [
 
 export const AIConfigSettings = () => {
   const [active, setActive] = useState<AISection>('prompts');
+  const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    apiClient
+      .get<{ success: boolean; data: { plan: { features: Record<string, boolean> } } }>(
+        '/api/subscriptions/current'
+      )
+      .then((res) => setHasLeadQualification(res.data.data.plan.features.leadQualification === true))
+      .catch(() => setHasLeadQualification(false));
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -43,7 +56,27 @@ export const AIConfigSettings = () => {
       </div>
 
       {active === 'prompts' && <PromptsSettings />}
-      {active === 'lead-qualification' && <LeadQualificationSettings />}
+      {active === 'lead-qualification' && (
+        hasLeadQualification === false ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
+            <Lock className="w-10 h-10 text-muted-foreground" />
+            <div>
+              <p className="font-semibold">Lead Qualification not included in your plan</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Upgrade to Enterprise or Admin plan to access AI Lead Qualification.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/pricing')}
+              className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              View Plans
+            </button>
+          </div>
+        ) : hasLeadQualification === true ? (
+          <LeadQualificationSettings />
+        ) : null
+      )}
     </div>
   );
 };

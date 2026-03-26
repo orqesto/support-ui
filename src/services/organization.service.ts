@@ -1,6 +1,13 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse, PaginationMeta } from '@/types';
 
+export type TenantDbInfo = {
+  deploymentType: 'shared' | 'dedicated' | 'external';
+  dbSecretRef: string | null;
+  region: string | null;
+  status: 'provisioning' | 'active' | 'degraded' | 'suspended';
+};
+
 export type Organization = {
   id: number;
   name: string;
@@ -10,6 +17,7 @@ export type Organization = {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  tenantDb?: TenantDbInfo | null;
 };
 
 export type OrganizationMember = {
@@ -95,7 +103,14 @@ export const organizationService = {
     return response.data.data ?? [];
   },
 
-  create: async (data: { name: string; slug: string; description?: string }) => {
+  create: async (data: {
+    name: string;
+    slug: string;
+    description?: string;
+    deploymentType?: 'shared' | 'dedicated' | 'external';
+    dbSecretRef?: string;
+    region?: string;
+  }) => {
     const response = await apiClient.post<ApiResponse<Organization>>('/api/organizations', data);
     return response.data.data;
   },

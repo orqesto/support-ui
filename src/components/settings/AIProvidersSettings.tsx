@@ -12,6 +12,8 @@ import { AnthropicProviderCard } from '@/components/settings/providers/Anthropic
 import { DeepSeekProviderCard } from '@/components/settings/providers/DeepSeekProviderCard';
 import { OpenAIProviderCard } from '@/components/settings/providers/OpenAIProviderCard';
 import { PerplexityProviderCard } from '@/components/settings/providers/PerplexityProviderCard';
+import { QwenProviderCard } from '@/components/settings/providers/QwenProviderCard';
+import { OllamaProviderCard } from '@/components/settings/providers/OllamaProviderCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -42,6 +44,8 @@ export const AIProvidersSettings = () => {
   const [anthropicModels, setAnthropicModels] = useState<AIModel[]>([]);
   const [deepseekModels, setDeepseekModels] = useState<AIModel[]>([]);
   const [perplexityModels, setPerplexityModels] = useState<AIModel[]>([]);
+  const [qwenModels, setQwenModels] = useState<AIModel[]>([]);
+  const [ollamaModels, setOllamaModels] = useState<AIModel[]>([]);
 
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -189,6 +193,8 @@ export const AIProvidersSettings = () => {
               i.type === 'anthropic' ||
               i.type === 'deepseek' ||
               i.type === 'perplexity' ||
+              i.type === 'qwen' ||
+              i.type === 'ollama' ||
               i.type === 'local_embeddings'
           )
         );
@@ -202,11 +208,13 @@ export const AIProvidersSettings = () => {
 
   const loadModels = async () => {
     try {
-      const [openaiRes, anthropicRes, deepseekRes, perplexityRes] = await Promise.all([
+      const [openaiRes, anthropicRes, deepseekRes, perplexityRes, qwenRes, ollamaRes] = await Promise.all([
         aiService.getModels('openai'),
         aiService.getModels('anthropic'),
         aiService.getModels('deepseek'),
         aiService.getModels('perplexity'),
+        aiService.getModels('qwen'),
+        aiService.getModels('ollama'),
       ]);
 
       if (openaiRes.success) {
@@ -220,6 +228,12 @@ export const AIProvidersSettings = () => {
       }
       if (perplexityRes.success) {
         setPerplexityModels(perplexityRes.data.all);
+      }
+      if (qwenRes.success) {
+        setQwenModels(qwenRes.data.all);
+      }
+      if (ollamaRes.success) {
+        setOllamaModels(ollamaRes.data.all);
       }
     } catch (error) {
       console.error('Failed to load AI models:', error);
@@ -319,7 +333,7 @@ export const AIProvidersSettings = () => {
           return { ...integration, enabled: isEnabling };
         }
         // Disable other AI providers if we're enabling this one
-        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity'].includes(
+        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity', 'qwen', 'ollama'].includes(
           integration.type
         );
         if (isEnabling && isAIProvider) {
@@ -437,13 +451,17 @@ export const AIProvidersSettings = () => {
   const anthropicIntegrations = integrations.filter((i) => i.type === 'anthropic');
   const deepseekIntegrations = integrations.filter((i) => i.type === 'deepseek');
   const perplexityIntegrations = integrations.filter((i) => i.type === 'perplexity');
+  const qwenIntegrations = integrations.filter((i) => i.type === 'qwen');
+  const ollamaIntegrations = integrations.filter((i) => i.type === 'ollama');
 
   // Only check for AI chat providers (not email, telegram, local embeddings, etc.)
   const hasAnyProvider =
     openaiIntegrations.length > 0 ||
     anthropicIntegrations.length > 0 ||
     deepseekIntegrations.length > 0 ||
-    perplexityIntegrations.length > 0;
+    perplexityIntegrations.length > 0 ||
+    qwenIntegrations.length > 0 ||
+    ollamaIntegrations.length > 0;
 
   return (
     <div className="space-y-6">
@@ -771,6 +789,48 @@ export const AIProvidersSettings = () => {
             'perplexity',
             config as Record<string, string | number | boolean>
           )
+        }
+        onCancel={() => setEditingId(null)}
+      />
+
+      {/* Qwen Provider Card */}
+      <QwenProviderCard
+        integrations={qwenIntegrations}
+        models={qwenModels}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        toggling={toggling}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
+        onSave={(config) =>
+          saveIntegration('Qwen', 'qwen', config as Record<string, string | number | boolean>)
+        }
+        onCancel={() => setEditingId(null)}
+      />
+
+      {/* Ollama Provider Card */}
+      <OllamaProviderCard
+        integrations={ollamaIntegrations}
+        models={ollamaModels}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        toggling={toggling}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
+        onSave={(config) =>
+          saveIntegration('Ollama', 'ollama', config as Record<string, string | number | boolean>)
         }
         onCancel={() => setEditingId(null)}
       />

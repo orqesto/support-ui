@@ -54,11 +54,41 @@ export const UsageStatsPage = () => {
   useEffect(() => {
     const fetchUsage = async () => {
       try {
+        type RawUsage = {
+          aiCalls: { current: number; limit: number; overage: number; percentage: number };
+          messages: { current: number; limit: number; percentage: number };
+        };
         const [usageRes, historyRes] = await Promise.all([
-          apiClient.get<{ success: boolean; data: { usage: UsageModule[] } }>('/api/subscriptions/usage'),
+          apiClient.get<{ success: boolean; data: { usage: RawUsage } }>('/api/subscriptions/usage'),
           apiClient.get<{ success: boolean; data: { history: HistoryRow[] } }>(`/api/subscriptions/usage/history?days=${historyDays}`),
         ]);
-        setUsage(usageRes.data.data.usage);
+        const raw = usageRes.data.data.usage;
+        const aiCurrent = raw?.aiCalls?.current ?? 0;
+        const aiLimit = raw?.aiCalls?.limit ?? 0;
+        const msgCurrent = raw?.messages?.current ?? 0;
+        const msgLimit = raw?.messages?.limit ?? 0;
+        setUsage([
+          {
+            moduleName: 'ai-calls',
+            displayName: 'AI Calls',
+            current: aiCurrent,
+            included: aiLimit,
+            overage: raw?.aiCalls?.overage ?? Math.max(0, aiCurrent - aiLimit),
+            overagePrice: 0,
+            estimatedOverageCost: 0,
+            unitName: 'call',
+          },
+          {
+            moduleName: 'messages',
+            displayName: 'Messages',
+            current: msgCurrent,
+            included: msgLimit,
+            overage: Math.max(0, msgCurrent - msgLimit),
+            overagePrice: 0,
+            estimatedOverageCost: 0,
+            unitName: 'message',
+          },
+        ]);
         setHistory(historyRes.data.data.history);
       } catch (error) {
         console.error('Failed to load usage:', error);
@@ -267,7 +297,7 @@ export const UsageStatsPage = () => {
             ) : (
               <div className="space-y-6">
                 {usage.map((module) => {
-                  const percentage = (module.current / module.included) * 100;
+                  const percentage = module.included > 0 ? (module.current / module.included) * 100 : 0;
                   const isOverage = module.overage > 0;
                   const trend = percentage > 80 ? 'high' : percentage > 50 ? 'medium' : 'low';
 

@@ -3,10 +3,21 @@ import { X, Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
+type DeploymentType = 'shared' | 'dedicated' | 'external';
+
+type CreateOrganizationData = {
+  name: string;
+  slug: string;
+  description?: string;
+  deploymentType: DeploymentType;
+  dbSecretRef?: string;
+  region?: string;
+};
+
 type CreateOrganizationModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (name: string, slug: string, description?: string) => Promise<void>;
+  onCreate: (data: CreateOrganizationData) => Promise<void>;
 };
 
 export const CreateOrganizationModal = ({
@@ -18,6 +29,9 @@ export const CreateOrganizationModal = ({
     name: '',
     slug: '',
     description: '',
+    deploymentType: 'shared' as DeploymentType,
+    dbSecretRef: '',
+    region: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,13 +43,11 @@ export const CreateOrganizationModal = ({
       .replace(/^-+|-+$/g, '');
 
   const handleNameChange = (name: string) => {
-    setFormData({
-      ...formData,
-      name,
-      slug: generateSlug(name),
-    });
+    setFormData({ ...formData, name, slug: generateSlug(name) });
     setError('');
   };
+
+  const needsConnectionDetails = formData.deploymentType !== 'shared';
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -51,11 +63,23 @@ export const CreateOrganizationModal = ({
       return;
     }
 
+    if (needsConnectionDetails && !formData.dbSecretRef.trim()) {
+      setError('DB secret ref is required for dedicated and external deployments');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await onCreate(formData.name, formData.slug, formData.description ?? undefined);
-      setFormData({ name: '', slug: '', description: '' });
+      await onCreate({
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description || undefined,
+        deploymentType: formData.deploymentType,
+        dbSecretRef: needsConnectionDetails ? formData.dbSecretRef : undefined,
+        region: needsConnectionDetails && formData.region ? formData.region : undefined,
+      });
+      setFormData({ name: '', slug: '', description: '', deploymentType: 'shared', dbSecretRef: '', region: '' });
       onClose();
     } catch (err) {
       if (err instanceof Error) {
@@ -153,6 +177,58 @@ export const CreateOrganizationModal = ({
               placeholder="Brief description of the organization"
             />
           </div>
+
+          <div>
+            <label className="block mb-1 text-sm font-medium">Database Deployment</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['shared', 'dedicated', 'external'] as DeploymentType[]).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, deploymentType: type })}
+                  className={`py-2 px-3 rounded-md border text-sm capitalize transition-colors ${
+                    formData.deploymentType === type
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border text-muted-foreground hover:border-primary/50'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formData.deploymentType === 'shared' && 'Uses the platform shared database — no extra config needed'}
+              {formData.deploymentType === 'dedicated' && 'Separate DB instance on our infrastructure'}
+              {formData.deploymentType === 'external' && 'Client-side DB — you provide the connection'}
+            </p>
+          </div>
+
+          {needsConnectionDetails && (
+            <>
+              <div>
+                <Input
+                  label="DB Secret Ref"
+                  type="text"
+                  placeholder="ORG_ACME_DB_URL"
+                  value={formData.dbSecretRef}
+                  onChange={(e) => setFormData({ ...formData, dbSecretRef: e.target.value })}
+                  required
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Env var name holding the full postgres connection string
+                </p>
+              </div>
+              <div>
+                <Input
+                  label="Region (Optional)"
+                  type="text"
+                  placeholder="eu-west-1"
+                  value={formData.region}
+                  onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                />
+              </div>
+            </>
+          )}
 
           {error && (
             <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
