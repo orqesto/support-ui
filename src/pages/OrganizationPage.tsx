@@ -165,8 +165,8 @@ export const OrganizationPage = () => {
     }
   };
 
-  const handleCreateOrganization = async (name: string, slug: string, description?: string) => {
-    await organizationService.create({ name, slug, description });
+  const handleCreateOrganization = async (data: Parameters<typeof organizationService.create>[0]) => {
+    await organizationService.create(data);
     // Refresh the lists to show the newly created organization
     if (isAdmin) {
       await fetchAllOrganizations();
@@ -432,6 +432,17 @@ export const OrganizationPage = () => {
                               <Badge variant={org.active ? 'default' : 'secondary'}>
                                 {org.active ? 'Active' : 'Inactive'}
                               </Badge>
+                              {org.tenantDb && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  org.tenantDb.deploymentType === 'shared'
+                                    ? 'bg-muted text-muted-foreground'
+                                    : org.tenantDb.deploymentType === 'dedicated'
+                                    ? 'bg-blue-500/10 text-blue-600'
+                                    : 'bg-purple-500/10 text-purple-600'
+                                }`}>
+                                  {org.tenantDb.deploymentType}
+                                </span>
+                              )}
                               <code className="px-2 py-1 rounded text-muted-foreground bg-muted">
                                 {org.slug}
                               </code>
@@ -515,17 +526,11 @@ export const OrganizationPage = () => {
                                         id={`active-${org.id}`}
                                         checked={editOrgForm.active}
                                         onChange={(e) =>
-                                          setEditOrgForm({
-                                            ...editOrgForm,
-                                            active: e.target.checked,
-                                          })
+                                          setEditOrgForm({ ...editOrgForm, active: e.target.checked })
                                         }
                                         className="rounded"
                                       />
-                                      <label
-                                        htmlFor={`active-${org.id}`}
-                                        className="text-sm font-medium"
-                                      >
+                                      <label htmlFor={`active-${org.id}`} className="text-sm font-medium">
                                         Active
                                       </label>
                                     </div>
@@ -560,9 +565,22 @@ export const OrganizationPage = () => {
                                   <code className="text-sm text-muted-foreground">{org.slug}</code>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <Badge variant={org.active ? 'default' : 'secondary'}>
-                                    {org.active ? 'Active' : 'Inactive'}
-                                  </Badge>
+                                  <div className="flex flex-col gap-1">
+                                    <Badge variant={org.active ? 'default' : 'secondary'}>
+                                      {org.active ? 'Active' : 'Inactive'}
+                                    </Badge>
+                                    {org.tenantDb && (
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium w-fit ${
+                                        org.tenantDb.deploymentType === 'shared'
+                                          ? 'bg-muted text-muted-foreground'
+                                          : org.tenantDb.deploymentType === 'dedicated'
+                                          ? 'bg-blue-500/10 text-blue-600'
+                                          : 'bg-purple-500/10 text-purple-600'
+                                      }`}>
+                                        {org.tenantDb.deploymentType}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-6 py-4 text-sm whitespace-nowrap text-muted-foreground">
                                   {formatDate(org.createdAt)}

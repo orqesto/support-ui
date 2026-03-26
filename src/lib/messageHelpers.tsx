@@ -1,4 +1,4 @@
-import { Mail, MessageSquare, Send } from 'lucide-react';
+import { Mail, MessageSquare } from 'lucide-react';
 
 export const getChannelIcon = (channel: string | null | undefined) => {
   switch (channel) {
