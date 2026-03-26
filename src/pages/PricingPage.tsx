@@ -40,9 +40,13 @@ type AIModule = {
 export const PricingPage = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [modules, setModules] = useState<AIModule[]>([]);
+  const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
+  const [activeModuleIds, setActiveModuleIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
+  const [addingModule, setAddingModule] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [selectedModule, setSelectedModule] = useState<AIModule | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
     title: string;
@@ -63,15 +67,27 @@ export const PricingPage = () => {
   useEffect(() => {
     const fetchPricing = async () => {
       try {
-        const [plansRes, modulesRes] = await Promise.all([
+        const [plansRes, modulesRes, currentRes, activeModulesRes] = await Promise.all([
           apiClient.get<{ success: boolean; data: { plans: Plan[] } }>('/api/subscriptions/plans'),
           apiClient.get<{ success: boolean; data: { modules: AIModule[] } }>(
             '/api/subscriptions/modules'
           ),
+          apiClient.get<{ success: boolean; data: { plan: { name: string } } }>(
+            '/api/subscriptions/current'
+          ).catch(() => null),
+          apiClient.get<{ success: boolean; data: { modules: { moduleId: number }[] } }>(
+            '/api/subscriptions/modules/active'
+          ).catch(() => null),
         ]);
 
         setPlans(plansRes.data.data.plans);
         setModules(modulesRes.data.data.modules);
+        if (currentRes?.data?.data?.plan?.name) {
+          setCurrentPlanName(currentRes.data.data.plan.name);
+        }
+        if (activeModulesRes?.data?.data?.modules) {
+          setActiveModuleIds(new Set(activeModulesRes.data.data.modules.map((m) => m.moduleId)));
+        }
       } catch (error) {
         console.error('Failed to load pricing:', error);
       } finally {
@@ -115,6 +131,7 @@ export const PricingPage = () => {
     try {
       await apiClient.post('/api/subscriptions/upgrade', { planName: selectedPlan });
 
+      setCurrentPlanName(selectedPlan);
       setAlertDialog({
         open: true,
         title: 'Success!',
@@ -151,6 +168,60 @@ export const PricingPage = () => {
     } finally {
       setUpgrading(null);
       setSelectedPlan(null);
+    }
+  };
+
+  const handleAddModule = (module: AIModule) => {
+    setSelectedModule(module);
+    setAlertDialog({
+      open: true,
+      title: 'Add Module',
+      description: `Add ${module.displayName} to your plan for €${(module.monthlyFee / 100).toFixed(0)}/month?`,
+      variant: 'info',
+      confirmAction: true,
+    });
+  };
+
+  const confirmAddModule = async () => {
+    if (!selectedModule) return;
+
+    setAddingModule(selectedModule.id);
+    setAlertDialog({ ...alertDialog, open: false });
+
+    try {
+      await apiClient.post(`/api/subscriptions/modules/${selectedModule.id}/add`, {});
+
+      setActiveModuleIds((prev) => new Set([...prev, selectedModule.id]));
+      setAlertDialog({
+        open: true,
+        title: 'Module Added!',
+        description: `${selectedModule.displayName} has been added to your plan.`,
+        variant: 'success',
+        confirmAction: false,
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data &&
+        typeof error.response.data.error === 'string'
+          ? error.response.data.error
+          : 'Failed to add module';
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: message,
+        variant: 'error',
+        confirmAction: false,
+      });
+    } finally {
+      setAddingModule(null);
+      setSelectedModule(null);
     }
   };
 
@@ -273,13 +344,19 @@ export const PricingPage = () => {
                       className="w-full"
                       variant={isPopular ? 'primary' : 'outline'}
                       onClick={() => handleSelectPlan(plan.name)}
-                      disabled={upgrading === plan.name || plan.name === 'admin'}
+                      disabled={
+                        upgrading === plan.name ||
+                        plan.name === 'admin' ||
+                        plan.name === currentPlanName
+                      }
                     >
                       {upgrading === plan.name
                         ? 'Processing...'
-                        : plan.name === 'admin'
-                          ? 'Not Available'
-                          : 'Get Started'}
+                        : plan.name === currentPlanName
+                          ? 'Current Plan'
+                          : plan.name === 'admin'
+                            ? 'Not Available'
+                            : 'Get Started'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -350,9 +427,13 @@ export const PricingPage = () => {
                       className="w-full"
                       variant="primary"
                       onClick={() => handleSelectPlan(plan.name)}
-                      disabled={upgrading === plan.name}
+                      disabled={upgrading === plan.name || plan.name === currentPlanName}
                     >
-                      {upgrading === plan.name ? 'Processing...' : 'Select Plan'}
+                      {upgrading === plan.name
+                        ? 'Processing...'
+                        : plan.name === currentPlanName
+                          ? 'Current Plan'
+                          : 'Select Plan'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -419,9 +500,13 @@ export const PricingPage = () => {
                       className="w-full"
                       variant="primary"
                       onClick={() => handleSelectPlan(plan.name)}
-                      disabled={upgrading === plan.name}
+                      disabled={upgrading === plan.name || plan.name === currentPlanName}
                     >
-                      {upgrading === plan.name ? 'Processing...' : 'Get Started'}
+                      {upgrading === plan.name
+                        ? 'Processing...'
+                        : plan.name === currentPlanName
+                          ? 'Current Plan'
+                          : 'Get Started'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -471,8 +556,17 @@ export const PricingPage = () => {
                   </CardContent>
                 </div>
                 <CardContent className="pt-0">
-                  <Button variant="outline" className="w-full">
-                    Add to Plan
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleAddModule(module)}
+                    disabled={addingModule === module.id || activeModuleIds.has(module.id)}
+                  >
+                    {addingModule === module.id
+                      ? 'Adding...'
+                      : activeModuleIds.has(module.id)
+                        ? 'Active'
+                        : 'Add to Plan'}
                   </Button>
                 </CardContent>
               </Card>
@@ -545,8 +639,8 @@ export const PricingPage = () => {
         title={alertDialog.title}
         description={alertDialog.description}
         variant={alertDialog.variant}
-        onConfirm={alertDialog.confirmAction ? confirmUpgrade : undefined}
-        confirmText={alertDialog.confirmAction ? 'Upgrade' : 'OK'}
+        onConfirm={alertDialog.confirmAction ? (selectedModule ? confirmAddModule : confirmUpgrade) : undefined}
+        confirmText={alertDialog.confirmAction ? (selectedModule ? 'Add Module' : 'Upgrade') : 'OK'}
       />
     </Layout>
   );
