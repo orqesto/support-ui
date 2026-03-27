@@ -8,6 +8,7 @@ let socket: Socket | null = null;
 let connectionCount = 0;
 let disconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 const eventListeners: Map<string, Set<EventCallback>> = new Map();
+const activeOrgRooms: Set<number> = new Set();
 
 export const getSocket = (): Socket => {
   // Clear any pending disconnect
@@ -27,6 +28,11 @@ export const getSocket = (): Socket => {
 
     socket.on('connect', () => {
       console.log('✅ WebSocket connected', socket?.id);
+      // Re-join all active organization rooms after (re)connect
+      for (const orgId of activeOrgRooms) {
+        console.log(`🏢 Re-joining organization room after connect: org-${orgId}`);
+        socket?.emit('join-organization', orgId);
+      }
     });
 
     socket.on('disconnect', (reason) => {
@@ -114,17 +120,20 @@ export const forceDisconnect = () => {
 };
 
 // Join organization-specific room for targeted event delivery
+// Tracks the room and automatically re-joins on reconnect
 export const joinOrganizationRoom = (organizationId: number) => {
+  activeOrgRooms.add(organizationId);
   if (socket?.connected) {
     console.log(`🏢 Joining organization room: org-${organizationId}`);
     socket.emit('join-organization', organizationId);
   } else {
-    console.warn('⚠️  Cannot join organization room - socket not connected');
+    console.log(`🏢 Queued organization room join (will join on connect): org-${organizationId}`);
   }
 };
 
 // Leave organization room
 export const leaveOrganizationRoom = (organizationId: number) => {
+  activeOrgRooms.delete(organizationId);
   if (socket?.connected) {
     console.log(`🚪 Leaving organization room: org-${organizationId}`);
     socket.emit('leave-organization', organizationId);

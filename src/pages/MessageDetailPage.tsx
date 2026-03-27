@@ -16,13 +16,29 @@ export const MessageDetailPage = () => {
 
   useEffect(() => {
     if (id) {
-      void fetchMessage(parseInt(id));
+      void (async () => {
+        await fetchMessage(parseInt(id), true);
+        // Auto-navigate to the latest message in the thread
+        try {
+          const threadRes = await messageService.getThreadMessages(parseInt(id));
+          if (threadRes.success && threadRes.data && threadRes.data.length > 0) {
+            const latestIncoming = threadRes.data
+              .filter((m) => !m.isOutgoing)
+              .sort((a, b) => b.id - a.id)[0];
+            if (latestIncoming && latestIncoming.id !== parseInt(id)) {
+              void fetchMessage(latestIncoming.id);
+            }
+          }
+        } catch {
+          // ignore — stay on the original message if thread fetch fails
+        }
+      })();
     }
   }, [id]);
 
-  const fetchMessage = async (messageId: number) => {
+  const fetchMessage = async (messageId: number, fullLoad = false) => {
     try {
-      setLoading(true);
+      if (fullLoad) setLoading(true);
       const response = await messageService.getById(messageId);
       if (response.success && response.data) {
         setMessage(response.data);
@@ -30,7 +46,7 @@ export const MessageDetailPage = () => {
     } catch (error) {
       console.error('Failed to fetch message:', error);
     } finally {
-      setLoading(false);
+      if (fullLoad) setLoading(false);
     }
   };
 
@@ -85,6 +101,10 @@ export const MessageDetailPage = () => {
               onReopen={() => fetchMessage(message.id)}
               onDelete={handleBack}
               onResolve={() => fetchMessage(message.id)}
+              onMessageNavigate={(messageId) => {
+                void fetchMessage(messageId);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           </div>
         </div>

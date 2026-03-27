@@ -136,29 +136,28 @@ export const Layout = ({ children }: LayoutProps) => {
   // Join/leave organization-specific WebSocket rooms for targeted event delivery
   useEffect(() => {
     if (organizationFilter) {
-      // Wait for socket to connect before joining room
-      const timer = setTimeout(() => {
-        joinOrganizationRoom(organizationFilter);
-      }, 1000);
+      joinOrganizationRoom(organizationFilter);
 
       // Leave room when organization changes or component unmounts
       return () => {
-        clearTimeout(timer);
         leaveOrganizationRoom(organizationFilter);
       };
     }
   }, [organizationFilter]);
 
   // Persist closed sessions in localStorage to survive page navigation
-  // Use sessionKey (integrationId-departmentRole) to track closed sessions
+  // Only track manually dismissed sessions — auto-close should not block future sessions
   const [closedSessions, setClosedSessions] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('closedEmailSessions');
-      if (!stored) {
-        return new Set();
-      }
+      if (!stored) return new Set();
       const parsed = JSON.parse(stored) as unknown;
-      return Array.isArray(parsed) ? new Set(parsed as string[]) : new Set();
+      if (!Array.isArray(parsed)) return new Set();
+      // Filter out stale entries written by old code that didn't check _dismissed
+      const verified = (parsed as string[]).filter(
+        (key) => localStorage.getItem(`emailProcessingWidget_${key}_dismissed`) === 'true'
+      );
+      return new Set(verified);
     } catch {
       return new Set();
     }
@@ -166,16 +165,22 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Handle session close
   const handleSessionClose = (sessionKey: string) => {
+    // Check if user manually dismissed BEFORE removeSession clears these keys
+    const wasManuallyClosed =
+      localStorage.getItem(`emailProcessingWidget_${sessionKey}_dismissed`) === 'true';
+
     // Remove from hook's session map and cleanup localStorage
     removeSession(sessionKey);
 
-    // Also remove from local closed sessions tracking
-    setClosedSessions((prev) => {
-      const newSet = new Set(prev).add(sessionKey);
-      // Persist to localStorage
-      localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
-      return newSet;
-    });
+    // Only track in closedSessions for manual dismissals (X button).
+    // Auto-close should not block future sessions from appearing.
+    if (wasManuallyClosed) {
+      setClosedSessions((prev) => {
+        const newSet = new Set(prev).add(sessionKey);
+        localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
+        return newSet;
+      });
+    }
   };
 
   // Auto-reopen widgets when a previously closed session starts processing again
@@ -205,17 +210,16 @@ export const Layout = ({ children }: LayoutProps) => {
   const visibleSessions = useMemo(() => {
     const filtered = Array.from(sessions.entries())
       .filter(([sessionKey, session]) => {
+        // Always show actively processing sessions even if previously closed
+        const isActive =
+          session.isProcessing || session.status === 'started' || session.status === 'processing';
+        if (isActive) return true;
+
         // Don't show if manually closed
         if (closedSessions.has(sessionKey)) {
           return false;
         }
-        const shouldShow =
-          session.isProcessing ||
-          session.status === 'started' ||
-          session.status === 'processing' ||
-          session.status === 'complete' ||
-          session.status === 'error';
-        return shouldShow;
+        return session.status === 'complete' || session.status === 'error';
       })
       .map(([_, session]) => session);
     return filtered;
