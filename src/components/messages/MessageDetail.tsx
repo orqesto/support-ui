@@ -37,7 +37,7 @@ import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/R
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { SimilarTickets } from '@/components/tickets/SimilarTickets';
-import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
+import { LeadQualificationPanel, STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
@@ -162,6 +162,7 @@ export const MessageDetail = ({
     Parameters<typeof LeadQualificationPanel>[0]['leadState'] | null
   >(null);
   const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
+  const [threadHasNewerReply, setThreadHasNewerReply] = useState(false);
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -187,15 +188,27 @@ export const MessageDetail = ({
   }, []);
 
   useEffect(() => {
+    setThreadHasNewerReply(false);
     if (!message.isLead) {
       setLeadState(null);
       return;
     }
-    // Fetch all thread messages and pick the latest leadState across the thread
+    // Immediately seed from this message's own leadState so the suggestedAnswer
+    // panel never gets blocked by stale state from the previously viewed message.
+    const ownState = message.metadata?.leadState as
+      | Parameters<typeof LeadQualificationPanel>[0]['leadState']
+      | undefined;
+    if (ownState) setLeadState(ownState);
+
+    // Fetch all thread messages: pick latest leadState + check if a newer reply exists
     messageService
       .getThreadMessages(message.id)
       .then((res) => {
         const threadMessages = res.data ?? [];
+        // If any thread message (outgoing or incoming) has a higher id, this message was already answered
+        const hasNewer = threadMessages.some((m) => m.id > message.id);
+        setThreadHasNewerReply(hasNewer);
+
         // Sort descending by id so we check the latest first
         const sorted = [...threadMessages].sort((a, b) => b.id - a.id);
         for (const msg of sorted) {
@@ -851,7 +864,7 @@ export const MessageDetail = ({
         !message.resolved &&
         !message.directReply &&
         !message.repliedBy &&
-        !(suggestedAnswer.source === 'lead_qualification' && leadState?.stage === 'escalated') &&
+        !(suggestedAnswer.source === 'lead_qualification' && autoReply?.sent) &&
         (suggestedAnswer.source === 'lead_qualification' ? (
           <div className="p-4 mb-6 bg-green-50 rounded-lg border-2 border-green-300 dark:bg-green-950/20 dark:border-green-700">
             <div className="flex gap-2 items-start mb-3">
@@ -860,10 +873,22 @@ export const MessageDetail = ({
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-green-900 dark:text-green-100">
-                  Lead Qualification — Next Question
+                  {leadState?.stage !== null &&
+                  leadState?.stage !== undefined &&
+                  leadState.stage in STAGE_COLORS &&
+                  STAGE_COLORS[leadState.stage] === 'danger' &&
+                  leadState.contactInfo?.isComplete
+                    ? 'Lead Qualified — Send Closing Message'
+                    : 'Lead Qualification — Next Question'}
                 </h3>
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  Send this to continue qualifying the lead
+                  {leadState?.stage !== null &&
+                  leadState?.stage !== undefined &&
+                  leadState.stage in STAGE_COLORS &&
+                  STAGE_COLORS[leadState.stage] === 'danger' &&
+                  leadState.contactInfo?.isComplete
+                    ? 'Lead has been escalated — send this message to the customer'
+                    : 'Send this to continue qualifying the lead'}
                 </p>
               </div>
             </div>
@@ -1149,9 +1174,13 @@ export const MessageDetail = ({
         <div className="pt-6 border-t">
           {leadState ? (
             <LeadQualificationPanel
+              messageId={message.id}
               leadState={leadState}
               fieldDefs={leadFieldDefs}
               enrichment={enrichment}
+              onLeadStateUpdate={(updatedLeadState) => {
+                setLeadState(updatedLeadState);
+              }}
             />
           ) : (
             <div className="p-4 space-y-1 rounded-lg border border-violet-500/20 bg-violet-500/5">
