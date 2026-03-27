@@ -28,6 +28,7 @@ import {
   getFilteredCategoryLabel,
 } from '@/lib/messageHelpers';
 import { formatDate, formatAge } from '@/lib/utils';
+import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 
 const STATUS_BADGE: Record<
   MessageStatus,
@@ -81,7 +82,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
   const receivedAt = (message.metadata as { receivedAt?: string })?.receivedAt ?? message.createdAt;
 
   const leadMeta = message.metadata as
-    | { leadQualifiedAt?: string; leadCategory?: string }
+    | { leadQualifiedAt?: string; leadCategory?: string; leadState?: { stage: string } }
     | undefined;
 
   const actualPriority = message.priority;
@@ -243,6 +244,22 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
                 Replied
               </Badge>
             )}
+
+          {/* Lead — stage badge */}
+          {message.isLead &&
+            leadMeta?.leadState?.stage !== undefined &&
+            leadMeta.leadState.stage in STAGE_COLORS && (
+            <Badge
+              variant={STAGE_COLORS[leadMeta.leadState.stage]}
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={`Lead stage: ${leadMeta.leadState.stage.replace(/_/g, ' ')}`}
+            >
+              {STAGE_COLORS[leadMeta.leadState.stage] === 'danger' && (
+                <AlertTriangle className="w-2.5 h-2.5" />
+              )}
+              {leadMeta.leadState.stage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+            </Badge>
+          )}
 
           {/* Lead — awaiting reply */}
           {message.isLead &&

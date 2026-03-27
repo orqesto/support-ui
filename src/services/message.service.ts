@@ -369,6 +369,20 @@ export const messageService = {
     return response.data;
   },
 
+  updateLeadState: async (
+    id: number,
+    payload: {
+      contactInfo?: { name?: string; email?: string; phone?: string };
+      qualificationFields?: Record<string, string | null>;
+    }
+  ) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; leadState: unknown }>>(
+      `/api/messages/${id}/lead-state`,
+      payload
+    );
+    return response.data;
+  },
+
   checkContradiction: async (id: number) => {
     const response = await apiClient.post<
       ApiResponse<{

@@ -551,6 +551,32 @@ export const useEmailProcessing = (
                   processTime: event.data?.processTime,
                   totalTime: event.data?.totalTime,
                 });
+              } else {
+                // No existing session — backend skipped (all messages already in DB)
+                // Still create a brief complete session so the widget can show "no new messages"
+                newSessions.set(sessionKey, {
+                  sessionKey,
+                  integrationId,
+                  integrationName,
+                  departmentRole,
+                  status: 'complete',
+                  stage: undefined,
+                  total: event.data?.total ?? 0,
+                  current: event.data?.processed ?? 0,
+                  processed: event.data?.processed ?? 0,
+                  failed: event.data?.failed ?? 0,
+                  analyzed: event.data?.analyzed ?? 0,
+                  isProcessing: false,
+                  progress: 100,
+                  timestamp: Date.now(),
+                  fetchTime: event.data?.fetchTime,
+                  processTime: event.data?.processTime,
+                  totalTime: event.data?.totalTime,
+                  kbEntriesTotal: 0,
+                  kbQAPairs: 0,
+                  kbDocuments: 0,
+                  kbStandaloneKnowledge: 0,
+                });
               }
               break;
           }
