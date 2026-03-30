@@ -23,6 +23,16 @@ export type LinkedContact = {
   displayName: string | null;
 };
 
+export type ContactProfileType = 'email' | 'telegram_username' | 'telegram_phone' | 'slack';
+
+export type ContactProfileEntry = {
+  id: number;
+  type: ContactProfileType;
+  value: string;
+  label: string | null;
+  createdAt: string;
+};
+
 export type ContactStats = {
   messageCount: number;
   lastMessageAt: string | null;
@@ -61,6 +71,7 @@ export type ContactProfile = {
   notes: ContactNote[];
   labels: ContactLabel[];
   linkedContacts: LinkedContact[];
+  profiles: ContactProfileEntry[];
   stats: ContactStats;
   recentMessages: RecentMessage[];
   recentTickets: RecentTicket[];
@@ -132,5 +143,20 @@ export const contactService = {
 
   unlinkContact: async (id: number, linkedId: number): Promise<void> => {
     await apiClient.delete(`/api/contacts/${id}/links/${linkedId}`);
+  },
+
+  addProfile: async (
+    id: number,
+    profile: { type: ContactProfileType; value: string; label?: string }
+  ): Promise<ContactProfileEntry> => {
+    const res = await apiClient.post<ApiResponse<ContactProfileEntry>>(
+      `/api/contacts/${id}/profiles`,
+      profile
+    );
+    return res.data.data!;
+  },
+
+  deleteProfile: async (id: number, profileId: number): Promise<void> => {
+    await apiClient.delete(`/api/contacts/${id}/profiles/${profileId}`);
   },
 };

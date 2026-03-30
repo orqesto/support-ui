@@ -254,11 +254,21 @@ export const useEmailProcessing = (
           event.departmentRole &&
           event.departmentRole !== filterByDepartment
         ) {
+          console.warn('[useEmailProcessing] Event filtered by department:', {
+            filterByDepartment,
+            eventDept: event.departmentRole,
+            eventType: event.type,
+          });
           return;
         }
 
         // Filter by organization if specified - ignore events from other organizations
         if (filterByOrganization && event.organizationId !== filterByOrganization) {
+          console.warn('[useEmailProcessing] Event filtered by organization:', {
+            filterByOrganization,
+            eventOrgId: event.organizationId,
+            eventType: event.type,
+          });
           return;
         }
 
@@ -975,6 +985,7 @@ export const useEmailProcessing = (
       // Also clear from localStorage
       localStorage.removeItem(`emailProcessingWidget_${sessionKey}_closed`);
       localStorage.removeItem(`emailProcessingWidget_${sessionKey}_position`);
+      localStorage.removeItem(`emailProcessingWidget_${sessionKey}_dismissed`);
 
       // Reset legacy single-session state when no active sessions remain
       if (updated.size === 0) {
