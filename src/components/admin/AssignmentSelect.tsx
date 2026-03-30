@@ -7,6 +7,7 @@ type AssignmentSelectProps = {
   itemId: number | string; // threadId can be string
   currentAssigneeId?: number | null;
   departmentRole?: string;
+  skillFilter?: { key: string; value: string };
   onAssign?: () => void;
   className?: string;
 };
@@ -16,6 +17,7 @@ export const AssignmentSelect = ({
   itemId,
   currentAssigneeId,
   departmentRole,
+  skillFilter,
   onAssign,
   className,
 }: AssignmentSelectProps) => {
@@ -26,14 +28,14 @@ export const AssignmentSelect = ({
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await assignmentService.getAssignableUsers(departmentRole);
+      const data = await assignmentService.getAssignableUsers(departmentRole, skillFilter);
       setUsers(data);
     } catch (error) {
       console.error('Failed to fetch assignable users:', error);
     } finally {
       setLoading(false);
     }
-  }, [departmentRole]);
+  }, [departmentRole, skillFilter]);
 
   useEffect(() => {
     fetchUsers().catch(console.error);

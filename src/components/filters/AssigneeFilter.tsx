@@ -7,10 +7,11 @@ import { useAuthStore } from '@/stores/authStore';
 type AssigneeFilterProps = {
   value?: string;
   onChange: (value: string) => void;
+  skillFilter?: { key: string; value: string };
   className?: string;
 };
 
-export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterProps) => {
+export const AssigneeFilter = ({ value, onChange, skillFilter, className }: AssigneeFilterProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
   const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
@@ -21,7 +22,8 @@ export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterPro
       try {
         setLoading(true);
         const data = await assignmentService.getAssignableUsers(
-          selectedDepartmentRole ?? undefined
+          selectedDepartmentRole ?? undefined,
+          skillFilter
         );
         setUsers(data);
       } catch (error) {
@@ -32,7 +34,7 @@ export const AssigneeFilter = ({ value, onChange, className }: AssigneeFilterPro
     };
 
     fetchUsers().catch(console.error);
-  }, [selectedDepartmentRole]);
+  }, [selectedDepartmentRole, skillFilter]);
 
   const options = [
     { value: 'all', label: 'All Assignees' },
