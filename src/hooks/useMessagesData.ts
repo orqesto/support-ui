@@ -150,7 +150,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
           setMessagesLocal(messagesFromThreads);
           setMessagesPagination(response.pagination);
 
-          if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
+          if (page > 1 && page > response.pagination.totalPages && response.pagination.totalPages > 0) {
             await fetchMessages(1);
           }
         }

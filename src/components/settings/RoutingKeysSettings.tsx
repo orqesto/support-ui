@@ -123,14 +123,19 @@ export const RoutingKeysSettings = () => {
           Add routing key
         </p>
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd(); } }}
-            placeholder="Key (e.g. language, region)"
-            className="w-36 px-3 py-1.5 text-sm rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd(); } }}
+              placeholder="Key (e.g. language, region)"
+              className={`w-36 px-3 py-1.5 text-sm rounded-md border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary ${newKey && !/^[a-z0-9_-]+$/.test(newKey) ? 'border-destructive' : 'border-border'}`}
+            />
+            {newKey && !/^[a-z0-9_-]+$/.test(newKey) && (
+              <span className="text-xs text-destructive">Only letters, numbers, - and _</span>
+            )}
+          </div>
           <input
             type="text"
             value={newDescription}
@@ -142,7 +147,7 @@ export const RoutingKeysSettings = () => {
           <Button
             size="sm"
             onClick={() => void handleAdd()}
-            disabled={saving || !newKey.trim()}
+            disabled={saving || !newKey.trim() || !/^[a-z0-9_-]+$/.test(newKey)}
           >
             <Plus className="mr-1 w-4 h-4" />
             Add

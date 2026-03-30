@@ -11,6 +11,7 @@ interface UseMessagesUrlSyncProps {
   fetchMessages: (page?: number, force?: boolean) => Promise<void>;
   selectedMessage: Message | null;
   setSelectedMessage: (msg: Message | null) => void;
+  onFetchError?: (error: unknown) => void;
 }
 
 export const useMessagesUrlSync = ({
@@ -18,6 +19,7 @@ export const useMessagesUrlSync = ({
   fetchedMessageIdRef,
   fetchMessages,
   setSelectedMessage,
+  onFetchError,
 }: UseMessagesUrlSyncProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -92,6 +94,7 @@ export const useMessagesUrlSync = ({
 
     fetchMessages(1).catch((error) => {
       console.error('Failed to fetch messages:', error);
+      onFetchError?.(error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
