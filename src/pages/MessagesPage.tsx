@@ -101,6 +101,13 @@ export const MessagesPage = () => {
     fetchMessages,
     selectedMessage,
     setSelectedMessage,
+    onFetchError: () =>
+      setAlertDialog({
+        open: true,
+        title: 'Failed to load messages',
+        description: 'Could not fetch messages. Please refresh the page.',
+        variant: 'error',
+      }),
   });
 
   const handleFilterChange = (key: string, value: string | boolean) => {
@@ -198,17 +205,27 @@ export const MessagesPage = () => {
     }
   };
 
+  const refreshAbortRef = useRef<AbortController | null>(null);
+
   const handleRefreshMessage = useCallback(async () => {
     if (!selectedMessage) return;
+    refreshAbortRef.current?.abort();
+    const abortController = new AbortController();
+    refreshAbortRef.current = abortController;
     try {
       clearCache();
       const response = await messageService.getById(selectedMessage.id);
+      if (abortController.signal.aborted) return;
       if (response.success && response.data) {
         setSelectedMessage(response.data);
       }
-      await fetchMessages(messagesPagination.page, true);
+      if (!abortController.signal.aborted) {
+        await fetchMessages(messagesPagination.page, true);
+      }
     } catch (error) {
-      console.error('Failed to refresh message:', error);
+      if (!abortController.signal.aborted) {
+        console.error('Failed to refresh message:', error);
+      }
     }
   }, [selectedMessage, clearCache, fetchMessages, messagesPagination.page]);
 
@@ -227,11 +244,18 @@ export const MessagesPage = () => {
       setRefreshing(true);
       await apiClient.post('/api/messages/check-emails');
 
-      setTimeout(() => {
-        fetchMessages(1, true)
-          .catch((error) => console.error('Failed to fetch messages:', error))
-          .finally(() => setRefreshing(false));
-      }, 2000);
+      // Poll for new messages — backend processes emails asynchronously
+      let attempts = 0;
+      const poll = async (): Promise<void> => {
+        attempts++;
+        await fetchMessages(1, true).catch((err) => console.error('Failed to fetch messages:', err));
+        if (attempts < 3) {
+          setTimeout(() => void poll(), attempts * 1500);
+        } else {
+          setRefreshing(false);
+        }
+      };
+      setTimeout(() => void poll(), 1000);
     } catch (error) {
       console.error('Failed to sync emails:', error);
       setRefreshing(false);
