@@ -142,8 +142,10 @@ export const Layout = ({ children }: LayoutProps) => {
       return () => {
         leaveOrganizationRoom(organizationFilter);
       };
+    } else {
+      console.warn('[Layout] organizationFilter is undefined — WebSocket room NOT joined. user.organizationId:', user?.organizationId, 'role:', user?.role);
     }
-  }, [organizationFilter]);
+  }, [organizationFilter, user?.organizationId, user?.role]);
 
   // Persist closed sessions in localStorage to survive page navigation
   // Only track manually dismissed sessions — auto-close should not block future sessions

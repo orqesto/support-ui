@@ -484,9 +484,10 @@ export const MessagesPage = () => {
                             msg.id
                           );
                           if (threadMessages && threadMessages.length > 0) {
+                            const sorted = [...threadMessages].sort((a, b) => b.id - a.id);
                             const messageToShow =
-                              threadMessages.find((m) => m.isOutgoing === false) ??
-                              threadMessages[0];
+                              sorted.find((m) => m.isOutgoing === false) ??
+                              sorted[0];
                             setSelectedMessage(messageToShow);
                             const params = new URLSearchParams(searchParams);
                             params.set('id', messageToShow.id.toString());

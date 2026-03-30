@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
   ChevronDown,
@@ -20,6 +20,7 @@ type MessageThreadProps = {
   messageId: number;
   currentThreadId?: string | null;
   onMessageClick?: (messageId: number) => void;
+  onHasReplyChange?: (hasReply: boolean) => void;
 };
 
 type AIAnalysis = {
@@ -122,11 +123,14 @@ export const MessageThread = ({
   messageId,
   currentThreadId,
   onMessageClick,
+  onHasReplyChange,
 }: MessageThreadProps) => {
   const [conversationPairs, setConversationPairs] = useState<ConversationPair[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true); // Auto-expand by default
   const [error, setError] = useState<string | null>(null);
+  const onHasReplyChangeRef = useRef(onHasReplyChange);
+  onHasReplyChangeRef.current = onHasReplyChange;
 
   useEffect(() => {
     if (!expanded) {
@@ -140,7 +144,6 @@ export const MessageThread = ({
         // Always attempt to fetch thread messages
         const response = await messageService.getThreadMessages(messageId);
         const allMessages = response.data ?? [];
-
 
         // Sort by actual message time (receivedAt when available, else createdAt)
         const msgTime = (m: Message) =>
@@ -176,7 +179,6 @@ export const MessageThread = ({
             customerEmails.push(msg);
           }
         });
-
 
         // Create conversation pairs
         const pairs: ConversationPair[] = [];
@@ -217,8 +219,9 @@ export const MessageThread = ({
           });
         });
 
-
         setConversationPairs(pairs);
+        const currentPair = pairs.find((p) => p.customerEmail.id === messageId);
+        onHasReplyChangeRef.current?.(!!currentPair?.systemReply);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load conversation');
       } finally {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Mail, MessageSquare, Plus, Save, Target, Ticket, Trash2, X } from 'lucide-react';
+import { AtSign, Hash, Link, Mail, MessageSquare, Phone, Plus, Save, Target, Ticket, Trash2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { formatAge, formatDate } from '@/lib/utils';
 import type { ApiResponse } from '@/types';
-import { type ContactProfile, contactService } from '@/services/contact.service';
+import { type ContactProfile, type ContactProfileType, contactService } from '@/services/contact.service';
 
 type OrgUser = { id: number; firstName: string; lastName: string | null; email: string };
 type OrgLabel = { id: number; name: string; color: string };
@@ -36,6 +36,11 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [linkEmailInput, setLinkEmailInput] = useState('');
   const [linkingEmail, setLinkingEmail] = useState(false);
+  const [profileTypeInput, setProfileTypeInput] = useState<ContactProfileType>('email');
+  const [profileValueInput, setProfileValueInput] = useState('');
+  const [profileLabelInput, setProfileLabelInput] = useState('');
+  const [addingProfile, setAddingProfile] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
 
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -123,6 +128,34 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     if (!contact) return;
     await contactService.removeLabel(contact.id, labelId);
     setContact((c) => c ? { ...c, labels: c.labels.filter((l) => l.id !== labelId) } : c);
+  };
+
+  const handleAddProfile = async () => {
+    if (!contact || !profileValueInput.trim()) return;
+    setAddingProfile(true);
+    try {
+      const profile = await contactService.addProfile(contact.id, {
+        type: profileTypeInput,
+        value: profileValueInput.trim(),
+        label: profileLabelInput.trim() || undefined,
+      });
+      setContact((c) =>
+        c && !c.profiles.some((p) => p.id === profile.id)
+          ? { ...c, profiles: [...c.profiles, profile] }
+          : c
+      );
+      setProfileValueInput('');
+      setProfileLabelInput('');
+      setShowProfileForm(false);
+    } finally {
+      setAddingProfile(false);
+    }
+  };
+
+  const handleDeleteProfile = async (profileId: number) => {
+    if (!contact) return;
+    await contactService.deleteProfile(contact.id, profileId);
+    setContact((c) => c ? { ...c, profiles: c.profiles.filter((p) => p.id !== profileId) } : c);
   };
 
   const handleLinkEmail = async () => {
@@ -408,9 +441,102 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
             </div>
           )}
 
-          {/* Linked profiles */}
+          {/* Channel profiles */}
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked Profiles</p>
+            <div className="flex gap-2 items-center mb-1.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Channel Profiles</p>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-5 px-1.5 text-xs"
+                onClick={() => setShowProfileForm((v) => !v)}
+              >
+                <Plus className="w-3 h-3" />
+              </Button>
+            </div>
+            <div className="space-y-1 mb-2">
+              {contact.profiles.map((p) => (
+                <div key={p.id} className="flex gap-2 justify-between items-center group">
+                  <div className="flex gap-2 items-center min-w-0">
+                    {p.type === 'email' && <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+                    {p.type === 'telegram_username' && <Hash className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
+                    {p.type === 'telegram_phone' && <Phone className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
+                    {p.type === 'slack' && <MessageSquare className="w-3.5 h-3.5 shrink-0 text-purple-500" />}
+                    <span className="text-sm truncate">{p.value}</span>
+                    {p.label && (
+                      <span className="text-xs text-muted-foreground shrink-0">({p.label})</span>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 shrink-0 text-destructive"
+                    onClick={() => void handleDeleteProfile(p.id)}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+              {contact.profiles.length === 0 && !showProfileForm && (
+                <p className="text-sm text-muted-foreground">No channel profiles.</p>
+              )}
+            </div>
+            {showProfileForm && (
+              <div className="space-y-2">
+                <select
+                  className="w-full px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={profileTypeInput}
+                  onChange={(e) => setProfileTypeInput(e.target.value as ContactProfileType)}
+                >
+                  <option value="email">Email</option>
+                  <option value="telegram_username">Telegram Username</option>
+                  <option value="telegram_phone">Telegram Phone</option>
+                  <option value="slack">Slack</option>
+                </select>
+                <Input
+                  size="sm"
+                  placeholder={
+                    profileTypeInput === 'email' ? 'alias@example.com' :
+                    profileTypeInput === 'telegram_username' ? '@username' :
+                    profileTypeInput === 'telegram_phone' ? '+1234567890' :
+                    'U12345678 or workspace/user'
+                  }
+                  value={profileValueInput}
+                  onChange={(e) => setProfileValueInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleAddProfile(); }}
+                  autoFocus
+                />
+                <Input
+                  size="sm"
+                  placeholder="Label (optional)"
+                  value={profileLabelInput}
+                  onChange={(e) => setProfileLabelInput(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => void handleAddProfile()}
+                    disabled={addingProfile || !profileValueInput.trim()}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => { setShowProfileForm(false); setProfileValueInput(''); setProfileLabelInput(''); }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Linked contacts */}
+          <div>
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked Contacts</p>
             <div className="space-y-1 mb-2">
               {contact.linkedContacts.map((lc) => (
                 <div key={lc.id} className="flex gap-2 justify-between items-center group">
@@ -428,7 +554,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                 </div>
               ))}
               {contact.linkedContacts.length === 0 && (
-                <p className="text-sm text-muted-foreground">No linked profiles.</p>
+                <p className="text-sm text-muted-foreground">No linked contacts.</p>
               )}
             </div>
             <div className="flex gap-2">

@@ -11,6 +11,7 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  Tag,
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -32,6 +33,7 @@ import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { EditUserModal } from '@/components/modals/EditUserModal';
+import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
 
 export const UsersPage = () => {
   const { canManageUsers, isAdmin, hasPermission } = usePermissions();
@@ -46,6 +48,7 @@ export const UsersPage = () => {
     open: false,
     user: null,
   });
+  const [skillsUser, setSkillsUser] = useState<User | null>(null);
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -387,6 +390,15 @@ export const UsersPage = () => {
                                     <Edit2 className="w-4 h-4" />
                                   </Button>
                                 )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-shrink-0"
+                                  onClick={() => setSkillsUser(user)}
+                                  title="Manage skills"
+                                >
+                                  <Tag className="w-4 h-4" />
+                                </Button>
                                 {canDeleteUser(user) && (
                                   <Button
                                     size="sm"
@@ -465,6 +477,9 @@ export const UsersPage = () => {
                           <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
                             Joined
                           </th>
+                          <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            Skills
+                          </th>
                           <th className="px-4 py-3 text-xs font-medium tracking-wider text-right uppercase text-muted-foreground">
                             Actions
                           </th>
@@ -524,6 +539,16 @@ export const UsersPage = () => {
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-500">
                               {formatDate(user.createdAt)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSkillsUser(user)}
+                                title="Manage skills"
+                              >
+                                <Tag className="w-4 h-4" />
+                              </Button>
                             </td>
                             <td className="px-4 py-3 text-sm font-medium text-right whitespace-nowrap">
                               <div className="flex gap-2 justify-end">
@@ -648,6 +673,13 @@ export const UsersPage = () => {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* User Skills Modal */}
+      <UserSkillsModal
+        isOpen={skillsUser !== null}
+        onClose={() => setSkillsUser(null)}
+        user={skillsUser}
       />
 
       {/* Alert Dialog */}

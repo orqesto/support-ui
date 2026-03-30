@@ -118,6 +118,7 @@ export const MessageDetail = ({
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [threadHasReply, setThreadHasReply] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
@@ -162,7 +163,6 @@ export const MessageDetail = ({
     Parameters<typeof LeadQualificationPanel>[0]['leadState'] | null
   >(null);
   const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
-  const [threadHasNewerReply, setThreadHasNewerReply] = useState(false);
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -188,7 +188,6 @@ export const MessageDetail = ({
   }, []);
 
   useEffect(() => {
-    setThreadHasNewerReply(false);
     if (!message.isLead) {
       setLeadState(null);
       return;
@@ -206,9 +205,6 @@ export const MessageDetail = ({
       .then((res) => {
         const threadMessages = res.data ?? [];
         // If any thread message (outgoing or incoming) has a higher id, this message was already answered
-        const hasNewer = threadMessages.some((m) => m.id > message.id);
-        setThreadHasNewerReply(hasNewer);
-
         // Sort descending by id so we check the latest first
         const sorted = [...threadMessages].sort((a, b) => b.id - a.id);
         for (const msg of sorted) {
@@ -231,6 +227,11 @@ export const MessageDetail = ({
         );
       });
   }, [message.id, message.isLead, message.metadata]);
+
+  // Reset threadHasReply when navigating to a different message
+  useEffect(() => {
+    setThreadHasReply(false);
+  }, [message.id]);
 
   useEffect(() => {
     Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
@@ -864,7 +865,8 @@ export const MessageDetail = ({
         !message.resolved &&
         !message.directReply &&
         !message.repliedBy &&
-        !(suggestedAnswer.source === 'lead_qualification' && autoReply?.sent) &&
+        !autoReply?.sent &&
+        !threadHasReply &&
         (suggestedAnswer.source === 'lead_qualification' ? (
           <div className="p-4 mb-6 bg-green-50 rounded-lg border-2 border-green-300 dark:bg-green-950/20 dark:border-green-700">
             <div className="flex gap-2 items-start mb-3">
@@ -873,22 +875,32 @@ export const MessageDetail = ({
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-green-900 dark:text-green-100">
-                  {leadState?.stage !== null &&
-                  leadState?.stage !== undefined &&
-                  leadState.stage in STAGE_COLORS &&
-                  STAGE_COLORS[leadState.stage] === 'danger' &&
-                  leadState.contactInfo?.isComplete
-                    ? 'Lead Qualified — Send Closing Message'
-                    : 'Lead Qualification — Next Question'}
+                  {(() => {
+                    const msgState = message.metadata?.leadState as typeof leadState | undefined;
+                    const isEscalated =
+                      msgState !== null && msgState !== undefined &&
+                      msgState.stage !== null &&
+                      msgState.stage in STAGE_COLORS &&
+                      STAGE_COLORS[msgState.stage] === 'danger' &&
+                      msgState.contactInfo?.isComplete;
+                    return isEscalated
+                      ? 'Lead Qualified — Send Closing Message'
+                      : 'Lead Qualification — Next Question';
+                  })()}
                 </h3>
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  {leadState?.stage !== null &&
-                  leadState?.stage !== undefined &&
-                  leadState.stage in STAGE_COLORS &&
-                  STAGE_COLORS[leadState.stage] === 'danger' &&
-                  leadState.contactInfo?.isComplete
-                    ? 'Lead has been escalated — send this message to the customer'
-                    : 'Send this to continue qualifying the lead'}
+                  {(() => {
+                    const msgState = message.metadata?.leadState as typeof leadState | undefined;
+                    const isEscalated =
+                      msgState !== null &&
+                      msgState !== undefined &&
+                      msgState.stage in STAGE_COLORS &&
+                      STAGE_COLORS[msgState.stage] === 'danger' &&
+                      msgState.contactInfo?.isComplete;
+                    return isEscalated
+                      ? 'Lead has been escalated — send this message to the customer'
+                      : 'Send this to continue qualifying the lead';
+                  })()}
                 </p>
               </div>
             </div>
@@ -1025,6 +1037,7 @@ export const MessageDetail = ({
         messageId={message.id}
         currentThreadId={message.threadId}
         onMessageClick={onMessageNavigate}
+        onHasReplyChange={setThreadHasReply}
       />
 
       {/* Direct Reply Form */}

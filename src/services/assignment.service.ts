@@ -11,8 +11,16 @@ export type AssignableUser = {
 };
 
 export const assignmentService = {
-  async getAssignableUsers(departmentRole?: string): Promise<AssignableUser[]> {
-    const params = departmentRole ? { departmentRole } : {};
+  async getAssignableUsers(
+    departmentRole?: string,
+    skillFilter?: { key: string; value: string }
+  ): Promise<AssignableUser[]> {
+    const params: Record<string, string> = {};
+    if (departmentRole) params.departmentRole = departmentRole;
+    if (skillFilter?.key && skillFilter?.value) {
+      params.skillKey = skillFilter.key;
+      params.skillValue = skillFilter.value;
+    }
     const response = await apiClient.get<ApiResponse<AssignableUser[]>>(
       '/api/assignments/assignable-users',
       { params }

@@ -75,6 +75,9 @@ export const MessageFilters = ({
     filters,
   });
 
+  // Spam overrides View/Progress in the backend — disable those controls to avoid confusion
+  const spamModeActive = filters.showSpam ?? false;
+
   // Fetch message sources on mount
   useEffect(() => {
     const fetchSources = async () => {
@@ -155,7 +158,7 @@ export const MessageFilters = ({
             <div className="p-4 rounded-lg border bg-muted/30">
               <div className="flex flex-col gap-3 w-full sm:flex-row sm:flex-wrap sm:items-center">
                 {/* View Group (classification) */}
-                <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto">
+                <div className={`flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
                   <span className="w-16 text-xs font-semibold text-muted-foreground shrink-0">
                     View:
                   </span>
@@ -204,7 +207,7 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Progress Group (workflow) */}
-                <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto">
+                <div className={`flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
                   <span className="w-16 text-xs font-semibold text-muted-foreground shrink-0">
                     Progress:
                   </span>
