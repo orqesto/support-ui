@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -35,6 +35,10 @@ export const MessageDetailPage = () => {
       })();
     }
   }, [id]);
+
+  const handleApprove = useCallback(() => {
+    if (message) navigate(`/tickets/create?messageId=${message.id}`);
+  }, [message, navigate]);
 
   const fetchMessage = async (messageId: number, fullLoad = false) => {
     try {
@@ -96,7 +100,7 @@ export const MessageDetailPage = () => {
             <MessageDetail
               message={message}
               onRefresh={() => fetchMessage(message.id)}
-              onApprove={() => fetchMessage(message.id)}
+              onApprove={handleApprove}
               onReject={() => fetchMessage(message.id)}
               onReopen={() => fetchMessage(message.id)}
               onDelete={handleBack}
