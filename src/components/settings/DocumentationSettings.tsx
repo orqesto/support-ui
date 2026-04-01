@@ -247,7 +247,7 @@ export const DocumentationSettings = () => {
     setIsDragging(false);
 
     const files = Array.from(e.dataTransfer.files || []);
-    const validTypes = ['.pdf', '.txt', '.md'];
+    const validTypes = ['.pdf', '.txt', '.md', '.docx', '.doc', '.xlsx', '.xls', '.csv'];
     const validFiles = files.filter((file) => {
       const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
       return validTypes.includes(fileExt);
@@ -523,7 +523,7 @@ export const DocumentationSettings = () => {
                   <input
                     id="doc-file"
                     type="file"
-                    accept=".pdf,.txt,.md"
+                    accept=".pdf,.txt,.md,.docx,.doc,.xlsx,.xls,.csv"
                     multiple={true}
                     onChange={handleFileSelect}
                     className="hidden"
@@ -645,7 +645,7 @@ export const DocumentationSettings = () => {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Supported formats: PDF, TXT, Markdown
+                    Supported formats: PDF, DOCX, XLSX, XLS, CSV, TXT, Markdown
                   </p>
                 )}
               </div>
