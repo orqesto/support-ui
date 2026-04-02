@@ -67,6 +67,7 @@ export type MessageAttachmentsAnalyzed = {
 // Extended Message Metadata
 export type MessageMetadata = {
   contradictionCheck?: ContradictionCheckMetadata;
+  intraMessageContradictionCheck?: ContradictionCheckMetadata;
   attachmentsAnalyzed?: MessageAttachmentsAnalyzed;
   spamCheck?: {
     isSpam: boolean;
