@@ -20,6 +20,10 @@ import {
   Clock,
   Ticket,
   StickyNote,
+  Bot,
+  Globe,
+  Timer,
+  GitBranch,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
@@ -32,11 +36,11 @@ import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
-import { statisticsService, type StatisticsData, type UserStatEntry } from '@/services/statistics.service';
+import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData } from '@/services/statistics.service';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-type TabType = 'overview' | 'sla' | 'team';
-const VALID_TABS: TabType[] = ['overview', 'sla', 'team'];
+type TabType = 'overview' | 'sla' | 'team' | 'messages' | 'ai';
+const VALID_TABS: TabType[] = ['overview', 'sla', 'team', 'messages', 'ai'];
 
 const DAYS_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -79,6 +83,18 @@ export const StatisticsPage = () => {
   const [teamRefreshing, setTeamRefreshing] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [teamDays, setTeamDays] = useState(30);
+
+  // Messages tab state
+  const [msgStats, setMsgStats] = useState<MessageStatsData | null>(null);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const [msgRefreshing, setMsgRefreshing] = useState(false);
+  const [msgDays, setMsgDays] = useState(30);
+
+  // AI tab state
+  const [aiStats, setAiStats] = useState<AIStatsData | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiRefreshing, setAiRefreshing] = useState(false);
+  const [aiDays, setAiDays] = useState(30);
 
   const fetchStatistics = async () => {
     try {
@@ -136,6 +152,36 @@ export const StatisticsPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, teamDays]);
+
+  const fetchMsgStats = async (days: number, isRefresh = false) => {
+    if (isRefresh) setMsgRefreshing(true);
+    else setMsgLoading(true);
+    try {
+      const response = await statisticsService.getMessageStats(days);
+      if (response.success && response.data) setMsgStats(response.data);
+    } catch { /* handled by empty state */ }
+    finally { setMsgLoading(false); setMsgRefreshing(false); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'messages') void fetchMsgStats(msgDays);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, msgDays]);
+
+  const fetchAIStats = async (days: number, isRefresh = false) => {
+    if (isRefresh) setAiRefreshing(true);
+    else setAiLoading(true);
+    try {
+      const response = await statisticsService.getAIStats(days);
+      if (response.success && response.data) setAiStats(response.data);
+    } catch { /* handled by empty state */ }
+    finally { setAiLoading(false); setAiRefreshing(false); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'ai') void fetchAIStats(aiDays);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, aiDays]);
 
   const isSpamOrScam = (categoryName: string) => {
     const lowerName = categoryName.toLowerCase();
@@ -207,6 +253,18 @@ export const StatisticsPage = () => {
               Refresh
             </Button>
           )}
+          {activeTab === 'messages' && (
+            <Button variant="outline" size="sm" onClick={() => void fetchMsgStats(msgDays, true)} isLoading={msgRefreshing}>
+              <RefreshCw className="mr-2 w-4 h-4" />
+              Refresh
+            </Button>
+          )}
+          {activeTab === 'ai' && (
+            <Button variant="outline" size="sm" onClick={() => void fetchAIStats(aiDays, true)} isLoading={aiRefreshing}>
+              <RefreshCw className="mr-2 w-4 h-4" />
+              Refresh
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
@@ -255,6 +313,36 @@ export const StatisticsPage = () => {
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Team Performance
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('messages')}
+              className={cn(
+                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
+                activeTab === 'messages'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Timer className="w-4 h-4" />
+                Messages
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('ai')}
+              className={cn(
+                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
+                activeTab === 'ai'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4" />
+                AI Usage
               </div>
             </button>
           </div>
@@ -1052,6 +1140,12 @@ export const StatisticsPage = () => {
                         <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">
                           <span className="flex items-center justify-end gap-1"><StickyNote className="w-3.5 h-3.5" />Notes</span>
                         </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Unresolved</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Outgoing</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Confidence</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+                          <span className="flex items-center justify-end gap-1"><Globe className="w-3.5 h-3.5" />Top Lang</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1059,7 +1153,7 @@ export const StatisticsPage = () => {
                         Array.from({ length: 5 }).map((_, i) => (
                           // eslint-disable-next-line react/no-array-index-key
                           <tr key={i} className="border-b border-border">
-                            {Array.from({ length: 9 }).map((__, j) => (
+                            {Array.from({ length: 13 }).map((__, j) => (
                               // eslint-disable-next-line react/no-array-index-key
                               <td key={j} className="px-4 py-3">
                                 <div className="h-4 rounded bg-muted animate-pulse" style={{ width: j === 0 ? '120px' : '60px' }} />
@@ -1069,12 +1163,15 @@ export const StatisticsPage = () => {
                         ))
                       ) : teamData.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                          <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                             No agents found for this organisation.
                           </td>
                         </tr>
                       ) : (
-                        teamData.map((entry) => (
+                        teamData.map((entry) => {
+                          const topLang = Object.entries(entry.stats.languageBreakdown ?? {})
+                            .sort(([, a], [, b]) => b - a)[0]?.[0] ?? '—';
+                          return (
                           <tr
                             key={entry.userId}
                             className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
@@ -1097,14 +1194,417 @@ export const StatisticsPage = () => {
                             <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsAssigned}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsResolved}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{entry.stats.notesAdded}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-orange-600">
+                              {entry.stats.unresolvedMessages}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums">{entry.stats.outgoingMessages}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                              {entry.stats.avgConfidence !== null ? `${(entry.stats.avgConfidence * 100).toFixed(0)}%` : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums uppercase text-xs font-mono">
+                              {topLang}
+                            </td>
                           </tr>
-                        ))
+                        );})
                       )}
                     </tbody>
                   </table>
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Messages Tab */}
+        {activeTab === 'messages' && (
+          <div className="space-y-4 pb-6">
+            {/* Days selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Period:</span>
+              <div className="flex rounded-md border border-border overflow-hidden">
+                {DAYS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setMsgDays(opt.value)}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium transition-colors',
+                      msgDays === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {msgLoading ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : msgStats ? (
+              <>
+                {/* Resolution Time Cards */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Avg Resolution</p>
+                          <p className="mt-2 text-3xl font-bold">
+                            {msgStats.resolutionTime.avgHours !== null
+                              ? formatAvgReply(msgStats.resolutionTime.avgHours)
+                              : '—'}
+                          </p>
+                        </div>
+                        <Timer className="w-10 h-10 text-blue-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">P50 Resolution</p>
+                          <p className="mt-2 text-3xl font-bold">
+                            {msgStats.resolutionTime.p50Hours !== null
+                              ? formatAvgReply(msgStats.resolutionTime.p50Hours)
+                              : '—'}
+                          </p>
+                        </div>
+                        <Activity className="w-10 h-10 text-green-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">P90 Resolution</p>
+                          <p className="mt-2 text-3xl font-bold">
+                            {msgStats.resolutionTime.p90Hours !== null
+                              ? formatAvgReply(msgStats.resolutionTime.p90Hours)
+                              : '—'}
+                          </p>
+                        </div>
+                        <TrendingUp className="w-10 h-10 text-orange-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Closed Messages</p>
+                          <p className="mt-2 text-3xl font-bold">{msgStats.resolutionTime.totalClosed}</p>
+                        </div>
+                        <CheckCircle className="w-10 h-10 text-gray-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {/* Thread Size Distribution */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <GitBranch className="w-5 h-5" />
+                        Thread Size Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {Object.entries(msgStats.threadSizeDistribution).map(([bucket, cnt]) => (
+                        <div key={bucket} className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">{bucket} message{bucket === '1' ? '' : 's'}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-2 rounded-full bg-primary"
+                                style={{
+                                  width: `${Math.round((cnt / Math.max(...Object.values(msgStats.threadSizeDistribution))) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  {/* Language Breakdown */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Globe className="w-5 h-5" />
+                        Language Breakdown
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {msgStats.languageBreakdown.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No language data yet — new messages will be detected automatically.</p>
+                      ) : (
+                        msgStats.languageBreakdown.slice(0, 10).map((item) => {
+                          const total = msgStats.languageBreakdown.reduce((s, r) => s + r.count, 0);
+                          return (
+                            <div key={item.language} className="flex justify-between items-center">
+                              <span className="text-sm font-mono uppercase">{item.language}</span>
+                              <div className="flex items-center gap-3">
+                                <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-2 rounded-full bg-primary"
+                                    style={{ width: `${Math.round((item.count / total) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Category Trends */}
+                {msgStats.categoryTrends.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        Category Trends by Week
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/50">
+                              <th className="px-4 py-2 text-left font-medium text-muted-foreground">Category</th>
+                              <th className="px-4 py-2 text-left font-medium text-muted-foreground">Week</th>
+                              <th className="px-4 py-2 text-right font-medium text-muted-foreground">Messages</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {msgStats.categoryTrends.slice(0, 30).map((row, i) => (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <tr key={`${row.categoryName}-${row.week}-${i}`} className="border-b border-border last:border-0 hover:bg-muted/30">
+                                <td className="px-4 py-2">{row.categoryName}</td>
+                                <td className="px-4 py-2 text-muted-foreground">{row.week}</td>
+                                <td className="px-4 py-2 text-right tabular-nums">{row.count}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No message statistics available.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* AI Usage Tab */}
+        {activeTab === 'ai' && (
+          <div className="space-y-4 pb-6">
+            {/* Days selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Period:</span>
+              <div className="flex rounded-md border border-border overflow-hidden">
+                {DAYS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setAiDays(opt.value)}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium transition-colors',
+                      aiDays === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {aiLoading ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : aiStats ? (
+              <>
+                {/* AI vs Human Summary Cards */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">AI Responded</p>
+                          <p className="mt-2 text-3xl font-bold text-blue-600">{aiStats.summary.aiResponded}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p>
+                        </div>
+                        <Bot className="w-10 h-10 text-blue-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Human Responded</p>
+                          <p className="mt-2 text-3xl font-bold text-green-600">{aiStats.summary.humanResponded}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage < 100 ? 100 - aiStats.summary.aiPercentage : 0}% of responded</p>
+                        </div>
+                        <Users className="w-10 h-10 text-green-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">No Response</p>
+                          <p className="mt-2 text-3xl font-bold text-gray-500">{aiStats.summary.noResponse}</p>
+                        </div>
+                        <Inbox className="w-10 h-10 text-gray-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {/* AI Reply Count Distribution */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Bot className="w-5 h-5" />
+                        AI Reply Count Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {Object.entries(aiStats.aiReplyDistribution).map(([bucket, cnt]) => {
+                        const total = Object.values(aiStats.aiReplyDistribution).reduce((s, v) => s + v, 0);
+                        return (
+                          <div key={bucket} className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">{bucket} AI {bucket === '1' ? 'reply' : 'replies'}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-2 rounded-full bg-blue-500"
+                                  style={{ width: total > 0 ? `${Math.round((cnt / total) * 100)}%` : '0%' }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+
+                  {/* Responded By breakdown */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="w-5 h-5" />
+                        First Response By
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {aiStats.respondedBy.map((item) => {
+                        const total = aiStats.respondedBy.reduce((s, r) => s + r.count, 0);
+                        return (
+                          <div key={item.respondedBy} className="flex justify-between items-center">
+                            <span className="text-sm capitalize">{item.respondedBy === 'none' ? 'Not responded' : item.respondedBy}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-2 rounded-full bg-primary"
+                                  style={{ width: total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%' }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Model usage */}
+                {(aiStats.analysisModels.length > 0 || aiStats.embeddingModels.length > 0) && (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {aiStats.analysisModels.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Cpu className="w-5 h-5" />
+                            Analysis Models
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {aiStats.analysisModels.map((item) => (
+                            <div key={item.model} className="flex justify-between items-center text-sm">
+                              <span className="font-mono text-xs">{item.model}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{item.count}</span>
+                                <span className="text-muted-foreground text-xs">({item.percentage}%)</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+                    {aiStats.embeddingModels.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Brain className="w-5 h-5" />
+                            Embedding Models
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {aiStats.embeddingModels.map((item) => (
+                            <div key={item.model} className="flex justify-between items-center text-sm">
+                              <span className="font-mono text-xs">{item.model}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{item.count}</span>
+                                <span className="text-muted-foreground text-xs">({item.percentage}%)</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No AI statistics available.
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>
