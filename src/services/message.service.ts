@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Message, ApiResponse, MessageStatus, TicketPriority } from '@/types';
+import type { ContradictionCheckMetadata } from '@/types/ai';
 
 export type MessageNote = {
   id: number;
@@ -275,6 +276,14 @@ export const messageService = {
 
   reanalyze: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/analyze`, {});
+    return response.data;
+  },
+
+  checkContradiction: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<ContradictionCheckMetadata>>(
+      `/api/messages/${id}/check-contradiction`,
+      {}
+    );
     return response.data;
   },
 

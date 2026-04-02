@@ -414,17 +414,6 @@ export const MessageDetail = ({
   };
 
   const handleCheckContradiction = async () => {
-    if (!message.threadId) {
-      setAlertDialog({
-        open: true,
-        title: 'No Thread',
-        description:
-          'This message is not part of a thread. Contradiction detection requires message history.',
-        variant: 'warning',
-      });
-      return;
-    }
-
     try {
       setCheckingContradiction(true);
       const response = await messageService.checkContradiction(message.id);

@@ -32,16 +32,20 @@ export const ContradictionAlert = ({ contradictionCheck }: ContradictionAlertPro
       <AlertDescription>
         <div className="space-y-3 mt-3">
           {/* Current statement */}
-          <div>
-            <p className="font-semibold text-sm">Current claim:</p>
-            <p className="text-sm italic text-muted-foreground">"{result.currentStatement}"</p>
-          </div>
+          {result.currentStatement && (
+            <div>
+              <p className="font-semibold text-sm">Current claim:</p>
+              <p className="text-sm italic text-muted-foreground">"{result.currentStatement}"</p>
+            </div>
+          )}
 
           {/* Original statement */}
-          <div>
-            <p className="font-semibold text-sm">Original statement:</p>
-            <p className="text-sm italic text-muted-foreground">"{result.originalStatement}"</p>
-          </div>
+          {result.originalStatement && (
+            <div>
+              <p className="font-semibold text-sm">Original statement:</p>
+              <p className="text-sm italic text-muted-foreground">"{result.originalStatement}"</p>
+            </div>
+          )}
 
           {/* Link to contradicting message */}
           {result.contradictingMessageId && (
