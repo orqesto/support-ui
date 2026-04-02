@@ -76,7 +76,41 @@ export type UserStatEntry = {
     ticketsAssigned: number;
     ticketsResolved: number;
     notesAdded: number;
+    unresolvedMessages: number;
+    outgoingMessages: number;
+    avgConfidence: number | null;
+    languageBreakdown: Record<string, number>;
   };
+};
+
+export type MessageStatsData = {
+  resolutionTime: {
+    avgHours: number | null;
+    p50Hours: number | null;
+    p90Hours: number | null;
+    totalClosed: number;
+  };
+  threadSizeDistribution: Record<string, number>;
+  categoryTrends: Array<{
+    categoryId: number | null;
+    categoryName: string;
+    week: string;
+    count: number;
+  }>;
+  languageBreakdown: Array<{ language: string; count: number }>;
+};
+
+export type AIStatsData = {
+  respondedBy: Array<{ respondedBy: string; count: number }>;
+  summary: {
+    aiResponded: number;
+    humanResponded: number;
+    noResponse: number;
+    aiPercentage: number;
+  };
+  aiReplyDistribution: Record<string, number>;
+  analysisModels: Array<{ model: string; provider: string; count: number; percentage: number }>;
+  embeddingModels: Array<{ model: string; provider: string; count: number; percentage: number }>;
 };
 
 export const statisticsService = {
@@ -97,6 +131,20 @@ export const statisticsService = {
   getUserStats: async (userId: number, days = 30): Promise<ApiResponse<UserStatEntry>> => {
     const response = await apiClient.get<{ success: boolean; data: UserStatEntry }>(
       `/api/statistics/users/${userId}?days=${days}`
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  getMessageStats: async (days = 30): Promise<ApiResponse<MessageStatsData>> => {
+    const response = await apiClient.get<{ success: boolean; data: MessageStatsData }>(
+      `/api/statistics/messages?days=${days}`
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  getAIStats: async (days = 30): Promise<ApiResponse<AIStatsData>> => {
+    const response = await apiClient.get<{ success: boolean; data: AIStatsData }>(
+      `/api/statistics/ai?days=${days}`
     );
     return { success: response.data.success, data: response.data.data };
   },
