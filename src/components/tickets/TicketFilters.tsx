@@ -301,6 +301,19 @@ export const TicketFilters = ({
                       { value: 'high', label: 'High' },
                       { value: 'critical', label: 'Critical' },
                     ]}
+                    formatOptionLabel={(option) => (
+                      <div className="flex gap-2 items-center">
+                        {option.value !== 'all' && (
+                          <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+                            option.value === 'low' ? 'bg-green-500' :
+                            option.value === 'medium' ? 'bg-yellow-500' :
+                            option.value === 'high' ? 'bg-orange-500' :
+                            'bg-red-500'
+                          }`} />
+                        )}
+                        <span>{option.label}</span>
+                      </div>
+                    )}
                     className="min-w-[120px]"
                   />
                 </div>

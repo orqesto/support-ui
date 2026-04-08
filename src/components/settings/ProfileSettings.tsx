@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, User, Tag, X } from 'lucide-react';
+import { Lock, User, Tag, X, PenLine } from 'lucide-react';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
@@ -41,6 +41,27 @@ export const ProfileSettings = () => {
     const next = (skillValues[key] ?? []).filter((v) => v !== value);
     setSkillValues((prev) => ({ ...prev, [key]: next }));
     void userService.setSelfSkillValues(key, next);
+  };
+
+  const [signature, setSignature] = useState(user?.signature ?? '');
+  const [sigSaving, setSigSaving] = useState(false);
+
+  useEffect(() => {
+    setSignature(user?.signature ?? '');
+  }, [user?.signature]);
+
+  const handleSaveSignature = async () => {
+    setSigSaving(true);
+    try {
+      await userService.updateSelf({ signature: signature.trim() || null });
+      useAuthStore.setState((s) => ({
+        user: s.user ? { ...s.user, signature: signature.trim() || null } : s.user,
+      }));
+    } catch {
+      // silent — could show notification here
+    } finally {
+      setSigSaving(false);
+    }
   };
 
   const [notification, setNotification] = useState<{
@@ -127,6 +148,30 @@ export const ProfileSettings = () => {
         </div>
       </div>
 
+      {/* Signature */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-md font-semibold mb-1 flex items-center gap-2">
+          <PenLine className="w-5 h-5 text-blue-500" />
+          Email Signature
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Appended to replies you send. Leave blank to send without a signature.
+        </p>
+        <textarea
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+          rows={5}
+          className="w-full px-3 py-2 rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm placeholder:text-muted-foreground"
+          placeholder={'Best regards,\nJohn Smith\nSupport Team'}
+        />
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-muted-foreground">{signature.length} characters</span>
+          <Button onClick={handleSaveSignature} disabled={sigSaving} size="sm">
+            {sigSaving ? 'Saving…' : 'Save Signature'}
+          </Button>
+        </div>
+      </div>
+
       {/* Routing Skills */}
       {routingKeys.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -137,7 +182,6 @@ export const ProfileSettings = () => {
           <div className="space-y-3">
             {routingKeys.map(({ key, description }) => {
               const values = skillValues[key] ?? [];
-              if (!canEditSkills && values.length === 0) return null;
               return (
                 <div key={key} className="p-3 rounded-md border border-border bg-muted/20">
                   <div className="flex justify-between items-baseline mb-2">

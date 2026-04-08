@@ -229,4 +229,13 @@ export const organizationService = {
   updateAutoAssign: async (mode: 'off' | 'match_only' | 'always'): Promise<void> => {
     await apiClient.patch('/api/organizations/auto-assign', { mode });
   },
+
+  getSelfEditSkills: async (): Promise<{ allowSelfEditSkills: boolean }> => {
+    const response = await apiClient.get<ApiResponse<{ allowSelfEditSkills: boolean }>>('/api/organizations/self-edit-skills');
+    return response.data.data ?? { allowSelfEditSkills: false };
+  },
+
+  updateSelfEditSkills: async (allowSelfEditSkills: boolean): Promise<void> => {
+    await apiClient.patch('/api/organizations/self-edit-skills', { allowSelfEditSkills });
+  },
 };

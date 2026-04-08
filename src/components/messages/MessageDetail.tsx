@@ -23,6 +23,7 @@ import {
   Target,
   ShieldAlert,
   ShieldCheck,
+  MessageSquare,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
@@ -36,6 +37,7 @@ import type { ContradictionCheckMetadata } from '@/types/ai';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
+import { ConvertBotConversationModal } from '@/components/modals/ConvertBotConversationModal';
 import { SimilarTickets } from '@/components/tickets/SimilarTickets';
 import { LeadQualificationPanel, STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 import { TranslateButton } from '@/components/shared/TranslateButton';
@@ -63,6 +65,7 @@ import {
 import { MessageNotes } from './MessageNotes';
 import type { Message, Category, TicketPriority, MessageStatus } from '@/types';
 import { Permission } from '@/types/roles';
+import { useAuthStore } from '@/stores/authStore';
 
 const PRIORITY_LABELS: Record<TicketPriority, string> = {
   low: 'Low',
@@ -115,6 +118,7 @@ export const MessageDetail = ({
   const location = useLocation();
   const isFullPage = location.pathname.startsWith('/messages/');
   const { hasPermission } = usePermissions();
+  const user = useAuthStore((s) => s.user);
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
@@ -124,6 +128,7 @@ export const MessageDetail = ({
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
+  const [convertBotOpen, setConvertBotOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const editorRef = useRef<RichTextEditorHandle>(null);
   const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
@@ -451,18 +456,32 @@ export const MessageDetail = ({
       .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
       .join('');
 
+  const withSignature = (html: string): string => {
+    if (!user?.signature) return html;
+    const sigHtml = user.signature
+      .split('\n')
+      .map((line) => `<p>${line || '<br>'}</p>`)
+      .join('');
+    return `${html}<p></p><p>--</p>${sigHtml}`;
+  };
+
   const handleSelectSimilarAnswer = (answer: string) => {
-    setReplyContent(convertTextToHtml(answer));
+    setReplyContent(withSignature(convertTextToHtml(answer)));
     setShowReplyForm(true);
     // Focus editor after content is set
     setTimeout(() => editorRef.current?.focus(), 100);
   };
 
   const handleUseResponse = (content: string) => {
-    setReplyContent(convertTextToHtml(content));
+    setReplyContent(withSignature(convertTextToHtml(content)));
     setShowReplyForm(true);
     // Focus editor after content is set
     setTimeout(() => editorRef.current?.focus(), 100);
+  };
+
+  const openBlankReplyWithSignature = () => {
+    setReplyContent(withSignature('<p></p>'));
+    setShowReplyForm(true);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -580,9 +599,17 @@ export const MessageDetail = ({
 
       {/* Assignment */}
       <div className="pt-4 border-t">
-        <p className="mb-2 text-sm text-muted-foreground">
-          Assigned to {message.subject ? '(Thread)' : '(Message)'}
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm text-muted-foreground">
+            Assigned to {message.subject ? '(Thread)' : '(Message)'}
+          </p>
+          {(message.metadata as { autoRouted?: boolean })?.autoRouted && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+              <Target className="w-3 h-3" />
+              Auto-routed
+            </span>
+          )}
+        </div>
         <AssignmentSelect
           type={message.subject ? 'thread' : 'message'}
           itemId={
@@ -867,7 +894,8 @@ export const MessageDetail = ({
                   {(() => {
                     const msgState = message.metadata?.leadState as typeof leadState | undefined;
                     const isEscalated =
-                      msgState !== null && msgState !== undefined &&
+                      msgState !== null &&
+                      msgState !== undefined &&
                       msgState.stage !== null &&
                       msgState.stage in STAGE_COLORS &&
                       STAGE_COLORS[msgState.stage] === 'danger' &&
@@ -903,7 +931,7 @@ export const MessageDetail = ({
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={() => {
-                  setReplyContent(convertTextToHtml(suggestedAnswer.answer));
+                  setReplyContent(withSignature(convertTextToHtml(suggestedAnswer.answer)));
                   setShowReplyForm(true);
                 }}
                 className="flex-1"
@@ -911,7 +939,7 @@ export const MessageDetail = ({
                 <Check className="mr-2 w-4 h-4" />
                 Use This Message
               </Button>
-              <Button onClick={() => setShowReplyForm(true)} variant="outline">
+              <Button onClick={openBlankReplyWithSignature} variant="outline">
                 Write Different Reply
               </Button>
             </div>
@@ -948,7 +976,7 @@ export const MessageDetail = ({
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={() => {
-                  setReplyContent(convertTextToHtml(suggestedAnswer.answer));
+                  setReplyContent(withSignature(convertTextToHtml(suggestedAnswer.answer)));
                   setShowReplyForm(true);
                 }}
                 className="flex-1"
@@ -968,7 +996,7 @@ export const MessageDetail = ({
                   View Source
                 </Button>
               )}
-              <Button onClick={() => setShowReplyForm(true)} variant="outline">
+              <Button onClick={openBlankReplyWithSignature} variant="outline">
                 Write Different Reply
               </Button>
             </div>
@@ -1006,7 +1034,7 @@ export const MessageDetail = ({
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={() => {
-                  setReplyContent(convertTextToHtml(suggestedAnswer.answer));
+                  setReplyContent(withSignature(convertTextToHtml(suggestedAnswer.answer)));
                   setShowReplyForm(true);
                 }}
                 className="flex-1"
@@ -1014,7 +1042,7 @@ export const MessageDetail = ({
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
-              <Button onClick={() => setShowReplyForm(true)} variant="outline">
+              <Button onClick={openBlankReplyWithSignature} variant="outline">
                 Write Different Reply
               </Button>
             </div>
@@ -1066,7 +1094,7 @@ export const MessageDetail = ({
                 AI Knowledge Search
               </Button>
             )}
-            <Button onClick={() => setShowReplyForm(true)} className="w-full" variant="outline">
+            <Button onClick={openBlankReplyWithSignature} className="w-full" variant="outline">
               <Reply className="mr-2 w-4 h-4" />
               {message.ticketId
                 ? 'Send Reply'
@@ -1142,7 +1170,13 @@ export const MessageDetail = ({
                 <Send className="mr-2 w-4 h-4" />
                 {submitting ? 'Sending...' : 'Send Reply'}
               </Button>
-              <Button variant="outline" onClick={() => setShowReplyForm(false)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setReplyContent('');
+                  setShowReplyForm(false);
+                }}
+              >
                 Cancel
               </Button>
             </div>
@@ -1505,6 +1539,19 @@ export const MessageDetail = ({
               </p>
             </div>
 
+            {/* Convert bot conversation button - only for chat channel messages */}
+            {message.channel === 'chat' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setConvertBotOpen(true)}
+              >
+                <MessageSquare className="mr-2 w-4 h-4" />
+                Convert Bot Conversation
+              </Button>
+            )}
+
             {/* Secondary action */}
             <div className="flex gap-2">
               <Button onClick={handleCopyLink} variant="ghost" size="sm" className="w-full">
@@ -1515,6 +1562,23 @@ export const MessageDetail = ({
           </>
         )}
       </div>
+
+      {/* Convert Bot Conversation Modal */}
+      {message.ticketId && (
+        <ConvertBotConversationModal
+          open={convertBotOpen}
+          onOpenChange={setConvertBotOpen}
+          ticketId={message.ticketId}
+          onSuccess={(converted) => {
+            setAlertDialog({
+              open: true,
+              title: 'Conversation Imported',
+              description: `${converted} message${converted !== 1 ? 's' : ''} imported as ticket comments.`,
+              variant: 'success',
+            });
+          }}
+        />
+      )}
 
       {/* Reject Confirmation Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>

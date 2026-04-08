@@ -24,6 +24,7 @@ import {
   Globe,
   Timer,
   GitBranch,
+  Tag,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
@@ -36,11 +37,11 @@ import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
-import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData } from '@/services/statistics.service';
+import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry } from '@/services/statistics.service';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-type TabType = 'overview' | 'sla' | 'team' | 'messages' | 'ai';
-const VALID_TABS: TabType[] = ['overview', 'sla', 'team', 'messages', 'ai'];
+type TabType = 'overview' | 'sla' | 'team' | 'messages' | 'ai' | 'labels';
+const VALID_TABS: TabType[] = ['overview', 'sla', 'team', 'messages', 'ai', 'labels'];
 
 const DAYS_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -95,6 +96,12 @@ export const StatisticsPage = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRefreshing, setAiRefreshing] = useState(false);
   const [aiDays, setAiDays] = useState(30);
+
+  // Labels tab state
+  const [labelStats, setLabelStats] = useState<LabelStatEntry[] | null>(null);
+  const [labelLoading, setLabelLoading] = useState(false);
+  const [labelRefreshing, setLabelRefreshing] = useState(false);
+  const [labelDays, setLabelDays] = useState(30);
 
   const fetchStatistics = async () => {
     try {
@@ -183,6 +190,21 @@ export const StatisticsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, aiDays]);
 
+  const fetchLabelStats = async (days: number, isRefresh = false) => {
+    if (isRefresh) setLabelRefreshing(true);
+    else setLabelLoading(true);
+    try {
+      const response = await statisticsService.getLabelStats(days);
+      if (response.success && response.data) setLabelStats(response.data);
+    } catch { /* handled by empty state */ }
+    finally { setLabelLoading(false); setLabelRefreshing(false); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'labels') void fetchLabelStats(labelDays);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, labelDays]);
+
   const isSpamOrScam = (categoryName: string) => {
     const lowerName = categoryName.toLowerCase();
     return lowerName.includes('spam') || lowerName.includes('scam');
@@ -265,6 +287,12 @@ export const StatisticsPage = () => {
               Refresh
             </Button>
           )}
+          {activeTab === 'labels' && (
+            <Button variant="outline" size="sm" onClick={() => void fetchLabelStats(labelDays, true)} isLoading={labelRefreshing}>
+              <RefreshCw className="mr-2 w-4 h-4" />
+              Refresh
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
@@ -343,6 +371,21 @@ export const StatisticsPage = () => {
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4" />
                 AI Usage
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('labels')}
+              className={cn(
+                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
+                activeTab === 'labels'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Labels
               </div>
             </button>
           </div>
@@ -1602,6 +1645,80 @@ export const StatisticsPage = () => {
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
                   No AI statistics available.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Labels Tab */}
+        {activeTab === 'labels' && (
+          <div className="space-y-4 pb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Period:</span>
+              <div className="flex rounded-md border border-border overflow-hidden">
+                {DAYS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setLabelDays(opt.value)}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium transition-colors',
+                      labelDays === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {labelLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <div key={`label-skeleton-${i}`} className="h-12 rounded bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : labelStats && labelStats.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Tag className="w-5 h-5" />
+                    Label Message Counts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(() => {
+                    const sorted = [...labelStats].sort((a, b) => b.messageCount - a.messageCount);
+                    const max = Math.max(...labelStats.map((e) => e.messageCount), 1);
+                    return sorted.map((entry) => (
+                        <div key={entry.labelId} className="flex items-center gap-3">
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <span className="w-40 truncate text-sm font-medium">{entry.name}</span>
+                          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(entry.messageCount / max) * 100}%`,
+                                backgroundColor: entry.color,
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm font-semibold w-10 text-right">{entry.messageCount}</span>
+                        </div>
+                      ));
+                  })()}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No label statistics available.
                 </CardContent>
               </Card>
             )}

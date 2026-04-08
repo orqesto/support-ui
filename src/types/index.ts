@@ -1,6 +1,6 @@
 import type { GlobalRole, OrganizationRole } from './roles';
 
-export type ChannelType = 'email' | 'telegram' | 'slack' | 'other';
+export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 export type MessageStatus = 'new' | 'in_progress' | 'pending' | 'resolved' | 'closed' | 'filtered';
@@ -21,6 +21,7 @@ export type User = {
   telegram?: string | null; // Telegram username (e.g., @username)
   slack?: string | null; // Slack username or user ID
   phone?: string | null; // Phone number
+  signature?: string | null; // Personal email signature
   createdAt: string;
   updatedAt?: string;
 };
