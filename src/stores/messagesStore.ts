@@ -28,6 +28,8 @@ export type FilterState = {
   departmentRole?: 'all' | 'support' | 'sales' | 'billing' | 'general' | 'hr';
   needsHumanReview?: boolean; // Escalated messages that need human attention
   ageRange?: 'lt24h' | '1to7d' | '1to4w' | 'gt1mo';
+  priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
+  labelId?: string; // 'all' or label ID
 };
 
 export type SortingState = {
@@ -81,6 +83,8 @@ export const defaultFilters: FilterState = {
   departmentRole: 'all',
   needsHumanReview: false,
   ageRange: undefined,
+  priority: 'all',
+  labelId: 'all',
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>

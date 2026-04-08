@@ -43,6 +43,15 @@ export const userService = {
     return response.data.data as User;
   },
 
+  // Update current user (self)
+  updateSelf: async (data: { signature?: string | null }): Promise<User> => {
+    const authStore = (await import('@/stores/authStore')).useAuthStore.getState();
+    const userId = authStore.user?.id;
+    if (!userId) throw new Error('Not authenticated');
+    const response: AxiosResponse<ApiResponse<User>> = await apiClient.put(`/api/users/${userId}`, data);
+    return response.data.data as User;
+  },
+
   // Update user
   update: async (id: number, data: Partial<User>): Promise<User> => {
     const response: AxiosResponse<ApiResponse<User>> = await apiClient.put(`/api/users/${id}`, data);

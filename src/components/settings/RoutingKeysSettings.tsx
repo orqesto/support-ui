@@ -25,16 +25,20 @@ export const RoutingKeysSettings = () => {
   });
   const [autoAssignMode, setAutoAssignMode] = useState<AutoAssignMode>('always');
   const [savingMode, setSavingMode] = useState(false);
+  const [allowSelfEditSkills, setAllowSelfEditSkills] = useState(false);
+  const [savingSelfEdit, setSavingSelfEdit] = useState(false);
 
   const fetchKeys = async () => {
     setLoading(true);
     try {
-      const [data, assignData] = await Promise.all([
+      const [data, assignData, selfEditData] = await Promise.all([
         organizationService.getRoutingKeys(),
         organizationService.getAutoAssign(),
+        organizationService.getSelfEditSkills(),
       ]);
       setRoutingKeys(data);
       setAutoAssignMode(assignData.mode);
+      setAllowSelfEditSkills(selfEditData.allowSelfEditSkills);
     } catch {
       // ignore
     } finally {
@@ -53,6 +57,17 @@ export const RoutingKeysSettings = () => {
       setAutoAssignMode(mode);
     } finally {
       setSavingMode(false);
+    }
+  };
+
+  const handleSelfEditToggle = async () => {
+    const next = !allowSelfEditSkills;
+    setSavingSelfEdit(true);
+    try {
+      await organizationService.updateSelfEditSkills(next);
+      setAllowSelfEditSkills(next);
+    } finally {
+      setSavingSelfEdit(false);
     }
   };
 
@@ -114,6 +129,36 @@ export const RoutingKeysSettings = () => {
               <div className="text-xs mt-0.5 text-muted-foreground">{opt.description}</div>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Self-edit skills */}
+      <div className="p-4 rounded-lg border border-border bg-muted/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+              Allow agents to self-edit skills
+            </p>
+            <p className="text-sm text-muted-foreground">
+              When enabled, all org members can update their own routing skill values. Individual overrides still apply when this is off.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={savingSelfEdit}
+            onClick={() => void handleSelfEditToggle()}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+              allowSelfEditSkills ? 'bg-primary' : 'bg-muted-foreground/30'
+            } ${savingSelfEdit ? 'opacity-50' : ''}`}
+            role="switch"
+            aria-checked={allowSelfEditSkills}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                allowSelfEditSkills ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </div>
 

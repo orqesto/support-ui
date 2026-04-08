@@ -23,6 +23,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
+import { labelService, type Label } from '@/services/settings.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
 
 const AGE_RANGE_OPTIONS: {
@@ -70,6 +71,14 @@ export const MessageFilters = ({
   setFilters,
 }: MessageFiltersProps) => {
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
+
+  useEffect(() => {
+    labelService
+      .getLabels()
+      .then(setLabels)
+      .catch(() => {});
+  }, []);
 
   const { showAdvancedFilters, toggleAdvancedFilters } = useFilterPanel({
     filters,
@@ -155,19 +164,22 @@ export const MessageFilters = ({
             </div>
 
             {/* Primary Filters Row */}
-            <div className="p-4 rounded-lg border bg-muted/30">
-              <div className="flex flex-col gap-3 w-full sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="p-4 space-y-3 rounded-lg border bg-muted/30">
+              {/* Row 1: Button Groups */}
+              <div className="flex flex-wrap gap-4 items-center">
                 {/* View Group (classification) */}
-                <div className={`flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
-                  <span className="w-16 text-xs font-semibold text-muted-foreground shrink-0">
+                <div
+                  className={`flex gap-2 items-center${spamModeActive ? 'opacity-40 pointer-events-none' : ''}`}
+                >
+                  <span className="w-14 text-xs font-semibold text-muted-foreground shrink-0">
                     View:
                   </span>
-                  <div className="flex flex-col w-full rounded-md shadow-sm sm:flex-row sm:w-auto">
+                  <div className="flex rounded-md shadow-sm">
                     <Button
                       variant={filters.view === 'active' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('view', 'active')}
-                      className="w-full h-8 text-xs rounded-r-none rounded-l-md border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
                     >
                       Active
                     </Button>
@@ -175,7 +187,7 @@ export const MessageFilters = ({
                       variant={filters.view === 'suspicious' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('view', 'suspicious')}
-                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-none border-r-0"
                     >
                       Suspicious
                     </Button>
@@ -183,7 +195,7 @@ export const MessageFilters = ({
                       variant={filters.view === 'not_analysed' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('view', 'not_analysed')}
-                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-none border-r-0"
                     >
                       Not Analysed
                     </Button>
@@ -191,7 +203,7 @@ export const MessageFilters = ({
                       variant={filters.view === 'resolved' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('view', 'resolved')}
-                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-none border-r-0"
                     >
                       Resolved
                     </Button>
@@ -199,7 +211,7 @@ export const MessageFilters = ({
                       variant={filters.view === 'all' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => onFilterChange('view', 'all')}
-                      className="w-full h-8 text-xs rounded-r-md rounded-l-none sm:w-auto"
+                      className="h-8 text-xs rounded-r-md rounded-l-none"
                     >
                       All
                     </Button>
@@ -207,18 +219,20 @@ export const MessageFilters = ({
                 </div>
 
                 {/* Progress Group (workflow) */}
-                <div className={`flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
-                  <span className="w-16 text-xs font-semibold text-muted-foreground shrink-0">
-                    Progress:
+                <div
+                  className={`flex gap-2 items-center${spamModeActive ? 'opacity-40 pointer-events-none' : ''}`}
+                >
+                  <span className="w-14 text-xs font-semibold text-muted-foreground shrink-0">
+                    Status:
                   </span>
-                  <div className="flex flex-col w-full rounded-md shadow-sm sm:flex-row sm:w-auto">
+                  <div className="flex rounded-md shadow-sm">
                     <Button
                       variant={filters.processed === 'open' ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() =>
                         onFilterChange('processed', filters.processed === 'open' ? 'all' : 'open')
                       }
-                      className="w-full h-8 text-xs rounded-r-none rounded-l-md border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
                     >
                       Open
                     </Button>
@@ -231,7 +245,7 @@ export const MessageFilters = ({
                           filters.processed === 'in_progress' ? 'all' : 'in_progress'
                         )
                       }
-                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-none border-r-0"
                     >
                       In Progress
                     </Button>
@@ -244,7 +258,7 @@ export const MessageFilters = ({
                           filters.processed === 'pending' ? 'all' : 'pending'
                         )
                       }
-                      className="w-full h-8 text-xs rounded-none border-r-0 sm:w-auto"
+                      className="h-8 text-xs rounded-none border-r-0"
                     >
                       Pending
                     </Button>
@@ -257,16 +271,22 @@ export const MessageFilters = ({
                           filters.processed === 'closed' ? 'all' : 'closed'
                         )
                       }
-                      className="w-full h-8 text-xs rounded-r-md rounded-l-none sm:w-auto"
+                      className="h-8 text-xs rounded-r-md rounded-l-none"
                     >
                       Closed
                     </Button>
                   </div>
                 </div>
+              </div>
 
-                {/* Channel Group */}
-                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
-                  <span className="w-full text-xs font-semibold text-muted-foreground sm:w-auto">
+              {/* Divider */}
+              <div className="border-t" />
+
+              {/* Row 2: Dropdowns */}
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Channel */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
                     Channel:
                   </span>
                   <ReactSelect
@@ -278,13 +298,13 @@ export const MessageFilters = ({
                       { value: 'telegram', label: 'Telegram' },
                       { value: 'slack', label: 'Slack' },
                     ]}
-                    className="w-full sm:w-40"
+                    className="w-36"
                   />
                 </div>
 
-                {/* Message Source Group */}
-                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
-                  <span className="w-full text-xs font-semibold text-muted-foreground sm:w-auto">
+                {/* Message Source */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
                     Source:
                   </span>
                   <ReactSelect
@@ -297,19 +317,89 @@ export const MessageFilters = ({
                         label: source.name,
                       })),
                     ]}
-                    className="w-full sm:w-40"
+                    className="w-36"
                   />
                 </div>
 
-                {/* Assignee Filter */}
+                {/* Assignee */}
                 <AssigneeFilter
                   value={filters.assigneeId ?? 'all'}
                   onChange={(value) => onFilterChange('assigneeId', value)}
                 />
 
-                {/* Sort Order */}
-                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
-                  <span className="w-full text-xs font-semibold text-muted-foreground sm:w-auto">
+                {/* Priority */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                    Priority:
+                  </span>
+                  <ReactSelect
+                    value={filters.priority ?? 'all'}
+                    onChange={(value) => onFilterChange('priority', value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' },
+                      { value: 'critical', label: 'Critical' },
+                    ]}
+                    formatOptionLabel={(option) => (
+                      <div className="flex gap-2 items-center">
+                        {option.value !== 'all' && (
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+                              option.value === 'low'
+                                ? 'bg-green-500'
+                                : option.value === 'medium'
+                                  ? 'bg-yellow-500'
+                                  : option.value === 'high'
+                                    ? 'bg-orange-500'
+                                    : 'bg-red-500'
+                            }`}
+                          />
+                        )}
+                        <span>{option.label}</span>
+                      </div>
+                    )}
+                    className="w-36"
+                  />
+                </div>
+
+                {/* Label */}
+                {labels.length > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                      Label:
+                    </span>
+                    <ReactSelect
+                      value={filters.labelId ?? 'all'}
+                      onChange={(value) => onFilterChange('labelId', value)}
+                      options={[
+                        { value: 'all', label: 'All Labels' },
+                        ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
+                      ]}
+                      formatOptionLabel={(option) => (
+                        <div className="flex gap-2 items-center">
+                          {option.value !== 'all' && (
+                            <span
+                              className="inline-block w-2 h-2 rounded-full shrink-0"
+                              style={{
+                                backgroundColor:
+                                  labels.find((l) => l.id.toString() === option.value)?.color ??
+                                  '#888',
+                              }}
+                            />
+                          )}
+                          <span>{option.label}</span>
+                        </div>
+                      )}
+                      className="w-40"
+                    />
+                  </div>
+                )}
+
+                {/* Sort */}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
                     Sort:
                   </span>
                   <ReactSelect
@@ -319,7 +409,7 @@ export const MessageFilters = ({
                       { value: 'desc', label: 'Newest First' },
                       { value: 'asc', label: 'Oldest First' },
                     ]}
-                    className="w-full sm:w-40"
+                    className="w-36"
                   />
                 </div>
               </div>

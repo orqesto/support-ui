@@ -143,7 +143,12 @@ export const Layout = ({ children }: LayoutProps) => {
         leaveOrganizationRoom(organizationFilter);
       };
     } else {
-      console.warn('[Layout] organizationFilter is undefined — WebSocket room NOT joined. user.organizationId:', user?.organizationId, 'role:', user?.role);
+      console.warn(
+        '[Layout] organizationFilter is undefined — WebSocket room NOT joined. user.organizationId:',
+        user?.organizationId,
+        'role:',
+        user?.role
+      );
     }
   }, [organizationFilter, user?.organizationId, user?.role]);
 
@@ -395,7 +400,7 @@ export const Layout = ({ children }: LayoutProps) => {
       </div>
 
       {/* WebSocket Status Indicator */}
-      <WebSocketStatus />
+      {isDevelopment && <WebSocketStatus />}
 
       {/* WebSocket Debug Panel (Development Only) */}
       {isDevelopment && <WebSocketDebug />}

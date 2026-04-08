@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { useState, useEffect } from 'react';
-import { X, Plus, Tag } from 'lucide-react';
+import { X, Plus, Tag, ShieldCheck } from 'lucide-react';
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +28,9 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
+  const [canEditSkills, setCanEditSkills] = useState(false);
+  const [globalSelfEdit, setGlobalSelfEdit] = useState(false);
+  const [togglingPermission, setTogglingPermission] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -35,13 +38,17 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
     const load = async () => {
       setLoading(true);
       try {
-        const [keys, values] = await Promise.all([
+        const [keys, values, canEdit, selfEdit] = await Promise.all([
           organizationService.getRoutingKeys(),
           userService.getSkillValues(user.id),
+          userService.getCanEditSkills(user.id),
+          organizationService.getSelfEditSkills(),
         ]);
         setRoutingKeys(keys);
         setSkills(values);
         setInputs({});
+        setCanEditSkills(canEdit);
+        setGlobalSelfEdit(selfEdit.allowSelfEditSkills);
       } catch (err) {
         console.error('Failed to load skills:', err);
       } finally {
@@ -50,6 +57,20 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
     };
     load().catch(console.error);
   }, [isOpen, user]);
+
+  const handleToggleCanEdit = async () => {
+    if (!user) return;
+    const next = !canEditSkills;
+    setTogglingPermission(true);
+    try {
+      await userService.setCanEditSkills(user.id, next);
+      setCanEditSkills(next);
+    } catch (err) {
+      console.error('Failed to update permission:', err);
+    } finally {
+      setTogglingPermission(false);
+    }
+  };
 
   const handleAddValue = async (key: string) => {
     const val = (inputs[key] ?? '').trim().toLowerCase();
@@ -161,9 +182,39 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
         </div>
       </DialogContent>
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
-          Close
-        </Button>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-3">
+            {globalSelfEdit ? (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                Self-edit enabled org-wide
+              </span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={togglingPermission}
+                  onClick={() => void handleToggleCanEdit()}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                    canEditSkills ? 'bg-primary' : 'bg-muted-foreground/30'
+                  } ${togglingPermission ? 'opacity-50' : ''}`}
+                  role="switch"
+                  aria-checked={canEditSkills}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      canEditSkills ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className="text-xs text-muted-foreground">Allow self-edit</span>
+              </div>
+            )}
+          </div>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
       </DialogFooter>
     </Dialog>
   );

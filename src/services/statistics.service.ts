@@ -100,6 +100,13 @@ export type MessageStatsData = {
   languageBreakdown: Array<{ language: string; count: number }>;
 };
 
+export type LabelStatEntry = {
+  labelId: number;
+  name: string;
+  color: string;
+  messageCount: number;
+};
+
 export type AIStatsData = {
   respondedBy: Array<{ respondedBy: string; count: number }>;
   summary: {
@@ -145,6 +152,13 @@ export const statisticsService = {
   getAIStats: async (days = 30): Promise<ApiResponse<AIStatsData>> => {
     const response = await apiClient.get<{ success: boolean; data: AIStatsData }>(
       `/api/statistics/ai?days=${days}`
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  getLabelStats: async (days = 30): Promise<ApiResponse<LabelStatEntry[]>> => {
+    const response = await apiClient.get<{ success: boolean; data: LabelStatEntry[] }>(
+      `/api/statistics/labels?days=${days}`
     );
     return { success: response.data.success, data: response.data.data };
   },
