@@ -394,6 +394,16 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                         Jira
                       </Badge>
                     )}
+                    {comment.metadata?.senderType === 'user' && (
+                      <Badge variant="secondary" className="text-xs">
+                        User
+                      </Badge>
+                    )}
+                    {comment.metadata?.senderType === 'bot' && (
+                      <Badge variant="default" className="text-xs">
+                        Bot
+                      </Badge>
+                    )}
                     {comment.isInternal && (
                       <Badge variant="warning" className="text-xs">
                         <Lock className="mr-1 w-3 h-3" />

@@ -142,6 +142,13 @@ export const ticketService = {
     return response.data;
   },
 
+  convertBotConversation: async (id: number) => {
+    const response = await apiClient.post<
+      ApiResponse<{ converted: number; skipped: number }>
+    >(`/api/tickets/${id}/convert-bot-conversation`);
+    return response.data;
+  },
+
   getSimilar: async (id: number, params?: { limit?: number; minSimilarity?: number }) => {
     const queryParams = new URLSearchParams();
     if (params?.limit) {

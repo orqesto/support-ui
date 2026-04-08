@@ -104,6 +104,9 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
         if (currentFilters.isLead) apiFilters.isLead = 'true';
         if (currentFilters.isQualifiedLead) apiFilters.isQualifiedLead = 'true';
         if (currentFilters.ageRange) apiFilters.ageRange = currentFilters.ageRange;
+        if (currentFilters.priority && currentFilters.priority !== 'all') {
+          apiFilters.priority = currentFilters.priority;
+        }
         if (currentFilters.departmentRole && currentFilters.departmentRole !== 'all') {
           useAuthStore.getState().setSelectedDepartment(currentFilters.departmentRole);
         }
@@ -225,6 +228,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     filters.isLead,
     filters.isQualifiedLead,
     filters.ageRange,
+    filters.priority,
     filters.departmentRole,
     sorting.sortOrder,
   ]);
