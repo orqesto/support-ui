@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb, Copy, CheckCircle, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Copy, CheckCircle, ExternalLink, ChevronDown, ChevronRight, BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -45,7 +45,6 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
     const fetchSimilarTickets = async () => {
       try {
         setLoading(true);
-        // Try both endpoints: tickets and resolved messages
         const [ticketsResponse, messagesResponse] = await Promise.allSettled([
           ticketService.getSimilar(messageId, { limit: 3, minSimilarity: 0.7 }),
           messageService.getSimilarResolvedMessages(messageId, 3, 0.7),
@@ -56,7 +55,6 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
         const messages =
           messagesResponse.status === 'fulfilled' ? (messagesResponse.value.data ?? []) : [];
 
-        // Map resolved messages to ticket format (handles both KB docs and actual messages)
         const mappedMessages: SimilarTicket[] = messages.map((msg: unknown, idx: number) => {
           const m = msg as {
             messageId?: number;
@@ -75,13 +73,11 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
             }>;
           };
 
-          // KB documentation items use documentationId, actual messages use messageId
-          // Use negative IDs for KB items to avoid route conflicts
           const effectiveMessageId = m.messageId ?? -(m.documentationId ?? idx + 1000);
           const isKBItem = m.source === 'documentation' || (!m.messageId && m.documentationId);
 
           return {
-            ticketId: 0, // No ticket
+            ticketId: 0,
             messageId: effectiveMessageId,
             documentationId: m.documentationId,
             messageContent: m.content,
@@ -103,11 +99,9 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
           };
         });
 
-        // Combine and deduplicate by messageId (prefer tickets over mapped messages)
         const messageIdSet = new Set<number>();
         const deduplicated: SimilarTicket[] = [];
 
-        // Add tickets first (higher priority)
         for (const ticket of tickets) {
           if (!messageIdSet.has(ticket.messageId)) {
             messageIdSet.add(ticket.messageId);
@@ -115,7 +109,6 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
           }
         }
 
-        // Add mapped messages only if messageId not already present
         for (const message of mappedMessages) {
           if (!messageIdSet.has(message.messageId)) {
             messageIdSet.add(message.messageId);
@@ -125,7 +118,6 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
 
         setSimilarTickets(deduplicated);
       } catch {
-        // Silently handle errors - similar tickets are optional UI enhancement
         setSimilarTickets([]);
       } finally {
         setLoading(false);
@@ -149,10 +141,12 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
 
   if (loading) {
     return (
-      <div className="p-4 rounded-lg border bg-muted/30">
-        <div className="flex gap-2 items-center mb-2">
-          <Lightbulb className="w-4 h-4 text-yellow-600 animate-pulse dark:text-yellow-400" />
-          <span className="text-sm font-medium">Finding similar tickets...</span>
+      <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 dark:bg-slate-900/20 dark:border-slate-700/50">
+        <div className="flex gap-2 items-center">
+          <Search className="w-4 h-4 text-slate-400 animate-pulse" />
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            Searching similar resolved issues…
+          </span>
         </div>
       </div>
     );
@@ -163,159 +157,166 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
   }
 
   return (
-    <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200 dark:from-yellow-950/20 dark:to-amber-950/20 dark:border-yellow-800">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700/60 overflow-hidden">
       <button
-        className="flex gap-2 items-center p-4 w-full text-left transition-colors hover:bg-yellow-100/50 dark:hover:bg-yellow-900/20"
+        className="flex gap-2 items-center p-4 w-full text-left bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/30 dark:hover:bg-slate-900/50 transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
+        <div className="p-1.5 rounded-md bg-slate-200/70 dark:bg-slate-700/50">
+          <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            Similar Resolved Issues
+          </span>
+          <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+            {similarTickets.length} found
+          </span>
+        </div>
         {expanded ? (
-          <ChevronDown className="w-4 h-4 text-yellow-700 dark:text-yellow-400 shrink-0" />
+          <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
         ) : (
-          <ChevronRight className="w-4 h-4 text-yellow-700 dark:text-yellow-400 shrink-0" />
+          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
         )}
-        <Lightbulb className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-        <span className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-          Similar Resolved Issues
-        </span>
-        <Badge variant="secondary" className="ml-auto">
-          {similarTickets.length} found
-        </Badge>
       </button>
 
       {expanded && (
-      <div className="px-4 pb-4 space-y-3">
-        {similarTickets.map((ticket) => (
-          <div
-            key={
-              ticket.documentationId ? `doc-${ticket.documentationId}` : `msg-${ticket.messageId}`
-            }
-            className="p-3 bg-white rounded-lg border border-yellow-200 dark:bg-gray-900 dark:border-yellow-800"
-          >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1 min-w-0">
-                {ticket.ticketId > 0 ? (
-                  <Link
-                    to={`/tickets/${ticket.ticketId}`}
-                    className="flex gap-2 items-center group"
-                  >
-                    <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
+        <div className="p-3 space-y-2 bg-white dark:bg-transparent border-t border-slate-100 dark:border-slate-700/40">
+          {similarTickets.map((ticket) => (
+            <div
+              key={
+                ticket.documentationId ? `doc-${ticket.documentationId}` : `msg-${ticket.messageId}`
+              }
+              className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 dark:bg-slate-900/20 dark:border-slate-700/40"
+            >
+              {/* Title row */}
+              <div className="flex justify-between items-start gap-2 mb-2">
+                <div className="flex-1 min-w-0 flex items-start gap-1.5">
+                  {ticket.documentationId ? (
+                    <BookOpen className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  )}
+                  {ticket.ticketId > 0 ? (
+                    <Link
+                      to={`/tickets/${ticket.ticketId}`}
+                      className="flex gap-1 items-center group min-w-0"
+                    >
+                      <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                        {ticket.ticketTitle}
+                      </span>
+                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  ) : ticket.documentationId ? (
+                    <Link
+                      to={`/knowledge-base?id=${ticket.documentationId}`}
+                      className="flex gap-1 items-center group min-w-0"
+                    >
+                      <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                        {ticket.ticketTitle}
+                      </span>
+                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  ) : ticket.messageId > 0 ? (
+                    <Link
+                      to={`/messages/${ticket.messageId}`}
+                      className="flex gap-1 items-center group min-w-0"
+                    >
+                      <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                        {ticket.ticketTitle}
+                      </span>
+                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100">
                       {ticket.ticketTitle}
-                    </h4>
-                    <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
-                  </Link>
-                ) : ticket.documentationId ? (
-                  <Link
-                    to={`/knowledge-base?id=${ticket.documentationId}`}
-                    className="flex gap-2 items-center group"
-                  >
-                    <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
-                      {ticket.ticketTitle}
-                    </h4>
-                    <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
-                  </Link>
-                ) : ticket.messageId > 0 ? (
-                  <Link
-                    to={`/messages/${ticket.messageId}`}
-                    className="flex gap-2 items-center group"
-                  >
-                    <h4 className="text-sm font-medium truncate transition-colors group-hover:text-primary">
-                      {ticket.ticketTitle}
-                    </h4>
-                    <ExternalLink className="flex-shrink-0 w-3 h-3 opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
-                  </Link>
-                ) : (
-                  <h4 className="text-sm font-medium truncate">{ticket.ticketTitle}</h4>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                  {ticket.messageSubject ?? ticket.messageContent}
-                </p>
-                {ticket.references && ticket.references.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {ticket.references.map((ref) => (
-                      <Link
-                        key={ref.documentationId}
-                        to={`/knowledge-base?id=${ref.documentationId}`}
-                        className="inline-block"
-                      >
-                        <Badge
-                          variant="secondary"
-                          className="text-xs text-blue-700 bg-blue-50 border border-blue-200 transition-colors cursor-pointer hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900"
-                        >
-                          📄 {ref.documentTitle} ({Math.round(ref.similarity * 100)}%)
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                    </span>
+                  )}
+                </div>
+                <Badge
+                  variant="secondary"
+                  className="shrink-0 text-xs font-medium text-slate-600 bg-slate-100 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600"
+                >
+                  {Math.round(ticket.similarity * 100)}% match
+                </Badge>
               </div>
-              <Badge
-                variant="secondary"
-                className="flex-shrink-0 ml-2 text-xs text-green-700 bg-green-100 dark:bg-green-900 dark:text-green-300"
-              >
-                {Math.round(ticket.similarity * 100)}% match
-              </Badge>
-            </div>
 
-            {ticket.responses.length > 0 && (
-              <div className="pt-3 mt-3 border-t border-yellow-100 dark:border-yellow-900">
-                <p className="mb-2 text-xs font-medium text-yellow-800 dark:text-yellow-200">
-                  Successful Response{ticket.responses.length > 1 ? 's' : ''}:
-                </p>
-                {ticket.responses.map((response) => (
-                  <div
-                    key={response.id}
-                    className="p-2 mb-2 bg-gray-50 rounded last:mb-0 dark:bg-gray-800"
-                  >
-                    <div className="flex gap-2 justify-between items-start mb-2">
-                      <Badge variant="secondary" className="text-xs border">
-                        via {response.channel}
+              {/* Original message snippet */}
+              <p className="text-xs text-muted-foreground line-clamp-2 mb-2 pl-5">
+                {ticket.messageSubject ?? ticket.messageContent}
+              </p>
+
+              {/* KB references */}
+              {ticket.references && ticket.references.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2 pl-5">
+                  {ticket.references.map((ref) => (
+                    <Link key={ref.documentationId} to={`/knowledge-base?id=${ref.documentationId}`}>
+                      <Badge
+                        variant="secondary"
+                        className="text-xs text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900"
+                      >
+                        {ref.documentTitle} · {Math.round(ref.similarity * 100)}%
                       </Badge>
-                      {response.sentAt && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(new Date(response.sentAt))}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* Responses */}
+              {ticket.responses.length > 0 && (
+                <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700/40 space-y-2">
+                  {ticket.responses.map((response) => (
+                    <div key={response.id}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                          Successful response
+                          {response.sentAt && (
+                            <span className="font-normal text-muted-foreground ml-1">
+                              · {formatDate(new Date(response.sentAt))}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </div>
-                    <p className="mb-2 text-sm whitespace-pre-wrap text-foreground line-clamp-3">
-                      {stripHtml(response.content)}
-                    </p>
-                    <div className="flex gap-2">
-                      {onUseResponse && (
+                      </div>
+                      <p className="text-sm text-foreground line-clamp-3 whitespace-pre-wrap mb-2">
+                        {stripHtml(response.content)}
+                      </p>
+                      <div className="flex gap-2">
+                        {onUseResponse && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUseResponse(response.content)}
+                            className="text-xs h-7 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800/50"
+                          >
+                            Use This Response
+                          </Button>
+                        )}
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => handleUseResponse(response.content)}
-                          className="text-xs"
+                          variant="ghost"
+                          onClick={() => handleCopyResponse(response.content, response.id)}
+                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
                         >
-                          Use This Response
+                          {copiedId === response.id ? (
+                            <>
+                              <CheckCircle className="mr-1 w-3 h-3 text-green-500" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="mr-1 w-3 h-3" />
+                              Copy
+                            </>
+                          )}
                         </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleCopyResponse(response.content, response.id)}
-                        className="text-xs"
-                      >
-                        {copiedId === response.id ? (
-                          <>
-                            <CheckCircle className="mr-1 w-3 h-3" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="mr-1 w-3 h-3" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

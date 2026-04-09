@@ -3,13 +3,15 @@ import { Layers } from 'lucide-react';
 import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
+import { SLAConfigSettings } from './SLAConfigSettings';
 
-type OrgSection = 'categories' | 'labels' | 'routing-skills';
+type OrgSection = 'categories' | 'labels' | 'routing-skills' | 'sla-config';
 
 const sections = [
   { id: 'categories' as OrgSection, label: 'Categories', description: 'Ticket categories and keywords' },
   { id: 'labels' as OrgSection, label: 'Labels', description: 'Custom ticket labels' },
   { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
+  { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
 ];
 
 export const OrganizationSettings = () => {
@@ -47,6 +49,7 @@ export const OrganizationSettings = () => {
       {active === 'categories' && <CategoriesSettings />}
       {active === 'labels' && <LabelsSettings />}
       {active === 'routing-skills' && <RoutingKeysSettings />}
+      {active === 'sla-config' && <SLAConfigSettings />}
     </div>
   );
 };
