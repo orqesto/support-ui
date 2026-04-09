@@ -14,6 +14,7 @@ import { AIConfigSettings } from '@/components/settings/AIConfigSettings';
 import { ConnectedServicesSettings } from '@/components/settings/ConnectedServicesSettings';
 import { OrganizationSettings } from '@/components/settings/OrganizationSettings';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
+import { NotificationPreferencesSettings } from '@/components/settings/NotificationPreferencesSettings';
 import { RulesSettings } from '@/components/settings/RulesSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
 import { useAuthStore } from '@/stores/authStore';
@@ -99,7 +100,12 @@ export const SettingsPage = () => {
           size="md"
           fullWidth
         >
-          {activeTab === 'profile' && <ProfileSettings />}
+          {activeTab === 'profile' && (
+            <div className="space-y-8">
+              <ProfileSettings />
+              <NotificationPreferencesSettings />
+            </div>
+          )}
           {activeTab === 'organization' && <OrganizationSettings />}
           {activeTab === 'ai' && <AIConfigSettings />}
           {activeTab === 'integrations' && <ConnectedServicesSettings isGlobalAdmin={isGlobalAdmin} />}

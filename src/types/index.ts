@@ -66,6 +66,7 @@ export type Message = {
   categoryId?: number | null;
   closedAt?: string | null;
   needsHumanReview?: boolean;
+  labels?: { id: number; name: string; color: string }[];
 };
 
 export type Ticket = {

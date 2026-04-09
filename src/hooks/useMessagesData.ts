@@ -110,6 +110,9 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
         if (currentFilters.departmentRole && currentFilters.departmentRole !== 'all') {
           useAuthStore.getState().setSelectedDepartment(currentFilters.departmentRole);
         }
+        if (currentFilters.labelId && currentFilters.labelId !== 'all') {
+          apiFilters.labelId = currentFilters.labelId;
+        }
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
         }
@@ -230,6 +233,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     filters.ageRange,
     filters.priority,
     filters.departmentRole,
+    filters.labelId,
     sorting.sortOrder,
   ]);
 

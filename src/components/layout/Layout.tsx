@@ -28,6 +28,7 @@ import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { ThemeToggle } from './ThemeToggle';
+import { SLANotificationBell } from './SLANotificationBell';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
 import { MessageProcessingProgress } from '../messages/MessageProcessingProgress';
@@ -362,7 +363,10 @@ export const Layout = ({ children }: LayoutProps) => {
                     </p>
                   </div>
                 </div>
-                <ThemeToggle />
+                <div className="flex gap-1 items-center">
+                  <SLANotificationBell />
+                  <ThemeToggle />
+                </div>
               </div>
               <Button
                 variant="ghost"
@@ -388,7 +392,10 @@ export const Layout = ({ children }: LayoutProps) => {
                 {navigation.find((item) => item.href === location.pathname)?.name ?? 'Dashboard'}
               </h2>
             </div>
-            <ThemeToggle />
+            <div className="flex gap-1 items-center">
+              <SLANotificationBell />
+              <ThemeToggle />
+            </div>
           </header>
           {/* Spacer for fixed header */}
           <div className="h-14 lg:hidden" />
