@@ -66,6 +66,9 @@ import { MessageNotes } from './MessageNotes';
 import type { Message, Category, TicketPriority, MessageStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { useAuthStore } from '@/stores/authStore';
+import DOMPurify from 'dompurify';
+
+type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
 const PRIORITY_LABELS: Record<TicketPriority, string> = {
   low: 'Low',
@@ -164,9 +167,7 @@ export const MessageDetail = ({
   const [messageLabels, setMessageLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
-  const [leadState, setLeadState] = useState<
-    Parameters<typeof LeadQualificationPanel>[0]['leadState'] | null
-  >(null);
+  const [leadState, setLeadState] = useState<LeadState | null>(null);
   const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const [alertDialog, setAlertDialog] = useState<{
@@ -199,9 +200,7 @@ export const MessageDetail = ({
     }
     // Immediately seed from this message's own leadState so the suggestedAnswer
     // panel never gets blocked by stale state from the previously viewed message.
-    const ownState = message.metadata?.leadState as
-      | Parameters<typeof LeadQualificationPanel>[0]['leadState']
-      | undefined;
+    const ownState = message.metadata?.leadState as LeadState | undefined;
     if (ownState) setLeadState(ownState);
 
     // Fetch all thread messages: pick latest leadState + check if a newer reply exists
@@ -215,21 +214,17 @@ export const MessageDetail = ({
         for (const msg of sorted) {
           const state = msg.metadata?.leadState;
           if (state) {
-            setLeadState(state as Parameters<typeof LeadQualificationPanel>[0]['leadState']);
+            setLeadState(state as LeadState);
             return;
           }
         }
         // Fallback: try the message itself
-        const ownState = message.metadata?.leadState;
-        setLeadState(
-          ownState ? (ownState as Parameters<typeof LeadQualificationPanel>[0]['leadState']) : null
-        );
+        const fallbackState = message.metadata?.leadState;
+        setLeadState(fallbackState ? (fallbackState as LeadState) : null);
       })
       .catch(() => {
-        const ownState = message.metadata?.leadState;
-        setLeadState(
-          ownState ? (ownState as Parameters<typeof LeadQualificationPanel>[0]['leadState']) : null
-        );
+        const fallbackState = message.metadata?.leadState;
+        setLeadState(fallbackState ? (fallbackState as LeadState) : null);
       });
   }, [message.id, message.isLead, message.metadata]);
 
@@ -260,16 +255,22 @@ export const MessageDetail = ({
 
   const handleToggleLabel = async (label: Label) => {
     const assigned = messageLabels.some((l) => l.id === label.id);
+    const previousLabels = messageLabels;
+    // Optimistic update
+    if (assigned) {
+      setMessageLabels((prev) => prev.filter((l) => l.id !== label.id));
+    } else {
+      setMessageLabels((prev) => [...prev, label]);
+    }
     try {
       if (assigned) {
         await labelService.removeLabelFromMessage(message.id, label.id);
-        setMessageLabels((prev) => prev.filter((l) => l.id !== label.id));
       } else {
         await labelService.assignLabelToMessage(message.id, label.id);
-        setMessageLabels((prev) => [...prev, label]);
       }
     } catch (error) {
       console.error('Failed to toggle label:', error);
+      setMessageLabels(previousLabels);
     }
   };
 
@@ -379,7 +380,8 @@ export const MessageDetail = ({
   };
 
   const handleSendReply = async () => {
-    if (!replyContent.trim()) {
+    const strippedContent = replyContent.replace(/<[^>]*>/g, '').trim();
+    if (!strippedContent) {
       return;
     }
 
@@ -531,6 +533,14 @@ export const MessageDetail = ({
       }
     | undefined;
 
+  const msgLeadState = message.metadata?.leadState as LeadState | null | undefined;
+  const isLeadEscalated =
+    msgLeadState?.stage !== null &&
+    msgLeadState?.stage !== undefined &&
+    msgLeadState.stage in STAGE_COLORS &&
+    STAGE_COLORS[msgLeadState.stage] === 'danger' &&
+    !!msgLeadState.contactInfo?.isComplete;
+
   return (
     <div className="relative space-y-6">
       {/* Only show ScrollButtons in drawer mode (not full-page, page has its own) */}
@@ -603,12 +613,21 @@ export const MessageDetail = ({
           <p className="text-sm text-muted-foreground">
             Assigned to {message.subject ? '(Thread)' : '(Message)'}
           </p>
-          {(message.metadata as { autoRouted?: boolean })?.autoRouted && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-              <Target className="w-3 h-3" />
-              Auto-routed
-            </span>
-          )}
+          {(message.metadata as { autoRouted?: boolean })?.autoRouted && (() => {
+            const reason = (message.metadata as { autoRoutedReason?: string })?.autoRoutedReason;
+            const REASON_LABELS: Record<string, string> = {
+              assigned_manager: 'Assigned Manager',
+              skill_match: 'Skill Match',
+              client_history: 'Client History',
+              load_balance: 'Load Balance',
+            };
+            return (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                <Target className="w-3 h-3" />
+                {reason ? REASON_LABELS[reason] ?? 'Auto-routed' : 'Auto-routed'}
+              </span>
+            );
+          })()}
         </div>
         <AssignmentSelect
           type={message.subject ? 'thread' : 'message'}
@@ -809,10 +828,12 @@ export const MessageDetail = ({
         />
       )}
 
-      {/* Similar Resolved Tickets - AI-powered suggestions (hidden for lead qualification messages) */}
+      {/* Similar Resolved Tickets - hidden when suggestedAnswer already covers similar results */}
       {!message.ticketId &&
         !message.resolved &&
-        suggestedAnswer?.source !== 'lead_qualification' && (
+        suggestedAnswer?.source !== 'lead_qualification' &&
+        suggestedAnswer?.source !== 'similar_message' &&
+        suggestedAnswer?.source !== 'similar_ticket' && (
           <SimilarTickets messageId={message.id} onUseResponse={handleUseResponse} />
         )}
 
@@ -891,33 +912,14 @@ export const MessageDetail = ({
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-green-900 dark:text-green-100">
-                  {(() => {
-                    const msgState = message.metadata?.leadState as typeof leadState | undefined;
-                    const isEscalated =
-                      msgState !== null &&
-                      msgState !== undefined &&
-                      msgState.stage !== null &&
-                      msgState.stage in STAGE_COLORS &&
-                      STAGE_COLORS[msgState.stage] === 'danger' &&
-                      msgState.contactInfo?.isComplete;
-                    return isEscalated
-                      ? 'Lead Qualified — Send Closing Message'
-                      : 'Lead Qualification — Next Question';
-                  })()}
+                  {isLeadEscalated
+                    ? 'Lead Qualified — Send Closing Message'
+                    : 'Lead Qualification — Next Question'}
                 </h3>
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  {(() => {
-                    const msgState = message.metadata?.leadState as typeof leadState | undefined;
-                    const isEscalated =
-                      msgState !== null &&
-                      msgState !== undefined &&
-                      msgState.stage in STAGE_COLORS &&
-                      STAGE_COLORS[msgState.stage] === 'danger' &&
-                      msgState.contactInfo?.isComplete;
-                    return isEscalated
-                      ? 'Lead has been escalated — send this message to the customer'
-                      : 'Send this to continue qualifying the lead';
-                  })()}
+                  {isLeadEscalated
+                    ? 'Lead has been escalated — send this message to the customer'
+                    : 'Send this to continue qualifying the lead'}
                 </p>
               </div>
             </div>
@@ -930,10 +932,7 @@ export const MessageDetail = ({
 
             <div className="flex gap-2 mt-3">
               <Button
-                onClick={() => {
-                  setReplyContent(withSignature(convertTextToHtml(suggestedAnswer.answer)));
-                  setShowReplyForm(true);
-                }}
+                onClick={() => handleUseResponse(suggestedAnswer.answer)}
                 className="flex-1"
               >
                 <Check className="mr-2 w-4 h-4" />
@@ -975,10 +974,7 @@ export const MessageDetail = ({
 
             <div className="flex gap-2 mt-3">
               <Button
-                onClick={() => {
-                  setReplyContent(withSignature(convertTextToHtml(suggestedAnswer.answer)));
-                  setShowReplyForm(true);
-                }}
+                onClick={() => handleUseResponse(suggestedAnswer.answer)}
                 className="flex-1"
               >
                 <Check className="mr-2 w-4 h-4" />
@@ -1033,10 +1029,7 @@ export const MessageDetail = ({
 
             <div className="flex gap-2 mt-3">
               <Button
-                onClick={() => {
-                  setReplyContent(withSignature(convertTextToHtml(suggestedAnswer.answer)));
-                  setShowReplyForm(true);
-                }}
+                onClick={() => handleUseResponse(suggestedAnswer.answer)}
                 className="flex-1"
               >
                 <Check className="mr-2 w-4 h-4" />
@@ -1200,7 +1193,7 @@ export const MessageDetail = ({
           </div>
           <div
             className="max-w-none text-sm text-blue-900 prose prose-sm dark:text-blue-50"
-            dangerouslySetInnerHTML={{ __html: message.directReply }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.directReply) }}
           />
         </div>
       )}

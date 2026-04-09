@@ -66,7 +66,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
 
   setFilters: (filters) => {
     console.log('🔄 Tickets filters updated:', filters);
-    set({ filters }); // Keep cache for other filter combinations
+    set({ filters, cache: new Map() });
   },
 
   setSorting: (sorting) => {

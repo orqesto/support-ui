@@ -401,6 +401,22 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             </Badge>
           )}
 
+          {/* Labels */}
+          {(message.labels as { id: number; name: string; color: string }[] | undefined)?.map((label) => (
+            <Badge
+              key={label.id}
+              variant="secondary"
+              className="flex gap-1 items-center h-5 px-1.5"
+              title={label.name}
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: label.color }}
+              />
+              {label.name}
+            </Badge>
+          ))}
+
           {/* ID */}
           <span className="ml-auto font-mono text-xs text-muted-foreground shrink-0">
             #{message.id}
