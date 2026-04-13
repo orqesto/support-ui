@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type TranslationResponse = {
   original: {
@@ -169,7 +170,7 @@ const fetchLanguagesOnce = async (): Promise<SupportedLanguage[]> => {
       return languagesCache;
     })
     .catch((err) => {
-      console.error('Failed to fetch supported languages:', err);
+      logger.error('Failed to fetch supported languages:', err);
       languagesFetchPromise = null;
       return [];
     });
@@ -193,7 +194,7 @@ export const useSupportedLanguages = () => {
       const langs = await fetchLanguagesOnce();
       setLanguages(langs);
     } catch (err) {
-      console.error('Failed to fetch supported languages:', err);
+      logger.error('Failed to fetch supported languages:', err);
     } finally {
       setIsLoading(false);
     }

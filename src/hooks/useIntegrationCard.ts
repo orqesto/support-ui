@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { integrationsService } from '@/services/integrations.service';
+import { logger } from '@/lib/logger';
 import type { AlertState } from '@/components/settings/integrations/types';
 
 type UseIntegrationCardOptions<T> = {
@@ -59,7 +60,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
           });
         }
       } catch (error) {
-        console.error(`Failed to save ${integrationDisplayName}:`, error);
+        logger.error(`Failed to save ${integrationDisplayName}:`, error);
         onShowAlert({
           open: true,
           title: 'Error',
@@ -94,7 +95,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
           });
         }
       } catch (error) {
-        console.error(`Failed to test ${name} connection:`, error);
+        logger.error(`Failed to test ${name} connection:`, error);
         onShowAlert({
           open: true,
           title: 'Test Failed',
@@ -124,7 +125,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
           });
         }
       } catch (error) {
-        console.error(`Failed to delete ${name}:`, error);
+        logger.error(`Failed to delete ${name}:`, error);
         onShowAlert({
           open: true,
           title: 'Error',

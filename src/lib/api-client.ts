@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL, getAuthToken } from './config';
+import { logger } from '@/lib/logger';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -16,7 +17,7 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      console.warn('⚠️ [API] No auth token found!');
+      logger.warn('⚠️ [API] No auth token found!');
     }
 
     // Add selected organization and department context
@@ -34,12 +35,11 @@ apiClient.interceptors.request.use(
 
         if (selectedOrgId) {
           config.headers['X-Organization-Context'] = String(selectedOrgId);
-          // eslint-disable-next-line no-console
-          console.log(
+          logger.info(
             `🏢 [API] Organization Context: ${selectedOrgId} | ${config.method?.toUpperCase()} ${config.url}`
           );
         } else {
-          console.warn(
+          logger.warn(
             '⚠️ [API] No organization context set!',
             config.method?.toUpperCase(),
             config.url
@@ -49,13 +49,12 @@ apiClient.interceptors.request.use(
         // Add department context if selected
         if (selectedDept) {
           config.headers['X-Department-Context'] = selectedDept;
-          // eslint-disable-next-line no-console
-          console.log(
+          logger.info(
             `🏷️ [API] Department Context: ${selectedDept} | ${config.method?.toUpperCase()} ${config.url}`
           );
         }
       } catch (e) {
-        console.error('❌ [API] Failed to parse auth storage:', e);
+        logger.error('❌ [API] Failed to parse auth storage:', e);
       }
     }
 
