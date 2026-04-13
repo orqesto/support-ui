@@ -110,11 +110,10 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
           </span>
           <Button
             variant="outline"
-            size="sm"
             onClick={() => onOpen(message)}
-            className="gap-1 h-7 shrink-0"
+            className="gap-1.5 shrink-0"
           >
-            <ExternalLink className="w-3 h-3" />
+            <ExternalLink className="w-4 h-4" />
             Open
           </Button>
         </div>

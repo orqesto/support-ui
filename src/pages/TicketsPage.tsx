@@ -89,7 +89,6 @@ export const TicketsPage = () => {
     const urlSearch = searchParams.get('search');
 
     const urlFilters: Partial<typeof filters> = {};
-    let hasUrlFilters = false;
 
     if (
       urlStatus &&
@@ -102,37 +101,50 @@ export const TicketsPage = () => {
         | 'in_progress'
         | 'resolved'
         | 'closed';
-      hasUrlFilters = true;
     }
     if (urlPriority && ['all', 'low', 'medium', 'high', 'critical'].includes(urlPriority)) {
       urlFilters.priority = urlPriority as 'all' | 'low' | 'medium' | 'high' | 'critical';
-      hasUrlFilters = true;
     }
     if (urlCategory) {
       urlFilters.categoryId = urlCategory;
-      hasUrlFilters = true;
     }
     if (urlMessageSource) {
       urlFilters.messageSourceId = urlMessageSource;
-      hasUrlFilters = true;
     }
     if (urlAssignee) {
       urlFilters.assigneeId = urlAssignee;
-      hasUrlFilters = true;
     }
     if (urlJira === 'true' || urlJira === 'false') {
       urlFilters.syncedToJira = urlJira === 'true';
-      hasUrlFilters = true;
     }
     if (urlSearch) {
       urlFilters.search = urlSearch;
-      hasUrlFilters = true;
     }
 
-    // Apply URL filters to store if any exist
-    if (hasUrlFilters) {
-      setFiltersStore(urlFilters as typeof filters);
-    }
+    // Default assignee to current user only if they have assigned tickets; otherwise show all.
+    const init = async () => {
+      let assigneeDefault = 'all';
+      if (user && !urlAssignee) {
+        try {
+          const check = await ticketService.getAll({ assigneeId: String(user.id) }, 1, 1);
+          if (check.pagination.total > 0) {
+            assigneeDefault = String(user.id);
+          }
+        } catch {
+          // check failed — fall back to 'all'
+        }
+      }
+      const baseFilters: typeof filters = {
+        status: 'all',
+        priority: 'all',
+        categoryId: 'all',
+        messageSourceId: 'all',
+        assigneeId: assigneeDefault,
+        syncedToJira: undefined,
+      };
+      setFiltersStore({ ...baseFilters, ...urlFilters });
+    };
+    init().catch((error) => { logger.error('Failed to initialize tickets page:', error); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 

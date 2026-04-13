@@ -87,6 +87,7 @@ const NotificationItem = ({
 
 export const SLANotificationBell = () => {
   const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{ bottom: number; left: number }>({ bottom: 0, left: 0 });
   const { notifications, unreadCount, clearAll, dismiss, markAllRead } = useSLANotifications();
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -109,12 +110,19 @@ export const SLANotificationBell = () => {
   }, [open]);
 
   const handleOpen = () => {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPanelPos({
+        bottom: window.innerHeight - rect.top + 8,
+        left: rect.left,
+      });
+    }
     setOpen((prev) => !prev);
     if (!open && unreadCount > 0) markAllRead();
   };
 
   return (
-    <div className="relative">
+    <div>
       <button
         ref={buttonRef}
         onClick={handleOpen}
@@ -132,7 +140,8 @@ export const SLANotificationBell = () => {
       {open && (
         <div
           ref={panelRef}
-          className="absolute left-0 bottom-10 z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
+          style={{ bottom: panelPos.bottom, left: panelPos.left }}
+          className="fixed z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
         >
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold">SLA Alerts</span>

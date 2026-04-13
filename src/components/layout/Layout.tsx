@@ -351,11 +351,11 @@ export const Layout = ({ children }: LayoutProps) => {
               <DepartmentSwitcher />
 
               <div className="flex justify-between items-center mb-3">
-                <div className="flex gap-2 items-center">
-                  <div className="flex justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+                <div className="flex gap-2 items-center min-w-0">
+                  <div className="flex flex-shrink-0 justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
                     {user?.firstName?.charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium truncate">
                       {user?.firstName} {user?.lastName}
                     </p>
@@ -364,7 +364,7 @@ export const Layout = ({ children }: LayoutProps) => {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-1 items-center">
+                <div className="flex flex-shrink-0 gap-1 items-center">
                   <SLANotificationBell />
                   <ThemeToggle />
                 </div>

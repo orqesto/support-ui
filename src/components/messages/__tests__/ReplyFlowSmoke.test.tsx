@@ -79,7 +79,7 @@ describe('ReplyFlowSmoke', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('calls onSend with content when form is submitted with text', async () => {
+  it('calls onSend with content when form is submitted with text', () => {
     render(<MessageReplyForm onSend={onSend} onCancel={onCancel} submitting={false} />);
 
     // Type into the mocked rich text editor

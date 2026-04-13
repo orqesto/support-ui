@@ -4,6 +4,7 @@ import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services/message.service';
 import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { Message } from '@/types';
 
 interface UseMessagesUrlSyncProps {
@@ -26,9 +27,11 @@ export const useMessagesUrlSync = ({
 
   const filters = useMessagesStore((state) => state.filters);
   const setFilters = useMessagesStore((state) => state.setFilters);
+  const currentUser = useAuthStore((state) => state.user);
 
   // On mount: read URL params → store, then trigger initial fetch
   useEffect(() => {
+    const init = async () => {
     const urlFilters: Partial<FilterState> = {};
 
     const urlView = searchParams.get('view');
@@ -89,14 +92,30 @@ export const useMessagesUrlSync = ({
     // Always reset to defaults first, then apply URL params on top.
     // Without this, navigating from /messages?view=not_analysed → /messages?excludeKB=true
     // would merge and leave view=not_analysed active (setFilters merges with existing state).
-    setFilters({ ...defaultFilters, ...urlFilters });
+    // Default assigneeId to current user only if they have assigned messages; otherwise show all.
+    let assigneeDefault = 'all';
+    if (currentUser && !urlFilters.assigneeId) {
+      try {
+        const check = await messageService.getThreads({ assigneeId: String(currentUser.id) }, 1, 1);
+        if (check.pagination.total > 0) {
+          assigneeDefault = String(currentUser.id);
+        }
+      } catch {
+        // check failed — fall back to 'all'
+      }
+    }
+    setFilters({ ...defaultFilters, assigneeId: assigneeDefault, ...urlFilters });
 
     urlSyncedRef.current = true;
 
-    fetchMessages(1).catch((error) => {
+    try {
+      await fetchMessages(1);
+    } catch (error) {
       logger.error('Failed to fetch messages:', error);
       onFetchError?.(error);
-    });
+    }
+    };
+    init().catch((error) => { logger.error('Failed to initialize messages page:', error); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
