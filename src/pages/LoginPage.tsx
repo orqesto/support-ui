@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
+import { twoFactorService } from '@/services/twoFactor.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
@@ -20,7 +21,9 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<'email' | 'selectOrg' | 'password'>('email');
+  const [step, setStep] = useState<'email' | 'selectOrg' | 'password' | 'totp'>('email');
+  const [tempToken, setTempToken] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -110,28 +113,48 @@ export const LoginPage = () => {
         captchaToken: captchaToken ?? undefined,
       });
       if (response.success && response.data) {
-        login(response.data.token, response.data.user);
-
-        // Set user's organization context from login response
-        if (response.data.user.organizationId) {
-          setSelectedOrganization(response.data.user.organizationId);
-          logger.info(
-            `✅ [LOGIN] Logged into organization (ID: ${response.data.user.organizationId})`
-          );
+        if (response.data.twoFactorRequired && response.data.tempToken) {
+          // 2FA required — show TOTP input
+          setTempToken(response.data.tempToken);
+          setStep('totp');
+          setInfo('Enter the 6-digit code from your authenticator app.');
+        } else if (response.data.token && response.data.user) {
+          login(response.data.token, response.data.user);
+          if (response.data.user.organizationId) {
+            setSelectedOrganization(response.data.user.organizationId);
+            logger.info(
+              `✅ [LOGIN] Logged into organization (ID: ${response.data.user.organizationId})`
+            );
+          }
+          navigate('/dashboard');
         }
-
-        navigate('/dashboard');
       } else {
         setError(response.message ?? 'Invalid password');
-        // Reset CAPTCHA on error
         turnstileRef.current?.reset();
         setCaptchaToken(null);
       }
     } catch {
       setError('Invalid password. Please try again.');
-      // Reset CAPTCHA on error
       turnstileRef.current?.reset();
       setCaptchaToken(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTotpVerify = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      const data = await twoFactorService.authenticate(tempToken, totpCode);
+      login(data.token, data.user as Parameters<typeof login>[1]);
+      const orgId = (data.user as { organizationId?: number }).organizationId;
+      if (orgId) setSelectedOrganization(orgId);
+      navigate('/dashboard');
+    } catch {
+      setError('Invalid code. Please try again.');
+      setTotpCode('');
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +191,9 @@ export const LoginPage = () => {
                 ? handleVerifyUser
                 : step === 'selectOrg'
                   ? handleSelectOrg
-                  : handleLogin
+                  : step === 'totp'
+                    ? handleTotpVerify
+                    : handleLogin
             }
             className="space-y-4"
           >
@@ -202,6 +227,27 @@ export const LoginPage = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+            {step === 'totp' && (
+              <div className="space-y-3">
+                <div className="flex justify-center">
+                  <ShieldCheck className="w-10 h-10 text-primary" />
+                </div>
+                <p className="text-sm text-center text-muted-foreground">
+                  Open your authenticator app and enter the 6-digit code.
+                </p>
+                <Input
+                  label="Authenticator code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="000000"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                  required
+                />
               </div>
             )}
             {step === 'password' && (
@@ -265,7 +311,9 @@ export const LoginPage = () => {
                     ? 'Continue'
                     : step === 'selectOrg'
                       ? 'Continue'
-                      : 'Sign in'}
+                      : step === 'totp'
+                        ? 'Verify'
+                        : 'Sign in'}
               </Button>
             </div>
             <div className="py-2 text-sm text-center text-muted-foreground">
