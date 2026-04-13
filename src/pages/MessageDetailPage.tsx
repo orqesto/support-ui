@@ -7,6 +7,7 @@ import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
+import { logger } from '@/lib/logger';
 
 export const MessageDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -48,7 +49,7 @@ export const MessageDetailPage = () => {
         setMessage(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch message:', error);
+      logger.error('Failed to fetch message:', error);
     } finally {
       if (fullLoad) setLoading(false);
     }

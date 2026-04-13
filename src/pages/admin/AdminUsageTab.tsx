@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type UsageItem = {
   current: number;
@@ -141,7 +142,7 @@ export const AdminUsageTab = () => {
         setOrganizations(usageRes.data.data || []);
         setAvailablePlans(plansRes.data.data.plans || []);
       } catch (error) {
-        console.error('Failed to load organizations usage:', error);
+        logger.error('Failed to load organizations usage:', error);
       } finally {
         setLoading(false);
       }
@@ -161,7 +162,7 @@ export const AdminUsageTab = () => {
       setEditingOrg(null);
       setSelectedPlanName('');
     } catch (error) {
-      console.error('Failed to change plan:', error);
+      logger.error('Failed to change plan:', error);
     } finally {
       setPlanChanging(false);
     }

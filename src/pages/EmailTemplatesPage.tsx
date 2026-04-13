@@ -4,6 +4,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type TemplateType = 'invitation' | 'verification' | 'auto_reply' | 'password_reset';
 
@@ -52,7 +53,7 @@ export const EmailTemplatesPage = () => {
       setPreviewHtml(response.data);
       setSelectedTemplate(templateType);
     } catch (error) {
-      console.error('Error loading template preview:', error);
+      logger.error('Error loading template preview:', error);
       setError('Failed to load template preview. Please make sure you are logged in as an admin.');
     } finally {
       setIsLoadingPreview(false);

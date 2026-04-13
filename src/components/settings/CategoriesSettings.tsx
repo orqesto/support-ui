@@ -11,6 +11,7 @@ import {
   DialogClose,
 } from '@/components/ui/Dialog';
 import { settingsService, type Category } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
 
 export const CategoriesSettings = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -31,7 +32,7 @@ export const CategoriesSettings = () => {
       const data = await settingsService.getCategories();
       setCategories(data);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories:', error);
     } finally {
       setLoading(false);
     }
@@ -39,7 +40,7 @@ export const CategoriesSettings = () => {
 
   useEffect(() => {
     fetchCategories().catch((error) => {
-      console.error('Failed to fetch categories:', error);
+      logger.error('Failed to fetch categories:', error);
     });
   }, []);
 
@@ -69,7 +70,7 @@ export const CategoriesSettings = () => {
       setIsCreating(false);
       setFormData({ name: '', description: '', keywords: '' });
     } catch (error) {
-      console.error('Error saving category:', error);
+      logger.error('Error saving category:', error);
     }
   };
 
@@ -94,7 +95,7 @@ export const CategoriesSettings = () => {
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
     } catch (error) {
-      console.error('Error deleting category:', error);
+      logger.error('Error deleting category:', error);
     }
   };
 

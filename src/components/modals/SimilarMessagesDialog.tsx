@@ -32,6 +32,7 @@ import { messageService } from '@/services/message.service';
 import { useSupportedLanguages } from '@/hooks/useTranslation';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type SimilarMessage = {
   messageId?: number;
@@ -119,7 +120,7 @@ export const SimilarMessagesDialog = ({
 
           setSimilarMessages(converted);
         } catch (error) {
-          console.error('Failed to fetch suggested answer:', error);
+          logger.error('Failed to fetch suggested answer:', error);
           setSimilarMessages([]);
           setAiMode(null);
           setAiResponse(null);
@@ -145,7 +146,7 @@ export const SimilarMessagesDialog = ({
           source: 'ai-generated',
         });
       } catch (error) {
-        console.error('Failed to save suggested answer:', error);
+        logger.error('Failed to save suggested answer:', error);
       }
       onSelectAnswer(textToUse);
       onClose();
@@ -170,7 +171,7 @@ export const SimilarMessagesDialog = ({
           documentTitle: msg.documentTitle,
         });
       } catch (error) {
-        console.error('Failed to save suggested answer:', error);
+        logger.error('Failed to save suggested answer:', error);
       }
 
       onSelectAnswer(answer);
@@ -196,7 +197,7 @@ export const SimilarMessagesDialog = ({
         setShowTranslation(true);
       }
     } catch (error) {
-      console.error('Translation failed:', error);
+      logger.error('Translation failed:', error);
     } finally {
       setIsTranslating(false);
     }

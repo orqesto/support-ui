@@ -28,6 +28,7 @@ import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
+import { logger } from '@/lib/logger';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -102,7 +103,7 @@ export const DashboardPage = () => {
 
         // Refresh dashboard stats
         fetchStats().catch((error) => {
-          console.error('Failed to refresh stats after email processing:', error);
+          logger.error('Failed to refresh stats after email processing:', error);
         });
       } else {
         // No messages processed - show "no new messages" feedback
@@ -127,7 +128,7 @@ export const DashboardPage = () => {
 
         // Refresh dashboard stats
         fetchStats().catch((error) => {
-          console.error('Failed to refresh stats after telegram processing:', error);
+          logger.error('Failed to refresh stats after telegram processing:', error);
         });
       } else {
         // No messages processed - show "no new messages" feedback
@@ -200,7 +201,7 @@ export const DashboardPage = () => {
         }));
       }
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      logger.error('Failed to fetch stats:', error);
     } finally {
       setLoading(false);
       setLastUpdated(new Date());
@@ -228,7 +229,7 @@ export const DashboardPage = () => {
         setHasEmailIntegrations(emailIntegrations.length > 0);
         setHasTelegramIntegrations(telegramIntegrations.length > 0);
       } catch (error) {
-        console.error('Failed to check integrations:', error);
+        logger.error('Failed to check integrations:', error);
         setHasIntegrations(false);
         setHasMessageSources(false);
         setHasEmailIntegrations(false);
@@ -237,13 +238,13 @@ export const DashboardPage = () => {
     };
 
     checkIntegrations().catch((error) => {
-      console.error('Failed to check integrations:', error);
+      logger.error('Failed to check integrations:', error);
     });
   }, []);
 
   useEffect(() => {
     fetchStats().catch((error) => {
-      console.error('Failed to fetch stats:', error);
+      logger.error('Failed to fetch stats:', error);
     });
   }, []);
 
@@ -261,7 +262,7 @@ export const DashboardPage = () => {
       // Temporarily disable kbMessages override to verify frontend calculation is correct
       const { kbMessages, ...safeUpdates } = updatedStats;
       if (kbMessages !== undefined) {
-        console.warn(
+        logger.warn(
           `🚫 [WebSocket] Blocked kbMessages update: ${kbMessages} (frontend calculated value is correct)`
         );
       }
@@ -367,7 +368,7 @@ export const DashboardPage = () => {
         }, 5000) as unknown as number;
       }
     } catch (error) {
-      console.error('Failed to start ingestion:', error);
+      logger.error('Failed to start ingestion:', error);
       setAlertDialog({
         open: true,
         title: 'Ingestion Failed',

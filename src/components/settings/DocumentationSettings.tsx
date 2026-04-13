@@ -39,6 +39,7 @@ import {
   type DocumentType,
   type DocumentationProgress,
 } from '@/services/documentation.service';
+import { logger } from '@/lib/logger';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) {
@@ -160,7 +161,7 @@ export const DocumentationSettings = () => {
       setDocs(docsData);
       setStats(statsData);
     } catch (error) {
-      console.error('Failed to load documentation:', error);
+      logger.error('Failed to load documentation:', error);
     } finally {
       if (isInitialLoad) {
         setLoading(false);
@@ -193,7 +194,7 @@ export const DocumentationSettings = () => {
           const progress = await documentationService.getProgress(id);
           return { id, progress };
         } catch (error) {
-          console.error(`Failed to fetch progress for doc ${id}:`, error);
+          logger.error(`Failed to fetch progress for doc ${id}:`, error);
           return null;
         }
       });
@@ -350,7 +351,7 @@ export const DocumentationSettings = () => {
       // Reload documentation list
       await loadDocumentation();
     } catch (error) {
-      console.error('Failed to upload documentation:', error);
+      logger.error('Failed to upload documentation:', error);
     } finally {
       setUploading(false);
     }
@@ -390,7 +391,7 @@ export const DocumentationSettings = () => {
       setSelectedDocs(new Set());
       await loadDocumentation();
     } catch (error) {
-      console.error('Failed to delete documentation:', error);
+      logger.error('Failed to delete documentation:', error);
     }
   };
 
@@ -401,7 +402,7 @@ export const DocumentationSettings = () => {
       const fullContent = chunks.map((chunk) => chunk.content).join('\n\n');
       setViewerDialog((prev) => ({ ...prev, content: fullContent, loading: false }));
     } catch (error) {
-      console.error('Failed to load documentation content:', error);
+      logger.error('Failed to load documentation content:', error);
       setViewerDialog((prev) => ({
         ...prev,
         content: 'Failed to load content. Please try again.',
@@ -420,7 +421,7 @@ export const DocumentationSettings = () => {
       await loadDocumentation();
       setDeleteDialog({ open: false, docId: null });
     } catch (error) {
-      console.error('Failed to delete documentation:', error);
+      logger.error('Failed to delete documentation:', error);
       // Keep dialog open to show error
     }
   };
@@ -433,7 +434,7 @@ export const DocumentationSettings = () => {
         prev.map((d: Documentation) => (d.id === doc.id ? updatedDoc : d))
       );
     } catch (error) {
-      console.error('Failed to toggle documentation enabled status:', error);
+      logger.error('Failed to toggle documentation enabled status:', error);
     }
   };
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/lib/logger';
 
 type Plan = {
   id: number;
@@ -89,7 +90,7 @@ export const PricingPage = () => {
           setActiveModuleIds(new Set(activeModulesRes.data.data.modules.map((m) => m.moduleId)));
         }
       } catch (error) {
-        console.error('Failed to load pricing:', error);
+        logger.error('Failed to load pricing:', error);
       } finally {
         setLoading(false);
       }
@@ -145,7 +146,7 @@ export const PricingPage = () => {
         navigate('/subscription');
       }, 1500);
     } catch (error: unknown) {
-      console.error('Failed to upgrade plan:', error);
+      logger.error('Failed to upgrade plan:', error);
       const message =
         error instanceof Error &&
         'response' in error &&

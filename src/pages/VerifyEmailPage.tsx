@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { authService } from '@/services/auth.service';
+import { logger } from '@/lib/logger';
 
 export const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
@@ -41,7 +42,7 @@ export const VerifyEmailPage = () => {
     };
 
     verifyEmail().catch((error) => {
-      console.error('Failed to verify email:', error);
+      logger.error('Failed to verify email:', error);
     });
   }, [token]);
 

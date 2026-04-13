@@ -10,6 +10,7 @@ import {
   DialogClose,
 } from '@/components/ui/Dialog';
 import { labelService, type Label } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
 
 const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -32,14 +33,14 @@ export const LabelsSettings = () => {
       setLoading(true);
       setLabels(await labelService.getLabels());
     } catch (error) {
-      console.error('Error fetching labels:', error);
+      logger.error('Error fetching labels:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLabels().catch(console.error);
+    fetchLabels().catch((e) => { logger.error(e); });
   }, []);
 
   const handleEdit = (label: Label) => {
@@ -65,7 +66,7 @@ export const LabelsSettings = () => {
       setEditingLabel(null);
       setIsCreating(false);
     } catch (error) {
-      console.error('Error saving label:', error);
+      logger.error('Error saving label:', error);
     } finally {
       setSaving(false);
     }
@@ -83,7 +84,7 @@ export const LabelsSettings = () => {
       await labelService.deleteLabel(labelToDelete.id);
       await fetchLabels();
     } catch (error) {
-      console.error('Error deleting label:', error);
+      logger.error('Error deleting label:', error);
     } finally {
       setDeleteDialogOpen(false);
       setLabelToDelete(null);

@@ -4,6 +4,7 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
 
 export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
@@ -23,7 +24,7 @@ export const PromptsSettings = () => {
       const data = await settingsService.getPromptTemplates();
       setPrompts(data);
     } catch (error) {
-      console.error('Error fetching prompts:', error);
+      logger.error('Error fetching prompts:', error);
     } finally {
       setLoading(false);
     }
@@ -31,7 +32,7 @@ export const PromptsSettings = () => {
 
   useEffect(() => {
     fetchPrompts().catch((error) => {
-      console.error('Failed to fetch prompts:', error);
+      logger.error('Failed to fetch prompts:', error);
     });
   }, []);
 
@@ -62,7 +63,7 @@ export const PromptsSettings = () => {
       setIsCreating(false);
       setFormData({ name: '', description: '', prompt: '', active: true });
     } catch (error) {
-      console.error('Error saving prompt:', error);
+      logger.error('Error saving prompt:', error);
     }
   };
 
@@ -77,7 +78,7 @@ export const PromptsSettings = () => {
       await settingsService.updatePromptTemplate(prompt.id, { active: !prompt.active });
       await fetchPrompts();
     } catch (error) {
-      console.error('Error toggling prompt:', error);
+      logger.error('Error toggling prompt:', error);
     }
   };
 

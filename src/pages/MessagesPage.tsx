@@ -33,6 +33,7 @@ import { SpamLogDetail } from '@/components/spam/SpamLogDetail';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
+import { logger } from '@/lib/logger';
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -169,7 +170,7 @@ export const MessagesPage = () => {
       setSelectedMessage(null);
       await fetchMessages(messagesPagination.page, true);
     } catch (error) {
-      console.error('Failed to mark message as processed:', error);
+      logger.error('Failed to mark message as processed:', error);
     }
   };
 
@@ -190,7 +191,7 @@ export const MessagesPage = () => {
         setSearchParams(params);
       }
     } catch (error: unknown) {
-      console.error('Failed to reopen message:', error);
+      logger.error('Failed to reopen message:', error);
       const errorMsg =
         error && typeof error === 'object' && 'response' in error
           ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error ??
@@ -224,7 +225,7 @@ export const MessagesPage = () => {
       }
     } catch (error) {
       if (!abortController.signal.aborted) {
-        console.error('Failed to refresh message:', error);
+        logger.error('Failed to refresh message:', error);
       }
     }
   }, [selectedMessage, clearCache, fetchMessages, messagesPagination.page]);
@@ -248,7 +249,7 @@ export const MessagesPage = () => {
       let attempts = 0;
       const poll = async (): Promise<void> => {
         attempts++;
-        await fetchMessages(1, true).catch((err) => console.error('Failed to fetch messages:', err));
+        await fetchMessages(1, true).catch((err) => logger.error('Failed to fetch messages:', err));
         if (attempts < 3) {
           setTimeout(() => void poll(), attempts * 1500);
         } else {
@@ -257,7 +258,7 @@ export const MessagesPage = () => {
       };
       setTimeout(() => void poll(), 1000);
     } catch (error) {
-      console.error('Failed to sync emails:', error);
+      logger.error('Failed to sync emails:', error);
       setRefreshing(false);
       setAlertDialog({
         open: true,
@@ -285,7 +286,7 @@ export const MessagesPage = () => {
       setSelectedMessage(null);
       await fetchMessages(1, true);
     } catch (error) {
-      console.error('Failed to delete message:', error);
+      logger.error('Failed to delete message:', error);
       setAlertDialog({
         open: true,
         title: 'Delete Failed',
@@ -523,7 +524,7 @@ export const MessagesPage = () => {
                             setSearchParams(params);
                           }
                         } catch (error) {
-                          console.error('Failed to fetch thread messages:', error);
+                          logger.error('Failed to fetch thread messages:', error);
                           setSelectedMessage(msg);
                           const params = new URLSearchParams(searchParams);
                           params.set('id', msg.id.toString());
@@ -713,7 +714,7 @@ export const MessagesPage = () => {
                   setSearchParams({ id: messageId.toString() });
                 }
               } catch (error) {
-                console.error('Failed to navigate to message:', error);
+                logger.error('Failed to navigate to message:', error);
               }
             }}
           />

@@ -6,6 +6,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/lib/logger';
 
 type InviteUserModalProps = {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export const InviteUserModal = ({
           }
         }
       } catch (err) {
-        console.error('Failed to load organizations:', err);
+        logger.error('Failed to load organizations:', err);
       }
     };
 
@@ -70,7 +71,7 @@ export const InviteUserModal = ({
         setEmail(prefilledEmail);
       }
       loadOrganizations().catch((error) => {
-        console.error('Failed to load organizations:', error);
+        logger.error('Failed to load organizations:', error);
       });
     }
   }, [
