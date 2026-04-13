@@ -8,6 +8,7 @@ import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/lib/logger';
 
 export const LoginPage = () => {
   const [organizationSlug, setOrganizationSlug] = useState('');
@@ -114,8 +115,7 @@ export const LoginPage = () => {
         // Set user's organization context from login response
         if (response.data.user.organizationId) {
           setSelectedOrganization(response.data.user.organizationId);
-          // eslint-disable-next-line no-console
-          console.log(
+          logger.info(
             `✅ [LOGIN] Logged into organization (ID: ${response.data.user.organizationId})`
           );
         }

@@ -11,11 +11,11 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { ReactSelect } from '@/components/ui/ReactSelect';
-import {
-  detectionRuleService,
+import {  detectionRuleService,
   type DetectionRule,
   type DetectionRuleCategory,
 } from '@/services/detectionRule.service';
+import { logger } from '@/lib/logger';
 
 const CATEGORY_OPTIONS = [
   { value: 'issue', label: 'Issue' },
@@ -57,7 +57,7 @@ export const DetectionRulesSettings = () => {
         setRules(response.data);
       }
     } catch (error) {
-      console.error('Error fetching detection rules:', error);
+      logger.error('Error fetching detection rules:', error);
     } finally {
       setLoading(false);
     }
@@ -65,7 +65,7 @@ export const DetectionRulesSettings = () => {
 
   useEffect(() => {
     fetchRules().catch((error) => {
-      console.error('Failed to fetch rules:', error);
+      logger.error('Failed to fetch rules:', error);
     });
   }, []);
 
@@ -97,7 +97,7 @@ export const DetectionRulesSettings = () => {
       setEditingRule(null);
       setIsCreating(false);
     } catch (error) {
-      console.error('Error saving rule:', error);
+      logger.error('Error saving rule:', error);
     }
   };
 
@@ -119,7 +119,7 @@ export const DetectionRulesSettings = () => {
       setDeleteDialogOpen(false);
       setRuleToDelete(null);
     } catch (error) {
-      console.error('Error deleting rule:', error);
+      logger.error('Error deleting rule:', error);
     }
   };
 
@@ -128,7 +128,7 @@ export const DetectionRulesSettings = () => {
       await detectionRuleService.update(rule.id, { active: !rule.active });
       await fetchRules();
     } catch (error) {
-      console.error('Error toggling rule:', error);
+      logger.error('Error toggling rule:', error);
     }
   };
 

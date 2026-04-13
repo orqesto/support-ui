@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
+import { logger } from '@/lib/logger';
 
 type GmailConfig = {
   clientId: string;
@@ -97,7 +98,7 @@ export const GmailIntegrationCard = ({
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to update bulk import days:', error);
+      logger.error('Failed to update bulk import days:', error);
       onShowAlert({
         open: true,
         title: 'Update Failed',
@@ -152,7 +153,7 @@ export const GmailIntegrationCard = ({
         try {
           await onRefresh();
         } catch (fetchError) {
-          console.error('Failed to refresh integrations list:', fetchError);
+          logger.error('Failed to refresh integrations list:', fetchError);
         }
 
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -166,7 +167,7 @@ export const GmailIntegrationCard = ({
           variant: 'success',
         });
       } else {
-        console.error('Gmail OAuth failed:', response);
+        logger.error('Gmail OAuth failed:', response);
         onShowAlert({
           open: true,
           title: 'Gmail Connection Failed',
@@ -175,7 +176,7 @@ export const GmailIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error('Failed to connect Gmail:', error);
+      logger.error('Failed to connect Gmail:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       onShowAlert({
         open: true,
@@ -207,7 +208,7 @@ export const GmailIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error(`Failed to test ${name} connection:`, error);
+      logger.error(`Failed to test ${name} connection:`, error);
       onShowAlert({
         open: true,
         title: 'Test Failed',
@@ -239,7 +240,7 @@ export const GmailIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error(`Failed to delete ${name}:`, error);
+      logger.error(`Failed to delete ${name}:`, error);
       onShowAlert({
         open: true,
         title: 'Error',

@@ -20,6 +20,7 @@ import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, Permission } from '@/types/roles';
+import { logger } from '@/lib/logger';
 
 type UsageItem = {
   current: number;
@@ -104,7 +105,7 @@ export const SubscriptionPage = () => {
         setDashboard(dashboardRes.data.data);
         setSubscriptionDetails(subRes.data.data);
       } catch (error) {
-        console.error('Failed to load subscription:', error);
+        logger.error('Failed to load subscription:', error);
       } finally {
         setLoading(false);
       }

@@ -16,6 +16,7 @@ import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
 import RichTextEditor from '@/components/shared/RichTextEditor';
+import { logger } from '@/lib/logger';
 
 export const CreateTicketPage = () => {
   const [searchParams] = useSearchParams();
@@ -56,14 +57,14 @@ export const CreateTicketPage = () => {
   useEffect(() => {
     if (messageId) {
       fetchMessage(parseInt(messageId)).catch((error) => {
-        console.error('Failed to fetch message:', error);
+        logger.error('Failed to fetch message:', error);
       });
     }
     fetchCategories().catch((error) => {
-      console.error('Failed to fetch categories:', error);
+      logger.error('Failed to fetch categories:', error);
     });
     fetchUsers().catch((error) => {
-      console.error('Failed to fetch users:', error);
+      logger.error('Failed to fetch users:', error);
     });
   }, [messageId]);
 
@@ -122,7 +123,7 @@ export const CreateTicketPage = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch message:', error);
+      logger.error('Failed to fetch message:', error);
     }
   };
 
@@ -131,7 +132,7 @@ export const CreateTicketPage = () => {
       const data = await assignmentService.getAssignableUsers();
       setUsers(data);
     } catch (error) {
-      console.error('Failed to fetch assignable users:', error);
+      logger.error('Failed to fetch assignable users:', error);
     }
   };
 
@@ -159,7 +160,7 @@ export const CreateTicketPage = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch categories:', error);
+      logger.error('Failed to fetch categories:', error);
     }
   };
 
@@ -206,7 +207,7 @@ export const CreateTicketPage = () => {
         }));
       }
     } catch (error) {
-      console.error('Failed to enhance description:', error);
+      logger.error('Failed to enhance description:', error);
       setAlertDialog({
         open: true,
         title: 'Enhancement Failed',
@@ -251,7 +252,7 @@ export const CreateTicketPage = () => {
         setTimeout(() => navigate(`/tickets/${ticketId}`), 1500);
       }
     } catch (error) {
-      console.error('Failed to create ticket:', error);
+      logger.error('Failed to create ticket:', error);
       setAlertDialog({
         open: true,
         title: 'Creation Failed',

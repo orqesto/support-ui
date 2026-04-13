@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryLabel, isFilteredSpamCheck } from '@/lib/messageHelpers';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
+import { logger } from '@/lib/logger';
 
 type MessageAIAnalysisProps = {
   message: Message;
@@ -18,7 +19,7 @@ export const MessageAIAnalysis = ({ message, onRefresh }: MessageAIAnalysisProps
       await messageService.reanalyze(message.id);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to re-analyze message:', error);
+      logger.error('Failed to re-analyze message:', error);
     } finally {
       setIsReanalyzing(false);
     }

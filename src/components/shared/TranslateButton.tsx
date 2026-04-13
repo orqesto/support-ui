@@ -11,6 +11,7 @@ import {
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useTranslation, useSupportedLanguages } from '@/hooks/useTranslation';
 import { linkifyText } from '@/lib/linkify';
+import { logger } from '@/lib/logger';
 
 type TranslateButtonProps = {
   messageId?: number;
@@ -65,7 +66,7 @@ export const TranslateButton = ({
         });
       }
     } catch (err) {
-      console.error('Translation error:', err);
+      logger.error('Translation error:', err);
     }
   };
 

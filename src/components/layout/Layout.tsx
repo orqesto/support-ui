@@ -32,6 +32,7 @@ import { SLANotificationBell } from './SLANotificationBell';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
 import { MessageProcessingProgress } from '../messages/MessageProcessingProgress';
+import { logger } from '@/lib/logger';
 
 const isDevelopment = import.meta.env.DEV;
 
@@ -124,7 +125,7 @@ export const Layout = ({ children }: LayoutProps) => {
           }
         })
         .catch((error) => {
-          console.error('Failed to load organization name:', error);
+          logger.error('Failed to load organization name:', error);
         });
     }
   }, [selectedOrganizationId, user?.role]);
@@ -144,7 +145,7 @@ export const Layout = ({ children }: LayoutProps) => {
         leaveOrganizationRoom(organizationFilter);
       };
     } else {
-      console.warn(
+      logger.warn(
         '[Layout] organizationFilter is undefined — WebSocket room NOT joined. user.organizationId:',
         user?.organizationId,
         'role:',

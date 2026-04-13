@@ -3,6 +3,7 @@ import { Building2, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/lib/logger';
 
 export const OrganizationSwitcher = () => {
   const user = useAuthStore((state) => state.user);
@@ -34,7 +35,7 @@ export const OrganizationSwitcher = () => {
         setSelectedOrganization(result.data[0].id);
       }
     } catch (error) {
-      console.error('Failed to load organizations:', error);
+      logger.error('Failed to load organizations:', error);
     } finally {
       setLoading(false);
       loadingRef.current = false;
@@ -45,7 +46,7 @@ export const OrganizationSwitcher = () => {
   useEffect(() => {
     if (isGlobalAdmin) {
       loadOrganizations().catch((error) => {
-        console.error('Failed to load organizations:', error);
+        logger.error('Failed to load organizations:', error);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,7 +56,7 @@ export const OrganizationSwitcher = () => {
   useEffect(() => {
     if (isOpen && isGlobalAdmin) {
       loadOrganizations().catch((error) => {
-        console.error('Failed to load organizations:', error);
+        logger.error('Failed to load organizations:', error);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -25,6 +25,7 @@ import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { labelService, type Label } from '@/services/settings.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
+import { logger } from '@/lib/logger';
 
 const AGE_RANGE_OPTIONS: {
   value: 'lt24h' | '1to7d' | '1to4w' | 'gt1mo' | undefined;
@@ -100,7 +101,7 @@ export const MessageFilters = ({
           setMessageSources(sources);
         }
       } catch (error) {
-        console.error('Failed to fetch message sources:', error);
+        logger.error('Failed to fetch message sources:', error);
       }
     };
     void fetchSources();

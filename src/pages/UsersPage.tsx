@@ -1,5 +1,5 @@
-/* eslint-disable no-console */
 import { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Users,
   Edit2,
@@ -81,7 +81,7 @@ export const UsersPage = () => {
         const result = await userService.getAll(searchUser || undefined);
         setUsers(result.data); // Service returns { data: User[], pagination }
       } catch (error) {
-        console.error('Failed to fetch users:', error);
+        logger.error('Failed to fetch users:', error);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -95,7 +95,7 @@ export const UsersPage = () => {
   useEffect(() => {
     if (canViewUsers) {
       fetchUsers().catch((error) => {
-        console.error('Failed to fetch users:', error);
+        logger.error('Failed to fetch users:', error);
       });
     }
   }, [canViewUsers, fetchUsers]);
@@ -114,7 +114,7 @@ export const UsersPage = () => {
 
   const handleRefresh = () => {
     fetchUsers(true).catch((error) => {
-      console.error('Failed to fetch users:', error);
+      logger.error('Failed to fetch users:', error);
     });
   };
 
@@ -175,7 +175,6 @@ export const UsersPage = () => {
   };
 
   const handleDeleteUser = (user: User) => {
-    console.log('🗑️ Opening delete dialog for:', user.email);
     setDeleteDialog({ open: true, user });
   };
 
@@ -184,15 +183,13 @@ export const UsersPage = () => {
       return;
     }
 
-    console.log('User confirmed deletion, calling API...');
     try {
       await userService.delete(deleteDialog.user.id);
-      console.log('✅ User deleted successfully');
       setDeleteDialog({ open: false, user: null });
       // Refresh users list
       await fetchUsers();
     } catch (error) {
-      console.error('❌ Failed to delete user:', error);
+      logger.error('❌ Failed to delete user:', error);
       setAlertDialog({
         open: true,
         title: 'Delete Failed',
@@ -204,41 +201,27 @@ export const UsersPage = () => {
   };
 
   const canDeleteUser = (user: User) => {
-    // Debug logging
-    console.log('canDeleteUser check:', {
-      targetUser: { id: user.id, email: user.email, role: user.role },
-      currentUser: { id: currentUser?.id, email: currentUser?.email, role: currentUser?.role },
-      isAdmin,
-      canManageUsers,
-      hasDeletePermission: hasPermission(Permission.DELETE_USERS),
-    });
-
     // Cannot delete yourself
     if (currentUser && user.id === currentUser.id) {
-      console.log('Cannot delete yourself');
       return false;
     }
 
     // Check if user has delete permission
     if (!hasPermission(Permission.DELETE_USERS)) {
-      console.log('No DELETE_USERS permission');
       return false;
     }
 
     // Global admin can delete anyone
     if (isAdmin) {
-      console.log('Global admin - can delete');
       return true;
     }
 
     // Org admin cannot delete global admins
     if (user.role === 'admin') {
-      console.log('Target is global admin - cannot delete');
       return false;
     }
 
     // Org admin can delete other users in their organization
-    console.log('Org admin check, canManageUsers:', canManageUsers);
     return canManageUsers;
   };
 

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useState, useEffect } from 'react';
 import { X, Plus, Tag, ShieldCheck } from 'lucide-react';
 import { organizationService } from '@/services/organization.service';
@@ -13,6 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import type { User } from '@/types';
+import { logger } from '@/lib/logger';
 
 type RoutingKey = { id: number; key: string; description: string | null };
 
@@ -50,12 +50,12 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
         setCanEditSkills(canEdit);
         setGlobalSelfEdit(selfEdit.allowSelfEditSkills);
       } catch (err) {
-        console.error('Failed to load skills:', err);
+        logger.error('Failed to load skills:', err);
       } finally {
         setLoading(false);
       }
     };
-    load().catch(console.error);
+    load().catch((e) => { logger.error(e); });
   }, [isOpen, user]);
 
   const handleToggleCanEdit = async () => {
@@ -66,7 +66,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
       await userService.setCanEditSkills(user.id, next);
       setCanEditSkills(next);
     } catch (err) {
-      console.error('Failed to update permission:', err);
+      logger.error('Failed to update permission:', err);
     } finally {
       setTogglingPermission(false);
     }
@@ -84,7 +84,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
       setSkills((s) => ({ ...s, [key]: updated }));
       setInputs((i) => ({ ...i, [key]: '' }));
     } catch (err) {
-      console.error('Failed to add skill value:', err);
+      logger.error('Failed to add skill value:', err);
     } finally {
       setSaving((s) => ({ ...s, [key]: false }));
     }
@@ -98,7 +98,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
       await userService.setSkillValues(user.id, key, updated);
       setSkills((s) => ({ ...s, [key]: updated }));
     } catch (err) {
-      console.error('Failed to remove skill value:', err);
+      logger.error('Failed to remove skill value:', err);
     } finally {
       setSaving((s) => ({ ...s, [key]: false }));
     }
@@ -141,7 +141,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                       {val}
                       <button
                         type="button"
-                        onClick={() => handleRemoveValue(key, val).catch(console.error)}
+                        onClick={() => handleRemoveValue(key, val).catch((e) => { logger.error(e); })}
                         disabled={saving[key]}
                         className="hover:text-red-600 disabled:opacity-40"
                         aria-label={`Remove ${val}`}
@@ -162,7 +162,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                     value={inputs[key] ?? ''}
                     onChange={(e) => setInputs((i) => ({ ...i, [key]: e.target.value }))}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddValue(key).catch(console.error);
+                      if (e.key === 'Enter') handleAddValue(key).catch((e) => { logger.error(e); });
                     }}
                     disabled={saving[key]}
                   />
@@ -170,7 +170,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                     size="sm"
                     variant="outline"
                     className="h-7 px-2"
-                    onClick={() => handleAddValue(key).catch(console.error)}
+                    onClick={() => handleAddValue(key).catch((e) => { logger.error(e); })}
                     disabled={saving[key] || !inputs[key]?.trim()}
                   >
                     <Plus className="w-3 h-3" />

@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { messageService } from '@/services/message.service';
 import type { ApiResponse } from '@/types';
+import { logger } from '@/lib/logger';
 
 type LeadContactInfo = {
   name?: string;
@@ -184,13 +185,13 @@ export const LeadQualificationPanel = ({
         } catch (updateError) {
           const errorMessage =
             updateError instanceof Error ? updateError.message : String(updateError);
-          console.error('Failed to update lead state:', errorMessage);
+          logger.error('Failed to update lead state:', errorMessage);
           // Could show a toast notification here
         }
       }
       setEditing(false);
     } catch (error: unknown) {
-      console.error(
+      logger.error(
         'Failed to save lead qualification:',
         error instanceof Error ? error.message : String(error)
       );

@@ -21,6 +21,7 @@ import { aiService } from '@/services/ai.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { organizationService } from '@/services/organization.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
+import { logger } from '@/lib/logger';
 
 export const AIProvidersSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -62,7 +63,7 @@ export const AIProvidersSettings = () => {
 
   useEffect(() => {
     Promise.all([fetchIntegrations(), loadModels(), fetchAutoReplySettings()]).catch((error) => {
-      console.error('Failed to initialize:', error);
+      logger.error('Failed to initialize:', error);
     });
   }, []);
 
@@ -75,7 +76,7 @@ export const AIProvidersSettings = () => {
       setHighConfidenceThreshold(settings.highConfidenceThreshold);
       setTempThreshold(settings.highConfidenceThreshold);
     } catch (error) {
-      console.error('Failed to fetch auto-reply settings:', error);
+      logger.error('Failed to fetch auto-reply settings:', error);
     }
   };
 
@@ -91,7 +92,7 @@ export const AIProvidersSettings = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to update auto-reply setting:', error);
+      logger.error('Failed to update auto-reply setting:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -115,7 +116,7 @@ export const AIProvidersSettings = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to update requestMissingInfo:', error);
+      logger.error('Failed to update requestMissingInfo:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -139,7 +140,7 @@ export const AIProvidersSettings = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to update suggestSolutions:', error);
+      logger.error('Failed to update suggestSolutions:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -169,7 +170,7 @@ export const AIProvidersSettings = () => {
       setThresholdSaved(true);
       setTimeout(() => setThresholdSaved(false), 2000);
     } catch (error) {
-      console.error('Failed to update threshold:', error);
+      logger.error('Failed to update threshold:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -200,7 +201,7 @@ export const AIProvidersSettings = () => {
         );
       }
     } catch (error) {
-      console.error('Failed to fetch integrations:', error);
+      logger.error('Failed to fetch integrations:', error);
     } finally {
       setLoading(false);
     }
@@ -236,7 +237,7 @@ export const AIProvidersSettings = () => {
         setOllamaModels(ollamaRes.data.all);
       }
     } catch (error) {
-      console.error('Failed to load AI models:', error);
+      logger.error('Failed to load AI models:', error);
     }
   };
 
@@ -265,7 +266,7 @@ export const AIProvidersSettings = () => {
         });
       }
     } catch (error) {
-      console.error(`Failed to save ${name} integration:`, error);
+      logger.error(`Failed to save ${name} integration:`, error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -304,7 +305,7 @@ export const AIProvidersSettings = () => {
         });
       }
     } catch (error) {
-      console.error(`Failed to delete ${name}:`, error);
+      logger.error(`Failed to delete ${name}:`, error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -392,7 +393,7 @@ export const AIProvidersSettings = () => {
           integration.id === id ? { ...integration, enabled: currentEnabled } : integration
         )
       );
-      console.error(`Failed to toggle ${name}:`, error);
+      logger.error(`Failed to toggle ${name}:`, error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -424,7 +425,7 @@ export const AIProvidersSettings = () => {
         });
       }
     } catch (error) {
-      console.error(`Failed to test ${name} connection:`, error);
+      logger.error(`Failed to test ${name} connection:`, error);
       setAlertDialog({
         open: true,
         title: 'Test Failed',

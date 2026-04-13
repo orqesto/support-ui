@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
 import type { ChatWidget } from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
+import { logger } from '@/lib/logger';
 
 interface EmbedCodeModalProps {
   widget: ChatWidget | null;
@@ -20,7 +21,7 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (error) {
-        console.error('Failed to copy:', error);
+        logger.error('Failed to copy:', error);
       }
     }
   };
