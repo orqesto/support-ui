@@ -125,8 +125,10 @@ export type LoginRequest = {
 };
 
 export type LoginResponse = {
-  token: string;
-  user: User;
+  twoFactorRequired: boolean;
+  token?: string;
+  user?: User;
+  tempToken?: string;
 };
 
 export type CreateTicketRequest = {
