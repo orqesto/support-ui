@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 export type GmailOAuthConfig = {
   hasConfig: boolean;
@@ -148,7 +149,7 @@ export const gmailOAuthService = {
                   popup.close();
                 }
               } catch (error) {
-                console.error('Failed to close popup:', error);
+                logger.error('Failed to close popup:', error);
                 // Ignore errors closing popup
               }
 
@@ -181,8 +182,7 @@ export const gmailOAuthService = {
             const code = localStorage.getItem(storageKey);
 
             if (code) {
-              // eslint-disable-next-line no-console
-              console.log('📥 Received OAuth code via localStorage');
+              logger.info('📥 Received OAuth code via localStorage');
               clearInterval(checkAuth);
               clearInterval(checkClosed);
               window.removeEventListener('message', messageHandler);
@@ -194,7 +194,7 @@ export const gmailOAuthService = {
                   popup.close();
                 }
               } catch (error) {
-                console.error('Failed to close popup:', error);
+                logger.error('Failed to close popup:', error);
                 // Ignore errors closing popup
               }
 
@@ -237,18 +237,18 @@ export const gmailOAuthService = {
                 }
               }
             } catch (error) {
-              console.error('Failed to check popup state:', error);
+              logger.error('Failed to check popup state:', error);
               // Can't access popup.closed due to CORS, keep checking
             }
           }, 1000);
         } catch (error) {
-          console.error('OAuth error:', error);
+          logger.error('OAuth error:', error);
           resolve({ success: false, error: 'An error occurred during OAuth flow' });
         }
       };
 
       executeOAuth().catch((error) => {
-        console.error('OAuth error:', error);
+        logger.error('OAuth error:', error);
         resolve({ success: false, error: 'An error occurred during OAuth flow' });
       });
     }),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 type UseRuleManagementOptions<T, TFormData> = {
   fetchRules: () => Promise<T[]>;
@@ -31,7 +32,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       const data = await fetchRules();
       setRules(data);
     } catch (error) {
-      console.error('Error fetching rules:', error);
+      logger.error('Error fetching rules:', error);
     } finally {
       setLoading(false);
     }
@@ -39,7 +40,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
 
   useEffect(() => {
     loadRules().catch((error) => {
-      console.error('Failed to fetch rules:', error);
+      logger.error('Failed to fetch rules:', error);
     });
   }, [loadRules]);
 
@@ -72,7 +73,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       await loadRules();
       handleCancel();
     } catch (error) {
-      console.error('Error saving rule:', error);
+      logger.error('Error saving rule:', error);
       throw error;
     }
   }, [editingRule, isCreating, formData, updateRule, createRule, loadRules, handleCancel]);
@@ -91,7 +92,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       setDeleteDialogOpen(false);
       setRuleToDelete(null);
     } catch (error) {
-      console.error('Error deleting rule:', error);
+      logger.error('Error deleting rule:', error);
       throw error;
     }
   }, [ruleToDelete, deleteRule, loadRules]);

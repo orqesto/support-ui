@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { messageService } from '@/services/message.service';
+import { logger } from '@/lib/logger';
 
 type KBProcessingDetails = {
   totalAttachments: number;
@@ -104,7 +105,7 @@ export const useResolveMessageToKB = () => {
         },
       };
     } catch (error) {
-      console.error('Failed to resolve message:', error);
+      logger.error('Failed to resolve message:', error);
       return {
         alertState: {
           open: true,
