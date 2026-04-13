@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
+import { logger } from '@/lib/logger';
 
 type KBEntryDetailProps = {
   entry: KBEntry | null;
@@ -51,7 +52,7 @@ export const KBEntryDetail = ({
           setFullEntry(response.data);
         })
         .catch((error: Error) => {
-          console.error('Failed to fetch full entry:', error);
+          logger.error('Failed to fetch full entry:', error);
           setFullEntry(entry); // Fallback to truncated entry
         })
         .finally(() => {
@@ -256,7 +257,7 @@ export const KBEntryDetail = ({
                       a.click();
                       URL.revokeObjectURL(url);
                     } catch (error) {
-                      console.error('Download failed:', error);
+                      logger.error('Download failed:', error);
                     }
                   };
 

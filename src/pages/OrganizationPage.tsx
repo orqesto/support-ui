@@ -19,6 +19,7 @@ import { formatDate } from '@/lib/utils';
 import { organizationService } from '@/services/organization.service';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
+import { logger } from '@/lib/logger';
 
 export const OrganizationPage = () => {
   const { canManageOrganization, isAdmin } = usePermissions();
@@ -74,7 +75,7 @@ export const OrganizationPage = () => {
         description: orgData.description ?? '',
       });
     } catch (error) {
-      console.error('Failed to fetch current organization:', error);
+      logger.error('Failed to fetch current organization:', error);
     } finally {
       setLoading(false);
     }
@@ -89,14 +90,14 @@ export const OrganizationPage = () => {
       const result = await organizationService.getAll(searchOrg || undefined);
       setAllOrganizations(result.data); // Extract data array from response
     } catch (error) {
-      console.error('Failed to fetch all organizations:', error);
+      logger.error('Failed to fetch all organizations:', error);
     }
   }, [isAdmin, searchOrg, setAllOrganizations]);
 
   // Fetch current organization once on mount
   useEffect(() => {
     fetchCurrentOrganization().catch((error) => {
-      console.error('Failed to fetch current organization:', error);
+      logger.error('Failed to fetch current organization:', error);
     });
   }, [fetchCurrentOrganization]);
 
@@ -104,7 +105,7 @@ export const OrganizationPage = () => {
   useEffect(() => {
     if (isAdmin) {
       fetchAllOrganizations().catch((error) => {
-        console.error('Failed to fetch organizations:', error);
+        logger.error('Failed to fetch organizations:', error);
       });
     }
   }, [fetchAllOrganizations, isAdmin]);
@@ -115,7 +116,7 @@ export const OrganizationPage = () => {
       return;
     }
     fetchAllOrganizations().catch((error) => {
-      console.error('Failed to fetch organizations:', error);
+      logger.error('Failed to fetch organizations:', error);
     });
   }, [fetchAllOrganizations, isAdmin, searchOrg]);
 
@@ -159,7 +160,7 @@ export const OrganizationPage = () => {
       setOrganization(updated);
       setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update organization:', error);
+      logger.error('Failed to update organization:', error);
     } finally {
       setSaving(false);
     }
@@ -190,7 +191,7 @@ export const OrganizationPage = () => {
       setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
     } catch (error) {
       if (error instanceof Error) {
-        console.error('Failed to delete organization:', error);
+        logger.error('Failed to delete organization:', error);
         const apiError = error as Error & { response?: { data?: { message?: string } } };
         const errorMessage =
           apiError.response?.data?.message ??
@@ -219,7 +220,7 @@ export const OrganizationPage = () => {
       setEditingOrgId(null);
     } catch (error) {
       if (error instanceof Error) {
-        console.error('Failed to update organization:', error);
+        logger.error('Failed to update organization:', error);
         const apiError = error as Error & { response?: { data?: { message?: string } } };
         const errorMessage =
           apiError.response?.data?.message ??

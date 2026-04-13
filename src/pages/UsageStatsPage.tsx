@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type UsageModule = {
   moduleName: string;
@@ -91,7 +92,7 @@ export const UsageStatsPage = () => {
         ]);
         setHistory(historyRes.data.data.history);
       } catch (error) {
-        console.error('Failed to load usage:', error);
+        logger.error('Failed to load usage:', error);
       } finally {
         setLoading(false);
       }

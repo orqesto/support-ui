@@ -7,6 +7,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ChatWidgetModal } from './modals/ChatWidgetModal';
 import { EmbedCodeModal } from './modals/EmbedCodeModal';
+import { logger } from '@/lib/logger';
 
 export const ChatWidgetSettings = () => {
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
@@ -29,7 +30,7 @@ export const ChatWidgetSettings = () => {
   });
 
   useEffect(() => {
-    fetchWidgets().catch(console.error);
+    fetchWidgets().catch((e) => { logger.error(e); });
   }, []);
 
   const fetchWidgets = async () => {
@@ -39,7 +40,7 @@ export const ChatWidgetSettings = () => {
         setWidgets(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch chat widgets:', error);
+      logger.error('Failed to fetch chat widgets:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -62,7 +63,7 @@ export const ChatWidgetSettings = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to toggle widget:', error);
+      logger.error('Failed to toggle widget:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -89,7 +90,7 @@ export const ChatWidgetSettings = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to delete widget:', error);
+      logger.error('Failed to delete widget:', error);
       setAlertDialog({
         open: true,
         title: 'Error',
@@ -107,7 +108,7 @@ export const ChatWidgetSettings = () => {
       setCopiedId(widget.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (error) {
-      console.error('Failed to copy:', error);
+      logger.error('Failed to copy:', error);
     }
   };
 
@@ -258,7 +259,7 @@ export const ChatWidgetSettings = () => {
         onSuccess={() => {
           setShowCreateModal(false);
           setEditingWidget(null);
-          fetchWidgets().catch(console.error);
+          fetchWidgets().catch((e) => { logger.error(e); });
         }}
         onShowAlert={setAlertDialog}
       />

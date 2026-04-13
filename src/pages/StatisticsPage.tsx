@@ -39,6 +39,7 @@ import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry } from '@/services/statistics.service';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { logger } from '@/lib/logger';
 
 type TabType = 'overview' | 'sla' | 'team' | 'messages' | 'ai' | 'labels';
 const VALID_TABS: TabType[] = ['overview', 'sla', 'team', 'messages', 'ai', 'labels'];
@@ -116,7 +117,7 @@ export const StatisticsPage = () => {
       setKbStats(kbStatsData);
       setKbEntries(Array.isArray(kbEntriesData?.data) ? kbEntriesData.data : []);
     } catch (error) {
-      console.error('Failed to fetch statistics:', error);
+      logger.error('Failed to fetch statistics:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -125,7 +126,7 @@ export const StatisticsPage = () => {
 
   useEffect(() => {
     fetchStatistics().catch((error) => {
-      console.error('Failed to fetch statistics:', error);
+      logger.error('Failed to fetch statistics:', error);
     });
   }, []);
 

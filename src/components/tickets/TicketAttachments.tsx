@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useState, useEffect, useCallback } from 'react';
 import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -13,6 +12,7 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import { commentsService, type Attachment } from '@/services/comments.service';
+import { logger } from '@/lib/logger';
 
 type TicketAttachmentsProps = {
   ticketId: number;
@@ -44,7 +44,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         setAttachments(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch ticket attachments:', error);
+      logger.error('Failed to fetch ticket attachments:', error);
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +52,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
   useEffect(() => {
     fetchAttachments().catch((error) => {
-      console.error('Failed to fetch attachments:', error);
+      logger.error('Failed to fetch attachments:', error);
     });
 
     // Set up WebSocket to listen for updates
@@ -62,7 +62,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       const eventData = data as { ticketId: number };
       if (eventData.ticketId === ticketId) {
         fetchAttachments().catch((error) => {
-          console.error('Failed to fetch attachments:', error);
+          logger.error('Failed to fetch attachments:', error);
         });
       }
     };
@@ -148,7 +148,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       setSelectedFiles([]);
       await fetchAttachments(); // Refresh list
     } catch (error) {
-      console.error('Failed to upload attachments:', error);
+      logger.error('Failed to upload attachments:', error);
       setAlertDialog({
         open: true,
         title: 'Upload Failed',
@@ -177,7 +177,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       setAttachmentToDelete(null);
       await fetchAttachments(); // Refresh list
     } catch (error: unknown) {
-      console.error('Failed to delete attachment:', error);
+      logger.error('Failed to delete attachment:', error);
       const errorMsg =
         error instanceof Error ? error.message : 'Failed to delete attachment. Please try again.';
       setAlertDialog({

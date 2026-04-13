@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { integrationsService } from '@/services/integrations.service';
 import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
+import { logger } from '@/lib/logger';
 
 type EmailConfig = {
   host: string;
@@ -153,7 +154,7 @@ export const EmailIntegrationCard = ({
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to start bulk import:', error);
+      logger.error('Failed to start bulk import:', error);
       onShowAlert({
         open: true,
         title: 'Bulk Import Failed',
@@ -238,7 +239,7 @@ export const EmailIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error('Failed to save Email integration:', error);
+      logger.error('Failed to save Email integration:', error);
       onShowAlert({
         open: true,
         title: 'Error',
@@ -270,7 +271,7 @@ export const EmailIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error(`Failed to test ${name} connection:`, error);
+      logger.error(`Failed to test ${name} connection:`, error);
       onShowAlert({
         open: true,
         title: 'Test Failed',
@@ -304,7 +305,7 @@ export const EmailIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error(`Failed to delete ${name}:`, error);
+      logger.error(`Failed to delete ${name}:`, error);
       onShowAlert({
         open: true,
         title: 'Error',

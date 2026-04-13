@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, Users, Plug, MessageSquare } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type UsageLimits = {
   maxUsers: number;
@@ -84,7 +85,7 @@ export const AdminUsagePage = () => {
         );
         setOrganizations(response.data.data || []);
       } catch (error) {
-        console.error('Failed to load organizations usage:', error);
+        logger.error('Failed to load organizations usage:', error);
       } finally {
         setLoading(false);
       }

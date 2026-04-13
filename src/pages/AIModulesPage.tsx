@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, Permission } from '@/types/roles';
+import { logger } from '@/lib/logger';
 
 type AIModule = {
   id: number;
@@ -63,7 +64,7 @@ export const AIModulesPage = () => {
         setAvailableModules(modulesRes.data.data.modules);
         setEnabledModules(myModulesRes.data.data.modules);
       } catch (error) {
-        console.error('Failed to load modules:', error);
+        logger.error('Failed to load modules:', error);
       } finally {
         setLoading(false);
       }
@@ -108,7 +109,7 @@ export const AIModulesPage = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to toggle module:', error);
+      logger.error('Failed to toggle module:', error);
 
       // Show error notification
       setAlertDialog({

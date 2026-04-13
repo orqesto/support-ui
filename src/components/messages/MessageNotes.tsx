@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { messageService, type MessageNote } from '@/services/message.service';
+import { logger } from '@/lib/logger';
 
 type MessageNotesProps = {
   messageId: number;
@@ -23,7 +24,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
         setNotes(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch notes:', error);
+      logger.error('Failed to fetch notes:', error);
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +44,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
         await fetchNotes();
       }
     } catch (error) {
-      console.error('Failed to add note:', error);
+      logger.error('Failed to add note:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/Dialog';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { settingsService, type KnowledgeDetectionRule } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
 
 const CATEGORIES = [
   { value: 'pricing', label: 'Pricing', description: 'Costs, fees, payment terms' },
@@ -48,7 +49,7 @@ export const KnowledgeDetectionRulesSettings = () => {
       const data = await settingsService.getKnowledgeDetectionRules();
       setRules(data);
     } catch (error) {
-      console.error('Error fetching KB detection rules:', error);
+      logger.error('Error fetching KB detection rules:', error);
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ export const KnowledgeDetectionRulesSettings = () => {
 
   useEffect(() => {
     fetchRules().catch((error) => {
-      console.error('Failed to fetch rules:', error);
+      logger.error('Failed to fetch rules:', error);
     });
   }, []);
 
@@ -171,7 +172,7 @@ export const KnowledgeDetectionRulesSettings = () => {
       setDeleteDialogOpen(false);
       setRuleToDelete(null);
     } catch (error) {
-      console.error('Error deleting KB detection rule:', error);
+      logger.error('Error deleting KB detection rule:', error);
     }
   };
 
@@ -180,7 +181,7 @@ export const KnowledgeDetectionRulesSettings = () => {
       await settingsService.updateKnowledgeDetectionRule(rule.id, { active: !rule.active });
       await fetchRules();
     } catch (error) {
-      console.error('Error toggling KB detection rule:', error);
+      logger.error('Error toggling KB detection rule:', error);
     }
   };
 

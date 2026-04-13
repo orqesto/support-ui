@@ -3,6 +3,7 @@ import { BookOpen, CheckCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
+import { logger } from '@/lib/logger';
 
 type KBReference = {
   id: number;
@@ -38,7 +39,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
           setReferences(response.data);
         }
       } catch (err) {
-        console.error('Failed to load KB references:', err);
+        logger.error('Failed to load KB references:', err);
         setError('Failed to load KB references');
       } finally {
         setLoading(false);

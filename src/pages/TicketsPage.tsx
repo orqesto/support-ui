@@ -31,6 +31,7 @@ import { ticketService, type PaginationMeta } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket as TicketType } from '@/types';
 import { Permission } from '@/types/roles';
+import { logger } from '@/lib/logger';
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -186,11 +187,11 @@ export const TicketsPage = () => {
             setSelectedTicket(response.data);
           }
         } catch (error) {
-          console.error('Failed to fetch ticket:', error);
+          logger.error('Failed to fetch ticket:', error);
         }
       };
       fetchAndOpenTicket().catch((error) => {
-        console.error('Failed to fetch ticket:', error);
+        logger.error('Failed to fetch ticket:', error);
       });
     } else if (!paramId && selectedTicket) {
       // URL cleared but ticket still selected - clear selection
@@ -261,12 +262,12 @@ export const TicketsPage = () => {
           // If current page exceeds total pages, reset to page 1
           if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
             fetchTickets(1).catch((error) => {
-              console.error('Failed to fetch tickets:', error);
+              logger.error('Failed to fetch tickets:', error);
             });
           }
         }
       } catch (error) {
-        console.error('Failed to fetch tickets:', error);
+        logger.error('Failed to fetch tickets:', error);
       } finally {
         setLoading(false);
       }
@@ -276,7 +277,7 @@ export const TicketsPage = () => {
 
   useEffect(() => {
     fetchTickets(1).catch((error) => {
-      console.error('Failed to fetch tickets:', error);
+      logger.error('Failed to fetch tickets:', error);
     });
   }, [fetchTickets]);
 
@@ -300,11 +301,11 @@ export const TicketsPage = () => {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch Jira integrations:', error);
+        logger.error('Failed to fetch Jira integrations:', error);
       }
     };
     fetchJiraIntegrations().catch((error) => {
-      console.error('Failed to fetch Jira integrations:', error);
+      logger.error('Failed to fetch Jira integrations:', error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -321,7 +322,7 @@ export const TicketsPage = () => {
 
       // Refresh tickets to show latest data
       fetchTickets(pagination.page, true).catch((error) => {
-        console.error('Failed to fetch tickets:', error);
+        logger.error('Failed to fetch tickets:', error);
       });
 
       // If the updated ticket is currently open, refresh it
@@ -334,7 +335,7 @@ export const TicketsPage = () => {
             }
           })
           .catch((error) => {
-            console.error('Failed to refresh ticket:', error);
+            logger.error('Failed to refresh ticket:', error);
           });
       }
     };
@@ -346,7 +347,7 @@ export const TicketsPage = () => {
 
       // Refresh tickets list to show the new ticket
       fetchTickets(pagination.page, true).catch((error) => {
-        console.error('Failed to fetch tickets after creation:', error);
+        logger.error('Failed to fetch tickets after creation:', error);
       });
     };
 
@@ -445,7 +446,7 @@ export const TicketsPage = () => {
         });
         clearCache(); // Clear all cached data
         fetchTickets(1, true).catch((error) => {
-          console.error('Failed to fetch tickets:', error);
+          logger.error('Failed to fetch tickets:', error);
         });
       } else {
         setAlertDialog({
@@ -456,7 +457,7 @@ export const TicketsPage = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to push to Jira:', error);
+      logger.error('Failed to push to Jira:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setAlertDialog({
         open: true,
@@ -517,7 +518,7 @@ export const TicketsPage = () => {
           variant: 'success',
         });
         fetchTickets(1, true).catch((error) => {
-          console.error('Failed to fetch tickets:', error);
+          logger.error('Failed to fetch tickets:', error);
         });
       } else {
         setAlertDialog({
@@ -528,7 +529,7 @@ export const TicketsPage = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to sync tickets:', error);
+      logger.error('Failed to sync tickets:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setAlertDialog({
         open: true,
@@ -560,7 +561,7 @@ export const TicketsPage = () => {
       setTicketToDelete(null);
       await fetchTickets(1, true); // Force refresh
     } catch (error) {
-      console.error('Failed to delete ticket:', error);
+      logger.error('Failed to delete ticket:', error);
       setAlertDialog({
         open: true,
         title: 'Delete Failed',

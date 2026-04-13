@@ -11,6 +11,7 @@ import { categoryService } from '@/services/category.service';
 import { ticketService } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
+import { logger } from '@/lib/logger';
 
 export const EditTicketPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,10 +42,10 @@ export const EditTicketPage = () => {
   useEffect(() => {
     if (id) {
       fetchTicket(parseInt(id)).catch((error) => {
-        console.error('Failed to fetch ticket:', error);
+        logger.error('Failed to fetch ticket:', error);
       });
       fetchCategories().catch((error) => {
-        console.error('Failed to fetch categories:', error);
+        logger.error('Failed to fetch categories:', error);
       });
     }
   }, [id]);
@@ -63,7 +64,7 @@ export const EditTicketPage = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch ticket:', error);
+      logger.error('Failed to fetch ticket:', error);
       setAlertDialog({
         open: true,
         title: 'Load Failed',
@@ -82,7 +83,7 @@ export const EditTicketPage = () => {
         setCategories(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch categories:', error);
+      logger.error('Failed to fetch categories:', error);
     }
   };
 
@@ -110,7 +111,7 @@ export const EditTicketPage = () => {
         setTimeout(() => navigate(`/tickets`), 1500);
       }
     } catch (error) {
-      console.error('Failed to update ticket:', error);
+      logger.error('Failed to update ticket:', error);
       setAlertDialog({
         open: true,
         title: 'Update Failed',

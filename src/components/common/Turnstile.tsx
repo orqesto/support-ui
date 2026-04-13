@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { Turnstile as TurnstileWidget } from '@marsidev/react-turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
+import { logger } from '@/lib/logger';
 
 type TurnstileProps = {
   onSuccess: (token: string) => void;
@@ -12,7 +13,7 @@ export const Turnstile = forwardRef<TurnstileInstance, TurnstileProps>(
     const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
     if (!siteKey) {
-      console.warn('Turnstile site key not configured');
+      logger.warn('Turnstile site key not configured');
       return null;
     }
 

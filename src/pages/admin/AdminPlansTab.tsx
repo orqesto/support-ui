@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 type Plan = {
   id: number;
@@ -92,7 +93,7 @@ export const AdminPlansTab = () => {
         setModules(modulesRes.data.data as Module[]);
       }
     } catch (error) {
-      console.error('Failed to fetch admin data:', error);
+      logger.error('Failed to fetch admin data:', error);
     } finally {
       setLoading(false);
     }
@@ -119,7 +120,7 @@ export const AdminPlansTab = () => {
         await fetchData();
       }
     } catch (error) {
-      console.error('Failed to switch plan:', error);
+      logger.error('Failed to switch plan:', error);
     } finally {
       setSwitching(false);
     }
@@ -140,7 +141,7 @@ export const AdminPlansTab = () => {
         );
       }
     } catch (error) {
-      console.error('Failed to toggle module:', error);
+      logger.error('Failed to toggle module:', error);
     } finally {
       setToggling(null);
     }

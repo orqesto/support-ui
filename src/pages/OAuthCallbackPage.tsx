@@ -1,6 +1,6 @@
-/* eslint-disable no-console */
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
 
 export const OAuthCallbackPage = () => {
@@ -24,11 +24,11 @@ export const OAuthCallbackPage = () => {
         const opener = window.opener as (Window & { closed: boolean }) | null;
         if (opener && !opener.closed) {
           // Popup case: Use postMessage to communicate with parent
-          console.log('📤 Sending code to parent window via postMessage');
+          logger.info('📤 Sending code to parent window via postMessage');
           opener.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code }, window.location.origin);
         } else {
           // New tab case: Use localStorage as fallback
-          console.log('📤 Storing code in localStorage (new tab)');
+          logger.info('📤 Storing code in localStorage (new tab)');
           localStorage.setItem('gmail_oauth_code', code);
         }
 
@@ -40,7 +40,7 @@ export const OAuthCallbackPage = () => {
           window.close();
         }, 1000);
       } catch (e) {
-        console.error('Failed to communicate OAuth code:', e);
+        logger.error('Failed to communicate OAuth code:', e);
         setStatus('error');
         setMessage('Failed to save authorization code. Please try again.');
       }

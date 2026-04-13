@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { logger } from '@/lib/logger';
 
 interface ChatWidgetModalProps {
   open: boolean;
@@ -126,7 +127,7 @@ export const ChatWidgetModal = ({
 
       onSuccess();
     } catch (error) {
-      console.error('Failed to save widget:', error);
+      logger.error('Failed to save widget:', error);
       onShowAlert({
         open: true,
         title: 'Error',

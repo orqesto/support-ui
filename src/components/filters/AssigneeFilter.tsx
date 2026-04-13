@@ -3,6 +3,7 @@ import { User } from 'lucide-react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/lib/logger';
 
 type AssigneeFilterProps = {
   value?: string;
@@ -27,13 +28,13 @@ export const AssigneeFilter = ({ value, onChange, skillFilter, className }: Assi
         );
         setUsers(data);
       } catch (error) {
-        console.error('Failed to fetch assignable users:', error);
+        logger.error('Failed to fetch assignable users:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUsers().catch(console.error);
+    fetchUsers().catch((e) => { logger.error(e); });
   }, [selectedDepartmentRole, skillFilter]);
 
   const options = [

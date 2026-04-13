@@ -7,6 +7,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import type { SpamLogFilters as SpamLogFiltersType } from '@/services/spamLog.service';
+import { logger } from '@/lib/logger';
 
 type SpamLogFiltersProps = {
   filters: SpamLogFiltersType;
@@ -57,7 +58,7 @@ export const SpamLogFilters = ({
           setMessageSources(sources);
         }
       } catch (error) {
-        console.error('Failed to fetch message sources:', error);
+        logger.error('Failed to fetch message sources:', error);
       }
     };
     void fetchSources();

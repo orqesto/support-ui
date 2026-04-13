@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
+import { logger } from '@/lib/logger';
 
 type AssignmentSelectProps = {
   type: 'message' | 'ticket' | 'thread';
@@ -31,14 +32,14 @@ export const AssignmentSelect = ({
       const data = await assignmentService.getAssignableUsers(departmentRole, skillFilter);
       setUsers(data);
     } catch (error) {
-      console.error('Failed to fetch assignable users:', error);
+      logger.error('Failed to fetch assignable users:', error);
     } finally {
       setLoading(false);
     }
   }, [departmentRole, skillFilter]);
 
   useEffect(() => {
-    fetchUsers().catch(console.error);
+    fetchUsers().catch((e) => { logger.error(e); });
   }, [fetchUsers]);
 
   const handleAssign = async (value: string) => {
@@ -55,7 +56,7 @@ export const AssignmentSelect = ({
       }
       onAssign?.();
     } catch (error) {
-      console.error('[AssignmentSelect] Failed to assign:', error);
+      logger.error('[AssignmentSelect] Failed to assign:', error);
     } finally {
       setAssigning(false);
     }

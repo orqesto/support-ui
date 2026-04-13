@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/Input';
 import { apiClient } from '@/lib/api-client';
 import { authService } from '@/services/auth.service';
+import { logger } from '@/lib/logger';
 
 export const SignupPage = () => {
   const [searchParams] = useSearchParams();
@@ -76,7 +77,7 @@ export const SignupPage = () => {
     };
 
     validateToken().catch((error) => {
-      console.error('Failed to validate token:', error);
+      logger.error('Failed to validate token:', error);
     });
   }, [token, navigate]);
 

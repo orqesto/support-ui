@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 import { auditLogService } from '@/services/auditLog.service';
 import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { Permission } from '@/types/roles';
+import { logger } from '@/lib/logger';
 
 export const AuditLogsPage = () => {
   const { hasPermission } = usePermissions();
@@ -51,7 +52,7 @@ export const AuditLogsPage = () => {
         setTotalCount(result.pagination.total);
         setTotalPages(result.pagination.totalPages);
       } catch (error) {
-        console.error('Failed to fetch audit logs:', error);
+        logger.error('Failed to fetch audit logs:', error);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -65,14 +66,14 @@ export const AuditLogsPage = () => {
   useEffect(() => {
     if (canView) {
       fetchLogs().catch((error) => {
-        console.error('Failed to fetch logs:', error);
+        logger.error('Failed to fetch logs:', error);
       });
     }
   }, [canView, fetchLogs]);
 
   const handleRefresh = () => {
     fetchLogs(true).catch((error) => {
-      console.error('Failed to refresh logs:', error);
+      logger.error('Failed to refresh logs:', error);
     });
   };
 

@@ -3,6 +3,7 @@ import { JiraIntegrationCard } from '@/components/settings/integrations/JiraInte
 import type { AlertState } from '@/components/settings/integrations/types';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
+import { logger } from '@/lib/logger';
 
 export const TicketAutomationSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -16,7 +17,7 @@ export const TicketAutomationSettings = () => {
 
   useEffect(() => {
     fetchIntegrations().catch((error) => {
-      console.error('Failed to fetch integrations:', error);
+      logger.error('Failed to fetch integrations:', error);
     });
   }, []);
 
@@ -26,11 +27,11 @@ export const TicketAutomationSettings = () => {
       if (response.success && response.data) {
         setIntegrations(response.data.map((integration) => ({ ...integration })));
       } else {
-        console.error('Failed to fetch integrations:', response.error);
+        logger.error('Failed to fetch integrations:', response.error);
         throw new Error(response.error ?? 'Failed to fetch integrations');
       }
     } catch (error) {
-      console.error('Failed to fetch integrations:', error);
+      logger.error('Failed to fetch integrations:', error);
       throw error;
     } finally {
       setLoading(false);

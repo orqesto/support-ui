@@ -5,6 +5,7 @@ import { AttachmentRelevanceIndicator } from './AttachmentRelevanceIndicator';
 import { apiClient } from '@/lib/api-client';
 import type { AttachmentMetadata } from '@/types/ai';
 import type { Message } from '@/types';
+import { logger } from '@/lib/logger';
 
 type MessageAttachmentsProps = {
   message: Message;
@@ -65,7 +66,7 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
         );
         setDbAttachments(response.data.data ?? []);
       } catch (error) {
-        console.error('Failed to fetch attachments:', error);
+        logger.error('Failed to fetch attachments:', error);
       } finally {
         setLoading(false);
       }

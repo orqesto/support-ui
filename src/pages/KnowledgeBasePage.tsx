@@ -22,6 +22,7 @@ import {
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
+import { logger } from '@/lib/logger';
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
@@ -74,7 +75,7 @@ export const KnowledgeBasePage = () => {
       setEntries(response.data.entries);
       setPagination(response.data.pagination);
     } catch (error) {
-      console.error('Failed to fetch KB entries:', error);
+      logger.error('Failed to fetch KB entries:', error);
       setAlertDialog({
         open: true,
         title: 'Failed to Load',
@@ -109,7 +110,7 @@ export const KnowledgeBasePage = () => {
             setSelectedEntry(response.data);
           })
           .catch((error: Error) => {
-            console.error('Failed to fetch KB entry:', error);
+            logger.error('Failed to fetch KB entry:', error);
             setAlertDialog({
               open: true,
               title: 'Entry Not Found',
@@ -165,7 +166,7 @@ export const KnowledgeBasePage = () => {
         prev.map((entry) => (entry.id === id ? { ...entry, approved: true, hidden: false } : entry))
       );
     } catch (error) {
-      console.error('Failed to approve entry:', error);
+      logger.error('Failed to approve entry:', error);
       setAlertDialog({
         open: true,
         title: 'Failed to Approve',
@@ -183,7 +184,7 @@ export const KnowledgeBasePage = () => {
         prev.map((entry) => (entry.id === id ? { ...entry, hidden: true, approved: false } : entry))
       );
     } catch (error) {
-      console.error('Failed to hide entry:', error);
+      logger.error('Failed to hide entry:', error);
       setAlertDialog({
         open: true,
         title: 'Failed to Hide',
@@ -243,7 +244,7 @@ export const KnowledgeBasePage = () => {
         variant: 'success',
       });
     } catch (error) {
-      console.error('Failed to delete entry:', error);
+      logger.error('Failed to delete entry:', error);
       setAlertDialog({
         open: true,
         title: 'Delete Failed',

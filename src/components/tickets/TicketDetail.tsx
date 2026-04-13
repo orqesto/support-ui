@@ -28,6 +28,7 @@ import { labelService, type Label } from '@/services/settings.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message } from '@/types';
+import { logger } from '@/lib/logger';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -96,7 +97,7 @@ export const TicketDetail = ({
         setTimeout(() => setLinkCopied(false), 2000);
       })
       .catch((err) => {
-        console.error('Failed to copy link:', err);
+        logger.error('Failed to copy link:', err);
       });
   };
 
@@ -106,7 +107,7 @@ export const TicketDetail = ({
       labelService.getLabels(),
     ])
       .then(([tl, al]) => { setTicketLabels(tl); setAllLabels(al); })
-      .catch(console.error);
+      .catch((e) => { logger.error(e); });
   }, [ticket.id]);
 
   const handleToggleLabel = async (label: Label) => {
@@ -120,7 +121,7 @@ export const TicketDetail = ({
         setTicketLabels((prev) => [...prev, label]);
       }
     } catch (error) {
-      console.error('Failed to toggle label:', error);
+      logger.error('Failed to toggle label:', error);
     }
   };
 
@@ -131,7 +132,7 @@ export const TicketDetail = ({
         const response = await messageService.getAll({ ticketId: ticket.id.toString() });
         setLinkedMessages(response.data ?? []);
       } catch (error) {
-        console.error('Error fetching linked messages:', error);
+        logger.error('Error fetching linked messages:', error);
         setLinkedMessages([]);
       } finally {
         setLoadingMessages(false);
@@ -139,7 +140,7 @@ export const TicketDetail = ({
     };
 
     fetchLinkedMessages().catch((error) => {
-      console.error('Failed to fetch linked messages:', error);
+      logger.error('Failed to fetch linked messages:', error);
     });
   }, [ticket.id]);
 

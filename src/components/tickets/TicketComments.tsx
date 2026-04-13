@@ -33,6 +33,7 @@ import {
 } from '@/lib/socketManager';
 import { formatDate } from '@/lib/utils';
 import { commentsService, type Comment } from '@/services/comments.service';
+import { logger } from '@/lib/logger';
 
 type TicketCommentsProps = {
   ticketId: number;
@@ -72,7 +73,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         setComments(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch comments:', error);
+      logger.error('Failed to fetch comments:', error);
     } finally {
       setIsLoading(false);
     }
@@ -90,12 +91,12 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         setCurrentUserId(payload.userId);
         setCurrentUserRole(payload.role);
       } catch (e) {
-        console.error('Failed to parse token:', e);
+        logger.error('Failed to parse token:', e);
       }
     }
 
     fetchComments().catch((error) => {
-      console.error('Failed to fetch comments:', error);
+      logger.error('Failed to fetch comments:', error);
     });
 
     // Set up WebSocket connection and listen for comment events
@@ -106,7 +107,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       // Only refresh if the event is for this ticket
       if (eventData.ticketId === ticketId) {
         fetchComments().catch((error) => {
-          console.error('Failed to fetch comments:', error);
+          logger.error('Failed to fetch comments:', error);
         });
       }
     };
@@ -123,7 +124,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         void commentsService
           .syncFromJira(ticketId)
           .then(() => fetchComments())
-          .catch((error: unknown) => console.error('Background sync failed:', error));
+          .catch((error: unknown) => logger.error('Background sync failed:', error));
       }, 60000); // Poll every 60 seconds
     }
 
@@ -153,7 +154,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
           try {
             await commentsService.uploadAttachments(response.data.id, selectedFiles);
           } catch (uploadError: unknown) {
-            console.error('Failed to upload attachments:', uploadError);
+            logger.error('Failed to upload attachments:', uploadError);
             const errorMsg = uploadError instanceof Error ? uploadError.message : 'Unknown error';
             setAlertDialog({
               open: true,
@@ -169,7 +170,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         await fetchComments(); // Refresh comments immediately
       }
     } catch (error) {
-      console.error('Failed to add comment:', error);
+      logger.error('Failed to add comment:', error);
       setAlertDialog({
         open: true,
         title: 'Comment Failed',
@@ -204,7 +205,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         await fetchComments(); // Refresh immediately
       }
     } catch (error: unknown) {
-      console.error('Failed to update comment:', error);
+      logger.error('Failed to update comment:', error);
       const errorMsg =
         error instanceof Error ? error.message : 'Failed to update comment. Please try again.';
       setAlertDialog({
@@ -232,7 +233,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       setCommentToDelete(null);
       await fetchComments(); // Refresh immediately
     } catch (error: unknown) {
-      console.error('Failed to delete comment:', error);
+      logger.error('Failed to delete comment:', error);
       const errorMsg =
         error instanceof Error ? error.message : 'Failed to delete comment. Please try again.';
       setAlertDialog({
@@ -262,7 +263,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       await commentsService.syncFromJira(ticketId);
       await fetchComments();
     } catch (error: unknown) {
-      console.error('Failed to sync comments:', error);
+      logger.error('Failed to sync comments:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to sync comments from Jira';
       setAlertDialog({
         open: true,
@@ -291,7 +292,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       setDeleteAttachmentDialogOpen(false);
       setAttachmentToDelete(null);
     } catch (error: unknown) {
-      console.error('Failed to delete attachment:', error);
+      logger.error('Failed to delete attachment:', error);
       const errorMsg =
         error instanceof Error ? error.message : 'Failed to delete attachment. Please try again.';
       setAlertDialog({

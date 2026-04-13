@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import { integrationsService } from '@/services/integrations.service';
+import { logger } from '@/lib/logger';
 
 type JiraConfig = {
   apiUrl: string;
@@ -78,7 +79,7 @@ export const JiraIntegrationCard = ({
         });
       }
     } catch (error) {
-      console.error(`Failed to set ${name} as default:`, error);
+      logger.error(`Failed to set ${name} as default:`, error);
       onShowAlert({
         open: true,
         title: 'Error',

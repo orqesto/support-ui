@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Inbox } from 'lucide-react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { integrationsService, type Integration } from '@/services/integrations.service';
+import { logger } from '@/lib/logger';
 
 type MessageSourceFilterProps = {
   value: string | undefined;
@@ -25,7 +26,7 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
           setMessageSources(sources);
         }
       } catch (error) {
-        console.error('Failed to fetch message sources:', error);
+        logger.error('Failed to fetch message sources:', error);
       } finally {
         setLoading(false);
       }

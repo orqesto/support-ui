@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { User, DepartmentRole } from '@/types';
 import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
 import { RoleInfoCard } from '../admin/RoleInfoCard';
+import { logger } from '@/lib/logger';
 
 type EditUserModalProps = {
   isOpen: boolean;
@@ -119,7 +120,7 @@ export const EditUserModal = ({
           setOrganizations(result.data);
         })
         .catch((error) => {
-          console.error('Failed to load organizations:', error);
+          logger.error('Failed to load organizations:', error);
         });
     }
   }, [isAdmin, isOpen]);
@@ -205,7 +206,7 @@ export const EditUserModal = ({
       });
       onClose();
     } catch (error) {
-      console.error('Failed to update user:', error);
+      logger.error('Failed to update user:', error);
       setAlertDialog({
         open: true,
         title: 'Update Failed',
@@ -235,7 +236,7 @@ export const EditUserModal = ({
       // Update user details
       await performUpdate();
     } catch (error) {
-      console.error('Failed to change organization:', error);
+      logger.error('Failed to change organization:', error);
       setAlertDialog({
         open: true,
         title: 'Organization Change Failed',

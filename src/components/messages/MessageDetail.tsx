@@ -67,6 +67,7 @@ import type { Message, Category, TicketPriority, MessageStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { useAuthStore } from '@/stores/authStore';
 import DOMPurify from 'dompurify';
+import { logger } from '@/lib/logger';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -269,7 +270,7 @@ export const MessageDetail = ({
         await labelService.assignLabelToMessage(message.id, label.id);
       }
     } catch (error) {
-      console.error('Failed to toggle label:', error);
+      logger.error('Failed to toggle label:', error);
       setMessageLabels(previousLabels);
     }
   };
@@ -280,7 +281,7 @@ export const MessageDetail = ({
       await messageService.setStatus(message.id, status);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to set status:', error);
+      logger.error('Failed to set status:', error);
     } finally {
       setUpdatingStatus(false);
     }
@@ -292,7 +293,7 @@ export const MessageDetail = ({
       await messageService.setPriority(message.id, priority);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to set priority:', error);
+      logger.error('Failed to set priority:', error);
     } finally {
       setUpdatingPriority(false);
     }
@@ -304,7 +305,7 @@ export const MessageDetail = ({
       await messageService.setCategory(message.id, categoryId);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to set category:', error);
+      logger.error('Failed to set category:', error);
     } finally {
       setUpdatingCategory(false);
     }
@@ -316,7 +317,7 @@ export const MessageDetail = ({
       await messageService.markAsLead(message.id, !message.isLead);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to toggle lead:', error);
+      logger.error('Failed to toggle lead:', error);
     } finally {
       setTogglingLead(false);
     }
@@ -330,7 +331,7 @@ export const MessageDetail = ({
       await messageService.close(message.id);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to close as not-lead:', error);
+      logger.error('Failed to close as not-lead:', error);
     } finally {
       setClosing(false);
     }
@@ -342,7 +343,7 @@ export const MessageDetail = ({
       await messageService.close(message.id);
       onRefresh?.();
     } catch (error) {
-      console.error('Failed to close message:', error);
+      logger.error('Failed to close message:', error);
     } finally {
       setClosing(false);
     }
@@ -357,7 +358,7 @@ export const MessageDetail = ({
         setTimeout(() => setLinkCopied(false), 2000);
       })
       .catch((err) => {
-        console.error('Failed to copy link:', err);
+        logger.error('Failed to copy link:', err);
       });
   };
 
@@ -400,7 +401,7 @@ export const MessageDetail = ({
       setShowReplyForm(false);
       onRefresh?.(); // Refresh message data after sending reply
     } catch (error) {
-      console.error('Failed to send reply:', error);
+      logger.error('Failed to send reply:', error);
     } finally {
       setSubmitting(false);
     }
@@ -439,7 +440,7 @@ export const MessageDetail = ({
         });
       }
     } catch (err) {
-      console.error('Failed to check contradiction:', err);
+      logger.error('Failed to check contradiction:', err);
       setAlertDialog({
         open: true,
         title: 'Check Failed',

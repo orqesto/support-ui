@@ -12,6 +12,7 @@ import {
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
 
 type SpamRuleFormData = {
   name: string;
@@ -77,7 +78,7 @@ export const SpamRulesSettings = () => {
       });
       await loadRules();
     } catch (error) {
-      console.error('Error toggling rule:', error);
+      logger.error('Error toggling rule:', error);
     }
   };
 

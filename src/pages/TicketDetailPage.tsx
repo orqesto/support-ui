@@ -16,6 +16,7 @@ import {
 import { ticketService } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
+import { logger } from '@/lib/logger';
 
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,7 +41,7 @@ export const TicketDetailPage = () => {
         setTicket(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch ticket:', error);
+      logger.error('Failed to fetch ticket:', error);
     } finally {
       setLoading(false);
     }
@@ -64,7 +65,7 @@ export const TicketDetailPage = () => {
       setDeleteDialogOpen(false);
       navigate('/tickets');
     } catch (error) {
-      console.error('Failed to delete ticket:', error);
+      logger.error('Failed to delete ticket:', error);
     } finally {
       setDeleting(false);
     }
