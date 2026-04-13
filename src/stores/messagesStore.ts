@@ -186,12 +186,10 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
   // Update secondary filter: Keep all filters
   updateSecondaryFilter: (key, value) => {
-    set((state) => {
-      return {
-        filters: { ...state.filters, [key]: value },
-        cache: {}, // Clear cache on filter change
-      };
-    });
+    set((state) => ({
+      filters: { ...state.filters, [key]: value },
+      cache: {}, // Clear cache on filter change
+    }));
   },
 
   clearFilters: () => {
