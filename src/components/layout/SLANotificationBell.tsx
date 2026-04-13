@@ -32,37 +32,39 @@ const NotificationItem = ({
   return (
     <div
       className={cn(
-        'flex gap-3 items-start p-3 rounded-lg border text-sm',
+        'flex gap-3 items-start p-3 text-sm rounded-lg border',
         isCritical
-          ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30'
-          : 'border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/30'
+          ? 'bg-red-50 border-red-200 dark:border-red-900 dark:bg-red-950/30'
+          : 'bg-yellow-50 border-yellow-200 dark:border-yellow-900 dark:bg-yellow-950/30'
       )}
     >
       <AlertTriangle
-        className={cn(
-          'mt-0.5 w-4 h-4 shrink-0',
-          isCritical ? 'text-red-500' : 'text-yellow-500'
-        )}
+        className={cn('mt-0.5 w-4 h-4 shrink-0', isCritical ? 'text-red-500' : 'text-yellow-500')}
       />
       <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-center gap-2">
+        <div className="flex gap-2 justify-between items-center">
           <span className="font-medium text-foreground">{typeLabel(n.type)}</span>
           <div className="flex gap-1 items-center shrink-0">
-          <span
-            className={cn(
-              'text-xs font-semibold shrink-0',
-              isCritical ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'
-            )}
-          >
-            {formatBreachAmount(n.breachAmount)}
-          </span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDismiss(n.id); }}
-            className="flex items-center justify-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
-            title="Dismiss"
-          >
-            <X className="w-3 h-3" />
-          </button>
+            <span
+              className={cn(
+                'text-xs font-semibold shrink-0',
+                isCritical
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-yellow-600 dark:text-yellow-400'
+              )}
+            >
+              {formatBreachAmount(n.breachAmount)}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss(n.id);
+              }}
+              className="flex justify-center items-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
+              title="Dismiss"
+            >
+              <X className="w-3 h-3" />
+            </button>
           </div>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground">
@@ -70,9 +72,7 @@ const NotificationItem = ({
         </p>
         <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">
           {n.details.channel && <span className="capitalize">{n.details.channel}</span>}
-          {n.details.priority && (
-            <span className="capitalize">{n.details.priority} priority</span>
-          )}
+          {n.details.priority && <span className="capitalize">{n.details.priority} priority</span>}
           <span className="flex gap-1 items-center ml-auto">
             <Clock className="w-3 h-3" />
             {n.details.targetMinutes !== null && n.details.targetMinutes !== undefined
@@ -118,7 +118,7 @@ export const SLANotificationBell = () => {
       <button
         ref={buttonRef}
         onClick={handleOpen}
-        className="relative flex justify-center items-center w-8 h-8 rounded-md transition-colors hover:bg-accent text-foreground/70 hover:text-foreground"
+        className="flex relative justify-center items-center w-8 h-8 rounded-md transition-colors hover:bg-accent text-foreground/70 hover:text-foreground"
         title="SLA breach alerts"
       >
         <Bell className="w-4 h-4" />
@@ -132,7 +132,7 @@ export const SLANotificationBell = () => {
       {open && (
         <div
           ref={panelRef}
-          className="absolute bottom-10 left-0 z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
+          className="absolute left-0 bottom-10 z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
         >
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold">SLA Alerts</span>
@@ -154,7 +154,7 @@ export const SLANotificationBell = () => {
             </div>
           </div>
 
-          <div className="overflow-y-auto max-h-80 p-2 space-y-2">
+          <div className="overflow-y-auto p-2 space-y-2 max-h-80">
             {notifications.length === 0 ? (
               <p className="py-6 text-sm text-center text-muted-foreground">No SLA alerts</p>
             ) : (
