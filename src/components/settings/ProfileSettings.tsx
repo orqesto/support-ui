@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Lock, User, Tag, X, PenLine } from 'lucide-react';
+import { Lock, User, Tag, X, PenLine, ShieldCheck } from 'lucide-react';
+import { TwoFactorSettings } from './TwoFactorSettings';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
@@ -323,6 +324,15 @@ export const ProfileSettings = () => {
             {loading ? 'Changing Password...' : 'Change Password'}
           </Button>
         </form>
+      </div>
+
+      {/* Two-Factor Authentication */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="flex gap-2 items-center mb-4 text-lg font-semibold">
+          <ShieldCheck className="w-5 h-5 text-blue-500" />
+          Two-Factor Authentication
+        </h3>
+        <TwoFactorSettings />
       </div>
     </div>
   );
