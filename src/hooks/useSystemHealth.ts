@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
+import { logger } from '@/lib/logger';
 import { healthService, type HealthResponse } from '@/services/health.service';
 
 type SystemHealth = {
@@ -28,7 +29,7 @@ export const useSystemHealth = (pollInterval = 10000): SystemHealth => {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch health status');
-      console.error('Health check failed:', err);
+      logger.error('Health check failed:', err);
     } finally {
       setLoading(false);
     }
@@ -37,7 +38,7 @@ export const useSystemHealth = (pollInterval = 10000): SystemHealth => {
   // Initial fetch
   useEffect(() => {
     fetchHealth().catch((error) => {
-      console.error('Failed to fetch health:', error);
+      logger.error('Failed to fetch health:', error);
     });
   }, [fetchHealth]);
 
@@ -45,7 +46,7 @@ export const useSystemHealth = (pollInterval = 10000): SystemHealth => {
   useEffect(() => {
     const interval = setInterval(() => {
       fetchHealth().catch((error) => {
-        console.error('Failed to fetch health:', error);
+        logger.error('Failed to fetch health:', error);
       });
     }, pollInterval);
 

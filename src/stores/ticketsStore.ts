@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { create } from 'zustand';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 
@@ -65,17 +64,14 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   cache: new Map(),
 
   setFilters: (filters) => {
-    console.log('🔄 Tickets filters updated:', filters);
     set({ filters, cache: new Map() });
   },
 
   setSorting: (sorting) => {
-    console.log('🔄 Tickets sorting updated:', sorting);
     set({ sorting, cache: new Map() }); // Clear cache when sorting changes
   },
 
   clearFilters: () => {
-    console.log('🧹 Clearing tickets filters');
     set({
       filters: {
         status: 'all',
@@ -102,7 +98,6 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
       sorting,
     });
 
-    console.log(`💾 Cached tickets for page ${pagination.page}:`, filters);
     set({ cache: newCache });
   },
 
@@ -112,22 +107,18 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
     const cached = cache.get(cacheKey);
 
     if (!cached) {
-      console.log(`❌ Cache MISS for page ${page}`);
       return null;
     }
 
     const age = Date.now() - cached.timestamp;
     if (age > CACHE_TTL) {
-      console.log(`⏰ Cache EXPIRED for page ${page} (${Math.round(age / 1000)}s old)`);
       return null;
     }
 
-    console.log(`✅ Cache HIT for page ${page}:`, filters);
     return cached;
   },
 
   clearCache: () => {
-    console.log('🧹 Clearing tickets cache');
     set({ cache: new Map() });
   },
 }));

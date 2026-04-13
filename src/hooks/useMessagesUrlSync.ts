@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services/message.service';
@@ -93,7 +94,7 @@ export const useMessagesUrlSync = ({
     urlSyncedRef.current = true;
 
     fetchMessages(1).catch((error) => {
-      console.error('Failed to fetch messages:', error);
+      logger.error('Failed to fetch messages:', error);
       onFetchError?.(error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +160,7 @@ export const useMessagesUrlSync = ({
           }
         })
         .catch((error) => {
-          console.error('Failed to fetch message:', error);
+          logger.error('Failed to fetch message:', error);
           fetchedMessageIdRef.current = null;
           setSearchParams((prev) => { prev.delete('id'); return prev; }, { replace: true });
         });

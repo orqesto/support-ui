@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 // Integration-specific config types
 export type EmailConfig = {
@@ -214,7 +215,7 @@ export const integrationsService = {
 
       return emailIntegrations.length > 0;
     } catch (error) {
-      console.error('Failed to check for email integrations:', error);
+      logger.error('Failed to check for email integrations:', error);
       return false;
     }
   },

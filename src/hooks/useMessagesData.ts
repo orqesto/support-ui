@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import type { MutableRefObject } from 'react';
 import { messageService } from '@/services/message.service';
 import {
@@ -161,7 +162,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
           }
         }
       } catch (error) {
-        console.error('Failed to fetch messages:', error);
+        logger.error('Failed to fetch messages:', error);
       } finally {
         setLoading(false);
         messagesFetchingRef.current = false;
@@ -190,7 +191,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
           }
         }
       } catch (error) {
-        console.error('Failed to fetch spam logs:', error);
+        logger.error('Failed to fetch spam logs:', error);
       } finally {
         setLoading(false);
         spamFetchingRef.current = false;
@@ -204,7 +205,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     if (!urlSyncedRef.current) return;
 
     fetchMessages(1).catch((error) => {
-      console.error('Failed to fetch messages:', error);
+      logger.error('Failed to fetch messages:', error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -243,7 +244,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
 
     if (activeTab === 'messages') {
       fetchMessages(1).catch((error) => {
-        console.error('Failed to fetch messages:', error);
+        logger.error('Failed to fetch messages:', error);
       });
     }
   }, [activeTab, fetchMessages, urlSyncedRef]);
@@ -254,7 +255,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
 
     if (activeTab === 'spam') {
       fetchSpamLogs(1).catch((error) => {
-        console.error('Failed to fetch spam logs:', error);
+        logger.error('Failed to fetch spam logs:', error);
       });
     }
   }, [activeTab, fetchSpamLogs, urlSyncedRef]);
@@ -265,7 +266,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     if (activeTab !== 'spam') return;
 
     fetchSpamLogs(1).catch((error) => {
-      console.error('Failed to fetch spam logs:', error);
+      logger.error('Failed to fetch spam logs:', error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

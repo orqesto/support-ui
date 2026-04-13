@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
+import { logger } from '@/lib/logger';
 import {
   getSocket,
   subscribeToEvent,
@@ -131,7 +132,7 @@ export const useEmailProcessing = (
         return new Map(filtered);
       }
     } catch (error) {
-      console.error('[useEmailProcessing] Failed to restore sessions:', error);
+      logger.error('[useEmailProcessing] Failed to restore sessions:', error);
     }
     return new Map();
   });
@@ -143,7 +144,7 @@ export const useEmailProcessing = (
         const sessionArray = Array.from(sessions.entries());
         localStorage.setItem('emailProcessing_sessions', JSON.stringify(sessionArray));
       } catch (error) {
-        console.error('[useEmailProcessing] Failed to save sessions:', error);
+        logger.error('[useEmailProcessing] Failed to save sessions:', error);
       }
     } else {
       // Clear stale data when all sessions are removed
@@ -168,7 +169,7 @@ export const useEmailProcessing = (
             now - session.timestamp > TIMEOUT_MS;
 
           if (isStuck) {
-            console.warn(`[useEmailProcessing] Session ${key} timed out after 20 minutes`);
+            logger.warn(`[useEmailProcessing] Session ${key} timed out after 20 minutes`);
             updated.set(key, {
               ...session,
               status: 'error',
@@ -254,7 +255,7 @@ export const useEmailProcessing = (
           event.departmentRole &&
           event.departmentRole !== filterByDepartment
         ) {
-          console.warn('[useEmailProcessing] Event filtered by department:', {
+          logger.warn('[useEmailProcessing] Event filtered by department:', {
             filterByDepartment,
             eventDept: event.departmentRole,
             eventType: event.type,
@@ -264,7 +265,7 @@ export const useEmailProcessing = (
 
         // Filter by organization if specified - ignore events from other organizations
         if (filterByOrganization && event.organizationId !== filterByOrganization) {
-          console.warn('[useEmailProcessing] Event filtered by organization:', {
+          logger.warn('[useEmailProcessing] Event filtered by organization:', {
             filterByOrganization,
             eventOrgId: event.organizationId,
             eventType: event.type,
@@ -359,7 +360,7 @@ export const useEmailProcessing = (
                 // If session is very old AND new total is different, this is a NEW cycle
                 // Reset the session with the new data
                 if (isStaleSession && eventTotal > 0 && eventTotal !== existing.total) {
-                  console.warn(`[Email Processing] Resetting stale session (${sessionAge}ms old)`, {
+                  logger.warn(`[Email Processing] Resetting stale session (${sessionAge}ms old)`, {
                     sessionKey,
                     oldTotal: existing.total,
                     newTotal: eventTotal,
@@ -384,7 +385,7 @@ export const useEmailProcessing = (
 
                 // After reset, reject events with HIGHER totals (old session events)
                 if (isRecentlyReset && eventTotal > existing.total && existing.total > 0) {
-                  console.warn(
+                  logger.warn(
                     `[Email Processing] Ignoring old event after reset: ${eventTotal} > ${existing.total}`,
                     { sessionKey, eventTotal, existingTotal: existing.total, sessionAge }
                   );
@@ -398,7 +399,7 @@ export const useEmailProcessing = (
                   existing.total > 20 &&
                   !isRecentlyReset
                 ) {
-                  console.warn(
+                  logger.warn(
                     `[Email Processing] Ignoring stale event: ${eventTotal} < ${existing.total}`,
                     { sessionKey, eventTotal, existingTotal: existing.total, sessionAge }
                   );

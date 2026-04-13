@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 type AuthStorageState = {
   state?: {
     token?: string;
@@ -18,7 +20,7 @@ export const authFetch = async (url: string, options: RequestInit = {}): Promise
       const parsed = JSON.parse(authStorage) as AuthStorageState;
       token = parsed.state?.token ?? null;
     } catch (error) {
-      console.error('Error parsing auth storage:', error);
+      logger.error('Error parsing auth storage:', error);
     }
   }
 
