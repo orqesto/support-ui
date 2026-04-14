@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ExternalLink as ExternalLinkIcon,
-  Edit2,
   Send,
   Trash2,
   User,
@@ -22,12 +21,15 @@ import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { formatDate } from '@/lib/utils';
+import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { labelService, type Label } from '@/services/settings.service';
+import { ticketService } from '@/services/ticket.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
-import type { Ticket, TicketStatus, TicketPriority, Message } from '@/types';
+import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
 import { logger } from '@/lib/logger';
 
 type TicketDetailProps = {
@@ -69,6 +71,11 @@ export const TicketDetail = ({
   const isFullPage = location.pathname.startsWith('/tickets/');
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
+  const hasManageTickets = hasPermission(Permission.MANAGE_TICKETS);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [localStatus, setLocalStatus] = useState<TicketStatus>(ticket.status);
+  const [localPriority, setLocalPriority] = useState<TicketPriority>(ticket.priority);
+  const [localCategoryId, setLocalCategoryId] = useState<string>(ticket.categoryId?.toString() ?? '');
   const [linkedMessages, setLinkedMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -99,6 +106,25 @@ export const TicketDetail = ({
       .catch((err) => {
         logger.error('Failed to copy link:', err);
       });
+  };
+
+  useEffect(() => {
+    setLocalStatus(ticket.status);
+    setLocalPriority(ticket.priority);
+    setLocalCategoryId(ticket.categoryId?.toString() ?? '');
+  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId]);
+
+  useEffect(() => {
+    categoryService.getAll().then((res) => { if (res.data) setCategories(res.data); }).catch(() => {});
+  }, []);
+
+  const handleFieldUpdate = async (field: string, value: string) => {
+    try {
+      await ticketService.update(ticket.id, { [field]: field === 'categoryId' ? (value ? parseInt(value) : undefined) : value });
+      onRefresh?.();
+    } catch (err) {
+      logger.error('Failed to update ticket field:', err);
+    }
   };
 
   useEffect(() => {
@@ -168,18 +194,58 @@ export const TicketDetail = ({
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Status:</span>
-              <Badge variant={statusColors[ticket.status]}>{ticket.status}</Badge>
+              {hasManageTickets && !ticket.externalId ? (
+                <ReactSelect
+                  value={localStatus}
+                  onChange={(v) => { setLocalStatus(v as TicketStatus); void handleFieldUpdate('status', v); }}
+                  options={[
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'open', label: 'Open' },
+                    { value: 'in_progress', label: 'In Progress' },
+                    { value: 'resolved', label: 'Resolved' },
+                    { value: 'closed', label: 'Closed' },
+                  ]}
+                  className="min-w-[130px]"
+                />
+              ) : (
+                <Badge variant={statusColors[localStatus]}>{localStatus}</Badge>
+              )}
             </div>
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Priority:</span>
-              <Badge variant={priorityColors[ticket.priority]}>{ticket.priority}</Badge>
+              {hasManageTickets && !ticket.externalId ? (
+                <ReactSelect
+                  value={localPriority}
+                  onChange={(v) => { setLocalPriority(v as TicketPriority); void handleFieldUpdate('priority', v); }}
+                  options={[
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' },
+                    { value: 'critical', label: 'Critical' },
+                  ]}
+                  className="min-w-[120px]"
+                />
+              ) : (
+                <Badge variant={priorityColors[localPriority]}>{localPriority}</Badge>
+              )}
             </div>
-            {ticket.categoryName && (
-              <div className="flex gap-2 items-center">
-                <span className="text-sm font-medium text-muted-foreground">Category:</span>
-                <Badge variant="default">{ticket.categoryName}</Badge>
-              </div>
-            )}
+            <div className="flex gap-2 items-center">
+              <span className="text-sm font-medium text-muted-foreground">Category:</span>
+              {hasManageTickets && !ticket.externalId ? (
+                <ReactSelect
+                  value={localCategoryId}
+                  onChange={(v) => { setLocalCategoryId(v); void handleFieldUpdate('categoryId', v); }}
+                  options={[
+                    { value: '', label: 'None' },
+                    ...categories.map((c) => ({ value: c.id.toString(), label: c.name })),
+                  ]}
+                  className="min-w-[140px]"
+                  isSearchable
+                />
+              ) : (
+                ticket.categoryName ? <Badge variant="default">{ticket.categoryName}</Badge> : null
+              )}
+            </div>
             {/* Labels */}
             <div className="flex items-center gap-1.5 flex-wrap">
               {ticketLabels.map((label) => (
@@ -378,29 +444,6 @@ export const TicketDetail = ({
           <LinkIcon className="mr-2 w-4 h-4" />
           {linkCopied ? 'Link Copied!' : 'Copy Link'}
         </Button>
-        {!ticket.externalId ? (
-          <Link to={`/tickets/edit/${ticket.id}`} className="flex-1">
-            <Button variant="outline" className="w-full">
-              <Edit2 className="mr-2 w-4 h-4" />
-              Edit Ticket
-            </Button>
-          </Link>
-        ) : (
-          <div className="flex-1">
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled
-              title="This ticket is synced with Jira. Edit it in Jira instead."
-            >
-              <Edit2 className="mr-2 w-4 h-4" />
-              Edit Ticket
-            </Button>
-            <p className="mt-1 text-xs text-center text-muted-foreground">
-              Synced with Jira - Edit in Jira
-            </p>
-          </div>
-        )}
         {!ticket.externalId && onPushToJira && (
           <Button onClick={onPushToJira} isLoading={isPushingToJira} className="flex-1">
             <Send className="mr-2 w-4 h-4" />

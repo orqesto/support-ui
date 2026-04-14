@@ -85,14 +85,6 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  if (isLoading) {
-    return <div className="py-4 text-sm text-muted-foreground">Loading attachments...</div>;
-  }
-
-  if (attachments.length === 0) {
-    return null; // Don't show section if no attachments
-  }
-
   const getAttachmentUrl = (attachment: Attachment) => {
     const token = getAuthToken();
 
@@ -101,8 +93,8 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       return `${API_BASE_URL}/api/attachments/jira/${attachment.id}/download?token=${token}`;
     }
 
-    // Otherwise, it's a local file (from email or app) - serve directly
-    return `${API_BASE_URL}${attachment.url}`;
+    // Otherwise, it's a local file (from email or app) - use authenticated download endpoint
+    return `${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${token}`;
   };
 
   const isImage = (mimeType: string) => mimeType.startsWith('image/');

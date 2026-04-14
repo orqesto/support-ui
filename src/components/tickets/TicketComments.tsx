@@ -471,7 +471,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
                             </p>
                           </div>
                           <a
-                            href={`${API_BASE_URL}${attachment.url}`}
+                            href={`${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${getAuthToken()}`}
                             download={attachment.originalFilename}
                             target="_blank"
                             rel="noopener noreferrer"

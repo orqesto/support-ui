@@ -19,8 +19,9 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import type { JiraIntegration } from '@/services/integrations.service';
 import type { PaginationMeta } from '@/services/ticket.service';
+import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
-import type { TicketStatus, TicketPriority } from '@/types';
+import type { TicketStatus, TicketPriority, Category } from '@/types';
 
 type FilterState = {
   status: TicketStatus | 'all';
@@ -48,6 +49,7 @@ type TicketFiltersProps = {
   isSyncingAll: boolean;
   hasManagePermission: boolean;
   onFilterChange: (key: string, value: string) => void;
+  onApplyPreset: (presetName: string) => void;
   onSearch: () => void;
   onSearchBlur: () => void;
   onClearFilters: () => void;
@@ -67,6 +69,7 @@ export const TicketFilters = ({
   isSyncingAll,
   hasManagePermission,
   onFilterChange,
+  onApplyPreset,
   onSearch,
   onSearchBlur,
   onClearFilters,
@@ -76,12 +79,11 @@ export const TicketFilters = ({
   onPendingSearchChange,
 }: TicketFiltersProps) => {
   const [labels, setLabels] = useState<Label[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    labelService
-      .getLabels()
-      .then((data) => setLabels(data))
-      .catch(() => {});
+    labelService.getLabels().then(setLabels).catch(() => {});
+    categoryService.getAll().then((res) => { if (res.data) setCategories(res.data); }).catch(() => {});
   }, []);
 
   const { activeFilterCount, activeFilters } = useFilterPanel({
@@ -119,31 +121,8 @@ export const TicketFilters = ({
     }
   };
 
-  // Quick filter presets
   const applyPreset = (presetName: string) => {
-    switch (presetName) {
-      case 'urgent':
-        // High/Critical priority, open tickets
-        onFilterChange('status', 'open');
-        onFilterChange('priority', 'high');
-        break;
-      case 'in-progress':
-        // Active work
-        onFilterChange('status', 'in_progress');
-        onFilterChange('priority', 'all');
-        break;
-      case 'pending':
-        // Waiting for assignment/action
-        onFilterChange('status', 'pending');
-        onFilterChange('priority', 'all');
-        break;
-      case 'recent':
-        // All recent tickets
-        onFilterChange('status', 'all');
-        onFilterChange('priority', 'all');
-        onSortingChange({ sortBy: 'createdAt', sortOrder: 'desc' });
-        break;
-    }
+    onApplyPreset(presetName);
   };
 
   return (
@@ -187,9 +166,9 @@ export const TicketFilters = ({
           {/* Active Filter Pills */}
           {activeFilters.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter, index) => (
+              {activeFilters.map((filter) => (
                 <Badge
-                  key={`${filter.key}-${index}`}
+                  key={`${filter.key}-${filter.value}`}
                   variant="secondary"
                   className="flex gap-1 items-center py-1 pr-1 pl-2 text-xs group"
                 >
@@ -329,6 +308,25 @@ export const TicketFilters = ({
                   value={filters.assigneeId}
                   onChange={(value) => onFilterChange('assigneeId', value)}
                 />
+
+                {/* Category Filter */}
+                {categories.length > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                      Category:
+                    </span>
+                    <ReactSelect
+                      value={filters.categoryId || ''}
+                      onChange={(value) => onFilterChange('categoryId', value || 'all')}
+                      options={[
+                        { value: '', label: 'All' },
+                        ...categories.map((c) => ({ value: c.id.toString(), label: c.name })),
+                      ]}
+                      className="min-w-[140px]"
+                      isSearchable
+                    />
+                  </div>
+                )}
 
                 {/* Label Filter */}
                 <div className="flex gap-2 items-center">

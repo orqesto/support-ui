@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
-import { getSocket } from '@/lib/socketManager';
+import { getSocket, releaseSocket } from '@/lib/socketManager';
 import { ingestionService } from '@/services/ingestion.service';
 import { integrationsService } from '@/services/integrations.service';
 import { documentationService } from '@/services/documentation.service';
@@ -276,6 +276,7 @@ export const DashboardPage = () => {
 
     return () => {
       socket.off('stats:update', handleStatsUpdate);
+      releaseSocket();
     };
   }, []);
 

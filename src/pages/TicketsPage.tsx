@@ -377,6 +377,24 @@ export const TicketsPage = () => {
     await fetchTickets(page);
   };
 
+  const handleApplyPreset = (presetName: string) => {
+    switch (presetName) {
+      case 'urgent':
+        setFiltersStore({ ...filters, status: 'open', priority: 'high' });
+        break;
+      case 'in-progress':
+        setFiltersStore({ ...filters, status: 'in_progress', priority: 'all' });
+        break;
+      case 'pending':
+        setFiltersStore({ ...filters, status: 'pending', priority: 'all' });
+        break;
+      case 'recent':
+        setFiltersStore({ ...filters, status: 'all', priority: 'all' });
+        setSortingStore({ sortBy: 'createdAt', sortOrder: 'desc' });
+        break;
+    }
+  };
+
   const handleFilterChange = (key: string, value: string) => {
     if (key === 'search') {
       setPendingSearch(value);
@@ -611,6 +629,7 @@ export const TicketsPage = () => {
           isSyncingAll={isSyncingAll}
           hasManagePermission={hasPermission(Permission.MANAGE_TICKETS)}
           onFilterChange={handleFilterChange}
+          onApplyPreset={handleApplyPreset}
           onSearch={handleSearch}
           onSearchBlur={handleSearchBlur}
           onClearFilters={clearFilters}
