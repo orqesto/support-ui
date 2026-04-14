@@ -470,8 +470,8 @@ export const MessagesPage = () => {
               />
             ) : loading ? (
               <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Card key={`skeleton-${i}`} className="animate-pulse">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Card key={i} className="animate-pulse">
                     <CardContent className="p-6">
                       <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
                       <div className="w-1/2 h-4 bg-gray-200 rounded" />

@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
+import { labelService, type Label } from '@/services/settings.service';
 import { ticketService } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
@@ -20,6 +22,11 @@ export const EditTicketPage = () => {
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [selectedLabelIds, setSelectedLabelIds] = useState<Set<number>>(new Set());
+  const [initialLabelIds, setInitialLabelIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -47,6 +54,19 @@ export const EditTicketPage = () => {
       fetchCategories().catch((error) => {
         logger.error('Failed to fetch categories:', error);
       });
+      assignmentService.getAssignableUsers().then(setAssignableUsers).catch((error) => {
+        logger.error('Failed to fetch assignable users:', error);
+      });
+      labelService.getLabels().then(setAllLabels).catch((error) => {
+        logger.error('Failed to fetch labels:', error);
+      });
+      labelService.getTicketLabels(parseInt(id)).then((labels) => {
+        const ids = new Set(labels.map((l) => l.id));
+        setSelectedLabelIds(ids);
+        setInitialLabelIds(ids);
+      }).catch((error) => {
+        logger.error('Failed to fetch ticket labels:', error);
+      });
     }
   }, [id]);
 
@@ -55,13 +75,17 @@ export const EditTicketPage = () => {
       const response = await ticketService.getById(ticketId);
       if (response.success && response.data) {
         setTicket(response.data);
+        const div = document.createElement('div');
+        div.innerHTML = response.data.description;
+        const plainDescription = div.textContent ?? div.innerText ?? response.data.description;
         setFormData({
           title: response.data.title,
-          description: response.data.description,
+          description: plainDescription,
           status: response.data.status,
           priority: response.data.priority,
           categoryId: response.data.categoryId?.toString() ?? '',
         });
+        setAssigneeId(response.data.assigneeId?.toString() ?? '');
       }
     } catch (error) {
       logger.error('Failed to fetch ticket:', error);
@@ -101,6 +125,12 @@ export const EditTicketPage = () => {
       });
 
       if (response.success) {
+        await assignmentService.assignTicket(parseInt(id), assigneeId ? parseInt(assigneeId) : null);
+        const ticketId = parseInt(id);
+        await Promise.all([
+          ...[...selectedLabelIds].filter((lid) => !initialLabelIds.has(lid)).map((lid) => labelService.assignLabelToTicket(ticketId, lid)),
+          ...[...initialLabelIds].filter((lid) => !selectedLabelIds.has(lid)).map((lid) => labelService.removeLabelFromTicket(ticketId, lid)),
+        ]);
         clearCache(); // Clear cache to refresh tickets list
         setAlertDialog({
           open: true,
@@ -262,6 +292,55 @@ export const EditTicketPage = () => {
                 placeholder="Select a category"
                 isSearchable
               />
+
+              <ReactSelect
+                label="Assignee"
+                value={assigneeId}
+                onChange={(value) => setAssigneeId(value)}
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...assignableUsers.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.firstName} ${u.lastName}`.trim(),
+                  })),
+                ]}
+                isDisabled={!!ticket?.externalId}
+                placeholder="Select assignee"
+                isSearchable
+              />
+
+              {allLabels.length > 0 && (
+                <div>
+                  <label className="block mb-2 text-sm font-medium">Labels</label>
+                  <div className="flex flex-wrap gap-2">
+                    {allLabels.map((label) => {
+                      const selected = selectedLabelIds.has(label.id);
+                      return (
+                        <button
+                          key={label.id}
+                          type="button"
+                          disabled={!!ticket?.externalId}
+                          onClick={() => {
+                            setSelectedLabelIds((prev) => {
+                              const next = new Set(prev);
+                              if (selected) {
+                                next.delete(label.id);
+                              } else {
+                                next.add(label.id);
+                              }
+                              return next;
+                            });
+                          }}
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
+                          style={{ backgroundColor: label.color }}
+                        >
+                          {label.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" isLoading={saving} disabled={!!ticket?.externalId}>
