@@ -1,5 +1,4 @@
-import { Edit2, Send, Trash2, User, Target, CircleDot } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ExternalLink as ExternalLinkIcon, Send, Trash2, User, Target, CircleDot } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -50,7 +49,6 @@ export const TicketListItem = ({
 
   return (
     <ListCard
-      onClick={() => onOpen(ticket)}
       header={
         <>
           {/* Status */}
@@ -115,7 +113,9 @@ export const TicketListItem = ({
         <>
           <p className="text-sm font-semibold truncate">{ticket.title}</p>
           {ticket.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">{ticket.description}</p>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {ticket.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+            </p>
           )}
         </>
       }
@@ -135,15 +135,11 @@ export const TicketListItem = ({
       }
       actions={
         <>
+          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onOpen(ticket); }}>
+            <ExternalLinkIcon className="mr-1 w-3 h-3" />
+            Open
+          </Button>
           <PermissionGuard permission={Permission.MANAGE_TICKETS}>
-            {!ticket.externalId && (
-              <Link to={`/tickets/edit/${ticket.id}`} onClick={(e) => e.stopPropagation()}>
-                <Button size="sm" variant="outline">
-                  <Edit2 className="mr-1 w-3 h-3" />
-                  Edit
-                </Button>
-              </Link>
-            )}
             {!ticket.externalId && (
               <Button
                 size="sm"

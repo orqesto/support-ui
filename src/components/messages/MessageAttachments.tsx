@@ -3,6 +3,7 @@ import { Download, FileText, Image, Info, Paperclip, Video, Volume2 } from 'luci
 import { Link } from 'react-router-dom';
 import { AttachmentRelevanceIndicator } from './AttachmentRelevanceIndicator';
 import { apiClient } from '@/lib/api-client';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import type { AttachmentMetadata } from '@/types/ai';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
@@ -127,7 +128,7 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
                 <AttachmentRelevanceIndicator relevance={attachment.metadata.relevanceToOrg} />
               )}
               <a
-                href={`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}${attachment.url}`}
+                href={`${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${getAuthToken()}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
