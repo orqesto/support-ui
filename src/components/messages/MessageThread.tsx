@@ -408,6 +408,20 @@ export const MessageThread = ({
                             })()}
                           </div>
 
+                          {/* Attachments */}
+                          {(() => {
+                            const names = (reply.metadata as { attachmentNames?: string[] } | null)?.attachmentNames;
+                            return names && names.length > 0 ? (
+                              <div className="mt-2 ml-10 flex flex-wrap gap-1">
+                                {names.map((name) => (
+                                  <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground border">
+                                    📎 {name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null;
+                          })()}
+
                           {/* Reply Status */}
                           {reply.isOutgoing && (
                             <div className="mt-2 ml-10">

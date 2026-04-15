@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 
 type MessageAttachmentsProps = {
   message: Message;
+  refreshKey?: number;
 };
 
 type Attachment = {
@@ -53,7 +54,7 @@ const getFileIcon = (mimeType: string) => {
   return <FileText className="w-4 h-4" />;
 };
 
-export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
+export const MessageAttachments = ({ message, refreshKey }: MessageAttachmentsProps) => {
   const [dbAttachments, setDbAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -74,7 +75,7 @@ export const MessageAttachments = ({ message }: MessageAttachmentsProps) => {
     };
 
     void fetchAttachments();
-  }, [message.id]);
+  }, [message.id, refreshKey]);
 
   // Extract attachments from rawData (for emails with inline attachments)
   const emailAttachments = message.rawData?.attachments as
