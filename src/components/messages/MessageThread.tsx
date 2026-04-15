@@ -43,7 +43,7 @@ type SpamCheck = {
 
 type ConversationPair = {
   customerEmail: Message;
-  systemReply?: Message;
+  systemReplies: Message[];
 };
 
 const renderAIAnalysis = (msg: Message) => {
@@ -180,48 +180,25 @@ export const MessageThread = ({
           }
         });
 
-        // Create conversation pairs
+        // Create conversation pairs — each customer message gets ALL system replies
+        // that fall between it and the next customer message (chronologically).
         const pairs: ConversationPair[] = [];
-        const usedReplies = new Set<number>();
 
-        customerEmails.forEach((customerMsg) => {
-          let reply: Message | undefined;
+        customerEmails.forEach((customerMsg, idx) => {
+          const nextCustomerTime =
+            idx + 1 < customerEmails.length ? msgTime(customerEmails[idx + 1]) : Infinity;
 
-          // First check if this customer message has a directReply field (bot response stored on it)
-          if (customerMsg.directReply && customerMsg.repliedAt) {
-            // Create a virtual bot message from the directReply field
-            reply = {
-              ...customerMsg,
-              id: customerMsg.id + 0.5, // Virtual ID
-              sender: 'bot',
-              content: customerMsg.directReply,
-              isOutgoing: true,
-              createdAt: customerMsg.repliedAt,
-              directReply: customerMsg.directReply,
-            };
-          } else {
-            // Otherwise, find the first system message that came after this customer email
-            reply = systemEmails.find((sysMsg) => {
-              if (usedReplies.has(sysMsg.id)) {
-                return false;
-              }
-              return msgTime(sysMsg) > msgTime(customerMsg);
-            });
+          const replies = systemEmails.filter(
+            (sysMsg) =>
+              msgTime(sysMsg) > msgTime(customerMsg) && msgTime(sysMsg) < nextCustomerTime
+          );
 
-            if (reply) {
-              usedReplies.add(reply.id);
-            }
-          }
-
-          pairs.push({
-            customerEmail: customerMsg,
-            systemReply: reply,
-          });
+          pairs.push({ customerEmail: customerMsg, systemReplies: replies });
         });
 
         setConversationPairs(pairs);
         const currentPair = pairs.find((p) => p.customerEmail.id === messageId);
-        onHasReplyChangeRef.current?.(!!currentPair?.systemReply);
+        onHasReplyChangeRef.current?.(!!(currentPair?.systemReplies.length));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load conversation');
       } finally {
@@ -384,9 +361,9 @@ export const MessageThread = ({
                       </div>
                     </div>
 
-                    {/* System Reply (if exists) */}
-                    {pair.systemReply && (
-                      <>
+                    {/* System Replies (all replies for this customer message) */}
+                    {pair.systemReplies.map((reply) => (
+                      <div key={reply.id}>
                         {/* Arrow indicating reply */}
                         <div className="flex justify-center py-1 bg-accent/20">
                           <ArrowDown className="w-4 h-4 text-muted-foreground" />
@@ -406,17 +383,17 @@ export const MessageThread = ({
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
                               {formatDate(
                                 new Date(
-                                  (pair.systemReply.metadata as { receivedAt?: string })
-                                    ?.receivedAt ?? pair.systemReply.createdAt
+                                  (reply.metadata as { receivedAt?: string })?.receivedAt ??
+                                    reply.createdAt
                                 )
                               )}
                             </div>
                           </div>
 
-                          {/* System Reply Content */}
+                          {/* Reply Content */}
                           <div className="ml-10 text-sm whitespace-pre-wrap break-words text-foreground/80">
                             {(() => {
-                              const html = pair.systemReply.directReply ?? pair.systemReply.content;
+                              const html = reply.content;
                               const isHtml = /<[a-z][\s\S]*>/i.test(html);
                               return isHtml ? (
                                 <div
@@ -430,7 +407,7 @@ export const MessageThread = ({
                           </div>
 
                           {/* Reply Status */}
-                          {pair.systemReply.directReply && (
+                          {reply.isOutgoing && (
                             <div className="mt-2 ml-10">
                               <Badge variant="success" className="text-xs">
                                 ✓ Sent
@@ -438,11 +415,11 @@ export const MessageThread = ({
                             </div>
                           )}
                         </div>
-                      </>
-                    )}
+                      </div>
+                    ))}
 
                     {/* No Reply Yet */}
-                    {!pair.systemReply && (
+                    {pair.systemReplies.length === 0 && (
                       <div className="p-3 text-center bg-yellow-50 border-t dark:bg-yellow-900/10">
                         <p className="text-xs text-yellow-800 dark:text-yellow-200">
                           ⏳ Awaiting support response

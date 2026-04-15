@@ -48,6 +48,8 @@ const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: 
   return true;
 };
 
+const LAST_READ_KEY = 'sla_notifications_last_read';
+
 export const useSLANotifications = () => {
   const [notifications, setNotifications] = useState<SLABreachNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -73,6 +75,7 @@ export const useSLANotifications = () => {
         type Row = { id: number; entityType: string; organizationId: number; severity: string; breachAmount: number; details: SLABreachNotification['details']; createdAt: string };
         const raw = (r.data as { data?: unknown }).data;
         const rows: Row[] = Array.isArray(raw) ? (raw as Row[]) : [];
+        const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
         const loaded: SLABreachNotification[] = rows.map((row) => ({
           id: row.id,
           type: row.entityType as SLABreachNotification['type'],
@@ -85,7 +88,9 @@ export const useSLANotifications = () => {
         }));
         loaded.forEach((n) => seenIds.current.add(n.id));
         setNotifications(loaded);
-        setUnreadCount(loaded.length);
+        // Only count notifications newer than the last time the user opened the bell
+        const unread = loaded.filter((n) => new Date(n.createdAt).getTime() > lastRead).length;
+        setUnreadCount(unread);
       })
       .catch(() => {});
   }, []);
@@ -115,18 +120,20 @@ export const useSLANotifications = () => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setUnreadCount((prev) => Math.max(0, prev - 1));
-    seenIds.current.delete(id);
+    // Keep id in seenIds so a re-broadcast doesn't re-add it
   }, []);
 
   const clearAll = useCallback(() => {
     apiClient.patch('/api/notifications/dismiss-all').catch(() => {});
     setNotifications([]);
     setUnreadCount(0);
+    localStorage.setItem(LAST_READ_KEY, String(Date.now()));
     seenIds.current.clear();
   }, []);
 
   const markAllRead = useCallback(() => {
     setUnreadCount(0);
+    localStorage.setItem(LAST_READ_KEY, String(Date.now()));
   }, []);
 
   return { notifications, unreadCount, clearAll, dismiss, markAllRead };
