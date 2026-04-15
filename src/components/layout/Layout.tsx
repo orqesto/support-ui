@@ -15,6 +15,7 @@ import {
   CreditCard,
   TrendingUp,
   BookOpen,
+  Receipt,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -55,6 +56,12 @@ const allNavigation = [
     href: '/statistics',
     icon: BarChart3,
     permission: Permission.VIEW_STATISTICS,
+  },
+  {
+    name: 'Billing Intelligence',
+    href: '/billing',
+    icon: Receipt,
+    permission: Permission.VIEW_BILLING,
   },
   {
     name: 'Usage Stats',
