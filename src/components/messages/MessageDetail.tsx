@@ -1230,7 +1230,7 @@ export const MessageDetail = ({
       )}
 
       {/* Email Attachments */}
-      <MessageAttachments message={message} />
+      <MessageAttachments message={message} refreshKey={threadRefreshKey} />
 
       {/* AI Analysis */}
       <MessageAIAnalysis message={message} onRefresh={onRefresh} />
