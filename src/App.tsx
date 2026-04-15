@@ -62,6 +62,9 @@ const UsageStatsPage = lazy(() =>
 const KnowledgeBasePage = lazy(() =>
   import('./pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage }))
 );
+const BillingDashboardPage = lazy(() =>
+  import('./pages/BillingDashboardPage').then((m) => ({ default: m.BillingDashboardPage }))
+);
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-screen bg-background">
@@ -288,7 +291,19 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-<Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route
+        path="/billing"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_BILLING}>
+              <Suspense fallback={<LoadingFallback />}>
+                <BillingDashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
   );
