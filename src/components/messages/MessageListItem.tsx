@@ -85,8 +85,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
     | { leadQualifiedAt?: string; leadCategory?: string; leadState?: { stage: string } }
     | undefined;
 
-  const displayPriority =
-    message.priority && message.priority !== 'medium' ? message.priority : null;
+  const displayPriority = message.priority ?? null;
 
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-sm">
@@ -181,7 +180,9 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
                   ? 'danger'
                   : displayPriority === 'high'
                     ? 'warning'
-                    : 'default'
+                    : displayPriority === 'medium'
+                      ? 'secondary'
+                      : 'default'
               }
               className="h-5 px-1.5"
               title={`Priority: ${displayPriority}`}
