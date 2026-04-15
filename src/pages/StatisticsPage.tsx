@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
 import {
   BarChart3,
   TrendingUp,
@@ -79,30 +80,59 @@ export const StatisticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Team tab state
-  const [teamData, setTeamData] = useState<UserStatEntry[]>([]);
-  const [teamLoading, setTeamLoading] = useState(false);
-  const [teamRefreshing, setTeamRefreshing] = useState(false);
-  const [teamError, setTeamError] = useState<string | null>(null);
+  // Per-tab day selectors
   const [teamDays, setTeamDays] = useState(30);
-
-  // Messages tab state
-  const [msgStats, setMsgStats] = useState<MessageStatsData | null>(null);
-  const [msgLoading, setMsgLoading] = useState(false);
-  const [msgRefreshing, setMsgRefreshing] = useState(false);
   const [msgDays, setMsgDays] = useState(30);
-
-  // AI tab state
-  const [aiStats, setAiStats] = useState<AIStatsData | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiRefreshing, setAiRefreshing] = useState(false);
   const [aiDays, setAiDays] = useState(30);
-
-  // Labels tab state
-  const [labelStats, setLabelStats] = useState<LabelStatEntry[] | null>(null);
-  const [labelLoading, setLabelLoading] = useState(false);
-  const [labelRefreshing, setLabelRefreshing] = useState(false);
   const [labelDays, setLabelDays] = useState(30);
+  const [teamError, setTeamError] = useState<string | null>(null);
+
+  const {
+    data: teamData,
+    loading: teamLoading,
+    refreshing: teamRefreshing,
+    refresh: refreshTeam,
+  } = useStatisticsFetch<UserStatEntry[]>(
+    (days) => statisticsService.getTeamStats(days).then((r) => {
+      if (!r.success) setTeamError('Failed to load team stats.');
+      return r;
+    }),
+    teamDays,
+    activeTab === 'team'
+  );
+
+  const {
+    data: msgStats,
+    loading: msgLoading,
+    refreshing: msgRefreshing,
+    refresh: refreshMsg,
+  } = useStatisticsFetch<MessageStatsData>(
+    statisticsService.getMessageStats,
+    msgDays,
+    activeTab === 'messages'
+  );
+
+  const {
+    data: aiStats,
+    loading: aiLoading,
+    refreshing: aiRefreshing,
+    refresh: refreshAI,
+  } = useStatisticsFetch<AIStatsData>(
+    statisticsService.getAIStats,
+    aiDays,
+    activeTab === 'ai'
+  );
+
+  const {
+    data: labelStats,
+    loading: labelLoading,
+    refreshing: labelRefreshing,
+    refresh: refreshLabels,
+  } = useStatisticsFetch<LabelStatEntry[]>(
+    statisticsService.getLabelStats,
+    labelDays,
+    activeTab === 'labels'
+  );
 
   const fetchStatistics = async () => {
     try {
@@ -135,76 +165,6 @@ export const StatisticsPage = () => {
     await fetchStatistics();
   };
 
-  const fetchTeamStats = async (days: number, isRefresh = false) => {
-    if (isRefresh) setTeamRefreshing(true);
-    else setTeamLoading(true);
-    setTeamError(null);
-    try {
-      const response = await statisticsService.getTeamStats(days);
-      if (response.success && response.data) {
-        setTeamData(response.data);
-      } else {
-        setTeamError('Failed to load team stats.');
-      }
-    } catch {
-      setTeamError('Failed to load team stats.');
-    } finally {
-      setTeamLoading(false);
-      setTeamRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'team') {
-      void fetchTeamStats(teamDays);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, teamDays]);
-
-  const fetchMsgStats = async (days: number, isRefresh = false) => {
-    if (isRefresh) setMsgRefreshing(true);
-    else setMsgLoading(true);
-    try {
-      const response = await statisticsService.getMessageStats(days);
-      if (response.success && response.data) setMsgStats(response.data);
-    } catch { /* handled by empty state */ }
-    finally { setMsgLoading(false); setMsgRefreshing(false); }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'messages') void fetchMsgStats(msgDays);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, msgDays]);
-
-  const fetchAIStats = async (days: number, isRefresh = false) => {
-    if (isRefresh) setAiRefreshing(true);
-    else setAiLoading(true);
-    try {
-      const response = await statisticsService.getAIStats(days);
-      if (response.success && response.data) setAiStats(response.data);
-    } catch { /* handled by empty state */ }
-    finally { setAiLoading(false); setAiRefreshing(false); }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'ai') void fetchAIStats(aiDays);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, aiDays]);
-
-  const fetchLabelStats = async (days: number, isRefresh = false) => {
-    if (isRefresh) setLabelRefreshing(true);
-    else setLabelLoading(true);
-    try {
-      const response = await statisticsService.getLabelStats(days);
-      if (response.success && response.data) setLabelStats(response.data);
-    } catch { /* handled by empty state */ }
-    finally { setLabelLoading(false); setLabelRefreshing(false); }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'labels') void fetchLabelStats(labelDays);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, labelDays]);
 
   const isSpamOrScam = (categoryName: string) => {
     const lowerName = categoryName.toLowerCase();
@@ -271,25 +231,25 @@ export const StatisticsPage = () => {
             </Button>
           )}
           {activeTab === 'team' && (
-            <Button variant="outline" size="sm" onClick={() => void fetchTeamStats(teamDays, true)} isLoading={teamRefreshing}>
+            <Button variant="outline" size="sm" onClick={refreshTeam} isLoading={teamRefreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />
               Refresh
             </Button>
           )}
           {activeTab === 'messages' && (
-            <Button variant="outline" size="sm" onClick={() => void fetchMsgStats(msgDays, true)} isLoading={msgRefreshing}>
+            <Button variant="outline" size="sm" onClick={refreshMsg} isLoading={msgRefreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />
               Refresh
             </Button>
           )}
           {activeTab === 'ai' && (
-            <Button variant="outline" size="sm" onClick={() => void fetchAIStats(aiDays, true)} isLoading={aiRefreshing}>
+            <Button variant="outline" size="sm" onClick={refreshAI} isLoading={aiRefreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />
               Refresh
             </Button>
           )}
           {activeTab === 'labels' && (
-            <Button variant="outline" size="sm" onClick={() => void fetchLabelStats(labelDays, true)} isLoading={labelRefreshing}>
+            <Button variant="outline" size="sm" onClick={refreshLabels} isLoading={labelRefreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />
               Refresh
             </Button>
@@ -1205,7 +1165,7 @@ export const StatisticsPage = () => {
                             ))}
                           </tr>
                         ))
-                      ) : teamData.length === 0 ? (
+                      ) : !teamData || teamData.length === 0 ? (
                         <tr>
                           <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                             No agents found for this organisation.

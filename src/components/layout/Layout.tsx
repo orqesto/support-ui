@@ -21,6 +21,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useModules } from '@/hooks/useModules';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { organizationService, type Organization } from '@/services/organization.service';
@@ -62,6 +63,8 @@ const allNavigation = [
     href: '/billing',
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
+    moduleRequired: 'billing-intelligence',
+    departmentRequired: 'billing' as const,
   },
   {
     name: 'Usage Stats',
@@ -112,6 +115,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
+  const { hasModule } = useModules();
 
   // State for organization name
   const [selectedOrgName, setSelectedOrgName] = useState<string>('Organization');
@@ -249,13 +253,21 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.adminOnly && user?.role !== 'admin') {
           return false;
         }
+        // Check module gate (item hidden if module not enabled for the org)
+        if (item.moduleRequired && !hasModule(item.moduleRequired)) {
+          return false;
+        }
+        // Check department gate (item only visible in the required department context)
+        if (item.departmentRequired && selectedDepartmentRole !== item.departmentRequired) {
+          return false;
+        }
         // Check permissions
         if (!item.permission) {
           return true;
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, user?.role]
+    [hasPermission, hasModule, user?.role, selectedDepartmentRole]
   );
 
   const handleLogout = () => {

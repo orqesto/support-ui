@@ -85,14 +85,8 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
     | { leadQualifiedAt?: string; leadCategory?: string; leadState?: { stage: string } }
     | undefined;
 
-  const actualPriority = message.priority;
-  const suggestedPriority = analysis?.suggestedPriority;
   const displayPriority =
-    actualPriority && actualPriority !== 'medium'
-      ? actualPriority
-      : suggestedPriority && suggestedPriority !== 'medium'
-        ? suggestedPriority
-        : null;
+    message.priority && message.priority !== 'medium' ? message.priority : null;
 
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-sm">
@@ -190,11 +184,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
                     : 'default'
               }
               className="h-5 px-1.5"
-              title={
-                actualPriority && actualPriority !== 'medium'
-                  ? `Priority: ${displayPriority}`
-                  : `AI Suggested: ${displayPriority}`
-              }
+              title={`Priority: ${displayPriority}`}
             >
               {displayPriority}
             </Badge>

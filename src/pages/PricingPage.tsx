@@ -46,6 +46,8 @@ export const PricingPage = () => {
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [addingModule, setAddingModule] = useState<number | null>(null);
+  const [removingModule, setRemovingModule] = useState<number | null>(null);
+  const [moduleAction, setModuleAction] = useState<'add' | 'remove'>('add');
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedModule, setSelectedModule] = useState<AIModule | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
@@ -174,6 +176,7 @@ export const PricingPage = () => {
 
   const handleAddModule = (module: AIModule) => {
     setSelectedModule(module);
+    setModuleAction('add');
     setAlertDialog({
       open: true,
       title: 'Add Module',
@@ -222,6 +225,65 @@ export const PricingPage = () => {
       });
     } finally {
       setAddingModule(null);
+      setSelectedModule(null);
+    }
+  };
+
+  const handleRemoveModule = (module: AIModule) => {
+    setSelectedModule(module);
+    setModuleAction('remove');
+    setAlertDialog({
+      open: true,
+      title: 'Disable Module',
+      description: `Disable ${module.displayName}? You will lose access to this feature immediately.`,
+      variant: 'warning',
+      confirmAction: true,
+    });
+  };
+
+  const confirmRemoveModule = async () => {
+    if (!selectedModule) return;
+
+    setRemovingModule(selectedModule.id);
+    setAlertDialog({ ...alertDialog, open: false });
+
+    try {
+      await apiClient.post(`/api/subscriptions/modules/${selectedModule.id}/disable`, {});
+
+      setActiveModuleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedModule.id);
+        return next;
+      });
+      setAlertDialog({
+        open: true,
+        title: 'Module Disabled',
+        description: `${selectedModule.displayName} has been disabled.`,
+        variant: 'success',
+        confirmAction: false,
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data &&
+        typeof error.response.data.error === 'string'
+          ? error.response.data.error
+          : 'Failed to disable module';
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: message,
+        variant: 'error',
+        confirmAction: false,
+      });
+    } finally {
+      setRemovingModule(null);
       setSelectedModule(null);
     }
   };
@@ -557,18 +619,25 @@ export const PricingPage = () => {
                   </CardContent>
                 </div>
                 <CardContent className="pt-0">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => handleAddModule(module)}
-                    disabled={addingModule === module.id || activeModuleIds.has(module.id)}
-                  >
-                    {addingModule === module.id
-                      ? 'Adding...'
-                      : activeModuleIds.has(module.id)
-                        ? 'Active'
-                        : 'Add to Plan'}
-                  </Button>
+                  {activeModuleIds.has(module.id) ? (
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => handleRemoveModule(module)}
+                      disabled={removingModule === module.id}
+                    >
+                      {removingModule === module.id ? 'Disabling...' : 'Disable'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleAddModule(module)}
+                      disabled={addingModule === module.id}
+                    >
+                      {addingModule === module.id ? 'Adding...' : 'Add to Plan'}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -640,8 +709,8 @@ export const PricingPage = () => {
         title={alertDialog.title}
         description={alertDialog.description}
         variant={alertDialog.variant}
-        onConfirm={alertDialog.confirmAction ? (selectedModule ? confirmAddModule : confirmUpgrade) : undefined}
-        confirmText={alertDialog.confirmAction ? (selectedModule ? 'Add Module' : 'Upgrade') : 'OK'}
+        onConfirm={alertDialog.confirmAction ? (selectedModule ? (moduleAction === 'remove' ? confirmRemoveModule : confirmAddModule) : confirmUpgrade) : undefined}
+        confirmText={alertDialog.confirmAction ? (selectedModule ? (moduleAction === 'remove' ? 'Disable' : 'Add Module') : 'Upgrade') : 'OK'}
       />
     </Layout>
   );
