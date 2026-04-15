@@ -21,6 +21,7 @@ type MessageThreadProps = {
   currentThreadId?: string | null;
   onMessageClick?: (messageId: number) => void;
   onHasReplyChange?: (hasReply: boolean) => void;
+  refreshKey?: number;
 };
 
 type AIAnalysis = {
@@ -124,6 +125,7 @@ export const MessageThread = ({
   currentThreadId,
   onMessageClick,
   onHasReplyChange,
+  refreshKey,
 }: MessageThreadProps) => {
   const [conversationPairs, setConversationPairs] = useState<ConversationPair[]>([]);
   const [loading, setLoading] = useState(false);
@@ -207,7 +209,7 @@ export const MessageThread = ({
     };
 
     void fetchThread();
-  }, [messageId, currentThreadId, expanded]);
+  }, [messageId, currentThreadId, expanded, refreshKey]);
 
   const totalExchanges = conversationPairs.length;
   const hasThread = currentThreadId !== null && currentThreadId !== undefined;

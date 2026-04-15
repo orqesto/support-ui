@@ -127,6 +127,7 @@ export const MessageDetail = ({
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [threadHasReply, setThreadHasReply] = useState(false);
+  const [threadRefreshKey, setThreadRefreshKey] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
@@ -399,7 +400,8 @@ export const MessageDetail = ({
       setReplyContent('');
       setSelectedFiles([]);
       setShowReplyForm(false);
-      onRefresh?.(); // Refresh message data after sending reply
+      setThreadRefreshKey((k) => k + 1);
+      onRefresh?.();
     } catch (error) {
       logger.error('Failed to send reply:', error);
     } finally {
@@ -1049,6 +1051,7 @@ export const MessageDetail = ({
         currentThreadId={message.threadId}
         onMessageClick={onMessageNavigate}
         onHasReplyChange={setThreadHasReply}
+        refreshKey={threadRefreshKey}
       />
 
       {/* Direct Reply Form */}
