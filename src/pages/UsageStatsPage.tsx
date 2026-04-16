@@ -228,9 +228,9 @@ export const UsageStatsPage = () => {
         )}
 
         {/* Time-series chart */}
-        {history.length > 0 && (() => {
-          const chartData = pivotHistory(history);
-          const moduleNames = [...new Set(history.map((r) => r.displayName))];
+        {(() => {
+          const chartData = history.length > 0 ? pivotHistory(history) : [];
+          const moduleNames = history.length > 0 ? [...new Set(history.map((r) => r.displayName))] : [];
           return (
             <Card>
               <CardHeader className="pb-2">
@@ -255,30 +255,36 @@ export const UsageStatsPage = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v: string) => v.slice(5)} // MM-DD
-                    />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip />
-                    <Legend />
-                    {moduleNames.map((name, i) => (
-                      <Area
-                        key={name}
-                        type="monotone"
-                        dataKey={name}
-                        stackId="1"
-                        stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                        fill={CHART_COLORS[i % CHART_COLORS.length]}
-                        fillOpacity={0.15}
+                {history.length === 0 ? (
+                  <div className="flex items-center justify-center h-[260px] text-sm text-muted-foreground">
+                    No usage data for this period.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v: string) => v.slice(5)} // MM-DD
                       />
-                    ))}
-                  </AreaChart>
-                </ResponsiveContainer>
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      {moduleNames.map((name, i) => (
+                        <Area
+                          key={name}
+                          type="monotone"
+                          dataKey={name}
+                          stackId="1"
+                          stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                          fill={CHART_COLORS[i % CHART_COLORS.length]}
+                          fillOpacity={0.15}
+                        />
+                      ))}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           );

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
@@ -12,7 +13,7 @@ const LIMIT = 10;
 export const ActiveSubscriptionsTable = () => {
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['billing-registry', page],
     queryFn: () => billingService.getPaymentRegistry(page, LIMIT),
     refetchInterval: 120000,
@@ -28,6 +29,19 @@ export const ActiveSubscriptionsTable = () => {
           <div className="flex justify-center items-center py-8">
             <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Subscriptions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="danger">Failed to load subscriptions.</Alert>
         </CardContent>
       </Card>
     );

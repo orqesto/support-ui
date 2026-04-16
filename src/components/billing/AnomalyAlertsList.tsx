@@ -3,6 +3,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { Alert } from '@/components/ui/Alert';
 import type { BillingRecord } from '@/services/billing.service';
 import { billingService } from '@/services/billing.service';
 
@@ -36,7 +37,7 @@ const getAnomalyBadges = (record: BillingRecord) => {
 };
 
 export const AnomalyAlertsList = () => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['billing-records-anomalies'],
     queryFn: () => billingService.getBillingRecords(1, 10, true),
     refetchInterval: 30000,
@@ -55,6 +56,22 @@ export const AnomalyAlertsList = () => {
           <div className="flex justify-center items-center py-8">
             <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            Anomaly Alerts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="danger">Failed to load anomaly alerts.</Alert>
         </CardContent>
       </Card>
     );

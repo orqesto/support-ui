@@ -24,6 +24,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   MessageSquare,
+  Clock,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
@@ -608,6 +609,55 @@ export const MessageDetail = ({
             </p>
           )}
         </div>
+
+        {/* SLA Status */}
+        {!message.resolved && !message.isOutgoing && message.slaResponseMinutes && !message.firstResponseAt && (() => {
+          const elapsedMinutes = Math.floor(
+            (Date.now() - new Date(message.createdAt).getTime()) / 60000
+          );
+          const target = message.slaResponseMinutes;
+          const breached = message.slaResponseBreached || elapsedMinutes > target;
+          const remaining = target - elapsedMinutes;
+          const atRisk = !breached && elapsedMinutes > target * 0.8;
+
+          if (breached) {
+            return (
+              <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900">
+                <Clock className="w-4 h-4 text-red-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-400">SLA Breached</p>
+                  <p className="text-xs text-red-600 dark:text-red-500">
+                    Target: {target}m — {Math.abs(remaining)}m overdue
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          if (atRisk) {
+            return (
+              <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-900">
+                <Clock className="w-4 h-4 text-yellow-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">SLA At Risk</p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                    {remaining}m remaining of {target}m target
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-900">
+              <Clock className="w-4 h-4 text-green-500 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">SLA On Track</p>
+                <p className="text-xs text-green-600 dark:text-green-500">
+                  {remaining}m remaining of {target}m target
+                </p>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Assignment */}

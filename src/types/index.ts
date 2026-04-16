@@ -67,6 +67,11 @@ export type Message = {
   closedAt?: string | null;
   needsHumanReview?: boolean;
   labels?: { id: number; name: string; color: string }[];
+  // SLA tracking
+  slaResponseMinutes?: number | null;
+  slaResponseBreached?: boolean | null;
+  firstResponseAt?: string | null;
+  actualResponseSeconds?: number | null;
 };
 
 export type Ticket = {
