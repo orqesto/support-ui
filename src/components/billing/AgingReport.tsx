@@ -1,14 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { billingService } from '@/services/billing.service';
@@ -30,7 +22,7 @@ export const AgingReport = () => {
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
           </div>
         </CardContent>
       </Card>
@@ -64,7 +56,7 @@ export const AgingReport = () => {
   }));
 
   return (
-    <Card className="animate-in fade-in duration-500 delay-200">
+    <Card className="duration-500 delay-200 animate-in fade-in">
       <CardHeader>
         <CardTitle>Billing Aging Report</CardTitle>
       </CardHeader>
@@ -79,7 +71,10 @@ export const AgingReport = () => {
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip
-              formatter={(value: number) => [`$${value.toLocaleString()}`, 'Total Amount']}
+              formatter={(value: number | undefined) => [
+                `$${value?.toLocaleString()}`,
+                'Total Amount',
+              ]}
             />
             <Bar dataKey="total" fill="#3B82F6" radius={[4, 4, 0, 0]}>
               {chartData.map((entry, index) => (
@@ -88,13 +83,10 @@ export const AgingReport = () => {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-        <div className="flex justify-center gap-6 mt-4 text-sm">
+        <div className="flex gap-6 justify-center mt-4 text-sm">
           {buckets.map((b, i) => (
             <div key={b.label} className="flex items-center gap-1.5">
-              <div
-                className="w-3 h-3 rounded-sm"
-                style={{ backgroundColor: BAR_COLORS[i] }}
-              />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: BAR_COLORS[i] }} />
               <span className="text-muted-foreground">{b.label}</span>
               <span className="font-medium">({b.count})</span>
             </div>

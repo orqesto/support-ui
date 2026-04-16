@@ -611,12 +611,46 @@ export const MessageDetail = ({
         </div>
 
         {/* SLA Status */}
-        {!message.resolved && !message.isOutgoing && message.slaResponseMinutes && !message.firstResponseAt && (() => {
+        {!message.isOutgoing && message.slaResponseMinutes && (() => {
+          const target = message.slaResponseMinutes;
+
+          // Already responded — show met or breached outcome
+          const firstResponseAt = message.firstResponseAt;
+          if (firstResponseAt) {
+            const responseMinutes = Math.round(
+              (new Date(firstResponseAt).getTime() - new Date(message.createdAt).getTime()) / 60000
+            );
+            if (message.slaResponseBreached) {
+              return (
+                <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900">
+                  <Clock className="w-4 h-4 text-red-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-700 dark:text-red-400">SLA Breached</p>
+                    <p className="text-xs text-red-600 dark:text-red-500">
+                      Responded in {responseMinutes}m — target was {target}m
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-900">
+                <Clock className="w-4 h-4 text-green-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">SLA Met</p>
+                  <p className="text-xs text-green-600 dark:text-green-500">
+                    Responded in {responseMinutes}m of {target}m target
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // No response yet — show live countdown
           const elapsedMinutes = Math.floor(
             (Date.now() - new Date(message.createdAt).getTime()) / 60000
           );
-          const target = message.slaResponseMinutes;
-          const breached = message.slaResponseBreached || elapsedMinutes > target;
+          const breached = message.slaResponseBreached === true || elapsedMinutes > target;
           const remaining = target - elapsedMinutes;
           const atRisk = !breached && elapsedMinutes > target * 0.8;
 
