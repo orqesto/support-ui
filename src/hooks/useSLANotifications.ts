@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api-client';
 
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
+  entityId: number; // message.id or ticket.id
   type: 'message' | 'ticket_first_response' | 'ticket_resolution';
   organizationId: number;
   severity: 'warning' | 'critical';
@@ -53,6 +54,7 @@ const LAST_READ_KEY = 'sla_notifications_last_read';
 export const useSLANotifications = () => {
   const [notifications, setNotifications] = useState<SLABreachNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [total, setTotal] = useState(0);
   const seenIds = useRef<Set<number>>(new Set());
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
 
@@ -72,12 +74,20 @@ export const useSLANotifications = () => {
     apiClient
       .get('/api/notifications')
       .then((r) => {
-        type Row = { id: number; entityType: string; organizationId: number; severity: string; breachAmount: number; details: SLABreachNotification['details']; createdAt: string };
-        const raw = (r.data as { data?: unknown }).data;
-        const rows: Row[] = Array.isArray(raw) ? (raw as Row[]) : [];
+        type Row = { id: number; entityId: number; entityType: string; organizationId: number; severity: string; breachAmount: number; details: SLABreachNotification['details']; createdAt: string };
+        type Payload = { notifications?: Row[]; total?: number } | Row[];
+        const raw = (r.data as { data?: Payload }).data;
+        // Support both legacy array shape and new { notifications, total } shape
+        const rows: Row[] = Array.isArray(raw)
+          ? (raw as Row[])
+          : ((raw as { notifications?: Row[] })?.notifications ?? []);
+        const totalCount: number = Array.isArray(raw)
+          ? rows.length
+          : ((raw as { total?: number })?.total ?? rows.length);
         const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
         const loaded: SLABreachNotification[] = rows.map((row) => ({
           id: row.id,
+          entityId: row.entityId,
           type: row.entityType as SLABreachNotification['type'],
           organizationId: row.organizationId,
           severity: row.severity as 'warning' | 'critical',
@@ -88,6 +98,7 @@ export const useSLANotifications = () => {
         }));
         loaded.forEach((n) => seenIds.current.add(n.id));
         setNotifications(loaded);
+        setTotal(totalCount);
         // Only count notifications newer than the last time the user opened the bell
         const unread = loaded.filter((n) => new Date(n.createdAt).getTime() > lastRead).length;
         setUnreadCount(unread);
@@ -126,6 +137,7 @@ export const useSLANotifications = () => {
   const clearAll = useCallback(() => {
     apiClient.patch('/api/notifications/dismiss-all').catch(() => {});
     setNotifications([]);
+    setTotal(0);
     setUnreadCount(0);
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
     seenIds.current.clear();
@@ -136,5 +148,5 @@ export const useSLANotifications = () => {
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
   }, []);
 
-  return { notifications, unreadCount, clearAll, dismiss, markAllRead };
+  return { notifications, total, unreadCount, clearAll, dismiss, markAllRead };
 };

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, X, AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSLANotifications, type SLABreachNotification } from '@/hooks/useSLANotifications';
@@ -29,10 +30,12 @@ const NotificationItem = ({
   onDismiss: (id: number) => void;
 }) => {
   const isCritical = n.severity === 'critical';
+  const href = n.type === 'message' ? `/messages/${n.entityId}` : `/tickets/${n.entityId}`;
   return (
-    <div
+    <Link
+      to={href}
       className={cn(
-        'flex gap-3 items-start p-3 text-sm rounded-lg border',
+        'flex gap-3 items-start p-3 text-sm rounded-lg border no-underline hover:opacity-90 transition-opacity',
         isCritical
           ? 'bg-red-50 border-red-200 dark:border-red-900 dark:bg-red-950/30'
           : 'bg-yellow-50 border-yellow-200 dark:border-yellow-900 dark:bg-yellow-950/30'
@@ -81,14 +84,14 @@ const NotificationItem = ({
           </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
 
 export const SLANotificationBell = () => {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ bottom: number; left: number }>({ bottom: 0, left: 0 });
-  const { notifications, unreadCount, clearAll, dismiss, markAllRead } = useSLANotifications();
+  const { notifications, total, unreadCount, clearAll, dismiss, markAllRead } = useSLANotifications();
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -167,13 +170,20 @@ export const SLANotificationBell = () => {
             {notifications.length === 0 ? (
               <p className="py-6 text-sm text-center text-muted-foreground">No SLA alerts</p>
             ) : (
-              notifications.map((n) => (
-                <NotificationItem
-                  key={`${n.type}-${n.id}-${n.receivedAt}`}
-                  n={n}
-                  onDismiss={() => dismiss(n.id)}
-                />
-              ))
+              <>
+                {notifications.map((n) => (
+                  <NotificationItem
+                    key={`${n.type}-${n.id}-${n.receivedAt}`}
+                    n={n}
+                    onDismiss={() => dismiss(n.id)}
+                  />
+                ))}
+                {total > notifications.length && (
+                  <p className="py-2 text-xs text-center text-muted-foreground">
+                    +{total - notifications.length} more — use Clear all to dismiss all alerts
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

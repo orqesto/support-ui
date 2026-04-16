@@ -7,6 +7,7 @@ type UseStatisticsFetchResult<T> = {
   loading: boolean;
   refreshing: boolean;
   refresh: () => void;
+  error: string | null;
 };
 
 /**
@@ -17,23 +18,33 @@ type UseStatisticsFetchResult<T> = {
 export function useStatisticsFetch<T>(
   fetchFn: FetchFn<T>,
   days: number,
-  active: boolean
+  active: boolean,
+  onError?: (message: string) => void
 ): UseStatisticsFetchResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(
     async (isRefresh: boolean) => {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
+      setError(null);
       try {
         const response = await fetchFn(days);
         if (response.success && response.data !== undefined) {
           setData(response.data);
+        } else if (!response.success) {
+          const msg = 'Failed to load stats.';
+          setError(msg);
+          onError?.(msg);
         }
-      } catch {
-        // empty state handled by caller
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : 'Failed to load stats.';
+        setError(msg);
+        onError?.(msg);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -49,5 +60,5 @@ export function useStatisticsFetch<T>(
 
   const refresh = useCallback(() => void run(true), [run]);
 
-  return { data, loading, refreshing, refresh };
+  return { data, loading, refreshing, refresh, error };
 }
