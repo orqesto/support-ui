@@ -30,20 +30,20 @@ import {
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { SLABreachList } from '@/components/sla/SLABreachList';
-import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
-import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
-import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
-import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry } from '@/services/statistics.service';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
+import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
+import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
+import { SLATrendChart } from '@/components/sla/SLATrendChart';
+import { SLABreachList } from '@/components/sla/SLABreachList';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 
-type TabType = 'overview' | 'sla' | 'team' | 'messages' | 'ai' | 'labels';
-const VALID_TABS: TabType[] = ['overview', 'sla', 'team', 'messages', 'ai', 'labels'];
+type TabType = 'overview' | 'team' | 'messages' | 'sla';
+const VALID_TABS: TabType[] = ['overview', 'team', 'messages', 'sla'];
 
 const DAYS_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -84,7 +84,6 @@ export const StatisticsPage = () => {
   const [teamDays, setTeamDays] = useState(30);
   const [msgDays, setMsgDays] = useState(30);
   const [aiDays, setAiDays] = useState(30);
-  const [labelDays, setLabelDays] = useState(30);
   const [teamError, setTeamError] = useState<string | null>(null);
 
   const {
@@ -93,12 +92,10 @@ export const StatisticsPage = () => {
     refreshing: teamRefreshing,
     refresh: refreshTeam,
   } = useStatisticsFetch<UserStatEntry[]>(
-    (days) => statisticsService.getTeamStats(days).then((r) => {
-      if (!r.success) setTeamError('Failed to load team stats.');
-      return r;
-    }),
+    statisticsService.getTeamStats,
     teamDays,
-    activeTab === 'team'
+    activeTab === 'team',
+    setTeamError
   );
 
   const {
@@ -115,23 +112,21 @@ export const StatisticsPage = () => {
   const {
     data: aiStats,
     loading: aiLoading,
-    refreshing: aiRefreshing,
     refresh: refreshAI,
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
     aiDays,
-    activeTab === 'ai'
+    activeTab === 'overview'
   );
 
   const {
     data: labelStats,
     loading: labelLoading,
-    refreshing: labelRefreshing,
     refresh: refreshLabels,
   } = useStatisticsFetch<LabelStatEntry[]>(
     statisticsService.getLabelStats,
-    labelDays,
-    activeTab === 'labels'
+    msgDays,
+    activeTab === 'messages'
   );
 
   const fetchStatistics = async () => {
@@ -237,19 +232,7 @@ export const StatisticsPage = () => {
             </Button>
           )}
           {activeTab === 'messages' && (
-            <Button variant="outline" size="sm" onClick={refreshMsg} isLoading={msgRefreshing}>
-              <RefreshCw className="mr-2 w-4 h-4" />
-              Refresh
-            </Button>
-          )}
-          {activeTab === 'ai' && (
-            <Button variant="outline" size="sm" onClick={refreshAI} isLoading={aiRefreshing}>
-              <RefreshCw className="mr-2 w-4 h-4" />
-              Refresh
-            </Button>
-          )}
-          {activeTab === 'labels' && (
-            <Button variant="outline" size="sm" onClick={refreshLabels} isLoading={labelRefreshing}>
+            <Button variant="outline" size="sm" onClick={() => { refreshMsg(); refreshLabels(); }} isLoading={msgRefreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />
               Refresh
             </Button>
@@ -272,21 +255,6 @@ export const StatisticsPage = () => {
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4" />
                 Overview
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange('sla')}
-              className={cn(
-                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
-                activeTab === 'sla'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                SLA Performance
               </div>
             </button>
             <button
@@ -321,32 +289,17 @@ export const StatisticsPage = () => {
             </button>
             <button
               type="button"
-              onClick={() => handleTabChange('ai')}
+              onClick={() => handleTabChange('sla')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
-                activeTab === 'ai'
+                activeTab === 'sla'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
               <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4" />
-                AI Usage
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange('labels')}
-              className={cn(
-                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
-                activeTab === 'labels'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                Labels
+                <Clock className="w-4 h-4" />
+                SLA
               </div>
             </button>
           </div>
@@ -1062,26 +1015,187 @@ export const StatisticsPage = () => {
                   </CardContent>
                 </Card>
               )}
-          </>
-        )}
 
-        {/* SLA Performance Tab */}
-        {activeTab === 'sla' && (
-          <div className="space-y-6 pb-6">
-            <div className="animate-in fade-in duration-500">
-              <SLAOverviewCards />
+            {/* AI Usage Section */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <Bot className="w-4 h-4" />
+                  AI Usage
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Period:</span>
+                  <div className="flex rounded-md border border-border overflow-hidden">
+                    {DAYS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setAiDays(opt.value)}
+                        className={cn(
+                          'px-3 py-1.5 text-sm font-medium transition-colors',
+                          aiDays === opt.value
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {aiLoading ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
+                  ))}
+                </div>
+              ) : aiStats ? (
+                <>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">AI Responded</p>
+                            <p className="mt-2 text-3xl font-bold text-blue-600">{aiStats.summary.aiResponded}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p>
+                          </div>
+                          <Bot className="w-10 h-10 text-blue-400" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Human Responded</p>
+                            <p className="mt-2 text-3xl font-bold text-green-600">{aiStats.summary.humanResponded}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage < 100 ? 100 - aiStats.summary.aiPercentage : 0}% of responded</p>
+                          </div>
+                          <Users className="w-10 h-10 text-green-400" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">No Response</p>
+                            <p className="mt-2 text-3xl font-bold text-gray-500">{aiStats.summary.noResponse}</p>
+                          </div>
+                          <Inbox className="w-10 h-10 text-gray-400" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Bot className="w-5 h-5" />
+                          AI Reply Count Distribution
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {Object.entries(aiStats.aiReplyDistribution).map(([bucket, cnt]) => {
+                          const total = Object.values(aiStats.aiReplyDistribution).reduce((s, v) => s + v, 0);
+                          return (
+                            <div key={bucket} className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">{bucket} AI {bucket === '1' ? 'reply' : 'replies'}</span>
+                              <div className="flex items-center gap-3">
+                                <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-2 rounded-full bg-blue-500" style={{ width: total > 0 ? `${Math.round((cnt / total) * 100)}%` : '0%' }} />
+                                </div>
+                                <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Activity className="w-5 h-5" />
+                          First Response By
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {aiStats.respondedBy.map((item) => {
+                          const total = aiStats.respondedBy.reduce((s, r) => s + r.count, 0);
+                          return (
+                            <div key={item.respondedBy} className="flex justify-between items-center">
+                              <span className="text-sm capitalize">{item.respondedBy === 'none' ? 'Not responded' : item.respondedBy}</span>
+                              <div className="flex items-center gap-3">
+                                <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-2 rounded-full bg-primary" style={{ width: total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%' }} />
+                                </div>
+                                <span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  </div>
+                  {(aiStats.analysisModels.length > 0 || aiStats.embeddingModels.length > 0) && (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
+                      {aiStats.analysisModels.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Cpu className="w-5 h-5" />
+                              Analysis Models
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {aiStats.analysisModels.map((item) => (
+                              <div key={item.model} className="flex justify-between items-center text-sm">
+                                <span className="font-mono text-xs">{item.model}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{item.count}</span>
+                                  <span className="text-muted-foreground text-xs">({item.percentage}%)</span>
+                                </div>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      )}
+                      {aiStats.embeddingModels.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Brain className="w-5 h-5" />
+                              Embedding Models
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {aiStats.embeddingModels.map((item) => (
+                              <div key={item.model} className="flex justify-between items-center text-sm">
+                                <span className="font-mono text-xs">{item.model}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{item.count}</span>
+                                  <span className="text-muted-foreground text-xs">({item.percentage}%)</span>
+                                </div>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    No AI statistics available.
+                  </CardContent>
+                </Card>
+              )}
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500 delay-100">
-              <SLAByChannelChart />
-              <SLAByPriorityTable />
-            </div>
-            <div className="animate-in fade-in duration-500 delay-200">
-              <SLATrendChart />
-            </div>
-            <div className="animate-in fade-in duration-500 delay-300">
-              <SLABreachList />
-            </div>
-          </div>
+          </>
         )}
 
         {/* Team Performance Tab */}
@@ -1418,271 +1532,66 @@ export const StatisticsPage = () => {
                 </CardContent>
               </Card>
             )}
-          </div>
-        )}
 
-        {/* AI Usage Tab */}
-        {activeTab === 'ai' && (
-          <div className="space-y-4 pb-6">
-            {/* Days selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Period:</span>
-              <div className="flex rounded-md border border-border overflow-hidden">
-                {DAYS_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setAiDays(opt.value)}
-                    className={cn(
-                      'px-3 py-1.5 text-sm font-medium transition-colors',
-                      aiDays === opt.value
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:bg-muted'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {aiLoading ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : aiStats ? (
-              <>
-                {/* AI vs Human Summary Cards */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">AI Responded</p>
-                          <p className="mt-2 text-3xl font-bold text-blue-600">{aiStats.summary.aiResponded}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p>
-                        </div>
-                        <Bot className="w-10 h-10 text-blue-400" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Human Responded</p>
-                          <p className="mt-2 text-3xl font-bold text-green-600">{aiStats.summary.humanResponded}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage < 100 ? 100 - aiStats.summary.aiPercentage : 0}% of responded</p>
-                        </div>
-                        <Users className="w-10 h-10 text-green-400" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">No Response</p>
-                          <p className="mt-2 text-3xl font-bold text-gray-500">{aiStats.summary.noResponse}</p>
-                        </div>
-                        <Inbox className="w-10 h-10 text-gray-400" />
-                      </div>
-                    </CardContent>
-                  </Card>
+            {/* Labels Section */}
+            <div className="pt-2">
+              <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+                <Tag className="w-4 h-4" />
+                Labels
+              </h2>
+              {labelLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={`label-skeleton-${i}`} className="h-12 rounded bg-muted animate-pulse" />
+                  ))}
                 </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {/* AI Reply Count Distribution */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Bot className="w-5 h-5" />
-                        AI Reply Count Distribution
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {Object.entries(aiStats.aiReplyDistribution).map(([bucket, cnt]) => {
-                        const total = Object.values(aiStats.aiReplyDistribution).reduce((s, v) => s + v, 0);
-                        return (
-                          <div key={bucket} className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">{bucket} AI {bucket === '1' ? 'reply' : 'replies'}</span>
-                            <div className="flex items-center gap-3">
-                              <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className="h-2 rounded-full bg-blue-500"
-                                  style={{ width: total > 0 ? `${Math.round((cnt / total) * 100)}%` : '0%' }}
-                                />
-                              </div>
-                              <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-
-                  {/* Responded By breakdown */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Activity className="w-5 h-5" />
-                        First Response By
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {aiStats.respondedBy.map((item) => {
-                        const total = aiStats.respondedBy.reduce((s, r) => s + r.count, 0);
-                        return (
-                          <div key={item.respondedBy} className="flex justify-between items-center">
-                            <span className="text-sm capitalize">{item.respondedBy === 'none' ? 'Not responded' : item.respondedBy}</span>
-                            <div className="flex items-center gap-3">
-                              <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className="h-2 rounded-full bg-primary"
-                                  style={{ width: total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%' }}
-                                />
-                              </div>
-                              <span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Model usage */}
-                {(aiStats.analysisModels.length > 0 || aiStats.embeddingModels.length > 0) && (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {aiStats.analysisModels.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Cpu className="w-5 h-5" />
-                            Analysis Models
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {aiStats.analysisModels.map((item) => (
-                            <div key={item.model} className="flex justify-between items-center text-sm">
-                              <span className="font-mono text-xs">{item.model}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{item.count}</span>
-                                <span className="text-muted-foreground text-xs">({item.percentage}%)</span>
-                              </div>
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    )}
-                    {aiStats.embeddingModels.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Brain className="w-5 h-5" />
-                            Embedding Models
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {aiStats.embeddingModels.map((item) => (
-                            <div key={item.model} className="flex justify-between items-center text-sm">
-                              <span className="font-mono text-xs">{item.model}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{item.count}</span>
-                                <span className="text-muted-foreground text-xs">({item.percentage}%)</span>
-                              </div>
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No AI statistics available.
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* Labels Tab */}
-        {activeTab === 'labels' && (
-          <div className="space-y-4 pb-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Period:</span>
-              <div className="flex rounded-md border border-border overflow-hidden">
-                {DAYS_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setLabelDays(opt.value)}
-                    className={cn(
-                      'px-3 py-1.5 text-sm font-medium transition-colors',
-                      labelDays === opt.value
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:bg-muted'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {labelLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <div key={`label-skeleton-${i}`} className="h-12 rounded bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : labelStats && labelStats.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Tag className="w-5 h-5" />
-                    Label Message Counts
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {(() => {
-                    const sorted = [...labelStats].sort((a, b) => b.messageCount - a.messageCount);
-                    const max = Math.max(...labelStats.map((e) => e.messageCount), 1);
-                    return sorted.map((entry) => (
+              ) : labelStats && labelStats.length > 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Tag className="w-5 h-5" />
+                      Label Message Counts
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {(() => {
+                      const sorted = [...labelStats].sort((a, b) => b.messageCount - a.messageCount);
+                      const max = Math.max(...labelStats.map((e) => e.messageCount), 1);
+                      return sorted.map((entry) => (
                         <div key={entry.labelId} className="flex items-center gap-3">
-                          <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: entry.color }}
-                          />
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
                           <span className="w-40 truncate text-sm font-medium">{entry.name}</span>
                           <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${(entry.messageCount / max) * 100}%`,
-                                backgroundColor: entry.color,
-                              }}
-                            />
+                            <div className="h-full rounded-full" style={{ width: `${(entry.messageCount / max) * 100}%`, backgroundColor: entry.color }} />
                           </div>
                           <span className="text-sm font-semibold w-10 text-right">{entry.messageCount}</span>
                         </div>
                       ));
-                  })()}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No label statistics available.
-                </CardContent>
-              </Card>
-            )}
+                    })()}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    No label statistics available.
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SLA Performance Tab */}
+        {activeTab === 'sla' && (
+          <div className="space-y-6 pb-6">
+            <SLAOverviewCards />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SLAByChannelChart />
+              <SLAByPriorityTable />
+            </div>
+            <SLATrendChart />
+            <SLABreachList />
           </div>
         )}
       </div>

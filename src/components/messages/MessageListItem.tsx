@@ -307,6 +307,41 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             </Badge>
           )}
 
+          {/* SLA status */}
+          {!message.resolved && !message.isOutgoing && message.slaResponseMinutes && !message.firstResponseAt && (() => {
+            const elapsedMinutes = Math.floor(
+              (Date.now() - new Date(message.createdAt).getTime()) / 60000
+            );
+            const target = message.slaResponseMinutes;
+            const breached = message.slaResponseBreached || elapsedMinutes > target;
+            const atRisk = !breached && elapsedMinutes > target * 0.8;
+            if (breached) {
+              return (
+                <Badge
+                  variant="danger"
+                  className="flex gap-1 items-center h-5 px-1.5"
+                  title={`SLA target: ${target}m — elapsed: ${elapsedMinutes}m`}
+                >
+                  <Clock className="w-2.5 h-2.5" />
+                  SLA Breached
+                </Badge>
+              );
+            }
+            if (atRisk) {
+              return (
+                <Badge
+                  variant="warning"
+                  className="flex gap-1 items-center h-5 px-1.5"
+                  title={`SLA target: ${target}m — ${target - elapsedMinutes}m remaining`}
+                >
+                  <Clock className="w-2.5 h-2.5" />
+                  SLA At Risk
+                </Badge>
+              );
+            }
+            return null;
+          })()}
+
           {/* Awaiting customer response */}
           {message.awaitingCustomerResponse && (
             <Badge

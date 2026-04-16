@@ -9,13 +9,14 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { billingService } from '@/services/billing.service';
 
 const BAR_COLORS = ['#3B82F6', '#F59E0B', '#EF4444'];
 
 export const AgingReport = () => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['billing-aging'],
     queryFn: billingService.getAgingReport,
     refetchInterval: 300000,
@@ -31,6 +32,19 @@ export const AgingReport = () => {
           <div className="flex justify-center items-center h-[300px]">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Billing Aging Report</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="danger">Failed to load aging report.</Alert>
         </CardContent>
       </Card>
     );
