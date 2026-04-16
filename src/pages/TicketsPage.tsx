@@ -121,30 +121,11 @@ export const TicketsPage = () => {
       urlFilters.search = urlSearch;
     }
 
-    // Default assignee to current user only if they have assigned tickets; otherwise show all.
-    const init = async () => {
-      let assigneeDefault = 'all';
-      if (user && !urlAssignee) {
-        try {
-          const check = await ticketService.getAll({ assigneeId: String(user.id) }, 1, 1);
-          if (check.pagination.total > 0) {
-            assigneeDefault = String(user.id);
-          }
-        } catch {
-          // check failed — fall back to 'all'
-        }
-      }
-      const baseFilters: typeof filters = {
-        status: 'all',
-        priority: 'all',
-        categoryId: 'all',
-        messageSourceId: 'all',
-        assigneeId: assigneeDefault,
-        syncedToJira: undefined,
-      };
-      setFiltersStore({ ...baseFilters, ...urlFilters });
-    };
-    init().catch((error) => { logger.error('Failed to initialize tickets page:', error); });
+    // Apply URL params on top of persisted state if present.
+    // If no URL params, persisted filters are already loaded — do nothing.
+    if (Object.keys(urlFilters).length > 0) {
+      setFiltersStore({ ...filters, ...urlFilters });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 

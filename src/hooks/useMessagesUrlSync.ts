@@ -89,22 +89,11 @@ export const useMessagesUrlSync = ({
       urlFilters.ageRange = urlAgeRange as FilterState['ageRange'];
     }
 
-    // Always reset to defaults first, then apply URL params on top.
-    // Without this, navigating from /messages?view=not_analysed → /messages?excludeKB=true
-    // would merge and leave view=not_analysed active (setFilters merges with existing state).
-    // Default assigneeId to current user only if they have assigned messages; otherwise show all.
-    let assigneeDefault = 'all';
-    if (currentUser && !urlFilters.assigneeId) {
-      try {
-        const check = await messageService.getThreads({ assigneeId: String(currentUser.id) }, 1, 1);
-        if (check.pagination.total > 0) {
-          assigneeDefault = String(currentUser.id);
-        }
-      } catch {
-        // check failed — fall back to 'all'
-      }
+    // Apply URL params on top of persisted filters.
+    // If URL has explicit params, merge them in. Otherwise keep persisted state as-is.
+    if (Object.keys(urlFilters).length > 0) {
+      setFilters({ ...defaultFilters, ...urlFilters });
     }
-    setFilters({ ...defaultFilters, assigneeId: assigneeDefault, ...urlFilters });
 
     urlSyncedRef.current = true;
 
