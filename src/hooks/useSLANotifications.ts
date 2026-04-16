@@ -32,6 +32,7 @@ type UserPrefs = {
   notifyMessages: boolean;
   notifyTicketFirstResponse: boolean;
   notifyTicketResolution: boolean;
+  onlyAssignedToMe: boolean;
 };
 
 const DEFAULT_PREFS: UserPrefs = {
@@ -39,6 +40,7 @@ const DEFAULT_PREFS: UserPrefs = {
   notifyMessages: true,
   notifyTicketFirstResponse: true,
   notifyTicketResolution: true,
+  onlyAssignedToMe: false,
 };
 
 const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: UserPrefs): boolean => {
@@ -55,29 +57,17 @@ export const useSLANotifications = () => {
   const [notifications, setNotifications] = useState<SLABreachNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [total, setTotal] = useState(0);
+  const [onlyAssignedToMe, setOnlyAssignedToMeState] = useState(false);
   const seenIds = useRef<Set<number>>(new Set());
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
 
-  // Load user preferences
-  useEffect(() => {
-    apiClient
-      .get('/api/users/me/notification-preferences')
-      .then((r) => {
-        const data = (r.data as { data?: Partial<UserPrefs> }).data;
-        if (data) prefsRef.current = { ...DEFAULT_PREFS, ...data };
-      })
-      .catch(() => {});
-  }, []);
-
-  // Load persisted notifications on mount (already filtered by backend per preferences)
-  useEffect(() => {
+  const fetchNotifications = useCallback(() => {
     apiClient
       .get('/api/notifications')
       .then((r) => {
         type Row = { id: number; entityId: number; entityType: string; organizationId: number; severity: string; breachAmount: number; details: SLABreachNotification['details']; createdAt: string };
         type Payload = { notifications?: Row[]; total?: number } | Row[];
         const raw = (r.data as { data?: Payload }).data;
-        // Support both legacy array shape and new { notifications, total } shape
         const rows: Row[] = Array.isArray(raw)
           ? (raw as Row[])
           : ((raw as { notifications?: Row[] })?.notifications ?? []);
@@ -96,15 +86,42 @@ export const useSLANotifications = () => {
           createdAt: row.createdAt,
           receivedAt: Date.now(),
         }));
-        loaded.forEach((n) => seenIds.current.add(n.id));
+        seenIds.current = new Set(loaded.map((n) => n.id));
         setNotifications(loaded);
         setTotal(totalCount);
-        // Only count notifications newer than the last time the user opened the bell
         const unread = loaded.filter((n) => new Date(n.createdAt).getTime() > lastRead).length;
         setUnreadCount(unread);
       })
       .catch(() => {});
   }, []);
+
+  const setOnlyMine = useCallback((value: boolean) => {
+    setOnlyAssignedToMeState(value);
+    prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
+    apiClient
+      .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
+      .then(() => fetchNotifications())
+      .catch(() => {});
+  }, [fetchNotifications]);
+
+  // Load user preferences
+  useEffect(() => {
+    apiClient
+      .get('/api/users/me/notification-preferences')
+      .then((r) => {
+        const data = (r.data as { data?: Partial<UserPrefs> }).data;
+        if (data) {
+          prefsRef.current = { ...DEFAULT_PREFS, ...data };
+          setOnlyAssignedToMeState(data.onlyAssignedToMe ?? false);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load persisted notifications on mount
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   // Real-time WebSocket delivery
   useEffect(() => {
@@ -148,5 +165,5 @@ export const useSLANotifications = () => {
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
   }, []);
 
-  return { notifications, total, unreadCount, clearAll, dismiss, markAllRead };
+  return { notifications, total, unreadCount, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead };
 };

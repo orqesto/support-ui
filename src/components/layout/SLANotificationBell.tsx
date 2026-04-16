@@ -91,7 +91,7 @@ const NotificationItem = ({
 export const SLANotificationBell = () => {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
-  const { notifications, total, unreadCount, clearAll, dismiss, markAllRead } = useSLANotifications();
+  const { notifications, total, unreadCount, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead } = useSLANotifications();
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -157,6 +157,18 @@ export const SLANotificationBell = () => {
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold">SLA Alerts</span>
             <div className="flex gap-1 items-center">
+              <button
+                onClick={() => setOnlyMine(!onlyAssignedToMe)}
+                className={cn(
+                  'px-2 py-0.5 text-xs rounded transition-colors',
+                  onlyAssignedToMe
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                )}
+                title={onlyAssignedToMe ? 'Showing only assigned to me' : 'Showing all org alerts'}
+              >
+                Only mine
+              </button>
               {notifications.length > 0 && (
                 <button
                   onClick={clearAll}
