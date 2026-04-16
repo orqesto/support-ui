@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 
 type TicketFilters = {
@@ -45,80 +46,85 @@ type TicketsState = {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+const defaultFilters: TicketFilters = {
+  status: 'all',
+  priority: 'all',
+  categoryId: 'all',
+  messageSourceId: 'all',
+  assigneeId: 'all',
+  syncedToJira: undefined,
+};
+
+const defaultSorting: TicketSorting = {
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+};
+
 const getCacheKey = (filters: TicketFilters, sorting: TicketSorting, page: number): string =>
   JSON.stringify({ filters, sorting, page });
 
-export const useTicketsStore = create<TicketsState>((set, get) => ({
-  filters: {
-    status: 'all',
-    priority: 'all',
-    categoryId: 'all',
-    messageSourceId: 'all',
-    assigneeId: 'all',
-    syncedToJira: undefined,
-  },
-  sorting: {
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  },
-  cache: new Map(),
+export const useTicketsStore = create<TicketsState>()(
+  persist(
+    (set, get) => ({
+      filters: defaultFilters,
+      sorting: defaultSorting,
+      cache: new Map(),
 
-  setFilters: (filters) => {
-    set({ filters, cache: new Map() });
-  },
-
-  setSorting: (sorting) => {
-    set({ sorting, cache: new Map() }); // Clear cache when sorting changes
-  },
-
-  clearFilters: () => {
-    set({
-      filters: {
-        status: 'all',
-        priority: 'all',
-        categoryId: 'all',
-        messageSourceId: 'all',
-        assigneeId: 'all',
-        syncedToJira: undefined,
+      setFilters: (filters) => {
+        set({ filters, cache: new Map() });
       },
-      // Keep cache - just changing back to "all" filters
-    });
-  },
 
-  setTickets: (tickets, pagination) => {
-    const { filters, sorting, cache } = get();
-    const cacheKey = getCacheKey(filters, sorting, pagination.page);
+      setSorting: (sorting) => {
+        set({ sorting, cache: new Map() }); // Clear cache when sorting changes
+      },
 
-    const newCache = new Map(cache);
-    newCache.set(cacheKey, {
-      tickets,
-      pagination,
-      timestamp: Date.now(),
-      filters,
-      sorting,
-    });
+      clearFilters: () => {
+        set({
+          filters: defaultFilters,
+          // Keep cache - just changing back to "all" filters
+        });
+      },
 
-    set({ cache: newCache });
-  },
+      setTickets: (tickets, pagination) => {
+        const { filters, sorting, cache } = get();
+        const cacheKey = getCacheKey(filters, sorting, pagination.page);
 
-  getCached: (page) => {
-    const { filters, sorting, cache } = get();
-    const cacheKey = getCacheKey(filters, sorting, page);
-    const cached = cache.get(cacheKey);
+        const newCache = new Map(cache);
+        newCache.set(cacheKey, {
+          tickets,
+          pagination,
+          timestamp: Date.now(),
+          filters,
+          sorting,
+        });
 
-    if (!cached) {
-      return null;
+        set({ cache: newCache });
+      },
+
+      getCached: (page) => {
+        const { filters, sorting, cache } = get();
+        const cacheKey = getCacheKey(filters, sorting, page);
+        const cached = cache.get(cacheKey);
+
+        if (!cached) {
+          return null;
+        }
+
+        const age = Date.now() - cached.timestamp;
+        if (age > CACHE_TTL) {
+          return null;
+        }
+
+        return cached;
+      },
+
+      clearCache: () => {
+        set({ cache: new Map() });
+      },
+    }),
+    {
+      name: 'tickets-filters',
+      partialize: (state) => ({ filters: state.filters, sorting: state.sorting }),
     }
-
-    const age = Date.now() - cached.timestamp;
-    if (age > CACHE_TTL) {
-      return null;
-    }
-
-    return cached;
-  },
-
-  clearCache: () => {
-    set({ cache: new Map() });
-  },
-}));
+  )
+);
