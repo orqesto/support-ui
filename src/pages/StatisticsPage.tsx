@@ -39,7 +39,7 @@ import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
 import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
 import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { SLABreachList } from '@/components/sla/SLABreachList';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 
 type TabType = 'overview' | 'team' | 'messages' | 'sla';
@@ -112,7 +112,7 @@ export const StatisticsPage = () => {
   const {
     data: aiStats,
     loading: aiLoading,
-    refresh: refreshAI,
+    refresh: _refreshAI,
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
     aiDays,
