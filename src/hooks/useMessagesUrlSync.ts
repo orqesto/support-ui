@@ -27,7 +27,7 @@ export const useMessagesUrlSync = ({
 
   const filters = useMessagesStore((state) => state.filters);
   const setFilters = useMessagesStore((state) => state.setFilters);
-  const currentUser = useAuthStore((state) => state.user);
+  const _currentUser = useAuthStore((state) => state.user);
 
   // On mount: read URL params → store, then trigger initial fetch
   useEffect(() => {

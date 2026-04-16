@@ -164,7 +164,6 @@ export const MessageThread = ({
           const isOutgoingMessage = msg.isOutgoing === true;
           const isBotSender = msg.sender.toLowerCase() === 'bot';
           const isFromSupport =
-            msg.sender.includes('gmail.com') ||
             msg.sender.toLowerCase().includes('support') ||
             msg.sender === 'me';
 

@@ -313,7 +313,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
               (Date.now() - new Date(message.createdAt).getTime()) / 60000
             );
             const target = message.slaResponseMinutes;
-            const breached = message.slaResponseBreached || elapsedMinutes > target;
+            const breached = message.slaResponseBreached === true || elapsedMinutes > target;
             const atRisk = !breached && elapsedMinutes > target * 0.8;
             if (breached) {
               return (
