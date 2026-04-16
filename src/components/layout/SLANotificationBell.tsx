@@ -90,7 +90,7 @@ const NotificationItem = ({
 
 export const SLANotificationBell = () => {
   const [open, setOpen] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ bottom: number; left: number }>({ bottom: 0, left: 0 });
+  const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
   const { notifications, total, unreadCount, clearAll, dismiss, markAllRead } = useSLANotifications();
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -115,10 +115,18 @@ export const SLANotificationBell = () => {
   const handleOpen = () => {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setPanelPos({
-        bottom: window.innerHeight - rect.top + 8,
-        left: rect.left,
-      });
+      const panelWidth = 320; // w-80
+      const panelHeight = 360; // approx max-h-80 + header
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8));
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow >= panelHeight || spaceBelow >= spaceAbove) {
+        // open downward
+        setPanelPos({ top: rect.bottom + 8, left });
+      } else {
+        // open upward
+        setPanelPos({ bottom: window.innerHeight - rect.top + 8, left });
+      }
     }
     setOpen((prev) => !prev);
     if (!open && unreadCount > 0) markAllRead();
@@ -143,7 +151,7 @@ export const SLANotificationBell = () => {
       {open && (
         <div
           ref={panelRef}
-          style={{ bottom: panelPos.bottom, left: panelPos.left }}
+          style={{ top: panelPos.top, bottom: panelPos.bottom, left: panelPos.left }}
           className="fixed z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
         >
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">

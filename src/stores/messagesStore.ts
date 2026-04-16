@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { PaginationMeta } from '@/services/message.service';
 import type { Message } from '@/types';
 
@@ -89,114 +90,122 @@ export const defaultFilters: FilterState = {
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
   JSON.stringify({ filters, sorting, page });
 
-export const useMessagesStore = create<MessagesState>((set, get) => ({
-  cache: {},
-  filters: defaultFilters,
-  sorting: { sortOrder: 'desc' },
-  currentPage: 1,
+export const useMessagesStore = create<MessagesState>()(
+  persist(
+    (set, get) => ({
+      cache: {},
+      filters: defaultFilters,
+      sorting: { sortOrder: 'desc' },
+      currentPage: 1,
 
-  getCached: (page: number) => {
-    const state = get();
-    const cacheKey = getCacheKey(state.filters, state.sorting, page);
-    const entry = state.cache[cacheKey];
+      getCached: (page: number) => {
+        const state = get();
+        const cacheKey = getCacheKey(state.filters, state.sorting, page);
+        const entry = state.cache[cacheKey];
 
-    if (!entry) {
-      return null;
-    }
+        if (!entry) {
+          return null;
+        }
 
-    // Cache expired (older than 5 minutes)
-    if (Date.now() - entry.timestamp > 5 * 60 * 1000) {
-      return null;
-    }
+        // Cache expired (older than 5 minutes)
+        if (Date.now() - entry.timestamp > 5 * 60 * 1000) {
+          return null;
+        }
 
-    return { messages: entry.messages, pagination: entry.pagination };
-  },
-
-  setMessages: (messages, pagination) => {
-    const state = get();
-    const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page);
-
-    set({
-      cache: {
-        ...state.cache,
-        [cacheKey]: {
-          messages,
-          pagination,
-          timestamp: Date.now(),
-        },
+        return { messages: entry.messages, pagination: entry.pagination };
       },
-      currentPage: pagination.page,
-    });
-  },
 
-  setFilters: (filters) => {
-    const currentState = get();
-    const newFilters = { ...currentState.filters, ...filters };
-    set({ filters: newFilters, cache: {} }); // Merge with existing filters and clear cache
-  },
+      setMessages: (messages, pagination) => {
+        const state = get();
+        const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page);
 
-  setSorting: (sorting) => {
-    set({ sorting, cache: {} }); // Clear cache when sorting changes
-  },
+        set({
+          cache: {
+            ...state.cache,
+            [cacheKey]: {
+              messages,
+              pagination,
+              timestamp: Date.now(),
+            },
+          },
+          currentPage: pagination.page,
+        });
+      },
 
-  updateFilter: (key, value) => {
-    set((state) => ({
-      filters: { ...state.filters, [key]: value },
-      cache: {}, // Clear cache on filter change
-    }));
-  },
+      setFilters: (filters) => {
+        const currentState = get();
+        const newFilters = { ...currentState.filters, ...filters };
+        set({ filters: newFilters, cache: {} }); // Merge with existing filters and clear cache
+      },
 
-  // Update primary filter: Keep other primary filters, clear secondary filters
-  updatePrimaryFilter: (key, value) => {
-    set((state) => {
-      const { view, channel, messageSourceId } = state.filters;
+      setSorting: (sorting) => {
+        set({ sorting, cache: {} }); // Clear cache when sorting changes
+      },
 
-      return {
-        filters: {
-          view,
-          channel,
-          messageSourceId,
-          [key]: value,
-          processed: 'all',
-          showSpam: false,
-          showSuspicious: false,
-          excludeSpam: false,
-          showNeedsInfo: false,
-          showWorthy: false,
-          hasAttachments: false,
-          isLead: false,
-          isQualifiedLead: false,
-          hasReplies: false,
-          hasTicket: undefined,
-          showFailed: false,
-          showKBOnly: false,
-          excludeKB: false,
-          awaitingCustomerResponse: false,
-          customerResponded: false,
-          assigneeId: 'all',
-          search: undefined,
-          departmentRole: 'all',
-          needsHumanReview: false,
-          ageRange: undefined,
-        },
-        cache: {},
-      };
-    });
-  },
+      updateFilter: (key, value) => {
+        set((state) => ({
+          filters: { ...state.filters, [key]: value },
+          cache: {}, // Clear cache on filter change
+        }));
+      },
 
-  // Update secondary filter: Keep all filters
-  updateSecondaryFilter: (key, value) => {
-    set((state) => ({
-      filters: { ...state.filters, [key]: value },
-      cache: {}, // Clear cache on filter change
-    }));
-  },
+      // Update primary filter: Keep other primary filters, clear secondary filters
+      updatePrimaryFilter: (key, value) => {
+        set((state) => {
+          const { view, channel, messageSourceId } = state.filters;
 
-  clearFilters: () => {
-    set({ filters: defaultFilters });
-  },
+          return {
+            filters: {
+              view,
+              channel,
+              messageSourceId,
+              [key]: value,
+              processed: 'all',
+              showSpam: false,
+              showSuspicious: false,
+              excludeSpam: false,
+              showNeedsInfo: false,
+              showWorthy: false,
+              hasAttachments: false,
+              isLead: false,
+              isQualifiedLead: false,
+              hasReplies: false,
+              hasTicket: undefined,
+              showFailed: false,
+              showKBOnly: false,
+              excludeKB: false,
+              awaitingCustomerResponse: false,
+              customerResponded: false,
+              assigneeId: 'all',
+              search: undefined,
+              departmentRole: 'all',
+              needsHumanReview: false,
+              ageRange: undefined,
+            },
+            cache: {},
+          };
+        });
+      },
 
-  clearCache: () => {
-    set({ cache: {} });
-  },
-}));
+      // Update secondary filter: Keep all filters
+      updateSecondaryFilter: (key, value) => {
+        set((state) => ({
+          filters: { ...state.filters, [key]: value },
+          cache: {}, // Clear cache on filter change
+        }));
+      },
+
+      clearFilters: () => {
+        set({ filters: defaultFilters });
+      },
+
+      clearCache: () => {
+        set({ cache: {} });
+      },
+    }),
+    {
+      name: 'messages-filters',
+      partialize: (state) => ({ filters: state.filters, sorting: state.sorting }),
+    }
+  )
+);
