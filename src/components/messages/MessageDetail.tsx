@@ -54,7 +54,7 @@ import {
 import { useResolveMessageToKB } from '@/hooks/useResolveMessageToKB';
 import { usePermissions } from '@/hooks/usePermissions';
 import { LinkifiedText } from '@/lib/linkify';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDuration } from '@/lib/utils';
 import { stripHtml } from '@/lib/stripHtml';
 import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
@@ -611,110 +611,127 @@ export const MessageDetail = ({
         </div>
 
         {/* SLA Status */}
-        {!message.isOutgoing && message.slaResponseMinutes && (() => {
-          const target = message.slaResponseMinutes;
+        {!message.isOutgoing &&
+          message.slaResponseMinutes &&
+          (() => {
+            const target = message.slaResponseMinutes;
 
-          // Already responded — show met or breached outcome
-          const firstResponseAt = message.firstResponseAt;
-          if (firstResponseAt) {
-            const responseMinutes = Math.round(
-              (new Date(firstResponseAt).getTime() - new Date(message.createdAt).getTime()) / 60000
-            );
-            if (message.slaResponseBreached) {
+            // Already responded — show met or breached outcome
+            const firstResponseAt = message.firstResponseAt;
+            if (firstResponseAt) {
+              const responseMinutes = Math.round(
+                (new Date(firstResponseAt).getTime() - new Date(message.createdAt).getTime()) /
+                  60000
+              );
+              if (message.slaResponseBreached) {
+                return (
+                  <div className="flex gap-2 items-center px-3 py-2 bg-red-50 rounded-md border border-red-200 dark:bg-red-950/30 dark:border-red-900">
+                    <Clock className="w-4 h-4 text-red-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                        SLA Breached
+                      </p>
+                      <p className="text-xs text-red-600 dark:text-red-500">
+                        Responded in {formatDuration(responseMinutes)} — target was{' '}
+                        {formatDuration(target)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
               return (
-                <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900">
+                <div className="flex gap-2 items-center px-3 py-2 bg-green-50 rounded-md border border-green-200 dark:bg-green-950/30 dark:border-green-900">
+                  <Clock className="w-4 h-4 text-green-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                      SLA Met
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-500">
+                      Responded in {formatDuration(responseMinutes)} of {formatDuration(target)}{' '}
+                      target
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            // No response yet — show live countdown
+            const elapsedMinutes = Math.floor(
+              (Date.now() - new Date(message.createdAt).getTime()) / 60000
+            );
+            const breached = message.slaResponseBreached === true || elapsedMinutes > target;
+            const remaining = target - elapsedMinutes;
+            const atRisk = !breached && elapsedMinutes > target * 0.8;
+
+            if (breached) {
+              return (
+                <div className="flex gap-2 items-center px-3 py-2 bg-red-50 rounded-md border border-red-200 dark:bg-red-950/30 dark:border-red-900">
                   <Clock className="w-4 h-4 text-red-500 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-red-700 dark:text-red-400">SLA Breached</p>
+                    <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                      SLA Breached
+                    </p>
                     <p className="text-xs text-red-600 dark:text-red-500">
-                      Responded in {responseMinutes}m — target was {target}m
+                      Target: {formatDuration(target)} — {formatDuration(Math.abs(remaining))}{' '}
+                      overdue
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+            if (atRisk) {
+              return (
+                <div className="flex gap-2 items-center px-3 py-2 bg-yellow-50 rounded-md border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-900">
+                  <Clock className="w-4 h-4 text-yellow-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                      SLA At Risk
+                    </p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                      {formatDuration(remaining)} remaining of {formatDuration(target)} target
                     </p>
                   </div>
                 </div>
               );
             }
             return (
-              <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-900">
+              <div className="flex gap-2 items-center px-3 py-2 bg-green-50 rounded-md border border-green-200 dark:bg-green-950/30 dark:border-green-900">
                 <Clock className="w-4 h-4 text-green-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-400">SLA Met</p>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                    SLA On Track
+                  </p>
                   <p className="text-xs text-green-600 dark:text-green-500">
-                    Responded in {responseMinutes}m of {target}m target
+                    {formatDuration(remaining)} remaining of {formatDuration(target)} target
                   </p>
                 </div>
               </div>
             );
-          }
-
-          // No response yet — show live countdown
-          const elapsedMinutes = Math.floor(
-            (Date.now() - new Date(message.createdAt).getTime()) / 60000
-          );
-          const breached = message.slaResponseBreached === true || elapsedMinutes > target;
-          const remaining = target - elapsedMinutes;
-          const atRisk = !breached && elapsedMinutes > target * 0.8;
-
-          if (breached) {
-            return (
-              <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900">
-                <Clock className="w-4 h-4 text-red-500 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-red-700 dark:text-red-400">SLA Breached</p>
-                  <p className="text-xs text-red-600 dark:text-red-500">
-                    Target: {target}m — {Math.abs(remaining)}m overdue
-                  </p>
-                </div>
-              </div>
-            );
-          }
-          if (atRisk) {
-            return (
-              <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-900">
-                <Clock className="w-4 h-4 text-yellow-500 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">SLA At Risk</p>
-                  <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                    {remaining}m remaining of {target}m target
-                  </p>
-                </div>
-              </div>
-            );
-          }
-          return (
-            <div className="flex gap-2 items-center px-3 py-2 rounded-md bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-900">
-              <Clock className="w-4 h-4 text-green-500 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">SLA On Track</p>
-                <p className="text-xs text-green-600 dark:text-green-500">
-                  {remaining}m remaining of {target}m target
-                </p>
-              </div>
-            </div>
-          );
-        })()}
+          })()}
       </div>
 
       {/* Assignment */}
       <div className="pt-4 border-t">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex justify-between items-center mb-2">
           <p className="text-sm text-muted-foreground">
             Assigned to {message.subject ? '(Thread)' : '(Message)'}
           </p>
-          {(message.metadata as { autoRouted?: boolean })?.autoRouted && (() => {
-            const reason = (message.metadata as { autoRoutedReason?: string })?.autoRoutedReason;
-            const REASON_LABELS: Record<string, string> = {
-              assigned_manager: 'Assigned Manager',
-              skill_match: 'Skill Match',
-              client_history: 'Client History',
-              load_balance: 'Load Balance',
-            };
-            return (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                <Target className="w-3 h-3" />
-                {reason ? REASON_LABELS[reason] ?? 'Auto-routed' : 'Auto-routed'}
-              </span>
-            );
-          })()}
+          {(message.metadata as { autoRouted?: boolean })?.autoRouted &&
+            (() => {
+              const reason = (message.metadata as { autoRoutedReason?: string })?.autoRoutedReason;
+              const REASON_LABELS: Record<string, string> = {
+                assigned_manager: 'Assigned Manager',
+                skill_match: 'Skill Match',
+                client_history: 'Client History',
+                load_balance: 'Load Balance',
+              };
+              return (
+                <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                  <Target className="w-3 h-3" />
+                  {reason ? (REASON_LABELS[reason] ?? 'Auto-routed') : 'Auto-routed'}
+                </span>
+              );
+            })()}
         </div>
         <AssignmentSelect
           type={message.subject ? 'thread' : 'message'}
@@ -1018,10 +1035,7 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button
-                onClick={() => handleUseResponse(suggestedAnswer.answer)}
-                className="flex-1"
-              >
+              <Button onClick={() => handleUseResponse(suggestedAnswer.answer)} className="flex-1">
                 <Check className="mr-2 w-4 h-4" />
                 Use This Message
               </Button>
@@ -1060,10 +1074,7 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button
-                onClick={() => handleUseResponse(suggestedAnswer.answer)}
-                className="flex-1"
-              >
+              <Button onClick={() => handleUseResponse(suggestedAnswer.answer)} className="flex-1">
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
@@ -1115,10 +1126,7 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button
-                onClick={() => handleUseResponse(suggestedAnswer.answer)}
-                className="flex-1"
-              >
+              <Button onClick={() => handleUseResponse(suggestedAnswer.answer)} className="flex-1">
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>

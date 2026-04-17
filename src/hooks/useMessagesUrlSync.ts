@@ -88,6 +88,14 @@ export const useMessagesUrlSync = ({
     if (urlAgeRange && ['lt24h', '1to7d', '1to4w', 'gt1mo'].includes(urlAgeRange)) {
       urlFilters.ageRange = urlAgeRange as FilterState['ageRange'];
     }
+    const urlPriority = searchParams.get('priority');
+    if (urlPriority && ['low', 'medium', 'high', 'critical'].includes(urlPriority)) {
+      urlFilters.priority = urlPriority as FilterState['priority'];
+    }
+    const urlLabelId = searchParams.get('labelId');
+    if (urlLabelId) {
+      urlFilters.labelId = urlLabelId;
+    }
 
     // Apply URL params on top of persisted filters.
     // If URL has explicit params, merge them in. Otherwise keep persisted state as-is.
@@ -147,6 +155,8 @@ export const useMessagesUrlSync = ({
     if (filters.departmentRole && filters.departmentRole !== 'all') params.set('dept', filters.departmentRole);
     if (filters.needsHumanReview) params.set('needsHumanReview', 'true');
     if (filters.ageRange) params.set('ageRange', filters.ageRange);
+    if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);
+    if (filters.labelId && filters.labelId !== 'all') params.set('labelId', filters.labelId);
 
     setSearchParams(params, { replace: true });
   }, [filters, searchParams, setSearchParams]);

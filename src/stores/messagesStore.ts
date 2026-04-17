@@ -181,6 +181,8 @@ export const useMessagesStore = create<MessagesState>()(
               departmentRole: 'all',
               needsHumanReview: false,
               ageRange: undefined,
+              priority: 'all',
+              labelId: 'all',
             },
             cache: {},
           };
