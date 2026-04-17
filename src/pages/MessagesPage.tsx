@@ -301,6 +301,7 @@ export const MessagesPage = () => {
   const activeFilterCount =
     (filters.processed !== 'all' ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
+    (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
     ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy)
       ? 1
       : 0) +
@@ -311,8 +312,13 @@ export const MessagesPage = () => {
     ((filters.showKBOnly ?? filters.excludeKB) ? 1 : 0) +
     (filters.awaitingCustomerResponse ? 1 : 0) +
     (filters.customerResponded ? 1 : 0) +
+    (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
     (filters.needsHumanReview ? 1 : 0) +
+    (filters.ageRange ? 1 : 0) +
+    (filters.priority && filters.priority !== 'all' ? 1 : 0) +
+    (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
+    ((filters.isLead ?? filters.isQualifiedLead) ? 1 : 0) +
     (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0);
 
   return (

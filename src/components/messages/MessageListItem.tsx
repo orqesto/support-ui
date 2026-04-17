@@ -27,7 +27,7 @@ import {
   getSpamCheck,
   getFilteredCategoryLabel,
 } from '@/lib/messageHelpers';
-import { formatDate, formatAge } from '@/lib/utils';
+import { formatDate, formatAge, formatDuration } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 
 const STATUS_BADGE: Record<
@@ -320,7 +320,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
                 <Badge
                   variant="danger"
                   className="flex gap-1 items-center h-5 px-1.5"
-                  title={`SLA target: ${target}m — elapsed: ${elapsedMinutes}m`}
+                  title={`SLA target: ${formatDuration(target)} — elapsed: ${formatDuration(elapsedMinutes)}`}
                 >
                   <Clock className="w-2.5 h-2.5" />
                   SLA Breached
@@ -332,7 +332,7 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
                 <Badge
                   variant="warning"
                   className="flex gap-1 items-center h-5 px-1.5"
-                  title={`SLA target: ${target}m — ${target - elapsedMinutes}m remaining`}
+                  title={`SLA target: ${formatDuration(target)} — ${formatDuration(target - elapsedMinutes)} remaining`}
                 >
                   <Clock className="w-2.5 h-2.5" />
                   SLA At Risk
