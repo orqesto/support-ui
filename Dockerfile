@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies + force rollup native binary for linux-arm64-musl (Alpine)
+RUN npm install && npm install @rollup/rollup-linux-arm64-musl --save-optional 2>/dev/null || true
 
 # Copy source
 COPY . .
