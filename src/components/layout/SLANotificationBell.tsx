@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, X, AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSLANotifications, type SLABreachNotification } from '@/hooks/useSLANotifications';
+import { type SLABreachNotification, type UseSLANotificationsResult } from '@/hooks/useSLANotifications';
 
 const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
@@ -88,10 +88,9 @@ const NotificationItem = ({
   );
 };
 
-export const SLANotificationBell = () => {
+export const SLANotificationBell = ({ notifications, total, unreadCount, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead }: UseSLANotificationsResult) => {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
-  const { notifications, total, unreadCount, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead } = useSLANotifications();
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 

@@ -31,6 +31,7 @@ import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
+import { useSLANotifications } from '@/hooks/useSLANotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
 import { MessageProcessingProgress } from '../messages/MessageProcessingProgress';
@@ -116,6 +117,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
   const { hasModule } = useModules();
+  const slaNotifications = useSLANotifications();
 
   // State for organization name
   const [selectedOrgName, setSelectedOrgName] = useState<string>('Organization');
@@ -384,7 +386,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   </div>
                 </div>
                 <div className="flex flex-shrink-0 gap-1 items-center">
-                  <SLANotificationBell />
+                  <SLANotificationBell {...slaNotifications} />
                   <ThemeToggle />
                 </div>
               </div>

@@ -656,8 +656,13 @@ export const MessageDetail = ({
             }
 
             // No response yet — show live countdown
+            // Use original receivedAt (email send time) if available, not import time
+            const slaStartTime =
+              typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
+                ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
+                : new Date(message.createdAt);
             const elapsedMinutes = Math.floor(
-              (Date.now() - new Date(message.createdAt).getTime()) / 60000
+              (Date.now() - slaStartTime.getTime()) / 60000
             );
             const breached = message.slaResponseBreached === true || elapsedMinutes > target;
             const remaining = target - elapsedMinutes;
