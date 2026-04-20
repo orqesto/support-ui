@@ -53,6 +53,8 @@ const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: 
 
 const LAST_READ_KEY = 'sla_notifications_last_read';
 
+export type UseSLANotificationsResult = ReturnType<typeof useSLANotifications>;
+
 export const useSLANotifications = () => {
   const [notifications, setNotifications] = useState<SLABreachNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);

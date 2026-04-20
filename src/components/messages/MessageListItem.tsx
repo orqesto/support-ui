@@ -309,9 +309,11 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
 
           {/* SLA status */}
           {!message.resolved && !message.isOutgoing && message.slaResponseMinutes && !message.firstResponseAt && (() => {
-            const elapsedMinutes = Math.floor(
-              (Date.now() - new Date(message.createdAt).getTime()) / 60000
-            );
+            const slaStartTime =
+              typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
+                ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
+                : new Date(message.createdAt);
+            const elapsedMinutes = Math.floor((Date.now() - slaStartTime.getTime()) / 60000);
             const target = message.slaResponseMinutes;
             const breached = message.slaResponseBreached === true || elapsedMinutes > target;
             const atRisk = !breached && elapsedMinutes > target * 0.8;
