@@ -191,7 +191,7 @@ export const StatisticsPage = () => {
         <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
           <div className="animate-pulse">
             <div className="mb-4 w-1/4 h-8 rounded bg-muted" />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
               {Array.from({ length: 4 }).map((_, i) => (
                 // Index key is safe: array is immutable (recreated from text split), no reordering
                 // eslint-disable-next-line react/no-array-index-key
@@ -216,7 +216,7 @@ export const StatisticsPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-6 w-full max-w-7xl pb-10">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -336,10 +336,10 @@ export const StatisticsPage = () => {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div id="panel-overview" role="tabpanel">
+          <div id="panel-overview" role="tabpanel" className="space-y-8 pt-4">
           <>
             {/* Overview Cards */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
               <Card>
                 <CardContent className="p-6">
                   <div className="flex justify-between items-center">
@@ -407,12 +407,12 @@ export const StatisticsPage = () => {
             </div>
 
             {/* Message Status Breakdown */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
               <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-5">
                   <p className="text-xs font-medium text-muted-foreground">Active</p>
                   <p className="mt-1 text-2xl font-bold text-blue-600">{stats.overview.activeMessages}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {stats.overview.totalMessages > 0
                       ? `${((stats.overview.activeMessages / stats.overview.totalMessages) * 100).toFixed(0)}% of total`
                       : '—'}
@@ -420,7 +420,7 @@ export const StatisticsPage = () => {
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-5">
                   <p className="text-xs font-medium text-muted-foreground">Resolved</p>
                   <p className="mt-1 text-2xl font-bold text-green-600">{stats.overview.resolvedMessages}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -431,7 +431,7 @@ export const StatisticsPage = () => {
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-5">
                   <p className="text-xs font-medium text-muted-foreground">Closed</p>
                   <p className="mt-1 text-2xl font-bold text-gray-600">{stats.overview.closedMessages}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -442,7 +442,7 @@ export const StatisticsPage = () => {
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-5">
                   <p className="text-xs font-medium text-muted-foreground">Filtered</p>
                   <p className="mt-1 text-2xl font-bold text-orange-600">{stats.overview.filteredMessages}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -463,11 +463,11 @@ export const StatisticsPage = () => {
                     Knowledge Base
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-8">
                   {/* KB Entries by Type */}
                   <div>
                     <p className="mb-3 text-sm font-medium text-muted-foreground">By Type</p>
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-4 gap-6">
                       <div className="p-4 rounded-lg border bg-card">
                         <p className="text-2xl font-bold">{kbEntries.length}</p>
                         <p className="text-sm text-muted-foreground">Total Entries</p>
@@ -490,7 +490,7 @@ export const StatisticsPage = () => {
                   {/* KB Entries by Status */}
                   <div>
                     <p className="mb-3 text-sm font-medium text-muted-foreground">By Status</p>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-6">
                       <div className="p-4 rounded-lg border bg-card">
                         <p className="text-2xl font-bold text-green-600">
                           {kbEntries.filter((e) => e.approved).length}
@@ -517,7 +517,7 @@ export const StatisticsPage = () => {
                     <p className="mb-3 text-sm font-medium text-muted-foreground">
                       Documentation Uploads
                     </p>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-6">
                       <div className="flex gap-3 items-center p-4 rounded-lg border bg-card">
                         <BookOpen className="w-8 h-8 text-blue-500" />
                         <div>
@@ -641,7 +641,7 @@ export const StatisticsPage = () => {
             </Card>
 
             {/* Channel Statistics */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
               {stats.byChannel.map((channelStats) => {
                 const conversionRate =
                   channelStats.totalMessages > 0
@@ -656,7 +656,7 @@ export const StatisticsPage = () => {
                         {channelStats.channel}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-5">
                       {/* Channel Overview */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
@@ -780,7 +780,7 @@ export const StatisticsPage = () => {
                     {/* Message Processing Breakdown */}
                     <div className="p-4 mb-6 rounded-lg bg-muted/50">
                       <h3 className="mb-3 text-sm font-semibold">Message Processing Breakdown</h3>
-                      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
                         <div>
                           <div className="text-2xl font-bold">{stats.aiModels.totalMessages}</div>
                           <div className="text-xs text-muted-foreground">Total Messages</div>
