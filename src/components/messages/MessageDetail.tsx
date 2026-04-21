@@ -661,9 +661,7 @@ export const MessageDetail = ({
               typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
                 ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
                 : new Date(message.createdAt);
-            const elapsedMinutes = Math.floor(
-              (Date.now() - slaStartTime.getTime()) / 60000
-            );
+            const elapsedMinutes = Math.floor((Date.now() - slaStartTime.getTime()) / 60000);
             const breached = message.slaResponseBreached === true || elapsedMinutes > target;
             const remaining = target - elapsedMinutes;
             const atRisk = !breached && elapsedMinutes > target * 0.8;
