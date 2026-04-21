@@ -28,7 +28,7 @@ export const SLAByChannelChart = () => {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -121,15 +121,16 @@ export const SLAByChannelChart = () => {
             <YAxis />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
+                backgroundColor: 'hsl(var(--popover))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px',
+                color: 'hsl(var(--popover-foreground))',
               }}
             />
             <Legend />
-            <Bar dataKey="total" fill="#8884d8" name="Total" />
-            <Bar dataKey="responded" fill="#82ca9d" name="Responded" />
-            <Bar dataKey="breached" fill="#ff6b6b" name="Breached" />
+            <Bar dataKey="total" fill="hsl(var(--chart-1, var(--primary)))" name="Total" />
+            <Bar dataKey="responded" fill="hsl(var(--chart-2, 142 71% 45%))" name="Responded" />
+            <Bar dataKey="breached" fill="hsl(var(--destructive))" name="Breached" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
