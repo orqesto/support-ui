@@ -1111,7 +1111,11 @@ export const StatisticsPage = () => {
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">Human Responded</p>
                             <p className="mt-2 text-3xl font-bold text-green-600">{aiStats.summary.humanResponded}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage < 100 ? 100 - aiStats.summary.aiPercentage : 0}% of responded</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {(aiStats.summary.aiResponded + aiStats.summary.humanResponded) > 0
+                                ? Math.round((aiStats.summary.humanResponded / (aiStats.summary.aiResponded + aiStats.summary.humanResponded)) * 100)
+                                : 0}% of responded
+                            </p>
                           </div>
                           <Users className="w-10 h-10 text-green-400" />
                         </div>
