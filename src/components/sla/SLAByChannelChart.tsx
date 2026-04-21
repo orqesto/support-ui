@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Inbox } from 'lucide-react';
+import { Loader2, Inbox, AlertCircle, RefreshCw } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -10,11 +10,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
 
 export const SLAByChannelChart = () => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['sla-statistics'],
     queryFn: () => slaService.getStatistics({ days: 30 }),
   });
@@ -29,6 +30,22 @@ export const SLAByChannelChart = () => {
           <div className="flex items-center justify-center h-[300px]">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <AlertCircle className="h-10 w-10 text-destructive mb-3" />
+          <p className="text-sm font-medium text-foreground mb-1">Failed to load SLA data</p>
+          <p className="text-xs text-muted-foreground mb-4">Something went wrong while fetching data</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );
