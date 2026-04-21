@@ -61,7 +61,7 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-            {data.messages.avgResponseTime || 0}m
+            {data.messages.avgResponseTime != null ? `${data.messages.avgResponseTime}m` : '\u2014'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
         </CardContent>
