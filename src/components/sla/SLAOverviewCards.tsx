@@ -79,7 +79,9 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-            {data.messages.complianceRate.toFixed(1)}%
+            {data.messages.complianceRate != null
+              ? `${data.messages.complianceRate.toFixed(1)}%`
+              : '—'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">All time compliance</p>
         </CardContent>
@@ -97,10 +99,10 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-            {data.messages.breaches24h + data.tickets.firstResponseBreaches24h}
+            {data.messages.breaches24h + data.tickets.firstResponseBreaches24h + data.tickets.resolutionBreaches24h}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.messages.breaches24h} msgs · {data.tickets.firstResponseBreaches24h} tkts
+            {data.messages.breaches24h} msgs · {data.tickets.firstResponseBreaches24h + data.tickets.resolutionBreaches24h} tkts
           </p>
         </CardContent>
       </Card>
@@ -117,7 +119,9 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-            {data.tickets.complianceRate.toFixed(1)}%
+            {data.tickets.complianceRate != null
+              ? `${data.tickets.complianceRate.toFixed(1)}%`
+              : '—'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">All time compliance</p>
         </CardContent>
