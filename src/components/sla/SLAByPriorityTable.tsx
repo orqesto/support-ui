@@ -111,11 +111,11 @@ export const SLAByPriorityTable = () => {
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left py-3 px-3 font-semibold">Priority</th>
                 <th className="text-center py-3 px-3 font-semibold">Total</th>
-                <th className="text-center py-3 px-3 font-semibold">First Response Target</th>
-                <th className="text-center py-3 px-3 font-semibold">Avg First Response</th>
+                <th className="text-center py-3 px-3 font-semibold">First Response Target (min)</th>
+                <th className="text-center py-3 px-3 font-semibold">Avg First Response (min)</th>
                 <th className="text-center py-3 px-3 font-semibold">Breached</th>
-                <th className="text-center py-3 px-3 font-semibold">Resolution Target</th>
-                <th className="text-center py-3 px-3 font-semibold">Avg Resolution</th>
+                <th className="text-center py-3 px-3 font-semibold">Resolution Target (h)</th>
+                <th className="text-center py-3 px-3 font-semibold">Avg Resolution (h)</th>
                 <th className="text-center py-3 px-3 font-semibold">Breached</th>
               </tr>
             </thead>

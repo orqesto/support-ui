@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -61,9 +61,9 @@ export const SLABreachList = () => {
         </CardHeader>
         <CardContent>
           <div className="py-12 text-center">
-            <div className="mb-4 text-6xl">🎉</div>
+            <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400 mb-4 mx-auto" />
             <p className="mb-2 text-lg font-medium text-green-700 dark:text-green-400">
-              Perfect Performance!
+              No active SLA breaches
             </p>
             <p className="text-sm text-green-600 dark:text-green-500">
               No SLA breaches in the last 24 hours
@@ -105,18 +105,11 @@ export const SLABreachList = () => {
       <CardContent>
         <div className="space-y-4">
           {data.breaches.map((breach) => (
-            <div
+            <button
+              type="button"
               key={`${breach.type}-${breach.id}`}
-              role="button"
-              tabIndex={0}
-              className="flex justify-between items-center p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800"
+              className="flex justify-between items-center w-full text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
               onClick={() => handleBreachClick(breach)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleBreachClick(breach);
-                }
-              }}
             >
               <div className="flex-1">
                 <div className="flex flex-wrap gap-2 items-center">
@@ -146,7 +139,7 @@ export const SLABreachList = () => {
                   })}
                 </p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </CardContent>
