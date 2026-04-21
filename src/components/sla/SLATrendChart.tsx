@@ -47,21 +47,28 @@ export const SLATrendChart = () => {
 
   if (!data) return null;
 
-  // Merge message and ticket data by period
-  const chartData = data.messages.map((msg, i) => {
-    const ticket = data.tickets[i];
+  // Full outer join: include periods that appear in either messages or tickets
+  const messagesByPeriod = new Map(data.messages.map((m) => [m.period, m]));
+  const ticketsByPeriod = new Map(data.tickets.map((t) => [t.period, t]));
+  const allPeriods = [
+    ...new Set([...data.messages.map((m) => m.period), ...data.tickets.map((t) => t.period)]),
+  ].sort();
+  const chartData = allPeriods.map((period) => {
+    const msg = messagesByPeriod.get(period);
+    const ticket = ticketsByPeriod.get(period);
     return {
-      period: msg.period,
-      messageResponseTime: msg.avg_response_seconds ? msg.avg_response_seconds / 60 : 0,
-      messageBreaches: msg.breached,
+      period,
+      messageResponseTime: msg?.avg_response_seconds ? msg.avg_response_seconds / 60 : 0,
+      messageBreaches: msg?.breached ?? 0,
       ticketFirstResponse: ticket?.avg_first_response_minutes ?? 0,
       ticketBreaches: ticket?.first_response_breached ?? 0,
     };
   });
 
   const formatDate = (value: string) => {
-    const date = new Date(value);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
+    // Slice directly to avoid local-timezone shift on ISO date strings
+    const [, month, day] = value.split('-');
+    return month && day ? `${Number(month)}/${Number(day)}` : value;
   };
 
   return (
