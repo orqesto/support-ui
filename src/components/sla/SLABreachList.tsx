@@ -55,7 +55,7 @@ export const SLABreachList = () => {
       <Card className="border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/20">
         <CardHeader>
           <CardTitle className="flex gap-2 items-center text-green-700 dark:text-green-400">
-            <AlertTriangle className="w-5 h-5" />
+            <CheckCircle className="w-5 h-5" />
             Recent SLA Breaches (0)
           </CardTitle>
         </CardHeader>
@@ -134,9 +134,13 @@ export const SLABreachList = () => {
                   +{breach.breachAmount}m
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(breach.createdAt), {
-                    addSuffix: true,
-                  })}
+                  {(() => {
+                    try {
+                      return formatDistanceToNow(new Date(breach.createdAt), { addSuffix: true });
+                    } catch {
+                      return '—';
+                    }
+                  })()}
                 </p>
               </div>
             </button>
