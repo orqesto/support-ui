@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
 import {
   BarChart3,
@@ -10,7 +11,6 @@ import {
   Inbox,
   RefreshCw,
   ShieldAlert,
-  ExternalLink,
   Brain,
   Cpu,
   BookOpen,
@@ -26,6 +26,9 @@ import {
   Timer,
   GitBranch,
   Tag,
+  HelpCircle,
+  Link2,
+  Lightbulb,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
@@ -64,6 +67,7 @@ function formatAvgReply(hours: number | null): string {
 export const StatisticsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const hashTab = location.hash.replace('#', '') as TabType;
   const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'overview';
 
@@ -112,7 +116,7 @@ export const StatisticsPage = () => {
   const {
     data: aiStats,
     loading: aiLoading,
-    refresh: _refreshAI,
+    refresh: refreshAI,
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
     aiDays,
@@ -158,6 +162,7 @@ export const StatisticsPage = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchStatistics();
+    refreshAI();
   };
 
 
@@ -237,13 +242,27 @@ export const StatisticsPage = () => {
               Refresh
             </Button>
           )}
+          {activeTab === 'sla' && (
+            <Button variant="outline" size="sm" onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['sla-summary'] });
+              queryClient.invalidateQueries({ queryKey: ['sla-breaches'] });
+              queryClient.invalidateQueries({ queryKey: ['sla-trends'] });
+              queryClient.invalidateQueries({ queryKey: ['sla-statistics'] });
+            }}>
+              <RefreshCw className="mr-2 w-4 h-4" />
+              Refresh
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
         <div className="border-b">
-          <div className="flex gap-1">
+          <div className="flex gap-1" role="tablist" aria-label="Statistics sections">
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'overview'}
+              aria-controls="panel-overview"
               onClick={() => handleTabChange('overview')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
@@ -259,6 +278,9 @@ export const StatisticsPage = () => {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'team'}
+              aria-controls="panel-team"
               onClick={() => handleTabChange('team')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
@@ -274,6 +296,9 @@ export const StatisticsPage = () => {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'messages'}
+              aria-controls="panel-messages"
               onClick={() => handleTabChange('messages')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
@@ -283,12 +308,15 @@ export const StatisticsPage = () => {
               )}
             >
               <div className="flex items-center gap-2">
-                <Timer className="w-4 h-4" />
+                <MessageSquare className="w-4 h-4" />
                 Messages
               </div>
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'sla'}
+              aria-controls="panel-sla"
               onClick={() => handleTabChange('sla')}
               className={cn(
                 'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
@@ -307,6 +335,7 @@ export const StatisticsPage = () => {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
+          <div id="panel-overview" role="tabpanel">
           <>
             {/* Overview Cards */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
@@ -329,7 +358,7 @@ export const StatisticsPage = () => {
                       <p className="text-sm font-medium text-muted-foreground">Total Tickets</p>
                       <p className="mt-2 text-3xl font-bold">{stats.overview.totalTickets}</p>
                     </div>
-                    <TrendingUp className="w-10 h-10 text-green-400" />
+                    <Ticket className="w-10 h-10 text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -353,7 +382,7 @@ export const StatisticsPage = () => {
                       <p className="text-sm font-medium text-muted-foreground">Needs Info</p>
                       <p className="mt-2 text-3xl font-bold">{stats.overview.totalNeedsInfo}</p>
                     </div>
-                    <Mail className="w-10 h-10 text-yellow-400" />
+                    <HelpCircle className="w-10 h-10 text-yellow-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -370,7 +399,7 @@ export const StatisticsPage = () => {
                           : '0% of tickets'}
                       </p>
                     </div>
-                    <ExternalLink className="w-10 h-10 text-blue-400" />
+                    <Link2 className="w-10 h-10 text-blue-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -1196,10 +1225,12 @@ export const StatisticsPage = () => {
               )}
             </div>
           </>
+          </div>
         )}
 
         {/* Team Performance Tab */}
         {activeTab === 'team' && (
+          <div id="panel-team" role="tabpanel">
           <div className="space-y-4 pb-6">
             {/* Days selector */}
             <div className="flex items-center gap-2">
@@ -1331,10 +1362,12 @@ export const StatisticsPage = () => {
               </CardContent>
             </Card>
           </div>
+          </div>
         )}
 
         {/* Messages Tab */}
         {activeTab === 'messages' && (
+          <div id="panel-messages" role="tabpanel">
           <div className="space-y-4 pb-6">
             {/* Days selector */}
             <div className="flex items-center gap-2">
@@ -1580,10 +1613,12 @@ export const StatisticsPage = () => {
               )}
             </div>
           </div>
+          </div>
         )}
 
         {/* SLA Performance Tab */}
         {activeTab === 'sla' && (
+          <div id="panel-sla" role="tabpanel">
           <div className="space-y-6 pb-6">
             <SLAOverviewCards />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1592,6 +1627,7 @@ export const StatisticsPage = () => {
             </div>
             <SLATrendChart />
             <SLABreachList />
+          </div>
           </div>
         )}
       </div>
