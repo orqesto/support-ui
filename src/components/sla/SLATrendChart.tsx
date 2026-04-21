@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, TrendingUp } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -15,7 +15,10 @@ export const SLATrendChart = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>SLA Performance Trend (30 Days)</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            SLA Performance Trend (30 Days)
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
@@ -64,7 +67,10 @@ export const SLATrendChart = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>SLA Performance Trend (30 Days)</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          SLA Performance Trend (30 Days)
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -73,9 +79,10 @@ export const SLATrendChart = () => {
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
+                backgroundColor: 'hsl(var(--popover))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px',
+                color: 'hsl(var(--popover-foreground))',
               }}
             />
             <Legend />
@@ -83,28 +90,28 @@ export const SLATrendChart = () => {
             <Line
               type="monotone"
               dataKey="messageResponseTime"
-              stroke="#8884d8"
+              stroke="hsl(var(--chart-1, var(--primary)))"
               name="Message Response (min)"
               strokeWidth={2}
             />
             <Line
               type="monotone"
               dataKey="messageBreaches"
-              stroke="#ff6b6b"
+              stroke="hsl(var(--destructive))"
               name="Message Breaches"
               strokeWidth={2}
             />
             <Line
               type="monotone"
               dataKey="ticketFirstResponse"
-              stroke="#51cf66"
+              stroke="hsl(var(--chart-2, 142 71% 45%))"
               name="Ticket First Response (min)"
               strokeWidth={2}
             />
             <Line
               type="monotone"
               dataKey="ticketBreaches"
-              stroke="#ff8787"
+              stroke="hsl(var(--chart-3, 25 95% 53%))"
               name="Ticket Breaches"
               strokeWidth={2}
             />
