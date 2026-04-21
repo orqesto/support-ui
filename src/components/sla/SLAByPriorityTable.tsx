@@ -7,7 +7,7 @@ import { slaService } from '@/services/sla.service';
 
 export const SLAByPriorityTable = () => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-statistics'],
+    queryKey: ['sla-statistics', { days: 30 }],
     queryFn: () => slaService.getStatistics({ days: 30 }),
   });
 
@@ -65,14 +65,14 @@ export const SLAByPriorityTable = () => {
         variant: priority.variant,
         total: stats.total,
         firstResponseTarget: stats.firstResponseTarget,
-        avgFirstResponse: stats.avgFirstResponse.toFixed(1),
+        avgFirstResponse: stats.avgFirstResponse != null ? Number(stats.avgFirstResponse).toFixed(1) : '—',
         firstResponseBreached: stats.firstResponseBreached,
         resolutionTarget: stats.resolutionTarget,
-        avgResolution: stats.avgResolution.toFixed(1),
+        avgResolution: stats.avgResolution != null ? Number(stats.avgResolution).toFixed(1) : '—',
         resolutionBreached: stats.resolutionBreached,
       };
     })
-    .filter(Boolean);
+    .filter((r): r is NonNullable<typeof r> => r !== null);
 
   if (rows.length === 0) {
     return (
@@ -122,41 +122,41 @@ export const SLAByPriorityTable = () => {
             <tbody>
               {rows.map((row) => (
                 <tr
-                  key={row?.priority}
+                  key={row.priority}
                   className="border-b last:border-0 hover:bg-muted/30 transition-colors"
                 >
                   <td className="py-3 px-3">
-                    <Badge variant={row?.variant}>{row?.priority}</Badge>
+                    <Badge variant={row.variant}>{row.priority}</Badge>
                   </td>
-                  <td className="text-center py-3 px-3 font-medium">{row?.total}</td>
+                  <td className="text-center py-3 px-3 font-medium">{row.total}</td>
                   <td className="text-center py-3 px-3 text-muted-foreground">
-                    {row?.firstResponseTarget}m
+                    {row.firstResponseTarget}m
                   </td>
-                  <td className="text-center py-3 px-3 font-medium">{row?.avgFirstResponse}m</td>
+                  <td className="text-center py-3 px-3 font-medium">{row.avgFirstResponse}m</td>
                   <td className="text-center py-3 px-3">
                     <span
                       className={
-                        (row?.firstResponseBreached ?? 0) > 0
+                        row.firstResponseBreached > 0
                           ? 'text-red-600 dark:text-red-400 font-bold'
                           : 'text-green-600 dark:text-green-400 font-bold'
                       }
                     >
-                      {row?.firstResponseBreached}
+                      {row.firstResponseBreached}
                     </span>
                   </td>
                   <td className="text-center py-3 px-3 text-muted-foreground">
-                    {row?.resolutionTarget}h
+                    {row.resolutionTarget}h
                   </td>
-                  <td className="text-center py-3 px-3 font-medium">{row?.avgResolution}h</td>
+                  <td className="text-center py-3 px-3 font-medium">{row.avgResolution}h</td>
                   <td className="text-center py-3 px-3">
                     <span
                       className={
-                        (row?.resolutionBreached ?? 0) > 0
+                        row.resolutionBreached > 0
                           ? 'text-red-600 dark:text-red-400 font-bold'
                           : 'text-green-600 dark:text-green-400 font-bold'
                       }
                     >
-                      {row?.resolutionBreached}
+                      {row.resolutionBreached}
                     </span>
                   </td>
                 </tr>

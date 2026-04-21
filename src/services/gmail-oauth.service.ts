@@ -20,6 +20,7 @@ export type GmailOAuthCallbackRequest = {
   pollingMaxPages?: number;
   bulkImportDays?: number;
   bulkImportMaxResults?: number;
+  isKnowledgeBase?: boolean;
 };
 
 export type ApiResponse<T> = {
@@ -82,7 +83,8 @@ export const gmailOAuthService = {
     maxResults?: number,
     pollingMaxPages?: number,
     bulkImportDays?: number,
-    bulkImportMaxResults?: number
+    bulkImportMaxResults?: number,
+    isKnowledgeBase?: boolean
   ): Promise<ApiResponse<{ email: string; id: number }>> =>
     new Promise((resolve) => {
       const executeOAuth = async () => {
@@ -165,6 +167,7 @@ export const gmailOAuthService = {
                   pollingMaxPages,
                   bulkImportDays,
                   bulkImportMaxResults,
+                  isKnowledgeBase,
                 })
                 .then((callbackResponse) => {
                   resolve(callbackResponse);
@@ -210,6 +213,7 @@ export const gmailOAuthService = {
                   pollingMaxPages,
                   bulkImportDays,
                   bulkImportMaxResults,
+                  isKnowledgeBase,
                 })
                 .then((callbackResponse) => {
                   resolve(callbackResponse);
