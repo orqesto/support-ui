@@ -162,8 +162,8 @@ export const StatisticsPage = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    refreshAI(); // start concurrently; returns void, has its own loading state
     await fetchStatistics();
-    refreshAI();
   };
 
 
@@ -337,7 +337,6 @@ export const StatisticsPage = () => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div id="panel-overview" role="tabpanel" className="space-y-8 pt-4">
-          <>
             {/* Overview Cards */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
               <Card>
@@ -791,9 +790,11 @@ export const StatisticsPage = () => {
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Spam Filtered (
-                            {Math.round(
-                              (stats.aiModels.totalSpam / stats.aiModels.totalMessages) * 100
-                            )}
+                            {stats.aiModels.totalMessages > 0
+                              ? Math.round(
+                                  (stats.aiModels.totalSpam / stats.aiModels.totalMessages) * 100
+                                )
+                              : 0}
                             %)
                           </div>
                         </div>
@@ -803,9 +804,11 @@ export const StatisticsPage = () => {
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Unprocessed (
-                            {Math.round(
-                              (stats.aiModels.totalUnprocessed / stats.aiModels.totalMessages) * 100
-                            )}
+                            {stats.aiModels.totalMessages > 0
+                              ? Math.round(
+                                  (stats.aiModels.totalUnprocessed / stats.aiModels.totalMessages) * 100
+                                )
+                              : 0}
                             %)
                           </div>
                         </div>
@@ -815,9 +818,11 @@ export const StatisticsPage = () => {
                           </div>
                           <div className="text-xs text-muted-foreground">
                             AI Analyzed (
-                            {Math.round(
-                              (stats.aiModels.totalAnalyzed / stats.aiModels.totalMessages) * 100
-                            )}
+                            {stats.aiModels.totalMessages > 0
+                              ? Math.round(
+                                  (stats.aiModels.totalAnalyzed / stats.aiModels.totalMessages) * 100
+                                )
+                              : 0}
                             %)
                           </div>
                         </div>
@@ -1058,10 +1063,6 @@ export const StatisticsPage = () => {
               <CardContent>
               <div className="pt-2">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <Bot className="w-4 h-4" />
-                  AI Usage
-                </h2>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Period:</span>
                   <div className="flex rounded-md border border-border overflow-hidden">
@@ -1142,9 +1143,9 @@ export const StatisticsPage = () => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {Object.entries(aiStats.aiReplyDistribution).map(([bucket, cnt]) => {
+                        {(() => {
                           const total = Object.values(aiStats.aiReplyDistribution).reduce((s, v) => s + v, 0);
-                          return (
+                          return Object.entries(aiStats.aiReplyDistribution).map(([bucket, cnt]) => (
                             <div key={bucket} className="flex justify-between items-center">
                               <span className="text-sm text-muted-foreground">{bucket} AI {bucket === '1' ? 'reply' : 'replies'}</span>
                               <div className="flex items-center gap-3">
@@ -1154,8 +1155,8 @@ export const StatisticsPage = () => {
                                 <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
                               </div>
                             </div>
-                          );
-                        })}
+                          ));
+                        })()}
                       </CardContent>
                     </Card>
                     <Card>
@@ -1166,9 +1167,9 @@ export const StatisticsPage = () => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {aiStats.respondedBy.map((item) => {
+                        {(() => {
                           const total = aiStats.respondedBy.reduce((s, r) => s + r.count, 0);
-                          return (
+                          return aiStats.respondedBy.map((item) => (
                             <div key={item.respondedBy} className="flex justify-between items-center">
                               <span className="text-sm capitalize">{item.respondedBy === 'none' ? 'Not responded' : item.respondedBy}</span>
                               <div className="flex items-center gap-3">
@@ -1178,8 +1179,8 @@ export const StatisticsPage = () => {
                                 <span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span>
                               </div>
                             </div>
-                          );
-                        })}
+                          ));
+                        })()}
                       </CardContent>
                     </Card>
                   </div>
@@ -1240,14 +1241,13 @@ export const StatisticsPage = () => {
             </div>
               </CardContent>
             </Card>
-          </>
           </div>
         )}
 
         {/* Team Performance Tab */}
         {activeTab === 'team' && (
           <div id="panel-team" role="tabpanel">
-          <div className="space-y-4 pb-6">
+          <div className="space-y-6 pb-6">
             {/* Days selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Period:</span>
@@ -1364,7 +1364,7 @@ export const StatisticsPage = () => {
                             </td>
                             <td className="px-4 py-3 text-right tabular-nums">{entry.stats.outgoingMessages}</td>
                             <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                              {entry.stats.avgConfidence !== null ? `${(entry.stats.avgConfidence * 100).toFixed(0)}%` : '—'}
+                              {entry.stats.avgConfidence !== null ? `${Math.min(Math.max(entry.stats.avgConfidence * 100, 0), 100).toFixed(0)}%` : '—'}
                             </td>
                             <td className="px-4 py-3 text-right tabular-nums uppercase text-xs font-mono">
                               {topLang}
@@ -1384,7 +1384,7 @@ export const StatisticsPage = () => {
         {/* Messages Tab */}
         {activeTab === 'messages' && (
           <div id="panel-messages" role="tabpanel">
-          <div className="space-y-4 pb-6">
+          <div className="space-y-6 pb-6">
             {/* Days selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Period:</span>
@@ -1486,22 +1486,25 @@ export const StatisticsPage = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {Object.entries(msgStats.threadSizeDistribution).map(([bucket, cnt]) => (
-                        <div key={bucket} className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">{bucket} message{bucket === '1' ? '' : 's'}</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-2 rounded-full bg-primary"
-                                style={{
-                                  width: `${Math.round((cnt / Math.max(...Object.values(msgStats.threadSizeDistribution))) * 100)}%`,
-                                }}
-                              />
+                      {(() => {
+                        const threadTotal = Object.values(msgStats.threadSizeDistribution).reduce((s, v) => s + v, 0);
+                        return Object.entries(msgStats.threadSizeDistribution).map(([bucket, cnt]) => (
+                          <div key={bucket} className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">{bucket} message{bucket === '1' ? '' : 's'}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-2 rounded-full bg-primary"
+                                  style={{
+                                    width: threadTotal > 0 ? `${Math.round((cnt / threadTotal) * 100)}%` : '0%',
+                                  }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
                             </div>
-                            <span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span>
                           </div>
-                        </div>
-                      ))}
+                        ));
+                      })()}
                     </CardContent>
                   </Card>
 
@@ -1517,23 +1520,23 @@ export const StatisticsPage = () => {
                       {msgStats.languageBreakdown.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No language data yet — new messages will be detected automatically.</p>
                       ) : (
-                        msgStats.languageBreakdown.slice(0, 10).map((item) => {
+                        (() => {
                           const total = msgStats.languageBreakdown.reduce((s, r) => s + r.count, 0);
-                          return (
+                          return msgStats.languageBreakdown.slice(0, 10).map((item) => (
                             <div key={item.language} className="flex justify-between items-center">
                               <span className="text-sm font-mono uppercase">{item.language}</span>
                               <div className="flex items-center gap-3">
                                 <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
                                   <div
                                     className="h-2 rounded-full bg-primary"
-                                    style={{ width: `${Math.round((item.count / total) * 100)}%` }}
+                                    style={{ width: total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%' }}
                                   />
                                 </div>
                                 <span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span>
                               </div>
                             </div>
-                          );
-                        })
+                          ));
+                        })()
                       )}
                     </CardContent>
                   </Card>
