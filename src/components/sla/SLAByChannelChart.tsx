@@ -16,7 +16,7 @@ import { slaService } from '@/services/sla.service';
 
 export const SLAByChannelChart = () => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-statistics'],
+    queryKey: ['sla-statistics', { days: 30 }],
     queryFn: () => slaService.getStatistics({ days: 30 }),
   });
 
@@ -59,27 +59,18 @@ export const SLAByChannelChart = () => {
       total: data.messages.email?.total ?? 0,
       responded: data.messages.email?.responded ?? 0,
       breached: data.messages.email?.breached ?? 0,
-      avgResponse: data.messages.email?.avgResponseSeconds
-        ? (data.messages.email.avgResponseSeconds / 60).toFixed(1)
-        : 0,
     },
     {
       channel: 'Telegram',
       total: data.messages.telegram?.total ?? 0,
       responded: data.messages.telegram?.responded ?? 0,
       breached: data.messages.telegram?.breached ?? 0,
-      avgResponse: data.messages.telegram?.avgResponseSeconds
-        ? (data.messages.telegram.avgResponseSeconds / 60).toFixed(1)
-        : 0,
     },
     {
       channel: 'Slack',
       total: data.messages.slack?.total ?? 0,
       responded: data.messages.slack?.responded ?? 0,
       breached: data.messages.slack?.breached ?? 0,
-      avgResponse: data.messages.slack?.avgResponseSeconds
-        ? (data.messages.slack.avgResponseSeconds / 60).toFixed(1)
-        : 0,
     },
   ].filter((item) => item.total > 0);
 
