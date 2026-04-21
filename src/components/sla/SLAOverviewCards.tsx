@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { Clock, AlertCircle, CheckCircle2, TrendingUp, Loader2 } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle2, TrendingUp, Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
 
 export const SLAOverviewCards = () => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['sla-summary'],
     queryFn: slaService.getSummary,
     refetchInterval: 60000, // Refresh every minute
@@ -25,6 +26,22 @@ export const SLAOverviewCards = () => {
           </Card>
         ))}
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <AlertCircle className="h-10 w-10 text-destructive mb-3" />
+          <p className="text-sm font-medium text-foreground mb-1">Failed to load SLA data</p>
+          <p className="text-xs text-muted-foreground mb-4">Something went wrong while fetching data</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
