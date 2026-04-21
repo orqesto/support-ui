@@ -190,7 +190,7 @@ export const StatisticsPage = () => {
         <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
           <div className="animate-pulse">
             <div className="mb-4 w-1/4 h-8 rounded bg-muted" />
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
               {Array.from({ length: 4 }).map((_, i) => (
                 // Index key is safe: array is immutable (recreated from text split), no reordering
                 // eslint-disable-next-line react/no-array-index-key
@@ -546,9 +546,9 @@ export const StatisticsPage = () => {
 
             {/* Spam/Scam Alert Section */}
             {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (
-              <Card className="bg-red-50 border-red-200">
+              <Card className="bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800">
                 <CardHeader>
-                  <CardTitle className="flex gap-2 items-center text-red-700">
+                  <CardTitle className="flex gap-2 items-center text-red-700 dark:text-red-400">
                     <ShieldAlert className="w-5 h-5" />
                     Spam & Scam Detection
                   </CardTitle>
@@ -822,7 +822,8 @@ export const StatisticsPage = () => {
                         </div>
                       </div>
                       <div className="mt-3 text-xs text-muted-foreground">
-                        💡 Only messages that pass spam filtering and are marked as processed go
+                        <Lightbulb className="inline h-4 w-4 text-muted-foreground mr-1" />
+                        Only messages that pass spam filtering and are marked as processed go
                         through AI analysis
                       </div>
                     </div>
@@ -1046,7 +1047,15 @@ export const StatisticsPage = () => {
               )}
 
             {/* AI Usage Section */}
-            <div className="pt-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-primary" />
+                  AI Usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+              <div className="pt-2">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold flex items-center gap-2">
                   <Bot className="w-4 h-4" />
@@ -1224,6 +1233,8 @@ export const StatisticsPage = () => {
                 </Card>
               )}
             </div>
+              </CardContent>
+            </Card>
           </>
           </div>
         )}
@@ -1567,11 +1578,15 @@ export const StatisticsPage = () => {
             )}
 
             {/* Labels Section */}
-            <div className="pt-2">
-              <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
-                <Tag className="w-4 h-4" />
-                Labels
-              </h2>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Labels
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+              <div className="pt-2">
               {labelLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -1611,7 +1626,9 @@ export const StatisticsPage = () => {
                   </CardContent>
                 </Card>
               )}
-            </div>
+              </div>
+              </CardContent>
+            </Card>
           </div>
           </div>
         )}
