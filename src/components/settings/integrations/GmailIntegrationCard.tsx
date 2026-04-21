@@ -146,7 +146,8 @@ export const GmailIntegrationCard = ({
         config.maxResults,
         config.pollingMaxPages,
         config.bulkImportDays,
-        config.bulkImportMaxResults
+        config.bulkImportMaxResults,
+        config.isKnowledgeBase
       );
 
       if (response.success) {

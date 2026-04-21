@@ -59,6 +59,7 @@ const NotificationItem = ({
               {formatBreachAmount(n.breachAmount)}
             </span>
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDismiss(n.id);
@@ -88,7 +89,7 @@ const NotificationItem = ({
   );
 };
 
-export const SLANotificationBell = ({ notifications, total, unreadCount, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead }: UseSLANotificationsResult) => {
+export const SLANotificationBell = ({ notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead }: UseSLANotificationsResult) => {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
@@ -186,7 +187,9 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, onlyAss
           </div>
 
           <div className="overflow-y-auto p-2 space-y-2 max-h-80">
-            {notifications.length === 0 ? (
+            {fetchError ? (
+              <p className="py-6 text-sm text-center text-destructive">Failed to load alerts</p>
+            ) : notifications.length === 0 ? (
               <p className="py-6 text-sm text-center text-muted-foreground">No SLA alerts</p>
             ) : (
               <>
@@ -194,7 +197,7 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, onlyAss
                   <NotificationItem
                     key={`${n.type}-${n.id}-${n.receivedAt}`}
                     n={n}
-                    onDismiss={() => dismiss(n.id)}
+                    onDismiss={dismiss}
                   />
                 ))}
                 {total > notifications.length && (

@@ -53,6 +53,17 @@ const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: 
 
 const LAST_READ_KEY = 'sla_notifications_last_read';
 
+type NotificationRow = {
+  id: number;
+  entityId: number;
+  entityType: string;
+  organizationId: number;
+  severity: string;
+  breachAmount: number;
+  details: SLABreachNotification['details'];
+  createdAt: string;
+};
+
 export type UseSLANotificationsResult = ReturnType<typeof useSLANotifications>;
 
 export const useSLANotifications = () => {
@@ -60,6 +71,7 @@ export const useSLANotifications = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [onlyAssignedToMe, setOnlyAssignedToMeState] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const seenIds = useRef<Set<number>>(new Set());
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
 
@@ -67,15 +79,9 @@ export const useSLANotifications = () => {
     apiClient
       .get('/api/notifications')
       .then((r) => {
-        type Row = { id: number; entityId: number; entityType: string; organizationId: number; severity: string; breachAmount: number; details: SLABreachNotification['details']; createdAt: string };
-        type Payload = { notifications?: Row[]; total?: number } | Row[];
-        const raw = (r.data as { data?: Payload }).data;
-        const rows: Row[] = Array.isArray(raw)
-          ? (raw as Row[])
-          : ((raw as { notifications?: Row[] })?.notifications ?? []);
-        const totalCount: number = Array.isArray(raw)
-          ? rows.length
-          : ((raw as { total?: number })?.total ?? rows.length);
+        const payload = (r.data as { data: { notifications: NotificationRow[]; total: number } }).data;
+        const rows = payload.notifications;
+        const totalCount = payload.total;
         const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
         const loaded: SLABreachNotification[] = rows.map((row) => ({
           id: row.id,
@@ -93,8 +99,11 @@ export const useSLANotifications = () => {
         setTotal(totalCount);
         const unread = loaded.filter((n) => new Date(n.createdAt).getTime() > lastRead).length;
         setUnreadCount(unread);
+        setFetchError(false);
       })
-      .catch(() => {});
+      .catch(() => {
+        setFetchError(true);
+      });
   }, []);
 
   const setOnlyMine = useCallback((value: boolean) => {
@@ -103,7 +112,11 @@ export const useSLANotifications = () => {
     apiClient
       .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
       .then(() => fetchNotifications())
-      .catch(() => {});
+      .catch(() => {
+        // Roll back optimistic update
+        setOnlyAssignedToMeState(!value);
+        prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: !value };
+      });
   }, [fetchNotifications]);
 
   // Load user preferences
@@ -155,11 +168,12 @@ export const useSLANotifications = () => {
 
   const clearAll = useCallback(() => {
     apiClient.patch('/api/notifications/dismiss-all').catch(() => {});
+    // Don't clear seenIds — dismissed IDs must stay tracked so re-broadcast
+    // socket events don't re-add them immediately after dismiss-all.
     setNotifications([]);
     setTotal(0);
     setUnreadCount(0);
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
-    seenIds.current.clear();
   }, []);
 
   const markAllRead = useCallback(() => {
@@ -167,5 +181,5 @@ export const useSLANotifications = () => {
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
   }, []);
 
-  return { notifications, total, unreadCount, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead };
+  return { notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead };
 };
