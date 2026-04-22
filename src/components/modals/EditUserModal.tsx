@@ -402,33 +402,41 @@ export const EditUserModal = ({
                   {/* Department Selection */}
                   <div>
                     <div className="block mb-2 text-sm font-medium">Departments</div>
-                    <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
-                      {departments.map((dept) => (
-                        <label key={dept} className="flex gap-2 items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedDepartments.includes(dept)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedDepartments([...selectedDepartments, dept]);
-                              } else {
-                                // Prevent deselecting all departments
-                                if (selectedDepartments.length > 1) {
-                                  setSelectedDepartments(
-                                    selectedDepartments.filter((d) => d !== dept)
-                                  );
-                                }
-                              }
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          <span className="text-sm">{departmentLabels[dept]}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      User can access tickets and messages from selected departments
-                    </p>
+                    {globalRole === 'admin' ? (
+                      <p className="-mt-1 text-xs text-muted-foreground">
+                        Global admins have access to all departments
+                      </p>
+                    ) : (
+                      <>
+                        <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
+                          {departments.map((dept) => (
+                            <label key={dept} className="flex gap-2 items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedDepartments.includes(dept)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedDepartments([...selectedDepartments, dept]);
+                                  } else {
+                                    // Prevent deselecting all departments
+                                    if (selectedDepartments.length > 1) {
+                                      setSelectedDepartments(
+                                        selectedDepartments.filter((d) => d !== dept)
+                                      );
+                                    }
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                              />
+                              <span className="text-sm">{departmentLabels[dept]}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          User can access tickets and messages from selected departments
+                        </p>
+                      </>
+                    )}
                   </div>
                 </>
               )}
