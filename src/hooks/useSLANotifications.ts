@@ -161,8 +161,16 @@ export const useSLANotifications = () => {
 
   const dismiss = useCallback((id: number) => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    setUnreadCount((prev) => Math.max(0, prev - 1));
+    setNotifications((prev) => {
+      const target = prev.find((n) => n.id === id);
+      if (target) {
+        const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
+        if (new Date(target.createdAt).getTime() > lastRead) {
+          setUnreadCount((c) => Math.max(0, c - 1));
+        }
+      }
+      return prev.filter((n) => n.id !== id);
+    });
     // Keep id in seenIds so a re-broadcast doesn't re-add it
   }, []);
 
