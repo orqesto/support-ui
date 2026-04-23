@@ -2,13 +2,13 @@ import { apiClient } from '@/lib/api-client';
 
 export type SLASummary = {
   messages: {
-    avgResponseTime: number;
+    avgResponseTime: number | null; // null when no responses recorded yet
     breaches24h: number;
     complianceRate: number;
   };
   tickets: {
-    avgFirstResponse: number;
-    avgResolution: number;
+    avgFirstResponse: number | null; // null when no first-response data yet
+    avgResolution: number | null;    // null when no resolved tickets yet
     firstResponseBreaches24h: number;
     resolutionBreaches24h: number;
     complianceRate: number;
@@ -135,9 +135,10 @@ export type SLABreachEvent = {
   createdAt: string;
 };
 
+// SLA endpoints return the resource directly (no { success, data } envelope)
 const getSummary = async (): Promise<SLASummary> => {
-  const response = await apiClient.get('/api/sla/summary');
-  return response.data as SLASummary;
+  const response = await apiClient.get<SLASummary>('/api/sla/summary');
+  return response.data;
 };
 
 const getStatistics = async (params?: {
@@ -145,24 +146,24 @@ const getStatistics = async (params?: {
   departmentRole?: string;
   days?: number;
 }): Promise<SLAStatistics> => {
-  const response = await apiClient.get('/api/sla/statistics', { params });
-  return response.data as SLAStatistics;
+  const response = await apiClient.get<SLAStatistics>('/api/sla/statistics', { params });
+  return response.data;
 };
 
 const getBreaches = async (params?: {
   limit?: number;
   type?: 'message' | 'ticket';
 }): Promise<SLABreachesResponse> => {
-  const response = await apiClient.get('/api/sla/breaches', { params });
-  return response.data as SLABreachesResponse;
+  const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', { params });
+  return response.data;
 };
 
 const getTrends = async (params?: {
   days?: number;
   interval?: 'hour' | 'day' | 'week';
 }): Promise<SLATrendsResponse> => {
-  const response = await apiClient.get('/api/sla/trends', { params });
-  return response.data as SLATrendsResponse;
+  const response = await apiClient.get<SLATrendsResponse>('/api/sla/trends', { params });
+  return response.data;
 };
 
 export const slaService = {

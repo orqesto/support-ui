@@ -161,18 +161,20 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       content,
       resolve,
+      usedSuggestedAnswer,
     });
     return response.data;
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true) => {
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false) => {
     const formData = new FormData();
     formData.append('content', content);
     formData.append('resolve', String(resolve));
+    formData.append('usedSuggestedAnswer', String(usedSuggestedAnswer));
 
     files.forEach((file) => {
       formData.append('attachments', file);

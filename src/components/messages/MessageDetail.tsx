@@ -132,6 +132,7 @@ export const MessageDetail = ({
   const [linkCopied, setLinkCopied] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
+  const [replyFromSuggested, setReplyFromSuggested] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
   const [convertBotOpen, setConvertBotOpen] = useState(false);
@@ -396,10 +397,12 @@ export const MessageDetail = ({
         message.id,
         replyContent,
         selectedFiles,
-        false // Don't auto-resolve - message is now awaiting customer response
+        false, // Don't auto-resolve - message is now awaiting customer response
+        replyFromSuggested
       );
       setReplyContent('');
       setSelectedFiles([]);
+      setReplyFromSuggested(false);
       setShowReplyForm(false);
       setThreadRefreshKey((k) => k + 1);
       onRefresh?.();
@@ -478,8 +481,9 @@ export const MessageDetail = ({
     setTimeout(() => editorRef.current?.focus(), 100);
   };
 
-  const handleUseResponse = (content: string) => {
+  const handleUseResponse = (content: string, fromSuggested = false) => {
     setReplyContent(withSignature(convertTextToHtml(content)));
+    setReplyFromSuggested(fromSuggested);
     setShowReplyForm(true);
     // Focus editor after content is set
     setTimeout(() => editorRef.current?.focus(), 100);
@@ -1038,7 +1042,7 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button onClick={() => handleUseResponse(suggestedAnswer.answer)} className="flex-1">
+              <Button onClick={() => handleUseResponse(suggestedAnswer.answer, true)} className="flex-1">
                 <Check className="mr-2 w-4 h-4" />
                 Use This Message
               </Button>
@@ -1077,7 +1081,7 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button onClick={() => handleUseResponse(suggestedAnswer.answer)} className="flex-1">
+              <Button onClick={() => handleUseResponse(suggestedAnswer.answer, true)} className="flex-1">
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
@@ -1129,7 +1133,7 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button onClick={() => handleUseResponse(suggestedAnswer.answer)} className="flex-1">
+              <Button onClick={() => handleUseResponse(suggestedAnswer.answer, true)} className="flex-1">
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
