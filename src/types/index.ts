@@ -45,6 +45,8 @@ export type Message = {
   embeddingModel?: string | null;
   analysisProvider?: string | null;
   analysisModel?: string | null;
+  // Threading
+  parentMessageId?: number | null;
   // Direct reply tracking
   isOutgoing?: boolean;
   directReply?: string | null;

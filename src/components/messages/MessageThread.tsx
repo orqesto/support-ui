@@ -148,10 +148,13 @@ export const MessageThread = ({
         const response = await messageService.getThreadMessages(messageId);
         const allMessages = response.data ?? [];
 
-        // Sort by actual message time (receivedAt when available, else createdAt)
+        // Sort by actual message time.
+        // Priority: repliedAt (outgoing send time) > metadata.receivedAt (incoming email header) > createdAt (DB insert, may be batch-constant)
         const msgTime = (m: Message) =>
           new Date(
-            (m.metadata as { receivedAt?: string } | null)?.receivedAt ?? m.createdAt
+            m.repliedAt ??
+            (m.metadata as { receivedAt?: string } | null)?.receivedAt ??
+            m.createdAt
           ).getTime();
         allMessages.sort((a, b) => msgTime(a) - msgTime(b));
 
@@ -183,7 +186,6 @@ export const MessageThread = ({
         // belong to it. Priority: parentMessageId link (authoritative DB relation). Fall back
         // to timestamp window for replies that have no parentMessageId or whose parent is
         // not a customer message in this thread (e.g. older imported records).
-        const customerEmailIds = new Set(customerEmails.map((m) => m.id));
         const pairs: ConversationPair[] = [];
 
         customerEmails.forEach((customerMsg, idx) => {
@@ -193,11 +195,18 @@ export const MessageThread = ({
           const replies = systemEmails.filter((sysMsg) => {
             // If the reply has a parentMessageId pointing to a known customer message,
             // only attach it here if it points to THIS customer message.
-            if (sysMsg.parentMessageId != null) {
+            if (sysMsg.parentMessageId !== null && sysMsg.parentMessageId !== undefined) {
               return sysMsg.parentMessageId === customerMsg.id;
             }
             // No parentMessageId — fall back to timestamp window.
-            return msgTime(sysMsg) > msgTime(customerMsg) && msgTime(sysMsg) < nextCustomerTime;
+            // When nextCustomerTime === msgTime(customerMsg) (batch-imported messages with
+            // identical timestamps), the window would collapse to zero and the reply would
+            // match neither customer message. Add 1ms epsilon so the reply still attaches
+            // to the earlier customer message in that degenerate case.
+            const windowEnd = nextCustomerTime === msgTime(customerMsg)
+              ? nextCustomerTime + 1
+              : nextCustomerTime;
+            return msgTime(sysMsg) > msgTime(customerMsg) && msgTime(sysMsg) < windowEnd;
           });
 
           pairs.push({ customerEmail: customerMsg, systemReplies: replies });
@@ -390,8 +399,9 @@ export const MessageThread = ({
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
                               {formatDate(
                                 new Date(
+                                  reply.repliedAt ??
                                   (reply.metadata as { receivedAt?: string })?.receivedAt ??
-                                    reply.createdAt
+                                  reply.createdAt
                                 )
                               )}
                             </div>

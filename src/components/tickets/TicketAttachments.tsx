@@ -131,11 +131,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         formData.append('files', file);
       });
 
-      await apiClient.post(`/api/tickets/${ticketId}/attachments`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await apiClient.post(`/api/tickets/${ticketId}/attachments`, formData);
 
       setSelectedFiles([]);
       await fetchAttachments(); // Refresh list

@@ -2,6 +2,10 @@ import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Message, ApiResponse, MessageStatus, TicketPriority } from '@/types';
 
+// Strip undefined/null values so URLSearchParams never sends "?status=undefined"
+const cleanFilters = (f?: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(Object.entries(f ?? {}).filter(([, v]) => v != null));
+
 export type MessageNote = {
   id: number;
   messageId: number;
@@ -80,7 +84,7 @@ export const messageService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
     const params = new URLSearchParams({
-      ...filters,
+      ...cleanFilters(filters),
       limit: limit.toString(),
     });
 
@@ -98,7 +102,7 @@ export const messageService = {
     sortOrder?: 'asc' | 'desc'
   ) => {
     const params = new URLSearchParams({
-      ...filters,
+      ...cleanFilters(filters),
       page: page.toString(),
       limit: limit.toString(),
     });
@@ -120,7 +124,7 @@ export const messageService = {
     sortOrder?: 'asc' | 'desc'
   ) => {
     const params = new URLSearchParams({
-      ...filters,
+      ...cleanFilters(filters),
       page: page.toString(),
       limit: limit.toString(),
     });
@@ -182,12 +186,7 @@ export const messageService = {
 
     const response = await apiClient.post<ApiResponse<void>>(
       `/api/messages/${id}/reply`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      formData
     );
     return response.data;
   },
@@ -409,7 +408,7 @@ export const messageService = {
 
   getContacts: async (filters?: Record<string, string>, page = 1, limit = 50) => {
     const params = new URLSearchParams({
-      ...filters,
+      ...cleanFilters(filters),
       page: page.toString(),
       limit: limit.toString(),
     });
@@ -420,7 +419,7 @@ export const messageService = {
   },
 
   getContactSubjects: async (sender: string, filters?: Record<string, string>) => {
-    const params = new URLSearchParams({ ...filters, sender });
+    const params = new URLSearchParams({ ...cleanFilters(filters), sender });
     const response = await apiClient.get<{ success: boolean; data: MessageContactSubject[] }>(
       `/api/messages/contacts/subjects?${params.toString()}`
     );

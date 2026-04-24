@@ -88,12 +88,7 @@ export const commentsService = {
 
     const response = await apiClient.post<ApiResponse<Attachment[]>>(
       `/api/comments/${commentId}/attachments`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      formData
     );
 
     return response.data;
