@@ -160,22 +160,19 @@ export const MessageThread = ({
         const customerEmails: Message[] = [];
 
         allMessages.forEach((msg: Message) => {
-          // Check if this is a system reply using multiple indicators
+          // Check if this is a system reply using authoritative BE fields.
+          // isOutgoing is set by the BE for every sent message; isSystemReply is set in
+          // metadata for bot/AI replies. These two fields are the source of truth.
+          // The old isFromSupport heuristic (sender contains "support" or equals "me") is
+          // removed: it misclassifies incoming messages from customers whose address happens
+          // to contain the word "support", causing them to disappear from the thread view.
           const isSystemReply = msg.metadata?.isSystemReply === true;
           const isOutgoingMessage = msg.isOutgoing === true;
           const isBotSender = msg.sender.toLowerCase() === 'bot';
-          const isFromSupport =
-            msg.sender.toLowerCase().includes('support') ||
-            msg.sender === 'me';
 
-          // System messages: outgoing OR bot sender OR explicit system replies OR from support addresses
+          // System messages: outgoing OR bot sender OR explicit system replies
           // NOTE: Don't check directReply - that field is on CUSTOMER messages containing bot's response
-          if (
-            isOutgoingMessage ||
-            isBotSender ||
-            isSystemReply ||
-            (isFromSupport && msg.resolved)
-          ) {
+          if (isOutgoingMessage || isBotSender || isSystemReply) {
             systemEmails.push(msg);
           } else {
             customerEmails.push(msg);
