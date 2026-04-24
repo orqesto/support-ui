@@ -86,9 +86,6 @@ const uploadDocumentation = async (
   }
 
   const response = await apiClient.post<Documentation>('/api/documentation', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
     onUploadProgress: (progressEvent) => {
       if (onUploadProgress) {
         const progress = progressEvent.total
