@@ -102,11 +102,7 @@ export const ticketService = {
       formData.append('attachments', file);
     });
 
-    const response = await apiClient.post<ApiResponse<Ticket>>('/api/tickets', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiClient.post<ApiResponse<Ticket>>('/api/tickets', formData);
     return response.data;
   },
 
