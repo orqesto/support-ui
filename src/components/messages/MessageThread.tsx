@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import {
   MessageSquare,
   ChevronDown,
@@ -181,18 +182,26 @@ export const MessageThread = ({
           }
         });
 
-        // Create conversation pairs — each customer message gets ALL system replies
-        // that fall between it and the next customer message (chronologically).
+        // Create conversation pairs — each customer message gets the system replies that
+        // belong to it. Priority: parentMessageId link (authoritative DB relation). Fall back
+        // to timestamp window for replies that have no parentMessageId or whose parent is
+        // not a customer message in this thread (e.g. older imported records).
+        const customerEmailIds = new Set(customerEmails.map((m) => m.id));
         const pairs: ConversationPair[] = [];
 
         customerEmails.forEach((customerMsg, idx) => {
           const nextCustomerTime =
             idx + 1 < customerEmails.length ? msgTime(customerEmails[idx + 1]) : Infinity;
 
-          const replies = systemEmails.filter(
-            (sysMsg) =>
-              msgTime(sysMsg) > msgTime(customerMsg) && msgTime(sysMsg) < nextCustomerTime
-          );
+          const replies = systemEmails.filter((sysMsg) => {
+            // If the reply has a parentMessageId pointing to a known customer message,
+            // only attach it here if it points to THIS customer message.
+            if (sysMsg.parentMessageId != null) {
+              return sysMsg.parentMessageId === customerMsg.id;
+            }
+            // No parentMessageId — fall back to timestamp window.
+            return msgTime(sysMsg) > msgTime(customerMsg) && msgTime(sysMsg) < nextCustomerTime;
+          });
 
           pairs.push({ customerEmail: customerMsg, systemReplies: replies });
         });
@@ -399,7 +408,12 @@ export const MessageThread = ({
                               return isHtml ? (
                                 <div
                                   className="max-w-none prose prose-sm dark:prose-invert"
-                                  dangerouslySetInnerHTML={{ __html: html }}
+                                  dangerouslySetInnerHTML={{
+                                    __html: DOMPurify.sanitize(html, {
+                                      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code'],
+                                      ALLOWED_ATTR: ['href', 'target', 'rel'],
+                                    }),
+                                  }}
                                 />
                               ) : (
                                 <LinkifiedText>{html}</LinkifiedText>
