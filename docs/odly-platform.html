@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Odly — Platform Documentation</title>
+  <style>
+    :root {
+      --primary: #8ecefd;
+      --primary-light: #eff6ff;
+      --primary-dark: #1e40af;
+      --accent: #b798ec;
+      --accent-light: #f5f3ff;
+      --green: #059669;
+      --green-light: #ecfdf5;
+      --orange: #d97706;
+      --orange-light: #fffbeb;
+      --red: #dc2626;
+      --red-light: #fef2f2;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --sidebar-width: 280px;
+      --radius: 8px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+      color: var(--gray-800);
+      line-height: 1.75;
+      background: var(--gray-50);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: white;
+      border-right: 1px solid var(--gray-200);
+      overflow-y: auto;
+      z-index: 100;
+      padding: 24px 0;
+    }
+
+    .sidebar-logo {
+      padding: 0 24px 20px;
+      border-bottom: 1px solid var(--gray-200);
+      margin-bottom: 16px;
+    }
+
+    .sidebar-logo h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+
+    .sidebar-logo span {
+      font-size: 12px;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .sidebar nav a {
+      display: block;
+      padding: 8px 24px;
+      color: var(--gray-600);
+      text-decoration: none;
+      font-size: 14px;
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+    }
+
+    .sidebar nav a:hover {
+      color: var(--primary);
+      background: var(--primary-light);
+      border-left-color: var(--primary);
+    }
+
+    .sidebar nav a.sub {
+      padding-left: 40px;
+      font-size: 13px;
+      color: var(--gray-400);
+    }
+
+    .sidebar nav a.sub:hover {
+      color: var(--primary);
+    }
+
+    /* Main content */
+    .main {
+      margin-left: var(--sidebar-width);
+      max-width: 900px;
+      padding: 48px 56px 120px;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      color: white;
+      padding: 48px 40px;
+      border-radius: 16px;
+      margin-bottom: 48px;
+    }
+
+    .hero h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 17px;
+      line-height: 1.8;
+      opacity: 0.92;
+      max-width: 680px;
+    }
+
+    /* Sections */
+    section {
+      margin-bottom: 64px;
+    }
+
+    h2 {
+      font-size: 26px;
+      margin-top: 40px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 8px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--gray-200);
+      letter-spacing: -0.5px;
+    }
+
+    h2 .num {
+      color: var(--gray-900);
+      font-weight: 800;
+      margin-right: 6px;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 28px 0 10px;
+    }
+
+    h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin: 20px 0 8px;
+    }
+
+    p,
+    li {
+      font-size: 15px;
+      color: var(--gray-700);
+    }
+
+    p {
+      margin-bottom: 14px;
+    }
+
+    ul,
+    ol {
+      margin: 12px 0 16px 24px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    li strong {
+      color: var(--gray-800);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 14px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--gray-200);
+    }
+
+    thead {
+      background: var(--gray-800);
+      color: white;
+    }
+
+    thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--gray-100);
+      transition: background 0.1s;
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--gray-50);
+    }
+
+    tbody tr:hover {
+      background: var(--gray-100);
+    }
+
+    tbody td {
+      padding: 11px 16px;
+      color: var(--gray-700);
+    }
+
+    tbody td:first-child {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    /* Cards */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin: 16px 0 24px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: box-shadow 0.15s;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--gray-900);
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--gray-500);
+      margin: 0;
+    }
+
+    .card .icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    /* Flow diagram */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 20px 0 28px;
+      flex-wrap: wrap;
+    }
+
+    .flow-step {
+      background: white;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      padding: 10px 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary-dark);
+      white-space: nowrap;
+    }
+
+    .flow-arrow {
+      color: var(--gray-300);
+      font-size: 20px;
+      padding: 0 6px;
+      font-weight: bold;
+    }
+
+    /* Steps */
+    .steps {
+      counter-reset: step;
+      margin: 16px 0 24px;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .steps li {
+      counter-increment: step;
+      padding: 10px 0 10px 48px;
+      position: relative;
+      border-left: 2px solid var(--gray-200);
+      margin-left: 16px;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: -14px;
+      top: 8px;
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .steps li:last-child {
+      border-left-color: transparent;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+
+    .badge-blue {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .badge-green {
+      background: var(--green-light);
+      color: var(--green);
+    }
+
+    .badge-orange {
+      background: var(--orange-light);
+      color: var(--orange);
+    }
+
+    .badge-red {
+      background: var(--red-light);
+      color: var(--red);
+    }
+
+    .badge-purple {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    /* Callout */
+    .callout {
+      background: var(--primary-light);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 16px 20px;
+      margin: 16px 0 24px;
+      font-size: 14px;
+      color: var(--primary-dark);
+    }
+
+    .callout.green {
+      background: var(--green-light);
+      border-left-color: var(--green);
+      color: #065f46;
+    }
+
+    .callout.orange {
+      background: var(--orange-light);
+      border-left-color: var(--orange);
+      color: #92400e;
+    }
+
+    /* Provider logos grid */
+    .provider-grid {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 12px 0 20px;
+    }
+
+    .provider-tag {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    /* Severity scale */
+    .severity-bar {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0 20px;
+      height: 36px;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .severity-bar .seg-low {
+      flex: 49;
+      background: var(--orange);
+      display: flex;
+      align-items: center;
+      padding-left: 12px;
+    }
+
+    .severity-bar .seg-mid {
+      flex: 50;
+      background: #ef4444;
+      display: flex;
+      align-items: center;
+      padding-left: 12px;
+    }
+
+    .severity-bar .seg-high {
+      flex: 1;
+      background: #7f1d1d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 70px;
+    }
+
+    /* Summary table at bottom */
+    .summary-table tbody td:first-child {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .sidebar {
+        display: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 32px 24px 80px;
+      }
+    }
+
+    /* TOC */
+    .toc {
+      margin-bottom: 48px;
+    }
+
+    .toc h2 {
+      margin-top: 0;
+    }
+
+    .toc ul {
+      list-style: none;
+      padding-left: 0;
+      columns: 2;
+      column-gap: 32px;
+    }
+
+    .toc li {
+      padding: 6px 0;
+      color: var(--gray-600);
+      font-size: 14px;
+      break-inside: avoid;
+    }
+
+    /* Section intro */
+    .section-intro {
+      color: var(--gray-500);
+      font-size: 14px;
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+
+    /* Hero list */
+    .hero ul {
+      margin: 16px 0 0 20px;
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .hero ul li {
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 16px;
+      padding: 4px 0;
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .hero ul li::before {
+      content: '\2713';
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+    }
+
+    @media screen {
+      .toc {
+        display: none;
+      }
+    }
+
+    @media print {
+      .sidebar {
+        display: none;
+      }
+
+      .main {
+        margin-left: 0;
+        max-width: 100%;
+        padding: 24px;
+      }
+
+      .toc {
+        display: block;
+      }
+
+      section {
+        page-break-inside: avoid;
+      }
+
+      h2 {
+        page-break-before: always;
+      }
+
+      .hero {
+        background: var(--gray-800) !important;
+        page-break-before: avoid;
+      }
+
+      .hero+section h2 {
+        page-break-before: avoid;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>Odly</h2>
+      <span>Platform Docs</span>
+    </div>
+    <nav>
+      <a href="#intro">What Is Odly?</a>
+      <a href="#concepts">Core Concepts</a>
+      <a href="#auth">1. Authentication & Security</a>
+      <a href="#inbox">2. Inbox & Messages</a>
+      <a href="#tickets">3. Tickets</a>
+      <a href="#channels">4. Channels & Integrations</a>
+      <a href="#ai">5. AI Features</a>
+      <a href="#ai-analysis" class="sub">5.1 Message Analysis</a>
+      <a href="#ai-suggested" class="sub">5.2 Suggested Answers</a>
+      <a href="#ai-autoreply" class="sub">5.3 Auto-Reply</a>
+      <a href="#ai-more" class="sub">5.4–5.9 More AI</a>
+      <a href="#kb">6. Knowledge Base</a>
+      <a href="#contacts">7. Contact Management</a>
+      <a href="#rules">8. Rules & Automation</a>
+      <a href="#leads">9. Lead Qualification</a>
+      <a href="#assignment">10. Auto-Assignment</a>
+      <a href="#translation">11. Translation</a>
+      <a href="#spam-logs">12. Spam Log Analytics</a>
+      <a href="#sla">13. SLA Tracking</a>
+      <a href="#stats">14. Statistics & Reporting</a>
+      <a href="#audit">15. Audit Logs</a>
+      <a href="#roles">16. Roles & Permissions</a>
+      <a href="#prompts">17. Prompt Customization</a>
+      <a href="#subscription">18. Subscription & Usage</a>
+      <a href="#templates">19. Email Templates</a>
+      <a href="#summary">Summary</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Hero -->
+    <div class="hero" id="intro">
+      <h1>Odly — AI-Powered Communication Infrastructure</h1>
+      <p>Unify all inbound communication into a single intelligent system that classifies, prioritizes, and routes
+        messages automatically.</p>
+      <ul>
+        <li>Replace fragmented tools (email, Slack, Telegram)</li>
+        <li>Reduce response time with AI automation</li>
+        <li>Scale operations without increasing headcount</li>
+      </ul>
+    </div>
+
+    <!-- Why Odly -->
+    <section id="why-odly">
+      <div class="callout">
+        <strong>Why Odly exists</strong><br><br>
+        Most companies handle customer communication across disconnected tools — email, Slack, Telegram, chat widgets —
+        leading to slow responses, lost context, and inconsistent service.<br><br>
+        <strong>Odly unifies all inbound communication into a single AI-powered system</strong> that automatically
+        classifies, prioritizes, and routes messages — reducing response time and operational overhead.
+      </div>
+
+      <h3>How it works</h3>
+      <div class="flow">
+        <div class="flow-step">Channels</div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">Inbox</div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">AI Processing</div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">Routing</div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">Tickets / Actions</div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">Integrations</div>
+      </div>
+    </section>
+
+    <!-- TOC (PDF only) -->
+    <section class="toc">
+      <h2>Contents</h2>
+      <ul>
+        <li>1. Authentication &amp; Security</li>
+        <li>2. Inbox &amp; Messages</li>
+        <li>3. Tickets</li>
+        <li>4. Channels &amp; Integrations</li>
+        <li>5. AI Features</li>
+        <li>6. Knowledge Base</li>
+        <li>7. Contact Management</li>
+        <li>8. Rules &amp; Automation</li>
+        <li>9. Lead Qualification</li>
+        <li>10. Auto-Assignment</li>
+        <li>11. Translation</li>
+        <li>12. Spam Logs</li>
+        <li>13. SLA</li>
+        <li>14. Statistics</li>
+        <li>15. Audit Logs</li>
+        <li>16. Roles &amp; Permissions</li>
+        <li>17. Prompt Customization</li>
+        <li>18. Subscription</li>
+        <li>19. Templates</li>
+      </ul>
+    </section>
+
+    <!-- Core Concepts -->
+    <section id="concepts">
+      <h2>Core Concepts</h2>
+      <div class="card-grid">
+        <div class="card">
+          <span class="icon">🏢</span>
+          <h4>Organizations</h4>
+          <p>Everything lives inside an Organization — users, settings, rules, knowledge base, and integrations. Fully
+            isolated from other organizations. Use one or many (for agencies or multi-brand setups).</p>
+        </div>
+        <div class="card">
+          <span class="icon">🏷️</span>
+          <h4>Departments</h4>
+          <p>Work is split into departments: Support, Sales, Billing, General, and HR. Each has its own inbox,
+            categories, rules, and knowledge base. Users can belong to multiple departments.</p>
+        </div>
+        <div class="card">
+          <span class="icon">✉️</span>
+          <h4>Messages</h4>
+          <p>Raw incoming communications — emails, Telegram messages, Slack messages, or chat widget submissions. They
+            land in the inbox as they arrive.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🎫</span>
+          <h4>Tickets</h4>
+          <p>Structured work items created from messages when a case requires tracking, escalation, or external system
+            integration (e.g. Jira). Not all messages need tickets.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. Auth -->
+    <section id="auth">
+      <h2><span class="num">1.</span> Authentication &amp; Security</h2>
+      <p>Odly uses secure, encrypted authentication for all users.</p>
+
+      <h3>Registration &amp; Login</h3>
+      <ul>
+        <li><strong>Two-step login</strong> — first verify your email address, then select which organization to enter
+        </li>
+        <li>A user can belong to multiple organizations — during login you choose which one to access</li>
+        <li><strong>Registration</strong> — creates a new account; email verification is required before access</li>
+        <li><strong>Invitation-based onboarding</strong> — admins invite users by email with a pre-assigned role; the
+          invitee completes registration and joins automatically</li>
+      </ul>
+
+      <h3>Email Verification</h3>
+      <ul>
+        <li>Verification email sent on registration</li>
+        <li>Resend verification option if the original expires</li>
+      </ul>
+
+      <h3>Password Management</h3>
+      <ul>
+        <li><strong>Forgot password</strong> — request a reset link by email</li>
+        <li><strong>Reset password</strong> — use the link from the email to set a new password</li>
+        <li><strong>Change password</strong> — logged-in users can change their password (requires current password)
+        </li>
+      </ul>
+
+      <h3>Security</h3>
+      <ul>
+        <li><strong>CAPTCHA protection</strong> on login, registration, and password reset to prevent bots</li>
+        <li><strong>Rate limiting</strong> on authentication to prevent abuse</li>
+        <li>All data is fully isolated between organizations — one organization cannot see another's data</li>
+      </ul>
+
+      <h3>User Invitations</h3>
+      <ul>
+        <li>Admins can invite users to the organization with a specific role</li>
+        <li>Pending invitations can be listed and cancelled</li>
+        <li>Invitations have an expiration date</li>
+        <li>Invited users register with the pre-assigned role and organization</li>
+      </ul>
+    </section>
+
+    <!-- 2. Inbox -->
+    <section id="inbox">
+      <h2><span class="num">2.</span> Inbox &amp; Messages</h2>
+      <p class="section-intro">The inbox centralizes all communication channels into a single operational view, enabling
+        teams to respond faster and with full context.</p>
+      <p>The inbox is where all incoming messages from all channels appear in one place.</p>
+
+      <h3>What you see</h3>
+      <ul>
+        <li>Sender, subject, content preview</li>
+        <li>Status: <span class="badge badge-blue">New</span> <span class="badge badge-orange">In Progress</span> <span
+            class="badge badge-purple">Pending</span> <span class="badge badge-green">Resolved</span> <span
+            class="badge badge-red">Closed</span> <span class="badge"
+            style="background:#f3f4f6;color:#6b7280;">Filtered</span></li>
+        <li>Priority: <span class="badge badge-blue">Low</span> <span class="badge badge-orange">Medium</span> <span
+            class="badge badge-red">High</span> <span class="badge"
+            style="background:#7f1d1d;color:white;">Critical</span></li>
+        <li>Channel source (Email, Telegram, Slack, Chat Widget)</li>
+        <li>AI-detected badges: category, lead flag, spam flag, ticket-worthy indicator</li>
+        <li>Assignee, thread info, attachments</li>
+      </ul>
+
+      <h3>Views</h3>
+      <div class="card-grid">
+        <div class="card">
+          <h4>All messages</h4>
+          <p>Flat list of every incoming message</p>
+        </div>
+        <div class="card">
+          <h4>By contact</h4>
+          <p>Grouped by sender — full history of any person</p>
+        </div>
+        <div class="card">
+          <h4>By thread</h4>
+          <p>Grouped by email conversation thread</p>
+        </div>
+        <div class="card">
+          <h4>Spam logs</h4>
+          <p>Filtered/rejected messages for review</p>
+        </div>
+      </div>
+
+      <h3>Filters</h3>
+      <p>Filter by: channel, status, priority, department, assignee, date range, category, lead flag, spam flag,
+        attachment presence, awaiting response, and more.</p>
+
+      <h3>Actions on a message</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Reply</td>
+            <td>Send a direct response to the sender</td>
+          </tr>
+          <tr>
+            <td>Create ticket</td>
+            <td>Convert into a tracked ticket</td>
+          </tr>
+          <tr>
+            <td>Assign</td>
+            <td>Route to a specific team member (thread-based: assigns entire thread)</td>
+          </tr>
+          <tr>
+            <td>Set priority</td>
+            <td>Override AI-detected priority</td>
+          </tr>
+          <tr>
+            <td>Categorize</td>
+            <td>Override AI-detected category</td>
+          </tr>
+          <tr>
+            <td>Mark resolved</td>
+            <td>Close the conversation</td>
+          </tr>
+          <tr>
+            <td>Add notes</td>
+            <td>Internal notes visible only to your team</td>
+          </tr>
+          <tr>
+            <td>Flag as lead</td>
+            <td>Route to sales workflow</td>
+          </tr>
+          <tr>
+            <td>Add labels</td>
+            <td>Attach custom labels for organization and filtering</td>
+          </tr>
+          <tr>
+            <td>Translate</td>
+            <td>Translate message content to any supported language</td>
+          </tr>
+          <tr>
+            <td>Similar messages</td>
+            <td>Find previously resolved messages with the same issue</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Email threading</h3>
+      <p>When customers reply to your emails, their replies are automatically grouped into the original conversation
+        thread. You see the full exchange in order — even across different email providers.</p>
+
+      <h3>Duplicate prevention</h3>
+      <p>Odly automatically detects and prevents duplicate messages from being processed, so your inbox stays clean even
+        if the same message arrives more than once.</p>
+
+      <h4>What this gives you</h4>
+      <ul>
+        <li>Single source of truth for all customer communication</li>
+        <li>No switching between tools or tabs</li>
+        <li>Full conversation context at a glance</li>
+        <li>Faster response times with less manual effort</li>
+      </ul>
+    </section>
+
+    <!-- 3. Tickets -->
+    <section id="tickets">
+      <h2><span class="num">3.</span> Tickets</h2>
+      <p class="section-intro">Tickets provide structured case management with full lifecycle tracking, SLA enforcement,
+        and seamless integration with external project tools.</p>
+      <p>Tickets are for cases that need tracking, collaboration, or integration with external tools.</p>
+
+      <h3>Ticket lifecycle</h3>
+      <div class="flow">
+        <div class="flow-step">Pending</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Open</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">In Progress</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Resolved</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Closed</div>
+      </div>
+
+      <h3>What a ticket contains</h3>
+      <ul>
+        <li>Title and description</li>
+        <li>Status and priority</li>
+        <li>Assigned agent</li>
+        <li>Category and department</li>
+        <li>SLA timers (first response + resolution)</li>
+        <li>Comments (internal notes or external messages)</li>
+        <li>Attachments (uploaded files, optionally synced to Jira)</li>
+        <li>Link to original message</li>
+        <li>Link to external issue (Jira, Asana, Linear, etc.)</li>
+      </ul>
+
+      <h3>Ticket actions</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Reply to sender</td>
+            <td>Send a response email</td>
+          </tr>
+          <tr>
+            <td>Add comment</td>
+            <td>Internal discussion or external note</td>
+          </tr>
+          <tr>
+            <td>Upload attachments</td>
+            <td>Files attached to the ticket</td>
+          </tr>
+          <tr>
+            <td>Assign</td>
+            <td>Route to a team member</td>
+          </tr>
+          <tr>
+            <td>Add labels</td>
+            <td>Attach custom labels for categorization</td>
+          </tr>
+          <tr>
+            <td>Translate</td>
+            <td>Translate ticket content to any supported language</td>
+          </tr>
+          <tr>
+            <td>Enhance with AI</td>
+            <td>AI formats and improves the ticket description</td>
+          </tr>
+          <tr>
+            <td>Push to Jira</td>
+            <td>Create or update a Jira issue</td>
+          </tr>
+          <tr>
+            <td>Sync from Jira</td>
+            <td>Pull latest comments and status from Jira</td>
+          </tr>
+          <tr>
+            <td>Find similar</td>
+            <td>AI suggests previously resolved tickets with similar content</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Attachments flow</h3>
+      <ol class="steps">
+        <li>Email arrives with attachments → attachments are stored and linked to the message</li>
+        <li>Ticket created from message → attachments are carried over to the ticket</li>
+        <li>Ticket pushed to Jira → attachments are uploaded to the Jira issue</li>
+        <li>Telegram photos, documents, videos, and voice messages are also captured and stored</li>
+      </ol>
+
+      <h4>What this gives you</h4>
+      <ul>
+        <li>End-to-end case tracking from first contact to resolution</li>
+        <li>Seamless handoff between agents and departments</li>
+        <li>Full audit trail for compliance and accountability</li>
+        <li>Direct sync with your existing project management tools</li>
+      </ul>
+    </section>
+
+    <!-- 4. Channels -->
+    <section id="channels">
+      <h2><span class="num">4.</span> Channels &amp; Integrations</h2>
+      <p>Odly connects to all the places your customers reach you.</p>
+
+      <h3>Email (IMAP / Gmail)</h3>
+      <ul>
+        <li>Connect any IMAP-compatible email inbox (Gmail, Outlook, Zoho, custom)</li>
+        <li>Gmail also supports secure one-click authorization</li>
+        <li>Odly polls your inbox and imports new messages automatically</li>
+        <li>Full conversation thread tracking</li>
+        <li>Sent folder monitoring (outgoing emails also tracked)</li>
+      </ul>
+
+      <h3>Telegram</h3>
+      <ul>
+        <li>Connect one or more Telegram bots per organization</li>
+        <li>Incoming user messages appear in the inbox</li>
+        <li>Full conversation threading</li>
+        <li><strong>AI auto-reply</strong> — bot can auto-respond using documentation and KB, with escalation to human
+          agents</li>
+        <li><strong>Attachment support</strong> — photos, documents, videos, and voice messages</li>
+        <li><strong>Group monitoring</strong> — bot can monitor group chats and extract support-relevant messages</li>
+        <li>Multi-language support with automatic language detection</li>
+        <li>Escalation flow: bot offers to create a support ticket if it can't help</li>
+      </ul>
+
+      <h3>Slack</h3>
+      <ul>
+        <li>Connect a Slack workspace</li>
+        <li>Monitor specific channels</li>
+        <li>Messages and threads appear in the inbox</li>
+      </ul>
+
+      <h3>Chat Widget</h3>
+      <ul>
+        <li>Embeddable widget for your website</li>
+        <li>Visitors send messages that arrive in your inbox like any other channel</li>
+        <li><strong>Domain allowlist</strong> — restrict which domains can embed the widget</li>
+        <li><strong>Customizable appearance</strong> — colors, position (left/right), theme (light/dark), welcome
+          message</li>
+        <li><strong>Collect user info</strong> — optionally require name/email before chat</li>
+        <li>AI-powered replies using your organization's knowledge base and documentation</li>
+        <li>Built-in abuse prevention</li>
+        <li>Multi-language auto-detection and response</li>
+      </ul>
+
+      <h3>Ticketing Systems</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>Features</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Jira</td>
+            <td>Full sync: create issues, update status, bi-directional comment sync, attachment sync, webhook support
+            </td>
+          </tr>
+          <tr>
+            <td>Asana</td>
+            <td>Create and link tasks</td>
+          </tr>
+          <tr>
+            <td>Linear</td>
+            <td>Create and link issues</td>
+          </tr>
+          <tr>
+            <td>ClickUp</td>
+            <td>Create and link tasks</td>
+          </tr>
+          <tr>
+            <td>Monday.com</td>
+            <td>Create and link items</td>
+          </tr>
+          <tr>
+            <td>Zoho</td>
+            <td>Create and link tickets</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 5. AI Features -->
+    <section id="ai">
+      <h2><span class="num">5.</span> AI Features</h2>
+      <p class="section-intro">AI is embedded into every step of the message lifecycle — from intake to response —
+        reducing manual triage and improving consistency.</p>
+      <p>AI is built into the core of how Odly processes messages. It runs automatically on every incoming message.</p>
+
+      <h3>Supported AI Providers</h3>
+      <p>You connect your own AI provider key. Each organization configures its own provider and models independently.
+      </p>
+      <div class="provider-grid">
+        <span class="provider-tag">OpenAI (GPT-4, GPT-4o, GPT-3.5)</span>
+        <span class="provider-tag">Anthropic (Claude)</span>
+        <span class="provider-tag">DeepSeek</span>
+        <span class="provider-tag">Perplexity</span>
+        <span class="provider-tag">Local / Self-hosted</span>
+      </div>
+
+      <h3>AI Provider Management</h3>
+      <ul>
+        <li><strong>Preferred provider</strong> — each organization selects its preferred AI provider</li>
+        <li><strong>Health checks</strong> — verify that your configured provider is reachable and responding</li>
+        <li><strong>Model listing</strong> — browse available models from your connected provider</li>
+        <li><strong>Local models</strong> — option to use a local AI model for privacy-sensitive deployments</li>
+      </ul>
+
+      <h3>AI Modules</h3>
+      <p>Individual AI features can be toggled on/off per organization. You only pay for and use the modules you enable:
+        spam detection, categorization, lead detection, auto-reply, suggested answers, translation, follow-up
+        generation, and more.</p>
+
+      <h4>What this gives you</h4>
+      <ul>
+        <li>Reduced manual triage</li>
+        <li>Faster response times</li>
+        <li>Consistent communication quality</li>
+        <li>Lower operational overhead</li>
+      </ul>
+    </section>
+
+    <!-- 5.1 -->
+    <section id="ai-analysis">
+      <h3>5.1 Automatic Message Analysis</h3>
+      <p>Every incoming message is analyzed automatically:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>What AI detects</th>
+            <th>What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Spam / Promotional</td>
+            <td>Filters out newsletters, out-of-office replies, phishing, marketing emails</td>
+          </tr>
+          <tr>
+            <td>Category</td>
+            <td>Assigns the message to a support category (e.g. Billing, Technical, General)</td>
+          </tr>
+          <tr>
+            <td>Priority</td>
+            <td>Suggests Low / Medium / High / Critical based on content and urgency signals</td>
+          </tr>
+          <tr>
+            <td>Ticket-worthy</td>
+            <td>Flags whether this message needs a formal ticket or can be handled directly</td>
+          </tr>
+          <tr>
+            <td>Lead</td>
+            <td>Detects if the sender is a potential sales lead</td>
+          </tr>
+          <tr>
+            <td>Needs more info</td>
+            <td>Flags messages where the request is unclear or incomplete</td>
+          </tr>
+          <tr>
+            <td>Human review</td>
+            <td>Escalates edge cases that the AI is not confident about</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 5.2 -->
+    <section id="ai-suggested">
+      <h3>5.2 Suggested Answers</h3>
+      <p>When an agent opens a message or ticket, Odly searches your Knowledge Base and uploaded documentation to
+        suggest a relevant answer. The suggestion shows:</p>
+      <ul>
+        <li>The proposed response text</li>
+        <li>Which KB entries or document sections were used as sources</li>
+        <li>A confidence score</li>
+      </ul>
+      <p>The agent can use the suggestion as-is, edit it, or ignore it. If the suggestion was helpful, it can be saved
+        back to the KB with one click.</p>
+    </section>
+
+    <!-- 5.3 -->
+    <section id="ai-autoreply">
+      <h3>5.3 AI Reply (Auto-Response)</h3>
+      <p>Odly can generate and send AI replies automatically for certain message types.</p>
+
+      <h4>How auto-reply works</h4>
+      <p>When a new message arrives, Odly searches through multiple sources to find the best answer:</p>
+      <ol class="steps">
+        <li>Your uploaded documentation</li>
+        <li>Your knowledge base</li>
+        <li>Previously resolved tickets with similar content</li>
+        <li>Previously resolved messages with similar content</li>
+        <li>Response rules you've configured</li>
+        <li>If none of the above match confidently — escalate to a human agent</li>
+      </ol>
+
+      <h4>Confidence thresholds (configurable per organization)</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Confidence</th>
+            <th>Behavior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-green">High</span></td>
+            <td>Auto-send the reply immediately</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-orange">Medium</span></td>
+            <td>Save as a suggested answer for agent review</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-red">Low</span></td>
+            <td>Skip and let a human handle it</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>The confidence threshold is adjustable per organization (default: 90%).</p>
+
+      <div class="callout green">
+        <strong>Duplicate prevention:</strong> Odly ensures only one AI reply is sent per conversation thread, and will
+        not reply if an agent has already responded.
+      </div>
+
+      <h4>Telegram auto-reply extras</h4>
+      <ul>
+        <li>Greeting detection (skips greetings without a question)</li>
+        <li>Conversation context (uses recent messages for continuity)</li>
+        <li>Escalation flow: offers to create a support ticket when the bot can't help</li>
+        <li>Multi-language support (English, Ukrainian, Russian, Spanish, German, French)</li>
+      </ul>
+    </section>
+
+    <!-- 5.4-5.9 -->
+    <section id="ai-more">
+      <h3>5.4 Contradiction Detection</h3>
+      <p>AI checks messages for internal inconsistencies or contradictions with previous interactions — useful for
+        detecting fraud attempts or confusion.</p>
+
+      <h3>5.5 Follow-Up Questions</h3>
+      <p>For incomplete or ambiguous requests, AI can generate a list of clarifying questions to send to the customer.
+      </p>
+
+      <h3>5.6 Similar Message &amp; Ticket Finder</h3>
+      <p>Uses meaning-based search to surface previously resolved messages or tickets that match the current one —
+        helping agents quickly find what worked before.</p>
+
+      <h3>5.7 Multilingual</h3>
+      <p>All AI features work across languages. The AI detects the customer's language and responds in it, even if your
+        entire Knowledge Base is written in a different language.</p>
+
+      <h3>5.8 Ticket Description Enhancement</h3>
+      <p>AI can reformat and improve ticket descriptions — structuring messy email content into a clean, readable format
+        with proper sections and formatting.</p>
+
+      <h3>5.9 Response Tracking &amp; Feedback</h3>
+      <ul>
+        <li>The system tracks which suggestions were used vs. ignored</li>
+        <li>Agents can submit feedback (helpful / not helpful) on suggestions</li>
+        <li>Effectiveness statistics are tracked per knowledge base entry</li>
+        <li>This feedback loop continuously improves future suggestion quality</li>
+      </ul>
+    </section>
+
+    <!-- 6. KB -->
+    <section id="kb">
+      <h2><span class="num">6.</span> Knowledge Base</h2>
+      <p>The Knowledge Base (KB) is Odly's memory. It stores question-and-answer pairs, manual entries, and document
+        extracts that AI uses when suggesting answers.</p>
+
+      <h3>Entry types</h3>
+      <div class="card-grid">
+        <div class="card">
+          <span class="icon">💬</span>
+          <h4>Q&amp;A pairs</h4>
+          <p>Extracted automatically from resolved messages and tickets</p>
+        </div>
+        <div class="card">
+          <span class="icon">✏️</span>
+          <h4>Manual entries</h4>
+          <p>Written by your team</p>
+        </div>
+        <div class="card">
+          <span class="icon">📄</span>
+          <h4>Documents</h4>
+          <p>Uploaded files, split into searchable chunks</p>
+        </div>
+      </div>
+
+      <h3>Approval workflow</h3>
+      <p>New KB entries go through an approval step before they appear in AI suggestions. Your team reviews and approves
+        or hides each entry to ensure quality.</p>
+
+      <h3>Usage tracking</h3>
+      <p>Every KB entry tracks how many times it was used in a suggested answer. You can see which entries are most
+        valuable and which are underused.</p>
+
+      <h3>Documentation uploads</h3>
+      <p>Upload your own documents (PDFs, text files, guides, policies) and Odly will:</p>
+      <ol class="steps">
+        <li>Split them into chunks with configurable size (Small / Medium / Large / Whole)</li>
+        <li>Index them for AI-powered search</li>
+        <li>Make them available to AI when answering questions</li>
+      </ol>
+
+      <h4>Document types supported</h4>
+      <ul>
+        <li>Technical documentation and how-to guides</li>
+        <li>Company policies</li>
+        <li>Legal documents and NDAs</li>
+        <li>Email templates</li>
+        <li>General reference material</li>
+      </ul>
+      <p>You control which department each document is available to, and whether the AI is allowed to quote from it
+        directly.</p>
+    </section>
+
+    <!-- 7. Contacts -->
+    <section id="contacts">
+      <h2><span class="num">7.</span> Contact Management</h2>
+      <p>Every sender becomes a <strong>Contact</strong> in Odly. The contact profile shows:</p>
+      <ul>
+        <li>Full message and ticket history</li>
+        <li>Internal notes added by your team</li>
+        <li>Labels/tags assigned</li>
+        <li>Any linked duplicate contacts (merged profiles)</li>
+        <li>Interaction statistics</li>
+      </ul>
+
+      <h3>Actions on a contact</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Labels</td>
+            <td>Add or remove labels</td>
+          </tr>
+          <tr>
+            <td>Notes</td>
+            <td>Add or edit internal notes</td>
+          </tr>
+          <tr>
+            <td>Link contacts</td>
+            <td>Merge duplicate profiles</td>
+          </tr>
+          <tr>
+            <td>Update info</td>
+            <td>Update contact information</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Labels</h3>
+      <p>Labels are custom tags that can be attached to messages, tickets, and contacts for organization and filtering.
+      </p>
+      <ul>
+        <li>Create, edit, and delete labels per organization</li>
+        <li>Assign labels to messages, tickets, and contacts</li>
+        <li>Use labels to filter your inbox and ticket views</li>
+        <li>Only users with the appropriate role can create or manage labels</li>
+      </ul>
+
+      <h3>Categories</h3>
+      <p>Categories are used for classifying messages and tickets. Unlike labels, categories are used by AI for
+        automatic classification.</p>
+      <ul>
+        <li>Create categories with a name, description, and keywords</li>
+        <li>AI automatically matches incoming messages to the most relevant category</li>
+        <li>Categories are department-scoped</li>
+        <li>Only users with the appropriate role can create or manage categories</li>
+      </ul>
+    </section>
+
+    <!-- 8. Rules -->
+    <section id="rules">
+      <h2><span class="num">8.</span> Rules &amp; Automation</h2>
+      <p class="section-intro">Rules give you full control over how messages are classified, prioritized, and responded
+        to — without writing any code.</p>
+      <p>Rules let you customize how Odly classifies and routes messages without writing code.</p>
+
+      <h3>Spam Rules</h3>
+      <p>Define patterns that identify unwanted messages. Each rule has a pattern, example text, and a severity score:
+      </p>
+
+      <div class="severity-bar">
+        <div class="seg-low">1–49: Suspicious</div>
+        <div class="seg-mid">50–99: Spam &amp; filter</div>
+        <div class="seg-high">100: Reject</div>
+      </div>
+
+      <h4>How spam detection works</h4>
+      <ol class="steps">
+        <li>Pattern matching against your rules</li>
+        <li>AI-powered similarity analysis (compares against known spam examples)</li>
+        <li>Automatic checks (e.g. emails from known trusted services like Google or Microsoft are never blocked)</li>
+      </ol>
+
+      <div class="callout">
+        <strong>Red flags and green flags:</strong> Every message shows both spam indicators (red) and legitimacy
+        indicators (green) for full transparency. Agents can see exactly why a message was classified the way it was.
+      </div>
+
+      <p><strong>Multi-language support:</strong> Spam detection works across 8 languages, including unsubscribe link
+        detection in English, Ukrainian, Russian, German, French, Spanish, Italian, and Dutch.</p>
+
+      <h3>Detection Rules</h3>
+      <p>Define patterns that identify legitimate support messages (the opposite of spam rules). Each rule boosts the
+        confidence that a message is genuine.</p>
+
+      <h3>Priority Rules</h3>
+      <p>Define what makes a message high priority — certain keywords, phrases, or patterns that indicate urgency.</p>
+
+      <h3>Knowledge Detection Rules</h3>
+      <p>Define what kind of content is worth extracting into the Knowledge Base — for example, messages that mention
+        pricing, processes, policies, or technical specifications.</p>
+
+      <h3>Response Rules</h3>
+      <p>Define when the AI should send automatic responses. Each rule specifies:</p>
+      <ul>
+        <li>What triggers it (a category, a pattern, a topic)</li>
+        <li>What to respond with (AI-generated, a fixed template, or a hybrid)</li>
+        <li>Conditions that must be met (e.g. "only if no previous bot reply has been sent")</li>
+        <li>Language, department, and priority settings</li>
+      </ul>
+
+      <h4>What this gives you</h4>
+      <ul>
+        <li>Fully customizable classification without developer involvement</li>
+        <li>Consistent message handling across the entire team</li>
+        <li>Automated responses for common queries</li>
+        <li>Transparent spam filtering with full audit trail</li>
+      </ul>
+    </section>
+
+    <!-- 9. Leads -->
+    <section id="leads">
+      <h2><span class="num">9.</span> Lead Qualification</h2>
+      <p>Odly includes a dedicated lead tracking workflow for sales teams.</p>
+      <ul>
+        <li>Incoming messages are automatically analyzed for lead signals</li>
+        <li>Messages flagged as leads are routed to the Sales department</li>
+        <li>Each lead contact is enriched with detected category, language, and engagement signals</li>
+        <li>Leads are tracked separately from support messages</li>
+        <li>Your team can manually flag or unflag any message as a lead</li>
+      </ul>
+
+      <h3>Lead Configuration (per organization)</h3>
+      <ul>
+        <li><strong>Enable/disable</strong> lead qualification</li>
+        <li><strong>Custom qualifying criteria</strong> — define what signals indicate a lead (e.g. pricing questions,
+          feature requests, demo requests)</li>
+        <li>Configured in your Organization Settings</li>
+      </ul>
+    </section>
+
+    <!-- 10. Assignment -->
+    <section id="assignment">
+      <h2><span class="num">10.</span> Auto-Assignment</h2>
+      <p>Odly can automatically route incoming messages and tickets to the right team member.</p>
+
+      <h3>Routing is based on</h3>
+      <ul>
+        <li>Department membership</li>
+        <li>Custom skill keys you define (e.g. language, timezone, expertise area)</li>
+        <li>Each team member sets their values for these keys (e.g. language: French)</li>
+        <li>Odly matches incoming message attributes to available agents</li>
+      </ul>
+      <p>Auto-assignment can be enabled or disabled per department, with a fallback default assignee.</p>
+
+      <h3>Routing Keys</h3>
+      <ul>
+        <li>Organization admins define custom routing keys (e.g. language, timezone, expertise area, product line)</li>
+        <li>Each team member sets their values for these keys</li>
+        <li>When a message arrives, Odly matches it against available agents' skill values</li>
+        <li>You can create, edit, and delete routing keys at any time</li>
+      </ul>
+    </section>
+
+    <!-- 11. Translation -->
+    <section id="translation">
+      <h2><span class="num">11.</span> Translation</h2>
+      <p>Odly has built-in translation for messages and tickets, powered by your configured AI provider.</p>
+
+      <h3>What can be translated</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Messages</td>
+            <td>Translate any incoming customer message to your team's language</td>
+          </tr>
+          <tr>
+            <td>Tickets</td>
+            <td>Translate the ticket description and content</td>
+          </tr>
+          <tr>
+            <td>Free text</td>
+            <td>Translate any arbitrary text snippet</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>How it works</h3>
+      <ul>
+        <li>Click Translate on any message or ticket and select the target language</li>
+        <li>The translated version appears inline — the original is preserved</li>
+        <li>Streaming mode is available for long content (text appears progressively as it's generated)</li>
+      </ul>
+
+      <h3>Supported languages</h3>
+      <p>The platform provides a dynamic list of supported languages based on the connected AI provider. Typically
+        includes all major world languages.</p>
+    </section>
+
+    <!-- 12. Spam Logs -->
+    <section id="spam-logs">
+      <h2><span class="num">12.</span> Spam Log Analytics</h2>
+      <p>Every filtered (spam) message is logged and available for review — not just silently dropped. This gives your
+        team visibility into what is being filtered and why.</p>
+
+      <h3>What the spam log shows</h3>
+      <ul>
+        <li>Sender email and domain</li>
+        <li>Subject and content snippet</li>
+        <li>Matched spam rule and pattern</li>
+        <li>Category (spam, promotional, phishing, out-of-office, invalid, etc.)</li>
+        <li>Severity and confidence scores</li>
+        <li><span class="badge badge-red">Red flags</span> (reasons it was flagged) and <span
+            class="badge badge-green">Green flags</span> (signals it was legitimate)</li>
+        <li>Channel and department</li>
+      </ul>
+
+      <h3>Filters available</h3>
+      <p>By channel, category, department, sender domain, minimum severity, and date range.</p>
+
+      <h3>Spam statistics</h3>
+      <ul>
+        <li>Total filtered messages in the period</li>
+        <li>Breakdown by category, channel, and department</li>
+        <li>Top sender domains being filtered</li>
+        <li>Average severity and confidence scores</li>
+      </ul>
+
+      <h3>Cleanup</h3>
+      <p>Org admins can delete old spam log entries (default: older than 90 days) to keep things tidy.</p>
+    </section>
+
+    <!-- 13. SLA -->
+    <section id="sla">
+      <h2><span class="num">13.</span> SLA Tracking</h2>
+      <p>Odly tracks response time targets for every message and ticket.</p>
+
+      <h3>Default SLA targets by channel</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>First Response Target</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Email</td>
+            <td>60 minutes</td>
+          </tr>
+          <tr>
+            <td>Telegram</td>
+            <td>5 minutes</td>
+          </tr>
+          <tr>
+            <td>Slack</td>
+            <td>15 minutes</td>
+          </tr>
+          <tr>
+            <td>Chat Widget</td>
+            <td>5 minutes</td>
+          </tr>
+        </tbody>
+      </table>
+      <p><strong>Ticket resolution targets</strong> are configurable per category.</p>
+
+      <h3>SLA dashboard</h3>
+      <ul>
+        <li>Current SLA compliance rate</li>
+        <li>Recent breaches with details</li>
+        <li>Trend over time (30-day window)</li>
+        <li>Per-channel and per-priority breakdown</li>
+      </ul>
+    </section>
+
+    <!-- 14. Stats -->
+    <section id="stats">
+      <h2><span class="num">14.</span> Statistics &amp; Reporting</h2>
+      <p>The Statistics page gives your team full visibility into support operations.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Metrics</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Volume</td>
+            <td>Total messages, tickets, open items, resolved items</td>
+          </tr>
+          <tr>
+            <td>Response time</td>
+            <td>Average first response time, average resolution time</td>
+          </tr>
+          <tr>
+            <td>Agent performance</td>
+            <td>Messages handled, tickets resolved, response time per agent</td>
+          </tr>
+          <tr>
+            <td>SLA compliance</td>
+            <td>Breach rate, compliance rate, trends</td>
+          </tr>
+          <tr>
+            <td>Channel breakdown</td>
+            <td>Volume by email / Telegram / Slack / chat widget</td>
+          </tr>
+          <tr>
+            <td>Category breakdown</td>
+            <td>Volume and resolution by category</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>All statistics support custom date ranges and department filtering.</p>
+    </section>
+
+    <!-- 15. Audit -->
+    <section id="audit">
+      <h2><span class="num">15.</span> Audit Logs</h2>
+      <p>Every action taken in Odly is logged:</p>
+      <ul>
+        <li>Who performed it</li>
+        <li>What was done (create, update, delete, assign, reply, etc.)</li>
+        <li>When it happened</li>
+        <li>What changed</li>
+      </ul>
+      <p>Logs are searchable by user, action type, date range, and entity. Available to organization admins and
+        moderators for compliance and security review.</p>
+    </section>
+
+    <!-- 16. Roles -->
+    <section id="roles">
+      <h2><span class="num">16.</span> User Roles &amp; Permissions</h2>
+
+      <h3>Organization Roles</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>What they can do</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Org Admin</td>
+            <td>Full control: users, settings, integrations, rules, billing</td>
+          </tr>
+          <tr>
+            <td>Moderator</td>
+            <td>Most admin features; cannot manage billing or email templates</td>
+          </tr>
+          <tr>
+            <td>Support</td>
+            <td>Handle messages and tickets; cannot change settings</td>
+          </tr>
+          <tr>
+            <td>Associate</td>
+            <td>View-only access to most areas</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Department Roles</h3>
+      <p>Users can have different access levels in different departments. For example, someone can be Support in the
+        Billing department and Associate in Sales. This gives you fine-grained control over who sees and does what
+        across your organization.</p>
+    </section>
+
+    <!-- 17. Prompts -->
+    <section id="prompts">
+      <h2><span class="num">17.</span> Prompt Customization</h2>
+      <p>Advanced users can customize the AI prompts Odly uses for each operation:</p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>Message analysis</h4>
+          <p>How AI understands incoming messages</p>
+        </div>
+        <div class="card">
+          <h4>Spam detection</h4>
+          <p>What counts as spam for your org</p>
+        </div>
+        <div class="card">
+          <h4>Category detection</h4>
+          <p>How messages get categorized</p>
+        </div>
+        <div class="card">
+          <h4>Lead qualification</h4>
+          <p>What signals indicate a sales lead</p>
+        </div>
+        <div class="card">
+          <h4>Auto-reply generation</h4>
+          <p>Tone and style of AI responses</p>
+        </div>
+        <div class="card">
+          <h4>Response formatting</h4>
+          <p>Structure and layout of replies</p>
+        </div>
+      </div>
+      <p>System prompts are provided as defaults. You can override them per department or create entirely custom
+        versions. This lets you tailor AI behavior to your organization's tone, terminology, and policies.</p>
+    </section>
+
+    <!-- 18. Subscription -->
+    <section id="subscription">
+      <h2><span class="num">18.</span> Subscription &amp; Usage</h2>
+      <p>Each organization is on a subscription plan that defines:</p>
+      <ul>
+        <li>Maximum messages processed per month</li>
+        <li>Number of users</li>
+        <li>Number of integrations</li>
+        <li>Access to specific AI modules and features</li>
+      </ul>
+
+      <h3>Subscription page</h3>
+      <p>Shows current plan details and active modules.</p>
+
+      <h3>Usage Stats page</h3>
+      <ul>
+        <li>Current month usage per module (messages processed, AI calls, etc.)</li>
+        <li>Progress bars against plan limits</li>
+        <li>Overage tracking — how much is above the included limit and the estimated overage cost</li>
+        <li>Historical trend chart (up to 12 months back) per module</li>
+      </ul>
+      <p>Usage is tracked monthly per module and visible in real time.</p>
+    </section>
+
+    <!-- 19. Templates -->
+    <section id="templates">
+      <h2><span class="num">19.</span> Email Templates</h2>
+      <p>Organization admins can customize the email templates used for system communications:</p>
+      <ul>
+        <li><strong>Invitation email</strong> — sent when inviting a new team member</li>
+        <li><strong>Verification email</strong> — sent during registration for email verification</li>
+        <li><strong>Preview and render</strong> — preview templates with sample data before saving</li>
+        <li>Templates support HTML with dynamic placeholders (e.g. user name, organization name, links)</li>
+        <li>Only accessible to Org Admins</li>
+      </ul>
+    </section>
+
+    <!-- Summary -->
+    <section id="summary">
+      <h2>Summary of Everything in One View</h2>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>What it covers</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Auth &amp; Security</td>
+            <td>Registration, login, email verification, CAPTCHA, invitations</td>
+          </tr>
+          <tr>
+            <td>Inbox</td>
+            <td>All channels in one place, filtered views, thread tracking</td>
+          </tr>
+          <tr>
+            <td>Tickets</td>
+            <td>Structured case management, SLA, Jira sync, attachments</td>
+          </tr>
+          <tr>
+            <td>Channels</td>
+            <td>Email, Telegram, Slack, Chat Widget, Jira, and more</td>
+          </tr>
+          <tr>
+            <td>AI Features</td>
+            <td>Spam detection, categorization, priority, auto-reply, and more</td>
+          </tr>
+          <tr>
+            <td>Knowledge Base</td>
+            <td>Q&amp;A pairs, document uploads, approval workflow</td>
+          </tr>
+          <tr>
+            <td>Contacts</td>
+            <td>Full customer history, notes, labels, merged profiles</td>
+          </tr>
+          <tr>
+            <td>Labels &amp; Categories</td>
+            <td>Custom tags and AI-powered classification</td>
+          </tr>
+          <tr>
+            <td>Rules &amp; Automation</td>
+            <td>Spam, detection, priority, KB extraction, auto-response</td>
+          </tr>
+          <tr>
+            <td>Leads</td>
+            <td>Sales-specific workflow and routing</td>
+          </tr>
+          <tr>
+            <td>Auto-Assignment</td>
+            <td>Skill-based routing with custom routing keys</td>
+          </tr>
+          <tr>
+            <td>Translation</td>
+            <td>Translate messages and tickets to 19+ languages</td>
+          </tr>
+          <tr>
+            <td>Spam Logs</td>
+            <td>Review filtered messages, red/green flags, domain analysis</td>
+          </tr>
+          <tr>
+            <td>SLA</td>
+            <td>Response time targets and compliance monitoring</td>
+          </tr>
+          <tr>
+            <td>Statistics</td>
+            <td>Volume, performance, and channel analytics</td>
+          </tr>
+          <tr>
+            <td>Audit Logs</td>
+            <td>Full action history for compliance</td>
+          </tr>
+          <tr>
+            <td>Prompt Customization</td>
+            <td>Fine-tune AI behavior per department</td>
+          </tr>
+          <tr>
+            <td>Roles &amp; Permissions</td>
+            <td>Granular access control per user and department</td>
+          </tr>
+          <tr>
+            <td>Email Templates</td>
+            <td>Customizable invitation and verification emails</td>
+          </tr>
+          <tr>
+            <td>Subscription &amp; Usage</td>
+            <td>Plan management, usage charts, overage tracking</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+
+</body>
+
+</html>
