@@ -166,117 +166,44 @@ export const MessageFilters = ({
 
             {/* Primary Filters Row */}
             <div className="p-4 space-y-3 rounded-lg border bg-muted/30">
-              {/* Row 1: Button Groups */}
-              <div className="flex flex-wrap gap-4 items-center">
-                {/* View Group (classification) */}
-                <div
-                  className={`flex gap-2 items-center${spamModeActive ? 'opacity-40 pointer-events-none' : ''}`}
-                >
-                  <span className="w-14 text-xs font-semibold text-muted-foreground shrink-0">
+              {/* Row 1: View + Status selects */}
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* View */}
+                <div className={`flex gap-2 items-center${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
                     View:
                   </span>
-                  <div className="flex rounded-md shadow-sm">
-                    <Button
-                      variant={filters.view === 'active' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => onFilterChange('view', 'active')}
-                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-                    >
-                      Active
-                    </Button>
-                    <Button
-                      variant={filters.view === 'suspicious' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => onFilterChange('view', 'suspicious')}
-                      className="h-8 text-xs rounded-none border-r-0"
-                    >
-                      Suspicious
-                    </Button>
-                    <Button
-                      variant={filters.view === 'not_analysed' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => onFilterChange('view', 'not_analysed')}
-                      className="h-8 text-xs rounded-none border-r-0"
-                    >
-                      Not Analysed
-                    </Button>
-                    <Button
-                      variant={filters.view === 'resolved' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => onFilterChange('view', 'resolved')}
-                      className="h-8 text-xs rounded-none border-r-0"
-                    >
-                      Resolved
-                    </Button>
-                    <Button
-                      variant={filters.view === 'all' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() => onFilterChange('view', 'all')}
-                      className="h-8 text-xs rounded-r-md rounded-l-none"
-                    >
-                      All
-                    </Button>
-                  </div>
+                  <ReactSelect
+                    value={filters.view ?? 'active'}
+                    onChange={(value) => onFilterChange('view', value)}
+                    options={[
+                      { value: 'active', label: 'Active' },
+                      { value: 'suspicious', label: 'Suspicious' },
+                      { value: 'not_analysed', label: 'Not Analysed' },
+                      { value: 'resolved', label: 'Resolved' },
+                      { value: 'all', label: 'All' },
+                    ]}
+                    className="w-36"
+                  />
                 </div>
 
-                {/* Progress Group (workflow) */}
-                <div
-                  className={`flex gap-2 items-center${spamModeActive ? 'opacity-40 pointer-events-none' : ''}`}
-                >
-                  <span className="w-14 text-xs font-semibold text-muted-foreground shrink-0">
+                {/* Status */}
+                <div className={`flex gap-2 items-center${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
                     Status:
                   </span>
-                  <div className="flex rounded-md shadow-sm">
-                    <Button
-                      variant={filters.processed === 'open' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() =>
-                        onFilterChange('processed', filters.processed === 'open' ? 'all' : 'open')
-                      }
-                      className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-                    >
-                      Open
-                    </Button>
-                    <Button
-                      variant={filters.processed === 'in_progress' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() =>
-                        onFilterChange(
-                          'processed',
-                          filters.processed === 'in_progress' ? 'all' : 'in_progress'
-                        )
-                      }
-                      className="h-8 text-xs rounded-none border-r-0"
-                    >
-                      In Progress
-                    </Button>
-                    <Button
-                      variant={filters.processed === 'pending' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() =>
-                        onFilterChange(
-                          'processed',
-                          filters.processed === 'pending' ? 'all' : 'pending'
-                        )
-                      }
-                      className="h-8 text-xs rounded-none border-r-0"
-                    >
-                      Pending
-                    </Button>
-                    <Button
-                      variant={filters.processed === 'closed' ? 'primary' : 'outline'}
-                      size="sm"
-                      onClick={() =>
-                        onFilterChange(
-                          'processed',
-                          filters.processed === 'closed' ? 'all' : 'closed'
-                        )
-                      }
-                      className="h-8 text-xs rounded-r-md rounded-l-none"
-                    >
-                      Closed
-                    </Button>
-                  </div>
+                  <ReactSelect
+                    value={filters.processed ?? 'all'}
+                    onChange={(value) => onFilterChange('processed', value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'open', label: 'Open' },
+                      { value: 'in_progress', label: 'In Progress' },
+                      { value: 'pending', label: 'Pending' },
+                      { value: 'closed', label: 'Closed' },
+                    ]}
+                    className="w-36"
+                  />
                 </div>
               </div>
 
@@ -284,10 +211,10 @@ export const MessageFilters = ({
               <div className="border-t" />
 
               {/* Row 2: Dropdowns */}
-              <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3 sm:items-center">
                 {/* Channel */}
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
                     Channel:
                   </span>
                   <ReactSelect
@@ -299,13 +226,13 @@ export const MessageFilters = ({
                       { value: 'telegram', label: 'Telegram' },
                       { value: 'slack', label: 'Slack' },
                     ]}
-                    className="w-36"
+                    className="flex-1 sm:flex-none sm:w-36"
                   />
                 </div>
 
                 {/* Message Source */}
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
                     Source:
                   </span>
                   <ReactSelect
@@ -318,7 +245,7 @@ export const MessageFilters = ({
                         label: source.name,
                       })),
                     ]}
-                    className="w-36"
+                    className="flex-1 sm:flex-none sm:w-36"
                   />
                 </div>
 
@@ -330,7 +257,7 @@ export const MessageFilters = ({
 
                 {/* Priority */}
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
                     Priority:
                   </span>
                   <ReactSelect
@@ -361,14 +288,14 @@ export const MessageFilters = ({
                         <span>{option.label}</span>
                       </div>
                     )}
-                    className="w-36"
+                    className="flex-1 sm:flex-none sm:w-36"
                   />
                 </div>
 
                 {/* Label */}
                 {labels.length > 0 && (
                   <div className="flex gap-2 items-center">
-                    <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                    <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
                       Label:
                     </span>
                     <ReactSelect
@@ -393,14 +320,14 @@ export const MessageFilters = ({
                           <span>{option.label}</span>
                         </div>
                       )}
-                      className="w-40"
+                      className="flex-1 sm:flex-none sm:w-40"
                     />
                   </div>
                 )}
 
                 {/* Sort */}
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
                     Sort:
                   </span>
                   <ReactSelect
@@ -410,7 +337,7 @@ export const MessageFilters = ({
                       { value: 'desc', label: 'Newest First' },
                       { value: 'asc', label: 'Oldest First' },
                     ]}
-                    className="w-36"
+                    className="flex-1 sm:flex-none sm:w-36"
                   />
                 </div>
               </div>
