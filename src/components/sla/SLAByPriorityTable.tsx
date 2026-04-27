@@ -5,10 +5,16 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
 
-export const SLAByPriorityTable = () => {
+export const SLA_DEFAULT_DAYS = 30;
+
+type SLAByPriorityTableProps = {
+  days?: number;
+};
+
+export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTableProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-statistics', { days: 30 }],
-    queryFn: () => slaService.getStatistics({ days: 30 }),
+    queryKey: ['sla-statistics', { days }],
+    queryFn: () => slaService.getStatistics({ days }),
   });
 
   if (isLoading) {
