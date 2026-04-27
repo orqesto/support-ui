@@ -112,6 +112,12 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, fetchEr
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  // Mark all read after the panel becomes visible, not before it renders.
+  useEffect(() => {
+    if (open && unreadCount > 0) markAllRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const handleOpen = () => {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -129,7 +135,6 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, fetchEr
       }
     }
     setOpen((prev) => !prev);
-    if (!open && unreadCount > 0) markAllRead();
   };
 
   return (
