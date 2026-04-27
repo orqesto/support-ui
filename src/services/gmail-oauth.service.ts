@@ -49,8 +49,9 @@ export const gmailOAuthService = {
     clientSecret: string,
     redirectUri: string
   ): Promise<ApiResponse<GmailOAuthInitResponse>> => {
-    const response = await apiClient.get<{ success: boolean; data: GmailOAuthInitResponse }>(
-      `/api/oauth/gmail/authorize?clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}&redirectUri=${encodeURIComponent(redirectUri)}`
+    const response = await apiClient.post<{ success: boolean; data: GmailOAuthInitResponse }>(
+      '/api/oauth/gmail/authorize',
+      { clientId, clientSecret, redirectUri }
     );
     return { success: response.data.success, data: response.data.data };
   },
