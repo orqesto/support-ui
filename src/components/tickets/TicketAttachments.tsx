@@ -50,19 +50,24 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     }
   }, [ticketId]);
 
+  // Effect 1: socket lifecycle — keyed only to ticketId so a change in
+  // fetchAttachments identity never causes a spurious socket reconnect.
+  useEffect(() => {
+    getSocket();
+    return () => releaseSocket();
+  }, [ticketId]);
+
+  // Effect 2: data fetch + event subscription
   useEffect(() => {
     fetchAttachments().catch((error) => {
       logger.error('Failed to fetch attachments:', error);
     });
 
-    // Set up WebSocket to listen for updates
-    getSocket();
-
     const handleUpdate = (data: unknown) => {
       const eventData = data as { ticketId: number };
       if (eventData.ticketId === ticketId) {
         fetchAttachments().catch((error) => {
-          logger.error('Failed to fetch attachments:', error);
+          logger.error('Failed to refresh attachments:', error);
         });
       }
     };
@@ -71,7 +76,6 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
     return () => {
       unsubscribeFromEvent('ticket:comments:updated', handleUpdate);
-      releaseSocket();
     };
   }, [ticketId, fetchAttachments]);
 
