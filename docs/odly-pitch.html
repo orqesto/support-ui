@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Odly — AI-Powered Customer Support Platform</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    :root {
+      --bg: #ffffff;
+      --bg2: #f6f8fa;
+      --bg3: #eef1f5;
+      --border: rgba(0,0,0,0.08);
+      --text: #0d1117;
+      --muted: #57606a;
+      --blue: #0969da;
+      --blue-dim: #dbeafe;
+      --purple: #7c3aed;
+      --purple-dim: #ede9fe;
+      --green: #1a7f37;
+      --green-dim: #dcfce7;
+      --orange: #bc4c00;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ─── PAGE LAYOUT ─── */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 14mm 16mm 22mm;
+      position: relative;
+      page-break-after: always;
+    }
+
+    @media screen {
+      body { padding: 20px 0 60px; background: #e8edf2; }
+      .page {
+        box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+    }
+
+    @media print {
+      body { background: var(--bg); }
+      .page { margin: 0; box-shadow: none; border: none; border-radius: 0; }
+    }
+
+    /* ─── PAGE 1: COVER ─── */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: var(--bg);
+    }
+
+    .cover-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 10mm;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18mm;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--text);
+    }
+
+    .logo span { color: var(--blue); }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--blue);
+      border: 1px solid var(--blue-dim);
+      background: var(--blue-dim);
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .cover-hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 4mm 0 10mm;
+    }
+
+    .cover-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    .cover-title {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .cover-title em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--blue), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .cover-sub {
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 420px;
+      line-height: 1.7;
+      margin-bottom: 32px;
+    }
+
+    .cover-stats {
+      display: flex;
+      gap: 32px;
+      padding: 20px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -1px;
+    }
+
+    .stat-num span { color: var(--blue); }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    .cover-flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 28px;
+    }
+
+    .flow-pill {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .flow-arrow {
+      color: var(--muted);
+      font-size: 16px;
+      padding: 0 8px;
+    }
+
+    /* ─── SECTION HEADERS ─── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      color: var(--blue);
+      margin-bottom: 6px;
+    }
+
+    h2 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .page-intro {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      max-width: 500px;
+    }
+
+    /* ─── FEATURE GRID ─── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .feature-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .feature-card.highlight {
+      border-color: var(--blue-dim);
+      background: linear-gradient(135deg, var(--bg2), var(--blue-dim));
+    }
+
+    .feature-icon {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .feature-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ─── CHANNEL BADGES ─── */
+    .channel-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 6px 0;
+    }
+
+    .channel-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .ch-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    /* ─── AI TABLE ─── */
+    .ai-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+
+    .ai-table th {
+      text-align: left;
+      padding: 6px 10px;
+      background: var(--bg3);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .ai-table th:first-child { border-radius: 6px 0 0 6px; }
+    .ai-table th:last-child { border-radius: 0 6px 6px 0; }
+
+    .ai-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      color: var(--text);
+    }
+
+    .ai-table td:last-child { color: var(--muted); }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tag-auto { background: var(--blue-dim); color: var(--blue); }
+    .tag-ai { background: var(--purple-dim); color: var(--purple); }
+
+    /* ─── PAGE 3: HOW IT WORKS ─── */
+    .how-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin: 8px 0;
+    }
+
+    .how-step {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      position: relative;
+    }
+
+    .step-num {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--border);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .step-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ─── BENEFIT STRIP ─── */
+    .benefit-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .benefit {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .benefit-icon { font-size: 22px; margin-bottom: 6px; }
+
+    .benefit-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .benefit-sub {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ─── PAGE 4: PRICING / CTA ─── */
+    .plan-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .plan {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .plan.featured {
+      border-color: var(--blue);
+      background: linear-gradient(160deg, var(--bg2), var(--blue-dim));
+    }
+
+    .plan-name {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .plan.featured .plan-name { color: var(--blue); }
+
+    .plan-price {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -1px;
+      margin-bottom: 4px;
+    }
+
+    .plan-price sub {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .plan-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plan-features {
+      list-style: none;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .plan-features li {
+      padding: 4px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .plan-features li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .cta-block {
+      background: linear-gradient(135deg, var(--blue-dim), var(--purple-dim));
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 10px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 14px;
+    }
+
+    .cta-text h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .cta-text p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .cta-contacts {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .contact-item {
+      font-size: 12px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .contact-item span { color: var(--muted); font-size: 11px; }
+
+    /* ─── FOOTER ─── */
+    .page-footer {
+      position: absolute;
+      bottom: 10mm;
+      left: 16mm;
+      right: 16mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    /* ─── DIVIDER ─── */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 0;
+    }
+
+    /* ─── INTEGRATION ROW ─── */
+    .integration-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .integration-pill {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ PAGE 1: COVER -->
+<div class="page cover">
+
+  <div class="cover-top">
+    <div class="logo">od<span>ly</span></div>
+    <div class="badge">CONFIDENTIAL · 2026</div>
+  </div>
+
+  <div class="cover-hero">
+    <div class="cover-eyebrow">Customer Support Platform</div>
+    <h1 class="cover-title">One inbox.<br><em>Every channel.</em><br>AI at the core.</h1>
+    <p class="cover-sub">
+      Odly unifies email, Telegram, Slack, and chat into a single AI-powered workspace —
+      so your team spends less time triaging and more time resolving.
+    </p>
+
+    <div class="cover-stats">
+      <div class="stat">
+        <div class="stat-num">4<span>+</span></div>
+        <div class="stat-label">Channels unified</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">10<span>+</span></div>
+        <div class="stat-label">AI modules</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">∞</div>
+        <div class="stat-label">AI providers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">0</div>
+        <div class="stat-label">Missed messages</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 0;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#cf222e;margin-bottom:8px;">Without Odly</div>
+        <ul style="list-style:none;font-size:12px;color:var(--muted);line-height:1.9;">
+          <li>❌ 4 separate inboxes, no shared view</li>
+          <li>❌ Manual triage — messages fall through cracks</li>
+          <li>❌ No SLA tracking, no escalation path</li>
+          <li>❌ Agent switches context between every tool</li>
+        </ul>
+      </div>
+      <div style="background:var(--blue-dim);border:1px solid rgba(9,105,218,0.2);border-radius:8px;padding:14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--blue);margin-bottom:8px;">With Odly</div>
+        <ul style="list-style:none;font-size:12px;color:var(--text);line-height:1.9;">
+          <li>✓ One unified inbox — every channel, one view</li>
+          <li>✓ AI triages, assigns, and drafts replies</li>
+          <li>✓ SLA enforced with live compliance dashboards</li>
+          <li>✓ Full customer context, always at hand</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cover-flow" style="margin-top:20px;">
+      <div class="flow-pill">Email · Telegram · Slack · Chat</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-pill">AI Triage</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-pill">Inbox + Tickets</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-pill">Jira · CRM · API</div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>odly.ai</span>
+    <span>1 / 4</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ PAGE 2: FEATURES -->
+<div class="page">
+
+  <div class="section-label">Core Platform</div>
+  <h2>Everything your support team needs</h2>
+  <p class="page-intro">Built for multi-channel teams that need speed, structure, and intelligence — without stitching together a dozen tools.</p>
+
+  <div class="feature-grid">
+
+    <div class="feature-card highlight">
+      <div class="feature-icon">🤖</div>
+      <div class="feature-title">AI-Powered Triage</div>
+      <div class="feature-desc">Every message is automatically classified: spam filtered, priority set, category assigned, lead flagged, and ticket-worthiness determined — before a human ever touches it.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📥</div>
+      <div class="feature-title">Unified Inbox</div>
+      <div class="feature-desc">All inbound communication from every channel lands in one place. Filter by channel, department, priority, or status. No context switching.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🎫</div>
+      <div class="feature-title">Ticket Management</div>
+      <div class="feature-desc">Convert messages to structured tickets with SLA timers, priority levels, assignment, internal notes, file attachments, and full lifecycle tracking.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">💡</div>
+      <div class="feature-title">AI Suggested Answers</div>
+      <div class="feature-desc">When an agent opens a message, Odly searches the knowledge base and surfaces a ready-to-use reply with sources and a confidence score.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Rules & Auto-Assignment</div>
+      <div class="feature-desc">Build if-then rules to automatically assign messages to agents or departments, set priorities, trigger replies, and route work — no code required.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Analytics & SLA</div>
+      <div class="feature-desc">Track response times, breach rates, agent performance, and channel volume. SLA targets enforced per channel with live compliance dashboards.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <div class="feature-title">Knowledge Base</div>
+      <div class="feature-desc">Searchable library of answers, docs, and FAQs. Resolve a message and save the reply to the KB in one click. Past client conversations can be marked as KB items — your support history becomes institutional knowledge.</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">👤</div>
+      <div class="feature-title">Contact Management</div>
+      <div class="feature-desc">Every sender builds a profile automatically — full message history, ticket history, and context across channels, always at your agent's fingertips.</div>
+    </div>
+
+  </div>
+
+  <hr>
+
+  <div class="section-label" style="margin-bottom:8px;">Channels</div>
+  <div class="channel-row">
+    <div class="channel-badge"><div class="ch-dot" style="background:#3b82f6"></div> Email</div>
+    <div class="channel-badge"><div class="ch-dot" style="background:#229ed9"></div> Telegram</div>
+    <div class="channel-badge"><div class="ch-dot" style="background:#4a154b"></div> Slack</div>
+    <div class="channel-badge"><div class="ch-dot" style="background:#10b981"></div> Chat Widget</div>
+    <div class="channel-badge" style="border-style:dashed; color:var(--muted)">+ more via API</div>
+  </div>
+
+  <hr>
+
+  <div class="section-label" style="margin-bottom:8px;">Departments</div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Each department has its own inbox, rules, knowledge base, and SLA targets — fully isolated, yet under one roof.</p>
+  <div class="channel-row">
+    <div class="channel-badge">🛟 Support</div>
+    <div class="channel-badge">💼 Sales</div>
+    <div class="channel-badge">💳 Billing</div>
+    <div class="channel-badge">👥 HR</div>
+    <div class="channel-badge">📋 General</div>
+  </div>
+
+  <div class="section-label" style="margin-top:10px;margin-bottom:8px;">Integrations</div>
+  <div class="integration-row">
+    <div class="integration-pill">Jira</div>
+    <div class="integration-pill">OpenAI</div>
+    <div class="integration-pill">Anthropic / Claude</div>
+    <div class="integration-pill">Qwen / Alibaba</div>
+    <div class="integration-pill">Local LLMs</div>
+    <div class="integration-pill">Webhook &amp; REST API</div>
+  </div>
+
+  <div class="page-footer">
+    <span>odly.ai</span>
+    <span>2 / 4</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ PAGE 3: AI + HOW IT WORKS -->
+<div class="page">
+
+  <div class="section-label">AI Features</div>
+  <h2>What the AI does for your team</h2>
+  <p class="page-intro">Odly's AI pipeline runs on every inbound message. Each module can be toggled on or off per organization.</p>
+
+  <div style="background:linear-gradient(135deg,var(--blue-dim),var(--purple-dim));border:1px solid rgba(9,105,218,0.2);border-radius:8px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:16px;">
+    <div style="font-size:28px;flex-shrink:0;">🔑</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;">Bring Your Own AI — no lock-in</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;">Connect your existing OpenAI, Anthropic, Qwen, or any compatible provider. Privacy-sensitive? Run a local model entirely on your own infrastructure. You own the keys, the data, and the cost.</div>
+    </div>
+  </div>
+
+  <table class="ai-table">
+    <thead>
+      <tr>
+        <th>Module</th>
+        <th>What it does</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Spam Filter</strong> <span class="tag tag-auto">Auto</span></td>
+        <td>Removes newsletters, out-of-office replies, phishing, and marketing noise</td>
+        <td>Cleaner inbox, zero agent time on junk</td>
+      </tr>
+      <tr>
+        <td><strong>Categorization</strong> <span class="tag tag-ai">AI</span></td>
+        <td>Assigns each message to a support category (Billing, Technical, Sales…)</td>
+        <td>Instant routing, no manual tagging</td>
+      </tr>
+      <tr>
+        <td><strong>Priority Detection</strong> <span class="tag tag-ai">AI</span></td>
+        <td>Scores urgency: Low → Medium → High → Critical</td>
+        <td>Critical issues surface immediately</td>
+      </tr>
+      <tr>
+        <td><strong>Lead Detection</strong> <span class="tag tag-ai">AI</span></td>
+        <td>Flags inbound sales leads before they get lost in support queues</td>
+        <td>Revenue pipeline, not just support</td>
+      </tr>
+      <tr>
+        <td><strong>Suggested Answer</strong> <span class="tag tag-ai">AI</span></td>
+        <td>Pulls from your KB and surfaces a ready draft reply with sources</td>
+        <td>Faster resolution, consistent tone</td>
+      </tr>
+      <tr>
+        <td><strong>Auto-Reply</strong> <span class="tag tag-auto">Auto</span></td>
+        <td>Sends configurable automatic responses for common request types</td>
+        <td>24/7 response without extra headcount</td>
+      </tr>
+      <tr>
+        <td><strong>Translation</strong> <span class="tag tag-ai">AI</span></td>
+        <td>Translates any message or ticket to 19+ languages inline</td>
+        <td>Global support with local teams</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <div class="section-label" style="margin-top:4px;">How it works</div>
+
+  <div class="how-grid">
+    <div class="how-step">
+      <div class="step-num">01</div>
+      <div class="step-title">Message arrives</div>
+      <div class="step-desc">Email, Telegram, Slack, or chat widget message is received and ingested into the unified inbox.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num">02</div>
+      <div class="step-title">AI pipeline runs</div>
+      <div class="step-desc">Spam check, categorization, priority scoring, lead detection, and embedding — all in seconds.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num">03</div>
+      <div class="step-title">Rules fire</div>
+      <div class="step-desc">Automation rules assign the message, set priority, trigger notifications, or route to the right department.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num">04</div>
+      <div class="step-title">Agent responds</div>
+      <div class="step-desc">Agent opens message, sees AI-suggested answer with KB sources, edits if needed, and replies in one click.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num">05</div>
+      <div class="step-title">Ticket if needed</div>
+      <div class="step-desc">Complex cases become tickets with SLA timers, internal notes, attachments, and Jira sync.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num">06</div>
+      <div class="step-title">Track & improve</div>
+      <div class="step-desc">Analytics dashboard shows response times, SLA compliance, agent performance, and AI model usage.</div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>odly.ai</span>
+    <span>3 / 4</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ PAGE 4: BENEFITS + CTA -->
+<div class="page">
+
+  <div class="section-label">Who it's for</div>
+  <h2>Built for teams that can't afford to miss a message</h2>
+  <p class="page-intro">From growing SaaS companies to regulated enterprises — Odly scales with your operations.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:5px;">🚀 SaaS & Tech Teams</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;">Support departments juggling email + Telegram/Slack that have outgrown basic helpdesks and need AI in the loop.</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:5px;">🏢 Multi-Dept Orgs</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;">Companies with separate Support, Sales, Billing, and HR teams that need isolated workflows but unified reporting.</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:5px;">📋 SLA-Critical Ops</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;">Fintech, insurance, and regulated industries where a missed SLA has contractual or reputational consequences.</div>
+    </div>
+  </div>
+
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;">
+    <div style="font-size:22px;flex-shrink:0;">🔐</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">Security &amp; privacy by design</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">Multi-tenant isolation</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">Encrypted credentials</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">Role-based access control</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">BYOA — your keys, your data</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">On-premise AI option</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;">
+    <div style="font-size:22px;flex-shrink:0;">🏠</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">Self-hosted &amp; license-activated</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Deploy on your own infrastructure with a license key — full control, no data leaves your servers. Each organisation can run an isolated database, so tenants stay completely separated and you can scale storage independently per client.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">Docker / docker-compose deploy</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">License-key activation</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">Per-org database isolation</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;">Scale storage per tenant</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-bottom:8px;">Why Odly</div>
+  <div class="benefit-strip">
+    <div class="benefit">
+      <div class="benefit-icon">⚡</div>
+      <div class="benefit-title">Faster response</div>
+      <div class="benefit-sub">AI drafts replies before agents even read the message</div>
+    </div>
+    <div class="benefit">
+      <div class="benefit-icon">🧹</div>
+      <div class="benefit-title">Clean inbox</div>
+      <div class="benefit-sub">Spam, noise, and out-of-office filtered automatically</div>
+    </div>
+    <div class="benefit">
+      <div class="benefit-icon">📏</div>
+      <div class="benefit-title">SLA enforcement</div>
+      <div class="benefit-sub">Per-channel targets, live compliance, breach alerts</div>
+    </div>
+    <div class="benefit">
+      <div class="benefit-icon">🔒</div>
+      <div class="benefit-title">Multi-tenant secure</div>
+      <div class="benefit-sub">Full data isolation per organization, role-based access</div>
+    </div>
+  </div>
+
+  <div class="cta-block" style="margin-top:14px;">
+    <div class="cta-text">
+      <h3>Ready to see Odly in action?</h3>
+      <p>Book a 30-minute demo and we'll walk through your exact support workflow.</p>
+    </div>
+    <div class="cta-contacts">
+      <div class="contact-item">
+        <span>Web</span>
+        <a href="https://odly.ai" target="_blank" rel="noopener">odly.ai</a>
+      </div>
+      <div class="contact-item">
+        <span>Email</span>
+        <a href="mailto:team@odly.ai">team@odly.ai</a>
+      </div>
+      <div class="contact-item">
+        <span>Demo</span>
+        <a href="https://app.odly.ai" target="_blank" rel="noopener">app.odly.ai</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>odly.ai · © 2026 Odly. All rights reserved.</span>
+    <span>4 / 4</span>
+  </div>
+</div>
+
+</body>
+</html>
