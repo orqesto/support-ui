@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,6 +22,10 @@ export const AssigneeFilter = ({
   const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
   const currentUser = useAuthStore((state) => state.user);
 
+  // Serialize the skillFilter object so the effect only re-runs when the
+  // filter content actually changes, not when the parent re-creates the object literal.
+  const skillFilterKey = useMemo(() => JSON.stringify(skillFilter ?? null), [skillFilter]);
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -41,7 +45,8 @@ export const AssigneeFilter = ({
     fetchUsers().catch((e) => {
       logger.error(e);
     });
-  }, [selectedDepartmentRole, skillFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDepartmentRole, skillFilterKey]);
 
   const options = [
     { value: 'all', label: 'All Assignees' },
