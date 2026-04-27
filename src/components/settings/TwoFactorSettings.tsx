@@ -109,7 +109,7 @@ export const TwoFactorSettings = () => {
         {phase === 'idle' && (
           <Button
             type="button"
-            variant={enabled ? 'outline' : 'default'}
+            variant={enabled ? 'outline' : 'primary'}
             size="sm"
             onClick={enabled ? () => setPhase('disable') : handleStartSetup}
             disabled={loading}

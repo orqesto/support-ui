@@ -415,7 +415,7 @@ export const Layout = ({ children }: LayoutProps) => {
               </h2>
             </div>
             <div className="flex gap-1 items-center">
-              <SLANotificationBell />
+              <SLANotificationBell {...slaNotifications} />
               <ThemeToggle />
             </div>
           </header>

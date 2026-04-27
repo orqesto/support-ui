@@ -7,7 +7,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/Dialog';
 import { labelService, type Label } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
@@ -216,9 +215,7 @@ export const LabelsSettings = () => {
             Delete <strong>{labelToDelete?.name}</strong>? It will be removed from all tickets.
           </p>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" size="sm">Cancel</Button>
-            </DialogClose>
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
             <Button variant="destructive" size="sm" onClick={handleDeleteConfirm}>
               Delete
             </Button>
