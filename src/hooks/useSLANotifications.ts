@@ -107,15 +107,16 @@ export const useSLANotifications = () => {
   }, []);
 
   const setOnlyMine = useCallback((value: boolean) => {
+    const previousValue = prefsRef.current.onlyAssignedToMe;
     setOnlyAssignedToMeState(value);
     prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
     apiClient
       .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
       .then(() => fetchNotifications())
       .catch(() => {
-        // Roll back optimistic update
-        setOnlyAssignedToMeState(!value);
-        prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: !value };
+        // Roll back to last server-confirmed state, not the negation of the argument
+        setOnlyAssignedToMeState(previousValue);
+        prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
       });
   }, [fetchNotifications]);
 
