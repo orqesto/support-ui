@@ -4,11 +4,16 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } f
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
+import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
 
-export const SLATrendChart = () => {
+type SLATrendChartProps = {
+  days?: number;
+};
+
+export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-trends', { days: 30, interval: 'day' }],
-    queryFn: () => slaService.getTrends({ days: 30, interval: 'day' }),
+    queryKey: ['sla-trends', { days, interval: 'day' }],
+    queryFn: () => slaService.getTrends({ days, interval: 'day' }),
   });
 
   if (isLoading) {
@@ -17,7 +22,7 @@ export const SLATrendChart = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            SLA Performance Trend (30 Days)
+            SLA Performance Trend ({days} Days)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -76,7 +81,7 @@ export const SLATrendChart = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
-          SLA Performance Trend (30 Days)
+          SLA Performance Trend ({days} Days)
         </CardTitle>
       </CardHeader>
       <CardContent>
