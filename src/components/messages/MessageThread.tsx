@@ -158,6 +158,13 @@ export const MessageThread = ({
           ).getTime();
         allMessages.sort((a, b) => msgTime(a) - msgTime(b));
 
+        // Pre-compute message times once to avoid O(n²) Date construction in the
+        // attribution loop below.
+        const timeCache = new Map<number, number>(
+          allMessages.map((m) => [m.id, msgTime(m)])
+        );
+        const cachedTime = (m: Message) => timeCache.get(m.id)!;
+
         // Separate customer emails from system replies
         const systemEmails: Message[] = [];
         const customerEmails: Message[] = [];
@@ -190,7 +197,7 @@ export const MessageThread = ({
 
         customerEmails.forEach((customerMsg, idx) => {
           const nextCustomerTime =
-            idx + 1 < customerEmails.length ? msgTime(customerEmails[idx + 1]) : Infinity;
+            idx + 1 < customerEmails.length ? cachedTime(customerEmails[idx + 1]) : Infinity;
 
           const replies = systemEmails.filter((sysMsg) => {
             // If the reply has a parentMessageId pointing to a known customer message,
@@ -199,14 +206,14 @@ export const MessageThread = ({
               return sysMsg.parentMessageId === customerMsg.id;
             }
             // No parentMessageId — fall back to timestamp window.
-            // When nextCustomerTime === msgTime(customerMsg) (batch-imported messages with
+            // When nextCustomerTime === cachedTime(customerMsg) (batch-imported messages with
             // identical timestamps), the window would collapse to zero and the reply would
             // match neither customer message. Add 1ms epsilon so the reply still attaches
             // to the earlier customer message in that degenerate case.
-            const windowEnd = nextCustomerTime === msgTime(customerMsg)
+            const windowEnd = nextCustomerTime === cachedTime(customerMsg)
               ? nextCustomerTime + 1
               : nextCustomerTime;
-            return msgTime(sysMsg) > msgTime(customerMsg) && msgTime(sysMsg) < windowEnd;
+            return cachedTime(sysMsg) > cachedTime(customerMsg) && cachedTime(sysMsg) < windowEnd;
           });
 
           pairs.push({ customerEmail: customerMsg, systemReplies: replies });
