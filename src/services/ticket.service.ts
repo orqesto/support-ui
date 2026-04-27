@@ -34,7 +34,7 @@ export const ticketService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
     const params = new URLSearchParams({
-      ...Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v != null)),
+      ...Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v !== null && v !== undefined)),
       limit: limit.toString(),
     });
 
@@ -52,7 +52,7 @@ export const ticketService = {
     sortOrder?: 'asc' | 'desc'
   ) => {
     const params = new URLSearchParams({
-      ...Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v != null)),
+      ...Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v !== null && v !== undefined)),
       page: page.toString(),
       limit: limit.toString(),
     });

@@ -4,7 +4,6 @@ import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services/message.service';
 import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
-import { useAuthStore } from '@/stores/authStore';
 import type { Message } from '@/types';
 
 interface UseMessagesUrlSyncProps {
@@ -27,7 +26,6 @@ export const useMessagesUrlSync = ({
 
   const filters = useMessagesStore((state) => state.filters);
   const setFilters = useMessagesStore((state) => state.setFilters);
-  const _currentUser = useAuthStore((state) => state.user);
 
   // On mount: read URL params → store, then trigger initial fetch
   useEffect(() => {
