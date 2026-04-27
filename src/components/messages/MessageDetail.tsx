@@ -472,7 +472,7 @@ export const MessageDetail = ({
     if (!user?.signature) return html;
     const sigHtml = user.signature
       .split('\n')
-      .map((line) => `<p>${line || '<br>'}</p>`)
+      .map((line) => `<p>${line ? escapeHtml(line) : '<br>'}</p>`)
       .join('');
     return `${html}<p></p><p>--</p>${sigHtml}`;
   };
