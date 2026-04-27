@@ -458,11 +458,14 @@ export const MessageDetail = ({
     }
   };
 
+  const escapeHtml = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   const convertTextToHtml = (text: string): string =>
     text
       .split('\n\n')
       .filter((para) => para.trim())
-      .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+      .map((para) => `<p>${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
       .join('');
 
   const withSignature = (html: string): string => {
