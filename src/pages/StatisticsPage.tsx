@@ -218,10 +218,10 @@ export const StatisticsPage = () => {
     <Layout>
       <div className="px-4 mx-auto space-y-6 w-full max-w-7xl pb-10">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Analytics & Statistics</h1>
-            <p className="mt-2 text-muted-foreground">
+            <h1 className="text-2xl font-bold sm:text-3xl">Analytics & Statistics</h1>
+            <p className="mt-1 text-sm text-muted-foreground sm:mt-2 sm:text-base">
               Comprehensive insights across channels, categories, and SLA performance
             </p>
           </div>
@@ -257,8 +257,8 @@ export const StatisticsPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="border-b">
-          <div className="flex gap-1" role="tablist" aria-label="Statistics sections">
+        <div className="border-b overflow-x-auto">
+          <div className="flex gap-1 min-w-max" role="tablist" aria-label="Statistics sections">
             <button
               type="button"
               role="tab"

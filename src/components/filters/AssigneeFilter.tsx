@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { User } from 'lucide-react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -12,7 +11,12 @@ type AssigneeFilterProps = {
   className?: string;
 };
 
-export const AssigneeFilter = ({ value, onChange, skillFilter, className }: AssigneeFilterProps) => {
+export const AssigneeFilter = ({
+  value,
+  onChange,
+  skillFilter,
+  className,
+}: AssigneeFilterProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
   const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
@@ -34,7 +38,9 @@ export const AssigneeFilter = ({ value, onChange, skillFilter, className }: Assi
       }
     };
 
-    fetchUsers().catch((e) => { logger.error(e); });
+    fetchUsers().catch((e) => {
+      logger.error(e);
+    });
   }, [selectedDepartmentRole, skillFilter]);
 
   const options = [
@@ -51,8 +57,7 @@ export const AssigneeFilter = ({ value, onChange, skillFilter, className }: Assi
 
   return (
     <div className={`flex gap-2 items-center ${className ?? ''}`}>
-      <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground flex items-center gap-1">
-        <User className="w-3 h-3" />
+      <span className="flex gap-1 items-center text-xs font-semibold whitespace-nowrap text-muted-foreground">
         Assignee:
       </span>
       <ReactSelect
