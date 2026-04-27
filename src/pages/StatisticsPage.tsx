@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
 import {
@@ -134,7 +134,7 @@ export const StatisticsPage = () => {
     activeTab === 'messages'
   );
 
-  const fetchStatistics = async () => {
+  const fetchStatistics = useCallback(async () => {
     try {
       const [statsResponse, kbStatsData, kbEntriesData] = await Promise.all([
         statisticsService.getAll(),
@@ -152,13 +152,13 @@ export const StatisticsPage = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStatistics().catch((error) => {
       logger.error('Failed to fetch statistics:', error);
     });
-  }, []);
+  }, [fetchStatistics]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
