@@ -106,7 +106,7 @@ export const contactService = {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (search?.trim()) params.set('search', search.trim());
     const res = await apiClient.get<ContactListResponse>(`/api/contacts?${params.toString()}`);
-    return res;
+    return res.data;
   },
 
   getByEmail: async (email: string): Promise<ContactProfile> => {
@@ -122,7 +122,7 @@ export const contactService = {
 
   addNote: async (id: number, content: string): Promise<ContactNote> => {
     const res = await apiClient.post<ApiResponse<ContactNote>>(`/api/contacts/${id}/notes`, { content });
-    return res.data;
+    return res.data.data!;
   },
 
   deleteNote: async (id: number, noteId: number): Promise<void> => {

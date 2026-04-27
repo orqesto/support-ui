@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 // Mock authStore before importing the page
 vi.mock('@/stores/authStore', () => ({
-  useAuthStore: vi.fn((selector: (state: { user: { id: number; email: string; role: string } | null }) => unknown) =>
+  useAuthStore: vi.fn((selector: (state: { user: { id: number; email: string; role: string; firstName: string; lastName: string; position: string | null; createdAt: string } | null }) => unknown) =>
     selector({
       user: {
         id: 1,

@@ -245,10 +245,10 @@ export const StatisticsPage = () => {
           )}
           {activeTab === 'sla' && (
             <Button variant="outline" size="sm" onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ['sla-summary'] });
-              queryClient.invalidateQueries({ queryKey: ['sla-breaches'] });
-              queryClient.invalidateQueries({ queryKey: ['sla-trends'] });
-              queryClient.invalidateQueries({ queryKey: ['sla-statistics'] });
+              void queryClient.invalidateQueries({ queryKey: ['sla-summary'] });
+              void queryClient.invalidateQueries({ queryKey: ['sla-breaches'] });
+              void queryClient.invalidateQueries({ queryKey: ['sla-trends'] });
+              void queryClient.invalidateQueries({ queryKey: ['sla-statistics'] });
             }}>
               <RefreshCw className="mr-2 w-4 h-4" />
               Refresh

@@ -4,7 +4,7 @@ import type { Message, ApiResponse, MessageStatus, TicketPriority } from '@/type
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
 const cleanFilters = (f?: Record<string, string>): Record<string, string> =>
-  Object.fromEntries(Object.entries(f ?? {}).filter(([, v]) => v != null));
+  Object.fromEntries(Object.entries(f ?? {}).filter(([, v]) => v !== null && v !== undefined));
 
 export type MessageNote = {
   id: number;

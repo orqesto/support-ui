@@ -61,7 +61,7 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-            {data.messages.avgResponseTime != null ? `${data.messages.avgResponseTime}m` : '\u2014'}
+            {data.messages.avgResponseTime !== null && data.messages.avgResponseTime !== undefined ? `${data.messages.avgResponseTime}m` : '\u2014'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
         </CardContent>
@@ -79,7 +79,7 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-            {data.messages.complianceRate != null
+            {data.messages.complianceRate !== null && data.messages.complianceRate !== undefined
               ? `${data.messages.complianceRate.toFixed(1)}%`
               : '—'}
           </div>
@@ -119,7 +119,7 @@ export const SLAOverviewCards = () => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-            {data.tickets.complianceRate != null
+            {data.tickets.complianceRate !== null && data.tickets.complianceRate !== undefined
               ? `${data.tickets.complianceRate.toFixed(1)}%`
               : '—'}
           </div>

@@ -31,7 +31,7 @@ export const BillingOverviewCards = () => {
 
   if (error) {
     return (
-      <Alert variant="destructive">
+      <Alert variant="danger">
         Failed to load billing summary. Please try again later.
       </Alert>
     );

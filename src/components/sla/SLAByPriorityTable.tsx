@@ -71,10 +71,10 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
         variant: priority.variant,
         total: stats.total,
         firstResponseTarget: stats.firstResponseTarget,
-        avgFirstResponse: stats.avgFirstResponse != null ? Number(stats.avgFirstResponse).toFixed(1) : '—',
+        avgFirstResponse: stats.avgFirstResponse !== null && stats.avgFirstResponse !== undefined ? Number(stats.avgFirstResponse).toFixed(1) : '—',
         firstResponseBreached: stats.firstResponseBreached,
         resolutionTarget: stats.resolutionTarget,
-        avgResolution: stats.avgResolution != null ? Number(stats.avgResolution).toFixed(1) : '—',
+        avgResolution: stats.avgResolution !== null && stats.avgResolution !== undefined ? Number(stats.avgResolution).toFixed(1) : '—',
         resolutionBreached: stats.resolutionBreached,
       };
     })
