@@ -148,6 +148,36 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     }
   };
 
+  const handleDownload = async (attachment: Attachment, inline = false) => {
+    try {
+      const isJira = attachment.externalId && attachment.url.startsWith('http');
+      const path = isJira
+        ? `/api/attachments/jira/${attachment.id}/download`
+        : `/api/attachments/${attachment.id}/download`;
+      const response = await apiClient.get(path, { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data as Blob);
+      if (inline) {
+        window.open(url, '_blank');
+        // Delay revoke so the new tab has time to load the blob
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = attachment.originalFilename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      logger.error('Failed to download attachment:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Download Failed',
+        description: 'Failed to download attachment. Please try again.',
+        variant: 'error',
+      });
+    }
+  };
+
   const handleDeleteClick = (attachmentId: number, filename: string) => {
     setAttachmentToDelete({ id: attachmentId, name: filename });
     setDeleteDialogOpen(true);
@@ -291,21 +321,20 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                     <div className="flex gap-2 justify-end items-center">
                       {isImage(attachment.mimeType) && (
                         <Button
-                          onClick={() => window.open(getAttachmentUrl(attachment), '_blank')}
+                          onClick={() => void handleDownload(attachment, true)}
                           className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           title="View"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
                       )}
-                      <a
-                        href={getAttachmentUrl(attachment)}
-                        download={attachment.originalFilename}
+                      <Button
+                        onClick={() => void handleDownload(attachment)}
                         className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
-                      </a>
+                      </Button>
 
                       {/* Only show delete for non-Jira attachments (local uploads and email) */}
                       {!attachment.url.startsWith('http') && (
