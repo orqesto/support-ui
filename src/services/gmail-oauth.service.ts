@@ -30,6 +30,17 @@ export type ApiResponse<T> = {
   message?: string;
 };
 
+export interface ConnectWithPopupConfig {
+  clientId: string;
+  clientSecret: string;
+  searchQuery?: string;
+  maxResults?: number;
+  pollingMaxPages?: number;
+  bulkImportDays?: number;
+  bulkImportMaxResults?: number;
+  isKnowledgeBase?: boolean;
+}
+
 export const gmailOAuthService = {
   /**
    * Get OAuth configuration
@@ -78,16 +89,19 @@ export const gmailOAuthService = {
    * Open OAuth popup and handle the flow
    */
   connectWithPopup: async (
-    clientId: string,
-    clientSecret: string,
-    searchQuery?: string,
-    maxResults?: number,
-    pollingMaxPages?: number,
-    bulkImportDays?: number,
-    bulkImportMaxResults?: number,
-    isKnowledgeBase?: boolean
+    config: ConnectWithPopupConfig
   ): Promise<ApiResponse<{ email: string; id: number }>> =>
     new Promise((resolve) => {
+      const {
+        clientId,
+        clientSecret,
+        searchQuery,
+        maxResults,
+        pollingMaxPages,
+        bulkImportDays,
+        bulkImportMaxResults,
+        isKnowledgeBase,
+      } = config;
       const executeOAuth = async () => {
         try {
           // Get redirect URI from config

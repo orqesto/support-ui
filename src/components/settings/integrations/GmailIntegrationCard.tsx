@@ -147,16 +147,16 @@ export const GmailIntegrationCard = ({
         finalQuery = finalQuery ? `${finalQuery} ${timeFilter}` : timeFilter;
       }
 
-      const response = await gmailOAuthService.connectWithPopup(
-        config.clientId,
-        config.clientSecret,
-        finalQuery,
-        config.maxResults,
-        config.pollingMaxPages,
-        config.bulkImportDays,
-        config.bulkImportMaxResults,
-        config.isKnowledgeBase
-      );
+      const response = await gmailOAuthService.connectWithPopup({
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        searchQuery: finalQuery,
+        maxResults: config.maxResults,
+        pollingMaxPages: config.pollingMaxPages,
+        bulkImportDays: config.bulkImportDays,
+        bulkImportMaxResults: config.bulkImportMaxResults,
+        isKnowledgeBase: config.isKnowledgeBase,
+      });
 
       // Guard: component may have unmounted while the OAuth popup was open
       if (abortRef.current) return;
