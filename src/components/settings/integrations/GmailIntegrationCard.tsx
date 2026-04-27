@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Mail, Plus, MoreVertical, Trash2, TestTube2, Calendar, Save } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
@@ -42,6 +42,14 @@ export const GmailIntegrationCard = ({
   onRefresh,
   onShowAlert,
 }: IntegrationCardProps) => {
+  const abortRef = useRef(false);
+  useEffect(() => {
+    abortRef.current = false;
+    return () => {
+      abortRef.current = true;
+    };
+  }, []);
+
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -150,12 +158,17 @@ export const GmailIntegrationCard = ({
         config.isKnowledgeBase
       );
 
+      // Guard: component may have unmounted while the OAuth popup was open
+      if (abortRef.current) return;
+
       if (response.success) {
         try {
           await onRefresh();
         } catch (fetchError) {
           logger.error('Failed to refresh integrations list:', fetchError);
         }
+
+        if (abortRef.current) return;
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -177,6 +190,7 @@ export const GmailIntegrationCard = ({
         });
       }
     } catch (error) {
+      if (abortRef.current) return;
       logger.error('Failed to connect Gmail:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       onShowAlert({
@@ -186,7 +200,7 @@ export const GmailIntegrationCard = ({
         variant: 'error',
       });
     } finally {
-      setSaving(false);
+      if (!abortRef.current) setSaving(false);
     }
   };
 
