@@ -92,7 +92,7 @@ export const EditUserModal = ({
 
   // Check if user is editing their own profile
   const isEditingSelf = currentUser && user && currentUser.id === user.id;
-  const canEditRoles = isAdmin ?? (canManageUsers && !isEditingSelf);
+  const canEditRoles = isAdmin || (canManageUsers && !isEditingSelf);
   const canEditPosition = isAdmin ?? canManageUsers; // Org admin can edit own position
 
   // Safety check: ensure allUsers is always an array
@@ -218,7 +218,7 @@ export const EditUserModal = ({
     }
   };
 
-  const handleOrgChangeConfirm = async () => {
+  const handleOrgChangeConfirm = async (newOrgId: number) => {
     if (!user) {
       return;
     }
@@ -231,10 +231,22 @@ export const EditUserModal = ({
       }
 
       // Add to new organization with selected role
-      await organizationService.addMember(orgChangeDialog.newOrgId, user.id, organizationRole);
+      await organizationService.addMember(newOrgId, user.id, organizationRole);
 
-      // Update user details
-      await performUpdate();
+      // Inline profile update — do not delegate to performUpdate so that isSubmitting
+      // is managed by a single finally block and the spinner cannot get stuck.
+      await onUpdate(user.id, {
+        firstName: firstName.trim() ?? undefined,
+        lastName: lastName.trim() ?? undefined,
+        position: canEditPosition ? (position.trim() ?? undefined) : undefined,
+        telegram: telegram.trim() ?? undefined,
+        slack: slack.trim() ?? undefined,
+        phone: phone.trim() ?? undefined,
+        role: canEditRoles && isAdmin ? globalRole : undefined,
+        organizationRole: canEditRoles ? organizationRole : undefined,
+        departments: canEditRoles ? selectedDepartments : undefined,
+      });
+      onClose();
     } catch (error) {
       logger.error('Failed to change organization:', error);
       setAlertDialog({
@@ -243,6 +255,7 @@ export const EditUserModal = ({
         description: 'Failed to change organization. Please try again.',
         variant: 'error',
       });
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -601,8 +614,9 @@ export const EditUserModal = ({
         open={orgChangeDialog.open}
         onOpenChange={(open) => setOrgChangeDialog({ open, newOrgId: 0 })}
         onConfirm={async () => {
+          const newOrgId = orgChangeDialog.newOrgId;
           setOrgChangeDialog({ open: false, newOrgId: 0 });
-          await handleOrgChangeConfirm();
+          await handleOrgChangeConfirm(newOrgId);
         }}
         title="Change Organization"
         description={
