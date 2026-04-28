@@ -14,7 +14,6 @@ import {
   ExternalLink,
   BellRing,
   Bot,
-  MailOpen,
 } from 'lucide-react';
 import type { Message, MessageStatus } from '@/types';
 import { Badge } from '@/components/ui/Badge';
@@ -221,6 +220,21 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
               </Badge>
             ))}
 
+          {/* Non-lead — client replied in ongoing conversation */}
+          {!message.isLead &&
+            threadInfo?.isThreadView &&
+            (threadInfo.threadMessageCount ?? 0) > 1 &&
+            threadInfo.lastReplyFromClient && (
+              <Badge
+                variant="warning"
+                className="flex gap-1 items-center h-5 px-1.5"
+                title="Client replied — needs agent response"
+              >
+                <MessageCircle className="w-2.5 h-2.5" />
+                Client Replied
+              </Badge>
+            )}
+
           {/* Lead — client replied */}
           {message.isLead &&
             threadInfo?.lastReplyFromClient &&
@@ -389,18 +403,6 @@ export const MessageListItem = ({ message, onOpen }: MessageListItemProps) => {
             >
               <BookOpen className="w-2.5 h-2.5" />
               KB
-            </Badge>
-          )}
-
-          {/* Thread unread */}
-          {threadInfo?.isThreadView && threadInfo.threadHasUnread && (
-            <Badge
-              variant="default"
-              className="flex gap-1 items-center h-5 px-1.5 text-blue-700 bg-blue-500/10 border-blue-500/20"
-              title="Thread has unread messages"
-            >
-              <MailOpen className="w-2.5 h-2.5" />
-              Unread
             </Badge>
           )}
 
