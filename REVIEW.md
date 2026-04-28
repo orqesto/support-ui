@@ -1,354 +1,246 @@
 ---
-phase: deep-review
-reviewed: 2026-04-27T00:00:00Z
+phase: dashboard-messagelist-deep-review
+reviewed: 2026-04-28T00:00:00Z
 depth: deep
-files_reviewed: 19
+files_reviewed: 2
 files_reviewed_list:
-  - src/components/filters/AssigneeFilter.tsx
-  - src/components/layout/SLANotificationBell.tsx
-  - src/components/messages/MessageDetail.tsx
-  - src/components/messages/MessageFilters.tsx
-  - src/components/messages/MessageThread.tsx
-  - src/components/modals/EditUserModal.tsx
-  - src/components/settings/integrations/GmailIntegrationCard.tsx
-  - src/components/sla/SLAByPriorityTable.tsx
-  - src/components/sla/SLATrendChart.tsx
-  - src/components/tickets/TicketAttachments.tsx
-  - src/hooks/useSLANotifications.ts
-  - src/pages/StatisticsPage.tsx
-  - src/services/comments.service.ts
-  - src/services/documentation.service.ts
-  - src/services/gmail-oauth.service.ts
-  - src/services/message.service.ts
-  - src/services/sla.service.ts
-  - src/services/ticket.service.ts
-  - src/types/index.ts
+  - src/pages/DashboardPage.tsx
+  - src/components/messages/MessageListItem.tsx
 findings:
-  critical: 3
-  warning: 8
-  info: 5
-  total: 16
+  critical: 0
+  warning: 5
+  info: 4
+  total: 9
 status: issues_found
 ---
 
-# Deep Code Review Report
+# Code Review Report — DashboardPage + MessageListItem
 
-**Reviewed:** 2026-04-27
+**Reviewed:** 2026-04-28
 **Depth:** deep
-**Files Reviewed:** 19
+**Files Reviewed:** 2
 **Status:** issues_found
 
 ## Summary
 
-This review covers the FE-app frontend: service layer, hooks, components, and shared types. The codebase is generally well-structured with DOMPurify applied to user-controlled HTML in the correct places. Three critical issues were found: a credential leak through URL query parameters in the Gmail OAuth flow, an auth token appended to download URLs that may be logged by proxies/CDNs, and a missing rollback gap on a multi-step org-change operation. Eight warnings cover async race conditions, logic errors, and missing error handling. Five informational items cover code quality and minor design gaps.
-
----
-
-## Critical Issues
-
-### CR-01: OAuth client secret transmitted in GET query parameters
-
-**File:** `src/services/gmail-oauth.service.ts:53`
-**Issue:** `initiateOAuth` builds a GET URL with `clientSecret` as a raw query parameter. Query strings are stored in browser history, server access logs, proxy logs, and may appear in referrer headers. The OAuth client secret must never be transmitted this way.
-
-```typescript
-// Current — insecure
-const response = await apiClient.get(
-  `/api/oauth/gmail/authorize?clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}&redirectUri=${encodeURIComponent(redirectUri)}`
-);
-
-// Fix — use POST with a JSON body so the secret travels in the request body only
-const response = await apiClient.post('/api/oauth/gmail/authorize', {
-  clientId,
-  clientSecret,
-  redirectUri,
-});
-```
-
-The backend endpoint must be updated correspondingly to accept POST body parameters.
-
----
-
-### CR-02: Auth token appended as a query parameter to download/view URLs
-
-**File:** `src/components/tickets/TicketAttachments.tsx:88-97`
-**Issue:** `getAttachmentUrl` builds download and inline-view URLs with `?token=${token}` in the query string. These URLs are assigned to `href` attributes and opened via `window.open(...)`. Tokens in URLs end up in browser history, server logs, referrer headers, and any analytics scripts that read `document.location`.
-
-```typescript
-// Current — leaks token in URL
-return `${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${token}`;
-
-// Fix — use an authenticated fetch-then-blob-URL pattern instead
-const handleDownload = async (attachment: Attachment) => {
-  const response = await apiClient.get(
-    `/api/attachments/${attachment.id}/download`,
-    { responseType: 'blob' }
-  );
-  const url = URL.createObjectURL(response.data as Blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = attachment.originalFilename;
-  a.click();
-  URL.revokeObjectURL(url);
-};
-```
-
-If changing the download mechanism is out of scope, at minimum use a short-lived, single-use download token rather than the primary session token.
-
----
-
-### CR-03: `handleOrgChangeConfirm` leaves spinner frozen on `performUpdate` failure
-
-**File:** `src/components/modals/EditUserModal.tsx:221-247`
-**Issue:** `handleOrgChangeConfirm` calls `removeMember`, `addMember`, and `performUpdate` in sequence. `performUpdate` contains its own `setIsSubmitting(true/false)` lifecycle. If `performUpdate` throws, the outer `catch` block calls `setIsSubmitting(false)` — but `performUpdate`'s `finally` also fires and may set it back to `false` again in a different order. More importantly, if `removeMember` or `addMember` succeeds and `performUpdate` fails, the user is left in a partially migrated state with no rollback. The `isSubmitting` can also be double-set to `true` because `performUpdate` sets it at its start.
-
-```typescript
-// Fix: extract the org-change-specific steps and use a single finally
-const handleOrgChangeConfirm = async () => {
-  if (!user) return;
-  setIsSubmitting(true);
-  try {
-    if (user.organizationId) {
-      await organizationService.removeMember(user.organizationId, user.id);
-    }
-    await organizationService.addMember(orgChangeDialog.newOrgId, user.id, organizationRole);
-    // Inline the profile update here without its own isSubmitting management
-    await onUpdate(user.id, { firstName: firstName.trim(), ... });
-    onClose();
-  } catch (error) {
-    logger.error('Failed to change organization:', error);
-    setAlertDialog({ open: true, title: 'Organization Change Failed',
-      description: 'Failed to change organization. Please try again.', variant: 'error' });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-```
+`DashboardPage.tsx` is a well-structured redesign. The 11-call `Promise.all` pattern is sound and the polling/cleanup logic is thorough. No critical security issues exist in either file. The main concerns are: a stale-closure bug that makes the polling interval call an outdated `fetchStats`, a URL mismatch on the "Awaiting Response" card that causes a filter disagreement between the count and the destination view, and a `docStatsRes` access pattern that is correct today but fragile. `MessageListItem.tsx` has a JSX conditional structure that TypeScript may misparse (though browsers recover), metadata cast redundancy that is untyped noise, and a minor unused-import concern.
 
 ---
 
 ## Warnings
 
-### WR-01: Race condition in AssigneeFilter — unstable `skillFilter` object reference triggers infinite fetches
+### WR-01: Stale closure — `fetchStats` captured in polling interval
 
-**File:** `src/components/filters/AssigneeFilter.tsx:44`
-**Issue:** The `useEffect` dependency array includes `skillFilter`, which is an object prop. If the parent component creates a new object literal on every render (e.g., `skillFilter={{ key: 'x', value: 'y' }}`), the effect re-fires on every render and triggers a new API call each time.
+**File:** `src/pages/DashboardPage.tsx:347-356`
 
-**Fix:** Memoize `skillFilter` in the parent, or stabilize the dependency inside `AssigneeFilter`:
+`fetchStats` is declared as a plain `async` function inside the component body (line 157). The `setInterval` callback on line 349 captures the function reference at the time `handleIngestion` runs. Because `fetchStats` is re-created on every render, any render between the moment the interval is created and the next tick will cause the interval to hold an outdated closure (it captures state-setter references that existed at creation time). In practice this is safe today because `setStats`, `setLoading`, `setLastUpdated` are stable setter references from `useState`, but the function is not wrapped in `useCallback`, making the pattern fragile to future refactors. More concretely: the `useEffect` hooks on lines 105-130 and 133-155 also call the bare `fetchStats` reference directly — but neither lists it as a dependency. If `fetchStats` ever reads from component state (e.g., `selectedDepartment` for dept-scoped counts), the stale-closure risk becomes a real bug silently.
 
-```typescript
-// Option A — parent memoizes
-const skillFilter = useMemo(() => ({ key: 'lang', value: 'en' }), []);
+**Fix:** Wrap `fetchStats` in `useCallback`:
 
-// Option B — inside AssigneeFilter, use a serialized key
-const skillFilterKey = JSON.stringify(skillFilter);
-useEffect(() => { fetchUsers(); }, [selectedDepartmentRole, skillFilterKey]);
+```tsx
+const fetchStats = useCallback(async () => {
+  // ... existing body unchanged ...
+}, []); // add deps here if fetchStats ever reads component state
+```
+
+Then add `fetchStats` to the dependency arrays of the two processing-completion `useEffect` hooks (lines 130, 155) and the initial-load effect (line 250).
+
+---
+
+### WR-02: Navigation URL mismatch — "Awaiting Response" card applies wrong filter set
+
+**File:** `src/pages/DashboardPage.tsx:400`
+
+The stat count for `awaitingResponse` is fetched with:
+```ts
+messageService.getThreads({ view: 'active', awaitingCustomerResponse: 'true' }, 1, 1)
+```
+(line 175 — `view: 'active'` is included).
+
+The card's `onClick` navigates to:
+```ts
+navigate('/messages?awaitingCustomerResponse=true')
+```
+(line 400 — `view=active` is **omitted**).
+
+This means the count shown on the card is scoped to active threads, but clicking through shows threads across all views. The user lands on a larger result set than the number implies, breaking the "click for details" contract the other cards establish.
+
+**Fix:**
+```tsx
+onClick: () => navigate('/messages?view=active&awaitingCustomerResponse=true'),
 ```
 
 ---
 
-### WR-02: `ConfirmDialog.onConfirm` resets `newOrgId` to 0 before async handler reads it
+### WR-03: `documentationService.getStats()` return type is not `ApiResponse`-wrapped — access pattern is inconsistent and fragile
 
-**File:** `src/components/modals/EditUserModal.tsx:601-606`
-**Issue:** The `onConfirm` callback resets `orgChangeDialog` to `{ open: false, newOrgId: 0 }` and then awaits `handleOrgChangeConfirm()`. The handler reads `orgChangeDialog.newOrgId` (line 234) from the React state snapshot captured in the closure. Because React state updates are batched, the handler is likely reading the old value — but this is an implicit reliance on stale-closure behavior and will silently break if the handler is refactored to re-read state asynchronously.
+**File:** `src/pages/DashboardPage.tsx:190`
 
-**Fix:** Capture the org ID before resetting:
+`documentationService.getStats()` is typed as `Promise<DocumentationStats>` (documentation.service.ts line 132). It returns the plain object directly, not wrapped in `{ success, data }`. The dashboard uses:
+```ts
+const docCount = Number(docStatsRes?.totalDocs ?? 0);
+```
+The optional chain `?.` implies the caller believes `docStatsRes` could be `undefined`, which cannot happen — `Promise.all` either resolves with the value or rejects (caught by the outer `catch`). If the API later changes its envelope to `{ success, data: DocumentationStats }` (as every other service in this codebase does), `docStatsRes.totalDocs` silently becomes `undefined`, coerced to `0` with no type error.
 
-```typescript
-onConfirm={async () => {
-  const newOrgId = orgChangeDialog.newOrgId;
-  setOrgChangeDialog({ open: false, newOrgId: 0 });
-  await handleOrgChangeConfirm(newOrgId); // pass explicitly
-}}
+**Fix:** Remove the spurious optional chain and add a comment noting the divergent shape:
+```ts
+// documentationService.getStats() returns DocumentationStats directly (no ApiResponse wrapper)
+const docCount = docStatsRes.totalDocs ?? 0;
+```
+Or, for long-term consistency, refactor `getStats()` to return `{ success: boolean; data: DocumentationStats }`.
+
+---
+
+### WR-04: JSX conditional — `&&(` at wrong indentation level on lead-stage badge block
+
+**File:** `src/components/messages/MessageListItem.tsx:253-266`
+
+```tsx
+{message.isLead &&
+  leadMeta?.leadState?.stage !== undefined &&
+  leadMeta.leadState.stage in STAGE_COLORS && (
+  <Badge ...>           // ← opening paren at same indent as Badge, not indented further
+    ...
+  </Badge>
+)}
+```
+
+The opening `(` ends line 255 and the `<Badge>` starts at the same column, making the parenthesis visually ambiguous — it looks like a standalone expression start rather than the RHS of the final `&&`. TypeScript and Babel parse this correctly, but ESLint `react/jsx-indent` will flag it, and it creates a readability hazard: a future developer adding a fourth condition after the `&&` may break the grouping.
+
+**Fix:** Indent the JSX body one level deeper than the condition:
+```tsx
+{message.isLead &&
+  leadMeta?.leadState?.stage !== undefined &&
+  leadMeta.leadState.stage in STAGE_COLORS && (
+    <Badge
+      variant={STAGE_COLORS[leadMeta.leadState.stage]}
+      className="flex gap-1 items-center h-5 px-1.5"
+      title={`Lead stage: ${leadMeta.leadState.stage.replace(/_/g, ' ')}`}
+    >
+      {STAGE_COLORS[leadMeta.leadState.stage] === 'danger' && (
+        <AlertTriangle className="w-2.5 h-2.5" />
+      )}
+      {leadMeta.leadState.stage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+    </Badge>
+  )}
 ```
 
 ---
 
-### WR-03: `setOnlyMine` rollback uses inverted argument rather than previous committed state
+### WR-05: Polling interval — `fetchStats` error path skips `clearInterval`, causing unbounded polling
 
-**File:** `src/hooks/useSLANotifications.ts:109-119`
-**Issue:** The optimistic-update rollback on API failure uses `!value` (the argument). If the user double-clicks the toggle before the first request settles, the rollback reverts to the negation of whichever call failed — not the last server-confirmed state.
+**File:** `src/pages/DashboardPage.tsx:347-356`
 
-```typescript
-// Fix — capture previous state before mutating
-const setOnlyMine = useCallback((value: boolean) => {
-  const previousValue = prefsRef.current.onlyAssignedToMe;
-  setOnlyAssignedToMeState(value);
-  prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
-  apiClient.put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
-    .then(() => fetchNotifications())
-    .catch(() => {
-      setOnlyAssignedToMeState(previousValue);
-      prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
-    });
-}, [fetchNotifications]);
-```
-
----
-
-### WR-04: `SLANotificationBell` marks all notifications read before panel is visible
-
-**File:** `src/components/layout/SLANotificationBell.tsx:132`
-**Issue:** `handleOpen` calls `markAllRead()` at the same time as `setOpen((prev) => !prev)`. Because `setOpen` is asynchronous (React state batch), `markAllRead` fires and updates `localStorage` before the panel is rendered. If a notification fetch is in flight, arriving notifications get immediately marked as read before the user sees them.
-
-**Fix:** Trigger `markAllRead` in a `useEffect` that responds to `open` becoming `true`:
-
-```typescript
-useEffect(() => {
-  if (open && unreadCount > 0) markAllRead();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [open]);
-```
-
----
-
-### WR-05: `convertTextToHtml` does not escape HTML entities — corrupts reply editor content
-
-**File:** `src/components/messages/MessageDetail.tsx:461-466`
-**Issue:** `convertTextToHtml` wraps plain text in `<p>` tags without escaping `<`, `>`, or `&`. When AI-suggested answers contain email addresses like `<user@example.com>` or angle-bracket constructs, they are injected as literal HTML tags into the RichTextEditor content string.
-
-```typescript
-// Fix — escape before wrapping
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const convertTextToHtml = (text: string): string =>
-  text
-    .split('\n\n')
-    .filter((para) => para.trim())
-    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
-    .join('');
-```
-
----
-
-### WR-06: Gmail OAuth popup: intervals and message listener leak on component unmount
-
-**File:** `src/services/gmail-oauth.service.ts:184-247`
-**Issue:** `connectWithPopup` registers `setInterval` timers (`checkAuth`, `checkClosed`) and a `window` `message` event listener inside a Promise executor. These are cleared when the OAuth flow completes, but if the calling React component unmounts during the flow (e.g., user navigates away), the intervals continue running and will attempt to call `handleCallback` and resolve the dangling Promise, causing potential state updates on an unmounted component.
-
-**Fix:** Add an `AbortController` or mount-guard pattern in the calling component:
-
-```typescript
-// In GmailIntegrationCard
-const abortRef = useRef(false);
-useEffect(() => { return () => { abortRef.current = true; }; }, []);
-
-const handleGmailOAuth = async () => {
-  setSaving(true);
-  try {
-    const response = await gmailOAuthService.connectWithPopup(...);
-    if (abortRef.current) return;
-    // ... handle response
-  } finally {
-    if (!abortRef.current) setSaving(false);
-  }
-};
-```
-
----
-
-### WR-07: `MessageThread` timestamp-window loop recomputes `msgTime()` on every iteration — O(n²) `new Date` calls
-
-**File:** `src/components/messages/MessageThread.tsx:195-210`
-**Issue:** The reply-attribution `filter` callback inside the `customerEmails.forEach` loop calls `msgTime(sysMsg)` and `msgTime(customerMsg)` on every iteration. `msgTime` constructs `new Date(...)` each time. For a thread with N customer messages and M system replies this is O(N×M) `Date` construction calls.
-
-**Fix:** Pre-compute and cache message times before the attribution loop:
-
-```typescript
-const timeCache = new Map<number, number>(
-  allMessages.map((m) => [m.id, msgTime(m)])
-);
-// Then use timeCache.get(msg.id)! inside the filter
-```
-
----
-
-### WR-08: `TicketAttachments` socket lifecycle coupled to `fetchAttachments` identity
-
-**File:** `src/components/tickets/TicketAttachments.tsx:53-76`
-**Issue:** The single `useEffect` mixes socket lifecycle (`getSocket` / `releaseSocket`) with event subscription and data fetching, all keyed to `[ticketId, fetchAttachments]`. If a future change causes `fetchAttachments` to change identity without `ticketId` changing, the effect re-runs: it calls `releaseSocket` (decrementing the ref count) and then `getSocket` (incrementing it), potentially causing a spurious socket reconnect cycle.
-
-**Fix:** Separate concerns into two effects:
-
-```typescript
-// Effect 1: socket lifecycle
-useEffect(() => {
-  getSocket();
-  return () => releaseSocket();
-}, [ticketId]);
-
-// Effect 2: data fetch + event subscription
-useEffect(() => {
-  fetchAttachments().catch((e) => logger.error('Failed to fetch attachments:', e));
-  const handleUpdate = (data: unknown) => {
-    const eventData = data as { ticketId: number };
-    if (eventData.ticketId === ticketId) {
-      fetchAttachments().catch((e) => logger.error('Failed to refresh attachments:', e));
+```ts
+pollingIntervalRef.current = setInterval(() => {
+  attempts++;
+  void fetchStats().then(() => {
+    if (attempts >= maxAttempts && pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
-  };
-  subscribeToEvent('ticket:comments:updated', handleUpdate);
-  return () => unsubscribeFromEvent('ticket:comments:updated', handleUpdate);
-}, [ticketId, fetchAttachments]);
+  });
+}, 5000) as unknown as number;
+```
+
+`clearInterval` is inside `.then()`. If `fetchStats` throws (network error, server 5xx), the `.then()` handler is never called, the interval counter never reaches `maxAttempts` via the stop check, and the polling continues past the 60-second window indefinitely until the component unmounts. The unmount cleanup (line 273) will eventually stop it, but if the component stays mounted (as it likely does — it is the dashboard), the interval runs forever.
+
+**Fix:** Use `.finally()` so the stop check runs regardless of success or failure:
+```ts
+pollingIntervalRef.current = setInterval(() => {
+  attempts++;
+  void fetchStats().finally(() => {
+    if (attempts >= maxAttempts && pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  });
+}, 5000) as unknown as number;
 ```
 
 ---
 
 ## Info
 
-### IN-01: `EditUserModal` — `canEditRoles` uses `??` where `||` is likely intended
+### IN-01: `message.metadata` cast to three different incompatible shapes — `threadInfo` cast omits `| undefined`
 
-**File:** `src/components/modals/EditUserModal.tsx:95`
-**Issue:** `const canEditRoles = isAdmin ?? (canManageUsers && !isEditingSelf)`. Nullish coalescing (`??`) only falls through when the left side is `null` or `undefined`. If `isAdmin` is `false` (which is the common case for non-admin users), the right-hand side is never evaluated. This means `canManageUsers && !isEditingSelf` is completely ignored for non-admins. If the intent is "admin OR (can-manage-users AND not-self)", use `||` instead:
+**File:** `src/components/messages/MessageListItem.tsx:71-79`
 
-```typescript
-const canEditRoles = isAdmin || (canManageUsers && !isEditingSelf);
+`message.metadata` is typed `Record<string, unknown> | undefined`. It is cast to four separate local variables with different shapes. The `threadInfo` cast on line 71 is:
+```ts
+const threadInfo = message.metadata as { isThreadView?: boolean; ... };
+```
+This omits `| undefined`, meaning TypeScript treats `threadInfo` as always present. Downstream accesses correctly use optional chaining (`threadInfo?.isThreadView`) so there is no runtime crash, but TypeScript will not warn if a future access forgets `?.`. The other three casts include `| undefined` and are correct.
+
+**Suggestion:** Add `| undefined` to the `threadInfo` cast:
+```ts
+const threadInfo = message.metadata as {
+  isThreadView?: boolean;
+  ...
+} | undefined;
 ```
 
 ---
 
-### IN-02: `SLAByPriorityTable` and `SLATrendChart` hardcode `days: 30` independently
+### IN-02: `pollingIntervalRef` typed as `number | null` but assigned via `as unknown as number` cast
 
-**File:** `src/components/sla/SLAByPriorityTable.tsx:11`, `src/components/sla/SLATrendChart.tsx:11`
-**Issue:** Both components hardcode a 30-day window and have separate React Query cache keys. Extracting to a shared constant or accepting a `days` prop from the parent (which already has a query client available) would allow consistent period control.
+**File:** `src/pages/DashboardPage.tsx:62, 356`
 
----
+```ts
+const pollingIntervalRef = useRef<number | null>(null);
+// ...
+pollingIntervalRef.current = setInterval(() => { ... }, 5000) as unknown as number;
+```
 
-### IN-03: `StatisticsPage.fetchStatistics` not stabilized with `useCallback`
+`setInterval` returns `NodeJS.Timeout` in Node environments and `number` in browser environments. The double cast `as unknown as number` works but suppresses the type-checker for a cross-environment concern. Using `ReturnType<typeof setInterval>` directly eliminates the cast and correctly handles both environments.
 
-**File:** `src/pages/StatisticsPage.tsx:137, 157`
-**Issue:** `fetchStatistics` is a plain `async function` declared inside the component body and used in a `useEffect` without being listed in the dependency array. This violates the `react-hooks/exhaustive-deps` rule. Wrap it in `useCallback` and add it to the deps array, or move it outside the component.
-
----
-
-### IN-04: `connectWithPopup` has 8 positional parameters — fragile call sites
-
-**File:** `src/services/gmail-oauth.service.ts:79-88`
-**Issue:** Eight positional parameters make call sites difficult to read and error-prone (easy to swap adjacent optional params). A config object would be safer:
-
-```typescript
-interface ConnectWithPopupConfig {
-  clientId: string;
-  clientSecret: string;
-  searchQuery?: string;
-  maxResults?: number;
-  pollingMaxPages?: number;
-  bulkImportDays?: number;
-  bulkImportMaxResults?: number;
-  isKnowledgeBase?: boolean;
-}
-connectWithPopup(config: ConnectWithPopupConfig): Promise<ApiResponse<...>>
+**Suggestion:**
+```ts
+const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+// then:
+pollingIntervalRef.current = setInterval(() => { ... }, 5000); // no cast needed
 ```
 
 ---
 
-### IN-05: `withSignature` in `MessageDetail` inserts user signature without HTML-escaping
+### IN-03: WebSocket no-op handler emits `logger.warn` on every server event
 
-**File:** `src/components/messages/MessageDetail.tsx:468-474`
-**Issue:** The user's email signature (fetched from the server and stored on the `user` object) is split by newlines and wrapped in `<p>` tags without escaping HTML entities. Since the signature content then enters the RichTextEditor (which sanitizes on render), the risk is limited to corrupted composer content rather than XSS — but email addresses with angle brackets or `&` characters in signatures will render incorrectly. Apply the same `escapeHtml` helper recommended in WR-05 to each signature line.
+**File:** `src/pages/DashboardPage.tsx:256-260`
+
+The `handleStatsUpdate` handler intentionally ignores all data and calls `logger.warn(...)` on every received `stats:update` WebSocket event. While the comment explains the rationale, every server-pushed event will produce a warning-level log entry in production, polluting log aggregation dashboards.
+
+**Suggestion:** Downgrade to `logger.debug` or remove the log entirely since the comment on line 257-259 already documents the reason:
+```ts
+const handleStatsUpdate = (_updatedStats: Record<string, number>) => {
+  // WebSocket stat field names are stale — rely on fetchStats() instead.
+  // TODO: re-enable when backend publishes updated field names.
+};
+```
 
 ---
 
-_Reviewed: 2026-04-27_
+### IN-04: Inline comment on `checkEmails()` call explains design intent that belongs in a block comment
+
+**File:** `src/pages/DashboardPage.tsx:323-325`
+
+```ts
+case 'email':
+  response = await ingestionService.checkEmails(); // Check emails immediately, not just start polling
+  break;
+```
+
+The comment explains why `checkEmails()` is used instead of a hypothetical `startEmail()` — a non-obvious design decision. An inline comment is easy to miss during refactors. This intent would be better preserved as a block comment above the `switch` statement or as a JSDoc note on `handleIngestion`.
+
+**Suggestion:**
+```ts
+// Email uses checkEmails() (immediate fetch) rather than startPolling() because
+// the user expects instant feedback. Telegram and All use their respective start
+// methods which kick off background polling.
+switch (type) {
+```
+
+---
+
+_Reviewed: 2026-04-28_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: deep_

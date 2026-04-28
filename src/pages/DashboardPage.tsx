@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Inbox,
   Ticket as TicketIcon,
@@ -10,6 +10,10 @@ import {
   Hourglass,
   BarChart3,
   Loader2,
+  MessageSquare,
+  ShieldAlert,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -33,11 +37,21 @@ import { logger } from '@/lib/logger';
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    supportMessages: 0,
-    kbMessages: 0,
-    unprocessedMessages: 0,
-    totalTickets: 0,
+    // Messages
+    activeMessages: 0,
+    clientReplied: 0,
+    awaitingResponse: 0,
+    suspiciousMessages: 0,
+    notAnalysed: 0,
+    resolvedMessages: 0,
+    // Tickets
+    openTickets: 0,
+    inProgressTickets: 0,
     pendingTickets: 0,
+    // KB
+    kbQAPairs: 0,
+    kbDocuments: 0,
+    kbDocumentation: 0,
   });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -90,6 +104,59 @@ export const DashboardPage = () => {
     useTelegramProcessing(true);
   const prevIsTelegramProcessing = useRef(isTelegramProcessing);
 
+  const fetchStats = useCallback(async () => {
+    try {
+      // Fetch with limit=1 to get total counts from pagination metadata (we don't need the actual records)
+      const [
+        activeRes,
+        clientRepliedRes,
+        awaitingRes,
+        suspiciousRes,
+        notAnalysedRes,
+        resolvedRes,
+        openTicketsRes,
+        inProgressTicketsRes,
+        pendingTicketsRes,
+        kbQARes,
+        kbDocRes,
+        docStatsRes,
+      ] = await Promise.all([
+        messageService.getThreads({ view: 'active' }, 1, 1),
+        messageService.getThreads({ view: 'active', customerResponded: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'active', awaitingCustomerResponse: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'suspicious' }, 1, 1),
+        messageService.getThreads({ view: 'not_analysed' }, 1, 1),
+        messageService.getThreads({ view: 'resolved' }, 1, 1),
+        ticketService.getAll({ status: 'open' }, 1, 1),
+        ticketService.getAll({ status: 'in_progress' }, 1, 1),
+        ticketService.getAll({ status: 'pending' }, 1, 1),
+        kbService.getAll({ type: 'qa_pair', limit: 1 }),
+        kbService.getAll({ type: 'document', limit: 1 }),
+        documentationService.getStats(),
+      ]);
+
+      setStats({
+        activeMessages: activeRes.success ? activeRes.pagination.total : 0,
+        clientReplied: clientRepliedRes.success ? clientRepliedRes.pagination.total : 0,
+        awaitingResponse: awaitingRes.success ? awaitingRes.pagination.total : 0,
+        suspiciousMessages: suspiciousRes.success ? suspiciousRes.pagination.total : 0,
+        notAnalysed: notAnalysedRes.success ? notAnalysedRes.pagination.total : 0,
+        resolvedMessages: resolvedRes.success ? resolvedRes.pagination.total : 0,
+        openTickets: openTicketsRes.success ? openTicketsRes.pagination.total : 0,
+        inProgressTickets: inProgressTicketsRes.success ? inProgressTicketsRes.pagination.total : 0,
+        pendingTickets: pendingTicketsRes.success ? pendingTicketsRes.pagination.total : 0,
+        kbQAPairs: kbQARes?.success ? Number(kbQARes.data.pagination.total) : 0,
+        kbDocuments: kbDocRes?.success ? Number(kbDocRes.data.pagination.total) : 0,
+        kbDocumentation: Number(docStatsRes?.totalDocs ?? 0),
+      });
+    } catch (error) {
+      logger.error('Failed to fetch stats:', error);
+    } finally {
+      setLoading(false);
+      setLastUpdated(new Date());
+    }
+  }, []);
+
   // Auto-refresh stats when email processing completes
   useEffect(() => {
     // Detect transition to complete (from any prior state: idle, started, processing, etc.)
@@ -116,7 +183,7 @@ export const DashboardPage = () => {
       }
     }
     prevProcessingStatus.current = processingStatus;
-  }, [processingStatus, processedCount, clearMessagesCache]);
+  }, [processingStatus, processedCount, clearMessagesCache, fetchStats]);
 
   // Auto-refresh stats when telegram processing completes
   useEffect(() => {
@@ -141,72 +208,7 @@ export const DashboardPage = () => {
       }
     }
     prevIsTelegramProcessing.current = isTelegramProcessing;
-  }, [isTelegramProcessing, telegramProcessedCount, clearMessagesCache]);
-
-  const fetchStats = async () => {
-    try {
-      // Fetch with limit=1 to get total counts from pagination metadata (we don't need the actual records)
-      const [
-        supportMessagesResponse,
-        kbEntriesResponse,
-        docStatsResponse,
-        unprocessedMessagesResponse,
-        allTicketsResponse,
-        pendingTicketsResponse,
-      ] = await Promise.all([
-        messageService.getThreads({ excludeKB: 'true' }, 1, 1), // Active support threads (excluding KB; resolved excluded by default)
-        kbService.getAll({ limit: 1 }), // KB entries count (Q&A pairs, extracted docs)
-        documentationService.getStats(), // Uploaded documentation stats
-        messageService.getThreads({ view: 'not_analysed', excludeKB: 'true' }, 1, 1), // Not-analysed threads (filtered but not spam)
-        ticketService.getAll(undefined, 1, 1),
-        ticketService.getAll({ status: 'pending' }, 1, 1),
-      ]);
-
-      if (supportMessagesResponse.success) {
-        setStats((prev) => ({
-          ...prev,
-          supportMessages: supportMessagesResponse.pagination.total,
-        }));
-      }
-
-      // Combine KB entries + uploaded documentation for total KB content count
-      const kbEntryCount = kbEntriesResponse?.success
-        ? Number(kbEntriesResponse.data.pagination.total)
-        : 0;
-      const docCount = Number(docStatsResponse?.totalDocs ?? 0);
-      const calculatedTotal = kbEntryCount + docCount;
-      setStats((prev) => ({
-        ...prev,
-        kbMessages: calculatedTotal,
-      }));
-
-      if (unprocessedMessagesResponse.success) {
-        setStats((prev) => ({
-          ...prev,
-          unprocessedMessages: unprocessedMessagesResponse.pagination.total,
-        }));
-      }
-
-      if (allTicketsResponse.success) {
-        setStats((prev) => ({
-          ...prev,
-          totalTickets: allTicketsResponse.pagination.total,
-        }));
-      }
-
-      if (pendingTicketsResponse.success) {
-        setStats((prev) => ({
-          ...prev,
-          pendingTickets: pendingTicketsResponse.pagination.total,
-        }));
-      }
-    } catch (error) {
-      logger.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
-      setLastUpdated(new Date());
-    }
-  };
+  }, [isTelegramProcessing, telegramProcessedCount, clearMessagesCache, fetchStats]);
 
   // Check if current organization has integrations
   useEffect(() => {
@@ -246,30 +248,15 @@ export const DashboardPage = () => {
     fetchStats().catch((error) => {
       logger.error('Failed to fetch stats:', error);
     });
-  }, []);
+  }, [fetchStats]);
 
   // Listen for real-time stats updates via WebSocket
   useEffect(() => {
     const socket = getSocket();
 
-    const handleStatsUpdate = (updatedStats: {
-      supportMessages?: number;
-      kbMessages?: number;
-      unprocessedMessages?: number;
-      totalTickets?: number;
-      pendingTickets?: number;
-    }) => {
-      // Temporarily disable kbMessages override to verify frontend calculation is correct
-      const { kbMessages, ...safeUpdates } = updatedStats;
-      if (kbMessages !== undefined) {
-        logger.warn(
-          `🚫 [WebSocket] Blocked kbMessages update: ${kbMessages} (frontend calculated value is correct)`
-        );
-      }
-      setStats((prev) => ({
-        ...prev,
-        ...safeUpdates, // Apply other updates but ignore kbMessages
-      }));
+    const handleStatsUpdate = (_updatedStats: Record<string, number>) => {
+      // WebSocket stat field names are stale (supportMessages, unprocessedMessages, etc.)
+      // and no longer map to the new stats shape. Rely on fetchStats() for updates instead.
     };
 
     socket.on('stats:update', handleStatsUpdate);
@@ -359,7 +346,7 @@ export const DashboardPage = () => {
         const maxAttempts = 12; // 12 attempts × 5s = 60 seconds
         pollingIntervalRef.current = setInterval(() => {
           attempts++;
-          void fetchStats().then(() => {
+          void fetchStats().finally(() => {
             // Stop polling after max attempts
             if (attempts >= maxAttempts && pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
@@ -381,50 +368,98 @@ export const DashboardPage = () => {
     }
   };
 
-  const statCards = [
+  const messageCards = [
     {
-      title: 'Messages',
-      value: stats.supportMessages,
+      title: 'Active',
+      value: stats.activeMessages,
       icon: Mail,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
       borderColor: '#2563eb',
-      onClick: () => navigate('/messages?excludeKB=true'),
+      hint: 'Active threads',
+      onClick: () => navigate('/messages?view=active'),
     },
     {
-      title: 'Unprocessed Messages',
-      value: stats.unprocessedMessages,
-      icon: Clock,
+      title: 'Client Replied',
+      value: stats.clientReplied,
+      icon: MessageSquare,
+      color: 'text-orange-600 dark:text-orange-400',
+      bg: 'bg-orange-50 dark:bg-orange-950/50',
+      borderColor: '#ea580c',
+      hint: 'Waiting for your reply',
+      onClick: () => navigate('/messages?view=active&customerResponded=true'),
+    },
+    {
+      title: 'Awaiting Response',
+      value: stats.awaitingResponse,
+      icon: Hourglass,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
       borderColor: '#ca8a04',
+      hint: 'Waiting for client',
+      onClick: () => navigate('/messages?view=active&awaitingCustomerResponse=true'),
+    },
+    {
+      title: 'Suspicious',
+      value: stats.suspiciousMessages,
+      icon: ShieldAlert,
+      color: 'text-amber-600 dark:text-amber-400',
+      bg: 'bg-amber-50 dark:bg-amber-950/50',
+      borderColor: '#d97706',
+      hint: 'Needs review',
+      onClick: () => navigate('/messages?view=suspicious'),
+    },
+    {
+      title: 'Not Analysed',
+      value: stats.notAnalysed,
+      icon: Clock,
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-50 dark:bg-red-950/50',
+      borderColor: '#dc2626',
+      hint: 'Pending AI processing',
       onClick: () => navigate('/messages?view=not_analysed'),
     },
     {
-      title: 'Knowledge Base',
-      value: stats.kbMessages,
-      icon: Inbox,
-      color: 'text-cyan-600 dark:text-cyan-400',
-      bg: 'bg-cyan-50 dark:bg-cyan-950/50',
-      borderColor: '#0891b2',
-      onClick: () => navigate('/knowledge-base'),
-    },
-    {
-      title: 'Total Tickets',
-      value: stats.totalTickets,
-      icon: TicketIcon,
+      title: 'Resolved',
+      value: stats.resolvedMessages,
+      icon: CheckCircle,
       color: 'text-green-600 dark:text-green-400',
       bg: 'bg-green-50 dark:bg-green-950/50',
       borderColor: '#16a34a',
-      onClick: () => navigate('/tickets?status=all'),
+      hint: 'Closed threads',
+      onClick: () => navigate('/messages?view=resolved'),
+    },
+  ];
+
+  const ticketCards = [
+    {
+      title: 'Open',
+      value: stats.openTickets,
+      icon: TicketIcon,
+      color: 'text-blue-600 dark:text-blue-400',
+      bg: 'bg-blue-50 dark:bg-blue-950/50',
+      borderColor: '#2563eb',
+      hint: 'New tickets',
+      onClick: () => navigate('/tickets?status=open'),
     },
     {
-      title: 'Pending Tickets',
+      title: 'In Progress',
+      value: stats.inProgressTickets,
+      icon: Loader2,
+      color: 'text-yellow-600 dark:text-yellow-400',
+      bg: 'bg-yellow-50 dark:bg-yellow-950/50',
+      borderColor: '#ca8a04',
+      hint: 'Being handled',
+      onClick: () => navigate('/tickets?status=in_progress'),
+    },
+    {
+      title: 'Pending',
       value: stats.pendingTickets,
-      icon: CheckCircle,
+      icon: Hourglass,
       color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-50 dark:bg-purple-950/50',
       borderColor: '#9333ea',
+      hint: 'Awaiting response',
       onClick: () => navigate('/tickets?status=pending'),
     },
   ];
@@ -448,79 +483,233 @@ export const DashboardPage = () => {
         </div>
 
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              // Index key is safe: array is immutable (recreated from text split), no reordering
-              // eslint-disable-next-line react/no-array-index-key
-              <Card key={`skeleton-${i}`} className="animate-pulse">
-                <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
-                  <div className="w-24 h-4 bg-gray-200 rounded" />
-                  <div className="w-10 h-10 bg-gray-200 rounded" />
-                </CardHeader>
-                <CardContent>
-                  <div className="w-16 h-8 bg-gray-200 rounded" />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="space-y-6">
+            {/* Messages skeleton */}
+            <div>
+              <div className="w-24 h-4 bg-gray-200 rounded mb-3" />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <Card key={`skeleton-msg-${i}`} className="animate-pulse">
+                    <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
+                      <div className="w-20 h-4 bg-gray-200 rounded" />
+                      <div className="w-8 h-8 bg-gray-200 rounded" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="w-12 h-7 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+            {/* Tickets skeleton */}
+            <div>
+              <div className="w-16 h-4 bg-gray-200 rounded mb-3" />
+              <div className="grid gap-4 sm:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <Card key={`skeleton-tkt-${i}`} className="animate-pulse">
+                    <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
+                      <div className="w-20 h-4 bg-gray-200 rounded" />
+                      <div className="w-8 h-8 bg-gray-200 rounded" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="w-12 h-7 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+            {/* KB skeleton */}
+            <div>
+              <div className="w-32 h-4 bg-gray-200 rounded mb-3" />
+              <div className="grid gap-4 max-w-xs">
+                <Card className="animate-pulse">
+                  <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
+                    <div className="w-20 h-4 bg-gray-200 rounded" />
+                    <div className="w-8 h-8 bg-gray-200 rounded" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="w-12 h-7 bg-gray-200 rounded" />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {statCards.map((stat) => {
-              const Icon = stat.icon;
-              return (
+          <div className="space-y-6">
+            {/* Messages Section */}
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                Messages
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {messageCards.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Card
+                      key={stat.title}
+                      onClick={stat.onClick}
+                      className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
+                      style={{ borderLeftColor: stat.borderColor }}
+                    >
+                      <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
+                        <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
+                          {stat.title}
+                        </CardTitle>
+                        <div
+                          className={`${stat.bg} p-2 rounded-xl group-hover:scale-110 transition-transform`}
+                        >
+                          <Icon className={`h-4 w-4 ${stat.color}`} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-4">
+                        <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
+                          {stat.value}
+                        </div>
+                        <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
+                          <BarChart3 className="w-3 h-3" />
+                          {stat.hint}
+                          <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            →
+                          </span>
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tickets Section */}
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                Tickets
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {ticketCards.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Card
+                      key={stat.title}
+                      onClick={stat.onClick}
+                      className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
+                      style={{ borderLeftColor: stat.borderColor }}
+                    >
+                      <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
+                        <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
+                          {stat.title}
+                        </CardTitle>
+                        <div
+                          className={`${stat.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}
+                        >
+                          <Icon className={`h-5 w-5 ${stat.color}`} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-4">
+                        <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
+                          {stat.value}
+                        </div>
+                        <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
+                          <BarChart3 className="w-3 h-3" />
+                          {stat.hint}
+                          <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            →
+                          </span>
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Knowledge Base Section */}
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                Knowledge Base
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-3">
                 <Card
-                  key={stat.title}
-                  onClick={stat.onClick}
+                  onClick={() => navigate('/knowledge-base#qa_pair')}
                   className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
-                  style={{ borderLeftColor: stat.borderColor }}
+                  style={{ borderLeftColor: '#0891b2' }}
                 >
                   <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
-                      {stat.title}
+                      Q&amp;A
                     </CardTitle>
-                    <div
-                      className={`${stat.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}
-                    >
-                      <Icon className={`h-5 w-5 ${stat.color}`} />
+                    <div className="bg-cyan-50 dark:bg-cyan-950/50 p-2.5 rounded-xl group-hover:scale-110 transition-transform">
+                      <MessageSquare className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                     </div>
                   </CardHeader>
                   <CardContent className="pb-4">
                     <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
-                      {stat.value}
+                      {stats.kbQAPairs}
                     </div>
                     <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
-                      {stat.title === 'Unprocessed Messages' && stats.unprocessedMessages > 0 && (
-                        <>
-                          <AlertTriangle className="w-3 h-3" />
-                          Needs attention
-                        </>
-                      )}
-                      {stat.title === 'Pending Tickets' && stats.pendingTickets > 0 && (
-                        <>
-                          <Hourglass className="w-3 h-3" />
-                          Awaiting response
-                        </>
-                      )}
-                      {stat.title === 'Messages' && (
-                        <>
-                          <BarChart3 className="w-3 h-3" />
-                          Active
-                        </>
-                      )}
-                      {(stat.title === 'Knowledge Base' || stat.title === 'Total Tickets') && (
-                        <>
-                          <BarChart3 className="w-3 h-3" />
-                          All time
-                        </>
-                      )}
+                      <BarChart3 className="w-3 h-3" />
+                      Extracted pairs
                       <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
                         →
                       </span>
                     </p>
                   </CardContent>
                 </Card>
-              );
-            })}
+                <Card
+                  onClick={() => navigate('/knowledge-base#document')}
+                  className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
+                  style={{ borderLeftColor: '#059669' }}
+                >
+                  <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
+                    <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
+                      Documents
+                    </CardTitle>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/50 p-2.5 rounded-xl group-hover:scale-110 transition-transform">
+                      <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
+                      {stats.kbDocuments}
+                    </div>
+                    <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
+                      <BarChart3 className="w-3 h-3" />
+                      Processed attachments
+                      <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        →
+                      </span>
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card
+                  onClick={() => navigate('/knowledge-base#documentation')}
+                  className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
+                  style={{ borderLeftColor: '#7c3aed' }}
+                >
+                  <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
+                    <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
+                      Documentation
+                    </CardTitle>
+                    <div className="bg-violet-50 dark:bg-violet-950/50 p-2.5 rounded-xl group-hover:scale-110 transition-transform">
+                      <BookOpen className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
+                      {stats.kbDocumentation}
+                    </div>
+                    <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
+                      <BarChart3 className="w-3 h-3" />
+                      Uploaded files
+                      <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        →
+                      </span>
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         )}
 
