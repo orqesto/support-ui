@@ -187,7 +187,10 @@ const KanbanColumn = ({
     try {
       const res = await messageService.getThreads(filterSnapshot, nextPage, PAGE_SIZE, 'desc');
       if (!res.success) return;
-      const currentFilterKey = JSON.stringify(sharedFiltersRef.current);
+      // Compare the full merged filter (shared + fixed) on both sides so the stale-result guard
+      // works correctly even when fixedFilters has entries. Using only sharedFiltersRef would
+      // always mismatch snapshotKey when fixedFilters is non-empty.
+      const currentFilterKey = JSON.stringify({ ...sharedFiltersRef.current, ...fixedFilters });
       const snapshotKey = JSON.stringify(filterSnapshot);
       if (currentFilterKey !== snapshotKey) return;
       pageRef.current = res.pagination.page;
