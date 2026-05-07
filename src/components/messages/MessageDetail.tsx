@@ -104,7 +104,7 @@ type MessageDetailProps = {
   onResolve?: () => Promise<void>;
   onRefresh?: () => void;
   onMessageNavigate?: (messageId: number) => void;
-  onClassify?: (action: 'approve' | 'mark_suspicious') => Promise<void>;
+  onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
   showFullPageButton?: boolean;
 };
 
@@ -159,7 +159,7 @@ export const MessageDetail = ({
     message.status !== 'closed' &&
     message.status !== 'resolved';
 
-  const handleClassify = async (action: 'approve' | 'mark_suspicious') => {
+  const handleClassify = async (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => {
     if (!onClassify) return;
     setClassifying(true);
     try {
@@ -1423,17 +1423,29 @@ export const MessageDetail = ({
           </Button>
         )}
 
-        {/* CLASSIFY ACTIONS: suspicious → approve to active */}
+        {/* CLASSIFY ACTIONS: suspicious → approve to active or move to spam */}
         {isSuspicious && onClassify && (
-          <Button
-            onClick={() => void handleClassify('approve')}
-            disabled={classifying}
-            className="w-full"
-            size="lg"
-          >
-            <ShieldCheck className="mr-2 w-4 h-4" />
-            {classifying ? 'Approving…' : 'Not Spam — Move to Active'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => void handleClassify('approve')}
+              disabled={classifying}
+              className="flex-1"
+              size="lg"
+            >
+              <ShieldCheck className="mr-2 w-4 h-4" />
+              {classifying ? 'Updating…' : 'Not Spam — Move to Active'}
+            </Button>
+            <Button
+              onClick={() => void handleClassify('move_to_spam')}
+              disabled={classifying}
+              variant="outline"
+              size="lg"
+              className="flex-1 text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950"
+            >
+              <Trash2 className="mr-2 w-4 h-4" />
+              {classifying ? 'Updating…' : 'Move to Spam'}
+            </Button>
+          </div>
         )}
 
         {/* CLASSIFY ACTIONS: active → mark suspicious */}
@@ -1451,7 +1463,7 @@ export const MessageDetail = ({
         )}
 
         {/* UNPROCESSED: Needs human review */}
-        {!message.processed && (
+        {!message.processed && !isSuspicious && (
           <>
             {/* Primary action */}
             {onReject && (
@@ -1481,7 +1493,8 @@ export const MessageDetail = ({
         {message.processed &&
           !message.resolved &&
           message.status !== 'closed' &&
-          !message.ticketId && (
+          !message.ticketId &&
+          !isSuspicious && (
             <>
               {/* Primary actions */}
               <div className="grid grid-cols-2 gap-3">

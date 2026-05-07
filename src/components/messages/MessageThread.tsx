@@ -6,8 +6,6 @@ import {
   ChevronRight,
   User,
   Mail,
-  Brain,
-  AlertCircle,
   ArrowDown,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -16,6 +14,7 @@ import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
+import { MessageSignalBadges } from './MessageSignalBadges';
 
 type MessageThreadProps = {
   messageId: number;
@@ -25,100 +24,9 @@ type MessageThreadProps = {
   refreshKey?: number;
 };
 
-type AIAnalysis = {
-  isTicketWorthy?: boolean;
-  confidence?: number;
-  needsMoreInfo?: boolean;
-  suggestedCategory?: string;
-  suggestedPriority?: string;
-  summary?: string;
-  analysisProvider?: string;
-  analysisModel?: string;
-};
-
-type SpamCheck = {
-  isSpam?: boolean;
-  category?: string;
-  confidence?: number;
-  reason?: string;
-};
-
 type ConversationPair = {
   customerEmail: Message;
   systemReplies: Message[];
-};
-
-const renderAIAnalysis = (msg: Message) => {
-  if (!msg.metadata) {
-    return null;
-  }
-
-  const analysis = msg.metadata.analysis as AIAnalysis | undefined;
-  const spamCheck = msg.metadata.spamCheck as SpamCheck | undefined;
-
-  if (!analysis && !spamCheck) {
-    return null;
-  }
-
-  return (
-    <div className="pt-2 mt-3 space-y-2 border-t">
-      {/* AI Analysis */}
-      {analysis && (
-        <div className="p-2 text-xs bg-blue-50 rounded border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Brain className="w-3 h-3 text-blue-600" />
-            <span className="font-semibold text-blue-900 dark:text-blue-100">AI Analysis</span>
-            {analysis.confidence && (
-              <span className="text-blue-600 dark:text-blue-400 text-[10px]">
-                {Math.round(analysis.confidence * 100)}% confident
-              </span>
-            )}
-          </div>
-          {analysis.summary && (
-            <p className="text-blue-800 dark:text-blue-200 mb-1.5">{analysis.summary}</p>
-          )}
-          <div className="flex flex-wrap gap-1">
-            {analysis.isTicketWorthy !== undefined && (
-              <Badge
-                variant={analysis.isTicketWorthy ? 'default' : 'secondary'}
-                className="text-[10px] py-0"
-              >
-                {analysis.isTicketWorthy ? '✓ Ticket worthy' : '✗ Not ticket worthy'}
-              </Badge>
-            )}
-            {analysis.needsMoreInfo && (
-              <Badge variant="warning" className="text-[10px] py-0">
-                Needs info
-              </Badge>
-            )}
-            {analysis.suggestedPriority && (
-              <Badge variant="secondary" className="text-[10px] py-0">
-                {analysis.suggestedPriority}
-              </Badge>
-            )}
-            {analysis.suggestedCategory && (
-              <Badge variant="secondary" className="text-[10px] py-0">
-                {analysis.suggestedCategory}
-              </Badge>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Spam Warning */}
-      {spamCheck?.isSpam && (
-        <div className="p-2 text-xs bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:border-red-800">
-          <div className="flex items-center gap-1.5 mb-1">
-            <AlertCircle className="w-3 h-3 text-red-600" />
-            <span className="font-semibold text-red-900 dark:text-red-100">Spam Detected</span>
-          </div>
-          {spamCheck.reason && (
-            <p className="text-red-800 dark:text-red-200 text-[10px]">{spamCheck.reason}</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
 };
 
 export const MessageThread = ({
@@ -132,6 +40,7 @@ export const MessageThread = ({
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true); // Auto-expand by default
   const [error, setError] = useState<string | null>(null);
+  const [selectedPairId, setSelectedPairId] = useState<number | null>(null);
   const onHasReplyChangeRef = useRef(onHasReplyChange);
   onHasReplyChangeRef.current = onHasReplyChange;
 
@@ -179,6 +88,13 @@ export const MessageThread = ({
           const isSystemReply = msg.metadata?.isSystemReply === true;
           const isOutgoingMessage = msg.isOutgoing === true;
           const isBotSender = msg.sender.toLowerCase() === 'bot';
+
+          // Skip sent_only_label stubs: Gmail phantom records with no real content that
+          // were saved as outgoing placeholders during ingestion. They render as empty
+          // "Support Team Reply" bubbles with no useful information.
+          if ((msg.metadata as { skippedReason?: string } | null)?.skippedReason === 'sent_only_label') {
+            return;
+          }
 
           // System messages: outgoing OR bot sender OR explicit system replies
           // NOTE: Don't check directReply - that field is on CUSTOMER messages containing bot's response
@@ -232,8 +148,15 @@ export const MessageThread = ({
     void fetchThread();
   }, [messageId, currentThreadId, expanded, refreshKey]);
 
+
+  useEffect(() => { setSelectedPairId(null); }, [currentThreadId]);
+
   const totalExchanges = conversationPairs.length;
   const hasThread = currentThreadId !== null && currentThreadId !== undefined;
+  const explicitIndex = selectedPairId !== null
+    ? conversationPairs.findIndex((p) => p.customerEmail.id === selectedPairId)
+    : -1;
+  const effectiveCurrentIndex = explicitIndex >= 0 ? explicitIndex : conversationPairs.length - 1;
 
   // Always show the thread section - even if API returns no related messages
   // This helps users understand the conversation context
@@ -294,7 +217,7 @@ export const MessageThread = ({
           {!loading && !error && conversationPairs.length > 0 && (
             <div className="space-y-6">
               {conversationPairs.map((pair, pairIndex) => {
-                const isCurrentMessage = pair.customerEmail.id === messageId;
+                const isCurrentMessage = pairIndex === effectiveCurrentIndex;
                 const isFirstExchange = pairIndex === 0;
 
                 return (
@@ -309,6 +232,7 @@ export const MessageThread = ({
                     }`}
                     onClick={() => {
                       if (!isCurrentMessage && onMessageClick) {
+                        setSelectedPairId(pair.customerEmail.id);
                         onMessageClick(pair.customerEmail.id);
                       }
                     }}
@@ -366,22 +290,27 @@ export const MessageThread = ({
                         <LinkifiedText>{pair.customerEmail.content}</LinkifiedText>
                       </div>
 
-                      {/* AI Analysis for Customer Email */}
-                      <div className="ml-10">{renderAIAnalysis(pair.customerEmail)}</div>
-
-                      {/* Status Badges */}
-                      <div className="flex gap-2 mt-3 ml-10">
-                        {pair.customerEmail.processed && (
-                          <Badge variant="success" className="text-xs">
-                            Processed
-                          </Badge>
-                        )}
-                        {pair.customerEmail.ticketId && (
-                          <Badge variant="secondary" className="text-xs">
-                            Ticket #{pair.customerEmail.ticketId}
-                          </Badge>
-                        )}
-                      </div>
+                      {/* Inline signal badges + AI summary */}
+                      {(() => {
+                        const analysis = pair.customerEmail.metadata?.analysis as
+                          | { summary?: string }
+                          | undefined;
+                        return (
+                          <div className="mt-2 ml-10 space-y-1">
+                            <div className="flex flex-wrap gap-1">
+                              <MessageSignalBadges message={pair.customerEmail} size="sm" />
+                              {pair.customerEmail.processed && (
+                                <Badge variant="success" className="flex gap-1 items-center h-5 px-1.5">
+                                  Processed
+                                </Badge>
+                              )}
+                            </div>
+                            {analysis?.summary && (
+                              <p className="text-xs text-muted-foreground">{analysis.summary}</p>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* System Replies (all replies for this customer message) */}

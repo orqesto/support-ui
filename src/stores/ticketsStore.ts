@@ -10,7 +10,7 @@ type TicketFilters = {
   assigneeId?: string;
   labelId?: string;
   search?: string;
-  syncedToJira?: boolean;
+  linked?: 'all' | 'synced_to_jira' | 'not_synced';
 };
 
 type TicketSorting = {
@@ -52,7 +52,7 @@ const defaultFilters: TicketFilters = {
   categoryId: 'all',
   messageSourceId: 'all',
   assigneeId: 'all',
-  syncedToJira: undefined,
+  linked: 'all',
 };
 
 const defaultSorting: TicketSorting = {

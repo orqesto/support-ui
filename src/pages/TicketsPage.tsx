@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Ticket, RefreshCw } from 'lucide-react';
+import { Ticket, RefreshCw, Send } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
@@ -7,6 +7,7 @@ import { TicketFilters } from '@/components/tickets/TicketFilters';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Card, CardContent } from '@/components/ui/Card';
 import {
   Dialog,
@@ -85,7 +86,7 @@ export const TicketsPage = () => {
     const urlCategory = searchParams.get('category');
     const urlMessageSource = searchParams.get('source');
     const urlAssignee = searchParams.get('assignee');
-    const urlJira = searchParams.get('jira');
+    const _urlJira = searchParams.get('jira');
     const urlSearch = searchParams.get('search');
 
     const urlFilters: Partial<typeof filters> = {};
@@ -114,8 +115,9 @@ export const TicketsPage = () => {
     if (urlAssignee) {
       urlFilters.assigneeId = urlAssignee;
     }
-    if (urlJira === 'true' || urlJira === 'false') {
-      urlFilters.syncedToJira = urlJira === 'true';
+    const urlLinked = searchParams.get('linked');
+    if (urlLinked && ['all', 'synced_to_jira', 'not_synced'].includes(urlLinked)) {
+      urlFilters.linked = urlLinked as 'all' | 'synced_to_jira' | 'not_synced';
     }
     if (urlSearch) {
       urlFilters.search = urlSearch;
@@ -155,8 +157,8 @@ export const TicketsPage = () => {
     if (filters.assigneeId && filters.assigneeId !== 'all') {
       params.set('assignee', filters.assigneeId);
     }
-    if (filters.syncedToJira !== undefined) {
-      params.set('jira', filters.syncedToJira.toString());
+    if (filters.linked && filters.linked !== 'all') {
+      params.set('linked', filters.linked);
     }
     if (filters.search) {
       params.set('search', filters.search);
@@ -233,8 +235,10 @@ export const TicketsPage = () => {
         if (currentFilters.labelId) {
           apiFilters.labelId = currentFilters.labelId;
         }
-        if (currentFilters.syncedToJira !== undefined) {
-          apiFilters.syncedToJira = currentFilters.syncedToJira.toString();
+        if (currentFilters.linked === 'synced_to_jira') {
+          apiFilters.syncedToJira = 'true';
+        } else if (currentFilters.linked === 'not_synced') {
+          apiFilters.syncedToJira = 'false';
         }
 
         const response = await ticketService.getAll(
@@ -383,8 +387,6 @@ export const TicketsPage = () => {
       if (!value.trim()) {
         setFiltersStore({ ...filters, search: '' });
       }
-    } else if (key === 'syncedToJira') {
-      setFiltersStore({ ...filters, syncedToJira: value === 'true' || undefined });
     } else {
       setFiltersStore({ ...filters, [key]: value });
     }
@@ -593,10 +595,36 @@ export const TicketsPage = () => {
             <h2 className="text-2xl font-bold">Tickets</h2>
             <p className="text-sm text-muted-foreground">Manage and track support tickets</p>
           </div>
-          <Button onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto">
-            <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+            {jiraIntegrations.length > 1 && (
+              <ReactSelect
+                value={selectedJiraId?.toString() ?? ''}
+                onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
+                options={[
+                  { value: '', label: 'All Jira' },
+                  ...jiraIntegrations.map((j) => ({ value: j.id.toString(), label: j.name })),
+                ]}
+                className="w-40"
+              />
+            )}
+            {jiraIntegrations.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncAll}
+                disabled={!hasPermission(Permission.MANAGE_TICKETS) || isSyncingAll || (jiraIntegrations.length > 1 && !selectedJiraId)}
+                isLoading={isSyncingAll}
+                className="flex-1 sm:flex-none"
+              >
+                <Send className="mr-2 w-4 h-4" />
+                Sync to Jira
+              </Button>
+            )}
+            <Button onClick={handleRefresh} disabled={refreshing} className="flex-1 sm:flex-none">
+              <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Filters Card */}
@@ -605,18 +633,12 @@ export const TicketsPage = () => {
           sorting={sorting}
           pendingSearch={pendingSearch}
           pagination={pagination}
-          jiraIntegrations={jiraIntegrations}
-          selectedJiraId={selectedJiraId}
-          isSyncingAll={isSyncingAll}
-          hasManagePermission={hasPermission(Permission.MANAGE_TICKETS)}
           onFilterChange={handleFilterChange}
           onApplyPreset={handleApplyPreset}
           onSearch={handleSearch}
           onSearchBlur={handleSearchBlur}
           onClearFilters={clearFilters}
           onSortingChange={setSortingStore}
-          onJiraIdChange={setSelectedJiraId}
-          onSyncAll={handleSyncAll}
           onPendingSearchChange={setPendingSearch}
         />
 

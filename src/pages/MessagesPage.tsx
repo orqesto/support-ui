@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Mail, RefreshCw, ShieldAlert, MessageSquare, Users } from 'lucide-react';
+import { Mail, RefreshCw, ShieldAlert, MessageSquare, Users, LayoutDashboard } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -17,16 +17,17 @@ import {
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
-import { messageService } from '@/services/message.service';
+import { messageService, type MessageThread } from '@/services/message.service';
 import { type SpamLog, type SpamLogFilters as SpamFiltersType } from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
-import { useMessagesStore } from '@/stores/messagesStore';
+import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
 import { MessageFilters } from '@/components/messages/MessageFilters';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ContactsView } from '@/components/messages/ContactsView';
+import { MessagesKanbanView } from '@/components/messages/MessagesKanbanView';
 import { SpamLogFilters as SpamFiltersComponent } from '@/components/spam/SpamLogFilters';
 import { SpamLogListItem } from '@/components/spam/SpamLogListItem';
 import { SpamLogDetail } from '@/components/spam/SpamLogDetail';
@@ -41,11 +42,17 @@ export const MessagesPage = () => {
   const token = useAuthStore((state) => state.token);
 
   const [activeTab, setActiveTab] = useState<'messages' | 'spam'>('messages');
-  const [displayMode, setDisplayMode] = useState<'threads' | 'contacts'>(
-    searchParams.get('mode') === 'contacts' ? 'contacts' : 'threads'
-  );
+  const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'contacts') return 'contacts';
+    if (mode === 'kanban') return 'kanban';
+    return 'threads';
+  });
   useEffect(() => {
-    setDisplayMode(searchParams.get('mode') === 'contacts' ? 'contacts' : 'threads');
+    const mode = searchParams.get('mode');
+    if (mode === 'contacts') setDisplayMode('contacts');
+    else if (mode === 'kanban') setDisplayMode('kanban');
+    else setDisplayMode('threads');
   }, [searchParams]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [selectedSpamLog, setSelectedSpamLog] = useState<SpamLog | null>(null);
@@ -70,9 +77,8 @@ export const MessagesPage = () => {
 
   const filters = useMessagesStore((state) => state.filters);
   const sorting = useMessagesStore((state) => state.sorting);
-  const setFilters = useMessagesStore((state) => state.setFilters);
-  const updatePrimaryFilter = useMessagesStore((state) => state.updatePrimaryFilter);
-  const updateSecondaryFilter = useMessagesStore((state) => state.updateSecondaryFilter);
+  const _setFilters = useMessagesStore((state) => state.setFilters);
+  const updateFilter = useMessagesStore((state) => state.updateFilter);
   const setSorting = useMessagesStore((state) => state.setSorting);
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
 
@@ -81,7 +87,7 @@ export const MessagesPage = () => {
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
 
   const {
-    messages,
+    threads,
     spamLogs,
     loading,
     refreshing,
@@ -112,27 +118,23 @@ export const MessagesPage = () => {
   });
 
   const handleFilterChange = (key: string, value: string | boolean) => {
-    const primaryFilters = ['view', 'channel', 'messageSourceId'];
-
     if (key === 'search') {
       setPendingSearch(value as string);
       if (!(value as string).trim()) {
-        updateSecondaryFilter('search', '');
+        updateFilter('search', '');
       }
-    } else if (primaryFilters.includes(key)) {
-      updatePrimaryFilter(key as 'view' | 'channel' | 'messageSourceId', value as string);
     } else {
-      updateSecondaryFilter(key as keyof typeof filters, value);
+      updateFilter(key as keyof typeof filters, value as FilterState[keyof FilterState]);
     }
   };
 
   const handleSearch = () => {
-    updateSecondaryFilter('search', pendingSearch);
+    updateFilter('search', pendingSearch);
   };
 
   const handleSearchBlur = () => {
     if (!pendingSearch.trim() && filters.search) {
-      updateSecondaryFilter('search', '');
+      updateFilter('search', '');
     }
   };
 
@@ -152,6 +154,35 @@ export const MessagesPage = () => {
     }
     setActiveTab(tab);
   };
+
+  const handleOpenThread = useCallback(async (thread: MessageThread) => {
+    const anchorId = thread.latestMessage?.id;
+    if (!anchorId) return;
+    // Preferred starting message: same one the list shows analysis badges for
+    const preferredId = thread.latestIncomingMessage?.id ?? anchorId;
+    try {
+      const { data: threadMessages } = await messageService.getThreadMessages(anchorId);
+      if (threadMessages && threadMessages.length > 0) {
+        const messageToShow =
+          threadMessages.find((m) => m.id === preferredId) ??
+          threadMessages[threadMessages.length - 1];
+        setSelectedMessage(messageToShow);
+        const params = new URLSearchParams(searchParams);
+        params.set('id', messageToShow.id.toString());
+        setSearchParams(params);
+        return;
+      }
+    } catch (error) {
+      logger.error('Failed to fetch thread messages:', error);
+    }
+    const fallback = thread.latestIncomingMessage ?? thread.latestMessage;
+    if (fallback) {
+      setSelectedMessage(fallback);
+      const params = new URLSearchParams(searchParams);
+      params.set('id', fallback.id.toString());
+      setSearchParams(params);
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleApprove = (message: Message) => {
     navigate(`/tickets/create?messageId=${message.id}`);
@@ -299,26 +330,15 @@ export const MessagesPage = () => {
   };
 
   const activeFilterCount =
-    (filters.processed !== 'all' ? 1 : 0) +
-    (filters.channel !== 'all' ? 1 : 0) +
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
-    ((filters.showSpam ?? filters.excludeSpam ?? filters.showNeedsInfo ?? filters.showWorthy)
-      ? 1
-      : 0) +
-    (filters.hasAttachments ? 1 : 0) +
-    (filters.hasReplies ? 1 : 0) +
-    (filters.hasTicket !== undefined ? 1 : 0) +
-    (filters.showFailed ? 1 : 0) +
-    ((filters.showKBOnly ?? filters.excludeKB) ? 1 : 0) +
-    (filters.awaitingCustomerResponse ? 1 : 0) +
-    (filters.customerResponded ? 1 : 0) +
-    (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
-    (filters.search?.trim() ? 1 : 0) +
-    (filters.needsHumanReview ? 1 : 0) +
-    (filters.ageRange ? 1 : 0) +
+    (filters.status && filters.status !== 'all' ? 1 : 0) +
+    (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
+    (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
+    (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
-    ((filters.isLead ?? filters.isQualifiedLead) ? 1 : 0) +
+    (filters.linked && filters.linked !== 'all' ? 1 : 0) +
+    (filters.search?.trim() ? 1 : 0) +
     (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0);
 
   return (
@@ -390,7 +410,7 @@ export const MessagesPage = () => {
                 onClearFilters={clearFilters}
                 onSortingChange={(sortOrder) => setSorting({ sortOrder })}
                 setPendingSearch={setPendingSearch}
-                setFilters={setFilters}
+
               />
             </div>
 
@@ -439,30 +459,63 @@ export const MessagesPage = () => {
                 <Users className="w-3.5 h-3.5" />
                 Contacts
               </button>
+              <button
+                onClick={() => {
+                  setDisplayMode('kanban');
+                  setSearchParams(
+                    (p) => {
+                      p.set('mode', 'kanban');
+                      p.delete('sender');
+                      return p;
+                    },
+                    { replace: true }
+                  );
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  displayMode === 'kanban'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+                title="Kanban view — grouped by SLA and workflow status"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Kanban
+              </button>
             </div>
 
-            {displayMode === 'contacts' ? (
+            {displayMode === 'kanban' ? (
+              <MessagesKanbanView
+                filters={filters}
+                onOpen={handleOpenThread}
+              />
+            ) : displayMode === 'contacts' ? (
               <ContactsView
                 apiFilters={(() => {
                   const f: Record<string, string> = {};
-                  if (filters.view && filters.view !== 'all') f.view = filters.view;
-                  if (filters.channel && filters.channel !== 'all') f.channel = filters.channel;
-                  if (filters.processed && filters.processed !== 'all')
-                    f.processed = filters.processed as string;
-                  if (filters.isLead) f.isLead = 'true';
-                  if (filters.hasTicket !== undefined)
-                    f.hasTicket = filters.hasTicket ? 'true' : 'false';
-                  if (filters.showSpam) f.showSpam = 'true';
-                  if (filters.excludeSpam) f.excludeSpam = 'true';
-                  if (filters.showNeedsInfo) f.showNeedsInfo = 'true';
-                  if (filters.showWorthy) f.showWorthy = 'true';
-                  if (filters.hasAttachments) f.hasAttachments = 'true';
-                  if (filters.awaitingCustomerResponse) f.awaitingCustomerResponse = 'true';
-                  if (filters.assigneeId && filters.assigneeId !== 'all')
-                    f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-                  if (filters.search?.trim()) f.search = filters.search.trim();
+                  const status = filters.status ?? 'all';
+                  if (status === 'all') f.view = 'work_queue';
+                  else if (status === 'active') f.view = 'active';
+                  else if (status === 'awaiting_response') f.awaitingCustomerResponse = 'true';
+                  else if (status === 'client_replied') f.customerResponded = 'true';
+                  else if (status === 'suspicious') f.view = 'suspicious';
+                  else if (status === 'not_analysed') f.view = 'not_analysed';
+                  else if (status === 'resolved') f.view = 'resolved';
+                  if (filters.threadStatus && filters.threadStatus !== 'all') f.processed = filters.threadStatus;
                   if (filters.messageSourceId && filters.messageSourceId !== 'all')
                     f.messageSourceId = filters.messageSourceId;
+                  if (filters.assigneeId && filters.assigneeId !== 'all')
+                    f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+                  if (filters.aiState === 'lead') f.isLead = 'true';
+                  if (filters.aiState === 'needs_review') f.needsHumanReview = 'true';
+                  if (filters.aiState === 'needs_info') f.showNeedsInfo = 'true';
+                  if (filters.aiState === 'ai_suggested') f.aiSuggested = 'true';
+                  if (filters.aiState === 'bot_handled') f.botHandled = 'true';
+                  if (filters.aiState === 'contradiction') f.hasContradiction = 'true';
+                  if (filters.linked === 'has_ticket') f.hasTicket = 'true';
+                  if (filters.linked === 'has_jira') f.hasJiraTicket = 'true';
+                  if (filters.priority && filters.priority !== 'all') f.priority = filters.priority;
+                  if (filters.labelId && filters.labelId !== 'all') f.labelId = filters.labelId;
+                  if (filters.search?.trim()) f.search = filters.search.trim();
                   return f;
                 })()}
                 focusSender={searchParams.get('sender') ?? undefined}
@@ -485,7 +538,7 @@ export const MessagesPage = () => {
                   </Card>
                 ))}
               </div>
-            ) : messages.length === 0 ? (
+            ) : threads.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
@@ -499,56 +552,17 @@ export const MessagesPage = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {messages.map((message) => (
+                {threads.map((thread) => (
                   <MessageListItem
-                    key={message.id}
-                    message={message}
-                    onOpen={async (msg) => {
-                      const threadMeta = msg.metadata as {
-                        isThreadView?: boolean;
-                        threadId?: string;
-                      };
-
-                      if (threadMeta?.isThreadView && msg.id) {
-                        try {
-                          const { data: threadMessages } = await messageService.getThreadMessages(
-                            msg.id
-                          );
-                          if (threadMessages && threadMessages.length > 0) {
-                            const sorted = [...threadMessages].sort((a, b) => b.id - a.id);
-                            const messageToShow =
-                              sorted.find((m) => m.isOutgoing === false) ??
-                              sorted[0];
-                            setSelectedMessage(messageToShow);
-                            const params = new URLSearchParams(searchParams);
-                            params.set('id', messageToShow.id.toString());
-                            setSearchParams(params);
-                          } else {
-                            setSelectedMessage(msg);
-                            const params = new URLSearchParams(searchParams);
-                            params.set('id', msg.id.toString());
-                            setSearchParams(params);
-                          }
-                        } catch (error) {
-                          logger.error('Failed to fetch thread messages:', error);
-                          setSelectedMessage(msg);
-                          const params = new URLSearchParams(searchParams);
-                          params.set('id', msg.id.toString());
-                          setSearchParams(params);
-                        }
-                      } else {
-                        setSelectedMessage(msg);
-                        const params = new URLSearchParams(searchParams);
-                        params.set('id', msg.id.toString());
-                        setSearchParams(params);
-                      }
-                    }}
+                    key={thread.threadId}
+                    thread={thread}
+                    onOpen={handleOpenThread}
                   />
                 ))}
               </div>
             )}
 
-            {displayMode === 'threads' && !loading && messages.length > 0 && (
+            {displayMode === 'threads' && !loading && threads.length > 0 && (
               <Pagination
                 currentPage={pagination.page}
                 totalPages={pagination.totalPages}
@@ -568,7 +582,6 @@ export const MessagesPage = () => {
                 activeFilterCount={
                   (spamFilters.channel ? 1 : 0) +
                   (spamFilters.category ? 1 : 0) +
-                  (spamFilters.departmentRole ? 1 : 0) +
                   (spamFilters.messageSourceId ? 1 : 0) +
                   (spamFilters.days && spamFilters.days !== 30 ? 1 : 0) +
                   (spamFilters.search ? 1 : 0)
@@ -717,7 +730,9 @@ export const MessagesPage = () => {
                 const response = await messageService.getById(messageId);
                 if (response.success && response.data) {
                   setSelectedMessage(response.data);
-                  setSearchParams({ id: messageId.toString() });
+                  const params = new URLSearchParams(searchParams);
+                  params.set('id', messageId.toString());
+                  setSearchParams(params);
                 }
               } catch (error) {
                 logger.error('Failed to navigate to message:', error);

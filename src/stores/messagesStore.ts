@@ -1,35 +1,44 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PaginationMeta } from '@/services/message.service';
-import type { Message } from '@/types';
+import type { PaginationMeta, MessageThread } from '@/services/message.service';
+
+export type MessageViewStatus =
+  | 'all'
+  | 'active'
+  | 'awaiting_response'
+  | 'client_replied'
+  | 'suspicious'
+  | 'not_analysed'
+  | 'resolved';
+
+export type ThreadStatusFilter =
+  | 'all'
+  | 'open'
+  | 'in_progress'
+  | 'closed';
+
+export type AiStateFilter =
+  | 'all'
+  | 'needs_review'
+  | 'needs_info'
+  | 'ai_suggested'
+  | 'bot_handled'
+  | 'lead'
+  | 'contradiction';
+
+export type LinkedFilter = 'all' | 'has_ticket' | 'has_jira';
 
 export type FilterState = {
-  view?: 'all' | 'active' | 'suspicious' | 'not_analysed' | 'resolved'; // classification lens
-  processed?: 'all' | 'open' | 'in_progress' | 'pending' | 'closed'; // workflow progress
-  channel?: 'all' | 'email' | 'telegram' | 'slack';
-  messageSourceId?: string; // 'all' or integration ID
-  showSpam?: boolean;
-  showSuspicious?: boolean; // Show only suspicious messages (needs review)
-  excludeSpam?: boolean; // Filter out spam messages (show only legitimate)
-  showNeedsInfo?: boolean;
-  showWorthy?: boolean;
-  hasAttachments?: boolean;
-  isLead?: boolean;
-  isQualifiedLead?: boolean;
-  hasReplies?: boolean;
-  hasTicket?: boolean;
-  showFailed?: boolean;
-  showKBOnly?: boolean; // Show only KB messages
-  excludeKB?: boolean; // Filter out KB messages (show only support requests)
-  awaitingCustomerResponse?: boolean;
-  customerResponded?: boolean; // Show customer responses needing agent attention
-  assigneeId?: string; // Filter by specific assignee ('all', 'unassigned', or user ID)
+  messageSourceId?: string;
+  status?: MessageViewStatus;
+  threadStatus?: ThreadStatusFilter;
+  priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
+  assigneeId?: string;
+  aiState?: AiStateFilter;
+  labelId?: string;
+  linked?: LinkedFilter;
   search?: string;
   departmentRole?: 'all' | 'support' | 'sales' | 'billing' | 'general' | 'hr';
-  needsHumanReview?: boolean; // Escalated messages that need human attention
-  ageRange?: 'lt24h' | '1to7d' | '1to4w' | 'gt1mo';
-  priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
-  labelId?: string; // 'all' or label ID
 };
 
 export type SortingState = {
@@ -37,54 +46,37 @@ export type SortingState = {
 };
 
 type CacheEntry = {
-  messages: Message[];
+  threads: MessageThread[];
   pagination: PaginationMeta;
   timestamp: number;
 };
 
 type MessagesState = {
-  cache: Record<string, CacheEntry>; // Cache per filter+page combination
+  cache: Record<string, CacheEntry>;
   filters: FilterState;
   sorting: SortingState;
-  currentPage: number; // Track current page
+  currentPage: number;
 
-  getCached: (page: number) => { messages: Message[]; pagination: PaginationMeta } | null;
-  setMessages: (messages: Message[], pagination: PaginationMeta) => void;
+  getCached: (page: number) => { threads: MessageThread[]; pagination: PaginationMeta } | null;
+  setMessages: (threads: MessageThread[], pagination: PaginationMeta) => void;
   setFilters: (filters: FilterState) => void;
   setSorting: (sorting: SortingState) => void;
   updateFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
-  updatePrimaryFilter: (key: 'view' | 'channel' | 'messageSourceId', value: string) => void;
-  updateSecondaryFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
   clearFilters: () => void;
   clearCache: () => void;
 };
 
 export const defaultFilters: FilterState = {
-  view: 'active',
-  processed: 'all',
-  channel: 'all',
   messageSourceId: 'all',
-  showSpam: false,
-  showSuspicious: false,
-  excludeSpam: false,
-  showNeedsInfo: false,
-  showWorthy: false,
-  hasAttachments: false,
-  isLead: false,
-  isQualifiedLead: false,
-  hasReplies: false,
-  hasTicket: undefined,
-  showFailed: false,
-  showKBOnly: false,
-  excludeKB: false, // KB messages now flow through normal processing
-  awaitingCustomerResponse: false,
-  customerResponded: false,
-  assigneeId: 'all',
-  departmentRole: 'all',
-  needsHumanReview: false,
-  ageRange: undefined,
+  status: 'all',
+  threadStatus: 'all',
   priority: 'all',
+  assigneeId: 'all',
+  aiState: 'all',
   labelId: 'all',
+  linked: 'all',
+  search: undefined,
+  departmentRole: 'all',
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
@@ -103,30 +95,20 @@ export const useMessagesStore = create<MessagesState>()(
         const cacheKey = getCacheKey(state.filters, state.sorting, page);
         const entry = state.cache[cacheKey];
 
-        if (!entry) {
-          return null;
-        }
+        if (!entry) return null;
 
-        // Cache expired (older than 5 minutes)
-        if (Date.now() - entry.timestamp > 5 * 60 * 1000) {
-          return null;
-        }
+        if (Date.now() - entry.timestamp > 5 * 60 * 1000) return null;
 
-        return { messages: entry.messages, pagination: entry.pagination };
+        return { threads: entry.threads, pagination: entry.pagination };
       },
 
-      setMessages: (messages, pagination) => {
+      setMessages: (threads, pagination) => {
         const state = get();
         const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page);
-
         set({
           cache: {
             ...state.cache,
-            [cacheKey]: {
-              messages,
-              pagination,
-              timestamp: Date.now(),
-            },
+            [cacheKey]: { threads, pagination, timestamp: Date.now() },
           },
           currentPage: pagination.page,
         });
@@ -134,66 +116,17 @@ export const useMessagesStore = create<MessagesState>()(
 
       setFilters: (filters) => {
         const currentState = get();
-        const newFilters = { ...currentState.filters, ...filters };
-        set({ filters: newFilters, cache: {} }); // Merge with existing filters and clear cache
+        set({ filters: { ...currentState.filters, ...filters }, cache: {} });
       },
 
       setSorting: (sorting) => {
-        set({ sorting, cache: {} }); // Clear cache when sorting changes
+        set({ sorting, cache: {} });
       },
 
       updateFilter: (key, value) => {
         set((state) => ({
           filters: { ...state.filters, [key]: value },
-          cache: {}, // Clear cache on filter change
-        }));
-      },
-
-      // Update primary filter: Keep other primary filters, clear secondary filters
-      updatePrimaryFilter: (key, value) => {
-        set((state) => {
-          const { view, channel, messageSourceId } = state.filters;
-
-          return {
-            filters: {
-              view,
-              channel,
-              messageSourceId,
-              [key]: value,
-              processed: 'all',
-              showSpam: false,
-              showSuspicious: false,
-              excludeSpam: false,
-              showNeedsInfo: false,
-              showWorthy: false,
-              hasAttachments: false,
-              isLead: false,
-              isQualifiedLead: false,
-              hasReplies: false,
-              hasTicket: undefined,
-              showFailed: false,
-              showKBOnly: false,
-              excludeKB: false,
-              awaitingCustomerResponse: false,
-              customerResponded: false,
-              assigneeId: 'all',
-              search: undefined,
-              departmentRole: 'all',
-              needsHumanReview: false,
-              ageRange: undefined,
-              priority: 'all',
-              labelId: 'all',
-            },
-            cache: {},
-          };
-        });
-      },
-
-      // Update secondary filter: Keep all filters
-      updateSecondaryFilter: (key, value) => {
-        set((state) => ({
-          filters: { ...state.filters, [key]: value },
-          cache: {}, // Clear cache on filter change
+          cache: {},
         }));
       },
 

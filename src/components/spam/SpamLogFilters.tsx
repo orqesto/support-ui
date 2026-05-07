@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -40,11 +40,6 @@ export const SpamLogFilters = ({
   setPendingSearch,
 }: SpamLogFiltersProps) => {
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-
-  const toggleAdvancedFilters = () => {
-    setShowAdvancedFilters(!showAdvancedFilters);
-  };
 
   // Fetch message sources on mount
   useEffect(() => {
@@ -137,7 +132,7 @@ export const SpamLogFilters = ({
                 </div>
               </div>
 
-              {/* Channel / Source / Sort */}
+              {/* Channel / Source / Time Period / Sort */}
               <div className="flex flex-col gap-3 w-full sm:flex-row sm:flex-wrap sm:items-center">
                 <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">Channel:</span>
@@ -171,6 +166,20 @@ export const SpamLogFilters = ({
                   />
                 </div>
                 <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">Period:</span>
+                  <ReactSelect
+                    value={filters.days?.toString() ?? '30'}
+                    onChange={(value) => onFilterChange('days', Number(value))}
+                    options={[
+                      { value: '7', label: 'Last 7 days' },
+                      { value: '30', label: 'Last 30 days' },
+                      { value: '90', label: 'Last 90 days' },
+                      { value: '365', label: 'Last year' },
+                    ]}
+                    className="w-full sm:w-40"
+                  />
+                </div>
+                <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">Sort:</span>
                   <ReactSelect
                     value={filters.sortOrder ?? 'desc'}
@@ -186,67 +195,6 @@ export const SpamLogFilters = ({
             </div>
           </div>
         </div>
-
-        {/* Advanced Filters Toggle */}
-        <div className="flex justify-center mt-4">
-          <Button size="sm" variant="ghost" onClick={toggleAdvancedFilters} className="text-xs">
-            {showAdvancedFilters ? (
-              <>
-                <ChevronUp className="mr-1 w-3 h-3" />
-                Hide Advanced Filters
-              </>
-            ) : (
-              <>
-                <ChevronDown className="mr-1 w-3 h-3" />
-                Show Advanced Filters
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Advanced Filters Section */}
-        {showAdvancedFilters && (
-          <div className="p-3 space-y-3 rounded-lg border bg-muted/10">
-            <span className="text-xs font-semibold text-muted-foreground">Advanced Filters</span>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {/* Department */}
-              <div>
-                <label className="block mb-1 text-xs font-medium text-muted-foreground">
-                  Department
-                </label>
-                <ReactSelect
-                  value={filters.departmentRole ?? 'all'}
-                  onChange={(value) => onFilterChange('departmentRole', value)}
-                  options={[
-                    { value: 'all', label: 'All Departments' },
-                    { value: 'support', label: 'Support' },
-                    { value: 'sales', label: 'Sales' },
-                    { value: 'billing', label: 'Billing' },
-                    { value: 'hr', label: 'HR' },
-                    { value: 'general', label: 'General' },
-                  ]}
-                />
-              </div>
-
-              {/* Time Period */}
-              <div>
-                <label className="block mb-1 text-xs font-medium text-muted-foreground">
-                  Time Period
-                </label>
-                <ReactSelect
-                  value={filters.days?.toString() ?? '30'}
-                  onChange={(value) => onFilterChange('days', Number(value))}
-                  options={[
-                    { value: '7', label: 'Last 7 days' },
-                    { value: '30', label: 'Last 30 days' },
-                    { value: '90', label: 'Last 90 days' },
-                    { value: '365', label: 'Last year' },
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
-        )}
         </div>
       </CardContent>
     </Card>

@@ -87,18 +87,26 @@ export const useResolveMessageToKB = () => {
       const data = (response?.data ?? {}) as {
         documentationIds?: number[];
         details?: KBProcessingDetails;
+        kbSuccess?: boolean;
       };
 
+      const kbFailed = !data.kbSuccess && data.documentationIds?.length === 0;
       const { description, hasIssues } = buildFeedbackMessage(data.details);
+      const finalDescription = kbFailed
+        ? `✅ Message marked as resolved\n\n⚠️ KB capture failed — content was not saved to knowledge base.`
+        : description;
 
-      // Don't refresh yet - return alert and refresh function
-      // Caller will show alert first, THEN refresh when dialog closes
       return {
         alertState: {
           open: true,
-          title: hasIssues ? 'Message Resolved (with issues)' : 'Message Resolved Successfully',
-          description,
-          variant: hasIssues ? 'warning' : 'success',
+          title:
+            kbFailed
+              ? 'Resolved (KB capture failed)'
+              : hasIssues
+                ? 'Message Resolved (with issues)'
+                : 'Message Resolved Successfully',
+          description: finalDescription,
+          variant: kbFailed ? 'warning' : hasIssues ? 'warning' : 'success',
         },
         refresh: async () => {
           await onSuccess?.();
