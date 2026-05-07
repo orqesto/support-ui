@@ -9,6 +9,7 @@ type AssigneeFilterProps = {
   onChange: (value: string) => void;
   skillFilter?: { key: string; value: string };
   className?: string;
+  hideLabel?: boolean;
 };
 
 export const AssigneeFilter = ({
@@ -16,6 +17,7 @@ export const AssigneeFilter = ({
   onChange,
   skillFilter,
   className,
+  hideLabel = false,
 }: AssigneeFilterProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,9 +64,11 @@ export const AssigneeFilter = ({
 
   return (
     <div className={`flex gap-2 items-center ${className ?? ''}`}>
-      <span className="flex gap-1 items-center text-xs font-semibold whitespace-nowrap text-muted-foreground">
-        Assignee:
-      </span>
+      {!hideLabel && (
+        <span className="flex gap-1 items-center text-xs font-semibold whitespace-nowrap text-muted-foreground">
+          Assignee:
+        </span>
+      )}
       <ReactSelect
         value={value ?? 'all'}
         onChange={onChange}

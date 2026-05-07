@@ -16,7 +16,8 @@
     "migrate:imports": "tsx scripts/migrate-imports.ts",
     "test": "vitest run",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.4.0",
@@ -63,6 +64,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "husky": "^9.1.7",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.32",
     "prettier": "^3.6.2",

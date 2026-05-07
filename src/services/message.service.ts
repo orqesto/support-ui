@@ -75,9 +75,10 @@ export type MessageThread = {
   hasTicket: boolean;
   isResolved: boolean;
   isLead: boolean;
-  lastReplyFromClient: boolean;
+  lastReplyFromClient: boolean | null;
   lastMessageAt: Date;
   latestMessage: Message | null;
+  latestIncomingMessage: Message | null;
 };
 
 export const messageService = {
@@ -201,7 +202,7 @@ export const messageService = {
     return response.data;
   },
 
-  classify: async (id: number, action: 'approve' | 'mark_suspicious') => {
+  classify: async (id: number, action: 'approve' | 'mark_suspicious' | 'move_to_spam') => {
     const response = await apiClient.patch<ApiResponse<void>>(`/api/messages/${id}/classify`, {
       action,
     });

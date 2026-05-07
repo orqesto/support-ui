@@ -4,6 +4,8 @@ export { MessageBadges } from './MessageBadges';
 export { MessageDetail } from './MessageDetail';
 export { MessageFilters } from './MessageFilters';
 export { MessageKBReferences } from './MessageKBReferences';
+export { KanbanCard } from './KanbanCard';
+export { MessagesKanbanView } from './MessagesKanbanView';
 export { MessageListItem } from './MessageListItem';
 export { MessageProcessingProgress } from './MessageProcessingProgress';
 export { MessageThread } from './MessageThread';
