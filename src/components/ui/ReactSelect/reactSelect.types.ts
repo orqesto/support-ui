@@ -3,6 +3,7 @@ import type { Props as ReactSelectProps } from 'react-select';
 export type Option = {
   value: string;
   label: string;
+  isDisabled?: boolean;
 };
 
 export type SelectProps = Omit<

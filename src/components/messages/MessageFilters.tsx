@@ -1,20 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Filter,
-  X,
-  Paperclip,
-  XCircle,
-  MessageCircle,
-  Ticket,
-  ShieldX,
-  Info,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  BookOpen,
-  AlertCircle,
-  Target,
-} from 'lucide-react';
+import { Filter, X, Brain, Link, Mail, Send, Monitor, FileText, ChevronDown } from 'lucide-react';
 import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -27,34 +12,67 @@ import { labelService, type Label } from '@/services/settings.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
 
-const AGE_RANGE_OPTIONS: {
-  value: 'lt24h' | '1to7d' | '1to4w' | 'gt1mo' | undefined;
-  label: string;
-}[] = [
-  { value: undefined, label: 'Any' },
-  { value: 'lt24h', label: '< 24h' },
-  { value: '1to7d', label: '1–7d' },
-  { value: '1to4w', label: '1–4w' },
-  { value: 'gt1mo', label: '> 1mo' },
+const SOURCE_GROUPS: { key: string; label: string; types: string[]; icon: React.ReactNode }[] = [
+  { key: 'email',    label: 'Email',    types: ['email', 'gmail'],  icon: <Mail className="w-3 h-3" /> },
+  { key: 'telegram', label: 'Telegram', types: ['telegram'],        icon: <Send className="w-3 h-3" /> },
+  { key: 'widget',   label: 'Widget',   types: ['chat'],            icon: <Monitor className="w-3 h-3" /> },
+  { key: 'webform',  label: 'Web Form', types: ['webform'],         icon: <FileText className="w-3 h-3" /> },
 ];
+
+const STATUS_OPTIONS = [
+  { value: 'all',               label: 'All (work queue)' },
+  { value: 'active',            label: 'Active' },
+  { value: 'awaiting_response', label: 'Awaiting Response' },
+  { value: 'client_replied',    label: 'Client Replied' },
+  { value: '__sep__',           label: '─────────────',    isDisabled: true },
+  { value: 'suspicious',        label: 'Suspicious' },
+  { value: 'not_analysed',      label: 'Not Analysed' },
+  { value: 'resolved',          label: 'Resolved' },
+] as const;
+
+const THREAD_STATUS_OPTIONS = [
+  { value: 'all',         label: 'All' },
+  { value: 'open',        label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'closed',      label: 'Closed' },
+] as const;
+
+const PRIORITY_OPTIONS = [
+  { value: 'all',      label: 'All' },
+  { value: 'low',      label: 'Low' },
+  { value: 'medium',   label: 'Medium' },
+  { value: 'high',     label: 'High' },
+  { value: 'critical', label: 'Critical' },
+] as const;
+
+const AI_STATE_OPTIONS = [
+  { value: 'all',           label: 'All' },
+  { value: 'needs_review',  label: 'Needs Review' },
+  { value: 'needs_info',    label: 'Needs Info' },
+  { value: 'ai_suggested',  label: 'AI Suggested' },
+  { value: 'bot_handled',   label: 'Bot Handled' },
+  { value: 'lead',          label: 'Lead' },
+  { value: 'contradiction', label: 'Contradiction' },
+] as const;
+
+const LINKED_OPTIONS = [
+  { value: 'all',        label: 'All' },
+  { value: 'has_ticket', label: 'Has Ticket' },
+  { value: 'has_jira',   label: 'Has Jira' },
+] as const;
 
 type MessageFiltersProps = {
   filters: FilterState;
   sorting: SortingState;
   pendingSearch: string;
   activeFilterCount: number;
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-  };
+  pagination: { page: number; limit: number; total: number };
   onFilterChange: (key: string, value: string) => void;
   onSearch: () => void;
   onSearchBlur: () => void;
   onClearFilters: () => void;
   onSortingChange: (sortOrder: 'asc' | 'desc') => void;
   setPendingSearch: (value: string) => void;
-  setFilters: (filters: Partial<FilterState>) => void;
 };
 
 export const MessageFilters = ({
@@ -69,609 +87,313 @@ export const MessageFilters = ({
   onClearFilters,
   onSortingChange,
   setPendingSearch,
-  setFilters,
 }: MessageFiltersProps) => {
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
 
   useEffect(() => {
-    labelService
-      .getLabels()
-      .then(setLabels)
-      .catch(() => {});
+    labelService.getLabels().then(setLabels).catch(() => {});
   }, []);
 
-  const { showAdvancedFilters, toggleAdvancedFilters } = useFilterPanel({
-    filters,
-  });
-
-  // Spam overrides View/Progress in the backend — disable those controls to avoid confusion
-  const spamModeActive = filters.showSpam ?? false;
-
-  // Fetch message sources on mount
   useEffect(() => {
-    const fetchSources = async () => {
+    const load = async () => {
       try {
-        const response = await integrationsService.getAll();
-        if (response.success && response.data) {
-          // Filter to only message sources (email, telegram, slack)
-          const sources = response.data.filter((integration) =>
-            ['email', 'gmail', 'telegram', 'slack'].includes(integration.type)
+        const res = await integrationsService.getAll();
+        if (res.success && res.data) {
+          setMessageSources(
+            res.data.filter((i) =>
+              SOURCE_GROUPS.flatMap((g) => g.types).includes(i.type)
+            )
           );
-          setMessageSources(sources);
         }
-      } catch (error) {
-        logger.error('Failed to fetch message sources:', error);
+      } catch (err) {
+        logger.error('Failed to fetch message sources:', err);
       }
     };
-    void fetchSources();
+    void load();
   }, []);
+
+  const { showAdvancedFilters, toggleAdvancedFilters } = useFilterPanel({ filters });
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
+  const activeGroups = SOURCE_GROUPS.filter((g) =>
+    messageSources.some((s) => g.types.includes(s.type))
+  );
+
+  const start = (pagination.page - 1) * pagination.limit + 1;
+  const end = Math.min(pagination.page * pagination.limit, pagination.total);
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="flex flex-wrap gap-3 justify-between items-center">
-            <div className="flex flex-wrap gap-3 items-center">
-              <div className="flex gap-2 items-center">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Filters</span>
-                {activeFilterCount > 0 && (
-                  <Badge variant="default" className="text-xs">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </div>
-              {pagination.total > 0 && (
-                <span className="text-sm whitespace-nowrap text-muted-foreground">
-                  {(pagination.page - 1) * pagination.limit + 1}-
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                  {pagination.total}
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2 items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClearFilters}
-                className="h-8 shrink-0"
-                disabled={activeFilterCount === 0}
-              >
-                <X className="mr-1 w-3 h-3" />
-                Clear All
-              </Button>
-            </div>
+      <CardContent className="p-4 space-y-4">
+
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: icon + title + badge + count */}
+          <button
+            className="flex items-center gap-2 min-w-0 md:cursor-default"
+            onClick={() => setMobileExpanded((v) => !v)}
+            aria-expanded={mobileExpanded}
+          >
+            <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-sm font-semibold">Filters</span>
+            {activeFilterCount > 0 && (
+              <Badge variant="default" className="text-xs shrink-0">{activeFilterCount}</Badge>
+            )}
+            {pagination.total > 0 && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">
+                {start}–{end} of {pagination.total}
+              </span>
+            )}
+            <ChevronDown
+              className={`w-4 h-4 text-muted-foreground transition-transform md:hidden ${mobileExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {/* Right: count on mobile + Clear All */}
+          <div className="flex items-center gap-2 shrink-0">
+            {pagination.total > 0 && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap sm:hidden">
+                {start}–{end} of {pagination.total}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              className="h-8"
+              disabled={activeFilterCount === 0}
+            >
+              <X className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline">Clear All</span>
+              <span className="sm:hidden">Clear</span>
+            </Button>
           </div>
+        </div>
 
-          {/* Filter Controls */}
-          <div className="flex flex-col gap-3">
-            {/* Row 1: Search */}
-            <div className="flex flex-wrap gap-3 items-center">
-              <SearchInput
-                value={pendingSearch}
-                onChange={(value) => {
-                  setPendingSearch(value);
-                  onFilterChange('search', value);
-                }}
-                onSearch={onSearch}
-                onBlur={onSearchBlur}
-                showSearchButton={true}
-                placeholder="Search by ID, email, subject, content..."
-                className="flex-1 min-w-[200px] sm:min-w-[300px]"
-                size="sm"
-              />
-            </div>
+        {/* Search — always visible */}
+        <SearchInput
+          value={pendingSearch}
+          onChange={(value) => {
+            setPendingSearch(value);
+            onFilterChange('search', value);
+          }}
+          onSearch={onSearch}
+          onBlur={onSearchBlur}
+          showSearchButton
+          placeholder="Search by ID, email, subject, content..."
+          className="w-full"
+          size="sm"
+        />
 
-            {/* Primary Filters Row */}
-            <div className="p-4 space-y-3 rounded-lg border bg-muted/30">
-              {/* Row 1: View + Status selects */}
-              <div className="flex flex-wrap gap-3 items-center">
-                {/* View */}
-                <div className={`flex gap-2 items-center${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
-                    View:
-                  </span>
-                  <ReactSelect
-                    value={filters.view ?? 'active'}
-                    onChange={(value) => onFilterChange('view', value)}
-                    options={[
-                      { value: 'active', label: 'Active' },
-                      { value: 'suspicious', label: 'Suspicious' },
-                      { value: 'not_analysed', label: 'Not Analysed' },
-                      { value: 'resolved', label: 'Resolved' },
-                      { value: 'all', label: 'All' },
-                    ]}
-                    className="w-36"
-                  />
-                </div>
+        {/* Collapsible body — hidden on mobile until toggled, always visible md+ */}
+        <div className={`${mobileExpanded ? 'flex' : 'hidden'} md:flex flex-col gap-0 divide-y divide-border/40`}>
 
-                {/* Status */}
-                <div className={`flex gap-2 items-center${spamModeActive ? ' opacity-40 pointer-events-none' : ''}`}>
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
-                    Status:
-                  </span>
-                  <ReactSelect
-                    value={filters.processed ?? 'all'}
-                    onChange={(value) => onFilterChange('processed', value)}
-                    options={[
-                      { value: 'all', label: 'All' },
-                      { value: 'open', label: 'Open' },
-                      { value: 'in_progress', label: 'In Progress' },
-                      { value: 'pending', label: 'Pending' },
-                      { value: 'closed', label: 'Closed' },
-                    ]}
-                    className="w-36"
-                  />
-                </div>
+          {/* ── Channel ───────────────────────────────────────────── */}
+          {activeGroups.length > 0 && (
+            <FilterSection label="Channel">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+                {activeGroups.map((group) => {
+                  const groupSources = messageSources.filter((s) => group.types.includes(s.type));
+                  const options = [
+                    { value: 'all', label: `All ${group.label}` },
+                    ...groupSources.map((s) => ({ value: s.id.toString(), label: s.name })),
+                  ];
+                  const activeSourceInGroup = groupSources.some(
+                    (s) => s.id.toString() === filters.messageSourceId
+                  );
+                  const selectValue = activeSourceInGroup ? (filters.messageSourceId ?? 'all') : 'all';
+                  return (
+                    <FilterCell key={group.key} label={group.label} icon={group.icon}>
+                      <ReactSelect
+                        value={selectValue}
+                        onChange={(value) => onFilterChange('messageSourceId', value)}
+                        options={options}
+                        className="w-full"
+                      />
+                    </FilterCell>
+                  );
+                })}
               </div>
+            </FilterSection>
+          )}
 
-              {/* Divider */}
-              <div className="border-t" />
+          {/* ── Queue ─────────────────────────────────────────────── */}
+          <FilterSection label="Queue">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+              <FilterCell label="Status">
+                <ReactSelect
+                  value={filters.status ?? 'active'}
+                  onChange={(value) => onFilterChange('status', value)}
+                  options={STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                  className="w-full"
+                />
+              </FilterCell>
 
-              {/* Row 2: Dropdowns */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3 sm:items-center">
-                {/* Channel */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
-                    Channel:
-                  </span>
-                  <ReactSelect
-                    value={filters.channel ?? 'all'}
-                    onChange={(value) => onFilterChange('channel', value)}
-                    options={[
-                      { value: 'all', label: 'All' },
-                      { value: 'email', label: 'Email' },
-                      { value: 'telegram', label: 'Telegram' },
-                      { value: 'slack', label: 'Slack' },
-                    ]}
-                    className="flex-1 sm:flex-none sm:w-36"
-                  />
-                </div>
+              <FilterCell label="Thread Status">
+                <ReactSelect
+                  value={filters.threadStatus ?? 'all'}
+                  onChange={(value) => onFilterChange('threadStatus', value)}
+                  options={THREAD_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                  className="w-full"
+                />
+              </FilterCell>
 
-                {/* Message Source */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
-                    Source:
-                  </span>
-                  <ReactSelect
-                    value={filters.messageSourceId ?? 'all'}
-                    onChange={(value) => onFilterChange('messageSourceId', value)}
-                    options={[
-                      { value: 'all', label: 'All Sources' },
-                      ...messageSources.map((source) => ({
-                        value: source.id.toString(),
-                        label: source.name,
-                      })),
-                    ]}
-                    className="flex-1 sm:flex-none sm:w-36"
-                  />
-                </div>
+              <FilterCell label="Priority">
+                <ReactSelect
+                  value={filters.priority ?? 'all'}
+                  onChange={(value) => onFilterChange('priority', value)}
+                  options={PRIORITY_OPTIONS as unknown as { value: string; label: string }[]}
+                  formatOptionLabel={(option) => (
+                    <div className="flex items-center gap-2">
+                      {option.value !== 'all' && (
+                        <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+                          option.value === 'low'      ? 'bg-green-500'  :
+                          option.value === 'medium'   ? 'bg-yellow-500' :
+                          option.value === 'high'     ? 'bg-orange-500' : 'bg-red-500'
+                        }`} />
+                      )}
+                      <span>{option.label}</span>
+                    </div>
+                  )}
+                  className="w-full"
+                />
+              </FilterCell>
 
-                {/* Assignee */}
+              <FilterCell label="Assignee">
                 <AssigneeFilter
                   value={filters.assigneeId ?? 'all'}
                   onChange={(value) => onFilterChange('assigneeId', value)}
+                  hideLabel
+                  className="w-full [&>div]:w-full"
                 />
+              </FilterCell>
+            </div>
+          </FilterSection>
 
-                {/* Priority */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
-                    Priority:
-                  </span>
+          {/* ── Tags ──────────────────────────────────────────────── */}
+          <FilterSection label="Tags">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
+              <FilterCell label="AI State" icon={<Brain className="w-3 h-3 text-purple-500" />}>
+                <ReactSelect
+                  value={filters.aiState ?? 'all'}
+                  onChange={(value) => onFilterChange('aiState', value)}
+                  options={AI_STATE_OPTIONS as unknown as { value: string; label: string }[]}
+                  className="w-full"
+                />
+              </FilterCell>
+
+              {labels.length > 0 && (
+                <FilterCell label="Label">
                   <ReactSelect
-                    value={filters.priority ?? 'all'}
-                    onChange={(value) => onFilterChange('priority', value)}
+                    value={filters.labelId ?? 'all'}
+                    onChange={(value) => onFilterChange('labelId', value)}
                     options={[
-                      { value: 'all', label: 'All' },
-                      { value: 'low', label: 'Low' },
-                      { value: 'medium', label: 'Medium' },
-                      { value: 'high', label: 'High' },
-                      { value: 'critical', label: 'Critical' },
+                      { value: 'all', label: 'All Labels' },
+                      ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
                     ]}
                     formatOptionLabel={(option) => (
-                      <div className="flex gap-2 items-center">
+                      <div className="flex items-center gap-2">
                         {option.value !== 'all' && (
                           <span
-                            className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-                              option.value === 'low'
-                                ? 'bg-green-500'
-                                : option.value === 'medium'
-                                  ? 'bg-yellow-500'
-                                  : option.value === 'high'
-                                    ? 'bg-orange-500'
-                                    : 'bg-red-500'
-                            }`}
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{
+                              backgroundColor:
+                                labels.find((l) => l.id.toString() === option.value)?.color ?? '#888',
+                            }}
                           />
                         )}
                         <span>{option.label}</span>
                       </div>
                     )}
-                    className="flex-1 sm:flex-none sm:w-36"
+                    className="w-full"
                   />
-                </div>
+                </FilterCell>
+              )}
 
-                {/* Label */}
-                {labels.length > 0 && (
-                  <div className="flex gap-2 items-center">
-                    <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
-                      Label:
-                    </span>
-                    <ReactSelect
-                      value={filters.labelId ?? 'all'}
-                      onChange={(value) => onFilterChange('labelId', value)}
-                      options={[
-                        { value: 'all', label: 'All Labels' },
-                        ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
-                      ]}
-                      formatOptionLabel={(option) => (
-                        <div className="flex gap-2 items-center">
-                          {option.value !== 'all' && (
-                            <span
-                              className="inline-block w-2 h-2 rounded-full shrink-0"
-                              style={{
-                                backgroundColor:
-                                  labels.find((l) => l.id.toString() === option.value)?.color ??
-                                  '#888',
-                              }}
-                            />
-                          )}
-                          <span>{option.label}</span>
-                        </div>
-                      )}
-                      className="flex-1 sm:flex-none sm:w-40"
-                    />
-                  </div>
-                )}
-
-                {/* Sort */}
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">
-                    Sort:
-                  </span>
-                  <ReactSelect
-                    value={sorting.sortOrder}
-                    onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
-                    options={[
-                      { value: 'desc', label: 'Newest First' },
-                      { value: 'asc', label: 'Oldest First' },
-                    ]}
-                    className="flex-1 sm:flex-none sm:w-36"
-                  />
-                </div>
-              </div>
+              <FilterCell label="Linked" icon={<Link className="w-3 h-3 text-blue-500" />}>
+                <ReactSelect
+                  value={filters.linked ?? 'all'}
+                  onChange={(value) => onFilterChange('linked', value)}
+                  options={LINKED_OPTIONS as unknown as { value: string; label: string }[]}
+                  className="w-full"
+                />
+              </FilterCell>
             </div>
+          </FilterSection>
 
-            {/* Advanced Filters Toggle */}
-            <div className="flex justify-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleAdvancedFilters}
-                className="gap-2 h-8 text-xs"
-              >
-                {showAdvancedFilters ? (
-                  <>
-                    <ChevronUp className="w-3 h-3" />
-                    Hide Advanced Filters
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3 h-3" />
-                    Show Advanced Filters
-                  </>
-                )}
-              </Button>
+          {/* ── Footer ────────────────────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 pb-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground shrink-0">Sort:</span>
+              <ReactSelect
+                value={sorting.sortOrder}
+                onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+                options={[
+                  { value: 'desc', label: 'Newest First' },
+                  { value: 'asc', label: 'Oldest First' },
+                ]}
+                className="w-36"
+              />
             </div>
-
-            {/* Advanced Filters Section */}
-            {showAdvancedFilters && (
-              <div className="p-3 space-y-3 rounded-lg border bg-muted/10">
-                <div className="flex gap-2 items-center">
-                  <Filter className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    Advanced Filters
-                  </span>
-                </div>
-
-                {/* Contextual Filters - shown based on status */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-wrap lg:gap-3">
-                  {/* Spam filters - available for all messages (processed or not) */}
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.showSpam ?? false}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          showSpam: e.target.checked,
-                          showSuspicious: false,
-                          excludeSpam: false,
-                        })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <ShieldX className="w-3 h-3" />
-                      <span>Spam</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.excludeSpam ?? false}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          excludeSpam: e.target.checked,
-                          showSpam: false,
-                          showSuspicious: false,
-                        })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <ShieldX className="w-3 h-3 text-green-500" />
-                      <span>Exclude Spam</span>
-                    </div>
-                  </label>
-
-                  {/* Show Ticket Worthy & Needs Info only for Active tab */}
-                  {filters.view === 'active' && (
-                    <>
-                      <label className="flex gap-2 items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={filters.showWorthy ?? false}
-                          onChange={(e) => setFilters({ ...filters, showWorthy: e.target.checked })}
-                          className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                        />
-                        <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                          <Ticket className="w-3 h-3" />
-                          <span>Ticket Worthy</span>
-                        </div>
-                      </label>
-
-                      <label className="flex gap-2 items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={filters.showNeedsInfo ?? false}
-                          onChange={(e) =>
-                            setFilters({ ...filters, showNeedsInfo: e.target.checked })
-                          }
-                          className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                        />
-                        <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                          <Info className="w-3 h-3" />
-                          <span>Needs Info</span>
-                        </div>
-                      </label>
-                    </>
-                  )}
-
-                  {/* Common filters - always visible */}
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.isLead ?? false}
-                      onChange={(e) =>
-                        setFilters({ ...filters, isLead: e.target.checked, isQualifiedLead: false })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <Target className="w-3 h-3" />
-                      <span>Leads Only</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.isQualifiedLead ?? false}
-                      onChange={(e) =>
-                        setFilters({ ...filters, isQualifiedLead: e.target.checked, isLead: false })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <Target className="w-3 h-3 text-green-600" />
-                      <span>Qualified Leads</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.hasAttachments ?? false}
-                      onChange={(e) => setFilters({ ...filters, hasAttachments: e.target.checked })}
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <Paperclip className="w-3 h-3" />
-                      <span>Attachments</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.hasReplies ?? false}
-                      onChange={(e) => setFilters({ ...filters, hasReplies: e.target.checked })}
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <MessageCircle className="w-3 h-3" />
-                      <span>Replies</span>
-                    </div>
-                  </label>
-
-                  {/* Ticket filters - checkboxes (mutually exclusive like spam filters) */}
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.hasTicket === true}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          // Check this, uncheck the other
-                          setFilters({ ...filters, hasTicket: true });
-                        } else {
-                          // Uncheck - show all
-                          setFilters({ ...filters, hasTicket: undefined });
-                        }
-                      }}
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <Ticket className="w-3 h-3 text-green-500" />
-                      <span>Has Ticket</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.hasTicket === false}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          // Check this, uncheck the other
-                          setFilters({ ...filters, hasTicket: false });
-                        } else {
-                          // Uncheck - show all
-                          setFilters({ ...filters, hasTicket: undefined });
-                        }
-                      }}
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <Ticket className="w-3 h-3 text-muted-foreground" />
-                      <span>No Ticket</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.showFailed ?? false}
-                      onChange={(e) => setFilters({ ...filters, showFailed: e.target.checked })}
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium text-red-600 whitespace-nowrap dark:text-red-400">
-                      <XCircle className="w-3 h-3" />
-                      <span>Failed</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.awaitingCustomerResponse ?? false}
-                      onChange={(e) =>
-                        setFilters({ ...filters, awaitingCustomerResponse: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <Clock className="w-3 h-3 text-blue-500" />
-                      <span>Awaiting Response</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.customerResponded ?? false}
-                      onChange={(e) =>
-                        setFilters({ ...filters, customerResponded: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <MessageCircle className="w-3 h-3 text-orange-500" />
-                      <span>Customer Replied</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.showKBOnly ?? false}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          showKBOnly: e.target.checked,
-                          excludeKB: false,
-                        })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <BookOpen className="w-3 h-3 text-purple-500" />
-                      <span>Only KB</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.excludeKB ?? false}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          excludeKB: e.target.checked,
-                          showKBOnly: false,
-                        })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium whitespace-nowrap">
-                      <BookOpen className="w-3 h-3 text-green-500" />
-                      <span>Exclude KB</span>
-                    </div>
-                  </label>
-
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.needsHumanReview ?? false}
-                      onChange={(e) =>
-                        setFilters({ ...filters, needsHumanReview: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-primary border-border focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-1 items-center text-xs font-medium text-orange-600 whitespace-nowrap dark:text-orange-400">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>Needs Review</span>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Age range filter */}
-                <div className="pt-2 border-t">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Age</p>
-                  <div className="flex flex-wrap gap-1">
-                    {AGE_RANGE_OPTIONS.map(({ value, label }) => (
-                      <button
-                        key={label}
-                        onClick={() => setFilters({ ...filters, ageRange: value })}
-                        className={`px-2 py-0.5 rounded text-xs font-mono transition-colors ${
-                          filters.ageRange === value
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleAdvancedFilters}
+              className="h-7 text-xs text-muted-foreground self-start sm:self-auto"
+            >
+              {showAdvancedFilters ? 'Hide guide' : 'AI State guide'}
+            </Button>
           </div>
-        </div>
+
+          {/* AI State legend */}
+          {showAdvancedFilters && (
+            <div className="p-3 space-y-1.5 rounded-lg border bg-muted/10 text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground">AI State</p>
+              <ul className="space-y-1">
+                <li><span className="font-medium text-foreground">Needs Review</span> — AI flagged for human attention</li>
+                <li><span className="font-medium text-foreground">AI Suggested</span> — AI drafted a reply, ready to send</li>
+                <li><span className="font-medium text-foreground">Bot Handled</span> — AI resolved autonomously</li>
+                <li><span className="font-medium text-foreground">Lead</span> — identified as a business lead</li>
+                <li><span className="font-medium text-foreground">Contradiction</span> — client's message contradicts a previous statement</li>
+              </ul>
+            </div>
+          )}
+
+        </div>{/* end collapsible body */}
+
       </CardContent>
     </Card>
   );
 };
+
+function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="py-3 space-y-3">
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/60">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function FilterCell({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      <div className="flex items-center gap-1">
+        {icon && <span className="shrink-0">{icon}</span>}
+        <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
+      </div>
+      <div className="w-full">{children}</div>
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject } from 'react';
-import { messageService } from '@/services/message.service';
+import { messageService, type MessageThread } from '@/services/message.service';
 import {
   spamLogService,
   type SpamLog,
@@ -9,7 +9,6 @@ import {
 } from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
-import type { Message } from '@/types';
 
 interface UseMessagesDataProps {
   urlSyncedRef: MutableRefObject<boolean>;
@@ -20,7 +19,7 @@ interface UseMessagesDataProps {
 const DEFAULT_LIMIT = 50;
 
 export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMessagesDataProps) => {
-  const [messages, setMessagesLocal] = useState<Message[]>([]);
+  const [threads, setThreadsLocal] = useState<MessageThread[]>([]);
   const [spamLogs, setSpamLogs] = useState<SpamLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,7 +52,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
       if (!force) {
         const cached = getCached(page);
         if (cached) {
-          setMessagesLocal(cached.messages);
+          setThreadsLocal(cached.threads);
           setMessagesPagination(cached.pagination);
           setLoading(false);
           return;
@@ -70,52 +69,85 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
         const apiFilters: Record<string, string> = {};
         const currentFilters = useMessagesStore.getState().filters;
 
-        if (currentFilters.view) {
-          apiFilters.view = currentFilters.view;
-        }
-        if (currentFilters.processed && currentFilters.processed !== 'all') {
-          apiFilters.processed = currentFilters.processed;
-        }
-        if (currentFilters.channel !== 'all') {
-          apiFilters.channel = currentFilters.channel ?? '';
-        }
+        // SOURCE
         if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
           apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
-        if (currentFilters.showSpam) apiFilters.showSpam = 'true';
-        if (currentFilters.showSuspicious) apiFilters.showSuspicious = 'true';
-        if (currentFilters.excludeSpam) apiFilters.excludeSpam = 'true';
-        if (currentFilters.showWorthy) apiFilters.showWorthy = 'true';
-        if (currentFilters.showNeedsInfo) apiFilters.showNeedsInfo = 'true';
-        if (currentFilters.hasAttachments) apiFilters.hasAttachments = 'true';
-        if (currentFilters.hasReplies) apiFilters.hasReplies = 'true';
-        if (currentFilters.hasTicket !== undefined) {
-          apiFilters.hasTicket = currentFilters.hasTicket ? 'true' : 'false';
+
+        // THREAD STATUS (lifecycle: open / in_progress / closed)
+        const threadStatus = currentFilters.threadStatus ?? 'all';
+        if (threadStatus !== 'all') {
+          apiFilters.processed = threadStatus;
         }
-        if (currentFilters.showFailed) apiFilters.showFailed = 'true';
-        if (currentFilters.showKBOnly) apiFilters.showKBOnly = 'true';
-        if (currentFilters.excludeKB) apiFilters.excludeKB = 'true';
-        if (currentFilters.awaitingCustomerResponse) apiFilters.awaitingCustomerResponse = 'true';
-        if (currentFilters.customerResponded) apiFilters.customerResponded = 'true';
+
+        // STATUS → view param
+        // When threadStatus is active, use view=active (not work_queue) so the status
+        // restriction from work_queue doesn't block closed threads
+        const status = currentFilters.status ?? 'all';
+        if (status === 'all') {
+          apiFilters.view = threadStatus !== 'all' ? 'active' : 'work_queue';
+        } else if (status === 'active') {
+          apiFilters.view = 'active';
+        } else if (status === 'awaiting_response') {
+          apiFilters.view = 'awaiting_response';
+        } else if (status === 'client_replied') {
+          apiFilters.view = 'client_replied';
+        } else if (status === 'suspicious') {
+          apiFilters.view = 'suspicious';
+        } else if (status === 'not_analysed') {
+          apiFilters.view = 'not_analysed';
+        } else if (status === 'resolved') {
+          apiFilters.view = 'resolved';
+        }
+
+        // PRIORITY
+        if (currentFilters.priority && currentFilters.priority !== 'all') {
+          apiFilters.priority = currentFilters.priority;
+        }
+
+        // ASSIGNEE
         if (currentFilters.assigneeId && currentFilters.assigneeId !== 'all') {
           apiFilters.assigneeId =
             currentFilters.assigneeId === 'unassigned' ? '0' : currentFilters.assigneeId;
         }
-        if (currentFilters.needsHumanReview) apiFilters.needsHumanReview = 'true';
-        if (currentFilters.isLead) apiFilters.isLead = 'true';
-        if (currentFilters.isQualifiedLead) apiFilters.isQualifiedLead = 'true';
-        if (currentFilters.ageRange) apiFilters.ageRange = currentFilters.ageRange;
-        if (currentFilters.priority && currentFilters.priority !== 'all') {
-          apiFilters.priority = currentFilters.priority;
+
+        // AI STATE
+        const aiState = currentFilters.aiState ?? 'all';
+        if (aiState === 'needs_review') {
+          apiFilters.needsHumanReview = 'true';
+        } else if (aiState === 'needs_info') {
+          apiFilters.showNeedsInfo = 'true';
+        } else if (aiState === 'ai_suggested') {
+          apiFilters.aiSuggested = 'true';
+        } else if (aiState === 'bot_handled') {
+          apiFilters.botHandled = 'true';
+        } else if (aiState === 'lead') {
+          apiFilters.isLead = 'true';
+        } else if (aiState === 'contradiction') {
+          apiFilters.hasContradiction = 'true';
         }
-        if (currentFilters.departmentRole && currentFilters.departmentRole !== 'all') {
-          useAuthStore.getState().setSelectedDepartment(currentFilters.departmentRole);
-        }
+
+        // LABEL
         if (currentFilters.labelId && currentFilters.labelId !== 'all') {
           apiFilters.labelId = currentFilters.labelId;
         }
+
+        // LINKED
+        const linked = currentFilters.linked ?? 'all';
+        if (linked === 'has_ticket') {
+          apiFilters.hasTicket = 'true';
+        } else if (linked === 'has_jira') {
+          apiFilters.hasJiraTicket = 'true';
+        }
+
+        // SEARCH
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
+        }
+
+        // DEPARTMENT (syncs auth store, not sent as API param directly)
+        if (currentFilters.departmentRole && currentFilters.departmentRole !== 'all') {
+          useAuthStore.getState().setSelectedDepartment(currentFilters.departmentRole);
         }
 
         const currentSorting = useMessagesStore.getState().sorting;
@@ -127,34 +159,8 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
         );
 
         if (response.success && response.data) {
-          const messagesFromThreads: Message[] = response.data.map((thread) => {
-            const baseMessage = thread.latestMessage ?? {
-              id: 0,
-              content: '',
-              sender: thread.sender,
-              channel: thread.channel,
-              createdAt: thread.lastMessageAt,
-              metadata: {},
-            };
-
-            return {
-              ...baseMessage,
-              isLead: thread.isLead ?? (baseMessage as Message).isLead,
-              metadata: {
-                ...((baseMessage.metadata as Record<string, unknown>) ?? {}),
-                isThreadView: true,
-                threadId: thread.threadId,
-                threadMessageCount: thread.messageCount,
-                threadHasUnread: thread.hasUnread,
-                threadHasTicket: thread.hasTicket,
-                threadIsResolved: thread.isResolved,
-                lastReplyFromClient: thread.lastReplyFromClient,
-              },
-            } as Message;
-          });
-
-          setMessages(messagesFromThreads, response.pagination);
-          setMessagesLocal(messagesFromThreads);
+          setMessages(response.data, response.pagination);
+          setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
 
           if (page > 1 && page > response.pagination.totalPages && response.pagination.totalPages > 0) {
@@ -209,32 +215,16 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    filters.view,
-    filters.processed,
-    filters.channel,
     filters.messageSourceId,
-    filters.showSpam,
-    filters.showSuspicious,
-    filters.excludeSpam,
-    filters.showWorthy,
-    filters.showNeedsInfo,
-    filters.hasAttachments,
-    filters.hasReplies,
-    filters.hasTicket,
-    filters.showFailed,
-    filters.showKBOnly,
-    filters.excludeKB,
-    filters.awaitingCustomerResponse,
-    filters.customerResponded,
-    filters.assigneeId,
-    filters.search,
-    filters.needsHumanReview,
-    filters.isLead,
-    filters.isQualifiedLead,
-    filters.ageRange,
+    filters.status,
+    filters.threadStatus,
     filters.priority,
-    filters.departmentRole,
+    filters.assigneeId,
+    filters.aiState,
     filters.labelId,
+    filters.linked,
+    filters.search,
+    filters.departmentRole,
     sorting.sortOrder,
   ]);
 
@@ -294,7 +284,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
   };
 
   return {
-    messages,
+    threads,
     spamLogs,
     loading,
     refreshing,

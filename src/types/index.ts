@@ -3,7 +3,7 @@ import type { GlobalRole, OrganizationRole } from './roles';
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
-export type MessageStatus = 'new' | 'in_progress' | 'pending' | 'resolved' | 'closed' | 'filtered';
+export type MessageStatus = 'new' | 'in_progress' | 'pending' | 'awaiting_response' | 'client_replied' | 'resolved' | 'closed' | 'filtered';
 
 export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
@@ -74,6 +74,9 @@ export type Message = {
   slaResponseBreached?: boolean | null;
   firstResponseAt?: string | null;
   actualResponseSeconds?: number | null;
+  // Thread reply state
+  lastReplyAt?: string | null;
+  lastReplyFromClient?: boolean | null;
 };
 
 export type Ticket = {
