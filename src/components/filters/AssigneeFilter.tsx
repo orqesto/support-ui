@@ -47,7 +47,12 @@ export const AssigneeFilter = ({
     fetchUsers().catch((e) => {
       logger.error(e);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // skillFilterKey is the stable JSON serialization of skillFilter (via useMemo on line ~29).
+    // skillFilter itself is intentionally omitted from deps: using the raw object reference would
+    // cause the effect to re-run on every parent render when the parent recreates the object literal.
+    // This is safe because useMemo runs synchronously before effects, so skillFilter is always
+    // up-to-date when the effect fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- skillFilterKey is the stable serialization; skillFilter captured safely via synchronous useMemo
   }, [selectedDepartmentRole, skillFilterKey]);
 
   const options = [
