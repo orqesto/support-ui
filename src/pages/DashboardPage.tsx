@@ -107,6 +107,8 @@ export const DashboardPage = () => {
   const fetchStats = useCallback(async () => {
     try {
       // Fetch with limit=1 to get total counts from pagination metadata (we don't need the actual records)
+      // Scope counts to the selected department so agents only see their own department's stats.
+      const deptFilter = selectedDepartment ? { departmentRole: selectedDepartment } : {};
       const [
         activeRes,
         clientRepliedRes,
@@ -121,12 +123,12 @@ export const DashboardPage = () => {
         kbDocRes,
         docStatsRes,
       ] = await Promise.all([
-        messageService.getThreads({ view: 'active' }, 1, 1),
-        messageService.getThreads({ view: 'active', customerResponded: 'true' }, 1, 1),
-        messageService.getThreads({ view: 'active', awaitingCustomerResponse: 'true' }, 1, 1),
-        messageService.getThreads({ view: 'suspicious' }, 1, 1),
-        messageService.getThreads({ view: 'not_analysed' }, 1, 1),
-        messageService.getThreads({ view: 'resolved' }, 1, 1),
+        messageService.getThreads({ view: 'active', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'client_replied', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'awaiting_response', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'suspicious', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'not_analysed', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'resolved', ...deptFilter }, 1, 1),
         ticketService.getAll({ status: 'open' }, 1, 1),
         ticketService.getAll({ status: 'in_progress' }, 1, 1),
         ticketService.getAll({ status: 'pending' }, 1, 1),
@@ -155,7 +157,7 @@ export const DashboardPage = () => {
       setLoading(false);
       setLastUpdated(new Date());
     }
-  }, []);
+  }, [selectedDepartment]);
 
   // Auto-refresh stats when email processing completes
   useEffect(() => {
@@ -376,7 +378,7 @@ export const DashboardPage = () => {
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
       borderColor: '#2563eb',
-      hint: 'Active threads',
+      hint: 'Needs your attention',
       onClick: () => navigate('/messages?view=active'),
     },
     {
@@ -387,7 +389,7 @@ export const DashboardPage = () => {
       bg: 'bg-orange-50 dark:bg-orange-950/50',
       borderColor: '#ea580c',
       hint: 'Waiting for your reply',
-      onClick: () => navigate('/messages?view=active&customerResponded=true'),
+      onClick: () => navigate('/messages?view=client_replied'),
     },
     {
       title: 'Awaiting Response',
@@ -397,7 +399,7 @@ export const DashboardPage = () => {
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
       borderColor: '#ca8a04',
       hint: 'Waiting for client',
-      onClick: () => navigate('/messages?view=active&awaitingCustomerResponse=true'),
+      onClick: () => navigate('/messages?view=awaiting_response'),
     },
     {
       title: 'Suspicious',
@@ -426,7 +428,7 @@ export const DashboardPage = () => {
       color: 'text-green-600 dark:text-green-400',
       bg: 'bg-green-50 dark:bg-green-950/50',
       borderColor: '#16a34a',
-      hint: 'Closed threads',
+      hint: 'Successfully resolved',
       onClick: () => navigate('/messages?view=resolved'),
     },
   ];
