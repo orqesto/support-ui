@@ -321,6 +321,7 @@ export const MessagesPage = () => {
   };
 
   const isKanban = displayMode === 'kanban';
+  // Visible badge count: kanban-hidden filters (status/threadStatus/slaFilter) excluded
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
     (!isKanban && filters.status && filters.status !== 'all' ? 1 : 0) +
@@ -333,6 +334,20 @@ export const MessagesPage = () => {
     (filters.search?.trim() ? 1 : 0) +
     (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0) +
     (!isKanban && filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
+  // Full count (no isKanban gate) — used for "Clear All" disabled state so that
+  // list-mode filters set before switching to kanban can still be cleared.
+  const clearableFilterCount =
+    (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
+    (filters.status && filters.status !== 'all' ? 1 : 0) +
+    (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
+    (filters.priority && filters.priority !== 'all' ? 1 : 0) +
+    (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
+    (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
+    (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
+    (filters.linked && filters.linked !== 'all' ? 1 : 0) +
+    (filters.search?.trim() ? 1 : 0) +
+    (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0) +
+    (filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
 
   return (
     <Layout>
@@ -369,6 +384,7 @@ export const MessagesPage = () => {
                 sorting={sorting}
                 pendingSearch={pendingSearch}
                 activeFilterCount={activeFilterCount}
+                clearableFilterCount={clearableFilterCount}
                 pagination={displayMode === 'contacts' ? contactsPagination : pagination}
                 onFilterChange={handleFilterChange}
                 onSearch={handleSearch}
