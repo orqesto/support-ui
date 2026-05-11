@@ -448,6 +448,12 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       return;
     }
 
+    // Capture original index before optimistic move so rollback restores the card
+    // to its original position rather than prepending at index 0.
+    const originalIndex = colStatesRef.current[fromColId].threads.findIndex(
+      (t) => t.threadId === threadId
+    );
+
     // Optimistic move
     setColStates((prev) => ({
       ...prev,
@@ -467,20 +473,24 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       await messageService.classify(msgId, action);
     } catch (err) {
       logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
-      // Rollback
-      setColStates((prev) => ({
-        ...prev,
-        [fromColId]: {
-          ...prev[fromColId],
-          threads: [thread, ...prev[fromColId].threads],
-          total: prev[fromColId].total + 1,
-        },
-        [toColId]: {
-          ...prev[toColId],
-          threads: prev[toColId].threads.filter((t) => t.threadId !== threadId),
-          total: Math.max(0, prev[toColId].total - 1),
-        },
-      }));
+      // Rollback: restore card at its original position
+      setColStates((prev) => {
+        const restored = [...prev[fromColId].threads];
+        restored.splice(Math.min(originalIndex, restored.length), 0, thread);
+        return {
+          ...prev,
+          [fromColId]: {
+            ...prev[fromColId],
+            threads: restored,
+            total: prev[fromColId].total + 1,
+          },
+          [toColId]: {
+            ...prev[toColId],
+            threads: prev[toColId].threads.filter((t) => t.threadId !== threadId),
+            total: Math.max(0, prev[toColId].total - 1),
+          },
+        };
+      });
     }
   }, []);
 
