@@ -440,7 +440,13 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     const thread = colStatesRef.current[fromColId]?.threads.find((t) => t.threadId === threadId);
     if (!thread?.latestMessage) return;
 
+    // Spam-log synthetic threads have negative message IDs and cannot be classified
+    // via the API. Guard here to prevent a silent 400 error and confusing card jump.
     const msgId = thread.latestMessage.id;
+    if (threadId.startsWith('spamlog_') || msgId <= 0) {
+      logger.warn(`Attempted DnD on spam-log synthetic thread ${threadId} — no-op`);
+      return;
+    }
 
     // Optimistic move
     setColStates((prev) => ({
