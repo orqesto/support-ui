@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Ticket, RefreshCw, Send, LayoutList, Columns } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -285,6 +285,12 @@ export const TicketsPage = () => {
     });
   }, [fetchTickets]);
 
+  // Ref so the WebSocket effect always calls the latest fetchTickets without
+  // re-subscribing on every filter change (which would cause subscribe/unsubscribe
+  // cycles and potentially miss real-time events during the gap).
+  const fetchTicketsRef = useRef(fetchTickets);
+  fetchTicketsRef.current = fetchTickets;
+
   useEffect(() => {
     const fetchJiraIntegrations = async () => {
       // Only fetch integrations if user has permission
@@ -324,8 +330,9 @@ export const TicketsPage = () => {
       // Clear cache to ensure fresh data
       clearCache();
 
-      // Refresh tickets to show latest data
-      fetchTickets(pagination.page, true).catch((error) => {
+      // Refresh tickets to show latest data — use ref to avoid re-subscribing
+      // every time fetchTickets changes (i.e. on every filter update).
+      fetchTicketsRef.current(pagination.page, true).catch((error) => {
         logger.error('Failed to fetch tickets:', error);
       });
 
@@ -350,7 +357,7 @@ export const TicketsPage = () => {
       clearCache();
 
       // Refresh tickets list to show the new ticket
-      fetchTickets(pagination.page, true).catch((error) => {
+      fetchTicketsRef.current(pagination.page, true).catch((error) => {
         logger.error('Failed to fetch tickets after creation:', error);
       });
     };
@@ -363,7 +370,10 @@ export const TicketsPage = () => {
       unsubscribeFromEvent('ticket:created', handleTicketCreated);
       releaseSocket();
     };
-  }, [pagination.page, selectedTicket, fetchTickets, clearCache]);
+    // fetchTickets intentionally omitted — use fetchTicketsRef.current to avoid
+    // subscribe/unsubscribe cycles on every filter change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, selectedTicket, clearCache]);
 
   const handlePageChange = async (page: number) => {
     await fetchTickets(page);
