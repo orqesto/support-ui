@@ -93,6 +93,15 @@ const PRIORITY_VARIANT = {
   low: 'default',
 } as const;
 
+// Allowed drag transitions — prevents logically invalid moves (e.g. closed → open)
+const VALID_TRANSITIONS: Record<string, Set<string>> = {
+  open:        new Set(['in_progress', 'pending', 'closed']),
+  in_progress: new Set(['open', 'pending', 'resolved', 'closed']),
+  pending:     new Set(['open', 'in_progress']),
+  resolved:    new Set(['closed']),
+  closed:      new Set([]),
+};
+
 const PAGE_SIZE = 20;
 
 type ColumnState = {
@@ -395,6 +404,12 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     const toColId = over.id as string;
 
     if (fromColId === toColId) return;
+
+    // Validate transition is allowed before doing anything
+    if (!VALID_TRANSITIONS[fromColId]?.has(toColId)) {
+      logger.warn(`Invalid ticket transition: ${fromColId} → ${toColId}`);
+      return;
+    }
 
     const toCol = COLUMNS.find((c) => c.id === toColId);
     if (!toCol) return;
