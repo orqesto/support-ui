@@ -67,6 +67,8 @@ type MessageFiltersProps = {
   sorting: SortingState;
   pendingSearch: string;
   activeFilterCount: number;
+  /** Full count without kanban-mode exclusions — gates the "Clear All" enabled state */
+  clearableFilterCount?: number;
   pagination: { page: number; limit: number; total: number };
   onFilterChange: (key: string, value: string) => void;
   onSearch: () => void;
@@ -82,6 +84,7 @@ export const MessageFilters = ({
   sorting,
   pendingSearch,
   activeFilterCount,
+  clearableFilterCount = activeFilterCount,
   pagination,
   onFilterChange,
   onSearch,
@@ -165,7 +168,7 @@ export const MessageFilters = ({
               size="sm"
               onClick={onClearFilters}
               className="h-8"
-              disabled={activeFilterCount === 0}
+              disabled={clearableFilterCount === 0}
             >
               <X className="w-3 h-3 mr-1" />
               <span className="hidden sm:inline">Clear All</span>
