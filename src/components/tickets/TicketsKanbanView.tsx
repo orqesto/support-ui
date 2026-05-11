@@ -404,6 +404,12 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
 
     const movedTicket: TicketType = { ...ticket, status: toCol.status as TicketStatus };
 
+    // Capture original index before optimistic move so rollback restores the card
+    // to its original position rather than prepending at index 0.
+    const originalIndex = colStatesRef.current[fromColId].tickets.findIndex(
+      (t) => t.id === ticketId
+    );
+
     // Optimistic update
     setColStates((prev) => ({
       ...prev,
@@ -423,20 +429,24 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
       await ticketService.update(ticketId, { status: toCol.status as TicketStatus });
     } catch (err) {
       logger.error(`Failed to move ticket ${ticketId} to ${toColId}:`, err);
-      // Rollback
-      setColStates((prev) => ({
-        ...prev,
-        [fromColId]: {
-          ...prev[fromColId],
-          tickets: [ticket, ...prev[fromColId].tickets],
-          total: prev[fromColId].total + 1,
-        },
-        [toColId]: {
-          ...prev[toColId],
-          tickets: prev[toColId].tickets.filter((t) => t.id !== ticketId),
-          total: Math.max(0, prev[toColId].total - 1),
-        },
-      }));
+      // Rollback: restore card at its original position
+      setColStates((prev) => {
+        const restored = [...prev[fromColId].tickets];
+        restored.splice(Math.min(originalIndex, restored.length), 0, ticket);
+        return {
+          ...prev,
+          [fromColId]: {
+            ...prev[fromColId],
+            tickets: restored,
+            total: prev[fromColId].total + 1,
+          },
+          [toColId]: {
+            ...prev[toColId],
+            tickets: prev[toColId].tickets.filter((t) => t.id !== ticketId),
+            total: Math.max(0, prev[toColId].total - 1),
+          },
+        };
+      });
     }
   }, []);
 
