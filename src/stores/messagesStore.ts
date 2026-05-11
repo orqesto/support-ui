@@ -9,6 +9,7 @@ export type MessageViewStatus =
   | 'client_replied'
   | 'suspicious'
   | 'not_analysed'
+  | 'spam'
   | 'resolved';
 
 export type ThreadStatusFilter =
@@ -39,6 +40,7 @@ export type FilterState = {
   linked?: LinkedFilter;
   search?: string;
   departmentRole?: 'all' | 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  slaFilter?: 'all' | 'breached' | 'at_risk';
 };
 
 export type SortingState = {
@@ -77,6 +79,7 @@ export const defaultFilters: FilterState = {
   linked: 'all',
   search: undefined,
   departmentRole: 'all',
+  slaFilter: 'all',
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>

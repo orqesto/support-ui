@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Mail, RefreshCw, ShieldAlert, MessageSquare, Users, LayoutDashboard } from 'lucide-react';
+import { Mail, RefreshCw, MessageSquare, Users, LayoutDashboard } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -18,7 +18,6 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
-import { type SpamLog, type SpamLogFilters as SpamFiltersType } from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
@@ -28,10 +27,6 @@ import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ContactsView } from '@/components/messages/ContactsView';
 import { MessagesKanbanView } from '@/components/messages/MessagesKanbanView';
-import { SpamLogFilters as SpamFiltersComponent } from '@/components/spam/SpamLogFilters';
-import { SpamLogListItem } from '@/components/spam/SpamLogListItem';
-import { SpamLogDetail } from '@/components/spam/SpamLogDetail';
-import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { logger } from '@/lib/logger';
@@ -41,7 +36,6 @@ export const MessagesPage = () => {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
 
-  const [activeTab, setActiveTab] = useState<'messages' | 'spam'>('messages');
   const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
     const mode = searchParams.get('mode');
     if (mode === 'contacts') return 'contacts';
@@ -54,10 +48,9 @@ export const MessagesPage = () => {
     else if (mode === 'kanban') setDisplayMode('kanban');
     else setDisplayMode('threads');
   }, [searchParams]);
+  const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
+  const bumpKanban = useCallback(() => setKanbanRefreshKey((k) => k + 1), []);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [selectedSpamLog, setSelectedSpamLog] = useState<SpamLog | null>(null);
-  const [spamFilters, setSpamFilters] = useState<SpamFiltersType>({});
-  const [pendingSpamSearch, setPendingSpamSearch] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -88,19 +81,17 @@ export const MessagesPage = () => {
 
   const {
     threads,
-    spamLogs,
     loading,
     refreshing,
     setRefreshing,
     messagesPagination,
-    spamPagination,
     fetchMessages,
     handlePageChange,
     handleRefresh,
     clearCache,
-  } = useMessagesData({ urlSyncedRef, activeTab, spamFilters });
+  } = useMessagesData({ urlSyncedRef });
 
-  const pagination = activeTab === 'messages' ? messagesPagination : spamPagination;
+  const pagination = messagesPagination;
 
   useMessagesUrlSync({
     urlSyncedRef,
@@ -144,18 +135,16 @@ export const MessagesPage = () => {
     await fetchMessages(messagesPagination.page, true);
   };
 
-  const handleTabSwitch = (tab: 'messages' | 'spam') => {
-    if (tab === 'messages') {
-      setSpamFilters({});
-      setPendingSpamSearch('');
-    } else {
-      clearFiltersStore();
-      setPendingSearch('');
-    }
-    setActiveTab(tab);
-  };
-
   const handleOpenThread = useCallback(async (thread: MessageThread) => {
+    if (thread.threadId.startsWith('spamlog_')) {
+      setAlertDialog({
+        open: true,
+        title: 'Rule-blocked spam',
+        description: 'This message was rejected by a spam rule before being stored. No full content is available.',
+        variant: 'info',
+      });
+      return;
+    }
     const anchorId = thread.latestMessage?.id;
     if (!anchorId) return;
     // Preferred starting message: same one the list shows analysis badges for
@@ -191,6 +180,7 @@ export const MessagesPage = () => {
   const handleResolve = async () => {
     clearCache();
     await fetchMessages(messagesPagination.page, true);
+    bumpKanban();
     setSelectedMessage(null);
   };
 
@@ -199,6 +189,7 @@ export const MessagesPage = () => {
       await messageService.markAsProcessed(message.id);
       clearCache();
       setSelectedMessage(null);
+      bumpKanban();
       await fetchMessages(messagesPagination.page, true);
     } catch (error) {
       logger.error('Failed to mark message as processed:', error);
@@ -210,7 +201,7 @@ export const MessagesPage = () => {
       const reopenedMessageId = message.id;
       await messageService.reopen(message.id);
       clearCache();
-
+      bumpKanban();
       await fetchMessages(messagesPagination.page, true);
 
       const response = await messageService.getById(reopenedMessageId);
@@ -329,17 +320,19 @@ export const MessagesPage = () => {
     }
   };
 
+  const isKanban = displayMode === 'kanban';
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
-    (filters.status && filters.status !== 'all' ? 1 : 0) +
-    (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
+    (!isKanban && filters.status && filters.status !== 'all' ? 1 : 0) +
+    (!isKanban && filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
     (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
-    (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0);
+    (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0) +
+    (!isKanban && filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
 
   return (
     <Layout>
@@ -369,34 +362,7 @@ export const MessagesPage = () => {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs
-          tabs={
-            [
-              {
-                id: 'messages' as const,
-                label: 'Messages',
-                icon: Mail,
-                description: 'View and manage incoming messages',
-              },
-              {
-                id: 'spam' as const,
-                label: 'Spam Logs',
-                icon: ShieldAlert,
-                description: 'Review detected spam and false positives',
-              },
-            ] satisfies Tab<'messages' | 'spam'>[]
-          }
-          activeTab={activeTab}
-          onTabChange={handleTabSwitch}
-          variant="default"
-          size="md"
-          fullWidth
-        />
-
-        {/* Content based on active tab */}
-        {activeTab === 'messages' ? (
-          <>
+        <>
             <div className="mb-6">
               <MessageFilters
                 filters={filters}
@@ -410,7 +376,7 @@ export const MessagesPage = () => {
                 onClearFilters={clearFilters}
                 onSortingChange={(sortOrder) => setSorting({ sortOrder })}
                 setPendingSearch={setPendingSearch}
-
+                isKanban={isKanban}
               />
             </div>
 
@@ -487,6 +453,7 @@ export const MessagesPage = () => {
               <MessagesKanbanView
                 filters={filters}
                 onOpen={handleOpenThread}
+                refreshKey={kanbanRefreshKey}
               />
             ) : displayMode === 'contacts' ? (
               <ContactsView
@@ -573,97 +540,6 @@ export const MessagesPage = () => {
               />
             )}
           </>
-        ) : (
-          <>
-            <div className="mb-6">
-              <SpamFiltersComponent
-                filters={spamFilters}
-                pendingSearch={pendingSpamSearch}
-                activeFilterCount={
-                  (spamFilters.channel ? 1 : 0) +
-                  (spamFilters.category ? 1 : 0) +
-                  (spamFilters.messageSourceId ? 1 : 0) +
-                  (spamFilters.days && spamFilters.days !== 30 ? 1 : 0) +
-                  (spamFilters.search ? 1 : 0)
-                }
-                pagination={pagination}
-                onFilterChange={(key, value) => {
-                  const newFilters = { ...spamFilters };
-                  if (
-                    value === 'all' ||
-                    value === '' ||
-                    value === undefined ||
-                    (key === 'days' && value === 30)
-                  ) {
-                    delete newFilters[key as keyof typeof newFilters];
-                  } else {
-                    newFilters[key as keyof typeof newFilters] = value as never;
-                  }
-                  setSpamFilters(newFilters);
-                }}
-                onSearch={() => {
-                  setSpamFilters({ ...spamFilters, search: pendingSpamSearch });
-                }}
-                onSearchBlur={() => {
-                  setSpamFilters({ ...spamFilters, search: pendingSpamSearch });
-                }}
-                onClearFilters={() => {
-                  setSpamFilters({});
-                  setPendingSpamSearch('');
-                }}
-                onSortingChange={(sortOrder) => {
-                  const newFilters = { ...spamFilters };
-                  if (sortOrder === 'desc') {
-                    delete newFilters.sortOrder;
-                  } else {
-                    newFilters.sortOrder = sortOrder;
-                  }
-                  setSpamFilters(newFilters);
-                }}
-                setPendingSearch={setPendingSpamSearch}
-                setFilters={setSpamFilters}
-              />
-            </div>
-
-            {loading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }, (_, i) => i).map((i) => (
-                  <Card key={`spam-skeleton-${i}`} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                      <div className="w-1/2 h-4 bg-gray-200 rounded" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : spamLogs.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                  <h3 className="mb-2 text-lg font-semibold">No spam logs found</h3>
-                  <p className="text-muted-foreground">No spam has been detected recently</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {spamLogs.map((log) => (
-                  <SpamLogListItem key={log.id} log={log} onOpen={setSelectedSpamLog} />
-                ))}
-              </div>
-            )}
-
-            {!loading && spamLogs.length > 0 && (
-              <Pagination
-                currentPage={pagination.page}
-                totalPages={pagination.totalPages}
-                total={pagination.total}
-                limit={pagination.limit}
-                onPageChange={handlePageChange}
-                loading={loading}
-              />
-            )}
-          </>
-        )}
       </div>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -722,6 +598,7 @@ export const MessagesPage = () => {
             onClassify={async (action) => {
               await messageService.classify(selectedMessage.id, action);
               clearCache();
+              bumpKanban();
               await fetchMessages(messagesPagination.page, true);
               setSelectedMessage(null);
             }}
@@ -739,16 +616,6 @@ export const MessagesPage = () => {
               }
             }}
           />
-        </Drawer>
-      )}
-
-      {selectedSpamLog && (
-        <Drawer
-          open={!!selectedSpamLog}
-          onClose={() => setSelectedSpamLog(null)}
-          title="Spam Log Details"
-        >
-          <SpamLogDetail log={selectedSpamLog} onClose={() => setSelectedSpamLog(null)} />
         </Drawer>
       )}
 

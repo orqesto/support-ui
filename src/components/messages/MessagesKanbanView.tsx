@@ -1,5 +1,17 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  useDroppable,
+  useDraggable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
   Inbox,
   Hourglass,
   MessageCircle,
@@ -7,6 +19,8 @@ import {
   RotateCcw,
   ShieldAlert,
   HelpCircle,
+  GripVertical,
+  Ban,
 } from 'lucide-react';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -76,17 +90,48 @@ const COLUMNS: KanbanColumnDef[] = [
     emptyText: 'No replied messages',
   },
   {
+    id: 'spam',
+    label: 'Spam',
+    icon: Ban,
+    fixedFilters: { showSpam: 'true' },
+    accentColor: '#ef4444',
+    iconClass: 'text-red-500',
+    emptyText: 'No spam messages',
+  },
+  {
     id: 'resolved',
     label: 'Resolved',
     icon: CheckCircle2,
-    // view=resolved already limits to status=resolved — no SLA exclusions needed
-    // (resolved+breached threads belong here, not in BREACHED which only shows unresolved)
     fixedFilters: { view: 'resolved' },
     accentColor: '#9ca3af',
     iconClass: 'text-gray-400',
     emptyText: 'No resolved messages',
   },
 ];
+
+// Columns that participate in drag-and-drop
+const DND_COLS = new Set(['active', 'not_analysed', 'suspicious', 'spam']);
+
+// Valid drop targets per source column.
+// not_analysed → active: approve + queues AI analysis (BE handles this automatically).
+// not_analysed → suspicious: blocked by BE (filtered messages can't be marked suspicious directly).
+// suspicious → spam: move_to_spam.
+// spam → active: approve + queues AI analysis.
+const VALID_TARGETS: Record<string, Set<string>> = {
+  not_analysed: new Set(['active']),
+  suspicious:   new Set(['active', 'spam']),
+  active:       new Set(['suspicious', 'spam']),
+  spam:         new Set(['active']),
+};
+
+type DndAction = 'approve' | 'mark_suspicious' | 'move_to_spam';
+
+function getDndAction(from: string, to: string): DndAction | null {
+  if ((from === 'not_analysed' || from === 'suspicious' || from === 'spam') && to === 'active') return 'approve';
+  if (from === 'active' && to === 'suspicious') return 'mark_suspicious';
+  if ((from === 'suspicious' || from === 'active') && to === 'spam') return 'move_to_spam';
+  return null;
+}
 
 const PAGE_SIZE = 20;
 
@@ -118,100 +163,73 @@ type ColumnState = {
   page: number;
 };
 
+// Draggable wrapper — only rendered for DND_COLS
+function DraggableMessageCard({
+  thread,
+  colId,
+  onOpen,
+  weRepliedLast,
+}: {
+  thread: MessageThread;
+  colId: string;
+  onOpen: (t: MessageThread) => void;
+  weRepliedLast?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: thread.threadId,
+    data: { colId },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`relative cursor-grab active:cursor-grabbing touch-none select-none ${isDragging ? 'opacity-30' : ''}`}
+    >
+      <GripVertical className="absolute top-2 right-2 z-10 w-3.5 h-3.5 text-muted-foreground/30 pointer-events-none" />
+      <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} />
+    </div>
+  );
+}
+
 type KanbanColumnProps = {
   col: KanbanColumnDef;
-  fixedFilters: Record<string, string>;
-  sharedFilters: Record<string, string>;
-  filterKey: string;
+  state: ColumnState;
+  isDndEnabled: boolean;
+  activeDragColId: string | null;
+  activeThreadId: string | null;
+  onLoadMore: () => void;
   onOpen: (thread: MessageThread) => void;
 };
 
 const KanbanColumn = ({
   col,
-  fixedFilters,
-  sharedFilters,
-  filterKey,
+  state,
+  isDndEnabled,
+  activeDragColId,
+  activeThreadId,
+  onLoadMore,
   onOpen,
 }: KanbanColumnProps) => {
-  const [state, setState] = useState<ColumnState>({
-    threads: [],
-    total: 0,
-    loading: true,
-    hasMore: false,
-    page: 1,
-  });
-
-  // Always holds latest values without stale closure issues
-  const sharedFiltersRef = useRef(sharedFilters);
-  sharedFiltersRef.current = sharedFilters;
-  const pageRef = useRef(1);
-
-  // Reset + fetch page 1 whenever filters change
-  useEffect(() => {
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true, threads: [], page: 1 }));
-    void (async () => {
-      try {
-        const filters = { ...sharedFiltersRef.current, ...fixedFilters };
-        const res = await messageService.getThreads(filters, 1, PAGE_SIZE, 'desc');
-        if (cancelled || !res.success) return;
-        pageRef.current = res.pagination.page;
-        setState({
-          threads: res.data.filter((t) => t.latestMessage !== null),
-          total: res.pagination.total,
-          loading: false,
-          hasMore: res.pagination.page < res.pagination.totalPages,
-          page: res.pagination.page,
-        });
-      } catch (err) {
-        if (!cancelled) {
-          logger.error(`Failed to fetch kanban column ${col.id}:`, err);
-          setState((s) => ({ ...s, loading: false }));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // filterKey is the stable serialization of sharedFilters; col.id covers column identity.
-    // fixedFilters is intentionally omitted from deps: it is derived from the module-level
-    // COLUMNS constant and never changes at runtime. If dynamic per-column filters are ever
-    // introduced, add fixedFilters to this array and remove the eslint-disable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fixedFilters is always a module-level constant, never changes at runtime
-  }, [filterKey, col.id]);
-
-  const loadMore = useCallback(async () => {
-    const nextPage = pageRef.current + 1;
-    const filterSnapshot = { ...sharedFiltersRef.current, ...fixedFilters };
-    setState((s) => ({ ...s, loading: true }));
-    try {
-      const res = await messageService.getThreads(filterSnapshot, nextPage, PAGE_SIZE, 'desc');
-      if (!res.success) return;
-      // Compare the full merged filter (shared + fixed) on both sides so the stale-result guard
-      // works correctly even when fixedFilters has entries. Using only sharedFiltersRef would
-      // always mismatch snapshotKey when fixedFilters is non-empty.
-      const currentFilterKey = JSON.stringify({ ...sharedFiltersRef.current, ...fixedFilters });
-      const snapshotKey = JSON.stringify(filterSnapshot);
-      if (currentFilterKey !== snapshotKey) return;
-      pageRef.current = res.pagination.page;
-      setState((s) => ({
-        threads: [...s.threads, ...res.data.filter((t) => t.latestMessage !== null)],
-        total: res.pagination.total,
-        loading: false,
-        hasMore: res.pagination.page < res.pagination.totalPages,
-        page: res.pagination.page,
-      }));
-    } catch (err) {
-      logger.error(`Failed to load more for kanban column ${col.id}:`, err);
-      setState((s) => ({ ...s, loading: false }));
-    }
-  }, [col, fixedFilters]);
-
+  // Always call useDroppable — only attach ref when this column participates in DnD.
+  // Without setNodeRef, the droppable has no bounding rect so collision detection ignores it.
+  const { setNodeRef, isOver } = useDroppable({ id: col.id });
   const Icon = col.icon;
+
+  // Only highlight when this column is a valid target for the currently dragged card.
+  const isValidTarget = isDndEnabled &&
+    activeDragColId !== null &&
+    activeDragColId !== col.id &&
+    (VALID_TARGETS[activeDragColId]?.has(col.id) ?? false);
 
   return (
     <div
-      className="flex flex-col w-full rounded-lg border-t-4 border border-border bg-muted/30 overflow-hidden md:min-w-[260px] md:max-w-[320px] md:flex-1"
+      ref={isDndEnabled ? setNodeRef : undefined}
+      className={cn(
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:max-w-[320px] md:flex-1 transition-colors',
+        isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
+      )}
       style={{ borderTopColor: col.accentColor }}
       data-column={col.id}
     >
@@ -226,7 +244,7 @@ const KanbanColumn = ({
         )}
       </div>
 
-      {/* Cards — horizontal scroll on mobile, vertical scroll on desktop */}
+      {/* Cards */}
       <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]">
         {state.loading && state.threads.length === 0 ? (
           Array.from({ length: 3 }, (_, i) => (
@@ -239,16 +257,34 @@ const KanbanColumn = ({
           <p className="py-4 px-3 text-xs text-muted-foreground md:text-center">{col.emptyText}</p>
         ) : (
           <>
-            {state.threads.map((thread) => (
-              <div key={thread.threadId} className="min-w-[260px] md:min-w-0 shrink-0 md:shrink">
-                <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={col.id === 'awaiting'} />
-              </div>
-            ))}
+            {state.threads.map((thread) =>
+              isDndEnabled && !thread.threadId.startsWith('spamlog_') ? (
+                <div key={thread.threadId} className="min-w-[260px] md:min-w-0 shrink-0 md:shrink">
+                  <DraggableMessageCard
+                    thread={thread}
+                    colId={col.id}
+                    onOpen={onOpen}
+                    weRepliedLast={col.id === 'awaiting'}
+                  />
+                </div>
+              ) : (
+                <div
+                  key={thread.threadId}
+                  className="min-w-[260px] md:min-w-0 shrink-0 md:shrink"
+                  title={thread.threadId.startsWith('spamlog_') ? 'Rule-blocked — cannot be moved' : undefined}
+                >
+                  <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={col.id === 'awaiting'} />
+                </div>
+              )
+            )}
+            {isDndEnabled && activeThreadId !== null && (
+              <div className="min-h-[60px] shrink-0" />
+            )}
             {state.hasMore && (
               <button
                 type="button"
                 disabled={state.loading}
-                onClick={() => void loadMore()}
+                onClick={onLoadMore}
                 className="flex gap-1 justify-center items-center shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 md:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -265,17 +301,96 @@ const KanbanColumn = ({
 type MessagesKanbanViewProps = {
   filters: FilterState;
   onOpen: (thread: MessageThread) => void;
+  refreshKey?: number;
 };
 
-const TOGGLEABLE_COLUMNS = new Set(['not_analysed', 'resolved']);
+const TOGGLEABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved']);
 
-export const MessagesKanbanView = ({ filters, onOpen }: MessagesKanbanViewProps) => {
-  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
-    new Set(['not_analysed', 'resolved'])
+const initialColStates = (): Record<string, ColumnState> =>
+  Object.fromEntries(
+    COLUMNS.map((c) => [c.id, { threads: [], total: 0, loading: true, hasMore: false, page: 1 }])
   );
+
+export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanbanViewProps) => {
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
+    new Set(['not_analysed', 'spam', 'resolved'])
+  );
+  const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
+  const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
+  const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
 
   const sharedFilters = useMemo(() => buildSharedFilters(filters), [filters]);
   const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
+
+  const colStatesRef = useRef(colStates);
+  colStatesRef.current = colStates;
+  const sharedFiltersRef = useRef(sharedFilters);
+  sharedFiltersRef.current = sharedFilters;
+
+  // Fetch all columns in parallel when filters change
+  useEffect(() => {
+    let cancelled = false;
+    setColStates(initialColStates);
+
+    COLUMNS.forEach((col) => {
+      void (async () => {
+        try {
+          const res = await messageService.getThreads(
+            { ...sharedFiltersRef.current, ...col.fixedFilters },
+            1,
+            PAGE_SIZE,
+            'desc'
+          );
+          if (cancelled || !res.success) return;
+          setColStates((prev) => ({
+            ...prev,
+            [col.id]: {
+              threads: res.data.filter((t) => t.latestMessage !== null),
+              total: res.pagination.total,
+              loading: false,
+              hasMore: res.pagination.page < res.pagination.totalPages,
+              page: res.pagination.page,
+            },
+          }));
+        } catch (err) {
+          if (!cancelled) {
+            logger.error(`Failed to fetch kanban column ${col.id}:`, err);
+            setColStates((prev) => ({ ...prev, [col.id]: { ...prev[col.id], loading: false } }));
+          }
+        }
+      })();
+    });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, refreshKey]);
+
+  const loadMore = useCallback((colId: string) => {
+    const col = COLUMNS.find((c) => c.id === colId);
+    if (!col) return;
+    setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
+    const nextPage = colStatesRef.current[colId].page + 1;
+    const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
+    void (async () => {
+      try {
+        const res = await messageService.getThreads(filterSnapshot, nextPage, PAGE_SIZE, 'desc');
+        if (!res.success) return;
+        setColStates((prev) => ({
+          ...prev,
+          [colId]: {
+            threads: [...prev[colId].threads, ...res.data.filter((t) => t.latestMessage !== null)],
+            total: res.pagination.total,
+            loading: false,
+            hasMore: res.pagination.page < res.pagination.totalPages,
+            page: res.pagination.page,
+          },
+        }));
+      } catch (err) {
+        logger.error(`Failed to load more for column ${colId}:`, err);
+        setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
+      }
+    })();
+  }, []);
 
   const toggleColumn = (id: string) => {
     setHiddenColumns((prev) => {
@@ -294,52 +409,138 @@ export const MessagesKanbanView = ({ filters, onOpen }: MessagesKanbanViewProps)
     }
   }, [filters.departmentRole, setSelectedDepartment]);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const threadId = event.active.id as string;
+    const colId = event.active.data.current?.colId as string;
+    const thread = colStatesRef.current[colId]?.threads.find((t) => t.threadId === threadId);
+    setActiveThread(thread ?? null);
+    setActiveDragColId(colId);
+  }, []);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveThread(null);
+    setActiveDragColId(null);
+
+    if (!over) return;
+
+    const threadId = active.id as string;
+    const fromColId = active.data.current?.colId as string;
+    const toColId = over.id as string;
+
+    if (fromColId === toColId) return;
+
+    const action = getDndAction(fromColId, toColId);
+    if (!action) return;
+
+    const thread = colStatesRef.current[fromColId]?.threads.find((t) => t.threadId === threadId);
+    if (!thread?.latestMessage) return;
+
+    const msgId = thread.latestMessage.id;
+
+    // Optimistic move
+    setColStates((prev) => ({
+      ...prev,
+      [fromColId]: {
+        ...prev[fromColId],
+        threads: prev[fromColId].threads.filter((t) => t.threadId !== threadId),
+        total: Math.max(0, prev[fromColId].total - 1),
+      },
+      [toColId]: {
+        ...prev[toColId],
+        threads: [thread, ...prev[toColId].threads],
+        total: prev[toColId].total + 1,
+      },
+    }));
+
+    try {
+      await messageService.classify(msgId, action);
+    } catch (err) {
+      logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
+      // Rollback
+      setColStates((prev) => ({
+        ...prev,
+        [fromColId]: {
+          ...prev[fromColId],
+          threads: [thread, ...prev[fromColId].threads],
+          total: prev[fromColId].total + 1,
+        },
+        [toColId]: {
+          ...prev[toColId],
+          threads: prev[toColId].threads.filter((t) => t.threadId !== threadId),
+          total: Math.max(0, prev[toColId].total - 1),
+        },
+      }));
+    }
+  }, []);
+
   const visibleColumns = COLUMNS.filter((col) => !hiddenColumns.has(col.id));
   const toggleableColumns = COLUMNS.filter((col) => TOGGLEABLE_COLUMNS.has(col.id));
 
   return (
-    <div className="space-y-3">
-      {/* Column visibility toggles */}
-      <div className="flex gap-2 items-center">
-        <span className="text-xs text-muted-foreground">Show:</span>
-        {toggleableColumns.map((col) => {
-          const Icon = col.icon;
-          const visible = !hiddenColumns.has(col.id);
-          return (
-            <button
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={(e) => void handleDragEnd(e)}
+    >
+      <div className="space-y-3">
+        {/* Column visibility toggles */}
+        <div className="flex gap-2 items-center">
+          <span className="text-xs text-muted-foreground">Show:</span>
+          {toggleableColumns.map((col) => {
+            const Icon = col.icon;
+            const visible = !hiddenColumns.has(col.id);
+            return (
+              <button
+                key={col.id}
+                type="button"
+                onClick={() => toggleColumn(col.id)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                  visible
+                    ? 'border-transparent bg-muted text-foreground'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Icon
+                  className={cn(
+                    'w-3 h-3',
+                    visible && col.accentColor ? `text-${col.accentColor}` : ''
+                  )}
+                />
+                {col.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-4 md:flex-row md:overflow-x-auto md:gap-3 md:pb-4">
+          {visibleColumns.map((col) => (
+            <KanbanColumn
               key={col.id}
-              type="button"
-              onClick={() => toggleColumn(col.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                visible
-                  ? 'border-transparent bg-muted text-foreground'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Icon
-                className={cn(
-                  'w-3 h-3',
-                  visible && col.accentColor ? `text-${col.accentColor}` : ''
-                )}
-              />
-              {col.label}
-            </button>
-          );
-        })}
+              col={col}
+              state={colStates[col.id] ?? { threads: [], total: 0, loading: true, hasMore: false, page: 1 }}
+              isDndEnabled={DND_COLS.has(col.id)}
+              activeDragColId={activeDragColId}
+              activeThreadId={activeThread?.threadId ?? null}
+              onLoadMore={() => loadMore(col.id)}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:overflow-x-auto md:gap-3 md:pb-4">
-        {visibleColumns.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            col={col}
-            fixedFilters={col.fixedFilters}
-            sharedFilters={sharedFilters}
-            filterKey={filterKey}
-            onOpen={onOpen}
-          />
-        ))}
-      </div>
-    </div>
+      <DragOverlay dropAnimation={null}>
+        {activeThread ? (
+          <div className="min-w-[260px] rounded-md shadow-xl rotate-1 opacity-95 cursor-grabbing">
+            <KanbanCard thread={activeThread} onOpen={() => {}} />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };

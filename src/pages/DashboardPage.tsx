@@ -7,6 +7,7 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
+  AlertCircle,
   Hourglass,
   BarChart3,
   Loader2,
@@ -14,6 +15,8 @@ import {
   ShieldAlert,
   BookOpen,
   FileText,
+  Timer,
+  Archive,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -29,6 +32,7 @@ import { integrationsService } from '@/services/integrations.service';
 import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
+import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
@@ -37,6 +41,13 @@ import { logger } from '@/lib/logger';
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
+    // SLA & Resolution (top section)
+    slaBreachCount: 0,
+    slaAtRiskCount: 0,
+    avgFirstResponseMins: null as number | null,
+    avgFirstResponsePeriodDays: null as number | null,
+    resolvedExclKB: 0,
+    closedExclKB: 0,
     // Messages
     activeMessages: 0,
     clientReplied: 0,
@@ -110,6 +121,11 @@ export const DashboardPage = () => {
       // Scope counts to the selected department so agents only see their own department's stats.
       const deptFilter = selectedDepartment ? { departmentRole: selectedDepartment } : {};
       const [
+        slaBreachRes,
+        slaAtRiskRes,
+        slaSummary,
+        resolvedExclKBRes,
+        closedExclKBRes,
         activeRes,
         clientRepliedRes,
         awaitingRes,
@@ -123,6 +139,11 @@ export const DashboardPage = () => {
         kbDocRes,
         docStatsRes,
       ] = await Promise.all([
+        messageService.getThreads({ view: 'work_queue', slaBreached: 'true', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'work_queue', slaAtRisk: 'true', ...deptFilter }, 1, 1),
+        slaService.getSummary().catch(() => null),
+        messageService.getThreads({ view: 'resolved', excludeKB: 'true', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'active', processed: 'closed', ...deptFilter }, 1, 1),
         messageService.getThreads({ view: 'active', ...deptFilter }, 1, 1),
         messageService.getThreads({ view: 'client_replied', ...deptFilter }, 1, 1),
         messageService.getThreads({ view: 'awaiting_response', ...deptFilter }, 1, 1),
@@ -138,6 +159,12 @@ export const DashboardPage = () => {
       ]);
 
       setStats({
+        slaBreachCount: slaBreachRes.success ? slaBreachRes.pagination.total : 0,
+        slaAtRiskCount: slaAtRiskRes.success ? slaAtRiskRes.pagination.total : 0,
+        avgFirstResponseMins: slaSummary?.messages.avgResponseTime ?? null,
+        avgFirstResponsePeriodDays: slaSummary?.messages.avgResponsePeriodDays ?? null,
+        resolvedExclKB: resolvedExclKBRes.success ? resolvedExclKBRes.pagination.total : 0,
+        closedExclKB: closedExclKBRes.success ? closedExclKBRes.pagination.total : 0,
         activeMessages: activeRes.success ? activeRes.pagination.total : 0,
         clientReplied: clientRepliedRes.success ? clientRepliedRes.pagination.total : 0,
         awaitingResponse: awaitingRes.success ? awaitingRes.pagination.total : 0,
@@ -370,6 +397,80 @@ export const DashboardPage = () => {
     }
   };
 
+  const formatMinutes = (mins: number | null): string => {
+    if (mins === null) return '—';
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
+
+  const slaCards = [
+    {
+      title: 'SLA Breach',
+      value: stats.slaBreachCount,
+      icon: AlertTriangle,
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-50 dark:bg-red-950/50',
+      borderColor: '#dc2626',
+      hint: 'Active breaches',
+      onClick: () => navigate('/messages?slaBreached=true'),
+      isClickable: true,
+    },
+    {
+      title: 'SLA At Risk',
+      value: stats.slaAtRiskCount,
+      icon: AlertCircle,
+      color: 'text-amber-600 dark:text-amber-400',
+      bg: 'bg-amber-50 dark:bg-amber-950/50',
+      borderColor: '#d97706',
+      hint: '>80% of deadline',
+      onClick: () => navigate('/messages?slaAtRisk=true'),
+      isClickable: true,
+    },
+    {
+      title: 'Avg First Response',
+      value: formatMinutes(stats.avgFirstResponseMins),
+      icon: Timer,
+      color: 'text-blue-600 dark:text-blue-400',
+      bg: 'bg-blue-50 dark:bg-blue-950/50',
+      borderColor: '#2563eb',
+      hint: stats.avgFirstResponsePeriodDays === null
+        ? 'No data'
+        : stats.avgFirstResponsePeriodDays === 1
+          ? 'Last 24 hours'
+          : stats.avgFirstResponsePeriodDays === 7
+            ? 'Last 7 days'
+            : stats.avgFirstResponsePeriodDays === 30
+              ? 'Last 30 days'
+              : 'Last year',
+      onClick: () => navigate('/sla-dashboard'),
+      isClickable: false,
+    },
+    {
+      title: 'Resolved',
+      value: stats.resolvedExclKB,
+      icon: CheckCircle,
+      color: 'text-green-600 dark:text-green-400',
+      bg: 'bg-green-50 dark:bg-green-950/50',
+      borderColor: '#16a34a',
+      hint: 'Excl. KB processing',
+      onClick: () => navigate('/messages?status=resolved'),
+      isClickable: true,
+    },
+    {
+      title: 'Closed',
+      value: stats.closedExclKB,
+      icon: Archive,
+      color: 'text-slate-600 dark:text-slate-400',
+      bg: 'bg-slate-50 dark:bg-slate-950/50',
+      borderColor: '#475569',
+      hint: 'Excl. KB processing',
+      onClick: () => navigate('/messages?threadStatus=closed'),
+      isClickable: true,
+    },
+  ];
+
   const messageCards = [
     {
       title: 'Active',
@@ -379,7 +480,7 @@ export const DashboardPage = () => {
       bg: 'bg-blue-50 dark:bg-blue-950/50',
       borderColor: '#2563eb',
       hint: 'Needs your attention',
-      onClick: () => navigate('/messages?view=active'),
+      onClick: () => navigate('/messages?status=active'),
     },
     {
       title: 'Client Replied',
@@ -389,7 +490,7 @@ export const DashboardPage = () => {
       bg: 'bg-orange-50 dark:bg-orange-950/50',
       borderColor: '#ea580c',
       hint: 'Waiting for your reply',
-      onClick: () => navigate('/messages?view=client_replied'),
+      onClick: () => navigate('/messages?status=client_replied'),
     },
     {
       title: 'Awaiting Response',
@@ -399,7 +500,7 @@ export const DashboardPage = () => {
       bg: 'bg-yellow-50 dark:bg-yellow-950/50',
       borderColor: '#ca8a04',
       hint: 'Waiting for client',
-      onClick: () => navigate('/messages?view=awaiting_response'),
+      onClick: () => navigate('/messages?status=awaiting_response'),
     },
     {
       title: 'Suspicious',
@@ -409,7 +510,7 @@ export const DashboardPage = () => {
       bg: 'bg-amber-50 dark:bg-amber-950/50',
       borderColor: '#d97706',
       hint: 'Needs review',
-      onClick: () => navigate('/messages?view=suspicious'),
+      onClick: () => navigate('/messages?status=suspicious'),
     },
     {
       title: 'Not Analysed',
@@ -419,7 +520,7 @@ export const DashboardPage = () => {
       bg: 'bg-red-50 dark:bg-red-950/50',
       borderColor: '#dc2626',
       hint: 'Pending AI processing',
-      onClick: () => navigate('/messages?view=not_analysed'),
+      onClick: () => navigate('/messages?status=not_analysed'),
     },
     {
       title: 'Resolved',
@@ -429,7 +530,7 @@ export const DashboardPage = () => {
       bg: 'bg-green-50 dark:bg-green-950/50',
       borderColor: '#16a34a',
       hint: 'Successfully resolved',
-      onClick: () => navigate('/messages?view=resolved'),
+      onClick: () => navigate('/messages?status=resolved'),
     },
   ];
 
@@ -486,6 +587,24 @@ export const DashboardPage = () => {
 
         {loading ? (
           <div className="space-y-6">
+            {/* SLA skeleton */}
+            <div>
+              <div className="w-32 h-4 bg-gray-200 rounded mb-3" />
+              <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <Card key={`skeleton-sla-${i}`} className="animate-pulse">
+                    <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
+                      <div className="w-20 h-4 bg-gray-200 rounded" />
+                      <div className="w-8 h-8 bg-gray-200 rounded" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="w-12 h-7 bg-gray-200 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
             {/* Messages skeleton */}
             <div>
               <div className="w-24 h-4 bg-gray-200 rounded mb-3" />
@@ -540,41 +659,43 @@ export const DashboardPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Messages Section */}
+            {/* SLA & Resolution Section */}
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-                Messages
+                SLA &amp; Resolution
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                {messageCards.map((stat) => {
-                  const Icon = stat.icon;
+              <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+                {slaCards.map((card) => {
+                  const Icon = card.icon;
                   return (
                     <Card
-                      key={stat.title}
-                      onClick={stat.onClick}
-                      className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
-                      style={{ borderLeftColor: stat.borderColor }}
+                      key={card.title}
+                      onClick={card.isClickable ? card.onClick : undefined}
+                      className={`border-l-4 transition-all ${card.isClickable ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group' : ''}`}
+                      style={{ borderLeftColor: card.borderColor }}
                     >
                       <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
                         <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
-                          {stat.title}
+                          {card.title}
                         </CardTitle>
                         <div
-                          className={`${stat.bg} p-2 rounded-xl group-hover:scale-110 transition-transform`}
+                          className={`${card.bg} p-2 rounded-xl ${card.isClickable ? 'group-hover:scale-110 transition-transform' : ''}`}
                         >
-                          <Icon className={`h-4 w-4 ${stat.color}`} />
+                          <Icon className={`h-4 w-4 ${card.color}`} />
                         </div>
                       </CardHeader>
                       <CardContent className="pb-4">
                         <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
-                          {stat.value}
+                          {card.value}
                         </div>
                         <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
                           <BarChart3 className="w-3 h-3" />
-                          {stat.hint}
-                          <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            →
-                          </span>
+                          {card.hint}
+                          {card.isClickable && (
+                            <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              →
+                            </span>
+                          )}
                         </p>
                       </CardContent>
                     </Card>
@@ -583,48 +704,100 @@ export const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Tickets Section */}
-            <div>
-              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-                Tickets
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {ticketCards.map((stat) => {
-                  const Icon = stat.icon;
-                  return (
-                    <Card
-                      key={stat.title}
-                      onClick={stat.onClick}
-                      className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
-                      style={{ borderLeftColor: stat.borderColor }}
-                    >
-                      <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
-                          {stat.title}
+            {/* Messages + Tickets Section */}
+            {(() => {
+              const messageTotal = messageCards.reduce((s, c) => s + c.value, 0);
+              const ticketTotal = ticketCards.reduce((s, c) => s + c.value, 0);
+              return (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Messages by Status */}
+                  <Card>
+                    <CardHeader className="pb-2 pt-4">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Messages by Status
                         </CardTitle>
-                        <div
-                          className={`${stat.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}
+                        <span className="text-xs text-muted-foreground">{messageTotal} total</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-4 space-y-1.5">
+                      {messageCards.map((row) => (
+                        <button
+                          key={row.title}
+                          type="button"
+                          onClick={row.onClick}
+                          className="flex gap-3 items-center px-1 py-1 w-full rounded transition-colors group hover:bg-muted/50"
                         >
-                          <Icon className={`h-5 w-5 ${stat.color}`} />
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pb-4">
-                        <div className="text-2xl font-bold tracking-tight transition-colors group-hover:text-primary">
-                          {stat.value}
-                        </div>
-                        <p className="flex gap-1 items-center text-xs text-muted-foreground mt-0.5">
-                          <BarChart3 className="w-3 h-3" />
-                          {stat.hint}
-                          <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div
+                            className="flex-shrink-0 w-2 h-2 rounded-full"
+                            style={{ backgroundColor: row.borderColor }}
+                          />
+                          <span className="w-36 text-sm font-medium text-left text-foreground/80 group-hover:text-foreground">
+                            {row.title}
+                          </span>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-muted">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${messageTotal ? (row.value / messageTotal) * 100 : 0}%`,
+                                backgroundColor: row.borderColor,
+                              }}
+                            />
+                          </div>
+                          <span className="w-6 text-sm font-semibold text-right">{row.value}</span>
+                          <span className="opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100">
                             →
                           </span>
-                        </p>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  {/* Tickets by Status */}
+                  <Card>
+                    <CardHeader className="pb-2 pt-4">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Tickets by Status
+                        </CardTitle>
+                        <span className="text-xs text-muted-foreground">{ticketTotal} total</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-4 space-y-1.5">
+                      {ticketCards.map((row) => (
+                        <button
+                          key={row.title}
+                          type="button"
+                          onClick={row.onClick}
+                          className="flex gap-3 items-center px-1 py-1 w-full rounded transition-colors group hover:bg-muted/50"
+                        >
+                          <div
+                            className="flex-shrink-0 w-2 h-2 rounded-full"
+                            style={{ backgroundColor: row.borderColor }}
+                          />
+                          <span className="w-36 text-sm font-medium text-left text-foreground/80 group-hover:text-foreground">
+                            {row.title}
+                          </span>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-muted">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${ticketTotal ? (row.value / ticketTotal) * 100 : 0}%`,
+                                backgroundColor: row.borderColor,
+                              }}
+                            />
+                          </div>
+                          <span className="w-6 text-sm font-semibold text-right">{row.value}</span>
+                          <span className="opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100">
+                            →
+                          </span>
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
             {/* Knowledge Base Section */}
             <div>

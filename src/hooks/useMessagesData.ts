@@ -2,25 +2,17 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
-import {
-  spamLogService,
-  type SpamLog,
-  type SpamLogFilters as SpamFiltersType,
-} from '@/services/spamLog.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 
 interface UseMessagesDataProps {
   urlSyncedRef: MutableRefObject<boolean>;
-  activeTab: 'messages' | 'spam';
-  spamFilters: SpamFiltersType;
 }
 
 const DEFAULT_LIMIT = 50;
 
-export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMessagesDataProps) => {
+export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps) => {
   const [threads, setThreadsLocal] = useState<MessageThread[]>([]);
-  const [spamLogs, setSpamLogs] = useState<SpamLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [messagesPagination, setMessagesPagination] = useState({
@@ -30,16 +22,7 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     totalPages: 0,
     hasMore: false,
   });
-  const [spamPagination, setSpamPagination] = useState({
-    page: 1,
-    limit: DEFAULT_LIMIT,
-    total: 0,
-    totalPages: 0,
-    hasMore: false,
-  });
-
   const messagesFetchingRef = useRef(false);
-  const spamFetchingRef = useRef(false);
 
   const filters = useMessagesStore((state) => state.filters);
   const sorting = useMessagesStore((state) => state.sorting);
@@ -96,6 +79,8 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
           apiFilters.view = 'suspicious';
         } else if (status === 'not_analysed') {
           apiFilters.view = 'not_analysed';
+        } else if (status === 'spam') {
+          apiFilters.showSpam = 'true';
         } else if (status === 'resolved') {
           apiFilters.view = 'resolved';
         }
@@ -140,6 +125,13 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
           apiFilters.hasJiraTicket = 'true';
         }
 
+        // SLA FILTER
+        if (currentFilters.slaFilter === 'breached') {
+          apiFilters.slaBreached = 'true';
+        } else if (currentFilters.slaFilter === 'at_risk') {
+          apiFilters.slaAtRisk = 'true';
+        }
+
         // SEARCH
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
@@ -177,34 +169,6 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     [getCached, setMessages]
   );
 
-  const fetchSpamLogs = useCallback(
-    async (page = 1, force = false) => {
-      if (spamFetchingRef.current && !force) {
-        return;
-      }
-
-      spamFetchingRef.current = true;
-      setLoading(true);
-      try {
-        const response = await spamLogService.getAll(spamFilters, page, DEFAULT_LIMIT);
-
-        if (response.success && response.data) {
-          setSpamLogs(response.data);
-          setSpamPagination(response.pagination);
-
-          if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
-            await fetchSpamLogs(1);
-          }
-        }
-      } catch (error) {
-        logger.error('Failed to fetch spam logs:', error);
-      } finally {
-        setLoading(false);
-        spamFetchingRef.current = false;
-      }
-    },
-    [spamFilters]
-  );
 
   // Fetch on filter/sorting change
   useEffect(() => {
@@ -225,56 +189,12 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
     filters.linked,
     filters.search,
     filters.departmentRole,
+    filters.slaFilter,
     sorting.sortOrder,
   ]);
 
-  // Fetch messages when messages tab becomes active
-  useEffect(() => {
-    if (!urlSyncedRef.current) return;
-
-    if (activeTab === 'messages') {
-      fetchMessages(1).catch((error) => {
-        logger.error('Failed to fetch messages:', error);
-      });
-    }
-  }, [activeTab, fetchMessages, urlSyncedRef]);
-
-  // Fetch spam logs when spam tab becomes active
-  useEffect(() => {
-    if (!urlSyncedRef.current) return;
-
-    if (activeTab === 'spam') {
-      fetchSpamLogs(1).catch((error) => {
-        logger.error('Failed to fetch spam logs:', error);
-      });
-    }
-  }, [activeTab, fetchSpamLogs, urlSyncedRef]);
-
-  // Fetch spam logs when spam filters change
-  useEffect(() => {
-    if (!urlSyncedRef.current) return;
-    if (activeTab !== 'spam') return;
-
-    fetchSpamLogs(1).catch((error) => {
-      logger.error('Failed to fetch spam logs:', error);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    spamFilters.channel,
-    spamFilters.category,
-    spamFilters.departmentRole,
-    spamFilters.messageSourceId,
-    spamFilters.days,
-    spamFilters.search,
-    spamFilters.sortOrder,
-  ]);
-
   const handlePageChange = async (page: number) => {
-    if (activeTab === 'messages') {
-      await fetchMessages(page);
-    } else {
-      await fetchSpamLogs(page);
-    }
+    await fetchMessages(page);
   };
 
   const handleRefresh = async () => {
@@ -285,14 +205,11 @@ export const useMessagesData = ({ urlSyncedRef, activeTab, spamFilters }: UseMes
 
   return {
     threads,
-    spamLogs,
     loading,
     refreshing,
     setRefreshing,
     messagesPagination,
-    spamPagination,
     fetchMessages,
-    fetchSpamLogs,
     handlePageChange,
     handleRefresh,
     clearCache,

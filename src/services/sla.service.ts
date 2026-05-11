@@ -2,7 +2,8 @@ import { apiClient } from '@/lib/api-client';
 
 export type SLASummary = {
   messages: {
-    avgResponseTime: number | null; // null when no responses recorded yet
+    avgResponseTime: number | null;
+    avgResponsePeriodDays: number | null; // which window had data (1/7/30/365), null if none
     breaches24h: number;
     complianceRate: number;
   };
