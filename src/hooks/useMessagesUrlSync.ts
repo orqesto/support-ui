@@ -6,7 +6,7 @@ import { messageService } from '@/services/message.service';
 import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 
-const VALID_STATUSES = ['all', 'active', 'awaiting_response', 'client_replied', 'suspicious', 'not_analysed', 'resolved'] as const;
+const VALID_STATUSES = ['all', 'active', 'awaiting_response', 'client_replied', 'suspicious', 'not_analysed', 'spam', 'resolved'] as const;
 const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'closed'] as const;
 const VALID_AI_STATES = ['all', 'needs_review', 'needs_info', 'ai_suggested', 'in_human_work', 'bot_handled', 'lead', 'contradiction'] as const;
 const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
@@ -83,6 +83,14 @@ export const useMessagesUrlSync = ({
         urlFilters.departmentRole = urlDept as FilterState['departmentRole'];
       }
 
+      const urlSlaBreached = searchParams.get('slaBreached');
+      const urlSlaAtRisk = searchParams.get('slaAtRisk');
+      if (urlSlaBreached === 'true') {
+        urlFilters.slaFilter = 'breached';
+      } else if (urlSlaAtRisk === 'true') {
+        urlFilters.slaFilter = 'at_risk';
+      }
+
       if (Object.keys(urlFilters).length > 0) {
         setFilters({ ...defaultFilters, ...urlFilters });
       }
@@ -124,6 +132,8 @@ export const useMessagesUrlSync = ({
     if (filters.labelId && filters.labelId !== 'all') params.set('labelId', filters.labelId);
     if (filters.search) params.set('search', filters.search);
     if (filters.departmentRole && filters.departmentRole !== 'all') params.set('dept', filters.departmentRole);
+    if (filters.slaFilter === 'breached') params.set('slaBreached', 'true');
+    else if (filters.slaFilter === 'at_risk') params.set('slaAtRisk', 'true');
 
     setSearchParams(params, { replace: true });
   }, [filters, searchParams, setSearchParams]);

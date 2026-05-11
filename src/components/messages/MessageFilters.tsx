@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, Brain, Link, Mail, Send, Monitor, FileText, ChevronDown } from 'lucide-react';
+import { Filter, X, Brain, Link, Mail, Send, Monitor, FileText, ChevronDown, AlertTriangle, AlertCircle } from 'lucide-react';
 import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +27,7 @@ const STATUS_OPTIONS = [
   { value: '__sep__',           label: '─────────────',    isDisabled: true },
   { value: 'suspicious',        label: 'Suspicious' },
   { value: 'not_analysed',      label: 'Not Analysed' },
+  { value: 'spam',              label: 'Spam' },
   { value: 'resolved',          label: 'Resolved' },
 ] as const;
 
@@ -73,6 +74,7 @@ type MessageFiltersProps = {
   onClearFilters: () => void;
   onSortingChange: (sortOrder: 'asc' | 'desc') => void;
   setPendingSearch: (value: string) => void;
+  isKanban?: boolean;
 };
 
 export const MessageFilters = ({
@@ -87,6 +89,7 @@ export const MessageFilters = ({
   onClearFilters,
   onSortingChange,
   setPendingSearch,
+  isKanban = false,
 }: MessageFiltersProps) => {
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -220,24 +223,28 @@ export const MessageFilters = ({
 
           {/* ── Queue ─────────────────────────────────────────────── */}
           <FilterSection label="Queue">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
-              <FilterCell label="Status">
-                <ReactSelect
-                  value={filters.status ?? 'active'}
-                  onChange={(value) => onFilterChange('status', value)}
-                  options={STATUS_OPTIONS as unknown as { value: string; label: string }[]}
-                  className="w-full"
-                />
-              </FilterCell>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 ${isKanban ? 'md:grid-cols-2' : 'md:grid-cols-4'}`}>
+              {!isKanban && (
+                <FilterCell label="Status">
+                  <ReactSelect
+                    value={filters.status ?? 'active'}
+                    onChange={(value) => onFilterChange('status', value)}
+                    options={STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                    className="w-full"
+                  />
+                </FilterCell>
+              )}
 
-              <FilterCell label="Thread Status">
-                <ReactSelect
-                  value={filters.threadStatus ?? 'all'}
-                  onChange={(value) => onFilterChange('threadStatus', value)}
-                  options={THREAD_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
-                  className="w-full"
-                />
-              </FilterCell>
+              {!isKanban && (
+                <FilterCell label="Thread Status">
+                  <ReactSelect
+                    value={filters.threadStatus ?? 'all'}
+                    onChange={(value) => onFilterChange('threadStatus', value)}
+                    options={THREAD_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                    className="w-full"
+                  />
+                </FilterCell>
+              )}
 
               <FilterCell label="Priority">
                 <ReactSelect
@@ -269,6 +276,41 @@ export const MessageFilters = ({
                 />
               </FilterCell>
             </div>
+
+            {/* SLA toggle pills — not shown in kanban (per-card SLA badges already visible) */}
+            {!isKanban && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onFilterChange('slaFilter', filters.slaFilter === 'breached' ? 'all' : 'breached')
+                  }
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    filters.slaFilter === 'breached'
+                      ? 'bg-red-600 border-red-600 text-white'
+                      : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40'
+                  }`}
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  SLA Breach
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onFilterChange('slaFilter', filters.slaFilter === 'at_risk' ? 'all' : 'at_risk')
+                  }
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    filters.slaFilter === 'at_risk'
+                      ? 'bg-amber-500 border-amber-500 text-white'
+                      : 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40'
+                  }`}
+                >
+                  <AlertCircle className="w-3 h-3" />
+                  SLA At Risk
+                </button>
+              </div>
+            )}
           </FilterSection>
 
           {/* ── Tags ──────────────────────────────────────────────── */}

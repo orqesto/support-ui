@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Ticket, RefreshCw, Send } from 'lucide-react';
+import { Ticket, RefreshCw, Send, LayoutList, Columns } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { TicketFilters } from '@/components/tickets/TicketFilters';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
+import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -36,6 +37,12 @@ import { logger } from '@/lib/logger';
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>(() =>
+    searchParams.get('mode') === 'kanban' ? 'kanban' : 'list'
+  );
+  useEffect(() => {
+    setDisplayMode(searchParams.get('mode') === 'kanban' ? 'kanban' : 'list');
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState<number | null>(null);
@@ -135,11 +142,11 @@ export const TicketsPage = () => {
   useEffect(() => {
     const params = new URLSearchParams();
 
-    // Preserve ticket ID if present
+    // Preserve ticket ID and display mode if present
     const ticketIdParam = searchParams.get('id');
-    if (ticketIdParam) {
-      params.set('id', ticketIdParam);
-    }
+    if (ticketIdParam) params.set('id', ticketIdParam);
+    const modeParam = searchParams.get('mode');
+    if (modeParam) params.set('mode', modeParam);
 
     // Add filters to URL (only non-default values)
     if (filters.status && filters.status !== 'all') {
@@ -365,7 +372,7 @@ export const TicketsPage = () => {
   const handleApplyPreset = (presetName: string) => {
     switch (presetName) {
       case 'urgent':
-        setFiltersStore({ ...filters, status: 'open', priority: 'high' });
+        setFiltersStore({ ...filters, status: 'open', priority: 'critical' });
         break;
       case 'in-progress':
         setFiltersStore({ ...filters, status: 'in_progress', priority: 'all' });
@@ -374,8 +381,8 @@ export const TicketsPage = () => {
         setFiltersStore({ ...filters, status: 'pending', priority: 'all' });
         break;
       case 'recent':
-        setFiltersStore({ ...filters, status: 'all', priority: 'all' });
-        setSortingStore({ sortBy: 'createdAt', sortOrder: 'desc' });
+        setFiltersStore({ ...filters, status: 'resolved', priority: 'all' });
+        setSortingStore({ sortBy: 'updatedAt', sortOrder: 'desc' });
         break;
     }
   };
@@ -586,6 +593,16 @@ export const TicketsPage = () => {
     }
   };
 
+  const activeFilterCount =
+    (filters.status && filters.status !== 'all' ? 1 : 0) +
+    (filters.priority && filters.priority !== 'all' ? 1 : 0) +
+    (filters.categoryId && filters.categoryId !== 'all' ? 1 : 0) +
+    (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
+    (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
+    (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
+    (filters.linked && filters.linked !== 'all' ? 1 : 0) +
+    (filters.search?.trim() ? 1 : 0);
+
   return (
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
@@ -633,6 +650,7 @@ export const TicketsPage = () => {
           sorting={sorting}
           pendingSearch={pendingSearch}
           pagination={pagination}
+          activeFilterCount={activeFilterCount}
           onFilterChange={handleFilterChange}
           onApplyPreset={handleApplyPreset}
           onSearch={handleSearch}
@@ -642,7 +660,39 @@ export const TicketsPage = () => {
           onPendingSearchChange={setPendingSearch}
         />
 
-        {loading ? (
+        {/* Display mode toggle */}
+        <div className="flex gap-1 items-center">
+          <button
+            type="button"
+            onClick={() => setSearchParams((p) => { p.delete('mode'); return p; }, { replace: true })}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              displayMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <LayoutList className="w-3.5 h-3.5" />
+            List
+          </button>
+          <button
+            type="button"
+            onClick={() => setSearchParams((p) => { p.set('mode', 'kanban'); return p; }, { replace: true })}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              displayMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Columns className="w-3.5 h-3.5" />
+            Kanban
+          </button>
+        </div>
+
+        {displayMode === 'kanban' ? (
+          <TicketsKanbanView
+            filters={filters}
+            onOpen={(ticket) => {
+              setSelectedTicket(ticket);
+              setSearchParams((p) => { p.set('id', ticket.id.toString()); return p; });
+            }}
+          />
+        ) : loading ? (
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
               // Index key is safe: array is immutable (recreated from text split), no reordering
@@ -672,7 +722,7 @@ export const TicketsPage = () => {
                 isSyncing={syncing === ticket.id}
                 onOpen={(t) => {
                   setSelectedTicket(t);
-                  setSearchParams({ id: t.id.toString() });
+                  setSearchParams((p) => { p.set('id', t.id.toString()); return p; });
                 }}
                 onPushToJira={handlePushToJira}
                 onDelete={handleDeleteClick}
@@ -682,7 +732,7 @@ export const TicketsPage = () => {
         )}
 
         {/* Pagination */}
-        {!loading && tickets.length > 0 && (
+        {!loading && tickets.length > 0 && displayMode !== 'kanban' && (
           <Pagination
             currentPage={pagination.page}
             totalPages={pagination.totalPages}
@@ -753,7 +803,7 @@ export const TicketsPage = () => {
         <Drawer
           open={!!selectedTicket}
           onClose={() => {
-            setSearchParams({});
+            setSearchParams((p) => { p.delete('id'); return p; });
             setSelectedTicket(null);
           }}
           title="Ticket Details"
