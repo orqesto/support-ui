@@ -182,7 +182,10 @@ export const MessageFilters = ({
           value={pendingSearch}
           onChange={(value) => {
             setPendingSearch(value);
-            onFilterChange('search', value);
+            // Only immediately clear the filter when the field is emptied.
+            // Actual search is triggered via Enter/button (onSearch) to avoid
+            // firing a full API request on every keystroke.
+            if (!value.trim()) onFilterChange('search', '');
           }}
           onSearch={onSearch}
           onBlur={onSearchBlur}
