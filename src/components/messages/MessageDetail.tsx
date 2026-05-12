@@ -56,7 +56,9 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { LinkifiedText } from '@/lib/linkify';
 import { formatDate, formatDuration } from '@/lib/utils';
 import { stripHtml } from '@/lib/stripHtml';
+import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { messageService } from '@/services/message.service';
+import { ticketService } from '@/services/ticket.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import {
@@ -93,6 +95,8 @@ const STATUS_LABELS: Record<MessageStatus, string> = {
   resolved: 'Resolved',
   closed: 'Closed',
   filtered: 'Filtered',
+  awaiting_response: '',
+  client_replied: '',
 };
 
 type MessageDetailProps = {
@@ -147,6 +151,7 @@ export const MessageDetail = ({
   const [closing, setClosing] = useState(false);
   const [togglingLead, setTogglingLead] = useState(false);
   const [classifying, setClassifying] = useState(false);
+  const [linkedTicketStatus, setLinkedTicketStatus] = useState<string | null>(null);
 
   const isFiltered = message.status === 'filtered';
   const isSuspicious =
@@ -236,6 +241,31 @@ export const MessageDetail = ({
   useEffect(() => {
     setThreadHasReply(false);
   }, [message.id]);
+
+  useEffect(() => {
+    if (!message.ticketId) {
+      setLinkedTicketStatus(null);
+      return;
+    }
+    ticketService
+      .getById(message.ticketId)
+      .then((res) => {
+        if (res?.data) setLinkedTicketStatus(res.data.status);
+      })
+      .catch(() => {});
+  }, [message.ticketId]);
+
+  useEffect(() => {
+    if (!message.ticketId) return;
+    const handleTicketUpdated = (data: unknown) => {
+      const event = data as { ticketId: number; status?: string };
+      if (event.ticketId === message.ticketId && event.status) {
+        setLinkedTicketStatus(event.status);
+      }
+    };
+    subscribeToEvent('ticket:updated', handleTicketUpdated);
+    return () => unsubscribeFromEvent('ticket:updated', handleTicketUpdated);
+  }, [message.ticketId]);
 
   useEffect(() => {
     Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
@@ -893,19 +923,35 @@ export const MessageDetail = ({
       <div className="space-y-4">
         {/* Link to Ticket */}
         {message.ticketId && (
-          <div className="p-3 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+          <div
+            className={`p-3 rounded-lg border ${linkedTicketStatus === 'in_progress' ? 'bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/10' : 'bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/10'}`}
+          >
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                <p
+                  className={`text-sm font-medium ${linkedTicketStatus === 'in_progress' ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}
+                >
                   Linked Ticket
                 </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
+                <p
+                  className={`text-xs ${linkedTicketStatus === 'in_progress' ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}
+                >
                   Ticket #{message.ticketId}
+                  {linkedTicketStatus && (
+                    <span className="ml-1.5 font-medium">
+                      ·{' '}
+                      {linkedTicketStatus === 'in_progress'
+                        ? 'In Progress'
+                        : linkedTicketStatus
+                            .replace('_', ' ')
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </span>
+                  )}
                 </p>
               </div>
               <Link
                 to={`/tickets?id=${message.ticketId}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors"
+                className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${linkedTicketStatus === 'in_progress' ? 'text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-500/10' : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10'}`}
               >
                 View Ticket
                 <ExternalLink className="w-3 h-3" />
@@ -1045,7 +1091,10 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button onClick={() => handleUseResponse(suggestedAnswer.answer, true)} className="flex-1">
+              <Button
+                onClick={() => handleUseResponse(suggestedAnswer.answer, true)}
+                className="flex-1"
+              >
                 <Check className="mr-2 w-4 h-4" />
                 Use This Message
               </Button>
@@ -1084,7 +1133,10 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button onClick={() => handleUseResponse(suggestedAnswer.answer, true)} className="flex-1">
+              <Button
+                onClick={() => handleUseResponse(suggestedAnswer.answer, true)}
+                className="flex-1"
+              >
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>
@@ -1136,7 +1188,10 @@ export const MessageDetail = ({
             </div>
 
             <div className="flex gap-2 mt-3">
-              <Button onClick={() => handleUseResponse(suggestedAnswer.answer, true)} className="flex-1">
+              <Button
+                onClick={() => handleUseResponse(suggestedAnswer.answer, true)}
+                className="flex-1"
+              >
                 <Check className="mr-2 w-4 h-4" />
                 Use This Answer
               </Button>

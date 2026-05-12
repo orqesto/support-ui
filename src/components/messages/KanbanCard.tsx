@@ -51,7 +51,11 @@ export const KanbanCard = ({ thread, onOpen, weRepliedLast = false }: KanbanCard
           {getChannelIcon(msg.channel)}
         </span>
         <span className="flex-1 min-w-0 text-sm font-semibold truncate">{msg.sender}</span>
-        {msg.needsHumanReview && <BellRing className="w-3 h-3 text-amber-500 shrink-0" />}
+        {msg.needsHumanReview && (
+          <span title="Flagged for human review" className="shrink-0">
+            <BellRing className="w-3 h-3 text-amber-500" />
+          </span>
+        )}
         <span className="text-xs whitespace-nowrap text-muted-foreground shrink-0">
           <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
           {formatAge(receivedAt)}
@@ -69,6 +73,7 @@ export const KanbanCard = ({ thread, onOpen, weRepliedLast = false }: KanbanCard
           <Badge
             variant="danger"
             className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            title="SLA response time breached"
           >
             <AlertTriangle className="w-2 h-2" />
             SLA
@@ -78,6 +83,7 @@ export const KanbanCard = ({ thread, onOpen, weRepliedLast = false }: KanbanCard
           <Badge
             variant="warning"
             className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            title="SLA response time at risk"
           >
             <ShieldAlert className="w-2 h-2" />
             At risk
@@ -87,6 +93,7 @@ export const KanbanCard = ({ thread, onOpen, weRepliedLast = false }: KanbanCard
           <Badge
             variant={PRIORITY_VARIANT[msg.priority]}
             className="h-4 px-1 text-[10px] shrink-0"
+            title={`Priority: ${msg.priority}`}
           >
             {msg.priority}
           </Badge>
@@ -95,6 +102,7 @@ export const KanbanCard = ({ thread, onOpen, weRepliedLast = false }: KanbanCard
           <Badge
             variant="secondary"
             className="flex gap-0.5 items-center h-4 px-1 text-[10px] min-w-0 overflow-hidden"
+            title={`Assigned to ${msg.assigneeName ?? 'Agent'}`}
           >
             <User className="w-2 h-2 shrink-0" />
             <span className="truncate">{msg.assigneeName ?? 'Assigned'}</span>
@@ -102,10 +110,13 @@ export const KanbanCard = ({ thread, onOpen, weRepliedLast = false }: KanbanCard
         )}
         {msg.ticketId && (
           <Badge
-            variant="default"
+            variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
             className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            title={thread.linkedTicketStatus ? `Ticket #${msg.ticketId} · ${thread.linkedTicketStatus.replace('_', ' ')}` : `Ticket #${msg.ticketId}`}
           >
-            <Ticket className="w-2 h-2" />#{msg.ticketId}
+            <Ticket className="w-2 h-2" />
+            #{msg.ticketId}
+            {thread.linkedTicketStatus === 'in_progress' && <span className="ml-0.5">· In progress</span>}
           </Badge>
         )}
         <span className="ml-auto font-mono text-[10px] text-muted-foreground shrink-0">

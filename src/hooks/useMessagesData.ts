@@ -1,9 +1,21 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
-import type { MutableRefObject } from 'react';
+import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
+
+type MessagesDataReturn = {
+  threads: MessageThread[];
+  loading: boolean;
+  refreshing: boolean;
+  setRefreshing: Dispatch<SetStateAction<boolean>>;
+  messagesPagination: { page: number; limit: number; total: number; totalPages: number; hasMore: boolean };
+  fetchMessages: (page?: number, force?: boolean) => Promise<void>;
+  handlePageChange: (page: number) => Promise<void>;
+  handleRefresh: () => Promise<void>;
+  clearCache: () => void;
+};
 
 interface UseMessagesDataProps {
   urlSyncedRef: MutableRefObject<boolean>;
@@ -11,7 +23,7 @@ interface UseMessagesDataProps {
 
 const DEFAULT_LIMIT = 50;
 
-export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps) => {
+export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): MessagesDataReturn => {
   const [threads, setThreadsLocal] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -125,6 +137,10 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps) => {
           apiFilters.hasJiraTicket = 'true';
         }
 
+        if (linked !== 'all' && currentFilters.linkedTicketStatus && currentFilters.linkedTicketStatus !== 'all') {
+          apiFilters.linkedTicketStatus = currentFilters.linkedTicketStatus;
+        }
+
         // SLA FILTER
         if (currentFilters.slaFilter === 'breached') {
           apiFilters.slaBreached = 'true';
@@ -187,6 +203,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps) => {
     filters.aiState,
     filters.labelId,
     filters.linked,
+    filters.linkedTicketStatus,
     filters.search,
     filters.departmentRole,
     filters.slaFilter,

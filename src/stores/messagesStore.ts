@@ -28,6 +28,7 @@ export type AiStateFilter =
   | 'contradiction';
 
 export type LinkedFilter = 'all' | 'has_ticket' | 'has_jira';
+export type LinkedTicketStatusFilter = 'all' | 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 
 export type FilterState = {
   messageSourceId?: string;
@@ -38,6 +39,7 @@ export type FilterState = {
   aiState?: AiStateFilter;
   labelId?: string;
   linked?: LinkedFilter;
+  linkedTicketStatus?: LinkedTicketStatusFilter;
   search?: string;
   departmentRole?: 'all' | 'support' | 'sales' | 'billing' | 'general' | 'hr';
   slaFilter?: 'all' | 'breached' | 'at_risk';
@@ -77,6 +79,7 @@ export const defaultFilters: FilterState = {
   aiState: 'all',
   labelId: 'all',
   linked: 'all',
+  linkedTicketStatus: 'all',
   search: undefined,
   departmentRole: 'all',
   slaFilter: 'all',
