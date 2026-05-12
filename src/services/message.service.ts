@@ -73,6 +73,7 @@ export type MessageThread = {
   channel: string;
   hasUnread: boolean;
   hasTicket: boolean;
+  linkedTicketStatus: string | null;
   isResolved: boolean;
   isLead: boolean;
   lastReplyFromClient: boolean | null;

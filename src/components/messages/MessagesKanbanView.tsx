@@ -304,7 +304,7 @@ type MessagesKanbanViewProps = {
   refreshKey?: number;
 };
 
-const TOGGLEABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved']);
+const SWITCHABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved']);
 
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
@@ -495,7 +495,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   }, []);
 
   const visibleColumns = COLUMNS.filter((col) => !hiddenColumns.has(col.id));
-  const toggleableColumns = COLUMNS.filter((col) => TOGGLEABLE_COLUMNS.has(col.id));
+  const switchableColumns = COLUMNS.filter((col) => SWITCHABLE_COLUMNS.has(col.id));
 
   return (
     <DndContext
@@ -508,7 +508,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         {/* Column visibility toggles */}
         <div className="flex gap-2 items-center">
           <span className="text-xs text-muted-foreground">Show:</span>
-          {toggleableColumns.map((col) => {
+          {switchableColumns.map((col) => {
             const Icon = col.icon;
             const visible = !hiddenColumns.has(col.id);
             return (
