@@ -149,7 +149,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         </Badge>
       )}
       {analysis?.needsMoreInfo && (
-        <Badge variant="warning" className={bc}>
+        <Badge variant="warning" className={bc} title="AI flagged as needing more information">
           <AlertTriangle className={ic} />
           Needs Info
         </Badge>
@@ -187,7 +187,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         </Badge>
       )}
       {message.resolved && (
-        <Badge className="text-white bg-green-600 hover:bg-green-700">✓ Resolved</Badge>
+        <Badge className="text-white bg-green-600 hover:bg-green-700" title="Message resolved">✓ Resolved</Badge>
       )}
     </>
   );

@@ -10,6 +10,7 @@ const VALID_STATUSES = ['all', 'active', 'awaiting_response', 'client_replied', 
 const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'closed'] as const;
 const VALID_AI_STATES = ['all', 'needs_review', 'needs_info', 'ai_suggested', 'in_human_work', 'bot_handled', 'lead', 'contradiction'] as const;
 const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
+const VALID_LINKED_TICKET_STATUSES = ['all', 'pending', 'open', 'in_progress', 'resolved', 'closed'] as const;
 const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
 const VALID_DEPTS = ['all', 'support', 'sales', 'billing', 'general', 'hr'] as const;
 
@@ -57,6 +58,11 @@ export const useMessagesUrlSync = ({
       const urlLinked = searchParams.get('linked');
       if (urlLinked && (VALID_LINKED as readonly string[]).includes(urlLinked)) {
         urlFilters.linked = urlLinked as FilterState['linked'];
+      }
+
+      const urlLinkedTicketStatus = searchParams.get('linkedTicketStatus');
+      if (urlLinkedTicketStatus && (VALID_LINKED_TICKET_STATUSES as readonly string[]).includes(urlLinkedTicketStatus)) {
+        urlFilters.linkedTicketStatus = urlLinkedTicketStatus as FilterState['linkedTicketStatus'];
       }
 
       const urlSource = searchParams.get('source');
@@ -124,6 +130,9 @@ export const useMessagesUrlSync = ({
     if (filters.threadStatus && filters.threadStatus !== 'all') params.set('threadStatus', filters.threadStatus);
     if (filters.aiState && filters.aiState !== 'all') params.set('aiState', filters.aiState);
     if (filters.linked && filters.linked !== 'all') params.set('linked', filters.linked);
+    if (filters.linked && filters.linked !== 'all' && filters.linkedTicketStatus && filters.linkedTicketStatus !== 'all') {
+      params.set('linkedTicketStatus', filters.linkedTicketStatus);
+    }
     if (filters.messageSourceId && filters.messageSourceId !== 'all') params.set('source', filters.messageSourceId);
     if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);
     if (filters.assigneeId && filters.assigneeId !== 'all') {

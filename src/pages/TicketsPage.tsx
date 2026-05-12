@@ -37,12 +37,24 @@ import { logger } from '@/lib/logger';
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>(() =>
-    searchParams.get('mode') === 'kanban' ? 'kanban' : 'list'
-  );
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'kanban') return 'kanban';
+    const stored = localStorage.getItem('tickets_view_mode');
+    if (stored === 'kanban') return 'kanban';
+    return 'list';
+  });
+  const displayModeSyncedRef = useRef(false);
   useEffect(() => {
-    setDisplayMode(searchParams.get('mode') === 'kanban' ? 'kanban' : 'list');
+    if (!displayModeSyncedRef.current) {
+      displayModeSyncedRef.current = true;
+      return;
+    }
+    if (searchParams.get('mode') === 'kanban') setDisplayMode('kanban');
   }, [searchParams]);
+  useEffect(() => {
+    localStorage.setItem('tickets_view_mode', displayMode);
+  }, [displayMode]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState<number | null>(null);
@@ -142,11 +154,10 @@ export const TicketsPage = () => {
   useEffect(() => {
     const params = new URLSearchParams();
 
-    // Preserve ticket ID and display mode if present
+    // Preserve ticket ID and display mode
     const ticketIdParam = searchParams.get('id');
     if (ticketIdParam) params.set('id', ticketIdParam);
-    const modeParam = searchParams.get('mode');
-    if (modeParam) params.set('mode', modeParam);
+    if (displayMode === 'kanban') params.set('mode', 'kanban');
 
     // Add filters to URL (only non-default values)
     if (filters.status && filters.status !== 'all') {
@@ -173,7 +184,7 @@ export const TicketsPage = () => {
 
     // Update URL without triggering navigation
     setSearchParams(params, { replace: true });
-  }, [filters, setSearchParams, searchParams]);
+  }, [filters, displayMode, setSearchParams, searchParams]);
 
   // Auto-open ticket from query param
   useEffect(() => {
@@ -674,7 +685,7 @@ export const TicketsPage = () => {
         <div className="flex gap-1 items-center">
           <button
             type="button"
-            onClick={() => setSearchParams((p) => { p.delete('mode'); return p; }, { replace: true })}
+            onClick={() => { setDisplayMode('list'); setSearchParams((p) => { p.delete('mode'); return p; }, { replace: true }); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               displayMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
             }`}
@@ -684,7 +695,7 @@ export const TicketsPage = () => {
           </button>
           <button
             type="button"
-            onClick={() => setSearchParams((p) => { p.set('mode', 'kanban'); return p; }, { replace: true })}
+            onClick={() => { setDisplayMode('kanban'); setSearchParams((p) => { p.set('mode', 'kanban'); return p; }, { replace: true }); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               displayMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
             }`}

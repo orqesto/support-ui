@@ -62,6 +62,15 @@ const LINKED_OPTIONS = [
   { value: 'has_jira',   label: 'Has Jira' },
 ] as const;
 
+const LINKED_TICKET_STATUS_OPTIONS = [
+  { value: 'all',         label: 'Any Status' },
+  { value: 'pending',     label: 'Pending' },
+  { value: 'open',        label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved',    label: 'Resolved' },
+  { value: 'closed',      label: 'Closed' },
+] as const;
+
 type MessageFiltersProps = {
   filters: FilterState;
   sorting: SortingState;
@@ -366,6 +375,14 @@ export const MessageFilters = ({
                   options={LINKED_OPTIONS as unknown as { value: string; label: string }[]}
                   className="w-full"
                 />
+                {(filters.linked ?? 'all') !== 'all' && (
+                  <ReactSelect
+                    value={filters.linkedTicketStatus ?? 'all'}
+                    onChange={(value) => onFilterChange('linkedTicketStatus', value)}
+                    options={LINKED_TICKET_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                    className="w-full mt-1"
+                  />
+                )}
               </FilterCell>
             </div>
           </FilterSection>
