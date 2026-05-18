@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '../Button';
 import { getDialogOverlayClasses, getDialogContentClasses } from './dialog.styles';
@@ -14,7 +15,7 @@ export const Dialog = ({
 }: DialogProps) => {
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="flex fixed inset-0 z-[60] justify-center items-center">
       <div
         role="button"
@@ -29,7 +30,8 @@ export const Dialog = ({
         aria-label="Close dialog"
       />
       <div className={cn(getDialogContentClasses(size), className)}>{children}</div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

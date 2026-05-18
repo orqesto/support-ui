@@ -66,7 +66,7 @@ export const AIProviderHealthCheck = () => {
       case 'unhealthy':
         return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />;
+        return <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
     }
   };
 
@@ -77,7 +77,7 @@ export const AIProviderHealthCheck = () => {
       case 'unhealthy':
         return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
       default:
-        return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800';
+        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
     }
   };
 
@@ -184,14 +184,14 @@ export const AIProviderHealthCheck = () => {
             </div>
 
             {healthData.summary.unhealthy > 0 && (
-              <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
                 <div className="flex gap-2">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-yellow-800 dark:text-yellow-400">
+                    <p className="font-medium text-amber-800 dark:text-amber-400">
                       Action Required
                     </p>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                       Some AI providers are unhealthy. Please check their configuration and API
                       keys. Message processing may be affected for providers marked as unhealthy.
                     </p>

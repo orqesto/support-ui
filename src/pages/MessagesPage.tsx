@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Mail, RefreshCw, MessageSquare, Users, LayoutDashboard } from 'lucide-react';
+import { Mail, RefreshCw } from 'lucide-react';
+import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -14,7 +15,6 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
-import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -60,16 +60,31 @@ export const MessagesPage = () => {
   }, [displayMode]);
   // Keep URL in sync with displayMode so the address bar is always bookmarkable
   useEffect(() => {
-    setSearchParams((p) => {
-      if (displayMode === 'kanban') p.set('mode', 'kanban');
-      else if (displayMode === 'contacts') p.set('mode', 'contacts');
-      else p.delete('mode');
-      return p;
-    }, { replace: true });
+    setSearchParams(
+      (p) => {
+        if (displayMode === 'kanban') p.set('mode', 'kanban');
+        else if (displayMode === 'contacts') p.set('mode', 'contacts');
+        else p.delete('mode');
+        return p;
+      },
+      { replace: true }
+    );
   }, [displayMode, setSearchParams]);
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
   const bumpKanban = useCallback(() => setKanbanRefreshKey((k) => k + 1), []);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+
+  // Lock body scroll while the detail panel is open
+  useEffect(() => {
+    if (selectedMessage) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedMessage]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -89,7 +104,6 @@ export const MessagesPage = () => {
 
   const filters = useMessagesStore((state) => state.filters);
   const sorting = useMessagesStore((state) => state.sorting);
-  const _setFilters = useMessagesStore((state) => state.setFilters);
   const updateFilter = useMessagesStore((state) => state.updateFilter);
   const setSorting = useMessagesStore((state) => state.setSorting);
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
@@ -181,7 +195,11 @@ export const MessagesPage = () => {
           const messageToShow =
             threadMessages.find((m) => m.id === preferredId) ??
             threadMessages[threadMessages.length - 1];
-          setSelectedMessage(messageToShow);
+          fetchedMessageIdRef.current = messageToShow.id;
+          setSelectedMessage({
+            ...messageToShow,
+            lastReplyFromClient: messageToShow.lastReplyFromClient ?? thread.lastReplyFromClient,
+          });
           const params = new URLSearchParams(searchParams);
           params.set('id', messageToShow.id.toString());
           setSearchParams(params);
@@ -192,13 +210,14 @@ export const MessagesPage = () => {
       }
       const fallback = thread.latestIncomingMessage ?? thread.latestMessage;
       if (fallback) {
+        fetchedMessageIdRef.current = fallback.id;
         setSelectedMessage(fallback);
         const params = new URLSearchParams(searchParams);
         params.set('id', fallback.id.toString());
         setSearchParams(params);
       }
     },
-    [searchParams, setSearchParams]
+    [searchParams, setSearchParams, fetchedMessageIdRef]
   );
 
   const handleApprove = (message: Message) => {
@@ -268,7 +287,10 @@ export const MessagesPage = () => {
       const response = await messageService.getById(selectedMessage.id);
       if (abortController.signal.aborted) return;
       if (response.success && response.data) {
-        setSelectedMessage(response.data);
+        setSelectedMessage({
+          ...response.data,
+          lastReplyFromClient: response.data.lastReplyFromClient ?? selectedMessage.lastReplyFromClient,
+        });
       }
       if (!abortController.signal.aborted) {
         await fetchMessages(messagesPagination.page, true);
@@ -360,11 +382,11 @@ export const MessagesPage = () => {
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
   const isKanban = displayMode === 'kanban';
-  // Visible badge count: kanban-hidden filters (status/threadStatus/slaFilter) excluded
+  // Visible badge count: kanban-hidden filters (status/slaFilter) excluded
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
     (!isKanban && filters.status && filters.status !== 'all' ? 1 : 0) +
-    (!isKanban && filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
+    (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
     (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
@@ -390,209 +412,226 @@ export const MessagesPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
-        {/* Header */}
-        <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-2xl font-bold">Messages</h2>
-            <p className="text-sm text-muted-foreground">Manage and process incoming messages</p>
-          </div>
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-            <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
-              <Button
-                onClick={handleSyncEmails}
-                disabled={refreshing}
-                variant="outline"
-                className="flex-1 sm:flex-none"
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Sync New
-              </Button>
-            </PermissionGuard>
-            <Button onClick={handleRefresh} disabled={refreshing} className="flex-1 sm:flex-none">
-              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-        </div>
+      <div className="flex overflow-hidden flex-1 min-h-0">
+        {/* ── List panel ─────────────────────────────────── */}
+        <div className="overflow-y-auto flex-1 min-w-0">
+          <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+            {/* Header */}
+            <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="text-2xl font-bold">Messages</h2>
+                <p className="text-sm text-muted-foreground">
+                  Manage and process incoming messages
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
+                  <Button
+                    onClick={handleSyncEmails}
+                    disabled={refreshing}
+                    variant="outline"
+                    className="flex-1 sm:flex-none"
+                  >
+                    <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    Sync New
+                  </Button>
+                </PermissionGuard>
+                <Button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex-1 sm:flex-none"
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
 
-        <>
-          <div className="mb-6">
-            <MessageFilters
-              filters={filters}
-              sorting={sorting}
-              pendingSearch={pendingSearch}
-              activeFilterCount={activeFilterCount}
-              clearableFilterCount={clearableFilterCount}
-              pagination={displayMode === 'contacts' ? contactsPagination : pagination}
-              onFilterChange={handleFilterChange}
-              onSearch={handleSearch}
-              onSearchBlur={handleSearchBlur}
-              onClearFilters={clearFilters}
-              onSortingChange={(sortOrder) => setSorting({ sortOrder })}
-              setPendingSearch={setPendingSearch}
-              isKanban={isKanban}
-            />
-          </div>
+            <>
+              <div className="mb-6">
+                <MessageFilters
+                  filters={filters}
+                  sorting={sorting}
+                  pendingSearch={pendingSearch}
+                  activeFilterCount={activeFilterCount}
+                  clearableFilterCount={clearableFilterCount}
+                  pagination={displayMode === 'contacts' ? contactsPagination : pagination}
+                  onFilterChange={handleFilterChange}
+                  onSearch={handleSearch}
+                  onSearchBlur={handleSearchBlur}
+                  onClearFilters={clearFilters}
+                  onSortingChange={(sortOrder) => setSorting({ sortOrder })}
+                  setPendingSearch={setPendingSearch}
+                  isKanban={isKanban}
+                />
+              </div>
 
-          {/* Display mode toggle */}
-          <div className="flex gap-1 items-center mb-2">
-            <button
-              onClick={() => {
-                setDisplayMode('threads');
-                setSearchParams(
-                  (p) => {
-                    p.delete('mode');
-                    p.delete('sender');
-                    return p;
-                  },
-                  { replace: true }
-                );
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                displayMode === 'threads'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              }`}
-              title="Thread view — grouped by reply chain"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              Threads
-            </button>
-            <button
-              onClick={() => {
-                setDisplayMode('contacts');
-                setSearchParams(
-                  (p) => {
-                    p.set('mode', 'contacts');
-                    return p;
-                  },
-                  { replace: true }
-                );
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                displayMode === 'contacts'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              }`}
-              title="Contacts view — grouped by sender with conversations by subject"
-            >
-              <Users className="w-3.5 h-3.5" />
-              Contacts
-            </button>
-            <button
-              onClick={() => {
-                setDisplayMode('kanban');
-                setSearchParams(
-                  (p) => {
-                    p.set('mode', 'kanban');
-                    p.delete('sender');
-                    return p;
-                  },
-                  { replace: true }
-                );
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                displayMode === 'kanban'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              }`}
-              title="Kanban view — grouped by SLA and workflow status"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Kanban
-            </button>
-          </div>
+              {/* Display mode toggle */}
+              <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
 
-          {displayMode === 'kanban' ? (
-            <MessagesKanbanView
-              filters={filters}
-              onOpen={handleOpenThread}
-              refreshKey={kanbanRefreshKey}
-            />
-          ) : displayMode === 'contacts' ? (
-            <ContactsView
-              apiFilters={(() => {
-                const f: Record<string, string> = {};
-                const status = filters.status ?? 'all';
-                if (status === 'all') f.view = 'work_queue';
-                else if (status === 'active') f.view = 'active';
-                else if (status === 'awaiting_response') f.awaitingCustomerResponse = 'true';
-                else if (status === 'client_replied') f.customerResponded = 'true';
-                else if (status === 'suspicious') f.view = 'suspicious';
-                else if (status === 'not_analysed') f.view = 'not_analysed';
-                else if (status === 'resolved') f.view = 'resolved';
-                if (filters.threadStatus && filters.threadStatus !== 'all')
-                  f.processed = filters.threadStatus as string;
-                if (filters.messageSourceId && filters.messageSourceId !== 'all')
-                  f.messageSourceId = filters.messageSourceId;
-                if (filters.assigneeId && filters.assigneeId !== 'all')
-                  f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-                if (filters.aiState === 'lead') f.isLead = 'true';
-                if (filters.aiState === 'needs_review') f.needsHumanReview = 'true';
-                if (filters.aiState === 'needs_info') f.showNeedsInfo = 'true';
-                if (filters.aiState === 'ai_suggested') f.aiSuggested = 'true';
-                if (filters.aiState === 'bot_handled') f.botHandled = 'true';
-                if (filters.aiState === 'contradiction') f.hasContradiction = 'true';
-                if (filters.linked === 'has_ticket') f.hasTicket = 'true';
-                if (filters.linked === 'has_jira') f.hasJiraTicket = 'true';
-                if (filters.priority && filters.priority !== 'all') f.priority = filters.priority;
-                if (filters.labelId && filters.labelId !== 'all') f.labelId = filters.labelId;
-                if (filters.search?.trim()) f.search = filters.search.trim();
-                return f;
-              })()}
-              focusSender={searchParams.get('sender') ?? undefined}
-              onPaginationChange={setContactsPagination}
-              onOpenMessage={(msg) => {
-                setSelectedMessage(msg);
-                const params = new URLSearchParams(searchParams);
-                params.set('id', msg.id.toString());
-                setSearchParams(params);
-              }}
-            />
-          ) : loading ? (
-            <div className="space-y-4">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="p-6">
-                    <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                    <div className="w-1/2 h-4 bg-gray-200 rounded" />
+              {displayMode === 'kanban' ? (
+                <MessagesKanbanView
+                  filters={filters}
+                  onOpen={handleOpenThread}
+                  refreshKey={kanbanRefreshKey}
+                />
+              ) : displayMode === 'contacts' ? (
+                <ContactsView
+                  apiFilters={(() => {
+                    const f: Record<string, string> = {};
+                    const status = filters.status ?? 'all';
+                    if (status === 'all') f.view = 'work_queue';
+                    else if (status === 'active') f.view = 'active';
+                    else if (status === 'awaiting_response') f.awaitingCustomerResponse = 'true';
+                    else if (status === 'client_replied') f.customerResponded = 'true';
+                    else if (status === 'suspicious') f.view = 'suspicious';
+                    else if (status === 'not_analysed') f.view = 'not_analysed';
+                    else if (status === 'resolved') f.view = 'resolved';
+                    if (filters.threadStatus && filters.threadStatus !== 'all')
+                      f.processed = filters.threadStatus as string;
+                    if (filters.messageSourceId && filters.messageSourceId !== 'all')
+                      f.messageSourceId = filters.messageSourceId;
+                    if (filters.assigneeId && filters.assigneeId !== 'all')
+                      f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+                    if (filters.aiState === 'lead') f.isLead = 'true';
+                    if (filters.aiState === 'needs_review') f.needsHumanReview = 'true';
+                    if (filters.aiState === 'needs_info') f.showNeedsInfo = 'true';
+                    if (filters.aiState === 'ai_suggested') f.aiSuggested = 'true';
+                    if (filters.aiState === 'bot_handled') f.botHandled = 'true';
+                    if (filters.aiState === 'contradiction') f.hasContradiction = 'true';
+                    if (filters.linked === 'has_ticket') f.hasTicket = 'true';
+                    if (filters.linked === 'has_jira') f.hasJiraTicket = 'true';
+                    if (filters.priority && filters.priority !== 'all')
+                      f.priority = filters.priority;
+                    if (filters.labelId && filters.labelId !== 'all') f.labelId = filters.labelId;
+                    if (filters.search?.trim()) f.search = filters.search.trim();
+                    return f;
+                  })()}
+                  focusSender={searchParams.get('sender') ?? undefined}
+                  onPaginationChange={setContactsPagination}
+                  onOpenMessage={(msg) => {
+                    setSelectedMessage(msg);
+                    const params = new URLSearchParams(searchParams);
+                    params.set('id', msg.id.toString());
+                    setSearchParams(params);
+                  }}
+                />
+              ) : loading ? (
+                <div className="space-y-4">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-6">
+                        <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
+                        <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : threads.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                    <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
+                    <p className="text-muted-foreground">
+                      {activeFilterCount > 0
+                        ? 'No messages match your filters'
+                        : 'No messages available'}
+                    </p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          ) : threads.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
-                <p className="text-muted-foreground">
-                  {activeFilterCount > 0
-                    ? 'No messages match your filters'
-                    : 'No messages available'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {threads.map((thread) => (
-                <MessageListItem key={thread.threadId} thread={thread} onOpen={handleOpenThread} />
-              ))}
-            </div>
-          )}
+              ) : (
+                <div className="grid gap-4">
+                  {threads.map((thread) => (
+                    <MessageListItem
+                      key={thread.threadId}
+                      thread={thread}
+                      onOpen={handleOpenThread}
+                    />
+                  ))}
+                </div>
+              )}
 
-          {displayMode === 'threads' && !loading && threads.length > 0 && (
-            <Pagination
-              currentPage={pagination.page}
-              totalPages={pagination.totalPages}
-              total={pagination.total}
-              limit={pagination.limit}
-              onPageChange={handlePageChange}
-              loading={loading}
+              {displayMode === 'threads' && !loading && threads.length > 0 && (
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  total={pagination.total}
+                  limit={pagination.limit}
+                  onPageChange={handlePageChange}
+                  loading={loading}
+                />
+              )}
+            </>
+          </div>
+        </div>
+        {/* end list panel inner container */}
+
+        {/* ── Modal overlay ─────────────────────────────────────────── */}
+        {selectedMessage && (
+          <>
+            {/* Backdrop — dims the list, click to close */}
+            <button
+              type="button"
+              aria-label="Close"
+              className="fixed inset-0 top-14 z-20 cursor-default lg:top-0 lg:left-64 bg-black/25 dark:bg-black/50"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.delete('id');
+                setSearchParams(params);
+                setSelectedMessage(null);
+              }}
             />
-          )}
-        </>
+
+            {/* Detail panel — slides in from right, full viewport height */}
+            <div className="fixed top-14 lg:top-0 right-0 bottom-0 w-full sm:w-[40rem] z-30 border-l border-border bg-background flex flex-col overflow-hidden shadow-2xl">
+              <MessageDetail
+                message={selectedMessage}
+                onClose={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.delete('id');
+                  setSearchParams(params);
+                  setSelectedMessage(null);
+                }}
+                onApprove={() => handleApprove(selectedMessage)}
+                onReject={async () => {
+                  await handleReject(selectedMessage);
+                  setSelectedMessage(null);
+                }}
+                onReopen={async () => {
+                  await handleReopen(selectedMessage);
+                }}
+                onDelete={() => {
+                  handleDeleteClick(selectedMessage);
+                  setSelectedMessage(null);
+                }}
+                onResolve={handleResolve}
+                onRefresh={handleRefreshMessage}
+                onClassify={async (action) => {
+                  await messageService.classify(selectedMessage.id, action);
+                  clearCache();
+                  bumpKanban();
+                  await fetchMessages(messagesPagination.page, true);
+                  setSelectedMessage(null);
+                }}
+                onMessageNavigate={async (messageId: number) => {
+                  try {
+                    const response = await messageService.getById(messageId);
+                    if (response.success && response.data) {
+                      setSelectedMessage(response.data);
+                      const params = new URLSearchParams(searchParams);
+                      params.set('id', messageId.toString());
+                      setSearchParams(params);
+                    }
+                  } catch (error) {
+                    logger.error('Failed to navigate to message:', error);
+                  }
+                }}
+              />
+            </div>
+          </>
+        )}
       </div>
+      {/* end flex row wrapper */}
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogHeader>
@@ -619,57 +658,6 @@ export const MessagesPage = () => {
           </Button>
         </DialogFooter>
       </Dialog>
-
-      {selectedMessage && (
-        <Drawer
-          open={!!selectedMessage}
-          onClose={() => {
-            const params = new URLSearchParams(searchParams);
-            params.delete('id');
-            setSearchParams(params);
-            setSelectedMessage(null);
-          }}
-          title="Message Details"
-        >
-          <MessageDetail
-            message={selectedMessage}
-            onApprove={() => handleApprove(selectedMessage)}
-            onReject={async () => {
-              await handleReject(selectedMessage);
-              setSelectedMessage(null);
-            }}
-            onReopen={async () => {
-              await handleReopen(selectedMessage);
-            }}
-            onDelete={() => {
-              handleDeleteClick(selectedMessage);
-              setSelectedMessage(null);
-            }}
-            onResolve={handleResolve}
-            onRefresh={handleRefreshMessage}
-            onClassify={async (action) => {
-              await messageService.classify(selectedMessage.id, action);
-              clearCache();
-              bumpKanban();
-              await fetchMessages(messagesPagination.page, true);
-              setSelectedMessage(null);
-            }}
-            onMessageNavigate={async (messageId: number) => {
-              try {
-                const response = await messageService.getById(messageId);
-                if (response.success && response.data) {
-                  setSelectedMessage(response.data);
-                  const params = new URLSearchParams(searchParams);
-                  params.set('id', messageId.toString());
-                  setSearchParams(params);
-                }
-              } catch (error) {
-                logger.error('Failed to navigate to message:', error);
-              }
-            }}
-          />
-        </Drawer>
-      )}
 
       <AlertDialog
         open={alertDialog.open}

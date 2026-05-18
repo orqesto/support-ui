@@ -3,9 +3,9 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/messages/MessageDetail';
-import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
+import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 
@@ -27,6 +27,13 @@ export const MessageDetailPage = () => {
               .filter((m) => !m.isOutgoing)
               .sort((a, b) => b.id - a.id)[0];
             if (latestIncoming && latestIncoming.id !== parseInt(id)) {
+              // Pre-warm KB cache so AiTabPanel gets an instant hit when it mounts for this ID.
+              if (!similarResultsCache.has(latestIncoming.id)) {
+                void messageService
+                  .getSimilarResolvedMessages(latestIncoming.id, 3, 0.75)
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  .then((r) => { if (r.success && r.data) similarResultsCache.set(latestIncoming.id, r.data as any); });
+              }
               void fetchMessage(latestIncoming.id);
             }
           }
@@ -62,7 +69,7 @@ export const MessageDetailPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center h-64 gap-2 text-muted-foreground">
+        <div className="flex gap-2 justify-center items-center h-64 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
           Loading message...
         </div>
@@ -85,19 +92,22 @@ export const MessageDetailPage = () => {
   }
 
   return (
-    <>
-      <ScrollButtons bottomTarget="[data-message-actions]" />
-      <Layout>
-        <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
-          <div className="flex gap-2 items-center">
+    <Layout>
+      <div className="flex overflow-hidden flex-col flex-1 min-h-0">
+        {/* Back bar */}
+        <div className="flex-shrink-0 border-b border-border">
+          <div className="flex gap-2 items-center px-4 py-2 mx-auto w-full max-w-7xl">
             <Button onClick={handleBack} variant="outline" size="sm">
               <ArrowLeft className="mr-2 w-4 h-4" />
               Back
             </Button>
-            <h1 className="text-2xl font-bold">Message Details</h1>
+            <h1 className="text-base font-semibold">Message Details</h1>
           </div>
+        </div>
 
-          <div className="p-6 rounded-lg border bg-card">
+        {/* 3-zone panel */}
+        <div className="flex overflow-hidden flex-1 justify-center min-h-0">
+          <div className="flex flex-col w-full max-w-7xl h-full border-x border-border">
             <MessageDetail
               message={message}
               onRefresh={() => fetchMessage(message.id)}
@@ -108,12 +118,11 @@ export const MessageDetailPage = () => {
               onResolve={() => fetchMessage(message.id)}
               onMessageNavigate={(messageId) => {
                 void fetchMessage(messageId);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
           </div>
         </div>
-      </Layout>
-    </>
+      </div>
+    </Layout>
   );
 };

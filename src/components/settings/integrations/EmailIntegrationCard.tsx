@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Mail, Plus, Save, TestTube2, Trash2, Edit, Calendar } from 'lucide-react';
+import { Mail, Plus, TestTube2, Trash2, Edit, Calendar } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { EmailForm } from '@/components/settings/integrations/EmailForm';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { integrationsService } from '@/services/integrations.service';
-import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
 import { logger } from '@/lib/logger';
 
 type EmailConfig = {
@@ -30,21 +30,19 @@ type EmailConfig = {
   };
 };
 
-const searchCriteriaOptions = [
-  { value: 'UNSEEN', label: 'Unread only (recommended)' },
-  { value: 'ALL', label: 'All messages' },
-  { value: 'SEEN', label: 'Read only' },
-  { value: 'FLAGGED', label: 'Flagged/starred only' },
-];
-
-const lookbackOptions = [
-  { value: 7, label: 'Last 7 Days' },
-  { value: 30, label: 'Last 30 Days' },
-  { value: 90, label: 'Last 90 Days' },
-  { value: 180, label: 'Last 6 Months' },
-  { value: 365, label: 'Last Year' },
-  { value: 0, label: 'All Time (slow)' },
-];
+const defaultConfig: EmailConfig = {
+  host: '',
+  port: 993,
+  user: '',
+  password: '',
+  secure: true,
+  isKnowledgeBase: false,
+  searchCriteria: 'UNSEEN',
+  maxResults: 500,
+  lookbackDays: 30,
+  bulkImportDays: 0,
+  bulkImportMaxResults: 500,
+};
 
 export const EmailIntegrationCard = ({
   integrations,
@@ -60,21 +58,7 @@ export const EmailIntegrationCard = ({
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
-
-  const [config, setConfig] = useState<EmailConfig>({
-    host: '',
-    port: 993,
-    user: '',
-    password: '',
-    secure: true,
-    isKnowledgeBase: false,
-    searchCriteria: 'UNSEEN',
-    maxResults: 500,
-    lookbackDays: 30,
-    bulkImportDays: 0,
-    bulkImportMaxResults: 500,
-  });
-
+  const [config, setConfig] = useState<EmailConfig>(defaultConfig);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [editBulkImport, setEditBulkImport] = useState<{
     id: number;
@@ -128,9 +112,7 @@ export const EmailIntegrationCard = ({
   };
 
   const handleUpdateBulkImportDays = async () => {
-    if (!editBulkImport) {
-      return;
-    }
+    if (!editBulkImport) return;
 
     setSaving(true);
     try {
@@ -138,9 +120,7 @@ export const EmailIntegrationCard = ({
 
       await integrationsService.update(editBulkImport.id, {
         config: {
-          email: {
-            bulkImportDays: days,
-          },
+          email: { bulkImportDays: days },
         },
       });
 
@@ -167,19 +147,7 @@ export const EmailIntegrationCard = ({
   };
 
   const resetForm = () => {
-    setConfig({
-      host: '',
-      port: 993,
-      user: '',
-      password: '',
-      secure: true,
-      isKnowledgeBase: false,
-      searchCriteria: 'UNSEEN',
-      maxResults: 500,
-      lookbackDays: 30,
-      bulkImportDays: 0,
-      bulkImportMaxResults: 500,
-    });
+    setConfig(defaultConfig);
     setShowForm(false);
     setEditingId(null);
     setEditingName(null);
@@ -194,10 +162,8 @@ export const EmailIntegrationCard = ({
     isKB: boolean
   ) => {
     setEditingId(id);
-    setEditingName(currentName); // Store original name
-    // Extract email config from wrapper (backend stores as { email: { host, port, ... } })
+    setEditingName(currentName);
     const emailConfig = (currentConfig as { email?: EmailConfig }).email ?? currentConfig;
-    // isKnowledgeBase is stored as top-level field in DB, not in config
     setConfig({ ...(emailConfig as EmailConfig), isKnowledgeBase: isKB });
     setShowForm(true);
   };
@@ -205,21 +171,16 @@ export const EmailIntegrationCard = ({
   const saveIntegration = async () => {
     setSaving(true);
     try {
-      // When editing, use existing name; when creating, generate new name
       const integrationName =
         editingId !== null && editingName ? editingName : `Email-${config.user}`;
-
-      // Extract isKnowledgeBase from config (stored separately in DB)
       const { isKnowledgeBase, ...emailConfigOnly } = config;
 
       const response = await integrationsService.upsert({
         name: integrationName,
         type: 'email',
         enabled: true,
-        isKnowledgeBase: isKnowledgeBase ?? false, // Top-level field in DB
-        config: {
-          email: emailConfigOnly, // Backend expects config wrapped in 'email' key
-        },
+        isKnowledgeBase: isKnowledgeBase ?? false,
+        config: { email: emailConfigOnly },
       });
 
       if (response.success) {
@@ -284,9 +245,7 @@ export const EmailIntegrationCard = ({
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) {
-      return;
-    }
+    if (!deleteConfirm) return;
 
     const { id, name } = deleteConfirm;
     setDeleting(id);
@@ -427,349 +386,19 @@ export const EmailIntegrationCard = ({
           )}
 
           {showForm && (
-            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
-                {editingId ? 'Edit Email Account' : 'Add New Email Account'}
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="host" className="text-sm font-medium">
-                    IMAP Host
-                  </label>
-                  <input
-                    type="text"
-                    value={config.host}
-                    onChange={(e) => setConfig({ ...config, host: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="imap.gmail.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="port" className="text-sm font-medium">
-                    Port
-                  </label>
-                  <input
-                    type="number"
-                    value={config.port}
-                    onChange={(e) => setConfig({ ...config, port: parseInt(e.target.value) })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="993"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="user" className="text-sm font-medium">
-                    Email{' '}
-                    {isProviderSupported(config.user) && (
-                      <span className="text-xs text-green-500">✓ Auto-detected</span>
-                    )}
-                  </label>
-                  <input
-                    type="email"
-                    value={config.user}
-                    onChange={(e) => {
-                      const email = e.target.value;
-                      const detected = detectImapConfig(email);
-                      if (detected) {
-                        // Auto-fill IMAP settings for recognized providers
-                        setConfig({
-                          ...config,
-                          user: email,
-                          host: detected.host,
-                          port: detected.port,
-                          secure: detected.secure,
-                        });
-                      } else {
-                        // Just update email if provider not recognized
-                        setConfig({ ...config, user: email });
-                      }
-                    }}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="support@gmail.com"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Supported: Gmail, Outlook, Yahoo, iCloud, and more
-                  </p>
-                </div>
-                <div>
-                  <label htmlFor="password" className="text-sm font-medium">
-                    Password / App Password
-                  </label>
-                  <input
-                    type="password"
-                    value={config.password}
-                    onChange={(e) => setConfig({ ...config, password: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="•••••••••"
-                  />
-                </div>
-              </div>
-
-              {/* Advanced Settings Toggle */}
-              <div className="pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex gap-1 items-center text-sm text-muted-foreground hover:text-foreground"
-                >
-                  {showAdvanced ? '▼' : '▶'} Advanced Settings
-                </button>
-              </div>
-
-              {/* Advanced Settings Panel */}
-              {showAdvanced && (
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30">
-                  <div>
-                    <ReactSelect
-                      label="Email Filter"
-                      value={config.searchCriteria ?? 'UNSEEN'}
-                      onChange={(value) => setConfig({ ...config, searchCriteria: value })}
-                      options={searchCriteriaOptions}
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Which emails to sync (read/unread status)
-                    </p>
-                  </div>
-
-                  <div>
-                    <ReactSelect
-                      label="Time Range"
-                      value={(config.lookbackDays ?? 30).toString()}
-                      onChange={(value) => setConfig({ ...config, lookbackDays: parseInt(value) })}
-                      options={lookbackOptions.map((opt) => ({
-                        value: opt.value.toString(),
-                        label: opt.label,
-                      }))}
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      How far back in time (combines with filter)
-                    </p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="maxResults" className="text-sm font-medium">
-                      Max Results per Sync
-                    </label>
-                    <input
-                      type="number"
-                      value={config.maxResults ?? 500}
-                      onChange={(e) =>
-                        setConfig({ ...config, maxResults: parseInt(e.target.value) || 500 })
-                      }
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                      min="1"
-                      max="1000"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">Limit emails per sync</p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="bulkImportMaxResults" className="text-sm font-medium">
-                      Bulk Import Max Results
-                    </label>
-                    <input
-                      type="number"
-                      value={config.bulkImportMaxResults ?? 500}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          bulkImportMaxResults: parseInt(e.target.value) || 500,
-                        })
-                      }
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                      min="1"
-                      max="2000"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">Max for bulk imports</p>
-                  </div>
-
-                  {/* SMTP Configuration for Sending Replies */}
-                  <div className="col-span-2 pt-4 border-t">
-                    <h5 className="mb-3 text-sm font-semibold">
-                      📤 SMTP Settings (For Sending Replies)
-                    </h5>
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      Configure SMTP to send replies from this email address. Leave empty to use
-                      global SMTP settings.
-                    </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium">SMTP Host</label>
-                        <input
-                          type="text"
-                          value={config.smtp?.host ?? ''}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              smtp: {
-                                ...config.smtp,
-                                host: e.target.value,
-                                port: config.smtp?.port ?? 587,
-                                user: config.smtp?.user ?? '',
-                                password: config.smtp?.password ?? '',
-                                secure: config.smtp?.secure ?? false,
-                              },
-                            })
-                          }
-                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                          placeholder="smtp.gmail.com or mail.privateemail.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">SMTP Port</label>
-                        <input
-                          type="number"
-                          value={config.smtp?.port ?? 587}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              smtp: {
-                                ...config.smtp,
-                                host: config.smtp?.host ?? '',
-                                port: parseInt(e.target.value) || 587,
-                                user: config.smtp?.user ?? '',
-                                password: config.smtp?.password ?? '',
-                                secure: config.smtp?.secure ?? false,
-                              },
-                            })
-                          }
-                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="587 or 465"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">SMTP Username</label>
-                        <input
-                          type="email"
-                          value={config.smtp?.user ?? ''}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              smtp: {
-                                ...config.smtp,
-                                host: config.smtp?.host ?? '',
-                                port: config.smtp?.port ?? 587,
-                                user: e.target.value,
-                                password: config.smtp?.password ?? '',
-                                secure: config.smtp?.secure ?? false,
-                              },
-                            })
-                          }
-                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                          placeholder="Same as email above"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">SMTP Password</label>
-                        <input
-                          type="password"
-                          value={config.smtp?.password ?? ''}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              smtp: {
-                                ...config.smtp,
-                                host: config.smtp?.host ?? '',
-                                port: config.smtp?.port ?? 587,
-                                user: config.smtp?.user ?? '',
-                                password: e.target.value,
-                                secure: config.smtp?.secure ?? false,
-                              },
-                            })
-                          }
-                          className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                          placeholder="•••••••••"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="checkbox"
-                            checked={config.smtp?.secure ?? false}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                smtp: {
-                                  ...config.smtp,
-                                  host: config.smtp?.host ?? '',
-                                  port: config.smtp?.port ?? 587,
-                                  user: config.smtp?.user ?? '',
-                                  password: config.smtp?.password ?? '',
-                                  secure: e.target.checked,
-                                },
-                              })
-                            }
-                            className="rounded"
-                          />
-                          <label className="text-sm">
-                            Use SSL (port 465) instead of TLS (port 587)
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 items-center">
-                <input
-                  type="checkbox"
-                  checked={config.secure}
-                  onChange={(e) => setConfig({ ...config, secure: e.target.checked })}
-                  className="rounded"
-                />
-                <label htmlFor="secure" className="text-sm">
-                  Use SSL/TLS
-                </label>
-              </div>
-
-              <div className="flex gap-2 items-center">
-                <input
-                  type="checkbox"
-                  checked={config.isKnowledgeBase ?? false}
-                  onChange={(e) => setConfig({ ...config, isKnowledgeBase: e.target.checked })}
-                  className="rounded"
-                />
-                <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
-                  📚 Use as Knowledge Base Source
-                </label>
-              </div>
-              <p className="-mt-2 ml-6 text-xs text-muted-foreground">
-                Extract Q&A pairs and documents from conversations for AI-powered support responses
-              </p>
-
-              {/* Message Count Display */}
-              {messageCount !== null && (
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950 dark:border-green-800">
-                  <p className="text-sm text-green-800 dark:text-green-200">
-                    ✅ Found {messageCount} message{messageCount !== 1 ? 's' : ''} matching your
-                    criteria
-                  </p>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleCheckMessagesCount}
-                  isLoading={checkingCount}
-                  disabled={!config.host || !config.user || !config.password || saving}
-                >
-                  <TestTube2 className="mr-2 w-4 h-4" />
-                  Check Messages Count
-                </Button>
-                <Button
-                  onClick={saveIntegration}
-                  isLoading={saving}
-                  disabled={!config.host || !config.user || !config.password}
-                >
-                  <Save className="mr-2 w-4 h-4" />
-                  {editingId ? 'Update' : 'Save'} Email
-                </Button>
-                <Button variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
+            <EmailForm
+              config={config}
+              editingId={editingId}
+              saving={saving}
+              checkingCount={checkingCount}
+              messageCount={messageCount}
+              showAdvanced={showAdvanced}
+              onConfigChange={setConfig}
+              onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+              onCheckMessagesCount={handleCheckMessagesCount}
+              onSave={saveIntegration}
+              onCancel={resetForm}
+            />
           )}
 
           {emailIntegrations.length === 0 && !showForm && (
@@ -780,6 +409,7 @@ export const EmailIntegrationCard = ({
         </CardContent>
       </Card>
 
+      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
@@ -836,7 +466,11 @@ export const EmailIntegrationCard = ({
             </div>
 
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setEditBulkImport(null)} disabled={saving}>
+              <Button
+                variant="outline"
+                onClick={() => setEditBulkImport(null)}
+                disabled={saving}
+              >
                 Cancel
               </Button>
               <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>

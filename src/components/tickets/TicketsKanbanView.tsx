@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -174,7 +175,7 @@ function TicketKanbanCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`min-w-[240px] md:min-w-0 shrink-0 md:shrink relative rounded-md border bg-card shadow-sm transition-all cursor-grab active:cursor-grabbing touch-none select-none ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-primary/40'}`}
+      className={`min-w-[240px] md:min-w-0 shrink-0 md:shrink relative rounded-md border bg-card shadow-sm transition-all cursor-grab active:cursor-grabbing touch-manipulation select-none ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-primary/40'}`}
     >
       {/* Grip hint — always visible, stronger on hover */}
       <GripVertical className="absolute top-2 right-2 w-3.5 h-3.5 text-muted-foreground/30 hover:text-muted-foreground/70 pointer-events-none" />
@@ -383,7 +384,8 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
   }, []);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {

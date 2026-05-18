@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -110,26 +111,29 @@ const COLUMNS: KanbanColumnDef[] = [
 ];
 
 // Columns that participate in drag-and-drop
-const DND_COLS = new Set(['active', 'not_analysed', 'suspicious', 'spam']);
+const DND_COLS = new Set(['active', 'not_analysed', 'suspicious', 'spam', 'resolved']);
 
 // Valid drop targets per source column.
 // not_analysed → active: approve + queues AI analysis (BE handles this automatically).
 // not_analysed → suspicious: blocked by BE (filtered messages can't be marked suspicious directly).
 // suspicious → spam: move_to_spam.
 // spam → active: approve + queues AI analysis.
+// resolved → active: reopen.
 const VALID_TARGETS: Record<string, Set<string>> = {
   not_analysed: new Set(['active']),
   suspicious:   new Set(['active', 'spam']),
   active:       new Set(['suspicious', 'spam']),
   spam:         new Set(['active']),
+  resolved:     new Set(['active']),
 };
 
-type DndAction = 'approve' | 'mark_suspicious' | 'move_to_spam';
+type DndAction = 'approve' | 'mark_suspicious' | 'move_to_spam' | 'reopen';
 
 function getDndAction(from: string, to: string): DndAction | null {
   if ((from === 'not_analysed' || from === 'suspicious' || from === 'spam') && to === 'active') return 'approve';
   if (from === 'active' && to === 'suspicious') return 'mark_suspicious';
   if ((from === 'suspicious' || from === 'active') && to === 'spam') return 'move_to_spam';
+  if (from === 'resolved' && to === 'active') return 'reopen';
   return null;
 }
 
@@ -151,6 +155,8 @@ function buildSharedFilters(filters: FilterState): Record<string, string> {
   if (filters.labelId && filters.labelId !== 'all') api.labelId = filters.labelId;
   if (filters.linked === 'has_ticket') api.hasTicket = 'true';
   else if (filters.linked === 'has_jira') api.hasJiraTicket = 'true';
+  if (filters.threadStatus && filters.threadStatus !== 'all')
+    api.processed = filters.threadStatus as string;
   if (filters.search?.trim()) api.search = filters.search.trim();
   return api;
 }
@@ -185,7 +191,7 @@ function DraggableMessageCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`relative cursor-grab active:cursor-grabbing touch-none select-none ${isDragging ? 'opacity-30' : ''}`}
+      className={`relative cursor-grab active:cursor-grabbing touch-manipulation select-none ${isDragging ? 'opacity-30' : ''}`}
     >
       <GripVertical className="absolute top-2 right-2 z-10 w-3.5 h-3.5 text-muted-foreground/30 pointer-events-none" />
       <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} />
@@ -410,7 +416,8 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   }, [filters.departmentRole, setSelectedDepartment]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -470,7 +477,11 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     }));
 
     try {
-      await messageService.classify(msgId, action);
+      if (action === 'reopen') {
+        await messageService.reopen(msgId);
+      } else {
+        await messageService.classify(msgId, action);
+      }
     } catch (err) {
       logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
       // Rollback: restore card at its original position

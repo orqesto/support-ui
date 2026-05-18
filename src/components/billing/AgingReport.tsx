@@ -77,8 +77,8 @@ export const AgingReport = () => {
               ]}
             />
             <Bar dataKey="total" fill="#3B82F6" radius={[4, 4, 0, 0]}>
-              {chartData.map((entry, index) => (
-                <rect key={`bar-${index}`} fill={entry.fill} />
+              {chartData.map((entry) => (
+                <rect key={entry.label} fill={entry.fill} />
               ))}
             </Bar>
           </BarChart>

@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -20,10 +20,12 @@ import { cn } from '@/lib/utils';
 type RichTextEditorProps = {
   content?: string;
   onChange?: (html: string) => void;
+  onSubmit?: () => void;
   placeholder?: string;
   editable?: boolean;
   className?: string;
   minHeight?: string;
+  maxHeight?: string;
 };
 
 export type RichTextEditorHandle = {
@@ -35,19 +37,27 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     {
       content = '',
       onChange,
+      onSubmit,
       placeholder = 'Start typing...',
       editable = true,
       className,
       minHeight = '150px',
+      maxHeight,
     },
     ref
   ) => {
+    const onSubmitRef = useRef(onSubmit);
+    useEffect(() => {
+      onSubmitRef.current = onSubmit;
+    }, [onSubmit]);
+
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
           heading: {
             levels: [1, 2, 3],
           },
+          link: false,
         }),
         Placeholder.configure({
           placeholder,
@@ -68,6 +78,13 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         attributes: {
           class:
             'prose prose-sm max-w-none focus:outline-none p-4 bg-background text-foreground dark:prose-invert',
+        },
+        handleKeyDown: (_view, event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            onSubmitRef.current?.();
+            return true;
+          }
+          return false;
         },
       },
     });
@@ -222,7 +239,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
           </div>
         )}
 
-        <EditorContent editor={editor} className="rich-text-editor" style={{ minHeight }} />
+        <div style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}>
+          <EditorContent editor={editor} className="rich-text-editor" style={{ minHeight }} />
+        </div>
       </div>
     );
   }

@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react';
-import {
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  MessageCircle,
-} from 'lucide-react';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
+import { AIAutoReplyCard } from '@/components/settings/AIAutoReplyCard';
+import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { DeepSeekProviderCard } from '@/components/settings/providers/DeepSeekProviderCard';
 import { OpenAIProviderCard } from '@/components/settings/providers/OpenAIProviderCard';
@@ -16,7 +10,6 @@ import { QwenProviderCard } from '@/components/settings/providers/QwenProviderCa
 import { OllamaProviderCard } from '@/components/settings/providers/OllamaProviderCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { aiService } from '@/services/ai.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { organizationService } from '@/services/organization.service';
@@ -32,7 +25,6 @@ export const AIProvidersSettings = () => {
   const [toggling, setToggling] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
-  const [showFeatureDetails, setShowFeatureDetails] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [requestMissingInfo, setRequestMissingInfo] = useState(true);
   const [suggestSolutions, setSuggestSolutions] = useState(true);
@@ -153,12 +145,10 @@ export const AIProvidersSettings = () => {
   };
 
   const handleThresholdChange = (threshold: number) => {
-    // Just update temp value while dragging
     setTempThreshold(threshold);
   };
 
   const handleThresholdSave = async () => {
-    // Save when slider is released
     if (tempThreshold === highConfidenceThreshold) {
       return;
     }
@@ -177,7 +167,7 @@ export const AIProvidersSettings = () => {
         description: 'Failed to update confidence threshold',
         variant: 'error',
       });
-      setTempThreshold(highConfidenceThreshold); // Revert on error
+      setTempThreshold(highConfidenceThreshold);
     } finally {
       setSavingAutoReply(false);
     }
@@ -209,33 +199,22 @@ export const AIProvidersSettings = () => {
 
   const loadModels = async () => {
     try {
-      const [openaiRes, anthropicRes, deepseekRes, perplexityRes, qwenRes, ollamaRes] = await Promise.all([
-        aiService.getModels('openai'),
-        aiService.getModels('anthropic'),
-        aiService.getModels('deepseek'),
-        aiService.getModels('perplexity'),
-        aiService.getModels('qwen'),
-        aiService.getModels('ollama'),
-      ]);
+      const [openaiRes, anthropicRes, deepseekRes, perplexityRes, qwenRes, ollamaRes] =
+        await Promise.all([
+          aiService.getModels('openai'),
+          aiService.getModels('anthropic'),
+          aiService.getModels('deepseek'),
+          aiService.getModels('perplexity'),
+          aiService.getModels('qwen'),
+          aiService.getModels('ollama'),
+        ]);
 
-      if (openaiRes.success) {
-        setOpenaiModels(openaiRes.data.all);
-      }
-      if (anthropicRes.success) {
-        setAnthropicModels(anthropicRes.data.all);
-      }
-      if (deepseekRes.success) {
-        setDeepseekModels(deepseekRes.data.all);
-      }
-      if (perplexityRes.success) {
-        setPerplexityModels(perplexityRes.data.all);
-      }
-      if (qwenRes.success) {
-        setQwenModels(qwenRes.data.all);
-      }
-      if (ollamaRes.success) {
-        setOllamaModels(ollamaRes.data.all);
-      }
+      if (openaiRes.success) setOpenaiModels(openaiRes.data.all);
+      if (anthropicRes.success) setAnthropicModels(anthropicRes.data.all);
+      if (deepseekRes.success) setDeepseekModels(deepseekRes.data.all);
+      if (perplexityRes.success) setPerplexityModels(perplexityRes.data.all);
+      if (qwenRes.success) setQwenModels(qwenRes.data.all);
+      if (ollamaRes.success) setOllamaModels(ollamaRes.data.all);
     } catch (error) {
       logger.error('Failed to load AI models:', error);
     }
@@ -283,9 +262,7 @@ export const AIProvidersSettings = () => {
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirm) {
-      return;
-    }
+    if (!deleteConfirm) return;
 
     const { id, name, type } = deleteConfirm;
     setDeleting(id);
@@ -321,19 +298,20 @@ export const AIProvidersSettings = () => {
     setDeleteConfirm(null);
   };
 
-  const toggleEnabled = async (id: number, currentEnabled: boolean, name: string, type: string) => {
+  const toggleEnabled = async (
+    id: number,
+    currentEnabled: boolean,
+    name: string,
+    type: string
+  ) => {
     setToggling(id);
-
     const isEnabling = !currentEnabled;
 
-    // Optimistic update - immediately update UI
-    // If enabling this provider, disable all other AI providers (mutual exclusion)
     setIntegrations((prevIntegrations) =>
       prevIntegrations.map((integration) => {
         if (integration.id === id) {
           return { ...integration, enabled: isEnabling };
         }
-        // Disable other AI providers if we're enabling this one
         const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity', 'qwen', 'ollama'].includes(
           integration.type
         );
@@ -345,8 +323,6 @@ export const AIProvidersSettings = () => {
     );
 
     try {
-      // Include type to disambiguate which table to update (important when IDs overlap)
-      // Extended update payload with AI provider mutual exclusion flag
       const updatePayload: Partial<{
         name: string;
         enabled: boolean;
@@ -355,12 +331,11 @@ export const AIProvidersSettings = () => {
       }> & { disableOtherAIProviders?: boolean } = {
         enabled: isEnabling,
         type,
-        disableOtherAIProviders: isEnabling, // Signal backend to disable other AI providers
+        disableOtherAIProviders: isEnabling,
       };
 
       const response = await integrationsService.update(id, updatePayload);
       if (response.success) {
-        // Confirm with server data
         await fetchIntegrations();
         const successMessage = isEnabling
           ? `${name} enabled successfully! Other AI providers have been disabled.`
@@ -372,7 +347,6 @@ export const AIProvidersSettings = () => {
           variant: 'success',
         });
       } else {
-        // Revert optimistic update on error
         setIntegrations((prevIntegrations) =>
           prevIntegrations.map((integration) =>
             integration.id === id ? { ...integration, enabled: currentEnabled } : integration
@@ -387,7 +361,6 @@ export const AIProvidersSettings = () => {
         });
       }
     } catch (error) {
-      // Revert optimistic update on error
       setIntegrations((prevIntegrations) =>
         prevIntegrations.map((integration) =>
           integration.id === id ? { ...integration, enabled: currentEnabled } : integration
@@ -455,7 +428,6 @@ export const AIProvidersSettings = () => {
   const qwenIntegrations = integrations.filter((i) => i.type === 'qwen');
   const ollamaIntegrations = integrations.filter((i) => i.type === 'ollama');
 
-  // Only check for AI chat providers (not email, telegram, local embeddings, etc.)
   const hasAnyProvider =
     openaiIntegrations.length > 0 ||
     anthropicIntegrations.length > 0 ||
@@ -464,276 +436,58 @@ export const AIProvidersSettings = () => {
     qwenIntegrations.length > 0 ||
     ollamaIntegrations.length > 0;
 
+  const commonProviderProps = {
+    showModels,
+    testing,
+    deleting,
+    saving,
+    toggling,
+    editingId,
+    onToggleModels: toggleModels,
+    onTest: testConnection,
+    onDelete: handleDeleteClick,
+    onToggleEnabled: toggleEnabled,
+    onCancel: () => setEditingId(null),
+  };
+
   return (
     <div className="space-y-6">
-      {/* AI Provider Health Check - Show when AI provider is configured */}
       {hasAnyProvider && <AIProviderHealthCheck />}
 
-      {/* AI Auto-Reply Toggle - Show when AI provider is configured */}
       {hasAnyProvider && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex gap-2 items-center">
-              <MessageCircle className="w-5 h-5" />
-              AI Auto-Reply
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                AI automatically replies to customer messages in two ways:
-              </p>
-              <div className="pl-4 space-y-1 text-sm text-muted-foreground">
-                <p>
-                  <strong>1. Request Missing Info:</strong> Asks customers for more details when
-                  messages are incomplete
-                </p>
-                <p>
-                  <strong>2. Suggest Solutions:</strong> Searches documentation, resolved tickets,
-                  and previous messages to reply with solutions
-                </p>
-              </div>
-              <div className="flex gap-3 items-center">
-                <label className="flex gap-3 items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={autoReplyEnabled}
-                      onChange={(e) => handleAutoReplyChange(e.target.checked)}
-                      disabled={savingAutoReply}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
-                  </div>
-                  <span className="text-sm font-medium">
-                    {autoReplyEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-                {savingAutoReply && (
-                  <span className="text-sm text-muted-foreground">Saving...</span>
-                )}
-              </div>
-
-              {/* Request Missing Info Toggle */}
-              {autoReplyEnabled && (
-                <div className="pt-2 space-y-2 border-t">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium">Request Missing Information</p>
-                      <p className="text-xs text-muted-foreground">
-                        AI asks customers for more details when messages are incomplete
-                      </p>
-                    </div>
-                    <label className="flex gap-3 items-center cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          checked={requestMissingInfo}
-                          onChange={(e) => handleRequestMissingInfoChange(e.target.checked)}
-                          disabled={savingAutoReply}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
-                      </div>
-                      <span className="text-sm font-medium">
-                        {requestMissingInfo ? 'On' : 'Off'}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Suggest Solutions Toggle */}
-              {autoReplyEnabled && (
-                <div className="pt-2 space-y-2 border-t">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium">Suggest Solutions</p>
-                      <p className="text-xs text-muted-foreground">
-                        AI searches docs, tickets, and messages to suggest solutions
-                      </p>
-                    </div>
-                    <label className="flex gap-3 items-center cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          checked={suggestSolutions}
-                          onChange={(e) => handleSuggestSolutionsChange(e.target.checked)}
-                          disabled={savingAutoReply}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
-                      </div>
-                      <span className="text-sm font-medium">{suggestSolutions ? 'On' : 'Off'}</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Confidence Threshold Slider */}
-              {autoReplyEnabled && suggestSolutions && (
-                <div className="pt-2 space-y-2 border-t">
-                  <div className="flex justify-between items-center">
-                    <label htmlFor="highConfidenceThreshold" className="text-sm font-medium">
-                      Auto-Send Confidence Threshold
-                    </label>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-sm font-medium text-primary">
-                        {Math.round(tempThreshold * 100)}%
-                      </span>
-                      {thresholdSaved && (
-                        <span className="text-xs text-green-600 dark:text-green-400 animate-fade-in">
-                          ✓ Saved
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <input
-                    type="range"
-                    min="70"
-                    max="100"
-                    step="5"
-                    value={Math.round(tempThreshold * 100)}
-                    onChange={(e) => handleThresholdChange(Number(e.target.value) / 100)}
-                    onMouseUp={handleThresholdSave}
-                    onTouchEnd={handleThresholdSave}
-                    disabled={savingAutoReply}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary"
-                  />
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>
-                      • <strong>≥{Math.round(tempThreshold * 100)}%:</strong> Auto-send email
-                      immediately ✨
-                    </p>
-                    <p>
-                      • <strong>70-{Math.round(tempThreshold * 100) - 1}%:</strong> Suggest answer
-                      for agent review
-                    </p>
-                    <p>
-                      • <strong>&lt;70%:</strong> Skip (not confident enough)
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                {autoReplyEnabled ? (
-                  <>
-                    AI{' '}
-                    {requestMissingInfo &&
-                      suggestSolutions &&
-                      'requests missing details and suggests solutions'}
-                    {requestMissingInfo && !suggestSolutions && 'requests missing details only'}
-                    {!requestMissingInfo && suggestSolutions && 'suggests solutions only'}
-                    {!requestMissingInfo &&
-                      !suggestSolutions &&
-                      'is enabled but no behaviors are active'}
-                    . Max 1 AI reply per thread before human escalation.
-                  </>
-                ) : (
-                  'AI auto-reply is currently disabled. All messages will require manual handling by support agents.'
-                )}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <AIAutoReplyCard
+          autoReplyEnabled={autoReplyEnabled}
+          requestMissingInfo={requestMissingInfo}
+          suggestSolutions={suggestSolutions}
+          highConfidenceThreshold={highConfidenceThreshold}
+          tempThreshold={tempThreshold}
+          savingAutoReply={savingAutoReply}
+          thresholdSaved={thresholdSaved}
+          onAutoReplyChange={handleAutoReplyChange}
+          onRequestMissingInfoChange={handleRequestMissingInfoChange}
+          onSuggestSolutionsChange={handleSuggestSolutionsChange}
+          onThresholdChange={handleThresholdChange}
+          onThresholdSave={handleThresholdSave}
+        />
       )}
 
-      {/* Feature Requirements Info - Only show when no AI provider */}
-      {!hasAnyProvider && (
-        <div className="p-3 bg-amber-50 rounded-lg border-2 border-amber-500 dark:bg-amber-950/50">
-          <button
-            onClick={() => setShowFeatureDetails(!showFeatureDetails)}
-            className="flex justify-between items-center w-full text-left"
-          >
-            <div className="flex gap-2 items-center">
-              <AlertCircle className="flex-shrink-0 w-4 h-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                No AI provider configured. Some features unavailable.
-              </span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <span className="text-xs text-amber-700 dark:text-amber-300">Details</span>
-              {showFeatureDetails ? (
-                <ChevronUp className="w-4 h-4 text-amber-600" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-amber-600" />
-              )}
-            </div>
-          </button>
+      {!hasAnyProvider && <AINoProviderBanner />}
 
-          {/* Accordion Content */}
-          {showFeatureDetails && (
-            <div className="grid grid-cols-1 gap-3 mt-3 text-xs md:grid-cols-2">
-              {/* Features that work */}
-              <div className="p-2 rounded border bg-background">
-                <h4 className="flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                  Works Without AI
-                </h4>
-                <ul className="space-y-0.5 text-muted-foreground text-xs">
-                  <li>• Email ingestion</li>
-                  <li>• Manual tickets</li>
-                  <li>• Basic spam filter</li>
-                  <li>• Local embeddings</li>
-                </ul>
-              </div>
-
-              {/* Features that require AI */}
-              <div className="p-2 rounded border bg-background">
-                <h4 className="flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
-                  <XCircle className="w-3.5 h-3.5 text-red-600" />
-                  Requires AI Provider
-                </h4>
-                <ul className="space-y-0.5 text-muted-foreground text-xs">
-                  <li>• Auto-reply</li>
-                  <li>• Follow-up questions</li>
-                  <li>• Smart priority</li>
-                  <li>• Advanced spam detection</li>
-                  <li>• AI summaries</li>
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* OpenAI Provider Card */}
       <OpenAIProviderCard
+        {...commonProviderProps}
         integrations={openaiIntegrations}
         models={openaiModels}
-        showModels={showModels}
-        testing={testing}
-        deleting={deleting}
-        saving={saving}
-        toggling={toggling}
-        editingId={editingId}
-        onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
-        onTest={testConnection}
-        onDelete={handleDeleteClick}
-        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration('OpenAI', 'openai', config as Record<string, string | number | boolean>)
         }
-        onCancel={() => setEditingId(null)}
       />
 
-      {/* Anthropic Provider Card */}
       <AnthropicProviderCard
+        {...commonProviderProps}
         integrations={anthropicIntegrations}
         models={anthropicModels}
-        showModels={showModels}
-        testing={testing}
-        deleting={deleting}
-        saving={saving}
-        toggling={toggling}
-        editingId={editingId}
-        onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
-        onTest={testConnection}
-        onDelete={handleDeleteClick}
-        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration(
             'Anthropic',
@@ -741,24 +495,13 @@ export const AIProvidersSettings = () => {
             config as Record<string, string | number | boolean>
           )
         }
-        onCancel={() => setEditingId(null)}
       />
 
-      {/* DeepSeek Provider Card */}
       <DeepSeekProviderCard
+        {...commonProviderProps}
         integrations={deepseekIntegrations}
         models={deepseekModels}
-        showModels={showModels}
-        testing={testing}
-        deleting={deleting}
-        saving={saving}
-        toggling={toggling}
-        editingId={editingId}
-        onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
-        onTest={testConnection}
-        onDelete={handleDeleteClick}
-        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration(
             'DeepSeek',
@@ -766,24 +509,13 @@ export const AIProvidersSettings = () => {
             config as Record<string, string | number | boolean>
           )
         }
-        onCancel={() => setEditingId(null)}
       />
 
-      {/* Perplexity Provider Card */}
       <PerplexityProviderCard
+        {...commonProviderProps}
         integrations={perplexityIntegrations}
         models={perplexityModels}
-        showModels={showModels}
-        testing={testing}
-        deleting={deleting}
-        saving={saving}
-        toggling={toggling}
-        editingId={editingId}
-        onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
-        onTest={testConnection}
-        onDelete={handleDeleteClick}
-        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration(
             'Perplexity',
@@ -791,49 +523,26 @@ export const AIProvidersSettings = () => {
             config as Record<string, string | number | boolean>
           )
         }
-        onCancel={() => setEditingId(null)}
       />
 
-      {/* Qwen Provider Card */}
       <QwenProviderCard
+        {...commonProviderProps}
         integrations={qwenIntegrations}
         models={qwenModels}
-        showModels={showModels}
-        testing={testing}
-        deleting={deleting}
-        saving={saving}
-        toggling={toggling}
-        editingId={editingId}
-        onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
-        onTest={testConnection}
-        onDelete={handleDeleteClick}
-        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration('Qwen', 'qwen', config as Record<string, string | number | boolean>)
         }
-        onCancel={() => setEditingId(null)}
       />
 
-      {/* Ollama Provider Card */}
       <OllamaProviderCard
+        {...commonProviderProps}
         integrations={ollamaIntegrations}
         models={ollamaModels}
-        showModels={showModels}
-        testing={testing}
-        deleting={deleting}
-        saving={saving}
-        toggling={toggling}
-        editingId={editingId}
-        onToggleModels={toggleModels}
         onEdit={(integration) => setEditingId(integration.id)}
-        onTest={testConnection}
-        onDelete={handleDeleteClick}
-        onToggleEnabled={toggleEnabled}
         onSave={(config) =>
           saveIntegration('Ollama', 'ollama', config as Record<string, string | number | boolean>)
         }
-        onCancel={() => setEditingId(null)}
       />
 
       {/* Delete Confirmation Modal */}
@@ -865,7 +574,6 @@ export const AIProvidersSettings = () => {
         </div>
       )}
 
-      {/* Alert Dialog */}
       <AlertDialog
         open={alertDialog.open}
         onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}

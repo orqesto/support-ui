@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Mail, Plus, MoreVertical, Trash2, TestTube2, Calendar, Save } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { GmailForm } from '@/components/settings/integrations/GmailForm';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -10,32 +11,24 @@ import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 
 type GmailConfig = {
-  clientId: string;
-  clientSecret: string;
   isKnowledgeBase?: boolean;
-  searchQuery: string; // Gmail search filter
-  lookbackDays?: number; // Time-based limit (optional, adds to search)
+  searchQuery: string;
+  lookbackDays?: number;
   maxResults: number;
   pollingMaxPages: number;
   bulkImportDays: number;
   bulkImportMaxResults: number;
 };
 
-const searchQueryOptions = [
-  { value: 'is:unread', label: 'Unread only (recommended)' },
-  { value: 'in:inbox', label: 'All inbox messages' },
-  { value: 'is:unread OR in:inbox', label: 'Unread + All inbox' },
-  { value: '', label: 'Everything (all folders)' },
-];
-
-const lookbackOptions = [
-  { value: 7, label: 'Last 7 Days' },
-  { value: 30, label: 'Last 30 Days' },
-  { value: 90, label: 'Last 90 Days' },
-  { value: 180, label: 'Last 6 Months' },
-  { value: 365, label: 'Last Year' },
-  { value: 0, label: 'All Time (slow)' },
-];
+const defaultConfig: GmailConfig = {
+  isKnowledgeBase: false,
+  searchQuery: 'is:unread',
+  lookbackDays: 30,
+  maxResults: 500,
+  pollingMaxPages: 200,
+  bulkImportDays: 0,
+  bulkImportMaxResults: 500,
+};
 
 export const GmailIntegrationCard = ({
   integrations,
@@ -64,36 +57,19 @@ export const GmailIntegrationCard = ({
   } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [showMenu, setShowMenu] = useState<number | null>(null);
-
-  const [config, setConfig] = useState<GmailConfig>({
-    clientId: '',
-    clientSecret: '',
-    isKnowledgeBase: false,
-    searchQuery: 'is:unread',
-    lookbackDays: 30,
-    maxResults: 500,
-    pollingMaxPages: 200,
-    bulkImportDays: 0,
-    bulkImportMaxResults: 500,
-  });
+  const [config, setConfig] = useState<GmailConfig>(defaultConfig);
 
   const gmailIntegrations = integrations.filter((i) => i.type === 'gmail');
 
   const handleUpdateBulkImportDays = async () => {
-    if (!editBulkImport) {
-      return;
-    }
+    if (!editBulkImport) return;
 
     setSaving(true);
     try {
       const days = parseInt(bulkImportDaysInput) || 0;
 
       await integrationsService.update(editBulkImport.id, {
-        config: {
-          gmail: {
-            bulkImportDays: days,
-          },
-        },
+        config: { gmail: { bulkImportDays: days } },
       });
 
       await onRefresh();
@@ -119,17 +95,7 @@ export const GmailIntegrationCard = ({
   };
 
   const resetForm = () => {
-    setConfig({
-      clientId: '',
-      clientSecret: '',
-      isKnowledgeBase: false,
-      searchQuery: 'is:unread',
-      lookbackDays: 30,
-      maxResults: 500,
-      pollingMaxPages: 200,
-      bulkImportDays: 0,
-      bulkImportMaxResults: 500,
-    });
+    setConfig(defaultConfig);
     setPollingPagesInput('200');
     setMaxResultsInput('500');
     setBulkImportMaxResultsInput('500');
@@ -139,7 +105,6 @@ export const GmailIntegrationCard = ({
   const handleGmailOAuth = async () => {
     setSaving(true);
     try {
-      // Combine search query with time range
       let finalQuery = config.searchQuery || '';
       if (config.lookbackDays && config.lookbackDays > 0) {
         const timestamp = Math.floor(Date.now() / 1000 - config.lookbackDays * 86400);
@@ -148,8 +113,6 @@ export const GmailIntegrationCard = ({
       }
 
       const response = await gmailOAuthService.connectWithPopup({
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
         searchQuery: finalQuery,
         maxResults: config.maxResults,
         pollingMaxPages: config.pollingMaxPages,
@@ -158,7 +121,6 @@ export const GmailIntegrationCard = ({
         isKnowledgeBase: config.isKnowledgeBase,
       });
 
-      // Guard: component may have unmounted while the OAuth popup was open
       if (abortRef.current) return;
 
       if (response.success) {
@@ -234,9 +196,7 @@ export const GmailIntegrationCard = ({
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) {
-      return;
-    }
+    if (!deleteConfirm) return;
 
     const { id, name } = deleteConfirm;
     setDeleting(id);
@@ -272,7 +232,7 @@ export const GmailIntegrationCard = ({
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center gap-1">
-          <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
+            <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
               <Mail className="w-5 h-5 text-red-600 " />
               Gmail Accounts (OAuth2)
             </CardTitle>
@@ -328,7 +288,6 @@ export const GmailIntegrationCard = ({
                             if (lookbackDays === 365) return 'Last Year';
                             return `${lookbackDays} days`;
                           }
-                          // Fallback to old searchQuery for backward compatibility
                           const query = gmailConfig?.searchQuery ?? 'is:unread';
                           return query === '' ? 'Everything' : query;
                         })()}
@@ -422,220 +381,37 @@ export const GmailIntegrationCard = ({
           )}
 
           {showForm && (
-            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">Add Gmail Account via OAuth2</h4>
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="clientId" className="text-sm font-medium">
-                    Google OAuth2 Client ID
-                  </label>
-                  <input
-                    type="text"
-                    value={config.clientId}
-                    onChange={(e) => setConfig({ ...config, clientId: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="123456789-abc.apps.googleusercontent.com"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    From Google Cloud Console → APIs & Services → Credentials
-                  </p>
-                </div>
-                <div>
-                  <label htmlFor="clientSecret" className="text-sm font-medium">
-                    Google OAuth2 Client Secret
-                  </label>
-                  <input
-                    type="password"
-                    value={config.clientSecret}
-                    onChange={(e) => setConfig({ ...config, clientSecret: e.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="GOCSPX-..."
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Client secret from the same OAuth2 credentials
-                  </p>
-                </div>
-
-                <div className="flex gap-2 items-center pt-2">
-                  <input
-                    type="checkbox"
-                    checked={config.isKnowledgeBase ?? false}
-                    onChange={(e) => setConfig({ ...config, isKnowledgeBase: e.target.checked })}
-                    className="rounded"
-                  />
-                  <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
-                    📚 Use as Knowledge Base Source
-                  </label>
-                </div>
-                <p className="-mt-2 ml-6 text-xs text-muted-foreground">
-                  Extract Q&A pairs and documents from conversations for AI-powered support
-                  responses
-                </p>
-
-                <div>
-                  <ReactSelect
-                    label="Email Filter"
-                    value={config.searchQuery}
-                    onChange={(value) => setConfig({ ...config, searchQuery: value })}
-                    options={searchQueryOptions}
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Which emails to sync (unread, inbox, etc.)
-                  </p>
-                </div>
-                <div>
-                  <ReactSelect
-                    label="Time Range"
-                    value={(config.lookbackDays ?? 30).toString()}
-                    onChange={(value) => setConfig({ ...config, lookbackDays: parseInt(value) })}
-                    options={lookbackOptions.map((opt) => ({
-                      value: opt.value.toString(),
-                      label: opt.label,
-                    }))}
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    How far back in time (combines with filter above)
-                  </p>
-                </div>
-                <div>
-                  <label htmlFor="maxResults" className="text-sm font-medium">
-                    Max Results per Sync
-                  </label>
-                  <input
-                    id="maxResults"
-                    type="number"
-                    value={maxResultsInput}
-                    onChange={(e) => setMaxResultsInput(e.target.value)}
-                    onBlur={() => {
-                      const value = parseInt(maxResultsInput) || 500;
-                      const validated = Math.min(Math.max(value, 1), 500);
-                      setConfig({ ...config, maxResults: validated });
-                      setMaxResultsInput(validated.toString());
-                    }}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="500"
-                    min="1"
-                    max="500"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Messages fetched per page during regular polling
-                  </p>
-                </div>
-
-                {/* Polling Settings */}
-                <div className="pt-3 border-t">
-                  <h5 className="mb-3 text-sm font-semibold">Regular Polling Settings</h5>
-                  <div className="space-y-3">
-                    <div>
-                      <label htmlFor="pollingMaxPages" className="text-sm font-medium">
-                        Max Pages to Poll
-                      </label>
-                      <input
-                        id="pollingMaxPages"
-                        type="number"
-                        value={pollingPagesInput}
-                        onChange={(e) => {
-                          setPollingPagesInput(e.target.value);
-                        }}
-                        onBlur={() => {
-                          // Validate and update config on blur
-                          const value = parseInt(pollingPagesInput) || 50;
-                          const validated = Math.min(Math.max(value, 1), 200);
-                          setConfig({ ...config, pollingMaxPages: validated });
-                          setPollingPagesInput(validated.toString());
-                        }}
-                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                        placeholder="50"
-                        min="1"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Maximum pages per polling cycle (max: 200). Example: 100 pages × 10/page =
-                        1,000 messages.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bulk Import Settings */}
-                <div className="pt-3 border-t">
-                  <h5 className="mb-3 text-sm font-semibold">Bulk Import Settings</h5>
-                  <div className="space-y-3">
-                    <div>
-                      <ReactSelect
-                        label="Import Time Range (Days)"
-                        value={config.bulkImportDays.toString()}
-                        onChange={(value) =>
-                          setConfig({ ...config, bulkImportDays: parseInt(value) })
-                        }
-                        options={[
-                          { value: '0', label: 'All Time' },
-                          { value: '7', label: 'Last 7 Days' },
-                          { value: '30', label: 'Last 30 Days' },
-                          { value: '90', label: 'Last 90 Days' },
-                          { value: '180', label: 'Last 6 Months' },
-                          { value: '365', label: 'Last Year' },
-                        ]}
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        How far back to import emails when using bulk import (0 = all emails)
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="bulkImportMaxResults" className="text-sm font-medium">
-                        Bulk Import Page Size
-                      </label>
-                      <input
-                        id="bulkImportMaxResults"
-                        type="number"
-                        value={bulkImportMaxResultsInput}
-                        onChange={(e) => setBulkImportMaxResultsInput(e.target.value)}
-                        onBlur={() => {
-                          const value = parseInt(bulkImportMaxResultsInput) || 500;
-                          const validated = Math.min(Math.max(value, 100), 500);
-                          setConfig({ ...config, bulkImportMaxResults: validated });
-                          setBulkImportMaxResultsInput(validated.toString());
-                        }}
-                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                        placeholder="500"
-                        min="100"
-                        max="500"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Messages per page during bulk import (max: 500, recommended for large
-                        imports)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-3 text-xs bg-yellow-50 rounded border border-yellow-200">
-                <p className="font-medium text-yellow-900">ℹ️ OAuth2 Setup Required</p>
-                <p className="mt-1 text-yellow-700">
-                  You need to create OAuth2 credentials in Google Cloud Console first.
-                </p>
-                <a
-                  href="https://developers.google.com/gmail/api/quickstart/nodejs"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-2 text-yellow-700 hover:underline"
-                >
-                  📖 Setup Guide →
-                </a>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleGmailOAuth}
-                  isLoading={saving}
-                  disabled={!config.clientId || !config.clientSecret}
-                >
-                  <Save className="mr-2 w-4 h-4" />
-                  Connect with Google
-                </Button>
-                <Button variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
+            <GmailForm
+              config={config}
+              saving={saving}
+              pollingPagesInput={pollingPagesInput}
+              maxResultsInput={maxResultsInput}
+              bulkImportMaxResultsInput={bulkImportMaxResultsInput}
+              onConfigChange={setConfig}
+              onPollingPagesChange={setPollingPagesInput}
+              onPollingPagesBlur={() => {
+                const value = parseInt(pollingPagesInput) || 50;
+                const validated = Math.min(Math.max(value, 1), 200);
+                setConfig({ ...config, pollingMaxPages: validated });
+                setPollingPagesInput(validated.toString());
+              }}
+              onMaxResultsChange={setMaxResultsInput}
+              onMaxResultsBlur={() => {
+                const value = parseInt(maxResultsInput) || 500;
+                const validated = Math.min(Math.max(value, 1), 500);
+                setConfig({ ...config, maxResults: validated });
+                setMaxResultsInput(validated.toString());
+              }}
+              onBulkImportMaxResultsChange={setBulkImportMaxResultsInput}
+              onBulkImportMaxResultsBlur={() => {
+                const value = parseInt(bulkImportMaxResultsInput) || 500;
+                const validated = Math.min(Math.max(value, 100), 500);
+                setConfig({ ...config, bulkImportMaxResults: validated });
+                setBulkImportMaxResultsInput(validated.toString());
+              }}
+              onConnect={handleGmailOAuth}
+              onCancel={resetForm}
+            />
           )}
 
           {gmailIntegrations.length === 0 && !showForm && (

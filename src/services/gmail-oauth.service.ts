@@ -12,8 +12,6 @@ export type GmailOAuthInitResponse = {
 
 export type GmailOAuthCallbackRequest = {
   code: string;
-  clientId: string;
-  clientSecret: string;
   redirectUri: string;
   searchQuery?: string;
   maxResults?: number;
@@ -31,8 +29,6 @@ export type ApiResponse<T> = {
 };
 
 export interface ConnectWithPopupConfig {
-  clientId: string;
-  clientSecret: string;
   searchQuery?: string;
   maxResults?: number;
   pollingMaxPages?: number;
@@ -55,14 +51,10 @@ export const gmailOAuthService = {
   /**
    * Initiate OAuth flow
    */
-  initiateOAuth: async (
-    clientId: string,
-    clientSecret: string,
-    redirectUri: string
-  ): Promise<ApiResponse<GmailOAuthInitResponse>> => {
+  initiateOAuth: async (): Promise<ApiResponse<GmailOAuthInitResponse>> => {
     const response = await apiClient.post<{ success: boolean; data: GmailOAuthInitResponse }>(
       '/api/oauth/gmail/authorize',
-      { clientId, clientSecret, redirectUri }
+      {}
     );
     return { success: response.data.success, data: response.data.data };
   },
@@ -93,8 +85,6 @@ export const gmailOAuthService = {
   ): Promise<ApiResponse<{ email: string; id: number }>> =>
     new Promise((resolve) => {
       const {
-        clientId,
-        clientSecret,
         searchQuery,
         maxResults,
         pollingMaxPages,
@@ -114,11 +104,7 @@ export const gmailOAuthService = {
           const redirectUri = configResponse.data.redirectUri;
 
           // Initiate OAuth flow
-          const initResponse = await gmailOAuthService.initiateOAuth(
-            clientId,
-            clientSecret,
-            redirectUri
-          );
+          const initResponse = await gmailOAuthService.initiateOAuth();
           if (!initResponse.success || !initResponse.data) {
             resolve({ success: false, error: 'Failed to initiate OAuth flow' });
             return;
@@ -174,8 +160,6 @@ export const gmailOAuthService = {
               gmailOAuthService
                 .handleCallback({
                   code: oauthCode,
-                  clientId,
-                  clientSecret,
                   redirectUri,
                   searchQuery,
                   maxResults,
@@ -220,8 +204,6 @@ export const gmailOAuthService = {
               gmailOAuthService
                 .handleCallback({
                   code,
-                  clientId,
-                  clientSecret,
                   redirectUri,
                   searchQuery,
                   maxResults,

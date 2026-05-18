@@ -96,6 +96,9 @@ export default [
       eqeqeq: ['error', 'always'],
       curly: ['error', 'multi-line'],
 
+      // File size
+      'max-lines': ['error', { max: 650, skipBlankLines: true, skipComments: true }],
+
       // Import rules
       'import/no-duplicates': 'error',
       'import/newline-after-import': 'error',

@@ -201,7 +201,7 @@ export const SystemManagementSettings = () => {
       {/* Queue Management */}
       <div className="p-6 bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
         <h3 className="flex gap-2 items-center mb-4 font-semibold text-md">
-          <StopCircle className="w-5 h-5 text-yellow-500" />
+          <StopCircle className="w-5 h-5 text-amber-500" />
           Queue Management
         </h3>
         <div className="space-y-3">

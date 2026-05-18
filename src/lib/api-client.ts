@@ -13,6 +13,12 @@ export const apiClient = axios.create({
 // Request interceptor to add auth token and organization context
 apiClient.interceptors.request.use(
   (config) => {
+    // For FormData (file uploads), remove the default Content-Type so the browser
+    // can set multipart/form-data with the correct boundary automatically.
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

@@ -183,7 +183,7 @@ export const TicketFilters = ({
                       {option.value !== 'all' && (
                         <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
                           option.value === 'low'      ? 'bg-green-500'  :
-                          option.value === 'medium'   ? 'bg-yellow-500' :
+                          option.value === 'medium'   ? 'bg-amber-500' :
                           option.value === 'high'     ? 'bg-orange-500' : 'bg-red-500'
                         }`} />
                       )}

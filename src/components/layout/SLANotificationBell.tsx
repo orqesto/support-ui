@@ -38,11 +38,11 @@ const NotificationItem = ({
         'flex gap-3 items-start p-3 text-sm rounded-lg border no-underline hover:opacity-90 transition-opacity',
         isCritical
           ? 'bg-red-50 border-red-200 dark:border-red-900 dark:bg-red-950/30'
-          : 'bg-yellow-50 border-yellow-200 dark:border-yellow-900 dark:bg-yellow-950/30'
+          : 'bg-amber-50 border-amber-200 dark:border-amber-900 dark:bg-amber-950/30'
       )}
     >
       <AlertTriangle
-        className={cn('mt-0.5 w-4 h-4 shrink-0', isCritical ? 'text-red-500' : 'text-yellow-500')}
+        className={cn('mt-0.5 w-4 h-4 shrink-0', isCritical ? 'text-red-500' : 'text-amber-500')}
       />
       <div className="flex-1 min-w-0">
         <div className="flex gap-2 justify-between items-center">
@@ -53,7 +53,7 @@ const NotificationItem = ({
                 'text-xs font-semibold shrink-0',
                 isCritical
                   ? 'text-red-600 dark:text-red-400'
-                  : 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-amber-600 dark:text-amber-400'
               )}
             >
               {formatBreachAmount(n.breachAmount)}

@@ -19,7 +19,7 @@ vi.mock('@/services/message.service', () => ({
         processed: false,
         ticketId: null,
         createdAt: '2026-01-01T10:00:00Z',
-        status: 'new',
+        status: 'open',
         priority: 'medium',
         metadata: {},
       },

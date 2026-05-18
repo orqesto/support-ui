@@ -12,7 +12,7 @@ type SpamLogDetailProps = {
 const getSeverityColor = (severity: number): string => {
   if (severity >= 100) return 'bg-red-600';
   if (severity >= 75) return 'bg-orange-500';
-  if (severity >= 50) return 'bg-yellow-500';
+  if (severity >= 50) return 'bg-amber-500';
   return 'bg-gray-500';
 };
 

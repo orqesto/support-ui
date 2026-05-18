@@ -17,7 +17,7 @@ const getTypeIcon = (type: string) => {
 
 const getQualityColor = (score: number) => {
   if (score >= 0.8) return 'text-green-600';
-  if (score >= 0.6) return 'text-yellow-600';
+  if (score >= 0.6) return 'text-amber-600';
   return 'text-red-600';
 };
 

@@ -28,7 +28,7 @@ export const progressBarVariants = cva('h-full transition-all duration-300', {
     variant: {
       default: 'bg-primary',
       success: 'bg-green-500',
-      warning: 'bg-yellow-500',
+      warning: 'bg-amber-500',
       danger: 'bg-red-500',
       secondary: 'bg-secondary',
     },

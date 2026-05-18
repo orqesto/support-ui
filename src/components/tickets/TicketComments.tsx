@@ -367,7 +367,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
               key={comment.id}
               className={`p-4 rounded-lg border ${
                 comment.isInternal
-                  ? 'bg-yellow-500/10 dark:bg-yellow-500/10 border-yellow-500/20'
+                  ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20'
                   : 'bg-card border-border'
               }`}
             >

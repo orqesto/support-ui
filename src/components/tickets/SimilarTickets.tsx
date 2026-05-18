@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Copy, CheckCircle, ExternalLink, ChevronDown, ChevronRight, BookOpen, MessageSquare } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -33,12 +34,13 @@ type SimilarTicket = {
 type SimilarTicketsProps = {
   messageId: number;
   onUseResponse?: (content: string) => void;
+  defaultExpanded?: boolean;
 };
 
-export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps) => {
+export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = false }: SimilarTicketsProps) => {
   const [similarTickets, setSimilarTickets] = useState<SimilarTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -143,7 +145,7 @@ export const SimilarTickets = ({ messageId, onUseResponse }: SimilarTicketsProps
     return (
       <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 dark:bg-slate-900/20 dark:border-slate-700/50">
         <div className="flex gap-2 items-center">
-          <Search className="w-4 h-4 text-slate-400 animate-pulse" />
+          <Spinner className="text-slate-400" />
           <span className="text-sm text-slate-500 dark:text-slate-400">
             Searching similar resolved issues…
           </span>

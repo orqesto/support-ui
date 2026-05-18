@@ -28,41 +28,25 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { formatDate } from '@/lib/utils';
+import { Spinner } from '@/components/ui/Spinner';
 import { messageService } from '@/services/message.service';
 import { useSupportedLanguages } from '@/hooks/useTranslation';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
-
-type SimilarMessage = {
-  messageId?: number;
-  content: string;
-  subject?: string | null;
-  sender?: string;
-  directReply: string;
-  directReplyEnglish?: string;
-  detectedLanguage?: string;
-  similarity: number;
-  repliedAt?: string | null;
-  repliedBy?: number | null;
-  source: 'documentation' | 'message';
-  documentationId?: number;
-  documentTitle?: string;
-  chunkId?: number;
-  chunkIndex?: number;
-  chunkMetadata?: { extractedText?: string; page?: number };
-  references?: Array<{
-    chunkId: number;
-    chunkIndex: number;
-    metadata: unknown;
-  }>;
-};
+import {
+  type SimilarMessage,
+  getSimilarityColor,
+  getSimilarityBadge,
+} from './similarMessagesTypes';
 
 type SimilarMessagesDialogProps = {
   messageId: number;
   open: boolean;
   onClose: () => void;
   onSelectAnswer: (answer: string) => void;
+  preloadedSources?: SimilarMessage[];
+  preloadedTitle?: string;
 };
 
 export const SimilarMessagesDialog = ({
@@ -70,9 +54,11 @@ export const SimilarMessagesDialog = ({
   open,
   onClose,
   onSelectAnswer,
+  preloadedSources,
+  preloadedTitle,
 }: SimilarMessagesDialogProps) => {
   const [loading, setLoading] = useState(false);
-  const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>([]);
+  const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>(preloadedSources ?? []);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [expandedQuotes, setExpandedQuotes] = useState<Set<number>>(new Set());
   const [showEnglish, setShowEnglish] = useState<Record<number, boolean>>({});
@@ -93,6 +79,10 @@ export const SimilarMessagesDialog = ({
   }, [open, fetchLanguages]);
 
   useEffect(() => {
+    if (preloadedSources) {
+      setSimilarMessages(preloadedSources);
+      return;
+    }
     if (open && messageId) {
       const fetchSuggestedAnswer = async () => {
         setLoading(true);
@@ -115,6 +105,9 @@ export const SimilarMessagesDialog = ({
             repliedAt: source.metadata?.repliedAt as string | null | undefined,
             source: source.type === 'documentation' ? 'documentation' : 'message',
             documentationId: source.type === 'documentation' ? source.id : undefined,
+            parentDocId: source.type === 'documentation' ? source.parentDocId : undefined,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            chunkIndex: source.type === 'documentation' ? source.chunkIndex : undefined,
             documentTitle: source.type === 'documentation' ? source.title : undefined,
           }));
 
@@ -131,13 +124,14 @@ export const SimilarMessagesDialog = ({
 
       void fetchSuggestedAnswer();
     }
-  }, [open, messageId]);
+  }, [open, messageId, preloadedSources]);
 
   const handleUseAnswer = async (forceText?: string) => {
     // If AI response is selected
     if (useAiResponse && aiResponse) {
       // Use translated text if available and no override provided
-      const textToUse = forceText ?? (showTranslation && translatedAiResponse ? translatedAiResponse : aiResponse);
+      const textToUse =
+        forceText ?? (showTranslation && translatedAiResponse ? translatedAiResponse : aiResponse);
       // Save to message metadata for persistence
       try {
         await messageService.saveSuggestedAnswer(messageId, {
@@ -203,26 +197,6 @@ export const SimilarMessagesDialog = ({
     }
   };
 
-  const getSimilarityColor = (similarity: number): string => {
-    if (similarity >= 0.9) {
-      return 'text-green-600 dark:text-green-400';
-    }
-    if (similarity >= 0.8) {
-      return 'text-blue-600 dark:text-blue-400';
-    }
-    return 'text-amber-600 dark:text-amber-400';
-  };
-
-  const getSimilarityBadge = (similarity: number): string => {
-    if (similarity >= 0.9) {
-      return 'Very Similar';
-    }
-    if (similarity >= 0.8) {
-      return 'Similar';
-    }
-    return 'Somewhat Similar';
-  };
-
   return (
     <Dialog
       open={open}
@@ -233,7 +207,7 @@ export const SimilarMessagesDialog = ({
         <DialogHeader>
           <DialogTitle className="flex gap-2 items-center">
             <Search className="w-5 h-5" />
-            AI Knowledge Search
+            {preloadedTitle ?? 'AI Knowledge Search'}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             Searching documentation, resolved tickets, and previous messages
@@ -390,7 +364,7 @@ export const SimilarMessagesDialog = ({
 
           {loading && (
             <div className="flex justify-center items-center py-12">
-              <div className="w-8 h-8 rounded-full border-2 animate-spin border-primary border-t-transparent" />
+              <Spinner size={20} className="text-primary" />
             </div>
           )}
 
@@ -483,34 +457,36 @@ export const SimilarMessagesDialog = ({
                   {/* Original Text (Expandable for Documentation) */}
                   {msg.source === 'documentation' ? (
                     <div className="mb-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedQuotes((prev) => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(index)) {
-                              newSet.delete(index);
-                            } else {
-                              newSet.add(index);
-                            }
-                            return newSet;
-                          });
-                        }}
-                        className="flex gap-1 items-center text-xs transition-colors text-muted-foreground hover:text-primary"
-                      >
-                        {expandedQuotes.has(index) ? (
-                          <>
-                            <ChevronUp className="w-3 h-3" />
-                            Hide Original Text
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3 h-3" />
-                            Show Original Text
-                          </>
-                        )}
-                      </button>
-                      {expandedQuotes.has(index) && (
+                      {msg.content && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedQuotes((prev) => {
+                              const s = new Set(prev);
+                              if (s.has(index)) {
+                                s.delete(index);
+                              } else {
+                                s.add(index);
+                              }
+                              return s;
+                            });
+                          }}
+                          className="flex gap-1 items-center text-xs transition-colors text-muted-foreground hover:text-primary"
+                        >
+                          {expandedQuotes.has(index) ? (
+                            <>
+                              <ChevronUp className="w-3 h-3" />
+                              Hide Original Text
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3" />
+                              Show Original Text
+                            </>
+                          )}
+                        </button>
+                      )}
+                      {msg.content && expandedQuotes.has(index) && (
                         <div className="p-3 mt-2 rounded border bg-muted/30 border-muted">
                           <div className="flex gap-1 items-center mb-2 text-xs font-medium text-muted-foreground">
                             <Quote className="w-3 h-3" />
@@ -608,27 +584,49 @@ export const SimilarMessagesDialog = ({
                       <>
                         <div className="flex gap-2 items-center mb-1">
                           <FileText className="w-3 h-3" />
-                          <span className="font-medium">{msg.documentTitle}</span>
+                          {msg.parentDocId ? (
+                            <Link
+                              to={`/knowledge-base?docId=${msg.parentDocId}#documentation`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium underline transition-colors hover:text-primary"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {msg.documentTitle}
+                            </Link>
+                          ) : msg.documentationId ? (
+                            <Link
+                              to={`/knowledge-base?id=${msg.documentationId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium underline transition-colors hover:text-primary"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {msg.documentTitle}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{msg.documentTitle}</span>
+                          )}
                         </div>
                         {msg.references && msg.references.length > 0 ? (
                           <div className="ml-5 space-y-0.5">
                             {msg.references.map((ref) => {
-                              const metadata = ref.metadata as { page?: number } | null;
-                              const sectionNum =
-                                ref.chunkIndex !== undefined && ref.chunkIndex !== null
+                              const m = ref.metadata as { page?: number } | null;
+                              const sec =
+                                ref.chunkIndex !== null && ref.chunkIndex !== undefined
                                   ? ref.chunkIndex + 1
                                   : '?';
                               return (
                                 <div key={ref.chunkId}>
-                                  • Section {sectionNum}
-                                  {metadata?.page && ` (Page ${metadata.page})`}
+                                  • Section {sec}
+                                  {m?.page && ` (Page ${m.page})`}
                                 </div>
                               );
                             })}
                           </div>
                         ) : (
-                          msg.chunkIndex !== undefined &&
-                          msg.chunkIndex !== null && (
+                          msg.chunkIndex !== null &&
+                          msg.chunkIndex !== undefined && (
                             <div className="ml-5">
                               • Section {msg.chunkIndex + 1}
                               {msg.chunkMetadata?.page && ` (Page ${msg.chunkMetadata.page})`}
@@ -640,6 +638,8 @@ export const SimilarMessagesDialog = ({
                       msg.messageId && (
                         <Link
                           to={`/messages?id=${msg.messageId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="flex gap-1 items-center transition-colors hover:text-primary"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -668,7 +668,10 @@ export const SimilarMessagesDialog = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => void handleUseAnswer()} disabled={!useAiResponse && selectedIndex === null}>
+          <Button
+            onClick={() => void handleUseAnswer()}
+            disabled={!useAiResponse && selectedIndex === null}
+          >
             <Check className="mr-2 w-4 h-4" />
             {useAiResponse
               ? showTranslation && translatedAiResponse

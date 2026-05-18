@@ -68,6 +68,8 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
     }
 
     if (!message.firstResponseAt) {
+      // We already replied but firstResponseAt wasn't recorded — suppress stale badge
+      if (message.lastReplyFromClient === false && message.lastReplyAt) return null;
       const slaStart =
         typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
           ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)

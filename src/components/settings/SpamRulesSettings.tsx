@@ -113,8 +113,8 @@ export const SpamRulesSettings = () => {
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 space-y-1 rounded-lg border bg-yellow-500/10 border-yellow-500/20">
-        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+      <div className="p-4 space-y-1 rounded-lg border bg-amber-500/10 border-amber-500/20">
+        <p className="text-sm text-amber-600 dark:text-amber-400">
           <strong>Severity:</strong> 1–49 = Flag for review · 50–99 = Mark as spam ·{' '}
           <strong className="text-red-600 dark:text-red-400">100 = Auto-reject (not saved to DB)</strong>
         </p>

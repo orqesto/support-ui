@@ -3,7 +3,12 @@ import type { GlobalRole, OrganizationRole } from './roles';
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
-export type MessageStatus = 'new' | 'in_progress' | 'pending' | 'awaiting_response' | 'client_replied' | 'resolved' | 'closed' | 'filtered';
+export type ThreadStatus =
+  | 'open' // user-settable: unprocessed (DB: 'new')
+  | 'in_progress' // user-settable: agent working
+  | 'pending' // user-settable: awaiting more info
+  | 'closed' // user-settable: done, no KB capture
+  | 'filtered'; // system: spam/noreply, hidden from inbox
 
 export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
@@ -63,7 +68,7 @@ export type Message = {
   assigneeName?: string;
   assignedAt?: string | null;
   // Ticket parity fields
-  status?: MessageStatus;
+  status?: ThreadStatus;
   priority?: TicketPriority;
   categoryId?: number | null;
   closedAt?: string | null;

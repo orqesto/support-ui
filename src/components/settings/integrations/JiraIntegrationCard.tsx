@@ -133,7 +133,7 @@ export const JiraIntegrationCard = ({
                           <DepartmentBadge department={integration.departmentRole} size="sm" />
                         )}
                         {integration.isDefault && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full dark:bg-yellow-900/30 dark:text-yellow-500">
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-100 rounded-full dark:bg-amber-900/30 dark:text-amber-500">
                             <Star className="w-3 h-3 fill-current" />
                             Default
                           </span>
