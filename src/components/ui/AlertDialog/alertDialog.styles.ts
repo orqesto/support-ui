@@ -5,7 +5,7 @@ export const alertDialogIconVariants = cva('w-6 h-6', {
     variant: {
       success: 'text-green-600 dark:text-green-400',
       error: 'text-red-600 dark:text-red-400',
-      warning: 'text-yellow-600 dark:text-yellow-400',
+      warning: 'text-amber-600 dark:text-amber-400',
       info: 'text-blue-600 dark:text-blue-400',
     },
   },

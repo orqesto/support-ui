@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
-import type { Message, ApiResponse, MessageStatus, TicketPriority } from '@/types';
+import type { Message, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
 const cleanFilters = (f?: Record<string, string>): Record<string, string> =>
@@ -260,6 +260,8 @@ export const messageService = {
         sources: Array<{
           type: 'documentation' | 'ticket' | 'message';
           id: number;
+          parentDocId?: number;
+          chunkIndex?: number;
           title?: string;
           content: string;
           answer?: string;
@@ -333,8 +335,23 @@ export const messageService = {
     return response.data;
   },
 
-  setStatus: async (id: number, status: MessageStatus) => {
-    const response = await apiClient.patch<ApiResponse<{ id: number; status: MessageStatus }>>(
+  updateNote: async (id: number, noteId: number, content: string) => {
+    const response = await apiClient.patch<ApiResponse<MessageNote>>(
+      `/api/messages/${id}/notes/${noteId}`,
+      { content }
+    );
+    return response.data;
+  },
+
+  deleteNote: async (id: number, noteId: number) => {
+    const response = await apiClient.delete<ApiResponse<{ id: number }>>(
+      `/api/messages/${id}/notes/${noteId}`
+    );
+    return response.data;
+  },
+
+  setStatus: async (id: number, status: ThreadStatus) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; status: ThreadStatus }>>(
       `/api/messages/${id}/status`,
       { status }
     );

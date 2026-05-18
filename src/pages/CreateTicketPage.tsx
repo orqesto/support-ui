@@ -10,6 +10,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
+import { settingsService } from '@/services/settings.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
@@ -33,6 +34,8 @@ export const CreateTicketPage = () => {
     category?: string;
     priority?: string;
   }>({});
+  const [suggestedNewCategory, setSuggestedNewCategory] = useState<string | null>(null);
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -154,6 +157,9 @@ export const CreateTicketPage = () => {
               ...prev,
               categoryId: matchedCategory.id.toString(),
             }));
+          } else {
+            // No existing category matches — offer to create it
+            setSuggestedNewCategory(aiSuggestedCategory);
           }
           // Clean up temporary storage
           delete (window as { aiSuggestedCategory?: string }).aiSuggestedCategory;
@@ -394,20 +400,41 @@ export const CreateTicketPage = () => {
                 <ReactSelect
                   label="Category"
                   value={formData.categoryId}
-                  onChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
+                  onChange={async (value) => {
+                    if (value === '__new__' && suggestedNewCategory) {
+                      setCreatingCategory(true);
+                      try {
+                        const newCat = await settingsService.createCategory({ name: suggestedNewCategory });
+                        setCategories((prev) => [...prev, newCat]);
+                        setFormData((prev) => ({ ...prev, categoryId: String(newCat.id) }));
+                        setSuggestedNewCategory(null);
+                      } catch {
+                        setAlertDialog({ open: true, title: 'Error', description: 'Failed to create category.', variant: 'error' });
+                      } finally {
+                        setCreatingCategory(false);
+                      }
+                    } else {
+                      setFormData((prev) => ({ ...prev, categoryId: value }));
+                    }
+                  }}
                   options={[
                     { value: '', label: 'Select a category' },
                     ...categories.map((cat) => ({
                       value: String(cat.id),
                       label: cat.name,
                     })),
+                    ...(suggestedNewCategory
+                      ? [{ value: '__new__', label: `✨ Create "${suggestedNewCategory}"` }]
+                      : []),
                   ]}
                   placeholder="Select a category"
                   isSearchable
+                  isDisabled={creatingCategory}
                 />
-                {aiSuggestions.category && (
+                {aiSuggestions.category && !formData.categoryId && (
                   <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                     ✨ AI suggested: {aiSuggestions.category}
+                    {suggestedNewCategory ? ' — not in your list yet, select above to create it' : ''}
                   </p>
                 )}
               </div>

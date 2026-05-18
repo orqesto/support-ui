@@ -121,44 +121,35 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   option: (base, state) => ({
     ...base,
     backgroundColor: state.isSelected
-      ? 'hsl(var(--primary))'
+      ? 'hsl(var(--accent))'
       : state.isFocused
-        ? isDark
-          ? '#334155'
-          : '#f1f5f9'
+        ? 'hsl(var(--accent))'
         : 'transparent',
     color: state.isSelected
-      ? 'hsl(var(--primary-foreground))'
+      ? 'hsl(var(--accent-foreground))'
       : state.isDisabled
         ? 'hsl(var(--muted-foreground))'
-        : isDark
-          ? '#e2e8f0'
-          : '#1e293b',
+        : 'hsl(var(--foreground))',
     cursor: state.isDisabled ? 'not-allowed' : 'pointer',
-    padding: '0.625rem 0.75rem',
+    padding: '0.5rem 0.625rem',
     borderRadius: '0.25rem',
-    fontSize: '0.875rem',
+    fontSize: '0.8125rem',
     fontWeight: state.isSelected ? '500' : '400',
     opacity: state.isDisabled ? 0.5 : 1,
-    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-    '&:hover': {
+    transition: 'background-color 0.1s ease, color 0.1s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    '&:active': {
       backgroundColor: state.isDisabled
         ? 'transparent'
-        : state.isSelected
-          ? 'hsl(var(--primary))'
-          : isDark
-            ? '#334155'
-            : '#f1f5f9',
-    },
-    '&:active': {
-      backgroundColor: state.isDisabled ? 'transparent' : 'hsl(var(--primary) / 0.8)',
-      transform: state.isDisabled ? 'none' : 'scale(0.98)',
+        : 'hsl(var(--accent) / 0.8)',
     },
   }),
   singleValue: (base, state) => ({
     ...base,
     color: state.isDisabled ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
-    fontSize: '0.875rem',
+    fontSize: '0.8125rem',
     lineHeight: '1.25rem',
     maxWidth: '100%',
     overflow: 'hidden',
@@ -168,14 +159,14 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   placeholder: (base) => ({
     ...base,
     color: 'hsl(var(--muted-foreground))',
-    fontSize: '0.875rem',
+    fontSize: '0.8125rem',
     lineHeight: '1.25rem',
   }),
   noOptionsMessage: (base) => ({
     ...base,
     color: 'hsl(var(--muted-foreground))',
-    fontSize: '0.875rem',
-    padding: '0.75rem',
+    fontSize: '0.8125rem',
+    padding: '0.5rem 0.625rem',
   }),
   loadingMessage: (base) => ({
     ...base,

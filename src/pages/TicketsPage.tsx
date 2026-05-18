@@ -1,5 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Ticket, RefreshCw, Send, LayoutList, Columns } from 'lucide-react';
+import { Ticket, RefreshCw, Send } from 'lucide-react';
+import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
+import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
+import { useTicketsUrlSync } from '@/hooks/useTicketsUrlSync';
+import { useTicketsRealtime } from '@/hooks/useTicketsRealtime';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
@@ -10,25 +14,11 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/Dialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PAGINATION } from '@/lib/constants';
-import {
-  getSocket,
-  subscribeToEvent,
-  unsubscribeFromEvent,
-  releaseSocket,
-} from '@/lib/socketManager';
-import { integrationsService, type JiraIntegration } from '@/services/integrations.service';
+import { type JiraIntegration } from '@/services/integrations.service';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket as TicketType } from '@/types';
@@ -84,7 +74,7 @@ export const TicketsPage = () => {
   const getCached = useTicketsStore((state) => state.getCached);
   const clearCache = useTicketsStore((state) => state.clearCache);
 
-  const { hasPermission, user } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
@@ -98,119 +88,7 @@ export const TicketsPage = () => {
   const [deleting, setDeleting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
 
-  // Sync URL parameters with filters on mount
-  useEffect(() => {
-    const urlStatus = searchParams.get('status');
-    const urlPriority = searchParams.get('priority');
-    const urlCategory = searchParams.get('category');
-    const urlMessageSource = searchParams.get('source');
-    const urlAssignee = searchParams.get('assignee');
-    const _urlJira = searchParams.get('jira');
-    const urlSearch = searchParams.get('search');
-
-    const urlFilters: Partial<typeof filters> = {};
-
-    if (
-      urlStatus &&
-      ['all', 'pending', 'open', 'in_progress', 'resolved', 'closed'].includes(urlStatus)
-    ) {
-      urlFilters.status = urlStatus as
-        | 'all'
-        | 'pending'
-        | 'open'
-        | 'in_progress'
-        | 'resolved'
-        | 'closed';
-    }
-    if (urlPriority && ['all', 'low', 'medium', 'high', 'critical'].includes(urlPriority)) {
-      urlFilters.priority = urlPriority as 'all' | 'low' | 'medium' | 'high' | 'critical';
-    }
-    if (urlCategory) {
-      urlFilters.categoryId = urlCategory;
-    }
-    if (urlMessageSource) {
-      urlFilters.messageSourceId = urlMessageSource;
-    }
-    if (urlAssignee) {
-      urlFilters.assigneeId = urlAssignee;
-    }
-    const urlLinked = searchParams.get('linked');
-    if (urlLinked && ['all', 'synced_to_jira', 'not_synced'].includes(urlLinked)) {
-      urlFilters.linked = urlLinked as 'all' | 'synced_to_jira' | 'not_synced';
-    }
-    if (urlSearch) {
-      urlFilters.search = urlSearch;
-    }
-
-    // Apply URL params on top of persisted state if present.
-    // If no URL params, persisted filters are already loaded — do nothing.
-    if (Object.keys(urlFilters).length > 0) {
-      setFiltersStore({ ...filters, ...urlFilters });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
-
-  // Sync filters to URL whenever they change
-  useEffect(() => {
-    const params = new URLSearchParams();
-
-    // Preserve ticket ID and display mode
-    const ticketIdParam = searchParams.get('id');
-    if (ticketIdParam) params.set('id', ticketIdParam);
-    if (displayMode === 'kanban') params.set('mode', 'kanban');
-
-    // Add filters to URL (only non-default values)
-    if (filters.status && filters.status !== 'all') {
-      params.set('status', filters.status);
-    }
-    if (filters.priority && filters.priority !== 'all') {
-      params.set('priority', filters.priority);
-    }
-    if (filters.categoryId && filters.categoryId !== 'all') {
-      params.set('category', filters.categoryId);
-    }
-    if (filters.messageSourceId && filters.messageSourceId !== 'all') {
-      params.set('source', filters.messageSourceId);
-    }
-    if (filters.assigneeId && filters.assigneeId !== 'all') {
-      params.set('assignee', filters.assigneeId);
-    }
-    if (filters.linked && filters.linked !== 'all') {
-      params.set('linked', filters.linked);
-    }
-    if (filters.search) {
-      params.set('search', filters.search);
-    }
-
-    // Update URL without triggering navigation
-    setSearchParams(params, { replace: true });
-  }, [filters, displayMode, setSearchParams, searchParams]);
-
-  // Auto-open ticket from query param
-  useEffect(() => {
-    const ticketIdParam = searchParams.get('id');
-    const paramId = ticketIdParam ? parseInt(ticketIdParam) : null;
-
-    // Only fetch if URL has an ID and it's different from the currently selected ticket
-    if (paramId && selectedTicket?.id !== paramId) {
-      const fetchAndOpenTicket = async () => {
-        try {
-          const response = await ticketService.getById(paramId);
-          if (response.success && response.data) {
-            setSelectedTicket(response.data);
-          }
-        } catch (error) {
-          logger.error('Failed to fetch ticket:', error);
-        }
-      };
-      fetchAndOpenTicket().catch((error) => {
-        logger.error('Failed to fetch ticket:', error);
-      });
-    } else if (!paramId && selectedTicket) {
-      // URL cleared but ticket still selected - clear selection
-      setSelectedTicket(null);
-    }
-  }, [searchParams, selectedTicket]);
+  useTicketsUrlSync({ displayMode, selectedTicket, setSelectedTicket });
 
   const fetchTickets = useCallback(
     async (page = 1, force = false) => {
@@ -296,95 +174,15 @@ export const TicketsPage = () => {
     });
   }, [fetchTickets]);
 
-  // Ref so the WebSocket effect always calls the latest fetchTickets without
-  // re-subscribing on every filter change (which would cause subscribe/unsubscribe
-  // cycles and potentially miss real-time events during the gap).
-  const fetchTicketsRef = useRef(fetchTickets);
-  fetchTicketsRef.current = fetchTickets;
-
-  useEffect(() => {
-    const fetchJiraIntegrations = async () => {
-      // Only fetch integrations if user has permission
-      if (!hasPermission(Permission.VIEW_INTEGRATIONS)) {
-        return;
-      }
-
-      try {
-        const response = await integrationsService.getAll();
-        if (response.success && response.data) {
-          const jiras = response.data.filter(
-            (i) => i.type === 'jira' && i.enabled
-          ) as JiraIntegration[];
-          setJiraIntegrations(jiras);
-          // Auto-select if only one Jira instance
-          if (jiras.length === 1) {
-            setSelectedJiraId(jiras[0].id);
-          }
-        }
-      } catch (error) {
-        logger.error('Failed to fetch Jira integrations:', error);
-      }
-    };
-    fetchJiraIntegrations().catch((error) => {
-      logger.error('Failed to fetch Jira integrations:', error);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  // Listen for real-time ticket updates from Jira webhooks and new ticket creation
-  useEffect(() => {
-    getSocket(); // Initialize WebSocket connection
-
-    const handleTicketUpdate = (data: unknown) => {
-      const ticketUpdate = data as { ticketId: number; jiraKey: string; changedFields?: string[] };
-
-      // Clear cache to ensure fresh data
-      clearCache();
-
-      // Refresh tickets to show latest data — use ref to avoid re-subscribing
-      // every time fetchTickets changes (i.e. on every filter update).
-      fetchTicketsRef.current(pagination.page, true).catch((error) => {
-        logger.error('Failed to fetch tickets:', error);
-      });
-
-      // If the updated ticket is currently open, refresh it
-      if (selectedTicket && selectedTicket.id === ticketUpdate.ticketId) {
-        ticketService
-          .getById(ticketUpdate.ticketId)
-          .then((response) => {
-            if (response.success && response.data) {
-              setSelectedTicket(response.data);
-            }
-          })
-          .catch((error) => {
-            logger.error('Failed to refresh ticket:', error);
-          });
-      }
-    };
-
-    const handleTicketCreated = (_data: unknown) => {
-
-      // Clear cache to ensure fresh data
-      clearCache();
-
-      // Refresh tickets list to show the new ticket
-      fetchTicketsRef.current(pagination.page, true).catch((error) => {
-        logger.error('Failed to fetch tickets after creation:', error);
-      });
-    };
-
-    subscribeToEvent('ticket:updated', handleTicketUpdate);
-    subscribeToEvent('ticket:created', handleTicketCreated);
-
-    return () => {
-      unsubscribeFromEvent('ticket:updated', handleTicketUpdate);
-      unsubscribeFromEvent('ticket:created', handleTicketCreated);
-      releaseSocket();
-    };
-    // fetchTickets intentionally omitted — use fetchTicketsRef.current to avoid
-    // subscribe/unsubscribe cycles on every filter change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, selectedTicket, clearCache]);
+  useTicketsRealtime({
+    paginationPage: pagination.page,
+    selectedTicket,
+    setSelectedTicket,
+    setJiraIntegrations,
+    setSelectedJiraId,
+    clearCache,
+    fetchTickets,
+  });
 
   const handlePageChange = async (page: number) => {
     await fetchTickets(page);
@@ -682,28 +480,7 @@ export const TicketsPage = () => {
         />
 
         {/* Display mode toggle */}
-        <div className="flex gap-1 items-center">
-          <button
-            type="button"
-            onClick={() => { setDisplayMode('list'); setSearchParams((p) => { p.delete('mode'); return p; }, { replace: true }); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              displayMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            <LayoutList className="w-3.5 h-3.5" />
-            List
-          </button>
-          <button
-            type="button"
-            onClick={() => { setDisplayMode('kanban'); setSearchParams((p) => { p.set('mode', 'kanban'); return p; }, { replace: true }); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              displayMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            <Columns className="w-3.5 h-3.5" />
-            Kanban
-          </button>
-        </div>
+        <TicketsViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
 
         {displayMode === 'kanban' ? (
           <TicketsKanbanView
@@ -765,59 +542,21 @@ export const TicketsPage = () => {
         )}
       </div>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Ticket</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
-        <DialogContent>
-          <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
-          {ticketToDelete && (
-            <div className="p-3 mt-3 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {ticketToDelete.title}
-              </p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                Status: <span className="font-medium">{ticketToDelete.status}</span> | Priority:{' '}
-                <span className="font-medium">{ticketToDelete.priority}</span>
-              </p>
-            </div>
-          )}
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
-            Delete
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <TicketDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        ticketToDelete={ticketToDelete}
+        deleting={deleting}
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteConfirm}
+      />
 
-      {/* Sync All Confirmation Dialog */}
-      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Sync All Tickets to Jira</DialogTitle>
-          <DialogClose onClose={() => setSyncDialogOpen(false)} />
-        </DialogHeader>
-        <DialogContent>
-          <p className="text-sm text-gray-700">
-            Are you sure you want to sync all unsynced tickets to Jira?
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            This will create Jira issues for all tickets that haven&apos;t been synced yet.
-          </p>
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={confirmSyncAll}>
-            <RefreshCw className="mr-2 w-4 h-4" />
-            Sync All
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <TicketSyncAllDialog
+        open={syncDialogOpen}
+        onOpenChange={setSyncDialogOpen}
+        onCancel={() => setSyncDialogOpen(false)}
+        onConfirm={confirmSyncAll}
+      />
 
       {/* Ticket Detail Drawer */}
       {selectedTicket && (
