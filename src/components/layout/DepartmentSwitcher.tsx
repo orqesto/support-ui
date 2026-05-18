@@ -98,9 +98,9 @@ export const DepartmentSwitcher = () => {
     <div className="mb-3">
       {/* Warning Banner */}
       {showWarning && (
-        <div className="flex gap-2 items-start mb-2 p-2 rounded-md border bg-yellow-500/10 border-yellow-500/30">
-          <AlertCircle className="flex-shrink-0 mt-0.5 w-4 h-4 text-yellow-600 dark:text-yellow-500" />
-          <p className="text-xs leading-relaxed text-yellow-700 dark:text-yellow-400">
+        <div className="flex gap-2 items-start mb-2 p-2 rounded-md border bg-amber-500/10 border-amber-500/30">
+          <AlertCircle className="flex-shrink-0 mt-0.5 w-4 h-4 text-amber-600 dark:text-amber-500" />
+          <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
             {warningMessage}
           </p>
         </div>
@@ -115,7 +115,7 @@ export const DepartmentSwitcher = () => {
             <Briefcase className="flex-shrink-0 w-4 h-4" />
             <span className="truncate">{selectedLabel}</span>
             {!hasAccessToSelected && selectedDepartmentRole && (
-              <Lock className="flex-shrink-0 w-3 h-3 text-yellow-600 dark:text-yellow-500" />
+              <Lock className="flex-shrink-0 w-3 h-3 text-amber-600 dark:text-amber-500" />
             )}
           </div>
           <ChevronDown className="flex-shrink-0 w-4 h-4" />
@@ -160,7 +160,7 @@ export const DepartmentSwitcher = () => {
                         </div>
                         <div className="text-xs truncate text-muted-foreground">
                           {DEPARTMENT_DESCRIPTIONS[dept]}
-                          {!hasAccess && <span className="ml-1 text-yellow-600 dark:text-yellow-500">• No access</span>}
+                          {!hasAccess && <span className="ml-1 text-amber-600 dark:text-amber-500">• No access</span>}
                         </div>
                       </div>
                       {selectedDepartmentRole === dept && (

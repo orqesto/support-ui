@@ -12,7 +12,7 @@ export const WebSocketStatus = () => {
   return (
     <>
       {/* Compact Button */}
-      {!isExpanded && (
+      {/* {!isExpanded && (
         <Button
           onClick={() => setIsExpanded(true)}
           className={`fixed right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg shadow-lg transition-all z-50 group ${
@@ -31,7 +31,7 @@ export const WebSocketStatus = () => {
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </Button>
-      )}
+      )} */}
 
       {/* Expanded Panel */}
       {isExpanded && (

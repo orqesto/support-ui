@@ -16,6 +16,7 @@ export type ThreadStatusFilter =
   | 'all'
   | 'open'
   | 'in_progress'
+  | 'pending'
   | 'closed';
 
 export type AiStateFilter =

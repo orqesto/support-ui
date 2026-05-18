@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, Brain, Link, Mail, Send, Monitor, FileText, ChevronDown, AlertTriangle, AlertCircle } from 'lucide-react';
+import {
+  Filter,
+  X,
+  Brain,
+  Link,
+  Mail,
+  Send,
+  Monitor,
+  FileText,
+  ChevronDown,
+  AlertTriangle,
+  AlertCircle,
+} from 'lucide-react';
 import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -13,62 +25,63 @@ import type { FilterState, SortingState } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
 
 const SOURCE_GROUPS: { key: string; label: string; types: string[]; icon: React.ReactNode }[] = [
-  { key: 'email',    label: 'Email',    types: ['email', 'gmail'],  icon: <Mail className="w-3 h-3" /> },
-  { key: 'telegram', label: 'Telegram', types: ['telegram'],        icon: <Send className="w-3 h-3" /> },
-  { key: 'widget',   label: 'Widget',   types: ['chat'],            icon: <Monitor className="w-3 h-3" /> },
-  { key: 'webform',  label: 'Web Form', types: ['webform'],         icon: <FileText className="w-3 h-3" /> },
+  { key: 'email', label: 'Email', types: ['email', 'gmail'], icon: <Mail className="w-3 h-3" /> },
+  { key: 'telegram', label: 'Telegram', types: ['telegram'], icon: <Send className="w-3 h-3" /> },
+  { key: 'widget', label: 'Widget', types: ['chat'], icon: <Monitor className="w-3 h-3" /> },
+  { key: 'webform', label: 'Web Form', types: ['webform'], icon: <FileText className="w-3 h-3" /> },
 ];
 
 const STATUS_OPTIONS = [
-  { value: 'all',               label: 'All (work queue)' },
-  { value: 'active',            label: 'Active' },
+  { value: 'all', label: 'All (work queue)' },
+  { value: 'active', label: 'Active' },
   { value: 'awaiting_response', label: 'Awaiting Response' },
-  { value: 'client_replied',    label: 'Client Replied' },
-  { value: '__sep__',           label: '─────────────',    isDisabled: true },
-  { value: 'suspicious',        label: 'Suspicious' },
-  { value: 'not_analysed',      label: 'Not Analysed' },
-  { value: 'spam',              label: 'Spam' },
-  { value: 'resolved',          label: 'Resolved' },
+  { value: 'client_replied', label: 'Client Replied' },
+  { value: '__sep__', label: '─────────────', isDisabled: true },
+  { value: 'suspicious', label: 'Suspicious' },
+  { value: 'not_analysed', label: 'Not Analysed' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'resolved', label: 'Resolved' },
 ] as const;
 
 const THREAD_STATUS_OPTIONS = [
-  { value: 'all',         label: 'All' },
-  { value: 'open',        label: 'Open' },
+  { value: 'all', label: 'All' },
+  { value: 'open', label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'closed',      label: 'Closed' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'closed', label: 'Closed' },
 ] as const;
 
 const PRIORITY_OPTIONS = [
-  { value: 'all',      label: 'All' },
-  { value: 'low',      label: 'Low' },
-  { value: 'medium',   label: 'Medium' },
-  { value: 'high',     label: 'High' },
+  { value: 'all', label: 'All' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
   { value: 'critical', label: 'Critical' },
 ] as const;
 
 const AI_STATE_OPTIONS = [
-  { value: 'all',           label: 'All' },
-  { value: 'needs_review',  label: 'Needs Review' },
-  { value: 'needs_info',    label: 'Needs Info' },
-  { value: 'ai_suggested',  label: 'AI Suggested' },
-  { value: 'bot_handled',   label: 'Bot Handled' },
-  { value: 'lead',          label: 'Lead' },
+  { value: 'all', label: 'All' },
+  { value: 'needs_review', label: 'Needs Review' },
+  { value: 'needs_info', label: 'Needs Info' },
+  { value: 'ai_suggested', label: 'AI Suggested' },
+  { value: 'bot_handled', label: 'Bot Handled' },
+  { value: 'lead', label: 'Lead' },
   { value: 'contradiction', label: 'Contradiction' },
 ] as const;
 
 const LINKED_OPTIONS = [
-  { value: 'all',        label: 'All' },
+  { value: 'all', label: 'All' },
   { value: 'has_ticket', label: 'Has Ticket' },
-  { value: 'has_jira',   label: 'Has Jira' },
+  { value: 'has_jira', label: 'Has Jira' },
 ] as const;
 
 const LINKED_TICKET_STATUS_OPTIONS = [
-  { value: 'all',         label: 'Any Status' },
-  { value: 'pending',     label: 'Pending' },
-  { value: 'open',        label: 'Open' },
+  { value: 'all', label: 'Any Status' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'open', label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'resolved',    label: 'Resolved' },
-  { value: 'closed',      label: 'Closed' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
 ] as const;
 
 type MessageFiltersProps = {
@@ -107,7 +120,10 @@ export const MessageFilters = ({
   const [labels, setLabels] = useState<Label[]>([]);
 
   useEffect(() => {
-    labelService.getLabels().then(setLabels).catch(() => {});
+    labelService
+      .getLabels()
+      .then(setLabels)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -116,9 +132,7 @@ export const MessageFilters = ({
         const res = await integrationsService.getAll();
         if (res.success && res.data) {
           setMessageSources(
-            res.data.filter((i) =>
-              SOURCE_GROUPS.flatMap((g) => g.types).includes(i.type)
-            )
+            res.data.filter((i) => SOURCE_GROUPS.flatMap((g) => g.types).includes(i.type))
           );
         }
       } catch (err) {
@@ -141,22 +155,23 @@ export const MessageFilters = ({
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
-
         {/* Header */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-2 justify-between items-center">
           {/* Left: icon + title + badge + count */}
           <button
-            className="flex items-center gap-2 min-w-0 md:cursor-default"
+            className="flex gap-2 items-center min-w-0 md:cursor-default"
             onClick={() => setMobileExpanded((v) => !v)}
             aria-expanded={mobileExpanded}
           >
             <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-sm font-semibold">Filters</span>
             {activeFilterCount > 0 && (
-              <Badge variant="default" className="text-xs shrink-0">{activeFilterCount}</Badge>
+              <Badge variant="default" className="text-xs shrink-0">
+                {activeFilterCount}
+              </Badge>
             )}
             {pagination.total > 0 && (
-              <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">
+              <span className="hidden text-xs whitespace-nowrap text-muted-foreground sm:inline">
                 {start}–{end} of {pagination.total}
               </span>
             )}
@@ -166,9 +181,9 @@ export const MessageFilters = ({
           </button>
 
           {/* Right: count on mobile + Clear All */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex gap-2 items-center shrink-0">
             {pagination.total > 0 && (
-              <span className="text-xs text-muted-foreground whitespace-nowrap sm:hidden">
+              <span className="text-xs whitespace-nowrap text-muted-foreground sm:hidden">
                 {start}–{end} of {pagination.total}
               </span>
             )}
@@ -179,7 +194,7 @@ export const MessageFilters = ({
               className="h-8"
               disabled={clearableFilterCount === 0}
             >
-              <X className="w-3 h-3 mr-1" />
+              <X className="mr-1 w-3 h-3" />
               <span className="hidden sm:inline">Clear All</span>
               <span className="sm:hidden">Clear</span>
             </Button>
@@ -205,12 +220,13 @@ export const MessageFilters = ({
         />
 
         {/* Collapsible body — hidden on mobile until toggled, always visible md+ */}
-        <div className={`${mobileExpanded ? 'flex' : 'hidden'} md:flex flex-col gap-0 divide-y divide-border/40`}>
-
+        <div
+          className={`${mobileExpanded ? 'flex' : 'hidden'} md:flex flex-col gap-0 divide-y divide-border/40`}
+        >
           {/* ── Channel ───────────────────────────────────────────── */}
           {activeGroups.length > 0 && (
             <FilterSection label="Channel">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+              <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {activeGroups.map((group) => {
                   const groupSources = messageSources.filter((s) => group.types.includes(s.type));
                   const options = [
@@ -220,7 +236,9 @@ export const MessageFilters = ({
                   const activeSourceInGroup = groupSources.some(
                     (s) => s.id.toString() === filters.messageSourceId
                   );
-                  const selectValue = activeSourceInGroup ? (filters.messageSourceId ?? 'all') : 'all';
+                  const selectValue = activeSourceInGroup
+                    ? (filters.messageSourceId ?? 'all')
+                    : 'all';
                   return (
                     <FilterCell key={group.key} label={group.label} icon={group.icon}>
                       <ReactSelect
@@ -238,7 +256,7 @@ export const MessageFilters = ({
 
           {/* ── Queue ─────────────────────────────────────────────── */}
           <FilterSection label="Queue">
-            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 ${isKanban ? 'md:grid-cols-2' : 'md:grid-cols-4'}`}>
+            <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-4">
               {!isKanban && (
                 <FilterCell label="Status">
                   <ReactSelect
@@ -250,16 +268,14 @@ export const MessageFilters = ({
                 </FilterCell>
               )}
 
-              {!isKanban && (
-                <FilterCell label="Thread Status">
-                  <ReactSelect
-                    value={filters.threadStatus ?? 'all'}
-                    onChange={(value) => onFilterChange('threadStatus', value)}
-                    options={THREAD_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
-                    className="w-full"
-                  />
-                </FilterCell>
-              )}
+              <FilterCell label="Thread Status">
+                <ReactSelect
+                  value={filters.threadStatus ?? 'all'}
+                  onChange={(value) => onFilterChange('threadStatus', value)}
+                  options={THREAD_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                  className="w-full"
+                />
+              </FilterCell>
 
               <FilterCell label="Priority">
                 <ReactSelect
@@ -267,13 +283,19 @@ export const MessageFilters = ({
                   onChange={(value) => onFilterChange('priority', value)}
                   options={PRIORITY_OPTIONS as unknown as { value: string; label: string }[]}
                   formatOptionLabel={(option) => (
-                    <div className="flex items-center gap-2">
+                    <div className="flex gap-2 items-center">
                       {option.value !== 'all' && (
-                        <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-                          option.value === 'low'      ? 'bg-green-500'  :
-                          option.value === 'medium'   ? 'bg-yellow-500' :
-                          option.value === 'high'     ? 'bg-orange-500' : 'bg-red-500'
-                        }`} />
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+                            option.value === 'low'
+                              ? 'bg-green-500'
+                              : option.value === 'medium'
+                                ? 'bg-amber-500'
+                                : option.value === 'high'
+                                  ? 'bg-orange-500'
+                                  : 'bg-red-500'
+                          }`}
+                        />
                       )}
                       <span>{option.label}</span>
                     </div>
@@ -294,12 +316,15 @@ export const MessageFilters = ({
 
             {/* SLA toggle pills — not shown in kanban (per-card SLA badges already visible) */}
             {!isKanban && (
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex gap-2 items-center pt-1">
                 <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
                 <button
                   type="button"
                   onClick={() =>
-                    onFilterChange('slaFilter', filters.slaFilter === 'breached' ? 'all' : 'breached')
+                    onFilterChange(
+                      'slaFilter',
+                      filters.slaFilter === 'breached' ? 'all' : 'breached'
+                    )
                   }
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                     filters.slaFilter === 'breached'
@@ -330,7 +355,7 @@ export const MessageFilters = ({
 
           {/* ── Tags ──────────────────────────────────────────────── */}
           <FilterSection label="Tags">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
+            <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
               <FilterCell label="AI State" icon={<Brain className="w-3 h-3 text-purple-500" />}>
                 <ReactSelect
                   value={filters.aiState ?? 'all'}
@@ -350,13 +375,14 @@ export const MessageFilters = ({
                       ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
                     ]}
                     formatOptionLabel={(option) => (
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2 items-center">
                         {option.value !== 'all' && (
                           <span
                             className="inline-block w-2 h-2 rounded-full shrink-0"
                             style={{
                               backgroundColor:
-                                labels.find((l) => l.id.toString() === option.value)?.color ?? '#888',
+                                labels.find((l) => l.id.toString() === option.value)?.color ??
+                                '#888',
                             }}
                           />
                         )}
@@ -379,8 +405,10 @@ export const MessageFilters = ({
                   <ReactSelect
                     value={filters.linkedTicketStatus ?? 'all'}
                     onChange={(value) => onFilterChange('linkedTicketStatus', value)}
-                    options={LINKED_TICKET_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
-                    className="w-full mt-1"
+                    options={
+                      LINKED_TICKET_STATUS_OPTIONS as unknown as { value: string; label: string }[]
+                    }
+                    className="mt-1 w-full"
                   />
                 )}
               </FilterCell>
@@ -388,8 +416,8 @@ export const MessageFilters = ({
           </FilterSection>
 
           {/* ── Footer ────────────────────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 pb-1">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 pt-3 pb-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2 items-center">
               <span className="text-xs font-medium text-muted-foreground shrink-0">Sort:</span>
               <ReactSelect
                 value={sorting.sortOrder}
@@ -405,7 +433,7 @@ export const MessageFilters = ({
               variant="ghost"
               size="sm"
               onClick={toggleAdvancedFilters}
-              className="h-7 text-xs text-muted-foreground self-start sm:self-auto"
+              className="self-start h-7 text-xs text-muted-foreground sm:self-auto"
             >
               {showAdvancedFilters ? 'Hide guide' : 'AI State guide'}
             </Button>
@@ -416,17 +444,31 @@ export const MessageFilters = ({
             <div className="p-3 space-y-1.5 rounded-lg border bg-muted/10 text-xs text-muted-foreground">
               <p className="font-semibold text-foreground">AI State</p>
               <ul className="space-y-1">
-                <li><span className="font-medium text-foreground">Needs Review</span> — AI flagged for human attention</li>
-                <li><span className="font-medium text-foreground">AI Suggested</span> — AI drafted a reply, ready to send</li>
-                <li><span className="font-medium text-foreground">Bot Handled</span> — AI resolved autonomously</li>
-                <li><span className="font-medium text-foreground">Lead</span> — identified as a business lead</li>
-                <li><span className="font-medium text-foreground">Contradiction</span> — client's message contradicts a previous statement</li>
+                <li>
+                  <span className="font-medium text-foreground">Needs Review</span> — AI flagged for
+                  human attention
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">AI Suggested</span> — AI drafted a
+                  reply, ready to send
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Bot Handled</span> — AI resolved
+                  autonomously
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Lead</span> — identified as a
+                  business lead
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Contradiction</span> — client's
+                  message contradicts a previous statement
+                </li>
               </ul>
             </div>
           )}
-
-        </div>{/* end collapsible body */}
-
+        </div>
+        {/* end collapsible body */}
       </CardContent>
     </Card>
   );
@@ -454,9 +496,9 @@ function FilterCell({
 }) {
   return (
     <div className="flex flex-col gap-1 min-w-0">
-      <div className="flex items-center gap-1">
+      <div className="flex gap-1 items-center">
         {icon && <span className="shrink-0">{icon}</span>}
-        <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
+        <span className="text-xs font-medium truncate text-muted-foreground">{label}</span>
       </div>
       <div className="w-full">{children}</div>
     </div>

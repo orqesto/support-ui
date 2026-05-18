@@ -7,7 +7,7 @@ import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/mes
 import type { Message } from '@/types';
 
 const VALID_STATUSES = ['all', 'active', 'awaiting_response', 'client_replied', 'suspicious', 'not_analysed', 'spam', 'resolved'] as const;
-const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'closed'] as const;
+const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
 const VALID_AI_STATES = ['all', 'needs_review', 'needs_info', 'ai_suggested', 'in_human_work', 'bot_handled', 'lead', 'contradiction'] as const;
 const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
 const VALID_LINKED_TICKET_STATUSES = ['all', 'pending', 'open', 'in_progress', 'resolved', 'closed'] as const;
@@ -157,10 +157,15 @@ export const useMessagesUrlSync = ({
       fetchedMessageIdRef.current = paramId;
 
       messageService
-        .getById(paramId)
+        .getThreadMessages(paramId)
         .then((response) => {
-          if (response.success && response.data) {
-            setSelectedMessage(response.data);
+          if (response.success && response.data && response.data.length > 0) {
+            const threadMessages = response.data;
+            const message = threadMessages.find((m) => m.id === paramId) ?? threadMessages[0];
+            setSelectedMessage(message);
+          } else {
+            fetchedMessageIdRef.current = null;
+            setSearchParams((prev) => { prev.delete('id'); return prev; }, { replace: true });
           }
         })
         .catch((error) => {
@@ -172,5 +177,6 @@ export const useMessagesUrlSync = ({
       fetchedMessageIdRef.current = null;
       setSelectedMessage(null);
     }
-  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage]); // onFetchError intentionally excluded — callback ref is stable
 };

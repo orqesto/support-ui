@@ -392,8 +392,8 @@ export const MessageThread = ({
 
                     {/* No Reply Yet */}
                     {pair.systemReplies.length === 0 && (
-                      <div className="p-3 text-center bg-yellow-50 border-t dark:bg-yellow-900/10">
-                        <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      <div className="p-3 text-center bg-amber-50 border-t dark:bg-amber-900/10">
+                        <p className="text-xs text-amber-800 dark:text-amber-200">
                           ⏳ Awaiting support response
                         </p>
                       </div>

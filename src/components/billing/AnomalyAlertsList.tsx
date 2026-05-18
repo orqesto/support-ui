@@ -18,13 +18,13 @@ const getAnomalyBadges = (record: BillingRecord) => {
   if (record.isZombie) {
     badges.push({
       label: 'Zombie Subscription',
-      className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
     });
   }
   if (record.isAmountDrift) {
     badges.push({
       label: 'Amount Drift',
-      className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
     });
   }
   if (record.isDuplicate) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { OrgAdminTable } from '@/components/organization/OrgAdminTable';
 import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -13,7 +14,6 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
-import { SearchInput } from '@/components/ui/SearchInput';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { organizationService } from '@/services/organization.service';
@@ -166,7 +166,9 @@ export const OrganizationPage = () => {
     }
   };
 
-  const handleCreateOrganization = async (data: Parameters<typeof organizationService.create>[0]) => {
+  const handleCreateOrganization = async (
+    data: Parameters<typeof organizationService.create>[0]
+  ) => {
     await organizationService.create(data);
     // Refresh the lists to show the newly created organization
     if (isAdmin) {
@@ -286,343 +288,28 @@ export const OrganizationPage = () => {
 
         {/* All Organizations (Global Admin Only) */}
         {isAdmin && (
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
-                <div>
-                  <CardTitle>All Organizations</CardTitle>
-                  <CardDescription>
-                    {allOrganizations.length} organization{allOrganizations.length !== 1 ? 's' : ''}{' '}
-                    in the system
-                  </CardDescription>
-                </div>
-                <SearchInput
-                  key="org-search"
-                  value={pendingSearch}
-                  onChange={setPendingSearch}
-                  onSearch={handleSearch}
-                  onBlur={handleSearchBlur}
-                  showSearchButton={true}
-                  placeholder="Search by ID, name, slug, description..."
-                  className="w-full sm:w-auto sm:min-w-[300px]"
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {allOrganizations.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {searchOrg
-                      ? 'No organizations found matching your search'
-                      : 'No organizations available'}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Mobile/Tablet Card View - Default up to XL */}
-                  <div className="xl:hidden divide-y divide-gray-200 overflow-auto max-h-[600px]">
-                    {allOrganizations.map((org) =>
-                      editingOrgId === org.id ? (
-                        <div key={org.id} className="p-4 bg-blue-500/10 dark:bg-blue-500/10">
-                          <div className="space-y-3">
-                            <div>
-                              <label htmlFor="name" className="block mb-1 text-sm font-medium">
-                                Name
-                              </label>
-                              <input
-                                type="text"
-                                value={editOrgForm.name}
-                                onChange={(e) =>
-                                  setEditOrgForm({ ...editOrgForm, name: e.target.value })
-                                }
-                                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                              />
-                            </div>
-                            <div>
-                              <label
-                                htmlFor="description"
-                                className="block mb-1 text-sm font-medium"
-                              >
-                                Description
-                              </label>
-                              <input
-                                type="text"
-                                value={editOrgForm.description}
-                                onChange={(e) =>
-                                  setEditOrgForm({ ...editOrgForm, description: e.target.value })
-                                }
-                                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                              />
-                            </div>
-                            <div className="flex gap-2 items-center">
-                              <input
-                                type="checkbox"
-                                id={`active-mobile-${org.id}`}
-                                checked={editOrgForm.active}
-                                onChange={(e) =>
-                                  setEditOrgForm({ ...editOrgForm, active: e.target.checked })
-                                }
-                                className="rounded"
-                              />
-                              <label
-                                htmlFor={`active-mobile-${org.id}`}
-                                className="text-sm font-medium"
-                              >
-                                Active
-                              </label>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleUpdateOrg(org.id)}
-                                className="flex-1"
-                              >
-                                <Save className="mr-2 w-4 h-4" />
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditingOrgId(null)}
-                                className="flex-1"
-                              >
-                                <X className="mr-2 w-4 h-4" />
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div key={org.id} className="p-4 transition-colors hover:bg-accent">
-                          <div className="space-y-3">
-                            <div className="flex gap-2 justify-between items-start">
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-semibold">{org.name}</h3>
-                                {org.description && (
-                                  <p className="mt-1 text-sm text-muted-foreground">
-                                    {org.description}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex flex-shrink-0 gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingOrgId(org.id);
-                                    setEditOrgForm({
-                                      name: org.name,
-                                      description: org.description ?? '',
-                                      active: org.active,
-                                    });
-                                  }}
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => confirmDeleteOrg(org.id, org.name)}
-                                  className="text-red-600 hover:text-red-700 hover:border-red-300"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 items-center text-xs">
-                              <Badge variant={org.active ? 'default' : 'secondary'}>
-                                {org.active ? 'Active' : 'Inactive'}
-                              </Badge>
-                              {org.tenantDb && (
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  org.tenantDb.deploymentType === 'shared'
-                                    ? 'bg-muted text-muted-foreground'
-                                    : org.tenantDb.deploymentType === 'dedicated'
-                                    ? 'bg-blue-500/10 text-blue-600'
-                                    : 'bg-purple-500/10 text-purple-600'
-                                }`}>
-                                  {org.tenantDb.deploymentType}
-                                </span>
-                              )}
-                              <code className="px-2 py-1 rounded text-muted-foreground bg-muted">
-                                {org.slug}
-                              </code>
-                              <span className="text-muted-foreground">
-                                {formatDate(org.createdAt)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  {/* Desktop Table View - Only on XL+ screens */}
-                  <div className="hidden xl:block">
-                    <div className="overflow-auto max-h-[600px]">
-                      <table className="min-w-full">
-                        <thead className="sticky top-0 z-10 border-b bg-muted">
-                          <tr>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
-                              Name
-                            </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
-                              Slug
-                            </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
-                              Status
-                            </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
-                              Created
-                            </th>
-                            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y bg-card divide-border">
-                          {allOrganizations.map((org) =>
-                            editingOrgId === org.id ? (
-                              <tr key={org.id} className="bg-blue-500/10 dark:bg-blue-500/10">
-                                <td colSpan={5} className="px-6 py-4">
-                                  <div className="space-y-3">
-                                    <div>
-                                      <label
-                                        htmlFor="name"
-                                        className="block mb-1 text-sm font-medium"
-                                      >
-                                        Name
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={editOrgForm.name}
-                                        onChange={(e) =>
-                                          setEditOrgForm({ ...editOrgForm, name: e.target.value })
-                                        }
-                                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label
-                                        htmlFor="description"
-                                        className="block mb-1 text-sm font-medium"
-                                      >
-                                        Description
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={editOrgForm.description}
-                                        onChange={(e) =>
-                                          setEditOrgForm({
-                                            ...editOrgForm,
-                                            description: e.target.value,
-                                          })
-                                        }
-                                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                                      />
-                                    </div>
-                                    <div className="flex gap-2 items-center">
-                                      <input
-                                        type="checkbox"
-                                        id={`active-${org.id}`}
-                                        checked={editOrgForm.active}
-                                        onChange={(e) =>
-                                          setEditOrgForm({ ...editOrgForm, active: e.target.checked })
-                                        }
-                                        className="rounded"
-                                      />
-                                      <label htmlFor={`active-${org.id}`} className="text-sm font-medium">
-                                        Active
-                                      </label>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button size="sm" onClick={() => handleUpdateOrg(org.id)}>
-                                        <Save className="mr-2 w-4 h-4" />
-                                        Save
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setEditingOrgId(null)}
-                                      >
-                                        <X className="mr-2 w-4 h-4" />
-                                        Cancel
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              <tr key={org.id} className="transition-colors hover:bg-accent">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium">{org.name}</div>
-                                  {org.description && (
-                                    <div className="overflow-hidden text-sm whitespace-pre-wrap break-words text-muted-foreground">
-                                      {org.description}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <code className="text-sm text-muted-foreground">{org.slug}</code>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex flex-col gap-1">
-                                    <Badge variant={org.active ? 'default' : 'secondary'}>
-                                      {org.active ? 'Active' : 'Inactive'}
-                                    </Badge>
-                                    {org.tenantDb && (
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium w-fit ${
-                                        org.tenantDb.deploymentType === 'shared'
-                                          ? 'bg-muted text-muted-foreground'
-                                          : org.tenantDb.deploymentType === 'dedicated'
-                                          ? 'bg-blue-500/10 text-blue-600'
-                                          : 'bg-purple-500/10 text-purple-600'
-                                      }`}>
-                                        {org.tenantDb.deploymentType}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 text-sm whitespace-nowrap text-muted-foreground">
-                                  {formatDate(org.createdAt)}
-                                </td>
-                                <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => {
-                                        setEditingOrgId(org.id);
-                                        setEditOrgForm({
-                                          name: org.name,
-                                          description: org.description ?? '',
-                                          active: org.active,
-                                        });
-                                      }}
-                                    >
-                                      <Edit2 className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => confirmDeleteOrg(org.id, org.name)}
-                                      className="text-red-600 hover:text-red-700 hover:border-red-300"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <OrgAdminTable
+            allOrganizations={allOrganizations}
+            searchOrg={searchOrg}
+            pendingSearch={pendingSearch}
+            editingOrgId={editingOrgId}
+            editOrgForm={editOrgForm}
+            onPendingSearchChange={setPendingSearch}
+            onSearch={handleSearch}
+            onSearchBlur={handleSearchBlur}
+            onEditOrgFormChange={setEditOrgForm}
+            onStartEdit={(org) => {
+              setEditingOrgId(org.id);
+              setEditOrgForm({
+                name: org.name,
+                description: org.description ?? '',
+                active: org.active,
+              });
+            }}
+            onCancelEdit={() => setEditingOrgId(null)}
+            onSaveEdit={handleUpdateOrg}
+            onDelete={confirmDeleteOrg}
+          />
         )}
 
         {/* Organization Details */}

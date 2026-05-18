@@ -11,7 +11,7 @@ import {
   X,
   Check,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { messageService } from '@/services/message.service';
 import type { ApiResponse } from '@/types';
@@ -111,7 +111,6 @@ export const LeadQualificationPanel = ({
     fieldDefs?.find((f) => f.key === key)?.label ??
     key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const [fieldsExpanded, setFieldsExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editContact, setEditContact] = useState({ name: '', email: '', phone: '' });
@@ -120,6 +119,14 @@ export const LeadQualificationPanel = ({
   const fieldEntries = Object.entries(leadState.qualificationFields).filter(
     ([key]) => !['files_received', 'files_count'].includes(key)
   );
+
+  const filledCount = fieldEntries.filter(([, v]) => v !== null).length;
+
+  const [fieldsExpanded, setFieldsExpanded] = useState(() => filledCount > 0);
+
+  useEffect(() => {
+    if (filledCount > 0) setFieldsExpanded(true);
+  }, [filledCount]);
   const filesReceived = leadState.qualificationFields['files_received'] === 'true';
   const filesCount = leadState.qualificationFields['files_count'];
 
@@ -349,7 +356,9 @@ export const LeadQualificationPanel = ({
             onClick={() => setFieldsExpanded((prev) => !prev)}
             className="flex justify-between items-center w-full text-xs font-medium tracking-wide uppercase transition-colors text-muted-foreground hover:text-foreground"
           >
-            <span>Qualification Info ({fieldEntries.length} fields)</span>
+            <span>
+              Qualification Info ({filledCount}/{fieldEntries.length} collected)
+            </span>
             {fieldsExpanded ? (
               <ChevronUp className="w-3.5 h-3.5" />
             ) : (

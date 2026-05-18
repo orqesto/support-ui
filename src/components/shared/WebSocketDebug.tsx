@@ -23,7 +23,7 @@ export const WebSocketDebug = () => {
   return (
     <>
       {/* Floating Button */}
-      {!isOpen && (
+      {/* {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-0 right-2 z-50 p-2 text-white bg-blue-600 rounded-lg shadow-lg transition-all -translate-y-1/2 hover:bg-blue-700 group"
@@ -34,7 +34,7 @@ export const WebSocketDebug = () => {
             Debug Panel
           </span>
         </Button>
-      )}
+      )} */}
 
       {/* Expandable Panel */}
       {isOpen && (

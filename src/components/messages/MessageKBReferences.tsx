@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, CheckCircle, ExternalLink } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
@@ -50,7 +51,11 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
   }, [messageId]);
 
   if (loading) {
-    return null; // Don't show loading state to avoid UI clutter
+    return (
+      <div className="flex items-center px-1 py-1">
+        <Spinner />
+      </div>
+    );
   }
 
   if (error !== null || references.length === 0) {

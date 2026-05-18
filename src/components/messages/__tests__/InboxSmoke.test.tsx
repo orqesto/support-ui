@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Message } from '@/types';
+import type { MessageThread } from '@/services/message.service';
 
 // Mock dependencies used by MessageListItem
 vi.mock('@/lib/messageHelpers', () => ({
@@ -49,9 +50,25 @@ const mockMessage: Message = {
   processed: false,
   ticketId: null,
   createdAt: '2026-01-01T10:00:00Z',
-  status: 'new',
+  status: 'open',
   priority: 'medium',
   metadata: {},
+};
+
+const mockThread: MessageThread = {
+  threadId: 'thread-1',
+  messageCount: 1,
+  sender: 'customer@example.com',
+  channel: 'email',
+  hasUnread: false,
+  hasTicket: false,
+  linkedTicketStatus: null,
+  isResolved: false,
+  isLead: false,
+  lastReplyFromClient: null,
+  lastMessageAt: new Date('2026-01-01T10:00:00Z'),
+  latestMessage: mockMessage,
+  latestIncomingMessage: mockMessage,
 };
 
 describe('InboxSmoke', () => {
@@ -67,7 +84,7 @@ describe('InboxSmoke', () => {
     const onOpen = vi.fn();
     render(
       <MemoryRouter>
-        <MessageListItem message={mockMessage} onOpen={onOpen} />
+        <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
     // The sender email should appear somewhere in the rendered output
@@ -78,7 +95,7 @@ describe('InboxSmoke', () => {
     const onOpen = vi.fn();
     render(
       <MemoryRouter>
-        <MessageListItem message={mockMessage} onOpen={onOpen} />
+        <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
     expect(screen.getByText('Test Subject')).toBeTruthy();
@@ -86,16 +103,16 @@ describe('InboxSmoke', () => {
 
   it('renders multiple messages', () => {
     const onOpen = vi.fn();
-    const messages: Message[] = [
-      { ...mockMessage, id: 1, sender: 'alice@example.com', subject: 'First' },
-      { ...mockMessage, id: 2, sender: 'bob@example.com', subject: 'Second' },
+    const threads: MessageThread[] = [
+      { ...mockThread, threadId: 'thread-1', sender: 'alice@example.com', latestMessage: { ...mockMessage, id: 1, sender: 'alice@example.com', subject: 'First' } },
+      { ...mockThread, threadId: 'thread-2', sender: 'bob@example.com', latestMessage: { ...mockMessage, id: 2, sender: 'bob@example.com', subject: 'Second' } },
     ];
 
     const { container } = render(
       <MemoryRouter>
         <div data-testid="message-list">
-          {messages.map((msg) => (
-            <MessageListItem key={msg.id} message={msg} onOpen={onOpen} />
+          {threads.map((t) => (
+            <MessageListItem key={t.threadId} thread={t} onOpen={onOpen} />
           ))}
         </div>
       </MemoryRouter>
