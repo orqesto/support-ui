@@ -55,7 +55,7 @@ export const PricingPage = () => {
         setModules(modulesRes.data.data.modules);
         if (currentRes?.data?.data?.plan?.name) setCurrentPlanName(currentRes.data.data.plan.name);
         if (activeModulesRes?.data?.data?.modules) {
-          setActiveModuleIds(new Set(activeModulesRes.data.data.modules.map((m) => m.moduleId)));
+          setActiveModuleIds(new Set(activeModulesRes.data.data.modules.map((mod) => mod.moduleId)));
         }
       } catch (error) {
         logger.error('Failed to load pricing:', error);
@@ -68,8 +68,8 @@ export const PricingPage = () => {
 
   const extractApiError = (error: unknown, fallback: string): string => {
     if (error instanceof Error && 'response' in error) {
-      const r = (error as { response?: { data?: { error?: string } } }).response;
-      if (typeof r?.data?.error === 'string') return r.data.error;
+      const resp = (error as { response?: { data?: { error?: string } } }).response;
+      if (typeof resp?.data?.error === 'string') return resp.data.error;
     }
     return fallback;
   };
@@ -144,9 +144,9 @@ export const PricingPage = () => {
     }
   };
 
-  const basePlans = plans.filter((p) => p.planType === 'base');
-  const bundlePlans = plans.filter((p) => p.planType === 'bundle');
-  const enterprisePlans = plans.filter((p) => p.planType === 'enterprise' && (isGlobalAdmin || p.name !== 'admin'));
+  const basePlans = plans.filter((plan) => plan.planType === 'base');
+  const bundlePlans = plans.filter((plan) => plan.planType === 'bundle');
+  const enterprisePlans = plans.filter((plan) => plan.planType === 'enterprise' && (isGlobalAdmin || plan.name !== 'admin'));
 
   if (loading) {
     return <Layout><div className="flex justify-center items-center h-64"><div className="text-gray-500">Loading pricing...</div></div></Layout>;
@@ -228,8 +228,8 @@ export const PricingPage = () => {
             <h2 className="mb-3 text-3xl font-bold">Enterprise</h2>
             <p className="mb-6 text-xl text-gray-300">Custom solutions for large teams with specific requirements</p>
             <div className="flex flex-wrap gap-6 justify-center mb-8">
-              {['Unlimited users','Custom integrations','Dedicated support','SLA guarantees'].map((f) => (
-                <div key={f} className="flex gap-2 items-center"><Check className="w-5 h-5" /><span>{f}</span></div>
+              {['Unlimited users','Custom integrations','Dedicated support','SLA guarantees'].map((feat) => (
+                <div key={feat} className="flex gap-2 items-center"><Check className="w-5 h-5" /><span>{feat}</span></div>
               ))}
             </div>
             <Button size="lg" variant="outline" className="text-gray-900 bg-white">Contact Sales</Button>
@@ -241,11 +241,11 @@ export const PricingPage = () => {
           <h2 className="mb-6 text-2xl font-bold text-center">Frequently Asked Questions</h2>
           <div className="space-y-6">
             {[
-              { q: 'Can I change plans later?', a: 'Yes, you can upgrade or downgrade your plan at any time. Changes take effect at the next billing cycle.' },
-              { q: 'What happens if I exceed my limits?', a: "For AI modules, you'll be charged the overage rate shown. For user/storage limits, you'll need to upgrade your plan." },
-              { q: 'Is there a free trial?', a: 'Yes, all plans come with a 14-day free trial. No credit card required.' },
-            ].map(({ q, a }) => (
-              <div key={q}><h3 className="mb-2 font-semibold">{q}</h3><p className="text-gray-400">{a}</p></div>
+              { question: 'Can I change plans later?', answer: 'Yes, you can upgrade or downgrade your plan at any time. Changes take effect at the next billing cycle.' },
+              { question: 'What happens if I exceed my limits?', answer: "For AI modules, you'll be charged the overage rate shown. For user/storage limits, you'll need to upgrade your plan." },
+              { question: 'Is there a free trial?', answer: 'Yes, all plans come with a 14-day free trial. No credit card required.' },
+            ].map(({ question, answer }) => (
+              <div key={question}><h3 className="mb-2 font-semibold">{question}</h3><p className="text-gray-400">{answer}</p></div>
             ))}
           </div>
         </div>

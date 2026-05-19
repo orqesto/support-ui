@@ -179,14 +179,14 @@ export const AIProvidersSettings = () => {
       if (response.success && response.data) {
         setIntegrations(
           response.data.filter(
-            (i) =>
-              i.type === 'openai' ||
-              i.type === 'anthropic' ||
-              i.type === 'deepseek' ||
-              i.type === 'perplexity' ||
-              i.type === 'qwen' ||
-              i.type === 'ollama' ||
-              i.type === 'local_embeddings'
+            (integ) =>
+              integ.type === 'openai' ||
+              integ.type === 'anthropic' ||
+              integ.type === 'deepseek' ||
+              integ.type === 'perplexity' ||
+              integ.type === 'qwen' ||
+              integ.type === 'ollama' ||
+              integ.type === 'local_embeddings'
           )
         );
       }
@@ -421,12 +421,12 @@ export const AIProvidersSettings = () => {
     return <div className="py-12 text-center">Loading AI providers...</div>;
   }
 
-  const openaiIntegrations = integrations.filter((i) => i.type === 'openai');
-  const anthropicIntegrations = integrations.filter((i) => i.type === 'anthropic');
-  const deepseekIntegrations = integrations.filter((i) => i.type === 'deepseek');
-  const perplexityIntegrations = integrations.filter((i) => i.type === 'perplexity');
-  const qwenIntegrations = integrations.filter((i) => i.type === 'qwen');
-  const ollamaIntegrations = integrations.filter((i) => i.type === 'ollama');
+  const openaiIntegrations = integrations.filter((integ) => integ.type === 'openai');
+  const anthropicIntegrations = integrations.filter((integ) => integ.type === 'anthropic');
+  const deepseekIntegrations = integrations.filter((integ) => integ.type === 'deepseek');
+  const perplexityIntegrations = integrations.filter((integ) => integ.type === 'perplexity');
+  const qwenIntegrations = integrations.filter((integ) => integ.type === 'qwen');
+  const ollamaIntegrations = integrations.filter((integ) => integ.type === 'ollama');
 
   const hasAnyProvider =
     openaiIntegrations.length > 0 ||

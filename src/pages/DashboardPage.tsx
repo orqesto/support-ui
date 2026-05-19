@@ -189,10 +189,10 @@ export const DashboardPage = () => {
     const checkIntegrations = async () => {
       try {
         const response = await integrationsService.getAll();
-        const active = response.data?.filter((i) => i.enabled) ?? [];
-        const emailInt = active.filter((i) => i.type === 'email' || i.type === 'gmail');
-        const telegramInt = active.filter((i) => i.type === 'telegram');
-        const msgSrc = active.filter((i) => ['email', 'gmail', 'telegram', 'slack'].includes(i.type));
+        const active = response.data?.filter((intg) => intg.enabled) ?? [];
+        const emailInt = active.filter((intg) => intg.type === 'email' || intg.type === 'gmail');
+        const telegramInt = active.filter((intg) => intg.type === 'telegram');
+        const msgSrc = active.filter((intg) => ['email', 'gmail', 'telegram', 'slack'].includes(intg.type));
         setHasIntegrations(active.length > 0);
         setHasMessageSources(msgSrc.length > 0);
         setHasEmailIntegrations(emailInt.length > 0);
@@ -262,9 +262,9 @@ export const DashboardPage = () => {
   const formatMinutes = (mins: number | null): string => {
     if (mins === null) return '—';
     if (mins < 60) return `${mins}m`;
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
   };
 
   const slaCards = [
@@ -314,9 +314,9 @@ export const DashboardPage = () => {
 
         {loading ? (
           <div className="space-y-6">
-            <div><div className="w-32 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">{Array.from({ length: 5 }).map((_, i) => <div key={`sk-sla-${i}`}>{skeletonCard}</div>)}</div></div>
-            <div><div className="w-24 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, i) => <div key={`sk-msg-${i}`}>{skeletonCard}</div>)}</div></div>
-            <div><div className="w-16 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-3">{Array.from({ length: 3 }).map((_, i) => <div key={`sk-tkt-${i}`}>{skeletonCard}</div>)}</div></div>
+            <div><div className="w-32 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">{Array.from({ length: 5 }).map((_, idx) => <div key={`sk-sla-${idx}`}>{skeletonCard}</div>)}</div></div>
+            <div><div className="w-24 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, idx) => <div key={`sk-msg-${idx}`}>{skeletonCard}</div>)}</div></div>
+            <div><div className="w-16 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-3">{Array.from({ length: 3 }).map((_, idx) => <div key={`sk-tkt-${idx}`}>{skeletonCard}</div>)}</div></div>
             <div><div className="w-32 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 max-w-xs">{skeletonCard}</div></div>
           </div>
         ) : (

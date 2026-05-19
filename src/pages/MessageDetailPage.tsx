@@ -24,15 +24,15 @@ export const MessageDetailPage = () => {
           const threadRes = await messageService.getThreadMessages(parseInt(id));
           if (threadRes.success && threadRes.data && threadRes.data.length > 0) {
             const latestIncoming = threadRes.data
-              .filter((m) => !m.isOutgoing)
-              .sort((a, b) => b.id - a.id)[0];
+              .filter((msg) => !msg.isOutgoing)
+              .sort((itemA, itemB) => itemB.id - itemA.id)[0];
             if (latestIncoming && latestIncoming.id !== parseInt(id)) {
               // Pre-warm KB cache so AiTabPanel gets an instant hit when it mounts for this ID.
               if (!similarResultsCache.has(latestIncoming.id)) {
                 void messageService
                   .getSimilarResolvedMessages(latestIncoming.id, 3, 0.75)
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .then((r) => { if (r.success && r.data) similarResultsCache.set(latestIncoming.id, r.data as any); });
+                  .then((res) => { if (res.success && res.data) similarResultsCache.set(latestIncoming.id, res.data as any); });
               }
               void fetchMessage(latestIncoming.id);
             }

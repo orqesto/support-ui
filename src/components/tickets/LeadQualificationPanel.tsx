@@ -49,7 +49,7 @@ const stageColor = (stage: string): 'default' | 'secondary' | 'warning' | 'succe
   STAGE_COLORS[stage] ?? 'default';
 
 const stageLabel = (stage: string): string =>
-  stage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  stage.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
 // Type guard function to validate lead state
 const isValidLeadState = (state: unknown): state is LeadQualificationState => {
@@ -108,8 +108,8 @@ export const LeadQualificationPanel = ({
   onLeadStateUpdate,
 }: LeadQualificationPanelProps) => {
   const fieldLabel = (key: string): string =>
-    fieldDefs?.find((f) => f.key === key)?.label ??
-    key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    fieldDefs?.find((fld) => fld.key === key)?.label ??
+    key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -120,7 +120,7 @@ export const LeadQualificationPanel = ({
     ([key]) => !['files_received', 'files_count'].includes(key)
   );
 
-  const filledCount = fieldEntries.filter(([, v]) => v !== null).length;
+  const filledCount = fieldEntries.filter(([, val]) => val !== null).length;
 
   const [fieldsExpanded, setFieldsExpanded] = useState(() => filledCount > 0);
 
@@ -137,8 +137,8 @@ export const LeadQualificationPanel = ({
       phone: leadState.contactInfo.phone ?? '',
     });
     const fields: Record<string, string> = {};
-    for (const [k, v] of fieldEntries) {
-      fields[k] = v ?? '';
+    for (const [key, val] of fieldEntries) {
+      fields[key] = val ?? '';
     }
     setEditFields(fields);
     setFieldsExpanded(true);
@@ -159,10 +159,10 @@ export const LeadQualificationPanel = ({
         contactPayload.phone = editContact.phone || undefined;
 
       const fieldsPayload: Record<string, string | null> = {};
-      for (const [k, v] of Object.entries(editFields)) {
-        const original = leadState.qualificationFields[k] ?? '';
-        if (v !== original) {
-          fieldsPayload[k] = v.trim() === '' ? null : v.trim();
+      for (const [key, val] of Object.entries(editFields)) {
+        const original = leadState.qualificationFields[key] ?? '';
+        if (val !== original) {
+          fieldsPayload[key] = val.trim() === '' ? null : val.trim();
         }
       }
 
@@ -297,7 +297,7 @@ export const LeadQualificationPanel = ({
                   className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   placeholder="Name"
                   value={editContact.name}
-                  onChange={(e) => setEditContact((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(event) => setEditContact((prev) => ({ ...prev, name: event.target.value }))}
                 />
               </div>
               <div className="flex gap-2 items-center">
@@ -307,7 +307,7 @@ export const LeadQualificationPanel = ({
                   placeholder="Email"
                   type="email"
                   value={editContact.email}
-                  onChange={(e) => setEditContact((p) => ({ ...p, email: e.target.value }))}
+                  onChange={(event) => setEditContact((prev) => ({ ...prev, email: event.target.value }))}
                 />
               </div>
               <div className="flex gap-2 items-center">
@@ -316,7 +316,7 @@ export const LeadQualificationPanel = ({
                   className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   placeholder="Phone"
                   value={editContact.phone}
-                  onChange={(e) => setEditContact((p) => ({ ...p, phone: e.target.value }))}
+                  onChange={(event) => setEditContact((prev) => ({ ...prev, phone: event.target.value }))}
                 />
               </div>
             </>
@@ -379,7 +379,7 @@ export const LeadQualificationPanel = ({
                         className="flex-1 bg-background border border-input rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500"
                         placeholder="Not provided"
                         value={editFields[key] ?? ''}
-                        onChange={(e) => setEditFields((p) => ({ ...p, [key]: e.target.value }))}
+                        onChange={(event) => setEditFields((prev) => ({ ...prev, [key]: event.target.value }))}
                       />
                     </>
                   ) : (

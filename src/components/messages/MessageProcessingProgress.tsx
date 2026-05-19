@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import type { ProcessingSession } from '@/hooks/useEmailProcessing';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-type Position = { x: number; y: number };
+type Position = { xPos: number; yPos: number };
 
 type Props = {
   session: ProcessingSession;
@@ -65,7 +65,7 @@ export const MessageProcessingProgress = ({
   const [position, setPosition] = useState<Position>(() => {
     // On mobile, ignore saved position
     if (isMobile) {
-      return { x: 0, y: 0 };
+      return { xPos: 0, yPos: 0 };
     }
     const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_position`);
     if (saved) {
@@ -73,13 +73,13 @@ export const MessageProcessingProgress = ({
         const parsed = JSON.parse(saved) as Position;
         return parsed;
       } catch {
-        return { x: window.innerWidth - 336, y: 16 + index * STACK_OFFSET };
+        return { xPos: window.innerWidth - 336, yPos: 16 + index * STACK_OFFSET };
       }
     }
-    return { x: window.innerWidth - 336, y: 16 + index * STACK_OFFSET };
+    return { xPos: window.innerWidth - 336, yPos: 16 + index * STACK_OFFSET };
   });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState<Position>({ xPos: 0, yPos: 0 });
 
   // Save expanded state to localStorage
   useEffect(() => {
@@ -110,6 +110,7 @@ export const MessageProcessingProgress = ({
     successful,
     failed,
     skipped,
+    linkedReplies,
     error,
     progress,
     isProcessing,
@@ -160,34 +161,34 @@ export const MessageProcessingProgress = ({
   }, [position, session.sessionKey]);
 
   // Drag handlers (desktop only)
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (event: React.MouseEvent) => {
     if (isMobile) return; // No dragging on mobile
-    if ((e.target as HTMLElement).closest('button')) {
+    if ((event.target as HTMLElement).closest('button')) {
       return; // Don't drag if clicking buttons or their children (icons, spans)
     }
     setIsDragging(true);
     setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
+      xPos: event.clientX - position.xPos,
+      yPos: event.clientY - position.yPos,
     });
   };
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (event: MouseEvent) => {
       if (!isDragging) {
         return;
       }
 
-      const newX = e.clientX - dragOffset.x;
-      const newY = e.clientY - dragOffset.y;
+      const newX = event.clientX - dragOffset.xPos;
+      const newY = event.clientY - dragOffset.yPos;
 
       // Keep widget within viewport bounds
       const maxX = window.innerWidth - 320; // widget width
       const maxY = window.innerHeight - 100; // minimum height
 
       setPosition({
-        x: Math.max(0, Math.min(newX, maxX)),
-        y: Math.max(0, Math.min(newY, maxY)),
+        xPos: Math.max(0, Math.min(newX, maxX)),
+        yPos: Math.max(0, Math.min(newY, maxY)),
       });
     };
 
@@ -246,28 +247,28 @@ export const MessageProcessingProgress = ({
   // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
     if (status === 'complete' || allMessagesProcessed) {
-      // Backend 'complete' event: close promptly (user can still review while visible)
-      // Frontend-detected allMessagesProcessed: longer delay to review results
       const backendComplete = status === 'complete';
       let closeDelay: number;
 
-      if (total === 0) {
-        closeDelay = isMobile ? 5000 : 10000; // Quick close: nothing happened
+      const hasLinked = (linkedReplies ?? 0) > 0;
+      if (total === 0 && !hasLinked) {
+        closeDelay = isMobile ? 5000 : 10000; // Nothing happened
+      } else if (total === 0 && hasLinked) {
+        closeDelay = isMobile ? 10000 : 15000; // Only linked replies
       } else if (backendComplete) {
-        closeDelay = isMobile ? 10000 : 15000; // Backend confirmed done: 10-15s to review
+        closeDelay = isMobile ? 10000 : 15000; // Backend confirmed done
       } else {
-        closeDelay = isMobile ? 60000 : 300000; // Frontend detected: longer review time
+        closeDelay = isMobile ? 60000 : 300000; // Frontend detected
       }
 
       const timer = setTimeout(() => {
         setIsClosed(true);
-        // Actually remove the session from parent after a short delay
         setTimeout(() => onClose(session.sessionKey), 1000);
       }, closeDelay);
 
       return () => clearTimeout(timer);
     }
-  }, [status, allMessagesProcessed, total, session.sessionKey, onClose, isMobile]);
+  }, [status, allMessagesProcessed, total, linkedReplies, session.sessionKey, onClose, isMobile]);
 
   // Show widget ONLY if there's activity
   const isActivelyProcessing =
@@ -296,8 +297,8 @@ export const MessageProcessingProgress = ({
             }
           : {
               // Desktop: draggable
-              left: `${position.x}px`,
-              top: `${position.y}px`,
+              left: `${position.xPos}px`,
+              top: `${position.yPos}px`,
               cursor: isDragging ? 'grabbing' : 'grab',
               zIndex: 50,
             }),
@@ -429,6 +430,15 @@ export const MessageProcessingProgress = ({
               </div>
               <p className="text-[10px] text-muted-foreground">Analyzed</p>
             </div>
+            {sourceType === 'email' && (linkedReplies ?? 0) > 0 && (
+              <div>
+                <div className="flex gap-1 justify-center items-center">
+                  <Mail className="w-3 h-3 text-blue-400" />
+                  <span className="text-lg font-bold">{linkedReplies}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Linked</p>
+              </div>
+            )}
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <div className="w-3 h-3 bg-amber-500 rounded-full" />

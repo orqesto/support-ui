@@ -118,6 +118,10 @@ export type AIStatsData = {
   aiReplyDistribution: Record<string, number>;
   analysisModels: Array<{ model: string; provider: string; count: number; percentage: number }>;
   embeddingModels: Array<{ model: string; provider: string; count: number; percentage: number }>;
+  suggestedAnswerUsage: {
+    total: number;
+    bySource: Array<{ source: string; count: number; percentage: number }>;
+  };
 };
 
 export const statisticsService = {

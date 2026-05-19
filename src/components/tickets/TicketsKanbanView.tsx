@@ -125,7 +125,7 @@ type TicketWithExtras = TicketType & TicketRuntimeExtras;
 // Shared card content used by both draggable cards and the drag overlay ghost
 function TicketCardContent({ ticket }: { ticket: TicketType }) {
   const priorityVariant = PRIORITY_VARIANT[ticket.priority as keyof typeof PRIORITY_VARIANT] ?? 'default';
-  const t = ticket as TicketWithExtras;
+  const ticketWithExtras = ticket as TicketWithExtras;
 
   return (
     <div className="space-y-1.5">
@@ -140,14 +140,14 @@ function TicketCardContent({ ticket }: { ticket: TicketType }) {
         <Badge variant={priorityVariant} className="h-4 px-1 text-[10px]">
           {ticket.priority}
         </Badge>
-        {t.assignee && (
+        {ticketWithExtras.assignee && (
           <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
             <User className="w-2.5 h-2.5" />
-            {t.assignee.name ?? t.assignee.email}
+            {ticketWithExtras.assignee.name ?? ticketWithExtras.assignee.email}
           </span>
         )}
-        {t.jiraKey && (
-          <span className="text-[10px] font-mono text-blue-500">{t.jiraKey}</span>
+        {ticketWithExtras.jiraKey && (
+          <span className="text-[10px] font-mono text-blue-500">{ticketWithExtras.jiraKey}</span>
         )}
       </div>
     </div>
@@ -226,8 +226,8 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
         className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]"
       >
         {state.loading && state.tickets.length === 0 ? (
-          Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="min-w-[240px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0">
+          Array.from({ length: 3 }, (_, idx) => (
+            <div key={idx} className="min-w-[240px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0">
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
@@ -282,22 +282,22 @@ type TicketsKanbanViewProps = {
 
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
-    COLUMNS.map((c) => [c.id, { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }])
+    COLUMNS.map((col) => [col.id, { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }])
   );
 
 export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) => {
   // Memoize to avoid rebuilding on every parent re-render (colStates updates, etc.)
   const sharedFilters = useMemo((): SharedFilters => {
-    const f: SharedFilters = {};
-    if (filters.priority && filters.priority !== 'all') f.priority = filters.priority;
+    const filterObj: SharedFilters = {};
+    if (filters.priority && filters.priority !== 'all') filterObj.priority = filters.priority;
     if (filters.assigneeId && filters.assigneeId !== 'all')
-      f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-    if (filters.categoryId && filters.categoryId !== 'all') f.categoryId = filters.categoryId;
-    if (filters.labelId && filters.labelId !== 'all') f.labelId = filters.labelId;
-    if (filters.search?.trim()) f.search = filters.search.trim();
-    if (filters.linked === 'synced_to_jira') f.syncedToJira = 'true';
-    else if (filters.linked === 'not_synced') f.syncedToJira = 'false';
-    return f;
+      filterObj.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+    if (filters.categoryId && filters.categoryId !== 'all') filterObj.categoryId = filters.categoryId;
+    if (filters.labelId && filters.labelId !== 'all') filterObj.labelId = filters.labelId;
+    if (filters.search?.trim()) filterObj.search = filters.search.trim();
+    if (filters.linked === 'synced_to_jira') filterObj.syncedToJira = 'true';
+    else if (filters.linked === 'not_synced') filterObj.syncedToJira = 'false';
+    return filterObj;
   }, [filters.priority, filters.assigneeId, filters.categoryId, filters.labelId, filters.search, filters.linked]);
 
   const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
@@ -316,7 +316,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     let cancelled = false;
     setColStates(
       Object.fromEntries(
-        COLUMNS.map((c) => [c.id, { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }])
+        COLUMNS.map((col) => [col.id, { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }])
       )
     );
 
@@ -357,7 +357,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
   }, [filterKey]);
 
   const loadMore = useCallback((colId: string) => {
-    const col = COLUMNS.find((c) => c.id === colId);
+    const col = COLUMNS.find((column) => column.id === colId);
     if (!col) return;
     setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
     const nextPage = colStatesRef.current[colId].page + 1;
@@ -391,7 +391,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const ticketId = event.active.id as number;
     const colId = event.active.data.current?.colId as string;
-    const ticket = colStatesRef.current[colId]?.tickets.find((t) => t.id === ticketId);
+    const ticket = colStatesRef.current[colId]?.tickets.find((tk) => tk.id === ticketId);
     setActiveTicket(ticket ?? null);
   }, []);
 
@@ -413,10 +413,10 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
       return;
     }
 
-    const toCol = COLUMNS.find((c) => c.id === toColId);
+    const toCol = COLUMNS.find((column) => column.id === toColId);
     if (!toCol) return;
 
-    const ticket = colStatesRef.current[fromColId]?.tickets.find((t) => t.id === ticketId);
+    const ticket = colStatesRef.current[fromColId]?.tickets.find((tk) => tk.id === ticketId);
     if (!ticket) return;
 
     const movedTicket: TicketType = { ...ticket, status: toCol.status as TicketStatus };
@@ -424,7 +424,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     // Capture original index before optimistic move so rollback restores the card
     // to its original position rather than prepending at index 0.
     const originalIndex = colStatesRef.current[fromColId].tickets.findIndex(
-      (t) => t.id === ticketId
+      (tk) => tk.id === ticketId
     );
 
     // Optimistic update
@@ -432,7 +432,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
       ...prev,
       [fromColId]: {
         ...prev[fromColId],
-        tickets: prev[fromColId].tickets.filter((t) => t.id !== ticketId),
+        tickets: prev[fromColId].tickets.filter((tk) => tk.id !== ticketId),
         total: Math.max(0, prev[fromColId].total - 1),
       },
       [toColId]: {
@@ -459,7 +459,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
           },
           [toColId]: {
             ...prev[toColId],
-            tickets: prev[toColId].tickets.filter((t) => t.id !== ticketId),
+            tickets: prev[toColId].tickets.filter((tk) => tk.id !== ticketId),
             total: Math.max(0, prev[toColId].total - 1),
           },
         };
@@ -472,7 +472,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragEnd={(e) => void handleDragEnd(e)}
+      onDragEnd={(event) => void handleDragEnd(event)}
     >
       <div className="flex flex-col gap-4 md:flex-row md:gap-3 md:overflow-x-auto md:pb-4">
         {COLUMNS.map((col) => (

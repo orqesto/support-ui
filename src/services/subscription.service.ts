@@ -12,7 +12,7 @@ export type ActiveModule = {
 const getActiveModules = () =>
   apiClient
     .get<{ success: boolean; data: { modules: ActiveModule[] } }>('/api/subscriptions/modules/active')
-    .then((r) => r.data.data.modules);
+    .then((res) => res.data.data.modules);
 
 export const subscriptionService = {
   getActiveModules,

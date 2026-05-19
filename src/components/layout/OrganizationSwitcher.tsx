@@ -99,8 +99,8 @@ export const OrganizationSwitcher = () => {
             tabIndex={0}
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
                 setIsOpen(false);
               }
             }}

@@ -39,8 +39,8 @@ export const OAuthCallbackPage = () => {
         setTimeout(() => {
           window.close();
         }, 1000);
-      } catch (e) {
-        logger.error('Failed to communicate OAuth code:', e);
+      } catch (err) {
+        logger.error('Failed to communicate OAuth code:', err);
         setStatus('error');
         setMessage('Failed to save authorization code. Please try again.');
       }

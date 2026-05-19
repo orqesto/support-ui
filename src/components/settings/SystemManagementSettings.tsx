@@ -363,7 +363,7 @@ export const SystemManagementSettings = () => {
                 </label>
                 <Input
                   value={confirmInput}
-                  onChange={(e) => setConfirmInput(e.target.value)}
+                  onChange={(event) => setConfirmInput(event.target.value)}
                   placeholder={confirmDialog.confirmText}
                   className="font-mono"
                 />

@@ -116,9 +116,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     return 'Uploaded';
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setSelectedFiles(Array.from(event.target.files));
     }
   };
 
@@ -165,10 +165,10 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         // Delay revoke so the new tab has time to load the blob
         setTimeout(() => URL.revokeObjectURL(url), 10000);
       } else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = attachment.originalFilename;
-        a.click();
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = attachment.originalFilename;
+        anchor.click();
         URL.revokeObjectURL(url);
       }
     } catch (error) {
@@ -214,19 +214,24 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   };
 
   if (isLoading) {
+    return <p className="py-4 text-sm text-center text-muted-foreground">Loading attachments…</p>;
+  }
+
+  if (attachments.length === 0 && selectedFiles.length === 0) {
     return (
-      <div className="pt-6 border-t">
-        <p className="text-sm text-muted-foreground">Loading attachments...</p>
+      <div className="py-4 text-center">
+        <p className="text-sm text-muted-foreground mb-3">No attachments yet.</p>
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border cursor-pointer text-foreground bg-input border-border hover:bg-accent">
+          <Paperclip className="w-3.5 h-3.5" />
+          Add Files
+          <input type="file" multiple onChange={handleFileSelect} className="hidden" />
+        </label>
       </div>
     );
   }
 
-  if (attachments.length === 0 && selectedFiles.length === 0) {
-    return null; // Don't show section if no attachments
-  }
-
   return (
-    <div className="pt-6 border-t">
+    <div>
       <div className="flex justify-between items-center mb-4">
         <h3 className="flex gap-2 items-center text-base font-semibold">
           <Paperclip className="w-4 h-4" />
@@ -371,7 +376,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
           <p className="mb-4 text-sm text-gray-600">
             Are you sure you want to delete &quot;{attachmentToDelete?.name}&quot;?
             {attachmentToDelete &&
-              attachments.find((a) => a.id === attachmentToDelete.id)?.externalId && (
+              attachments.find((att) => att.id === attachmentToDelete.id)?.externalId && (
                 <span className="block mt-2 font-medium text-red-600">
                   This will also delete the file from Jira.
                 </span>

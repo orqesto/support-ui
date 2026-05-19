@@ -102,8 +102,8 @@ export const SignupPage = () => {
     return null;
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
 
     if (!token) {
@@ -203,7 +203,7 @@ export const SignupPage = () => {
                 type="text"
                 placeholder="John"
                 value={formData.firstName}
-                onChange={(e) => handleChange('firstName', e.target.value)}
+                onChange={(event) => handleChange('firstName', event.target.value)}
                 required
               />
               <Input
@@ -211,7 +211,7 @@ export const SignupPage = () => {
                 type="text"
                 placeholder="Doe"
                 value={formData.lastName}
-                onChange={(e) => handleChange('lastName', e.target.value)}
+                onChange={(event) => handleChange('lastName', event.target.value)}
               />
             </div>
 
@@ -225,7 +225,7 @@ export const SignupPage = () => {
               type="text"
               placeholder="e.g., Support Engineer"
               value={formData.position}
-              onChange={(e) => handleChange('position', e.target.value)}
+              onChange={(event) => handleChange('position', event.target.value)}
             />
 
             <div className="relative">
@@ -234,7 +234,7 @@ export const SignupPage = () => {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="At least 8 characters"
                 value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
+                onChange={(event) => handleChange('password', event.target.value)}
                 required
               />
               <button
@@ -253,7 +253,7 @@ export const SignupPage = () => {
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Re-enter your password"
                 value={formData.confirmPassword}
-                onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                onChange={(event) => handleChange('confirmPassword', event.target.value)}
                 required
               />
               <button

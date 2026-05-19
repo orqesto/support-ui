@@ -42,14 +42,14 @@ export const SLAConfigSettings = () => {
   useEffect(() => {
     apiClient
       .get('/api/organizations/sla-config')
-      .then((r) => {
-        const data = (r.data as { data: SLAEntry[] }).data;
+      .then((result) => {
+        const data = (result.data as { data: SLAEntry[] }).data;
         setEntries(data);
         const init: Record<string, EditState> = {};
-        data.forEach((e) => {
-          init[`${e.type}:${e.key}`] = {
-            firstResponseMinutes: String(e.firstResponseMinutes),
-            resolutionHours: e.resolutionHours !== null && e.resolutionHours !== undefined ? String(e.resolutionHours) : '',
+        data.forEach((entry) => {
+          init[`${entry.type}:${entry.key}`] = {
+            firstResponseMinutes: String(entry.firstResponseMinutes),
+            resolutionHours: entry.resolutionHours !== null && entry.resolutionHours !== undefined ? String(entry.resolutionHours) : '',
           };
         });
         setEdits(init);
@@ -65,26 +65,26 @@ export const SLAConfigSettings = () => {
   };
 
   const save = () => {
-    const configs = entries.map((e) => {
-      const edit = edits[`${e.type}:${e.key}`];
+    const configs = entries.map((ent) => {
+      const edit = edits[`${ent.type}:${ent.key}`];
       return {
-        type: e.type,
-        key: e.key,
-        firstResponseMinutes: parseInt(edit?.firstResponseMinutes ?? String(e.firstResponseMinutes), 10),
+        type: ent.type,
+        key: ent.key,
+        firstResponseMinutes: parseInt(edit?.firstResponseMinutes ?? String(ent.firstResponseMinutes), 10),
         resolutionHours:
-          e.type === 'ticket' && edit?.resolutionHours
+          ent.type === 'ticket' && edit?.resolutionHours
             ? parseInt(edit.resolutionHours, 10)
             : null,
       };
     });
 
     // Validate
-    for (const c of configs) {
-      if (isNaN(c.firstResponseMinutes) || c.firstResponseMinutes <= 0) {
+    for (const cfg of configs) {
+      if (isNaN(cfg.firstResponseMinutes) || cfg.firstResponseMinutes <= 0) {
         setError('All first response values must be positive numbers');
         return;
       }
-      if (c.type === 'ticket' && (c.resolutionHours === null || isNaN(c.resolutionHours) || c.resolutionHours <= 0)) {
+      if (cfg.type === 'ticket' && (cfg.resolutionHours === null || isNaN(cfg.resolutionHours) || cfg.resolutionHours <= 0)) {
         setError('All ticket resolution values must be positive numbers');
         return;
       }
@@ -104,8 +104,8 @@ export const SLAConfigSettings = () => {
       .finally(() => setSaving(false));
   };
 
-  const ticketEntries = entries.filter((e) => e.type === 'ticket');
-  const messageEntries = entries.filter((e) => e.type === 'message');
+  const ticketEntries = entries.filter((ent) => ent.type === 'ticket');
+  const messageEntries = entries.filter((ent) => ent.type === 'message');
 
   return (
     <div className="space-y-6">
@@ -132,14 +132,14 @@ export const SLAConfigSettings = () => {
               </tr>
             </thead>
             <tbody>
-              {ticketEntries.map((e) => {
-                const id = `${e.type}:${e.key}`;
+              {ticketEntries.map((ent) => {
+                const id = `${ent.type}:${ent.key}`;
                 const edit = edits[id];
                 return (
                   <tr key={id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5 font-medium">
-                      {PRIORITY_LABELS[e.key] ?? e.key}
-                      {e.isCustom && (
+                      {PRIORITY_LABELS[ent.key] ?? ent.key}
+                      {ent.isCustom && (
                         <span className="ml-2 text-xs text-primary">(custom)</span>
                       )}
                     </td>
@@ -149,7 +149,7 @@ export const SLAConfigSettings = () => {
                         min={1}
                         className={inputCls}
                         value={edit?.firstResponseMinutes ?? ''}
-                        onChange={(ev) => setField(e.type, e.key, 'firstResponseMinutes', ev.target.value)}
+                        onChange={(ev) => setField(ent.type, ent.key, 'firstResponseMinutes', ev.target.value)}
                       />
                     </td>
                     <td className="px-4 py-2.5">
@@ -158,7 +158,7 @@ export const SLAConfigSettings = () => {
                         min={1}
                         className={inputCls}
                         value={edit?.resolutionHours ?? ''}
-                        onChange={(ev) => setField(e.type, e.key, 'resolutionHours', ev.target.value)}
+                        onChange={(ev) => setField(ent.type, ent.key, 'resolutionHours', ev.target.value)}
                       />
                     </td>
                   </tr>
@@ -181,14 +181,14 @@ export const SLAConfigSettings = () => {
               </tr>
             </thead>
             <tbody>
-              {messageEntries.map((e) => {
-                const id = `${e.type}:${e.key}`;
+              {messageEntries.map((ent) => {
+                const id = `${ent.type}:${ent.key}`;
                 const edit = edits[id];
                 return (
                   <tr key={id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5 font-medium">
-                      {CHANNEL_LABELS[e.key] ?? e.key}
-                      {e.isCustom && (
+                      {CHANNEL_LABELS[ent.key] ?? ent.key}
+                      {ent.isCustom && (
                         <span className="ml-2 text-xs text-primary">(custom)</span>
                       )}
                     </td>
@@ -198,7 +198,7 @@ export const SLAConfigSettings = () => {
                         min={1}
                         className={inputCls}
                         value={edit?.firstResponseMinutes ?? ''}
-                        onChange={(ev) => setField(e.type, e.key, 'firstResponseMinutes', ev.target.value)}
+                        onChange={(ev) => setField(ent.type, ent.key, 'firstResponseMinutes', ev.target.value)}
                       />
                     </td>
                   </tr>

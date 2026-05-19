@@ -13,17 +13,17 @@ export function MessagesViewToggle({ displayMode, onModeChange }: Props) {
 
   const handleThreads = () => {
     onModeChange('threads');
-    setSearchParams((p) => { p.delete('mode'); p.delete('sender'); return p; }, { replace: true });
+    setSearchParams((params) => { params.delete('mode'); params.delete('sender'); return params; }, { replace: true });
   };
 
   const handleContacts = () => {
     onModeChange('contacts');
-    setSearchParams((p) => { p.set('mode', 'contacts'); return p; }, { replace: true });
+    setSearchParams((params) => { params.set('mode', 'contacts'); return params; }, { replace: true });
   };
 
   const handleKanban = () => {
     onModeChange('kanban');
-    setSearchParams((p) => { p.set('mode', 'kanban'); p.delete('sender'); return p; }, { replace: true });
+    setSearchParams((params) => { params.set('mode', 'kanban'); params.delete('sender'); return params; }, { replace: true });
   };
 
   const btnClass = (active: boolean) =>

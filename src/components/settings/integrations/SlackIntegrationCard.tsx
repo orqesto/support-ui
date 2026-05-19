@@ -39,7 +39,7 @@ export const SlackIntegrationCard = ({
     onShowAlert,
   });
 
-  const slackIntegrations = integrations.filter((i) => i.type === 'slack');
+  const slackIntegrations = integrations.filter((integ) => integ.type === 'slack');
 
   const handleDelete = () => {
     if (deleteConfirm) {
@@ -144,7 +144,7 @@ export const SlackIntegrationCard = ({
                   <input
                     type="password"
                     value={config.botToken}
-                    onChange={(e) => setConfig({ ...config, botToken: e.target.value })}
+                    onChange={(event) => setConfig({ ...config, botToken: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="xoxb-..."
                   />
@@ -156,7 +156,7 @@ export const SlackIntegrationCard = ({
                   <input
                     type="password"
                     value={config.signingSecret}
-                    onChange={(e) => setConfig({ ...config, signingSecret: e.target.value })}
+                    onChange={(event) => setConfig({ ...config, signingSecret: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
                   />

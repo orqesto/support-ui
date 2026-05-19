@@ -64,7 +64,7 @@ export function HeaderMetaStrip({
           <ReactSelect
             value={message.categoryId !== null && message.categoryId !== undefined ? String(message.categoryId) : ''}
             onChange={(val) => onSetCategory(val ? Number(val) : null)}
-            options={[{ value: '', label: 'No category' }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]}
+            options={[{ value: '', label: 'No category' }, ...categories.map((cat) => ({ value: String(cat.id), label: cat.name }))]}
             isDisabled={updatingCategory}
             className="flex-1 min-w-0"
           />
@@ -102,7 +102,7 @@ export function HeaderMetaStrip({
                 {showLabelPicker && (
                   <div data-label-picker className="absolute top-full left-0 mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-card shadow-md p-1">
                     {allLabels.map((label) => {
-                      const assigned = messageLabels.some((l) => l.id === label.id);
+                      const assigned = messageLabels.some((lbl) => lbl.id === label.id);
                       return (
                         <button
                           key={label.id}

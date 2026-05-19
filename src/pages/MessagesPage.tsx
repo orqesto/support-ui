@@ -61,17 +61,17 @@ export const MessagesPage = () => {
   // Keep URL in sync with displayMode so the address bar is always bookmarkable
   useEffect(() => {
     setSearchParams(
-      (p) => {
-        if (displayMode === 'kanban') p.set('mode', 'kanban');
-        else if (displayMode === 'contacts') p.set('mode', 'contacts');
-        else p.delete('mode');
-        return p;
+      (params) => {
+        if (displayMode === 'kanban') params.set('mode', 'kanban');
+        else if (displayMode === 'contacts') params.set('mode', 'contacts');
+        else params.delete('mode');
+        return params;
       },
       { replace: true }
     );
   }, [displayMode, setSearchParams]);
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
-  const bumpKanban = useCallback(() => setKanbanRefreshKey((k) => k + 1), []);
+  const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
   // Lock body scroll while the detail panel is open
@@ -193,7 +193,7 @@ export const MessagesPage = () => {
         const { data: threadMessages } = await messageService.getThreadMessages(anchorId);
         if (threadMessages && threadMessages.length > 0) {
           const messageToShow =
-            threadMessages.find((m) => m.id === preferredId) ??
+            threadMessages.find((msg) => msg.id === preferredId) ??
             threadMessages[threadMessages.length - 1];
           fetchedMessageIdRef.current = messageToShow.id;
           setSelectedMessage({
@@ -478,34 +478,34 @@ export const MessagesPage = () => {
               ) : displayMode === 'contacts' ? (
                 <ContactsView
                   apiFilters={(() => {
-                    const f: Record<string, string> = {};
+                    const filterObj: Record<string, string> = {};
                     const status = filters.status ?? 'all';
-                    if (status === 'all') f.view = 'work_queue';
-                    else if (status === 'active') f.view = 'active';
-                    else if (status === 'awaiting_response') f.awaitingCustomerResponse = 'true';
-                    else if (status === 'client_replied') f.customerResponded = 'true';
-                    else if (status === 'suspicious') f.view = 'suspicious';
-                    else if (status === 'not_analysed') f.view = 'not_analysed';
-                    else if (status === 'resolved') f.view = 'resolved';
+                    if (status === 'all') filterObj.view = 'work_queue';
+                    else if (status === 'active') filterObj.view = 'active';
+                    else if (status === 'awaiting_response') filterObj.awaitingCustomerResponse = 'true';
+                    else if (status === 'client_replied') filterObj.customerResponded = 'true';
+                    else if (status === 'suspicious') filterObj.view = 'suspicious';
+                    else if (status === 'not_analysed') filterObj.view = 'not_analysed';
+                    else if (status === 'resolved') filterObj.view = 'resolved';
                     if (filters.threadStatus && filters.threadStatus !== 'all')
-                      f.processed = filters.threadStatus as string;
+                      filterObj.processed = filters.threadStatus as string;
                     if (filters.messageSourceId && filters.messageSourceId !== 'all')
-                      f.messageSourceId = filters.messageSourceId;
+                      filterObj.messageSourceId = filters.messageSourceId;
                     if (filters.assigneeId && filters.assigneeId !== 'all')
-                      f.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-                    if (filters.aiState === 'lead') f.isLead = 'true';
-                    if (filters.aiState === 'needs_review') f.needsHumanReview = 'true';
-                    if (filters.aiState === 'needs_info') f.showNeedsInfo = 'true';
-                    if (filters.aiState === 'ai_suggested') f.aiSuggested = 'true';
-                    if (filters.aiState === 'bot_handled') f.botHandled = 'true';
-                    if (filters.aiState === 'contradiction') f.hasContradiction = 'true';
-                    if (filters.linked === 'has_ticket') f.hasTicket = 'true';
-                    if (filters.linked === 'has_jira') f.hasJiraTicket = 'true';
+                      filterObj.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+                    if (filters.aiState === 'lead') filterObj.isLead = 'true';
+                    if (filters.aiState === 'needs_review') filterObj.needsHumanReview = 'true';
+                    if (filters.aiState === 'needs_info') filterObj.showNeedsInfo = 'true';
+                    if (filters.aiState === 'ai_suggested') filterObj.aiSuggested = 'true';
+                    if (filters.aiState === 'bot_handled') filterObj.botHandled = 'true';
+                    if (filters.aiState === 'contradiction') filterObj.hasContradiction = 'true';
+                    if (filters.linked === 'has_ticket') filterObj.hasTicket = 'true';
+                    if (filters.linked === 'has_jira') filterObj.hasJiraTicket = 'true';
                     if (filters.priority && filters.priority !== 'all')
-                      f.priority = filters.priority;
-                    if (filters.labelId && filters.labelId !== 'all') f.labelId = filters.labelId;
-                    if (filters.search?.trim()) f.search = filters.search.trim();
-                    return f;
+                      filterObj.priority = filters.priority;
+                    if (filters.labelId && filters.labelId !== 'all') filterObj.labelId = filters.labelId;
+                    if (filters.search?.trim()) filterObj.search = filters.search.trim();
+                    return filterObj;
                   })()}
                   focusSender={searchParams.get('sender') ?? undefined}
                   onPaginationChange={setContactsPagination}
@@ -518,8 +518,8 @@ export const MessagesPage = () => {
                 />
               ) : loading ? (
                 <div className="space-y-4">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <Card key={i} className="animate-pulse">
+                  {[0, 1, 2, 3, 4].map((idx) => (
+                    <Card key={idx} className="animate-pulse">
                       <CardContent className="p-6">
                         <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
                         <div className="w-1/2 h-4 bg-gray-200 rounded" />

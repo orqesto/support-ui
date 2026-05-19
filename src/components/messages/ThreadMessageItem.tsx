@@ -1,21 +1,24 @@
-import { User } from 'lucide-react';
+import { Paperclip, User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import type { Message } from '@/types';
 import { ThreadBubble } from './ThreadBubble';
 import { relativeTime, getInitials } from './messageDetailConstants';
+import type { Attachment } from './MessageAttachments';
 
 type Props = {
   msg: Message;
   mainMessageId: number;
   onMessageNavigate?: (id: number) => void;
-  onShowAttachments?: () => void;
+  attachments?: Attachment[];
+  onOpenAttachment?: (id: number) => void;
 };
 
 export function ThreadMessageItem({
   msg,
   mainMessageId,
   onMessageNavigate,
-  onShowAttachments,
+  attachments = [],
+  onOpenAttachment,
 }: Props) {
   const isAgent =
     msg.isOutgoing === true ||
@@ -29,8 +32,6 @@ export function ThreadMessageItem({
     : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
 
   const initials = getInitials(isAgent ? 'Team Reply' : msg.sender);
-  const attachmentNames = (msg.metadata as { attachmentNames?: string[] } | null)?.attachmentNames;
-
   if (isAgent) {
     return (
       <div className="flex flex-row-reverse gap-2">
@@ -44,16 +45,17 @@ export function ThreadMessageItem({
           <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed break-words">
             <ThreadBubble content={msg.content} isAgent={true} />
           </div>
-          {attachmentNames && attachmentNames.length > 0 && (
+          {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {attachmentNames.map((name) => (
+              {attachments.map((att) => (
                 <button
-                  key={name}
+                  key={att.id}
                   type="button"
-                  onClick={onShowAttachments}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-primary-foreground/10 text-primary-foreground/70 border border-primary-foreground/20 hover:bg-primary-foreground/20 transition-colors cursor-pointer"
+                  onClick={() => onOpenAttachment?.(att.id)}
+                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-primary-foreground/10 text-primary-foreground/70 border border-primary-foreground/20 hover:bg-primary-foreground/20 transition-colors"
                 >
-                  📎 {name}
+                  <Paperclip className="w-2.5 h-2.5" />
+                  {att.originalFilename}
                 </button>
               ))}
             </div>
@@ -93,11 +95,26 @@ export function ThreadMessageItem({
             role="button"
             tabIndex={0}
             onClick={() => onMessageNavigate?.(msg.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onMessageNavigate?.(msg.id);
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') onMessageNavigate?.(msg.id);
             }}
           >
             <ThreadBubble content={msg.content} isAgent={false} />
+          </div>
+        )}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {attachments.map((att) => (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => onOpenAttachment?.(att.id)}
+                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
+              >
+                <Paperclip className="w-2.5 h-2.5" />
+                {att.originalFilename}
+              </button>
+            ))}
           </div>
         )}
         <div className="flex justify-end mt-0.5">

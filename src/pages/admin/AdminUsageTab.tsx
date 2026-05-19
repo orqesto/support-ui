@@ -168,21 +168,21 @@ export const AdminUsageTab = () => {
     }
   };
 
-  const sortedOrganizations = [...organizations].sort((a, b) => {
+  const sortedOrganizations = [...organizations].sort((itemA, itemB) => {
     let compareValue = 0;
 
     switch (sortBy) {
       case 'name':
-        compareValue = a.name.localeCompare(b.name);
+        compareValue = itemA.name.localeCompare(itemB.name);
         break;
       case 'users':
-        compareValue = a.usage.users.percentage - b.usage.users.percentage;
+        compareValue = itemA.usage.users.percentage - itemB.usage.users.percentage;
         break;
       case 'integrations':
-        compareValue = a.usage.integrations.percentage - b.usage.integrations.percentage;
+        compareValue = itemA.usage.integrations.percentage - itemB.usage.integrations.percentage;
         break;
       case 'messages':
-        compareValue = a.usage.messagesThisMonth.percentage - b.usage.messagesThisMonth.percentage;
+        compareValue = itemA.usage.messagesThisMonth.percentage - itemB.usage.messagesThisMonth.percentage;
         break;
     }
 

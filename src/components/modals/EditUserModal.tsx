@@ -99,13 +99,13 @@ export const EditUserModal = ({
   const safeAllUsers = Array.isArray(allUsers) ? allUsers : [];
 
   // Check if this is the last global admin
-  const adminCount = safeAllUsers.filter((u) => u.role === 'admin').length;
+  const adminCount = safeAllUsers.filter((usr) => usr.role === 'admin').length;
   const isLastGlobalAdmin = user?.role === 'admin' && adminCount === 1;
   const isGlobalRoleChangeDisabled = isLastGlobalAdmin && globalRole !== 'admin';
 
   // Check if this is the last org_admin in the organization
   const orgAdminCount = safeAllUsers.filter(
-    (u) => u.organizationRole === 'org_admin' && u.organizationId === user?.organizationId
+    (usr) => usr.organizationRole === 'org_admin' && usr.organizationId === user?.organizationId
   ).length;
   const isLastOrgAdmin = user?.organizationRole === 'org_admin' && orgAdminCount === 1;
   // Only prevent if not a global admin and trying to change the last org_admin
@@ -149,7 +149,7 @@ export const EditUserModal = ({
   const handleAddValue = (key: string) => {
     const raw = skillInputs[key]?.trim() ?? '';
     if (!raw || !user) return;
-    const newVals = raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const newVals = raw.split(',').map((val) => val.trim().toLowerCase()).filter(Boolean);
     const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
     setSkillValues((prev) => ({ ...prev, [key]: merged }));
     setSkillInputs((prev) => ({ ...prev, [key]: '' }));
@@ -158,7 +158,7 @@ export const EditUserModal = ({
 
   const handleRemoveValue = (key: string, value: string) => {
     if (!user) return;
-    const next = (skillValues[key] ?? []).filter((v) => v !== value);
+    const next = (skillValues[key] ?? []).filter((val) => val !== value);
     setSkillValues((prev) => ({ ...prev, [key]: next }));
     void userService.setSkillValues(user.id, key, next);
   };
@@ -169,8 +169,8 @@ export const EditUserModal = ({
     void userService.setCanEditSkills(user.id, checked);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!user) {
       return;
     }
@@ -283,7 +283,7 @@ export const EditUserModal = ({
                     id="firstName"
                     type="text"
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    onChange={(event) => setFirstName(event.target.value)}
                     placeholder="First Name"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     required
@@ -297,7 +297,7 @@ export const EditUserModal = ({
                     id="lastName"
                     type="text"
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    onChange={(event) => setLastName(event.target.value)}
                     placeholder="Last Name"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -321,7 +321,7 @@ export const EditUserModal = ({
                     id="telegram"
                     type="text"
                     value={telegram}
-                    onChange={(e) => setTelegram(e.target.value)}
+                    onChange={(event) => setTelegram(event.target.value)}
                     placeholder="@username"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -334,7 +334,7 @@ export const EditUserModal = ({
                     id="slack"
                     type="text"
                     value={slack}
-                    onChange={(e) => setSlack(e.target.value)}
+                    onChange={(event) => setSlack(event.target.value)}
                     placeholder="@username"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -347,7 +347,7 @@ export const EditUserModal = ({
                     id="phone"
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(event) => setPhone(event.target.value)}
                     placeholder="+1234567890"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -427,14 +427,14 @@ export const EditUserModal = ({
                               <input
                                 type="checkbox"
                                 checked={selectedDepartments.includes(dept)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
+                                onChange={(event) => {
+                                  if (event.target.checked) {
                                     setSelectedDepartments([...selectedDepartments, dept]);
                                   } else {
                                     // Prevent deselecting all departments
                                     if (selectedDepartments.length > 1) {
                                       setSelectedDepartments(
-                                        selectedDepartments.filter((d) => d !== dept)
+                                        selectedDepartments.filter((dep) => dep !== dept)
                                       );
                                     }
                                   }
@@ -481,7 +481,7 @@ export const EditUserModal = ({
                     id="position"
                     type="text"
                     value={position}
-                    onChange={(e) => setPosition(e.target.value)}
+                    onChange={(event) => setPosition(event.target.value)}
                     placeholder="e.g., Senior Developer, Support Manager"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -565,12 +565,12 @@ export const EditUserModal = ({
                             <input
                               type="text"
                               value={skillInputs[key] ?? ''}
-                              onChange={(e) =>
-                                setSkillInputs((prev) => ({ ...prev, [key]: e.target.value }))
+                              onChange={(event) =>
+                                setSkillInputs((prev) => ({ ...prev, [key]: event.target.value }))
                               }
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  event.preventDefault();
                                   handleAddValue(key);
                                 }
                               }}

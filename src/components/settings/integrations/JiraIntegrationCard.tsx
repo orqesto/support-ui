@@ -47,7 +47,7 @@ export const JiraIntegrationCard = ({
   // Jira-specific state
   const [settingDefault, setSettingDefault] = useState<number | null>(null);
 
-  const jiraIntegrations = integrations.filter((i) => i.type === 'jira');
+  const jiraIntegrations = integrations.filter((integ) => integ.type === 'jira');
 
   // Jira-specific: custom name includes project key
   const saveIntegration = () => saveIntegrationBase(`Jira-${config.projectKey}`);
@@ -204,7 +204,7 @@ export const JiraIntegrationCard = ({
                   <input
                     type="url"
                     value={config.apiUrl}
-                    onChange={(e) => setConfig({ ...config, apiUrl: e.target.value })}
+                    onChange={(event) => setConfig({ ...config, apiUrl: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="https://your-domain.atlassian.net"
                   />
@@ -216,7 +216,7 @@ export const JiraIntegrationCard = ({
                   <input
                     type="text"
                     value={config.projectKey}
-                    onChange={(e) => setConfig({ ...config, projectKey: e.target.value })}
+                    onChange={(event) => setConfig({ ...config, projectKey: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="SUP"
                   />
@@ -228,7 +228,7 @@ export const JiraIntegrationCard = ({
                   <input
                     type="email"
                     value={config.email}
-                    onChange={(e) => setConfig({ ...config, email: e.target.value })}
+                    onChange={(event) => setConfig({ ...config, email: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="admin@example.com"
                   />
@@ -240,7 +240,7 @@ export const JiraIntegrationCard = ({
                   <input
                     type="password"
                     value={config.apiToken}
-                    onChange={(e) => setConfig({ ...config, apiToken: e.target.value })}
+                    onChange={(event) => setConfig({ ...config, apiToken: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
                   />

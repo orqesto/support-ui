@@ -57,8 +57,8 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
         const messages =
           messagesResponse.status === 'fulfilled' ? (messagesResponse.value.data ?? []) : [];
 
-        const mappedMessages: SimilarTicket[] = messages.map((msg: unknown, idx: number) => {
-          const m = msg as {
+        const mappedMessages: SimilarTicket[] = messages.map((msgItem: unknown, idx: number) => {
+          const msgData = msgItem as {
             messageId?: number;
             documentationId?: number;
             source?: string;
@@ -75,29 +75,29 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
             }>;
           };
 
-          const effectiveMessageId = m.messageId ?? -(m.documentationId ?? idx + 1000);
-          const isKBItem = m.source === 'documentation' || (!m.messageId && m.documentationId);
+          const effectiveMessageId = msgData.messageId ?? -(msgData.documentationId ?? idx + 1000);
+          const isKBItem = msgData.source === 'documentation' || (!msgData.messageId && msgData.documentationId);
 
           return {
             ticketId: 0,
             messageId: effectiveMessageId,
-            documentationId: m.documentationId,
-            messageContent: m.content,
-            messageSubject: m.subject ?? null,
-            similarity: m.similarity,
+            documentationId: msgData.documentationId,
+            messageContent: msgData.content,
+            messageSubject: msgData.subject ?? null,
+            similarity: msgData.similarity,
             ticketStatus: 'resolved',
             ticketTitle: isKBItem
-              ? (m.documentTitle ?? 'Knowledge Base')
-              : (m.subject ?? 'Direct Reply'),
+              ? (msgData.documentTitle ?? 'Knowledge Base')
+              : (msgData.subject ?? 'Direct Reply'),
             responses: [
               {
                 id: effectiveMessageId,
-                content: m.directReply,
+                content: msgData.directReply,
                 channel: isKBItem ? 'kb' : 'email',
-                sentAt: m.repliedAt ?? null,
+                sentAt: msgData.repliedAt ?? null,
               },
             ],
-            references: m.references,
+            references: msgData.references,
           };
         });
 
@@ -162,7 +162,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
     <div className="rounded-lg border border-slate-200 dark:border-slate-700/60 overflow-hidden">
       <button
         className="flex gap-2 items-center p-4 w-full text-left bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/30 dark:hover:bg-slate-900/50 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => setExpanded((prev) => !prev)}
       >
         <div className="p-1.5 rounded-md bg-slate-200/70 dark:bg-slate-700/50">
           <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />

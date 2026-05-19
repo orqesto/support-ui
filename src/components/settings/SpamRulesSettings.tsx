@@ -65,7 +65,7 @@ export const SpamRulesSettings = () => {
   });
 
   const toggleActive = async (id: number) => {
-    const rule = rules.find((r) => r.id === id);
+    const rule = rules.find((ruleItem) => ruleItem.id === id);
     if (!rule) return;
     try {
       await settingsService.updateSpamRule(id, {
@@ -312,7 +312,7 @@ export const SpamRulesSettings = () => {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="e.g., phishing_indicators"
               />
@@ -321,7 +321,7 @@ export const SpamRulesSettings = () => {
               <label className="block mb-1 text-sm font-medium">Description</label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="What this rule detects"
                 rows={2}
@@ -332,7 +332,7 @@ export const SpamRulesSettings = () => {
               <input
                 type="text"
                 value={formData.pattern}
-                onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, pattern: event.target.value })}
                 className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-background"
                 placeholder="verify your account|confirm identity|suspended"
               />
@@ -364,7 +364,7 @@ export const SpamRulesSettings = () => {
                   max="100"
                   step="5"
                   value={formData.severity}
-                  onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
+                  onChange={(event) => setFormData({ ...formData, severity: parseInt(event.target.value) })}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -379,7 +379,7 @@ export const SpamRulesSettings = () => {
                 type="checkbox"
                 id="active"
                 checked={formData.active}
-                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
                 className="rounded"
               />
               <label htmlFor="active" className="text-sm">Active</label>

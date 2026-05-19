@@ -126,7 +126,7 @@ export const PromptsSettings = () => {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                 className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="e.g., message_analysis"
               />
@@ -138,7 +138,7 @@ export const PromptsSettings = () => {
               <input
                 type="text"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="What this prompt is used for"
               />
@@ -149,7 +149,7 @@ export const PromptsSettings = () => {
               </label>
               <textarea
                 value={formData.prompt}
-                onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
                 className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                 rows={12}
               />
@@ -159,7 +159,7 @@ export const PromptsSettings = () => {
                 type="checkbox"
                 id="active-new"
                 checked={formData.active}
-                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
                 className="rounded"
               />
               <label htmlFor="active-new" className="text-sm font-medium">
@@ -205,7 +205,7 @@ export const PromptsSettings = () => {
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                       disabled={editingPrompt?.type === 'system'}
                       className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
                     />
@@ -222,7 +222,7 @@ export const PromptsSettings = () => {
                     <input
                       type="text"
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                       disabled={editingPrompt?.type === 'system'}
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
                     />
@@ -233,7 +233,7 @@ export const PromptsSettings = () => {
                     </label>
                     <textarea
                       value={formData.prompt}
-                      onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+                      onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
                       className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={12}
                     />
@@ -246,7 +246,7 @@ export const PromptsSettings = () => {
                       type="checkbox"
                       id={`active-${prompt.id}`}
                       checked={formData.active}
-                      onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                      onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
                       className="rounded"
                     />
                     <label htmlFor={`active-${prompt.id}`} className="text-sm font-medium">

@@ -1,20 +1,13 @@
-import { useEffect, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Download, FileText, Image, Info, Paperclip, Video, Volume2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { AttachmentRelevanceIndicator } from './AttachmentRelevanceIndicator';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowDownLeft, ArrowUpRight, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import type { AttachmentMetadata } from '@/types/ai';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 
-type MessageAttachmentsProps = {
-  message: Message;
-  sortedThread?: Message[];
-  refreshKey?: number;
-};
-
-type Attachment = {
+export type Attachment = {
   id: number;
   messageId: number | null;
   filename: string;
@@ -23,238 +16,183 @@ type Attachment = {
   size: number;
   url: string;
   isOutgoing: boolean | null;
+  createdAt: string;
   metadata?: AttachmentMetadata;
 };
 
-type ApiResponse = {
-  success: boolean;
-  data: Attachment[];
+type MessageAttachmentsProps = {
+  message: Message;
+  sortedThread?: Message[];
+  refreshKey?: number;
+  highlightId?: number | null;
+  preloadedAttachments?: Attachment[];
 };
 
 const formatFileSize = (bytes?: number) => {
-  if (!bytes) return 'Unknown size';
+  if (!bytes) return '—';
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
-const getFileIcon = (mimeType: string) => {
-  if (mimeType.startsWith('image/')) return <Image className="w-4 h-4" />;
-  if (mimeType.startsWith('video/')) return <Video className="w-4 h-4" />;
-  if (mimeType.startsWith('audio/')) return <Volume2 className="w-4 h-4" />;
-  return <FileText className="w-4 h-4" />;
+const isImage = (mimeType: string) => mimeType.startsWith('image/');
+
+const getDownloadUrl = (att: Attachment) =>
+  `${API_BASE_URL}/api/attachments/${att.id}/download?token=${getAuthToken()}`;
+
+const FileIcon = ({ mimeType }: { mimeType: string }) => {
+  const cls = 'w-4 h-4 text-muted-foreground';
+  if (mimeType.startsWith('image/')) return <Image className={cls} />;
+  if (mimeType.startsWith('video/')) return <Video className={cls} />;
+  if (mimeType.startsWith('audio/')) return <Volume2 className={cls} />;
+  return <FileText className={cls} />;
 };
 
-type DbAttachmentRowProps = {
-  attachment: Attachment;
-};
-
-const DbAttachmentRow = ({ attachment }: DbAttachmentRowProps) => (
-  <div className="flex justify-between items-center p-3 rounded-lg border transition-colors bg-muted/50 hover:bg-muted">
-    <div className="flex gap-3 items-center min-w-0">
-      <div className="p-2 rounded bg-blue-500/10">
-        <div className="text-blue-600 dark:text-blue-400">
-          {getFileIcon(attachment.mimeType)}
-        </div>
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium truncate">{attachment.originalFilename}</p>
-        <div className="flex gap-2 items-center text-xs text-muted-foreground">
-          <span>{attachment.mimeType}</span>
-          <span>•</span>
-          <span>{formatFileSize(attachment.size)}</span>
-        </div>
-      </div>
-    </div>
-    <div className="flex gap-2 items-center shrink-0">
-      {attachment.metadata?.relevanceToOrg && (
-        <AttachmentRelevanceIndicator relevance={attachment.metadata.relevanceToOrg} />
-      )}
-      <a
-        href={`${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${getAuthToken()}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
-      >
-        <Download className="w-3 h-3" />
-        Download
-      </a>
-    </div>
-  </div>
-);
-
-type EmailAttachment = { filename: string; contentType: string; size?: number };
-
-type EmailAttachmentRowProps = {
-  attachment: EmailAttachment;
-  ticketId?: number;
-};
-
-const EmailAttachmentRow = ({ attachment, ticketId }: EmailAttachmentRowProps) => (
-  <div className="flex justify-between items-center p-3 rounded-lg border transition-colors bg-muted/50 hover:bg-muted">
-    <div className="flex gap-3 items-center min-w-0">
-      <div className="p-2 rounded bg-blue-500/10">
-        <Paperclip className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium truncate">{attachment.filename}</p>
-        <div className="flex gap-2 items-center text-xs text-muted-foreground">
-          <span>{attachment.contentType}</span>
-          {attachment.size && (
-            <>
-              <span>•</span>
-              <span>{formatFileSize(attachment.size)}</span>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-    {ticketId && (
-      <Link
-        to={`/tickets?id=${ticketId}`}
-        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors whitespace-nowrap"
-      >
-        <Download className="w-3 h-3" />
-        View in Ticket
-      </Link>
-    )}
-  </div>
-);
-
-type SectionProps = {
-  label: string;
-  icon: React.ReactNode;
-  count: number;
-  children: React.ReactNode;
-};
-
-const AttachmentSection = ({ label, icon, count, children }: SectionProps) => (
-  <div className="space-y-2">
-    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-      {icon}
-      <span>{label}</span>
-      <span className="px-1.5 py-0.5 bg-muted rounded-full text-xs">{count}</span>
-    </div>
-    {children}
-  </div>
-);
-
-export const MessageAttachments = ({ message, sortedThread, refreshKey }: MessageAttachmentsProps) => {
-  const [dbAttachments, setDbAttachments] = useState<Attachment[]>([]);
-  const [loading, setLoading] = useState(false);
+export const MessageAttachments = ({ message, refreshKey, highlightId, preloadedAttachments }: MessageAttachmentsProps) => {
+  const [attachments, setAttachments] = useState<Attachment[]>(preloadedAttachments ?? []);
+  const [loading, setLoading] = useState(!preloadedAttachments);
+  const [activeHighlight, setActiveHighlight] = useState<number | null>(null);
+  const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'error' | 'success' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
 
   useEffect(() => {
-    const fetchAttachments = async () => {
-      try {
-        setLoading(true);
-        const response = await apiClient.get<ApiResponse>(
-          `/api/messages/${message.id}/attachments`
-        );
-        setDbAttachments(response.data.data ?? []);
-      } catch (error) {
-        logger.error('Failed to fetch attachments:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchAttachments();
-  }, [message.id, refreshKey]);
-
-  // Collect email attachments from all thread messages, tagged with direction
-  const allEmailAttachments: { attachment: EmailAttachment; isOutgoing: boolean; ticketId?: number }[] = [];
-  const threadMessages = sortedThread ?? [message];
-  for (const msg of threadMessages) {
-    const emailAtts = msg.rawData?.attachments as EmailAttachment[] | undefined;
-    if (emailAtts?.length) {
-      for (const att of emailAtts) {
-        allEmailAttachments.push({
-          attachment: att,
-          isOutgoing: msg.isOutgoing === true,
-          ticketId: msg.ticketId ?? undefined,
-        });
-      }
+    if (preloadedAttachments) {
+      setAttachments(preloadedAttachments);
+      return;
     }
+    let cancelled = false;
+    setLoading(true);
+    apiClient
+      .get<{ success: boolean; data: Attachment[] }>(`/api/messages/${message.id}/attachments`)
+      .then((res) => {
+        if (!cancelled) setAttachments(res.data.data ?? []);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [message.id, refreshKey, preloadedAttachments]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    setActiveHighlight(highlightId);
+    const el = rowRefs.current.get(highlightId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const timer = setTimeout(() => setActiveHighlight(null), 1800);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
+
+  const handleDownload = async (att: Attachment, inline = false) => {
+    try {
+      const response = await apiClient.get(`/api/attachments/${att.id}/download`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(response.data as Blob);
+      if (inline) {
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = att.originalFilename;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      logger.error('Failed to download attachment:', err);
+      setAlertDialog({
+        open: true,
+        title: 'Download Failed',
+        description: 'Failed to download attachment. Please try again.',
+        variant: 'error',
+      });
+    }
+  };
+
+  if (loading) {
+    return <p className="py-4 text-[11px] text-center text-muted-foreground">Loading attachments…</p>;
   }
 
-  const receivedDb = dbAttachments.filter((a) => !a.isOutgoing);
-  const sentDb = dbAttachments.filter((a) => a.isOutgoing);
-  const receivedEmail = allEmailAttachments.filter((a) => !a.isOutgoing);
-  const sentEmail = allEmailAttachments.filter((a) => a.isOutgoing);
-
-  const receivedCount = receivedDb.length + receivedEmail.length;
-  const sentCount = sentDb.length + sentEmail.length;
-  const totalCount = receivedCount + sentCount;
-
-  // No-ticket warning applies only to received email attachments
-  const noTicketReceivedEmail = receivedEmail.filter((a) => !a.ticketId);
-
-  if (totalCount === 0 && !loading) return null;
+  if (attachments.length === 0) {
+    return <p className="py-4 text-[11px] text-center text-muted-foreground">No attachments</p>;
+  }
 
   return (
-    <div className="pt-6 border-t">
-      <h3 className="flex gap-2 items-center mb-3 text-sm font-semibold text-muted-foreground">
-        <Paperclip className="w-4 h-4" />
-        Attachments
-        <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
-          {totalCount}
-        </span>
-      </h3>
+    <div className="space-y-1">
+      {attachments.map((att) => (
+        <div
+          key={att.id}
+          ref={(el) => { if (el) rowRefs.current.set(att.id, el); else rowRefs.current.delete(att.id); }}
+          className={`flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group ${
+            activeHighlight === att.id
+              ? 'bg-primary/10 ring-1 ring-primary/30'
+              : 'hover:bg-muted/40'
+          }`}
+        >
+          {/* Thumbnail or icon */}
+          <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center bg-muted/60 overflow-hidden">
+            {isImage(att.mimeType) ? (
+              <img
+                src={getDownloadUrl(att)}
+                alt={att.originalFilename}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <FileIcon mimeType={att.mimeType} />
+            )}
+          </div>
 
-      <div className="space-y-4">
-        {/* Received */}
-        {receivedCount > 0 && (
-          <AttachmentSection
-            label="Received"
-            icon={<ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500" />}
-            count={receivedCount}
-          >
-            <div className="space-y-2">
-              {receivedDb.map((a) => <DbAttachmentRow key={a.id} attachment={a} />)}
-              {receivedEmail.map((a) => (
-                <EmailAttachmentRow
-                  key={a.attachment.filename}
-                  attachment={a.attachment}
-                  ticketId={a.ticketId}
-                />
-              ))}
-            </div>
-          </AttachmentSection>
-        )}
+          {/* Name + meta */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium truncate leading-tight">{att.originalFilename}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
+              {formatFileSize(att.size)}
+              <span className="text-border">·</span>
+              {att.isOutgoing ? (
+                <span className="inline-flex items-center gap-0.5 text-blue-500 dark:text-blue-400">
+                  <ArrowUpRight className="w-2.5 h-2.5" />Sent
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400">
+                  <ArrowDownLeft className="w-2.5 h-2.5" />Received
+                </span>
+              )}
+            </p>
+          </div>
 
-        {/* Sent */}
-        {sentCount > 0 && (
-          <AttachmentSection
-            label="Sent"
-            icon={<ArrowUpRight className="w-3.5 h-3.5 text-blue-500" />}
-            count={sentCount}
-          >
-            <div className="space-y-2">
-              {sentDb.map((a) => <DbAttachmentRow key={a.id} attachment={a} />)}
-              {sentEmail.map((a) => (
-                <EmailAttachmentRow
-                  key={a.attachment.filename}
-                  attachment={a.attachment}
-                  ticketId={a.ticketId}
-                />
-              ))}
-            </div>
-          </AttachmentSection>
-        )}
-
-      </div>
-
-      {noTicketReceivedEmail.length > 0 && (
-        <div className="p-3 mt-3 rounded-lg border bg-amber-500/10 border-amber-500/20">
-          <p className="flex gap-2 items-start text-xs text-amber-600 dark:text-amber-400">
-            <Info className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>
-              Email attachments will be available for download once a ticket is created from this
-              message.
-            </span>
-          </p>
+          {/* Actions — visible on hover */}
+          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            {isImage(att.mimeType) && (
+              <button
+                onClick={() => void handleDownload(att, true)}
+                title="View"
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              onClick={() => void handleDownload(att)}
+              title="Download"
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      )}
+      ))}
+
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </div>
   );
 };

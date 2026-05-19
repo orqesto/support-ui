@@ -161,7 +161,7 @@ export const useMessagesUrlSync = ({
         .then((response) => {
           if (response.success && response.data && response.data.length > 0) {
             const threadMessages = response.data;
-            const message = threadMessages.find((m) => m.id === paramId) ?? threadMessages[0];
+            const message = threadMessages.find((msg) => msg.id === paramId) ?? threadMessages[0];
             setSelectedMessage(message);
           } else {
             fetchedMessageIdRef.current = null;

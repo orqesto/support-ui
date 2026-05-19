@@ -31,7 +31,7 @@ export const ProfileSettings = () => {
   const handleAddValue = (key: string) => {
     const raw = skillInputs[key]?.trim() ?? '';
     if (!raw) return;
-    const newVals = raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const newVals = raw.split(',').map((val) => val.trim().toLowerCase()).filter(Boolean);
     const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
     setSkillValues((prev) => ({ ...prev, [key]: merged }));
     setSkillInputs((prev) => ({ ...prev, [key]: '' }));
@@ -39,7 +39,7 @@ export const ProfileSettings = () => {
   };
 
   const handleRemoveValue = (key: string, value: string) => {
-    const next = (skillValues[key] ?? []).filter((v) => v !== value);
+    const next = (skillValues[key] ?? []).filter((val) => val !== value);
     setSkillValues((prev) => ({ ...prev, [key]: next }));
     void userService.setSelfSkillValues(key, next);
   };
@@ -55,8 +55,8 @@ export const ProfileSettings = () => {
     setSigSaving(true);
     try {
       await userService.updateSelf({ signature: signature.trim() || null });
-      useAuthStore.setState((s) => ({
-        user: s.user ? { ...s.user, signature: signature.trim() || null } : s.user,
+      useAuthStore.setState((store) => ({
+        user: store.user ? { ...store.user, signature: signature.trim() || null } : store.user,
       }));
     } catch {
       // silent — could show notification here
@@ -76,8 +76,8 @@ export const ProfileSettings = () => {
     confirm: '',
   });
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleChangePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
     setNotification(null);
 
     if (passwords.new.length < 8) {
@@ -160,7 +160,7 @@ export const ProfileSettings = () => {
         </p>
         <textarea
           value={signature}
-          onChange={(e) => setSignature(e.target.value)}
+          onChange={(event) => setSignature(event.target.value)}
           rows={5}
           className="w-full px-3 py-2 rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm placeholder:text-muted-foreground"
           placeholder={'Best regards,\nJohn Smith\nSupport Team'}
@@ -220,12 +220,12 @@ export const ProfileSettings = () => {
                       <input
                         type="text"
                         value={skillInputs[key] ?? ''}
-                        onChange={(e) =>
-                          setSkillInputs((prev) => ({ ...prev, [key]: e.target.value }))
+                        onChange={(event) =>
+                          setSkillInputs((prev) => ({ ...prev, [key]: event.target.value }))
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
                             handleAddValue(key);
                           }
                         }}
@@ -276,7 +276,7 @@ export const ProfileSettings = () => {
               id="current-password"
               type="password"
               value={passwords.current}
-              onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+              onChange={(event) => setPasswords({ ...passwords, current: event.target.value })}
               placeholder="Enter current password"
               required
               disabled={loading}
@@ -294,7 +294,7 @@ export const ProfileSettings = () => {
               id="new-password"
               type="password"
               value={passwords.new}
-              onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+              onChange={(event) => setPasswords({ ...passwords, new: event.target.value })}
               placeholder="Enter new password (min 8 characters)"
               required
               disabled={loading}
@@ -313,7 +313,7 @@ export const ProfileSettings = () => {
               id="confirm-password"
               type="password"
               value={passwords.confirm}
-              onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+              onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
               placeholder="Confirm new password"
               required
               disabled={loading}
