@@ -32,7 +32,7 @@ export function TicketPanelTabs({
       id: 'messages',
       label: 'Messages',
       badge: linkedMessages.length > 0
-        ? new Set(linkedMessages.map((m) => m.threadId ?? `solo-${m.id}`)).size
+        ? new Set(linkedMessages.map((msg) => msg.threadId ?? `solo-${msg.id}`)).size
         : undefined,
     },
   ];
@@ -100,9 +100,9 @@ export function TicketPanelTabs({
               }
               return Array.from(groups.values()).map((msgs) => {
                 const sorted = [...msgs].sort(
-                  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                  (msgA, msgB) => new Date(msgA.createdAt).getTime() - new Date(msgB.createdAt).getTime()
                 );
-                const root = sorted.find((m) => !m.parentMessageId) ?? sorted[0];
+                const root = sorted.find((msg) => !msg.parentMessageId) ?? sorted[0];
                 const count = sorted.length;
                 return (
                   <Link

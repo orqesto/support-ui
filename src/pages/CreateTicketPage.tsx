@@ -139,8 +139,8 @@ export const CreateTicketPage = () => {
         setFormData((prev) => ({
           ...prev,
           title:
-            data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ||
-            data.subject ||
+            data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ??
+            data.subject ??
             `Message from ${data.sender}`,
           description: htmlDescription,
           // Pre-fill priority if AI suggested a valid enum value

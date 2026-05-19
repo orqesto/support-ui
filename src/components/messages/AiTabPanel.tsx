@@ -49,7 +49,7 @@ type ChunkReference = { chunkId: number; chunkIndex: number; metadata: unknown }
 const isKBReference = (ref: KBReference | ChunkReference): ref is KBReference =>
   'documentationId' in ref;
 
-type SimilarResult = {
+export type SimilarResult = {
   messageId?: number;
   documentationId?: number;
   directReply: string;
