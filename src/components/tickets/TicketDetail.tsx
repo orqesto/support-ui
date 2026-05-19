@@ -152,7 +152,7 @@ export const TicketDetail = ({
         setLoadingMessages(true);
         const response = await messageService.getAll({ ticketId: ticket.id.toString() }, 1, 100);
         const sorted = (response.data ?? []).sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          (msgA, msgB) => new Date(msgA.createdAt).getTime() - new Date(msgB.createdAt).getTime()
         );
         setLinkedMessages(sorted);
       } catch (error) {

@@ -242,7 +242,7 @@ export const MessageThread = ({
                         onMessageClick &&
                         (event.key === 'Enter' || event.key === ' ')
                       ) {
-                        e.preventDefault();
+                        event.preventDefault();
                         onMessageClick(pair.customerEmail.id);
                       }
                     }}

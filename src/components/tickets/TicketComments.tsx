@@ -79,7 +79,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
     } finally {
       setIsLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, onCountChange]);
 
   useEffect(() => {
     // Get current user from token
