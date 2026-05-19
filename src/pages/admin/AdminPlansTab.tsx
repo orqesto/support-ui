@@ -233,9 +233,9 @@ export const AdminPlansTab = () => {
     return <div>Loading...</div>;
   }
 
-  const basePlans = availablePlans.filter((p) => p.planType === 'base');
-  const bundlePlans = availablePlans.filter((p) => p.planType === 'bundle');
-  const enterprisePlans = availablePlans.filter((p) => p.planType === 'enterprise');
+  const basePlans = availablePlans.filter((plan) => plan.planType === 'base');
+  const bundlePlans = availablePlans.filter((plan) => plan.planType === 'bundle');
+  const enterprisePlans = availablePlans.filter((plan) => plan.planType === 'enterprise');
 
   return (
     <div className="space-y-8">

@@ -69,7 +69,7 @@ export function BasePlanCard({ plan, currentPlanName, upgrading, onSelect }: Bas
       <CardContent>
         <PlanLimits plan={plan} />
         <div className="mb-6 space-y-3">
-          {Object.entries(plan.features).filter(([_, e]) => e).map(([key]) => (
+          {Object.entries(plan.features).filter(([_, enabled]) => enabled).map(([key]) => (
             <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
           ))}
         </div>
@@ -104,7 +104,7 @@ export function EnterprisePlanCard({ plan, currentPlanName, upgrading, onSelect 
           <p className="text-sm text-gray-400"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
         </div>
         <div className="mb-6 space-y-3">
-          {Object.entries(plan.features).filter(([_, e]) => e).slice(0, 8).map(([key]) => (
+          {Object.entries(plan.features).filter(([_, enabled]) => enabled).slice(0, 8).map(([key]) => (
             <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
           ))}
         </div>
@@ -135,7 +135,7 @@ export function BundlePlanCard({ plan, currentPlanName, upgrading, onSelect }: B
       <CardContent>
         <PlanLimits plan={plan} />
         <div className="mb-6 space-y-3">
-          {Object.entries(plan.features).filter(([_, e]) => e).slice(0, 8).map(([key]) => (
+          {Object.entries(plan.features).filter(([_, enabled]) => enabled).slice(0, 8).map(([key]) => (
             <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
           ))}
         </div>

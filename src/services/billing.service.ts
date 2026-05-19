@@ -55,24 +55,24 @@ export type PaginatedResponse<T> = {
 };
 
 const getBillingSummary = () =>
-  apiClient.get<BillingSummary>('/api/billing/summary').then((r) => r.data);
+  apiClient.get<BillingSummary>('/api/billing/summary').then((res) => res.data);
 
 const getBillingRecords = (page = 1, limit = 20, anomalyOnly = false) =>
   apiClient
     .get<PaginatedResponse<BillingRecord>>('/api/billing/records', {
       params: { page, limit, anomalyOnly },
     })
-    .then((r) => r.data);
+    .then((res) => res.data);
 
 const getPaymentRegistry = (page = 1, limit = 20) =>
   apiClient
     .get<PaginatedResponse<RegistryEntry>>('/api/billing/registry', {
       params: { page, limit },
     })
-    .then((r) => r.data);
+    .then((res) => res.data);
 
 const getAgingReport = () =>
-  apiClient.get<{ buckets: AgingBucket[] }>('/api/billing/aging').then((r) => r.data);
+  apiClient.get<{ buckets: AgingBucket[] }>('/api/billing/aging').then((res) => res.data);
 
 export const billingService = {
   getBillingSummary,

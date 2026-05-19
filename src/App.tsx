@@ -14,59 +14,59 @@ import { Permission } from './types/roles';
 
 // Lazy load non-critical routes
 const MessagesPage = lazy(() =>
-  import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage }))
+  import('./pages/MessagesPage').then((mod) => ({ default: mod.MessagesPage }))
 );
 const MessageDetailPage = lazy(() =>
-  import('./pages/MessageDetailPage').then((m) => ({ default: m.MessageDetailPage }))
+  import('./pages/MessageDetailPage').then((mod) => ({ default: mod.MessageDetailPage }))
 );
 const TicketsPage = lazy(() =>
-  import('./pages/TicketsPage').then((m) => ({ default: m.TicketsPage }))
+  import('./pages/TicketsPage').then((mod) => ({ default: mod.TicketsPage }))
 );
 const TicketDetailPage = lazy(() =>
-  import('./pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage }))
+  import('./pages/TicketDetailPage').then((mod) => ({ default: mod.TicketDetailPage }))
 );
 const CreateTicketPage = lazy(() =>
-  import('./pages/CreateTicketPage').then((m) => ({ default: m.CreateTicketPage }))
+  import('./pages/CreateTicketPage').then((mod) => ({ default: mod.CreateTicketPage }))
 );
 const EditTicketPage = lazy(() =>
-  import('./pages/EditTicketPage').then((m) => ({ default: m.EditTicketPage }))
+  import('./pages/EditTicketPage').then((mod) => ({ default: mod.EditTicketPage }))
 );
 const StatisticsPage = lazy(() =>
-  import('./pages/StatisticsPage').then((m) => ({ default: m.StatisticsPage }))
+  import('./pages/StatisticsPage').then((mod) => ({ default: mod.StatisticsPage }))
 );
 const SettingsPage = lazy(() =>
-  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+  import('./pages/SettingsPage').then((mod) => ({ default: mod.SettingsPage }))
 );
-const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })));
+const UsersPage = lazy(() => import('./pages/UsersPage').then((mod) => ({ default: mod.UsersPage })));
 const OrganizationPage = lazy(() =>
-  import('./pages/OrganizationPage').then((m) => ({ default: m.OrganizationPage }))
+  import('./pages/OrganizationPage').then((mod) => ({ default: mod.OrganizationPage }))
 );
 const EmailTemplatesPage = lazy(() =>
-  import('./pages/EmailTemplatesPage').then((m) => ({ default: m.EmailTemplatesPage }))
+  import('./pages/EmailTemplatesPage').then((mod) => ({ default: mod.EmailTemplatesPage }))
 );
 const AuditLogsPage = lazy(() =>
-  import('./pages/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage }))
+  import('./pages/AuditLogsPage').then((mod) => ({ default: mod.AuditLogsPage }))
 );
 const SubscriptionPage = lazy(() =>
-  import('./pages/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage }))
+  import('./pages/SubscriptionPage').then((mod) => ({ default: mod.SubscriptionPage }))
 );
 const PricingPage = lazy(() =>
-  import('./pages/PricingPage').then((m) => ({ default: m.PricingPage }))
+  import('./pages/PricingPage').then((mod) => ({ default: mod.PricingPage }))
 );
 const AdminDashboardPage = lazy(() =>
-  import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage }))
+  import('./pages/AdminDashboardPage').then((mod) => ({ default: mod.AdminDashboardPage }))
 );
 const UsageStatsPage = lazy(() =>
-  import('./pages/UsageStatsPage').then((m) => ({ default: m.UsageStatsPage }))
+  import('./pages/UsageStatsPage').then((mod) => ({ default: mod.UsageStatsPage }))
 );
 const KnowledgeBasePage = lazy(() =>
-  import('./pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage }))
+  import('./pages/KnowledgeBasePage').then((mod) => ({ default: mod.KnowledgeBasePage }))
 );
 const BillingDashboardPage = lazy(() =>
-  import('./pages/BillingDashboardPage').then((m) => ({ default: m.BillingDashboardPage }))
+  import('./pages/BillingDashboardPage').then((mod) => ({ default: mod.BillingDashboardPage }))
 );
 const SLADashboardPage = lazy(() =>
-  import('./pages/SLADashboardPage').then((m) => ({ default: m.SLADashboardPage }))
+  import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
 );
 
 const LoadingFallback = () => (

@@ -52,7 +52,7 @@ export const NotificationPreferencesSettings = () => {
   useEffect(() => {
     apiClient
       .get('/api/users/me/notification-preferences')
-      .then((r) => setPrefs({ ...defaults, ...((r.data as { data: Partial<Prefs> }).data) }))
+      .then((result) => setPrefs({ ...defaults, ...((result.data as { data: Partial<Prefs> }).data) }))
       .catch(() => {});
   }, []);
 
@@ -74,17 +74,17 @@ export const NotificationPreferencesSettings = () => {
         <h3 className="text-sm font-semibold mb-1">Minimum severity</h3>
         <p className="text-xs text-muted-foreground mb-3">Only show alerts that meet this threshold.</p>
         <div className="flex gap-2">
-          {(['warning', 'critical'] as const).map((s) => (
+          {(['warning', 'critical'] as const).map((sev) => (
             <button
-              key={s}
-              onClick={() => update({ minSeverity: s })}
+              key={sev}
+              onClick={() => update({ minSeverity: sev })}
               className={`px-4 py-1.5 text-sm rounded-md border transition-colors capitalize ${
-                prefs.minSeverity === s
+                prefs.minSeverity === sev
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border bg-card hover:bg-accent'
               }`}
             >
-              {s === 'warning' ? 'All (warning+)' : 'Critical only'}
+              {sev === 'warning' ? 'All (warning+)' : 'Critical only'}
             </button>
           ))}
         </div>
@@ -97,17 +97,17 @@ export const NotificationPreferencesSettings = () => {
           <Toggle
             label="Message SLA"
             checked={prefs.notifyMessages}
-            onChange={(v) => update({ notifyMessages: v })}
+            onChange={(val) => update({ notifyMessages: val })}
           />
           <Toggle
             label="Ticket first response"
             checked={prefs.notifyTicketFirstResponse}
-            onChange={(v) => update({ notifyTicketFirstResponse: v })}
+            onChange={(val) => update({ notifyTicketFirstResponse: val })}
           />
           <Toggle
             label="Ticket resolution"
             checked={prefs.notifyTicketResolution}
-            onChange={(v) => update({ notifyTicketResolution: v })}
+            onChange={(val) => update({ notifyTicketResolution: val })}
           />
         </div>
       </div>

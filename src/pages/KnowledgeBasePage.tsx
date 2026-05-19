@@ -100,31 +100,29 @@ export const KnowledgeBasePage = () => {
   // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
   useEffect(() => {
     const idParam = searchParams.get('id');
-    if (idParam && !selectedEntry) {
-      const id = parseInt(idParam, 10);
-      if (!isNaN(id)) {
-        // Fetch and open the specific entry
-        void kbService
-          .getById(id)
-          .then((response: { data: KBEntry }) => {
-            setSelectedEntry(response.data);
-          })
-          .catch((error: Error) => {
-            logger.error('Failed to fetch KB entry:', error);
-            setAlertDialog({
-              open: true,
-              title: 'Entry Not Found',
-              description: 'Could not find the requested knowledge base entry.',
-              variant: 'error',
-            });
-            // Remove invalid ID from URL
-            const params = new URLSearchParams(searchParams);
-            params.delete('id');
-            setSearchParams(params, { replace: true });
-          });
-      }
-    }
-  }, [searchParams, selectedEntry, setSearchParams]);
+    if (!idParam) return;
+    const id = parseInt(idParam, 10);
+    if (isNaN(id)) return;
+    if (selectedEntry?.id === id) return; // already showing this entry — don't re-fetch
+    void kbService
+      .getById(id)
+      .then((response: { data: KBEntry }) => {
+        setSelectedEntry(response.data);
+      })
+      .catch((error: Error) => {
+        logger.error('Failed to fetch KB entry:', error);
+        setAlertDialog({
+          open: true,
+          title: 'Entry Not Found',
+          description: 'Could not find the requested knowledge base entry.',
+          variant: 'error',
+        });
+        const params = new URLSearchParams(searchParams);
+        params.delete('id');
+        setSearchParams(params, { replace: true });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed

@@ -48,11 +48,11 @@ function EditRowForm({ org, form, onChange, onSave, onCancel, isMobile }: {
   return (
     <div className="space-y-3">
       <div><label htmlFor="name" className="block mb-1 text-sm font-medium">Name</label>
-        <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} className={inputCls} /></div>
+        <input type="text" value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} className={inputCls} /></div>
       <div><label htmlFor="description" className="block mb-1 text-sm font-medium">Description</label>
-        <input type="text" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} className={inputCls} /></div>
+        <input type="text" value={form.description} onChange={(event) => onChange({ ...form, description: event.target.value })} className={inputCls} /></div>
       <div className="flex gap-2 items-center">
-        <input type="checkbox" id={`active-${isMobile ? 'mobile-' : ''}${org.id}`} checked={form.active} onChange={(e) => onChange({ ...form, active: e.target.checked })} className="rounded" />
+        <input type="checkbox" id={`active-${isMobile ? 'mobile-' : ''}${org.id}`} checked={form.active} onChange={(event) => onChange({ ...form, active: event.target.checked })} className="rounded" />
         <label htmlFor={`active-${isMobile ? 'mobile-' : ''}${org.id}`} className="text-sm font-medium">Active</label>
       </div>
       <div className={`flex gap-2 ${isMobile ? '' : ''}`}>
@@ -115,8 +115,8 @@ export function OrgAdminTable({ allOrganizations, searchOrg, pendingSearch, edit
                 <table className="min-w-full">
                   <thead className="sticky top-0 z-10 border-b bg-muted">
                     <tr>
-                      {['Name','Slug','Status','Created','Actions'].map((h) => (
-                        <th key={h} className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">{h}</th>
+                      {['Name','Slug','Status','Created','Actions'].map((header) => (
+                        <th key={header} className="px-6 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">{header}</th>
                       ))}
                     </tr>
                   </thead>

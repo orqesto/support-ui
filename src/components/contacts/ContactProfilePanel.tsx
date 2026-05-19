@@ -70,7 +70,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     setSavingName(true);
     try {
       await contactService.update(contact.id, { displayName: nameInput.trim() || null });
-      setContact((c) => c ? { ...c, displayName: nameInput.trim() || null } : c);
+      setContact((contact) => contact ? { ...contact, displayName: nameInput.trim() || null } : contact);
       setEditingName(false);
     } finally {
       setSavingName(false);
@@ -80,15 +80,15 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleAssign = async (userId: number | null) => {
     if (!contact) return;
     await contactService.update(contact.id, { assignedUserId: userId });
-    const user = users.find((u) => u.id === userId) ?? null;
-    setContact((c) =>
-      c ? {
-        ...c,
+    const user = users.find((usr) => usr.id === userId) ?? null;
+    setContact((contact) =>
+      contact ? {
+        ...contact,
         assignedUserId: userId,
         assignedUserFirstName: user?.firstName ?? null,
         assignedUserLastName: user?.lastName ?? null,
         assignedUserEmail: user?.email ?? null,
-      } : c
+      } : contact
     );
   };
 
@@ -97,7 +97,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     setAddingNote(true);
     try {
       const note = await contactService.addNote(contact.id, noteInput.trim());
-      setContact((c) => c ? { ...c, notes: [note, ...c.notes] } : c);
+      setContact((contact) => contact ? { ...contact, notes: [note, ...contact.notes] } : contact);
       setNoteInput('');
     } finally {
       setAddingNote(false);
@@ -107,18 +107,18 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleDeleteNote = async (noteId: number) => {
     if (!contact) return;
     await contactService.deleteNote(contact.id, noteId);
-    setContact((c) => c ? { ...c, notes: c.notes.filter((n) => n.id !== noteId) } : c);
+    setContact((contact) => contact ? { ...contact, notes: contact.notes.filter((note) => note.id !== noteId) } : contact);
   };
 
   const handleAddLabel = async (labelId: number) => {
     if (!contact) return;
     await contactService.addLabel(contact.id, labelId);
-    const label = orgLabels.find((l) => l.id === labelId);
+    const label = orgLabels.find((lbl) => lbl.id === labelId);
     if (label) {
-      setContact((c) =>
-        c && !c.labels.some((l) => l.id === labelId)
-          ? { ...c, labels: [...c.labels, label] }
-          : c
+      setContact((contact) =>
+        contact && !contact.labels.some((lbl) => lbl.id === labelId)
+          ? { ...contact, labels: [...contact.labels, label] }
+          : contact
       );
     }
     setShowLabelPicker(false);
@@ -127,7 +127,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleRemoveLabel = async (labelId: number) => {
     if (!contact) return;
     await contactService.removeLabel(contact.id, labelId);
-    setContact((c) => c ? { ...c, labels: c.labels.filter((l) => l.id !== labelId) } : c);
+    setContact((contact) => contact ? { ...contact, labels: contact.labels.filter((lbl) => lbl.id !== labelId) } : contact);
   };
 
   const handleAddProfile = async () => {
@@ -139,10 +139,10 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
         value: profileValueInput.trim(),
         label: profileLabelInput.trim() || undefined,
       });
-      setContact((c) =>
-        c && !c.profiles.some((p) => p.id === profile.id)
-          ? { ...c, profiles: [...c.profiles, profile] }
-          : c
+      setContact((contact) =>
+        contact && !contact.profiles.some((prof) => prof.id === profile.id)
+          ? { ...contact, profiles: [...contact.profiles, profile] }
+          : contact
       );
       setProfileValueInput('');
       setProfileLabelInput('');
@@ -155,7 +155,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleDeleteProfile = async (profileId: number) => {
     if (!contact) return;
     await contactService.deleteProfile(contact.id, profileId);
-    setContact((c) => c ? { ...c, profiles: c.profiles.filter((p) => p.id !== profileId) } : c);
+    setContact((contact) => contact ? { ...contact, profiles: contact.profiles.filter((prof) => prof.id !== profileId) } : contact);
   };
 
   const handleLinkEmail = async () => {
@@ -165,16 +165,16 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
       const linked = await contactService.getByEmail(linkEmailInput.trim().toLowerCase());
       if (linked.id === contact.id) return;
       await contactService.linkContact(contact.id, linked.id);
-      setContact((c) =>
-        c && !c.linkedContacts.some((lc) => lc.id === linked.id)
+      setContact((contact) =>
+        contact && !contact.linkedContacts.some((lc) => lc.id === linked.id)
           ? {
-              ...c,
+              ...contact,
               linkedContacts: [
-                ...c.linkedContacts,
+                ...contact.linkedContacts,
                 { id: linked.id, primaryEmail: linked.primaryEmail, displayName: linked.displayName },
               ],
             }
-          : c
+          : contact
       );
       setLinkEmailInput('');
     } finally {
@@ -185,19 +185,19 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleUnlink = async (linkedId: number) => {
     if (!contact) return;
     await contactService.unlinkContact(contact.id, linkedId);
-    setContact((c) => c ? { ...c, linkedContacts: c.linkedContacts.filter((lc) => lc.id !== linkedId) } : c);
+    setContact((contact) => contact ? { ...contact, linkedContacts: contact.linkedContacts.filter((lc) => lc.id !== linkedId) } : contact);
   };
 
   const availableLabels = orgLabels.filter(
-    (l) => !contact?.labels.some((cl) => cl.id === l.id)
+    (lbl) => !contact?.labels.some((cl) => cl.id === lbl.id)
   );
 
   return (
     <Drawer open onClose={onClose} title={email} size="md">
       {loading ? (
         <div className="space-y-3">
-          {(['a', 'b', 'c'] as const).map((k) => (
-            <div key={k} className="h-16 rounded animate-pulse bg-muted" />
+          {(['a', 'b', 'c'] as const).map((key) => (
+            <div key={key} className="h-16 rounded animate-pulse bg-muted" />
           ))}
         </div>
       ) : !contact ? (
@@ -216,10 +216,10 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                   ref={nameRef}
                   size="sm"
                   value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void handleSaveName();
-                    if (e.key === 'Escape') setEditingName(false);
+                  onChange={(event) => setNameInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void handleSaveName();
+                    if (event.key === 'Escape') setEditingName(false);
                   }}
                   autoFocus
                   placeholder="Display name"
@@ -272,12 +272,12 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
             <select
               className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               value={contact.assignedUserId ?? ''}
-              onChange={(e) => void handleAssign(e.target.value ? parseInt(e.target.value) : null)}
+              onChange={(event) => void handleAssign(event.target.value ? parseInt(event.target.value) : null)}
             >
               <option value="">Unassigned</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.firstName} {u.lastName ?? ''} ({u.email})
+              {users.map((usr) => (
+                <option key={usr.id} value={usr.id}>
+                  {usr.firstName} {usr.lastName ?? ''} ({usr.email})
                 </option>
               ))}
             </select>
@@ -292,7 +292,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                   size="sm"
                   variant="ghost"
                   className="h-5 px-1.5 text-xs"
-                  onClick={() => setShowLabelPicker((v) => !v)}
+                  onClick={() => setShowLabelPicker((val) => !val)}
                 >
                   <Plus className="w-3 h-3" />
                 </Button>
@@ -371,9 +371,9 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                 rows={2}
                 placeholder="Add a note… (Ctrl+Enter to save)"
                 value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleAddNote();
+                onChange={(event) => setNoteInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void handleAddNote();
                 }}
               />
               <Button
@@ -418,22 +418,22 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
             <div>
               <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent Tickets</p>
               <div className="space-y-1">
-                {contact.recentTickets.map((t) => (
+                {contact.recentTickets.map((tick) => (
                   <button
-                    key={t.id}
+                    key={tick.id}
                     className="flex gap-2 items-center w-full text-left rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors"
-                    onClick={() => { onClose(); navigate(`/tickets?id=${t.id}`); }}
+                    onClick={() => { onClose(); navigate(`/tickets?id=${tick.id}`); }}
                   >
                     <Ticket className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 text-sm truncate">{t.title}</span>
+                    <span className="flex-1 text-sm truncate">{tick.title}</span>
                     <Badge
-                      variant={t.status === 'resolved' ? 'success' : t.status === 'in_progress' ? 'warning' : 'secondary'}
+                      variant={tick.status === 'resolved' ? 'success' : tick.status === 'in_progress' ? 'warning' : 'secondary'}
                       className="text-xs shrink-0"
                     >
-                      {t.status}
+                      {tick.status}
                     </Badge>
                     <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                      {formatAge(t.createdAt)}
+                      {formatAge(tick.createdAt)}
                     </span>
                   </button>
                 ))}
@@ -449,29 +449,29 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                 size="sm"
                 variant="ghost"
                 className="h-5 px-1.5 text-xs"
-                onClick={() => setShowProfileForm((v) => !v)}
+                onClick={() => setShowProfileForm((val) => !val)}
               >
                 <Plus className="w-3 h-3" />
               </Button>
             </div>
             <div className="space-y-1 mb-2">
-              {contact.profiles.map((p) => (
-                <div key={p.id} className="flex gap-2 justify-between items-center group">
+              {contact.profiles.map((prof) => (
+                <div key={prof.id} className="flex gap-2 justify-between items-center group">
                   <div className="flex gap-2 items-center min-w-0">
-                    {p.type === 'email' && <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-                    {p.type === 'telegram_username' && <Hash className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
-                    {p.type === 'telegram_phone' && <Phone className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
-                    {p.type === 'slack' && <MessageSquare className="w-3.5 h-3.5 shrink-0 text-purple-500" />}
-                    <span className="text-sm truncate">{p.value}</span>
-                    {p.label && (
-                      <span className="text-xs text-muted-foreground shrink-0">({p.label})</span>
+                    {prof.type === 'email' && <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+                    {prof.type === 'telegram_username' && <Hash className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
+                    {prof.type === 'telegram_phone' && <Phone className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
+                    {prof.type === 'slack' && <MessageSquare className="w-3.5 h-3.5 shrink-0 text-purple-500" />}
+                    <span className="text-sm truncate">{prof.value}</span>
+                    {prof.label && (
+                      <span className="text-xs text-muted-foreground shrink-0">({prof.label})</span>
                     )}
                   </div>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 shrink-0 text-destructive"
-                    onClick={() => void handleDeleteProfile(p.id)}
+                    onClick={() => void handleDeleteProfile(prof.id)}
                   >
                     <X className="w-3 h-3" />
                   </Button>
@@ -486,7 +486,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                 <select
                   className="w-full px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                   value={profileTypeInput}
-                  onChange={(e) => setProfileTypeInput(e.target.value as ContactProfileType)}
+                  onChange={(event) => setProfileTypeInput(event.target.value as ContactProfileType)}
                 >
                   <option value="email">Email</option>
                   <option value="telegram_username">Telegram Username</option>
@@ -502,15 +502,15 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                     'U12345678 or workspace/user'
                   }
                   value={profileValueInput}
-                  onChange={(e) => setProfileValueInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') void handleAddProfile(); }}
+                  onChange={(event) => setProfileValueInput(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') void handleAddProfile(); }}
                   autoFocus
                 />
                 <Input
                   size="sm"
                   placeholder="Label (optional)"
                   value={profileLabelInput}
-                  onChange={(e) => setProfileLabelInput(e.target.value)}
+                  onChange={(event) => setProfileLabelInput(event.target.value)}
                 />
                 <div className="flex gap-2">
                   <Button
@@ -562,8 +562,8 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                 size="sm"
                 placeholder="Link by email…"
                 value={linkEmailInput}
-                onChange={(e) => setLinkEmailInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') void handleLinkEmail(); }}
+                onChange={(event) => setLinkEmailInput(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') void handleLinkEmail(); }}
               />
               <Button
                 size="sm"

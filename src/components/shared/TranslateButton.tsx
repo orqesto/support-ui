@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Languages, Loader2, X } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -11,7 +12,22 @@ import {
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useTranslation, useSupportedLanguages } from '@/hooks/useTranslation';
 import { linkifyText } from '@/lib/linkify';
+import { THREAD_SANITIZE } from '@/components/messages/messageDetailConstants';
 import { logger } from '@/lib/logger';
+
+const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
+
+const renderContent = (text: string) => {
+  if (isHtml(text)) {
+    return (
+      <div
+        className="prose prose-sm max-w-none dark:prose-invert"
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text, THREAD_SANITIZE) }}
+      />
+    );
+  }
+  return <>{linkifyText(text)}</>;
+};
 
 type TranslateButtonProps = {
   messageId?: number;
@@ -152,8 +168,8 @@ export const TranslateButton = ({
                     {linkifyText(originalSubject)}
                   </div>
                 )}
-                <div className="text-sm text-gray-800 whitespace-pre-wrap dark:text-gray-200">
-                  {linkifyText(originalContent)}
+                <div className="text-sm text-gray-800 dark:text-gray-200">
+                  {renderContent(originalContent)}
                 </div>
               </div>
             </div>
@@ -164,7 +180,7 @@ export const TranslateButton = ({
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Translated
                   <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                    ({languages?.find((l) => l.code === selectedLanguage)?.name ?? selectedLanguage}
+                    ({languages?.find((lang) => lang.code === selectedLanguage)?.name ?? selectedLanguage}
                     )
                   </span>
                 </h3>
@@ -174,8 +190,8 @@ export const TranslateButton = ({
                       {linkifyText(translatedData.subject)}
                     </div>
                   )}
-                  <div className="text-sm text-gray-800 whitespace-pre-wrap dark:text-gray-200">
-                    {linkifyText(translatedData.content)}
+                  <div className="text-sm text-gray-800 dark:text-gray-200">
+                    {renderContent(translatedData.content)}
                   </div>
                 </div>
               </div>

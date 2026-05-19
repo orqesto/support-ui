@@ -132,7 +132,7 @@ export const CategoriesSettings = () => {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="e.g., Technical Support"
               />
@@ -143,7 +143,7 @@ export const CategoriesSettings = () => {
               </label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 rows={2}
                 placeholder="Brief description of this category"
@@ -155,7 +155,7 @@ export const CategoriesSettings = () => {
               </label>
               <textarea
                 value={formData.keywords}
-                onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, keywords: event.target.value })}
                 className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 rows={3}
                 placeholder="technical, bug, error, crash, not working, broken"
@@ -199,7 +199,7 @@ export const CategoriesSettings = () => {
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -209,7 +209,7 @@ export const CategoriesSettings = () => {
                     </label>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={2}
                     />
@@ -220,7 +220,7 @@ export const CategoriesSettings = () => {
                     </label>
                     <textarea
                       value={formData.keywords}
-                      onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                      onChange={(event) => setFormData({ ...formData, keywords: event.target.value })}
                       className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={3}
                     />

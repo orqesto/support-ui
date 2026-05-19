@@ -86,7 +86,7 @@ export const makeKBHandlers = ({
       `${integrationId}-sales`,
       `${integrationId}-billing`,
       kbEvent.departmentRole ? `${integrationId}-${kbEvent.departmentRole}` : null,
-    ].filter((k): k is string => k !== null);
+    ].filter((key): key is string => key !== null);
 
     setSessions((prev) => {
       const newSessions = new Map(prev);
@@ -224,7 +224,7 @@ export const makeKBHandlers = ({
       `${kbIntegrationId}-sales`,
       `${kbIntegrationId}-billing`,
       kbEvent.departmentRole ? `${kbIntegrationId}-${kbEvent.departmentRole}` : null,
-    ].filter((k): k is string => k !== null);
+    ].filter((key): key is string => key !== null);
 
     setSessions((prev) => {
       const newSessions = new Map(prev);

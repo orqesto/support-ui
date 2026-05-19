@@ -21,13 +21,13 @@ export const useModules = () => {
     }
 
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
+    setState((prev) => ({ ...prev, loading: true }));
 
     subscriptionService
       .getActiveModules()
       .then((modules) => {
         if (!cancelled) {
-          setState({ activeModules: new Set(modules.map((m) => m.name)), loading: false });
+          setState({ activeModules: new Set(modules.map((mod) => mod.name)), loading: false });
         }
       })
       .catch(() => {

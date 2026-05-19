@@ -22,8 +22,8 @@ export const Dialog = ({
         tabIndex={0}
         className={getDialogOverlayClasses(blur)}
         onClick={() => onOpenChange(false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' || e.key === 'Enter') {
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' || event.key === 'Enter') {
             onOpenChange(false);
           }
         }}

@@ -40,7 +40,7 @@ function pivotHistory(rows: HistoryRow[]): Record<string, string | number>[] {
     const entry = byDate.get(row.date)!;
     entry[row.displayName] = (Number(entry[row.displayName] ?? 0)) + Number(row.total);
   }
-  return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return Array.from(byDate.values()).sort((itemA, itemB) => String(itemA.date).localeCompare(String(itemB.date)));
 }
 
 const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899'];
@@ -101,10 +101,10 @@ export const UsageStatsPage = () => {
     void fetchUsage();
   }, [historyDays]);
 
-  const totalUsed = usage.reduce((sum, m) => sum + m.current, 0);
-  const totalIncluded = usage.reduce((sum, m) => sum + m.included, 0);
-  const totalOverage = usage.reduce((sum, m) => sum + m.overage, 0);
-  const totalOverageCost = usage.reduce((sum, m) => sum + m.estimatedOverageCost, 0);
+  const totalUsed = usage.reduce((sum, mod) => sum + mod.current, 0);
+  const totalIncluded = usage.reduce((sum, mod) => sum + mod.included, 0);
+  const totalOverage = usage.reduce((sum, mod) => sum + mod.overage, 0);
+  const totalOverageCost = usage.reduce((sum, mod) => sum + mod.estimatedOverageCost, 0);
 
   const getUsageColor = (percentage: number) => {
     if (percentage >= 90) return 'bg-red-500';
@@ -115,22 +115,22 @@ export const UsageStatsPage = () => {
   const exportUsageData = () => {
     const csvData = [
       ['Module', 'Used', 'Included', 'Overage', 'Overage Cost'],
-      ...usage.map((m) => [
-        m.displayName,
-        m.current.toString(),
-        m.included.toString(),
-        m.overage.toString(),
-        `€${(m.estimatedOverageCost / 100).toFixed(2)}`,
+      ...usage.map((mod) => [
+        mod.displayName,
+        mod.current.toString(),
+        mod.included.toString(),
+        mod.overage.toString(),
+        `€${(mod.estimatedOverageCost / 100).toFixed(2)}`,
       ]),
     ];
 
     const csvContent = csvData.map((row) => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `usage-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `usage-${new Date().toISOString().split('T')[0]}.csv`;
+    anchor.click();
     URL.revokeObjectURL(url);
   };
 
@@ -205,7 +205,7 @@ export const UsageStatsPage = () => {
         </div>
 
         {/* Usage alerts — modules >= 80% */}
-        {usage.filter((m) => m.included > 0 && (m.current / m.included) >= 0.8).length > 0 && (
+        {usage.filter((mod) => mod.included > 0 && (mod.current / mod.included) >= 0.8).length > 0 && (
           <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
             <CardContent className="p-4">
               <div className="flex gap-2 items-start">
@@ -213,12 +213,12 @@ export const UsageStatsPage = () => {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-orange-800 dark:text-orange-400">Usage Alert</p>
                   {usage
-                    .filter((m) => m.included > 0 && (m.current / m.included) >= 0.8)
-                    .map((m) => (
-                      <p key={m.moduleName} className="text-sm text-orange-700 dark:text-orange-300">
-                        <span className="font-medium">{m.displayName}</span> is at{' '}
-                        {((m.current / m.included) * 100).toFixed(0)}% of limit
-                        {m.overage > 0 && ` (+${m.overage.toLocaleString()} overage)`}
+                    .filter((mod) => mod.included > 0 && (mod.current / mod.included) >= 0.8)
+                    .map((mod) => (
+                      <p key={mod.moduleName} className="text-sm text-orange-700 dark:text-orange-300">
+                        <span className="font-medium">{mod.displayName}</span> is at{' '}
+                        {((mod.current / mod.included) * 100).toFixed(0)}% of limit
+                        {mod.overage > 0 && ` (+${mod.overage.toLocaleString()} overage)`}
                       </p>
                     ))}
                 </div>
@@ -230,25 +230,25 @@ export const UsageStatsPage = () => {
         {/* Time-series chart */}
         {(() => {
           const chartData = history.length > 0 ? pivotHistory(history) : [];
-          const moduleNames = history.length > 0 ? [...new Set(history.map((r) => r.displayName))] : [];
+          const moduleNames = history.length > 0 ? [...new Set(history.map((row) => row.displayName))] : [];
           return (
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-medium">Daily Usage Trend</CardTitle>
                   <div className="flex rounded-md border border-border overflow-hidden">
-                    {[7, 30, 90].map((d) => (
+                    {[7, 30, 90].map((days) => (
                       <button
-                        key={d}
+                        key={days}
                         type="button"
-                        onClick={() => setHistoryDays(d)}
+                        onClick={() => setHistoryDays(days)}
                         className={`px-3 py-1 text-xs font-medium transition-colors ${
-                          historyDays === d
+                          historyDays === days
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-background text-muted-foreground hover:bg-muted'
                         }`}
                       >
-                        {d}d
+                        {days}d
                       </button>
                     ))}
                   </div>
@@ -266,19 +266,19 @@ export const UsageStatsPage = () => {
                       <XAxis
                         dataKey="date"
                         tick={{ fontSize: 11 }}
-                        tickFormatter={(v: string) => v.slice(5)} // MM-DD
+                        tickFormatter={(val: string) => val.slice(5)} // MM-DD
                       />
                       <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                       <Tooltip />
                       <Legend />
-                      {moduleNames.map((name, i) => (
+                      {moduleNames.map((name, idx) => (
                         <Area
                           key={name}
                           type="monotone"
                           dataKey={name}
                           stackId="1"
-                          stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                          fill={CHART_COLORS[i % CHART_COLORS.length]}
+                          stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                          fill={CHART_COLORS[idx % CHART_COLORS.length]}
                           fillOpacity={0.15}
                         />
                       ))}

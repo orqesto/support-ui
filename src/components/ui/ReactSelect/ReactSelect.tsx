@@ -76,7 +76,7 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
                 'flex items-center rounded text-[13px] px-2 py-1.5 cursor-pointer transition-colors font-normal',
                 // Keep only text-color classes from chipClassName, drop bg/border
                 data.chipClassName
-                  ? data.chipClassName.split(' ').filter(c => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ')
+                  ? data.chipClassName.split(' ').filter(cls => cls.startsWith('text-') || cls.startsWith('dark:text-')).join(' ')
                   : 'text-foreground',
                 isFocused && 'bg-accent',
                 isSelected && 'font-medium'

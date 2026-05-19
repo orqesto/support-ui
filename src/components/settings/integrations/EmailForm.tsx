@@ -94,7 +94,7 @@ export const EmailForm = ({
           <input
             type="text"
             value={config.host}
-            onChange={(e) => onConfigChange({ ...config, host: e.target.value })}
+            onChange={(event) => onConfigChange({ ...config, host: event.target.value })}
             className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
             placeholder="imap.gmail.com"
           />
@@ -106,7 +106,7 @@ export const EmailForm = ({
           <input
             type="number"
             value={config.port}
-            onChange={(e) => onConfigChange({ ...config, port: parseInt(e.target.value) })}
+            onChange={(event) => onConfigChange({ ...config, port: parseInt(event.target.value) })}
             className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
             placeholder="993"
           />
@@ -121,8 +121,8 @@ export const EmailForm = ({
           <input
             type="email"
             value={config.user}
-            onChange={(e) => {
-              const email = e.target.value;
+            onChange={(event) => {
+              const email = event.target.value;
               const detected = detectImapConfig(email);
               if (detected) {
                 onConfigChange({
@@ -150,7 +150,7 @@ export const EmailForm = ({
           <input
             type="password"
             value={config.password}
-            onChange={(e) => onConfigChange({ ...config, password: e.target.value })}
+            onChange={(event) => onConfigChange({ ...config, password: event.target.value })}
             className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
             placeholder="•••••••••"
           />
@@ -207,8 +207,8 @@ export const EmailForm = ({
             <input
               type="number"
               value={config.maxResults ?? 500}
-              onChange={(e) =>
-                onConfigChange({ ...config, maxResults: parseInt(e.target.value) || 500 })
+              onChange={(event) =>
+                onConfigChange({ ...config, maxResults: parseInt(event.target.value) || 500 })
               }
               className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
               min="1"
@@ -224,10 +224,10 @@ export const EmailForm = ({
             <input
               type="number"
               value={config.bulkImportMaxResults ?? 500}
-              onChange={(e) =>
+              onChange={(event) =>
                 onConfigChange({
                   ...config,
-                  bulkImportMaxResults: parseInt(e.target.value) || 500,
+                  bulkImportMaxResults: parseInt(event.target.value) || 500,
                 })
               }
               className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
@@ -252,7 +252,7 @@ export const EmailForm = ({
                 <input
                   type="text"
                   value={config.smtp?.host ?? ''}
-                  onChange={(e) => setSmtpField({ host: e.target.value })}
+                  onChange={(event) => setSmtpField({ host: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="smtp.gmail.com or mail.privateemail.com"
                 />
@@ -262,7 +262,7 @@ export const EmailForm = ({
                 <input
                   type="number"
                   value={config.smtp?.port ?? 587}
-                  onChange={(e) => setSmtpField({ port: parseInt(e.target.value) || 587 })}
+                  onChange={(event) => setSmtpField({ port: parseInt(event.target.value) || 587 })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="587 or 465"
                 />
@@ -272,7 +272,7 @@ export const EmailForm = ({
                 <input
                   type="email"
                   value={config.smtp?.user ?? ''}
-                  onChange={(e) => setSmtpField({ user: e.target.value })}
+                  onChange={(event) => setSmtpField({ user: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="Same as email above"
                 />
@@ -282,7 +282,7 @@ export const EmailForm = ({
                 <input
                   type="password"
                   value={config.smtp?.password ?? ''}
-                  onChange={(e) => setSmtpField({ password: e.target.value })}
+                  onChange={(event) => setSmtpField({ password: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="•••••••••"
                 />
@@ -292,7 +292,7 @@ export const EmailForm = ({
                   <input
                     type="checkbox"
                     checked={config.smtp?.secure ?? false}
-                    onChange={(e) => setSmtpField({ secure: e.target.checked })}
+                    onChange={(event) => setSmtpField({ secure: event.target.checked })}
                     className="rounded"
                   />
                   <label className="text-sm">
@@ -309,7 +309,7 @@ export const EmailForm = ({
         <input
           type="checkbox"
           checked={config.secure}
-          onChange={(e) => onConfigChange({ ...config, secure: e.target.checked })}
+          onChange={(event) => onConfigChange({ ...config, secure: event.target.checked })}
           className="rounded"
         />
         <label htmlFor="secure" className="text-sm">
@@ -321,7 +321,7 @@ export const EmailForm = ({
         <input
           type="checkbox"
           checked={config.isKnowledgeBase ?? false}
-          onChange={(e) => onConfigChange({ ...config, isKnowledgeBase: e.target.checked })}
+          onChange={(event) => onConfigChange({ ...config, isKnowledgeBase: event.target.checked })}
           className="rounded"
         />
         <label htmlFor="isKnowledgeBase" className="text-sm font-medium">

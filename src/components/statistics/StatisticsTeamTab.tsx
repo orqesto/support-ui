@@ -7,6 +7,7 @@ const DAYS_OPTIONS = [
   { label: '7 days', value: 7 },
   { label: '30 days', value: 30 },
   { label: '90 days', value: 90 },
+  { label: '365 days', value: 365 },
 ];
 
 function fullName(entry: UserStatEntry): string {
@@ -68,12 +69,12 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays, 
                 </thead>
                 <tbody>
                   {teamLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
+                    Array.from({ length: 5 }).map((_, idx) => (
                       // eslint-disable-next-line react/no-array-index-key
-                      <tr key={i} className="border-b border-border">
-                        {Array.from({ length: 13 }).map((__, j) => (
+                      <tr key={idx} className="border-b border-border">
+                        {Array.from({ length: 13 }).map((__, jdx) => (
                           // eslint-disable-next-line react/no-array-index-key
-                          <td key={j} className="px-4 py-3"><div className="h-4 rounded bg-muted animate-pulse" style={{ width: j === 0 ? '120px' : '60px' }} /></td>
+                          <td key={jdx} className="px-4 py-3"><div className="h-4 rounded bg-muted animate-pulse" style={{ width: jdx === 0 ? '120px' : '60px' }} /></td>
                         ))}
                       </tr>
                     ))
@@ -81,11 +82,11 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays, 
                     <tr><td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">No agents found for this organisation.</td></tr>
                   ) : (
                     teamData.map((entry) => {
-                      const topLang = Object.entries(entry.stats.languageBreakdown ?? {}).sort(([, a], [, b]) => b - a)[0]?.[0] ?? '—';
+                      const topLang = Object.entries(entry.stats.languageBreakdown ?? {}).sort(([, itemA], [, itemB]) => itemB - itemA)[0]?.[0] ?? '—';
                       return (
                         <tr key={entry.userId} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3"><div className="font-medium text-foreground">{fullName(entry)}</div><div className="text-xs text-muted-foreground">{entry.email}</div></td>
-                          <td className="px-4 py-3 whitespace-nowrap"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground capitalize">{entry.orgRole.replace('_', ' ')}</span></td>
+                          <td className="px-4 py-3 whitespace-nowrap"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground capitalize">{entry.orgRole.replaceAll('_', ' ')}</span></td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesAssigned}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesProcessed}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesReplied}</td>

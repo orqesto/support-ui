@@ -38,7 +38,7 @@ export const TelegramIntegrationCard = ({
     onShowAlert,
   });
 
-  const telegramIntegrations = integrations.filter((i) => i.type === 'telegram');
+  const telegramIntegrations = integrations.filter((integ) => integ.type === 'telegram');
 
   const handleDelete = () => {
     if (deleteConfirm) {
@@ -144,7 +144,7 @@ export const TelegramIntegrationCard = ({
                 <input
                   type="password"
                   value={config.botToken}
-                  onChange={(e) => setConfig({ ...config, botToken: e.target.value })}
+                  onChange={(event) => setConfig({ ...config, botToken: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="123456789:ABCdefGhiJklMnoPqrsTuvWxyZ"
                 />

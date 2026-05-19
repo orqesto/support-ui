@@ -59,20 +59,20 @@ export const MessageThread = ({
 
         // Sort by actual message time.
         // Priority: repliedAt (outgoing send time) > metadata.receivedAt (incoming email header) > createdAt (DB insert, may be batch-constant)
-        const msgTime = (m: Message) =>
+        const msgTime = (msg: Message) =>
           new Date(
-            m.repliedAt ??
-            (m.metadata as { receivedAt?: string } | null)?.receivedAt ??
-            m.createdAt
+            msg.repliedAt ??
+            (msg.metadata as { receivedAt?: string } | null)?.receivedAt ??
+            msg.createdAt
           ).getTime();
-        allMessages.sort((a, b) => msgTime(a) - msgTime(b));
+        allMessages.sort((itemA, itemB) => msgTime(itemA) - msgTime(itemB));
 
         // Pre-compute message times once to avoid O(n²) Date construction in the
         // attribution loop below.
         const timeCache = new Map<number, number>(
-          allMessages.map((m) => [m.id, msgTime(m)])
+          allMessages.map((msg) => [msg.id, msgTime(msg)])
         );
-        const cachedTime = (m: Message) => timeCache.get(m.id)!;
+        const cachedTime = (msg: Message) => timeCache.get(msg.id)!;
 
         // Separate customer emails from system replies
         const systemEmails: Message[] = [];
@@ -136,7 +136,7 @@ export const MessageThread = ({
         });
 
         setConversationPairs(pairs);
-        const currentPair = pairs.find((p) => p.customerEmail.id === messageId);
+        const currentPair = pairs.find((pair) => pair.customerEmail.id === messageId);
         onHasReplyChangeRef.current?.(!!(currentPair?.systemReplies.length));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load conversation');
@@ -154,7 +154,7 @@ export const MessageThread = ({
   const totalExchanges = conversationPairs.length;
   const hasThread = currentThreadId !== null && currentThreadId !== undefined;
   const explicitIndex = selectedPairId !== null
-    ? conversationPairs.findIndex((p) => p.customerEmail.id === selectedPairId)
+    ? conversationPairs.findIndex((pair) => pair.customerEmail.id === selectedPairId)
     : -1;
   const effectiveCurrentIndex = explicitIndex >= 0 ? explicitIndex : conversationPairs.length - 1;
 
@@ -236,11 +236,11 @@ export const MessageThread = ({
                         onMessageClick(pair.customerEmail.id);
                       }
                     }}
-                    onKeyDown={(e) => {
+                    onKeyDown={(event) => {
                       if (
                         !isCurrentMessage &&
                         onMessageClick &&
-                        (e.key === 'Enter' || e.key === ' ')
+                        (event.key === 'Enter' || event.key === ' ')
                       ) {
                         e.preventDefault();
                         onMessageClick(pair.customerEmail.id);

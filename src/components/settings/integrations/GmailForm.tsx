@@ -68,7 +68,7 @@ export const GmailForm = ({
           <input
             type="checkbox"
             checked={config.isKnowledgeBase ?? false}
-            onChange={(e) => onConfigChange({ ...config, isKnowledgeBase: e.target.checked })}
+            onChange={(event) => onConfigChange({ ...config, isKnowledgeBase: event.target.checked })}
             className="rounded"
           />
           <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
@@ -113,7 +113,7 @@ export const GmailForm = ({
             id="maxResults"
             type="number"
             value={maxResultsInput}
-            onChange={(e) => onMaxResultsChange(e.target.value)}
+            onChange={(event) => onMaxResultsChange(event.target.value)}
             onBlur={onMaxResultsBlur}
             className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
             placeholder="500"
@@ -137,7 +137,7 @@ export const GmailForm = ({
                 id="pollingMaxPages"
                 type="number"
                 value={pollingPagesInput}
-                onChange={(e) => onPollingPagesChange(e.target.value)}
+                onChange={(event) => onPollingPagesChange(event.target.value)}
                 onBlur={onPollingPagesBlur}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="50"
@@ -183,7 +183,7 @@ export const GmailForm = ({
                 id="bulkImportMaxResults"
                 type="number"
                 value={bulkImportMaxResultsInput}
-                onChange={(e) => onBulkImportMaxResultsChange(e.target.value)}
+                onChange={(event) => onBulkImportMaxResultsChange(event.target.value)}
                 onBlur={onBulkImportMaxResultsBlur}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 placeholder="500"

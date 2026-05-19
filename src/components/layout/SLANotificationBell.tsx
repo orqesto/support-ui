@@ -17,25 +17,24 @@ const typeLabel = (type: SLABreachNotification['type']): string => {
 
 const formatBreachAmount = (minutes: number): string => {
   if (minutes < 60) return `${minutes}m over`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m over` : `${h}h over`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m over` : `${hours}h over`;
 };
 
 const NotificationItem = ({
-  n,
+  notification,
   onDismiss,
 }: {
-  n: SLABreachNotification;
+  notification: SLABreachNotification;
   onDismiss: (id: number) => void;
 }) => {
-  const isCritical = n.severity === 'critical';
-  const href = n.type === 'message' ? `/messages/${n.entityId}` : `/tickets/${n.entityId}`;
+  const isCritical = notification.severity === 'critical';
+  const href = notification.type === 'message' ? `/messages/${notification.entityId}` : `/tickets/${notification.entityId}`;
   return (
-    <Link
-      to={href}
+    <div
       className={cn(
-        'flex gap-3 items-start p-3 text-sm rounded-lg border no-underline hover:opacity-90 transition-opacity',
+        'relative flex gap-3 items-start p-3 text-sm rounded-lg border transition-opacity hover:opacity-90',
         isCritical
           ? 'bg-red-50 border-red-200 dark:border-red-900 dark:bg-red-950/30'
           : 'bg-amber-50 border-amber-200 dark:border-amber-900 dark:bg-amber-950/30'
@@ -46,7 +45,7 @@ const NotificationItem = ({
       />
       <div className="flex-1 min-w-0">
         <div className="flex gap-2 justify-between items-center">
-          <span className="font-medium text-foreground">{typeLabel(n.type)}</span>
+          <span className="font-medium text-foreground">{typeLabel(notification.type)}</span>
           <div className="flex gap-1 items-center shrink-0">
             <span
               className={cn(
@@ -56,15 +55,12 @@ const NotificationItem = ({
                   : 'text-amber-600 dark:text-amber-400'
               )}
             >
-              {formatBreachAmount(n.breachAmount)}
+              {formatBreachAmount(notification.breachAmount)}
             </span>
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDismiss(n.id);
-              }}
-              className="flex justify-center items-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
+              onClick={() => onDismiss(notification.id)}
+              className="relative z-[2] flex justify-center items-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
               title="Dismiss"
             >
               <X className="w-3 h-3" />
@@ -72,20 +68,22 @@ const NotificationItem = ({
           </div>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground">
-          {n.details.title ?? n.details.subject ?? n.details.sender}
+          {notification.details.title ?? notification.details.subject ?? notification.details.sender}
         </p>
         <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">
-          {n.details.channel && <span className="capitalize">{n.details.channel}</span>}
-          {n.details.priority && <span className="capitalize">{n.details.priority} priority</span>}
+          {notification.details.channel && <span className="capitalize">{notification.details.channel}</span>}
+          {notification.details.priority && <span className="capitalize">{notification.details.priority} priority</span>}
           <span className="flex gap-1 items-center ml-auto">
             <Clock className="w-3 h-3" />
-            {n.details.targetMinutes !== null && n.details.targetMinutes !== undefined
-              ? `SLA: ${n.details.targetMinutes < 60 ? `${n.details.targetMinutes}m` : `${Math.round(n.details.targetMinutes / 60)}h`}`
+            {notification.details.targetMinutes !== null && notification.details.targetMinutes !== undefined
+              ? `SLA: ${notification.details.targetMinutes < 60 ? `${notification.details.targetMinutes}m` : `${Math.round(notification.details.targetMinutes / 60)}h`}`
               : ''}
           </span>
         </div>
       </div>
-    </Link>
+      {/* Link overlay last in DOM — stacks above non-positioned content, below the dismiss button */}
+      <Link to={href} className="absolute inset-0 z-[1] rounded-lg" aria-label={typeLabel(notification.type)} />
+    </div>
   );
 };
 
@@ -98,12 +96,12 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, fetchEr
   // Close when clicking outside
   useEffect(() => {
     if (!open) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (event: MouseEvent) => {
       if (
         panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
+        !panelRef.current.contains(event.target as Node) &&
         buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
+        !buttonRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
       }
@@ -198,10 +196,10 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, fetchEr
               <p className="py-6 text-sm text-center text-muted-foreground">No SLA alerts</p>
             ) : (
               <>
-                {notifications.map((n) => (
+                {notifications.map((notif) => (
                   <NotificationItem
-                    key={`${n.type}-${n.id}-${n.receivedAt}`}
-                    n={n}
+                    key={`${notif.type}-${notif.id}-${notif.receivedAt}`}
+                    notification={notif}
                     onDismiss={dismiss}
                   />
                 ))}

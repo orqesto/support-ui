@@ -20,8 +20,8 @@ export const TwoFactorSettings = () => {
   useEffect(() => {
     twoFactorService
       .getStatus()
-      .then((s) => setEnabled(s.enabled))
-      .catch((e: unknown) => logger.error('Failed to fetch 2FA status', e));
+      .then((status) => setEnabled(status.enabled))
+      .catch((err: unknown) => logger.error('Failed to fetch 2FA status', err));
   }, []);
 
   const handleStartSetup = async () => {
@@ -161,7 +161,7 @@ export const TwoFactorSettings = () => {
             placeholder="000000"
             maxLength={6}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
           />
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
@@ -184,7 +184,7 @@ export const TwoFactorSettings = () => {
             placeholder="000000"
             maxLength={6}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
           />
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={handleCancel}>

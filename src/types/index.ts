@@ -43,6 +43,7 @@ export type Message = {
   threadId?: string | null;
   processingError?: string | null;
   createdAt: string;
+  updatedAt?: string;
   metadata?: Record<string, unknown>;
   rawData?: Record<string, unknown>;
   // AI model tracking

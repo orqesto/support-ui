@@ -3,9 +3,6 @@ import {
   ExternalLink as ExternalLinkIcon,
   Send,
   Trash2,
-  User,
-  Calendar,
-  Mail,
   Link as LinkIcon,
   Maximize2,
   Tag,
@@ -14,9 +11,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
-import { ScrollButtons } from '@/components/shared/ScrollButtons';
-import { TicketAttachments } from './TicketAttachments';
-import { TicketComments } from './TicketComments';
+import { TicketPanelTabs } from './TicketPanelTabs';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -86,8 +81,8 @@ export const TicketDetail = ({
 
   useEffect(() => {
     if (!showLabelPicker) return;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (labelPickerRef.current && !labelPickerRef.current.contains(e.target as Node)) {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (labelPickerRef.current && !labelPickerRef.current.contains(event.target as Node)) {
         setShowLabelPicker(false);
       }
     };
@@ -133,15 +128,15 @@ export const TicketDetail = ({
       labelService.getLabels(),
     ])
       .then(([tl, al]) => { setTicketLabels(tl); setAllLabels(al); })
-      .catch((e) => { logger.error(e); });
+      .catch((err) => { logger.error(err); });
   }, [ticket.id]);
 
   const handleToggleLabel = async (label: Label) => {
-    const assigned = ticketLabels.some((l) => l.id === label.id);
+    const assigned = ticketLabels.some((lbl) => lbl.id === label.id);
     try {
       if (assigned) {
         await labelService.removeLabelFromTicket(ticket.id, label.id);
-        setTicketLabels((prev) => prev.filter((l) => l.id !== label.id));
+        setTicketLabels((prev) => prev.filter((lbl) => lbl.id !== label.id));
       } else {
         await labelService.assignLabelToTicket(ticket.id, label.id);
         setTicketLabels((prev) => [...prev, label]);
@@ -155,8 +150,11 @@ export const TicketDetail = ({
     const fetchLinkedMessages = async () => {
       try {
         setLoadingMessages(true);
-        const response = await messageService.getAll({ ticketId: ticket.id.toString() });
-        setLinkedMessages(response.data ?? []);
+        const response = await messageService.getAll({ ticketId: ticket.id.toString() }, 1, 100);
+        const sorted = (response.data ?? []).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        setLinkedMessages(sorted);
       } catch (error) {
         logger.error('Error fetching linked messages:', error);
         setLinkedMessages([]);
@@ -172,9 +170,6 @@ export const TicketDetail = ({
 
   return (
     <div className="relative space-y-6">
-      {/* Only show ScrollButtons in drawer mode (not full-page, page has its own) */}
-      {!isFullPage && <ScrollButtons bottomTarget="[data-ticket-actions]" />}
-
       {/* Header Section */}
       <div className="space-y-4">
         <div>
@@ -197,7 +192,7 @@ export const TicketDetail = ({
               {hasManageTickets && !ticket.externalId ? (
                 <ReactSelect
                   value={localStatus}
-                  onChange={(v) => { setLocalStatus(v as TicketStatus); void handleFieldUpdate('status', v); }}
+                  onChange={(val) => { setLocalStatus(val as TicketStatus); void handleFieldUpdate('status', val); }}
                   options={[
                     { value: 'pending', label: 'Pending' },
                     { value: 'open', label: 'Open' },
@@ -216,7 +211,7 @@ export const TicketDetail = ({
               {hasManageTickets && !ticket.externalId ? (
                 <ReactSelect
                   value={localPriority}
-                  onChange={(v) => { setLocalPriority(v as TicketPriority); void handleFieldUpdate('priority', v); }}
+                  onChange={(val) => { setLocalPriority(val as TicketPriority); void handleFieldUpdate('priority', val); }}
                   options={[
                     { value: 'low', label: 'Low' },
                     { value: 'medium', label: 'Medium' },
@@ -234,10 +229,10 @@ export const TicketDetail = ({
               {hasManageTickets && !ticket.externalId ? (
                 <ReactSelect
                   value={localCategoryId}
-                  onChange={(v) => { setLocalCategoryId(v); void handleFieldUpdate('categoryId', v); }}
+                  onChange={(val) => { setLocalCategoryId(val); void handleFieldUpdate('categoryId', val); }}
                   options={[
                     { value: '', label: 'None' },
-                    ...categories.map((c) => ({ value: c.id.toString(), label: c.name })),
+                    ...categories.map((cat) => ({ value: cat.id.toString(), label: cat.name })),
                   ]}
                   className="min-w-[140px]"
                   isSearchable
@@ -271,7 +266,7 @@ export const TicketDetail = ({
                   size="sm"
                   variant="ghost"
                   className="h-6 px-1.5 text-xs"
-                  onClick={() => setShowLabelPicker((v) => !v)}
+                  onClick={() => setShowLabelPicker((val) => !val)}
                   title="Add label"
                 >
                   <Tag className="w-3 h-3 mr-1" />
@@ -280,7 +275,7 @@ export const TicketDetail = ({
                 {showLabelPicker && allLabels.length > 0 && (
                   <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-lg border bg-card shadow-md p-1">
                     {allLabels.map((label) => {
-                      const isAssigned = ticketLabels.some((l) => l.id === label.id);
+                      const isAssigned = ticketLabels.some((lbl) => lbl.id === label.id);
                       return (
                         <button
                           key={label.id}
@@ -317,35 +312,43 @@ export const TicketDetail = ({
         </div>
       </div>
 
-      {/* Info Grid */}
-      <div className="grid grid-cols-2 gap-4 pt-6 border-t">
-        <div>
-          <div className="flex gap-2 items-center mb-1 text-sm text-muted-foreground">
-            <User className="w-4 h-4" />
-            From
-          </div>
-          <p className="font-medium">{ticket.sender}</p>
-        </div>
+      {/* Meta strip — From, Created, Assigned */}
+      <div className="pt-4 border-t">
+        <div className="grid grid-cols-[80px_1fr] gap-x-4 gap-y-2.5 items-center">
+          <span className="font-mono text-[11px] tracking-wide uppercase text-muted-foreground">From</span>
+          <span className="text-sm font-medium truncate">{ticket.sender}</span>
 
-        <div>
-          <div className="flex gap-2 items-center mb-1 text-sm text-muted-foreground">
-            <Calendar className="w-4 h-4" />
-            Created
-          </div>
-          <p className="font-medium">{formatDate(ticket.createdAt)}</p>
+          <span className="font-mono text-[11px] tracking-wide uppercase text-muted-foreground">Created</span>
+          <span className="text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
+
+          <span className="font-mono text-[11px] tracking-wide uppercase text-muted-foreground self-center">Assigned</span>
+          <AssignmentSelect
+            type="ticket"
+            itemId={ticket.id}
+            currentAssigneeId={ticket.assigneeId}
+            onAssign={onRefresh}
+          />
         </div>
       </div>
 
-      {/* Assignment */}
-      <div className="pt-6 border-t">
-        <p className="mb-2 text-sm text-muted-foreground">Assigned to</p>
-        <AssignmentSelect
-          type="ticket"
-          itemId={ticket.id}
-          currentAssigneeId={ticket.assigneeId}
-          onAssign={onRefresh}
-          className="w-full"
-        />
+      {/* Action Bar */}
+      <div className="flex flex-wrap gap-2 pt-4 border-t">
+        <Button onClick={handleCopyLink} variant="outline" size="sm">
+          <LinkIcon className="mr-2 w-4 h-4" />
+          {linkCopied ? 'Link Copied!' : 'Copy Link'}
+        </Button>
+        {!ticket.externalId && onPushToJira && (
+          <Button onClick={onPushToJira} isLoading={isPushingToJira} size="sm">
+            <Send className="mr-2 w-4 h-4" />
+            Push to Jira
+          </Button>
+        )}
+        {onDelete && (
+          <Button onClick={onDelete} variant="destructive" size="sm">
+            <Trash2 className="mr-2 w-4 h-4" />
+            Delete
+          </Button>
+        )}
       </div>
 
       {/* Description */}
@@ -366,97 +369,13 @@ export const TicketDetail = ({
         />
       </div>
 
-      {/* Linked Messages */}
-      {!loadingMessages && linkedMessages.length > 0 && (
-        <div className="pt-6 border-t">
-          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-            Linked Messages ({linkedMessages.length})
-          </h3>
-          <div className="space-y-2">
-            {linkedMessages.map((message) => (
-              <div
-                key={message.id}
-                className="p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent"
-              >
-                <div className="flex gap-3 justify-between items-start">
-                  <div className="flex flex-1 gap-3 items-start min-w-0">
-                    <div className="p-2 rounded bg-blue-500/10 dark:bg-blue-500/10">
-                      <Mail className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex gap-2 items-center mb-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {message.channel}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(message.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium truncate">{message.sender}</p>
-                      {message.subject && (
-                        <p className="text-sm truncate text-muted-foreground">{message.subject}</p>
-                      )}
-                    </div>
-                  </div>
-                  <Link
-                    to={`/messages?id=${message.id}`}
-                    className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 whitespace-nowrap rounded transition-colors dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10"
-                  >
-                    View
-                    <ExternalLinkIcon className="w-3 h-3" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <TicketPanelTabs
+        ticketId={ticket.id}
+        hasJiraLink={!!ticket.externalId}
+        linkedMessages={linkedMessages}
+        loadingMessages={loadingMessages}
+      />
 
-      {/* Metadata */}
-      {ticket.metadata &&
-        (() => {
-          const { embedding, ...displayMetadata } = ticket.metadata;
-          return Object.keys(displayMetadata).length > 0 ? (
-            <div className="pt-6 border-t">
-              <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-                Additional Information
-              </h3>
-              <div className="p-4 rounded-lg bg-muted">
-                <pre className="overflow-auto text-xs">
-                  {JSON.stringify(displayMetadata, null, 2)}
-                </pre>
-              </div>
-            </div>
-          ) : null;
-        })()}
-
-      {/* Attachments (from Jira, Email, or Uploads) */}
-      <TicketAttachments ticketId={ticket.id} />
-
-      {/* Comments */}
-      <div className="pt-6 border-t">
-        <TicketComments ticketId={ticket.id} hasJiraLink={!!ticket.externalId} />
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 pt-6 border-t" data-ticket-actions>
-        <Button onClick={handleCopyLink} variant="outline" size="sm">
-          <LinkIcon className="mr-2 w-4 h-4" />
-          {linkCopied ? 'Link Copied!' : 'Copy Link'}
-        </Button>
-        {!ticket.externalId && onPushToJira && (
-          <Button onClick={onPushToJira} isLoading={isPushingToJira} className="flex-1">
-            <Send className="mr-2 w-4 h-4" />
-            Push to Jira
-          </Button>
-        )}
-        {onDelete && (
-          <Button onClick={onDelete} variant="destructive">
-            <Trash2 className="mr-2 w-4 h-4" />
-            Delete
-          </Button>
-        )}
-      </div>
     </div>
   );
 };

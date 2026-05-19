@@ -31,8 +31,8 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
 
     if (!email || !password || !firstName) {
@@ -128,7 +128,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             <Input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="user@example.com"
               required
             />
@@ -141,7 +141,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             <Input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimum 8 characters"
               required
               minLength={8}
@@ -156,7 +156,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
               <Input
                 type="text"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(event) => setFirstName(event.target.value)}
                 placeholder="John"
                 required
               />
@@ -167,7 +167,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
               <Input
                 type="text"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(event) => setLastName(event.target.value)}
                 placeholder="Doe"
               />
             </div>
@@ -178,7 +178,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             <Input
               type="text"
               value={position}
-              onChange={(e) => setPosition(e.target.value)}
+              onChange={(event) => setPosition(event.target.value)}
               placeholder="Support Agent"
             />
           </div>

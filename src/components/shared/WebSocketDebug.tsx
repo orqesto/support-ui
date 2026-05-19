@@ -10,11 +10,11 @@ export const WebSocketDebug = () => {
 
   // Aggregate stats from all sessions
   const allSessions = Array.from(sessions.values());
-  const isProcessing = allSessions.some((s) => s.isProcessing);
-  const total = allSessions.reduce((sum, s) => sum + s.total, 0);
-  const current = allSessions.reduce((sum, s) => sum + s.current, 0);
-  const processed = allSessions.reduce((sum, s) => sum + s.processed, 0);
-  const failed = allSessions.reduce((sum, s) => sum + s.failed, 0);
+  const isProcessing = allSessions.some((sess) => sess.isProcessing);
+  const total = allSessions.reduce((sum, sess) => sum + sess.total, 0);
+  const current = allSessions.reduce((sum, sess) => sum + sess.current, 0);
+  const processed = allSessions.reduce((sum, sess) => sum + sess.processed, 0);
+  const failed = allSessions.reduce((sum, sess) => sum + sess.failed, 0);
   const status = isProcessing ? 'processing' : 'idle';
 
   const connectionState = socket?.connected ? 'Connected ✅' : 'Disconnected ❌';

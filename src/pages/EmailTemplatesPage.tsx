@@ -182,7 +182,7 @@ export const EmailTemplatesPage = () => {
                     </CardTitle>
                     <CardDescription>
                       {selectedTemplate
-                        ? `Preview of ${TEMPLATES.find((t) => t.type === selectedTemplate)?.name}`
+                        ? `Preview of ${TEMPLATES.find((tmpl) => tmpl.type === selectedTemplate)?.name}`
                         : 'Select a template to preview'}
                     </CardDescription>
                   </div>

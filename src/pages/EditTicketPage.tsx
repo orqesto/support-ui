@@ -61,7 +61,7 @@ export const EditTicketPage = () => {
         logger.error('Failed to fetch labels:', error);
       });
       labelService.getTicketLabels(parseInt(id)).then((labels) => {
-        const ids = new Set(labels.map((l) => l.id));
+        const ids = new Set(labels.map((lbl) => lbl.id));
         setSelectedLabelIds(ids);
         setInitialLabelIds(ids);
       }).catch((error) => {
@@ -111,8 +111,8 @@ export const EditTicketPage = () => {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     if (!id) {
       return;
     }
@@ -223,7 +223,7 @@ export const EditTicketPage = () => {
               <Input
                 label="Title"
                 value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                onChange={(event) => setFormData((prev) => ({ ...prev, title: event.target.value }))}
                 disabled={!!ticket?.externalId}
                 required
               />
@@ -236,8 +236,8 @@ export const EditTicketPage = () => {
                   className="flex px-3 py-2 w-full text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   rows={6}
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, description: e.target.value }))
+                  onChange={(event) =>
+                    setFormData((prev) => ({ ...prev, description: event.target.value }))
                   }
                   disabled={!!ticket?.externalId}
                   required
@@ -299,9 +299,9 @@ export const EditTicketPage = () => {
                 onChange={(value) => setAssigneeId(value)}
                 options={[
                   { value: '', label: 'Unassigned' },
-                  ...assignableUsers.map((u) => ({
-                    value: String(u.id),
-                    label: `${u.firstName} ${u.lastName}`.trim(),
+                  ...assignableUsers.map((user) => ({
+                    value: String(user.id),
+                    label: `${user.firstName} ${user.lastName}`.trim(),
                   })),
                 ]}
                 isDisabled={!!ticket?.externalId}

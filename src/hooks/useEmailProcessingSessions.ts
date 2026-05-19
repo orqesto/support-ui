@@ -31,6 +31,7 @@ export type ProcessingSession = {
   kbQAPairs?: number;
   kbStandaloneKnowledge?: number;
   kbDocuments?: number;
+  linkedReplies?: number; // Sent folder replies linked to existing threads
   // KB message processing progress
   kbMessagesTotal?: number;
   kbMessagesProcessed?: number;

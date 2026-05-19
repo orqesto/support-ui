@@ -22,7 +22,7 @@ export function TicketsViewToggle({ displayMode, onModeChange }: Props) {
         type="button"
         onClick={() => {
           onModeChange('list');
-          setSearchParams((p) => { p.delete('mode'); return p; }, { replace: true });
+          setSearchParams((params) => { params.delete('mode'); return params; }, { replace: true });
         }}
         className={btnClass(displayMode === 'list')}
       >
@@ -32,7 +32,7 @@ export function TicketsViewToggle({ displayMode, onModeChange }: Props) {
         type="button"
         onClick={() => {
           onModeChange('kanban');
-          setSearchParams((p) => { p.set('mode', 'kanban'); return p; }, { replace: true });
+          setSearchParams((params) => { params.set('mode', 'kanban'); return params; }, { replace: true });
         }}
         className={btnClass(displayMode === 'kanban')}
       >

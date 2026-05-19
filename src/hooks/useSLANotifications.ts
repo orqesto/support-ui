@@ -78,8 +78,8 @@ export const useSLANotifications = () => {
   const fetchNotifications = useCallback(() => {
     apiClient
       .get('/api/notifications')
-      .then((r) => {
-        const payload = (r.data as { data: { notifications: NotificationRow[]; total: number } }).data;
+      .then((res) => {
+        const payload = (res.data as { data: { notifications: NotificationRow[]; total: number } }).data;
         const rows = payload.notifications;
         const totalCount = payload.total;
         const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
@@ -94,10 +94,10 @@ export const useSLANotifications = () => {
           createdAt: row.createdAt,
           receivedAt: Date.now(),
         }));
-        seenIds.current = new Set(loaded.map((n) => n.id));
+        seenIds.current = new Set(loaded.map((notif) => notif.id));
         setNotifications(loaded);
         setTotal(totalCount);
-        const unread = loaded.filter((n) => new Date(n.createdAt).getTime() > lastRead).length;
+        const unread = loaded.filter((notif) => new Date(notif.createdAt).getTime() > lastRead).length;
         setUnreadCount(unread);
         setFetchError(false);
       })
@@ -124,8 +124,8 @@ export const useSLANotifications = () => {
   useEffect(() => {
     apiClient
       .get('/api/users/me/notification-preferences')
-      .then((r) => {
-        const data = (r.data as { data?: Partial<UserPrefs> }).data;
+      .then((res) => {
+        const data = (res.data as { data?: Partial<UserPrefs> }).data;
         if (data) {
           prefsRef.current = { ...DEFAULT_PREFS, ...data };
           setOnlyAssignedToMeState(data.onlyAssignedToMe ?? false);
@@ -163,14 +163,14 @@ export const useSLANotifications = () => {
   const dismiss = useCallback((id: number) => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
     setNotifications((prev) => {
-      const target = prev.find((n) => n.id === id);
+      const target = prev.find((notif) => notif.id === id);
       if (target) {
         const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
         if (new Date(target.createdAt).getTime() > lastRead) {
-          setUnreadCount((c) => Math.max(0, c - 1));
+          setUnreadCount((count) => Math.max(0, count - 1));
         }
       }
-      return prev.filter((n) => n.id !== id);
+      return prev.filter((notif) => notif.id !== id);
     });
     // Keep id in seenIds so a re-broadcast doesn't re-add it
   }, []);

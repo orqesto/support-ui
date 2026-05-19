@@ -42,8 +42,8 @@ export const LoginPage = () => {
     }
   }, [location]);
 
-  const handleVerifyUser = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleVerifyUser = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
     setIsLoading(true);
 
@@ -56,7 +56,7 @@ export const LoginPage = () => {
 
       if (verifyResponse.success && verifyResponse.data) {
         setUserOrganizations(verifyResponse.data.organizations);
-        
+
         if (verifyResponse.data.organizations.length === 0) {
           setError('No organizations found for this user');
         } else if (verifyResponse.data.organizations.length === 1) {
@@ -67,9 +67,11 @@ export const LoginPage = () => {
         } else {
           // Multiple orgs - show org selector
           setStep('selectOrg');
-          setInfo(`Welcome! You have access to ${verifyResponse.data.organizations.length} organizations. Please select one to continue.`);
+          setInfo(
+            `Welcome! You have access to ${verifyResponse.data.organizations.length} organizations. Please select one to continue.`
+          );
         }
-        
+
         // Reset CAPTCHA after successful verification for fresh token on login
         turnstileRef.current?.reset();
         setCaptchaToken(null);
@@ -89,8 +91,8 @@ export const LoginPage = () => {
     }
   };
 
-  const handleSelectOrg = (e: FormEvent) => {
-    e.preventDefault();
+  const handleSelectOrg = (event: FormEvent) => {
+    event.preventDefault();
     if (!organizationSlug) {
       setError('Please select an organization');
       return;
@@ -100,8 +102,8 @@ export const LoginPage = () => {
     setInfo('Please enter your password.');
   };
 
-  const handleLogin = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
     setIsLoading(true);
 
@@ -142,8 +144,8 @@ export const LoginPage = () => {
     }
   };
 
-  const handleTotpVerify = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleTotpVerify = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
     setIsLoading(true);
     try {
@@ -203,19 +205,17 @@ export const LoginPage = () => {
                 type="email"
                 placeholder="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 required
               />
             )}
             {step === 'selectOrg' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Organization
-                </label>
+                <label className="text-sm font-medium text-foreground">Organization</label>
                 <select
                   value={organizationSlug}
-                  onChange={(e) => setOrganizationSlug(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={(event) => setOrganizationSlug(event.target.value)}
+                  className="px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 >
                   <option value="" disabled>
@@ -245,7 +245,7 @@ export const LoginPage = () => {
                   placeholder="000000"
                   maxLength={6}
                   value={totpCode}
-                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                  onChange={(event) => setTotpCode(event.target.value.replace(/\D/g, ''))}
                   required
                 />
               </div>
@@ -258,7 +258,7 @@ export const LoginPage = () => {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(event) => setPassword(event.target.value)}
                     required
                   />
                   <button
@@ -318,10 +318,6 @@ export const LoginPage = () => {
             </div>
             <div className="py-2 text-sm text-center text-muted-foreground">
               Don&apos;t have an account? Contact your administrator for an invitation.
-            </div>
-            <div className="py-2 mt-4 text-sm text-center text-muted-foreground">
-              <p>Demo credentials:</p>
-              <p className="font-medium">support@arasaka.com / password123</p>
             </div>
           </form>
         </CardContent>

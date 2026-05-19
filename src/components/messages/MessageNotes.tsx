@@ -27,8 +27,8 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       try {
         const payload = JSON.parse(atob(token.split('.')[1])) as { userId: number };
         setCurrentUserId(payload.userId);
-      } catch (e) {
-        logger.error('Failed to parse token:', e);
+      } catch (err) {
+        logger.error('Failed to parse token:', err);
       }
     }
   }, []);
@@ -83,7 +83,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       const response = await messageService.updateNote(messageId, noteId, editContent.trim());
       if (response.success) {
         setNotes((prev) =>
-          prev.map((n) => (n.id === noteId ? { ...n, content: editContent.trim() } : n))
+          prev.map((note) => (note.id === noteId ? { ...note, content: editContent.trim() } : note))
         );
         setEditingId(null);
         setEditContent('');
@@ -98,7 +98,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       setDeletingId(noteId);
       const response = await messageService.deleteNote(messageId, noteId);
       if (response.success) {
-        setNotes((prev) => prev.filter((n) => n.id !== noteId));
+        setNotes((prev) => prev.filter((note) => note.id !== noteId));
       }
     } catch (error) {
       logger.error('Failed to delete note:', error);
@@ -170,13 +170,13 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                   <div className="space-y-2 mt-1">
                     <textarea
                       value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
+                      onChange={(event) => setEditContent(event.target.value)}
                       rows={3}
                       autoFocus
                       className="w-full px-3 py-2 text-sm rounded-md border resize-none bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleSaveEdit(note.id);
-                        if (e.key === 'Escape') handleCancelEdit();
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void handleSaveEdit(note.id);
+                        if (event.key === 'Escape') handleCancelEdit();
                       }}
                     />
                     <div className="flex gap-1 justify-end">
@@ -207,13 +207,13 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       <div className="flex gap-2 pt-2">
         <textarea
           value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
+          onChange={(event) => setNewNote(event.target.value)}
           placeholder="Add an internal note..."
           rows={2}
           disabled={isSubmitting}
           className="flex-1 px-3 py-2 text-sm rounded-md border resize-none bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
               void handleAddNote();
             }
           }}

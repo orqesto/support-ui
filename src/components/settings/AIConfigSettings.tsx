@@ -39,18 +39,18 @@ export const AIConfigSettings = () => {
       </div>
 
       <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {sections.map((s) => (
+        {sections.map((sect) => (
           <button
-            key={s.id}
-            onClick={() => setActive(s.id)}
+            key={sect.id}
+            onClick={() => setActive(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               active === s.id
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
             }`}
-            title={s.description}
+            title={sect.description}
           >
-            {s.label}
+            {sect.label}
           </button>
         ))}
       </div>

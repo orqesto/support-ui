@@ -28,9 +28,9 @@ export function ThreadBubble({ content, isAgent }: { content: string; isAgent: b
       {render(main)}
       {quote && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowQuote((v) => !v);
+          onClick={(event) => {
+            event.stopPropagation();
+            setShowQuote((val) => !val);
           }}
           className={`text-[10px] mt-1.5 flex items-center gap-0.5 transition-opacity ${
             isAgent

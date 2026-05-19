@@ -200,7 +200,7 @@ export const KnowledgeDetectionRulesSettings = () => {
 
   const categoryStats = CATEGORIES.map((cat) => ({
     ...cat,
-    count: rules.filter((r) => r.category === cat.value && r.active).length,
+    count: rules.filter((rule) => rule.category === cat.value && rule.active).length,
   }));
 
   return (
@@ -406,7 +406,7 @@ export const KnowledgeDetectionRulesSettings = () => {
                 id="name"
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="e.g., pricing_information"
               />
@@ -419,7 +419,7 @@ export const KnowledgeDetectionRulesSettings = () => {
               <textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="Describe what this rule detects..."
                 rows={2}
@@ -447,8 +447,8 @@ export const KnowledgeDetectionRulesSettings = () => {
                   min="0"
                   max="100"
                   value={formData.confidence}
-                  onChange={(e) =>
-                    setFormData({ ...formData, confidence: parseInt(e.target.value) || 0 })
+                  onChange={(event) =>
+                    setFormData({ ...formData, confidence: parseInt(event.target.value) || 0 })
                   }
                   className="px-3 py-2 w-full rounded-md border bg-background"
                 />
@@ -462,7 +462,7 @@ export const KnowledgeDetectionRulesSettings = () => {
               <textarea
                 id="exampleText"
                 value={formData.exampleText}
-                onChange={(e) => setFormData({ ...formData, exampleText: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, exampleText: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="Provide an example of text this rule should detect (used for semantic matching)..."
                 rows={4}
@@ -480,7 +480,7 @@ export const KnowledgeDetectionRulesSettings = () => {
                 id="pattern"
                 type="text"
                 value={formData.pattern}
-                onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, pattern: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="Optional regex pattern or keywords"
               />
@@ -491,7 +491,7 @@ export const KnowledgeDetectionRulesSettings = () => {
                 type="checkbox"
                 id="active"
                 checked={formData.active}
-                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
                 className="rounded"
               />
               <label htmlFor="active" className="text-sm">

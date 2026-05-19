@@ -39,7 +39,7 @@ export const AssignmentSelect = ({
   }, [departmentRole, skillFilter]);
 
   useEffect(() => {
-    fetchUsers().catch((e) => { logger.error(e); });
+    fetchUsers().catch((err) => { logger.error(err); });
   }, [fetchUsers]);
 
   const handleAssign = async (value: string) => {

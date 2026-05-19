@@ -14,8 +14,8 @@ export const SLAOverviewCards = () => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Card key={`skeleton-${i}`} className="hover:shadow-md transition-shadow">
+        {Array.from({ length: 4 }, (_, idx) => (
+          <Card key={`skeleton-${idx}`} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </CardHeader>
@@ -63,7 +63,11 @@ export const SLAOverviewCards = () => {
           <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
             {data.messages.avgResponseTime !== null && data.messages.avgResponseTime !== undefined ? `${data.messages.avgResponseTime}m` : '\u2014'}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {data.messages.avgResponsePeriodDays !== null && data.messages.avgResponsePeriodDays !== undefined
+              ? `Last ${data.messages.avgResponsePeriodDays === 1 ? '24 hours' : `${data.messages.avgResponsePeriodDays} days`}`
+              : 'No data yet'}
+          </p>
         </CardContent>
       </Card>
 

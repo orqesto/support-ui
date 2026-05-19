@@ -14,8 +14,8 @@ export const BillingOverviewCards = () => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Card key={`skeleton-${i}`} className="hover:shadow-md transition-shadow">
+        {Array.from({ length: 4 }, (_, idx) => (
+          <Card key={`skeleton-${idx}`} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </CardHeader>

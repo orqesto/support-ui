@@ -349,7 +349,7 @@ export const OrganizationPage = () => {
                   <input
                     type="text"
                     value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
                     placeholder="Enter organization name"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   />
@@ -360,7 +360,7 @@ export const OrganizationPage = () => {
                   </label>
                   <textarea
                     value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     rows={3}
                     placeholder="Enter organization description"

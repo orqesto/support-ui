@@ -111,8 +111,8 @@ describe('InboxSmoke', () => {
     const { container } = render(
       <MemoryRouter>
         <div data-testid="message-list">
-          {threads.map((t) => (
-            <MessageListItem key={t.threadId} thread={t} onOpen={onOpen} />
+          {threads.map((thread) => (
+            <MessageListItem key={thread.threadId} thread={thread} onOpen={onOpen} />
           ))}
         </div>
       </MemoryRouter>

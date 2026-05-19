@@ -53,10 +53,10 @@ export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) =
   if (!data) return null;
 
   // Full outer join: include periods that appear in either messages or tickets
-  const messagesByPeriod = new Map(data.messages.map((m) => [m.period, m]));
-  const ticketsByPeriod = new Map(data.tickets.map((t) => [t.period, t]));
+  const messagesByPeriod = new Map(data.messages.map((msg) => [msg.period, msg]));
+  const ticketsByPeriod = new Map(data.tickets.map((tick) => [tick.period, tick]));
   const allPeriods = [
-    ...new Set([...data.messages.map((m) => m.period), ...data.tickets.map((t) => t.period)]),
+    ...new Set([...data.messages.map((msg) => msg.period), ...data.tickets.map((tick) => tick.period)]),
   ].sort();
   const chartData = allPeriods.map((period) => {
     const msg = messagesByPeriod.get(period);

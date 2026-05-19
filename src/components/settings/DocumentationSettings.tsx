@@ -139,24 +139,24 @@ export const DocumentationSettings = () => {
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files || []);
+    const files = Array.from(event.dataTransfer.files || []);
     const validTypes = ['.pdf', '.txt', '.md', '.docx', '.doc', '.xlsx', '.xls', '.csv'];
     const validFiles = files.filter((file) => {
       const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
@@ -169,7 +169,7 @@ export const DocumentationSettings = () => {
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const handleUpload = async () => {
@@ -324,7 +324,7 @@ export const DocumentationSettings = () => {
     try {
       const updatedDoc = await documentationService.toggleEnabled(doc.id, !doc.enabled);
       setDocs((prev: Documentation[]) =>
-        prev.map((d: Documentation) => (d.id === doc.id ? updatedDoc : d))
+        prev.map((docItem: Documentation) => (docItem.id === doc.id ? updatedDoc : docItem))
       );
     } catch (error) {
       logger.error('Failed to toggle documentation enabled status:', error);

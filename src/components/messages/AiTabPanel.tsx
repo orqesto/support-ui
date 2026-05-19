@@ -18,13 +18,27 @@ type Analysis = {
   summary?: string;
 };
 
+type KBSourceRef = {
+  type: string;
+  id: number;
+  title?: string;
+  similarity: number;
+  parentDocId?: number;
+};
+
 type SuggestedAnswer = {
   answer: string;
   confidence?: number;
-  source?: 'documentation' | 'similar_ticket' | 'similar_message' | 'lead_qualification' | 'lead_qualification_kb';
+  source?:
+    | 'documentation'
+    | 'similar_ticket'
+    | 'similar_message'
+    | 'lead_qualification'
+    | 'lead_qualification_kb';
   similarMessageId?: number;
   referencedChunks?: number[];
   documentationId?: number;
+  kbSources?: KBSourceRef[];
 };
 
 type AutoReply = { sent?: boolean };
@@ -32,7 +46,8 @@ type AutoReply = { sent?: boolean };
 type KBReference = { documentationId: number; documentTitle: string; similarity: number };
 
 type ChunkReference = { chunkId: number; chunkIndex: number; metadata: unknown };
-const isKBReference = (r: KBReference | ChunkReference): r is KBReference => 'documentationId' in r;
+const isKBReference = (ref: KBReference | ChunkReference): ref is KBReference =>
+  'documentationId' in ref;
 
 type SimilarResult = {
   messageId?: number;
@@ -60,11 +75,12 @@ type ReplyOption = {
   subject?: string | null;
   sender?: string;
   references?: KBReference[] | ChunkReference[];
+  kbSources?: KBSourceRef[];
 };
 
 type Props = {
   message: Message;
-  onGhostClick: (answer: string) => void;
+  onGhostClick: (answer: string, source: string) => void;
   onOptionSelect?: (answer: string, label: string, type: ReplyOption['type']) => void;
   onOptionsLoaded?: (total: number) => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -76,20 +92,33 @@ type Props = {
 
 // Session-scoped cache: survives remount (inbox → full page nav) but cleared on refresh.
 export const similarResultsCache = new Map<number, SimilarResult[]>();
+const similarResultsInFlight = new Map<number, Promise<SimilarResult[]>>();
 
 const PILL_BASE: Record<ReplyOption['type'], string> = {
   lead: 'text-violet-600 border-violet-200 bg-violet-50 dark:text-violet-400 dark:border-violet-800/50 dark:bg-violet-950/20',
-  documentation: 'text-sky-600 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
-  similar: 'text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/50 dark:bg-amber-950/20',
+  documentation:
+    'text-sky-600 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
+  similar:
+    'text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/50 dark:bg-amber-950/20',
 };
 
 const PILL_ACTIVE: Record<ReplyOption['type'], string> = {
   lead: 'text-violet-700 border-violet-500 bg-violet-100 ring-1 ring-violet-400/50 dark:text-violet-300 dark:border-violet-500 dark:bg-violet-900/40',
-  documentation: 'text-sky-700 border-sky-500 bg-sky-100 ring-1 ring-sky-400/50 dark:text-sky-300 dark:border-sky-500 dark:bg-sky-900/40',
-  similar: 'text-amber-700 border-amber-500 bg-amber-100 ring-1 ring-amber-400/50 dark:text-amber-300 dark:border-amber-500 dark:bg-amber-900/40',
+  documentation:
+    'text-sky-700 border-sky-500 bg-sky-100 ring-1 ring-sky-400/50 dark:text-sky-300 dark:border-sky-500 dark:bg-sky-900/40',
+  similar:
+    'text-amber-700 border-amber-500 bg-amber-100 ring-1 ring-amber-400/50 dark:text-amber-300 dark:border-amber-500 dark:bg-amber-900/40',
 };
 
-export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoaded, onLoadingChange, onAutoSuggest, section }: Props) {
+export function AiTabPanel({
+  message,
+  onGhostClick,
+  onOptionSelect,
+  onOptionsLoaded,
+  onLoadingChange,
+  onAutoSuggest,
+  section,
+}: Props) {
   const spamCheck = getSpamCheck(message);
   const analysis = message.metadata?.analysis as Analysis | undefined;
   const suggestedAnswer = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
@@ -97,10 +126,13 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
 
   const [similarResults, setSimilarResults] = useState<SimilarResult[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
-  useEffect(() => { onLoadingChange?.(loadingSimilar); }, [loadingSimilar, onLoadingChange]);
+  useEffect(() => {
+    onLoadingChange?.(loadingSimilar);
+  }, [loadingSimilar, onLoadingChange]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewOriginal, setViewOriginal] = useState<ReplyOption | null>(null);
   const [viewKBSources, setViewKBSources] = useState<ReplyOption | null>(null);
+  const [viewLeadSources, setViewLeadSources] = useState<ReplyOption | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +140,7 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
     setSelectedId(null);
     setViewOriginal(null);
     setViewKBSources(null);
+    setViewLeadSources(null);
 
     const applyResults = (data: SimilarResult[]) => {
       if (cancelled) return;
@@ -136,11 +169,20 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       (async () => {
         try {
-          const res = await messageService.getSimilarResolvedMessages(message.id, 3, 0.75);
-          if (res.success && res.data) {
-            similarResultsCache.set(message.id, res.data);
-            applyResults(res.data);
+          let inflight = similarResultsInFlight.get(message.id);
+          if (!inflight) {
+            inflight = messageService
+              .getSimilarResolvedMessages(message.id, 3, 0.75)
+              .then((res) => {
+                const data = res.success && res.data ? res.data : [];
+                similarResultsCache.set(message.id, data);
+                similarResultsInFlight.delete(message.id);
+                return data;
+              });
+            similarResultsInFlight.set(message.id, inflight);
           }
+          const data = await inflight;
+          applyResults(data);
         } catch (err) {
           logger.error('Failed to load similar results:', err);
         } finally {
@@ -149,8 +191,10 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
       })();
     }
 
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.id]); // intentionally keyed on message.id only — callbacks are stable refs
 
   const options: ReplyOption[] = [];
@@ -161,11 +205,15 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
       suggestedAnswer.source === 'lead_qualification_kb';
     const isDocs = suggestedAnswer.source === 'documentation';
     const matchingResult = suggestedAnswer.similarMessageId
-      ? similarResults.find((r) => r.messageId === suggestedAnswer.similarMessageId)
+      ? similarResults.find((result) => result.messageId === suggestedAnswer.similarMessageId)
       : undefined;
+    const leadKBDocSource = suggestedAnswer.kbSources?.find((src) => src.type === 'documentation');
     options.push({
       id: 'suggested',
       label: isLead ? 'LEAD' : isDocs ? 'DOCS' : 'AI',
+      sublabel: suggestedAnswer.confidence
+        ? `${Math.round(suggestedAnswer.confidence * 100)}%`
+        : undefined,
       answer: suggestedAnswer.answer,
       type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
       documentationId: isDocs
@@ -175,27 +223,30 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
       content: matchingResult?.content,
       subject: matchingResult?.subject,
       sender: matchingResult?.sender,
+      kbSources:
+        isLead && suggestedAnswer.kbSources?.length ? suggestedAnswer.kbSources : undefined,
+      documentTitle: isLead ? leadKBDocSource?.title : undefined,
     });
   }
 
-  similarResults.forEach((r, i) => {
+  similarResults.forEach((result, idx) => {
     options.push({
-      id: `sim-${i}`,
-      label: r.source === 'documentation' ? 'KB' : 'MSG',
-      sublabel: `${Math.round(r.similarity * 100)}%`,
-      answer: r.directReply,
-      type: r.source === 'documentation' ? 'documentation' : 'similar',
-      documentationId: r.documentationId,
-      documentTitle: r.documentTitle,
-      messageId: r.messageId,
-      content: r.content,
-      subject: r.subject,
-      sender: r.sender,
-      references: r.references,
+      id: `sim-${idx}`,
+      label: result.source === 'documentation' ? 'KB' : 'MSG',
+      sublabel: `${Math.round(result.similarity * 100)}%`,
+      answer: result.directReply,
+      type: result.source === 'documentation' ? 'documentation' : 'similar',
+      documentationId: result.documentationId,
+      documentTitle: result.documentTitle,
+      messageId: result.messageId,
+      content: result.content,
+      subject: result.subject,
+      sender: result.sender,
+      references: result.references,
     });
   });
 
-  const activeOption = options.find((o) => o.id === selectedId) ?? options[0];
+  const activeOption = options.find((opt) => opt.id === selectedId) ?? options[0];
 
   return (
     <div className="space-y-1.5">
@@ -210,7 +261,16 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
             <p className={`${MONO} text-muted-foreground`}>SUGGESTED REPLY</p>
             {!loadingSimilar && activeOption && (
               <button
-                onClick={() => onGhostClick(activeOption.answer)}
+                onClick={() =>
+                  onGhostClick(
+                    activeOption.answer,
+                    activeOption.type === 'lead'
+                      ? 'lead_qualification'
+                      : activeOption.type === 'similar'
+                        ? 'message'
+                        : 'documentation'
+                  )
+                }
                 className="text-[10px] text-muted-foreground hover:text-foreground underline"
               >
                 Use
@@ -249,7 +309,9 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
 
           {options.length === 1 && activeOption && (
             <div className="mb-1">
-              <span className={`${MONO} px-1 py-0.5 rounded border text-[9px] ${PILL_BASE[activeOption.type]}`}>
+              <span
+                className={`${MONO} px-1 py-0.5 rounded border text-[9px] ${PILL_BASE[activeOption.type]}`}
+              >
                 {activeOption.label}
               </span>
             </div>
@@ -262,50 +324,89 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
               </p>
               {activeOption.documentationId && (
                 <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
-                  <BookOpen className="w-3 h-3 text-sky-500 flex-shrink-0" />
+                  <BookOpen className="flex-shrink-0 w-3 h-3 text-sky-500" />
                   {activeOption.references && activeOption.references.length > 1 ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setViewKBSources(activeOption); }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setViewKBSources(activeOption);
+                      }}
                       className="text-[10px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 truncate"
                     >
-                      {activeOption.documentTitle?.replace(/^Q:\s*/i, '').replace(/<[^>]+>/g, '').trim().slice(0, 80) ?? 'View sources'}
+                      {activeOption.documentTitle
+                        ?.replace(/^Q:\s*/i, '')
+                        .replace(/<[^>]+>/g, '')
+                        .trim()
+                        .slice(0, 80) ?? 'View sources'}
                     </button>
                   ) : (
                     <Link
                       to={`/knowledge-base?docId=${activeOption.documentationId}#documentation`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
                       className="text-[10px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 truncate"
                     >
                       {activeOption.documentTitle
-                        ? activeOption.documentTitle.replace(/^Q:\s*/i, '').replace(/<[^>]+>/g, '').trim().slice(0, 80)
+                        ? activeOption.documentTitle
+                            .replace(/^Q:\s*/i, '')
+                            .replace(/<[^>]+>/g, '')
+                            .trim()
+                            .slice(0, 80)
                         : 'View in Knowledge Base'}
                     </Link>
                   )}
                 </div>
               )}
-              {activeOption.messageId && activeOption.messageId > 0 && !activeOption.documentationId && (
-                <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1">
-                  <MessageSquare className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                  {activeOption.content ? (
+              {activeOption.kbSources &&
+                activeOption.kbSources.length > 0 &&
+                !activeOption.documentationId && (
+                  <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
+                    <BookOpen className="flex-shrink-0 w-3 h-3 text-violet-500" />
                     <button
-                      onClick={(e) => { e.stopPropagation(); setViewOriginal(activeOption); }}
-                      className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setViewLeadSources(activeOption);
+                      }}
+                      className="text-[10px] text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300 truncate"
                     >
-                      View original message
+                      {activeOption.kbSources.length === 1
+                        ? (activeOption.kbSources[0].title
+                            ?.replace(/^Q:\s*/i, '')
+                            .replace(/<[^>]+>/g, '')
+                            .trim()
+                            .slice(0, 80) ?? 'View source')
+                        : `Combined from ${activeOption.kbSources.length} sources (${Math.round((activeOption.kbSources.reduce((sum, source) => sum + source.similarity, 0) / activeOption.kbSources.length) * 100)}%)`}
                     </button>
-                  ) : (
-                    <Link
-                      to={`/messages/${activeOption.messageId}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
-                    >
-                      View original message
-                    </Link>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              {activeOption.messageId &&
+                activeOption.messageId > 0 &&
+                !activeOption.documentationId &&
+                !activeOption.kbSources && (
+                  <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1">
+                    <MessageSquare className="flex-shrink-0 w-3 h-3 text-amber-500" />
+                    {activeOption.content ? (
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setViewOriginal(activeOption);
+                        }}
+                        className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                      >
+                        View original message
+                      </button>
+                    ) : (
+                      <Link
+                        to={`/messages/${activeOption.messageId}`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                      >
+                        View original message
+                      </Link>
+                    )}
+                  </div>
+                )}
             </>
           )}
         </div>
@@ -317,7 +418,11 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
             <div className="rounded border border-border p-1.5">
               <p className={`${MONO} text-muted-foreground mb-0.5`}>CLASS</p>
               <p className="text-[11px] font-medium truncate">
-                {spamCheck.isSpam === false ? 'Legit' : spamCheck.isSpam === true ? 'Spam' : 'Unknown'}
+                {spamCheck.isSpam === false
+                  ? 'Legit'
+                  : spamCheck.isSpam === true
+                    ? 'Spam'
+                    : 'Unknown'}
               </p>
             </div>
           )}
@@ -342,7 +447,9 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
           {analysis?.needsMoreInfo !== undefined && (
             <div className="rounded border border-border p-1.5">
               <p className={`${MONO} text-muted-foreground mb-0.5`}>INFO</p>
-              <p className="text-[11px] font-medium">{analysis.needsMoreInfo ? 'Needs more' : 'Complete'}</p>
+              <p className="text-[11px] font-medium">
+                {analysis.needsMoreInfo ? 'Needs more' : 'Complete'}
+              </p>
             </div>
           )}
           {analysis?.suggestedPriority && (
@@ -371,8 +478,10 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
       {section !== 'suggested' && spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
         <div className="p-2 rounded border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/10">
           <p className={`mb-1 text-red-500 ${MONO}`}>RED FLAGS</p>
-          {spamCheck.redFlags.map((f: string) => (
-            <p key={f} className="text-[11px] text-red-600 dark:text-red-400">• {f}</p>
+          {spamCheck.redFlags.map((flag: string) => (
+            <p key={flag} className="text-[11px] text-red-600 dark:text-red-400">
+              • {flag}
+            </p>
           ))}
         </div>
       )}
@@ -380,8 +489,10 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
       {section !== 'suggested' && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
         <div className="p-2 rounded border border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/10">
           <p className={`mb-1 text-green-600 ${MONO}`}>GREEN FLAGS</p>
-          {spamCheck.greenFlags.map((f: string) => (
-            <p key={f} className="text-[11px] text-green-700 dark:text-green-400">• {f}</p>
+          {spamCheck.greenFlags.map((flag: string) => (
+            <p key={flag} className="text-[11px] text-green-700 dark:text-green-400">
+              • {flag}
+            </p>
           ))}
         </div>
       )}
@@ -391,7 +502,10 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
           messageId={message.id}
           open
           onClose={() => setViewKBSources(null)}
-          onSelectAnswer={(answer) => { onGhostClick(answer); setViewKBSources(null); }}
+          onSelectAnswer={(answer) => {
+            onGhostClick(answer, 'documentation');
+            setViewKBSources(null);
+          }}
           preloadedSources={viewKBSources.references.filter(isKBReference).map((ref) => ({
             content: '',
             directReply: viewKBSources.answer,
@@ -403,21 +517,49 @@ export function AiTabPanel({ message, onGhostClick, onOptionSelect, onOptionsLoa
         />
       )}
 
+      {viewLeadSources?.kbSources && viewLeadSources.kbSources.length > 0 && (
+        <SimilarMessagesDialog
+          messageId={message.id}
+          open
+          onClose={() => setViewLeadSources(null)}
+          onSelectAnswer={(answer) => {
+            onGhostClick(answer, 'lead_qualification');
+            setViewLeadSources(null);
+          }}
+          preloadedSources={viewLeadSources.kbSources
+            .filter((src) => src.type === 'documentation')
+            .map((src) => ({
+              content: '',
+              directReply: viewLeadSources.answer,
+              similarity: src.similarity,
+              source: 'documentation' as const,
+              documentTitle: src.title,
+              documentationId: src.parentDocId ?? src.id,
+            }))}
+          preloadedTitle="Lead KB Sources"
+        />
+      )}
+
       {viewOriginal && (
         <SimilarMessagesDialog
           messageId={message.id}
           open
           onClose={() => setViewOriginal(null)}
-          onSelectAnswer={(answer) => { onGhostClick(answer); setViewOriginal(null); }}
-          preloadedSources={[{
-            messageId: viewOriginal.messageId,
-            content: viewOriginal.content ?? '',
-            subject: viewOriginal.subject,
-            sender: viewOriginal.sender,
-            directReply: viewOriginal.answer,
-            similarity: parseFloat(viewOriginal.sublabel ?? '0') / 100,
-            source: 'message' as const,
-          }]}
+          onSelectAnswer={(answer) => {
+            onGhostClick(answer, 'message');
+            setViewOriginal(null);
+          }}
+          preloadedSources={[
+            {
+              messageId: viewOriginal.messageId,
+              content: viewOriginal.content ?? '',
+              subject: viewOriginal.subject,
+              sender: viewOriginal.sender,
+              directReply: viewOriginal.answer,
+              similarity: parseFloat(viewOriginal.sublabel ?? '0') / 100,
+              source: 'message' as const,
+            },
+          ]}
           preloadedTitle={viewOriginal.subject ?? 'Original Message'}
         />
       )}

@@ -71,47 +71,47 @@ export const LeadQualificationSettings = () => {
   };
 
   const toggleDept = (dept: string) => {
-    setConfig((c) => ({
-      ...c,
-      departments: c.departments.includes(dept)
-        ? c.departments.filter((d) => d !== dept)
-        : [...c.departments, dept],
+    setConfig((cfg) => ({
+      ...cfg,
+      departments: cfg.departments.includes(dept)
+        ? cfg.departments.filter((dep) => dep !== dept)
+        : [...cfg.departments, dept],
     }));
   };
 
   const toggleContactField = (field: OrgLeadConfig['requiredContactFields'][number]) => {
-    setConfig((c) => ({
-      ...c,
-      requiredContactFields: c.requiredContactFields.includes(field)
-        ? c.requiredContactFields.filter((f) => f !== field)
-        : [...c.requiredContactFields, field],
+    setConfig((cfg) => ({
+      ...cfg,
+      requiredContactFields: cfg.requiredContactFields.includes(field)
+        ? cfg.requiredContactFields.filter((fld) => fld !== field)
+        : [...cfg.requiredContactFields, field],
     }));
   };
 
   const addField = () => {
     if (!newField.key.trim() || !newField.label.trim()) return;
     const key = newField.key.trim().toLowerCase().replace(/\s+/g, '_');
-    if (config.qualificationFields.some((f) => f.key === key)) return;
-    setConfig((c) => ({
-      ...c,
-      qualificationFields: [...c.qualificationFields, { ...newField, key }],
+    if (config.qualificationFields.some((fld) => fld.key === key)) return;
+    setConfig((cfg) => ({
+      ...cfg,
+      qualificationFields: [...cfg.qualificationFields, { ...newField, key }],
     }));
     setNewField({ key: '', label: '', required: false });
     setAddingField(false);
   };
 
   const removeField = (key: string) => {
-    setConfig((c) => ({
-      ...c,
-      qualificationFields: c.qualificationFields.filter((f) => f.key !== key),
+    setConfig((cfg) => ({
+      ...cfg,
+      qualificationFields: cfg.qualificationFields.filter((fld) => fld.key !== key),
     }));
   };
 
   const updateField = (key: string, patch: Partial<LeadQualificationFieldConfig>) => {
-    setConfig((c) => ({
-      ...c,
-      qualificationFields: c.qualificationFields.map((f) =>
-        f.key === key ? { ...f, ...patch } : f
+    setConfig((cfg) => ({
+      ...cfg,
+      qualificationFields: cfg.qualificationFields.map((fld) =>
+        fld.key === key ? { ...fld, ...patch } : fld
       ),
     }));
   };
@@ -119,26 +119,26 @@ export const LeadQualificationSettings = () => {
   const addCategory = () => {
     if (!newCategory.key.trim() || !newCategory.label.trim()) return;
     const key = newCategory.key.trim().toLowerCase().replace(/\s+/g, '_');
-    if (config.categories.some((c) => c.key === key)) return;
-    setConfig((c) => ({
-      ...c,
-      categories: [...c.categories, { ...newCategory, key }],
+    if (config.categories.some((cat) => cat.key === key)) return;
+    setConfig((cfg) => ({
+      ...cfg,
+      categories: [...cfg.categories, { ...newCategory, key }],
     }));
     setNewCategory({ key: '', label: '', priority: 'medium', autoEscalate: false });
     setAddingCategory(false);
   };
 
   const removeCategory = (key: string) => {
-    setConfig((c) => ({
-      ...c,
-      categories: c.categories.filter((cat) => cat.key !== key),
+    setConfig((cfg) => ({
+      ...cfg,
+      categories: cfg.categories.filter((cat) => cat.key !== key),
     }));
   };
 
   const updateCategory = (key: string, patch: Partial<LeadCategoryConfig>) => {
-    setConfig((c) => ({
-      ...c,
-      categories: c.categories.map((cat) => (cat.key === key ? { ...cat, ...patch } : cat)),
+    setConfig((cfg) => ({
+      ...cfg,
+      categories: cfg.categories.map((cat) => (cat.key === key ? { ...cat, ...patch } : cat)),
     }));
   };
 
@@ -248,7 +248,7 @@ export const LeadQualificationSettings = () => {
           <input
             type="checkbox"
             checked={config.autoMarkNewSenders}
-            onChange={(e) => setConfig((c) => ({ ...c, autoMarkNewSenders: e.target.checked }))}
+            onChange={(event) => setConfig((cfg) => ({ ...cfg, autoMarkNewSenders: event.target.checked }))}
             className="rounded"
           />
           <div>
@@ -293,7 +293,7 @@ export const LeadQualificationSettings = () => {
                 <input
                   type="text"
                   value={field.label}
-                  onChange={(e) => updateField(field.key, { label: e.target.value })}
+                  onChange={(event) => updateField(field.key, { label: event.target.value })}
                   className="flex-1 px-2 py-1 text-sm rounded border bg-input"
                   placeholder="Label"
                 />
@@ -301,7 +301,7 @@ export const LeadQualificationSettings = () => {
                   <input
                     type="checkbox"
                     checked={field.required}
-                    onChange={(e) => updateField(field.key, { required: e.target.checked })}
+                    onChange={(event) => updateField(field.key, { required: event.target.checked })}
                     className="rounded"
                   />
                   Required
@@ -328,7 +328,7 @@ export const LeadQualificationSettings = () => {
                 <input
                   type="text"
                   value={newField.key}
-                  onChange={(e) => setNewField((f) => ({ ...f, key: e.target.value }))}
+                  onChange={(event) => setNewField((fld) => ({ ...fld, key: event.target.value }))}
                   className={inputCls}
                   placeholder="e.g. budget"
                 />
@@ -338,7 +338,7 @@ export const LeadQualificationSettings = () => {
                 <input
                   type="text"
                   value={newField.label}
-                  onChange={(e) => setNewField((f) => ({ ...f, label: e.target.value }))}
+                  onChange={(event) => setNewField((fld) => ({ ...fld, label: event.target.value }))}
                   className={inputCls}
                   placeholder="e.g. Budget range"
                 />
@@ -348,7 +348,7 @@ export const LeadQualificationSettings = () => {
               <input
                 type="checkbox"
                 checked={newField.required}
-                onChange={(e) => setNewField((f) => ({ ...f, required: e.target.checked }))}
+                onChange={(event) => setNewField((fld) => ({ ...fld, required: event.target.checked }))}
                 className="rounded"
               />
               Required before qualifying
@@ -409,22 +409,22 @@ export const LeadQualificationSettings = () => {
                 <input
                   type="text"
                   value={cat.label}
-                  onChange={(e) => updateCategory(cat.key, { label: e.target.value })}
+                  onChange={(event) => updateCategory(cat.key, { label: event.target.value })}
                   className="flex-1 px-2 py-1 text-sm rounded border bg-input"
                   placeholder="Label"
                 />
                 <select
                   value={cat.priority}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     updateCategory(cat.key, {
-                      priority: e.target.value as LeadCategoryConfig['priority'],
+                      priority: event.target.value as LeadCategoryConfig['priority'],
                     })
                   }
                   className="px-2 py-1 text-xs rounded border bg-input"
                 >
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
+                  {PRIORITY_OPTIONS.map((prio) => (
+                    <option key={prio} value={prio}>
+                      {prio}
                     </option>
                   ))}
                 </select>
@@ -432,7 +432,7 @@ export const LeadQualificationSettings = () => {
                   <input
                     type="checkbox"
                     checked={cat.autoEscalate ?? false}
-                    onChange={(e) => updateCategory(cat.key, { autoEscalate: e.target.checked })}
+                    onChange={(event) => updateCategory(cat.key, { autoEscalate: event.target.checked })}
                     className="rounded"
                   />
                   Auto-escalate
@@ -462,7 +462,7 @@ export const LeadQualificationSettings = () => {
                 <input
                   type="text"
                   value={newCategory.key}
-                  onChange={(e) => setNewCategory((c) => ({ ...c, key: e.target.value }))}
+                  onChange={(event) => setNewCategory((cat) => ({ ...cat, key: event.target.value }))}
                   className={inputCls}
                   placeholder="e.g. hot"
                 />
@@ -472,7 +472,7 @@ export const LeadQualificationSettings = () => {
                 <input
                   type="text"
                   value={newCategory.label}
-                  onChange={(e) => setNewCategory((c) => ({ ...c, label: e.target.value }))}
+                  onChange={(event) => setNewCategory((cat) => ({ ...cat, label: event.target.value }))}
                   className={inputCls}
                   placeholder="e.g. Hot Lead"
                 />
@@ -483,17 +483,17 @@ export const LeadQualificationSettings = () => {
                 <label className={labelCls}>Priority</label>
                 <select
                   value={newCategory.priority}
-                  onChange={(e) =>
-                    setNewCategory((c) => ({
-                      ...c,
-                      priority: e.target.value as LeadCategoryConfig['priority'],
+                  onChange={(event) =>
+                    setNewCategory((cat) => ({
+                      ...cat,
+                      priority: event.target.value as LeadCategoryConfig['priority'],
                     }))
                   }
                   className={inputCls}
                 >
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                  {PRIORITY_OPTIONS.map((prio) => (
+                    <option key={prio} value={prio}>
+                      {prio.charAt(0).toUpperCase() + prio.slice(1)}
                     </option>
                   ))}
                 </select>
@@ -503,8 +503,8 @@ export const LeadQualificationSettings = () => {
                   <input
                     type="checkbox"
                     checked={newCategory.autoEscalate ?? false}
-                    onChange={(e) =>
-                      setNewCategory((c) => ({ ...c, autoEscalate: e.target.checked }))
+                    onChange={(event) =>
+                      setNewCategory((cat) => ({ ...cat, autoEscalate: event.target.checked }))
                     }
                     className="rounded"
                   />

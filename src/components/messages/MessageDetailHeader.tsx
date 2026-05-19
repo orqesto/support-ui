@@ -82,8 +82,8 @@ export function MessageDetailHeader({
   useEffect(() => {
     categoryService
       .getAll()
-      .then((r) => {
-        if (r?.success && r.data) setCategories(r.data);
+      .then((result) => {
+        if (result?.success && result.data) setCategories(result.data);
       })
       .catch(() => {});
   }, []);
@@ -99,8 +99,8 @@ export function MessageDetailHeader({
 
   useEffect(() => {
     if (!showLabelPicker) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (target && !document.querySelector('[data-label-picker]')?.contains(target))
         setShowLabelPicker(false);
     };
@@ -115,8 +115,8 @@ export function MessageDetailHeader({
     }
     ticketService
       .getById(message.ticketId)
-      .then((r) => {
-        if (r?.data) setLinkedTicketStatus(r.data.status);
+      .then((result) => {
+        if (result?.data) setLinkedTicketStatus(result.data.status);
       })
       .catch(() => {});
   }, [message.ticketId]);
@@ -143,7 +143,17 @@ export function MessageDetailHeader({
     !isFiltered &&
     !isSuspicious &&
     message.status !== 'closed';
-  const currentStatus = message.status ?? 'open';
+  // System-set statuses have no dropdown entry — map to nearest user-facing equivalent for display
+  const STATUS_NORMALIZE: Record<string, ThreadStatus> = {
+    awaiting_response: 'in_progress',
+    client_replied: 'in_progress',
+    resolved: 'closed',
+    new: 'open',
+  };
+  const currentStatus: ThreadStatus =
+    (STATUS_NORMALIZE[message.status ?? ''] as ThreadStatus | undefined) ??
+    (message.status as ThreadStatus) ??
+    'open';
 
   const slaInfo = useMemo(() => {
     if (!message.slaResponseMinutes || message.isOutgoing) return null;
@@ -303,10 +313,10 @@ export function MessageDetailHeader({
 
   const handleToggleLabel = useCallback(
     async (label: Label) => {
-      const assigned = messageLabels.some((l) => l.id === label.id);
+      const assigned = messageLabels.some((lbl) => lbl.id === label.id);
       const prev = messageLabels;
       setMessageLabels(
-        assigned ? messageLabels.filter((l) => l.id !== label.id) : [...messageLabels, label]
+        assigned ? messageLabels.filter((lbl) => lbl.id !== label.id) : [...messageLabels, label]
       );
       try {
         if (assigned) await labelService.removeLabelFromMessage(message.id, label.id);
@@ -523,7 +533,7 @@ export function MessageDetailHeader({
           variant="chip"
           value={currentStatus}
           options={statusDisplayOptions}
-          onChange={(v) => void handleSetStatus(v as ThreadStatus)}
+          onChange={(val) => void handleSetStatus(val as ThreadStatus)}
           isDisabled={updatingStatus}
         />
         {slaInfo && (
@@ -545,7 +555,7 @@ export function MessageDetailHeader({
             variant="chip"
             value={message.priority}
             options={PRIORITY_OPTIONS}
-            onChange={(v) => void handleSetPriority(v as TicketPriority)}
+            onChange={(val) => void handleSetPriority(val as TicketPriority)}
             isDisabled={updatingPriority}
           />
         )}
@@ -565,7 +575,7 @@ export function MessageDetailHeader({
         )}
         <div className="relative ml-auto">
           <button
-            onClick={() => setMoreOpen((v) => !v)}
+            onClick={() => setMoreOpen((val) => !val)}
             className={`${CHIP_BASE} text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
             title="More actions"
           >
@@ -611,7 +621,7 @@ export function MessageDetailHeader({
         onAssign={onRefresh}
         onSetCategory={(id) => void handleSetCategory(id)}
         onToggleLabel={(label) => void handleToggleLabel(label)}
-        onToggleLabelPicker={() => setShowLabelPicker((v) => !v)}
+        onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
         onCloseLabelPicker={() => setShowLabelPicker(false)}
       />
     </div>

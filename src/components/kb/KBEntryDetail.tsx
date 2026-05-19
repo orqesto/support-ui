@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, Eye, EyeOff, Trash2, Edit } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, Trash2, Edit, Download, FileText, Image, Video, Volume2, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
@@ -14,9 +14,23 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
+import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 import { logger } from '@/lib/logger';
+
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
+const isImageFile = (filename: string) => IMAGE_EXTS.has(filename.split('.').pop()?.toLowerCase() ?? '');
+const getDownloadUrl = (id: number) => `${API_BASE_URL}/api/attachments/${id}/download?token=${getAuthToken()}`;
+
+const AttachmentFileIcon = ({ filename }: { filename: string }) => {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  const cls = 'w-4 h-4 text-muted-foreground';
+  if (IMAGE_EXTS.has(ext)) return <Image className={cls} />;
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return <Video className={cls} />;
+  if (['mp3', 'wav', 'ogg', 'aac'].includes(ext)) return <Volume2 className={cls} />;
+  return <FileText className={cls} />;
+};
 
 type KBEntryDetailProps = {
   entry: KBEntry | null;
@@ -97,12 +111,17 @@ export const KBEntryDetail = ({
     }
   };
 
-  if (loading || !entry) return null;
+  if (!entry) return null;
 
   const displayEntry = fullEntry ?? entry;
 
   return (
     <Drawer open={!!entry} onClose={onClose} title="Entry Details">
+      {loading ? (
+        <div className="flex flex-1 justify-center items-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex-none p-6 border-b">
@@ -244,20 +263,25 @@ export const KBEntryDetail = ({
                   (displayEntry.metadata as { originalFilename?: string })?.originalFilename;
 
                 if (typeof attachmentId === 'number' && typeof filename === 'string') {
-                  const handleDownload = async () => {
+                  const handleDownload = async (inline = false) => {
                     try {
                       const response = await apiClient.get<Blob>(
                         `/api/attachments/${attachmentId}/download`,
                         { responseType: 'blob' }
                       );
                       const url = URL.createObjectURL(response.data);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = filename;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      setTimeout(() => URL.revokeObjectURL(url), 100);
+                      if (inline) {
+                        window.open(url, '_blank');
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                      } else {
+                        const anchor = document.createElement('a');
+                        anchor.href = url;
+                        anchor.download = filename;
+                        document.body.appendChild(anchor);
+                        anchor.click();
+                        document.body.removeChild(anchor);
+                        setTimeout(() => URL.revokeObjectURL(url), 100);
+                      }
                     } catch (error) {
                       logger.error('Download failed:', error);
                     }
@@ -266,14 +290,41 @@ export const KBEntryDetail = ({
                   return (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Original File:</span>
-                      <div className="font-medium">
-                        <button
-                          type="button"
-                          onClick={handleDownload}
-                          className="inline-flex gap-2 items-center p-0 text-blue-600 bg-transparent border-none cursor-pointer hover:text-blue-700 hover:underline"
-                        >
-                          📎 {filename}
-                        </button>
+                      <div className="mt-1">
+                        <div className="group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors">
+                          <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center bg-muted/60 overflow-hidden">
+                            {isImageFile(filename) ? (
+                              <img
+                                src={getDownloadUrl(attachmentId)}
+                                alt={filename}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <AttachmentFileIcon filename={filename} />
+                            )}
+                          </div>
+                          <p className="flex-1 min-w-0 text-[11px] font-medium truncate">{filename}</p>
+                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            {isImageFile(filename) && (
+                              <button
+                                type="button"
+                                onClick={() => void handleDownload(true)}
+                                title="View"
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => void handleDownload()}
+                              title="Download"
+                              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -365,6 +416,7 @@ export const KBEntryDetail = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -386,7 +438,7 @@ export const KBEntryDetail = ({
               <Input
                 id="edit-title"
                 value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                onChange={(event) => setEditForm({ ...editForm, title: event.target.value })}
                 placeholder="Entry title"
               />
             </div>
@@ -397,7 +449,7 @@ export const KBEntryDetail = ({
               <Input
                 id="edit-category"
                 value={editForm.category}
-                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                onChange={(event) => setEditForm({ ...editForm, category: event.target.value })}
                 placeholder="Category"
               />
             </div>
@@ -408,7 +460,7 @@ export const KBEntryDetail = ({
               <Textarea
                 id="edit-content"
                 value={editForm.content}
-                onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                onChange={(event) => setEditForm({ ...editForm, content: event.target.value })}
                 placeholder="Entry content"
                 rows={10}
                 className="font-mono text-sm"

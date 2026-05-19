@@ -27,6 +27,7 @@ export const CreateTicketPage = () => {
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 
   const [message, setMessage] = useState<Message | null>(null);
+  const [threadMessageIds, setThreadMessageIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,9 +72,35 @@ export const CreateTicketPage = () => {
     });
   }, [messageId]);
 
+  // Match AI-suggested category once both suggestion and category list are ready
+  useEffect(() => {
+    if (!aiSuggestions.category || categories.length === 0 || formData.categoryId) return;
+    const matched = categories.find(
+      (cat) => cat.name.toLowerCase() === aiSuggestions.category!.toLowerCase()
+    );
+    if (matched) {
+      setFormData((prev) => ({ ...prev, categoryId: matched.id.toString() }));
+    } else {
+      setSuggestedNewCategory(aiSuggestions.category);
+    }
+  }, [aiSuggestions.category, categories, formData.categoryId]);
+
   const fetchMessage = async (id: number) => {
     try {
-      const response = await messageService.getById(id);
+      const [messageResult, threadResult] = await Promise.allSettled([
+        messageService.getById(id),
+        messageService.getThreadMessages(id),
+      ]);
+
+      if (messageResult.status === 'rejected' || !messageResult.value.success || !messageResult.value.data) {
+        return;
+      }
+
+      if (threadResult.status === 'fulfilled' && threadResult.value.success && threadResult.value.data && threadResult.value.data.length > 1) {
+        setThreadMessageIds(threadResult.value.data.map((msg) => msg.id));
+      }
+
+      const response = messageResult.value;
       if (response.success && response.data) {
         const data = response.data;
         setMessage(data);
@@ -86,8 +113,8 @@ export const CreateTicketPage = () => {
             }
           | undefined;
 
-        // Track AI suggestions
-        if (analysis?.suggestedPriority ?? analysis?.suggestedCategory) {
+        // Track AI suggestions (WR-04: use || so empty strings are treated as falsy)
+        if (analysis?.suggestedPriority || analysis?.suggestedCategory) {
           setAiSuggestions({
             priority: analysis.suggestedPriority,
             category: analysis.suggestedCategory,
@@ -111,19 +138,20 @@ export const CreateTicketPage = () => {
 
         setFormData((prev) => ({
           ...prev,
-          title: data.subject ?? `Message from ${data.sender}`,
+          title:
+            data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ||
+            data.subject ||
+            `Message from ${data.sender}`,
           description: htmlDescription,
-          // Pre-fill priority if AI suggested one
-          priority: (analysis?.suggestedPriority as TicketPriority) ?? prev.priority,
+          // Pre-fill priority if AI suggested a valid enum value
+          priority: (['low', 'medium', 'high', 'critical'] as TicketPriority[]).includes(
+            analysis?.suggestedPriority as TicketPriority
+          )
+            ? (analysis!.suggestedPriority as TicketPriority)
+            : prev.priority,
+          assigneeId: data.assigneeId ?? prev.assigneeId,
           // categoryId will be set after categories are loaded
         }));
-
-        // Store AI suggested category name for later matching
-        if (analysis?.suggestedCategory) {
-          // We'll match this after categories are loaded
-          (window as { aiSuggestedCategory?: string }).aiSuggestedCategory =
-            analysis.suggestedCategory;
-        }
       }
     } catch (error) {
       logger.error('Failed to fetch message:', error);
@@ -144,40 +172,20 @@ export const CreateTicketPage = () => {
       const response = await categoryService.getAll();
       if (response.success && response.data) {
         setCategories(response.data);
-
-        // Match AI-suggested category to category ID
-        const aiSuggestedCategory = (window as { aiSuggestedCategory?: string })
-          .aiSuggestedCategory;
-        if (aiSuggestedCategory) {
-          const matchedCategory = response.data.find(
-            (cat) => cat.name.toLowerCase() === aiSuggestedCategory.toLowerCase()
-          );
-          if (matchedCategory) {
-            setFormData((prev) => ({
-              ...prev,
-              categoryId: matchedCategory.id.toString(),
-            }));
-          } else {
-            // No existing category matches — offer to create it
-            setSuggestedNewCategory(aiSuggestedCategory);
-          }
-          // Clean up temporary storage
-          delete (window as { aiSuggestedCategory?: string }).aiSuggestedCategory;
-        }
       }
     } catch (error) {
       logger.error('Failed to fetch categories:', error);
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setSelectedFiles(Array.from(event.target.files));
     }
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const formatFileSize = (bytes: number) => {
@@ -203,6 +211,7 @@ export const CreateTicketPage = () => {
         {
           content: formData.description,
           title: formData.title,
+          ...(threadMessageIds.length > 0 && { messageIds: threadMessageIds }),
         }
       );
 
@@ -225,8 +234,8 @@ export const CreateTicketPage = () => {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     if (!messageId) {
       return;
     }
@@ -312,7 +321,9 @@ export const CreateTicketPage = () => {
               <Input
                 label="Title"
                 value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                onChange={(event) =>
+                  setFormData((prev) => ({ ...prev, title: event.target.value }))
+                }
                 required
               />
 
@@ -404,12 +415,19 @@ export const CreateTicketPage = () => {
                     if (value === '__new__' && suggestedNewCategory) {
                       setCreatingCategory(true);
                       try {
-                        const newCat = await settingsService.createCategory({ name: suggestedNewCategory });
+                        const newCat = await settingsService.createCategory({
+                          name: suggestedNewCategory,
+                        });
                         setCategories((prev) => [...prev, newCat]);
                         setFormData((prev) => ({ ...prev, categoryId: String(newCat.id) }));
                         setSuggestedNewCategory(null);
                       } catch {
-                        setAlertDialog({ open: true, title: 'Error', description: 'Failed to create category.', variant: 'error' });
+                        setAlertDialog({
+                          open: true,
+                          title: 'Error',
+                          description: 'Failed to create category.',
+                          variant: 'error',
+                        });
                       } finally {
                         setCreatingCategory(false);
                       }
@@ -434,7 +452,9 @@ export const CreateTicketPage = () => {
                 {aiSuggestions.category && !formData.categoryId && (
                   <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                     ✨ AI suggested: {aiSuggestions.category}
-                    {suggestedNewCategory ? ' — not in your list yet, select above to create it' : ''}
+                    {suggestedNewCategory
+                      ? ' — not in your list yet, select above to create it'
+                      : ''}
                   </p>
                 )}
               </div>
@@ -466,8 +486,8 @@ export const CreateTicketPage = () => {
                   type="checkbox"
                   id="syncToJira"
                   checked={formData.syncToJira}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, syncToJira: e.target.checked }))
+                  onChange={(event) =>
+                    setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
                   }
                   className="mt-0.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary focus:ring-2"
                 />

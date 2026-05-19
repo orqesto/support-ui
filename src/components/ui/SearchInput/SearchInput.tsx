@@ -26,20 +26,20 @@ export const SearchInput = ({
     end: null,
   });
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && onSearch) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && onSearch) {
       onSearch();
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (inputRef.current) {
       cursorPositionRef.current = {
         start: inputRef.current.selectionStart,
         end: inputRef.current.selectionEnd,
       };
     }
-    onChange(e.target.value);
+    onChange(event.target.value);
   };
 
   const handleClear = () => {
@@ -91,7 +91,7 @@ export const SearchInput = ({
           <Button
             variant="ghost"
             onClick={handleClear}
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={(event) => event.preventDefault()}
             className={cn(getSearchButtonClasses(size), 'text-muted-foreground hover:text-primary')}
             title="Clear search"
             type="button"
@@ -105,7 +105,7 @@ export const SearchInput = ({
           <Button
             variant="ghost"
             onClick={onSearch}
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={(event) => event.preventDefault()}
             className={cn(
               getSearchButtonClasses(size),
               'text-black/60 hover:text-primary dark:text-white/40'

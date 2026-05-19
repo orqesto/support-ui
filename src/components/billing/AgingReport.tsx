@@ -48,11 +48,11 @@ export const AgingReport = () => {
     { label: 'Overdue (60+ days)', count: 0, total: 0 },
   ];
 
-  const chartData = buckets.map((b, i) => ({
-    label: b.label,
-    total: b.total,
-    count: b.count,
-    fill: BAR_COLORS[i],
+  const chartData = buckets.map((bucket, idx) => ({
+    label: bucket.label,
+    total: bucket.total,
+    count: bucket.count,
+    fill: BAR_COLORS[idx],
   }));
 
   return (
@@ -84,11 +84,11 @@ export const AgingReport = () => {
           </BarChart>
         </ResponsiveContainer>
         <div className="flex gap-6 justify-center mt-4 text-sm">
-          {buckets.map((b, i) => (
-            <div key={b.label} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: BAR_COLORS[i] }} />
-              <span className="text-muted-foreground">{b.label}</span>
-              <span className="font-medium">({b.count})</span>
+          {buckets.map((bucket, idx) => (
+            <div key={bucket.label} className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: BAR_COLORS[idx] }} />
+              <span className="text-muted-foreground">{bucket.label}</span>
+              <span className="font-medium">({bucket.count})</span>
             </div>
           ))}
         </div>

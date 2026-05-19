@@ -121,16 +121,17 @@ const DND_COLS = new Set(['active', 'not_analysed', 'suspicious', 'spam', 'resol
 // resolved → active: reopen.
 const VALID_TARGETS: Record<string, Set<string>> = {
   not_analysed: new Set(['active']),
-  suspicious:   new Set(['active', 'spam']),
-  active:       new Set(['suspicious', 'spam']),
-  spam:         new Set(['active']),
-  resolved:     new Set(['active']),
+  suspicious: new Set(['active', 'spam']),
+  active: new Set(['suspicious', 'spam']),
+  spam: new Set(['active']),
+  resolved: new Set(['active']),
 };
 
 type DndAction = 'approve' | 'mark_suspicious' | 'move_to_spam' | 'reopen';
 
 function getDndAction(from: string, to: string): DndAction | null {
-  if ((from === 'not_analysed' || from === 'suspicious' || from === 'spam') && to === 'active') return 'approve';
+  if ((from === 'not_analysed' || from === 'suspicious' || from === 'spam') && to === 'active')
+    return 'approve';
   if (from === 'active' && to === 'suspicious') return 'mark_suspicious';
   if ((from === 'suspicious' || from === 'active') && to === 'spam') return 'move_to_spam';
   if (from === 'resolved' && to === 'active') return 'reopen';
@@ -224,7 +225,8 @@ const KanbanColumn = ({
   const Icon = col.icon;
 
   // Only highlight when this column is a valid target for the currently dragged card.
-  const isValidTarget = isDndEnabled &&
+  const isValidTarget =
+    isDndEnabled &&
     activeDragColId !== null &&
     activeDragColId !== col.id &&
     (VALID_TARGETS[activeDragColId]?.has(col.id) ?? false);
@@ -233,7 +235,7 @@ const KanbanColumn = ({
     <div
       ref={isDndEnabled ? setNodeRef : undefined}
       className={cn(
-        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:max-w-[320px] md:flex-1 transition-colors',
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:flex-1 transition-colors',
         isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
       )}
       style={{ borderTopColor: col.accentColor }}
@@ -253,14 +255,17 @@ const KanbanColumn = ({
       {/* Cards */}
       <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]">
         {state.loading && state.threads.length === 0 ? (
-          Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="min-w-[260px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0">
+          Array.from({ length: 3 }, (_, idx) => (
+            <div
+              key={idx}
+              className="min-w-[260px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+            >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
           ))
         ) : state.threads.length === 0 ? (
-          <p className="py-4 px-3 text-xs text-muted-foreground md:text-center">{col.emptyText}</p>
+          <p className="px-3 py-4 text-xs text-muted-foreground md:text-center">{col.emptyText}</p>
         ) : (
           <>
             {state.threads.map((thread) =>
@@ -277,21 +282,27 @@ const KanbanColumn = ({
                 <div
                   key={thread.threadId}
                   className="min-w-[260px] md:min-w-0 shrink-0 md:shrink"
-                  title={thread.threadId.startsWith('spamlog_') ? 'Rule-blocked — cannot be moved' : undefined}
+                  title={
+                    thread.threadId.startsWith('spamlog_')
+                      ? 'Rule-blocked — cannot be moved'
+                      : undefined
+                  }
                 >
-                  <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={col.id === 'awaiting'} />
+                  <KanbanCard
+                    thread={thread}
+                    onOpen={onOpen}
+                    weRepliedLast={col.id === 'awaiting'}
+                  />
                 </div>
               )
             )}
-            {isDndEnabled && activeThreadId !== null && (
-              <div className="min-h-[60px] shrink-0" />
-            )}
+            {isDndEnabled && activeThreadId !== null && <div className="min-h-[60px] shrink-0" />}
             {state.hasMore && (
               <button
                 type="button"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 md:w-full"
+                className="flex gap-1 justify-center items-center px-3 py-2 text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 md:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
@@ -310,16 +321,16 @@ type MessagesKanbanViewProps = {
   refreshKey?: number;
 };
 
-const SWITCHABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved']);
+const SWITCHABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved', 'suspicious']);
 
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
-    COLUMNS.map((c) => [c.id, { threads: [], total: 0, loading: true, hasMore: false, page: 1 }])
+    COLUMNS.map((col) => [col.id, { threads: [], total: 0, loading: true, hasMore: false, page: 1 }])
   );
 
 export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanbanViewProps) => {
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
-    new Set(['not_analysed', 'spam', 'resolved'])
+    new Set(['not_analysed', 'spam', 'resolved', 'suspicious'])
   );
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
   const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
@@ -351,7 +362,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
           setColStates((prev) => ({
             ...prev,
             [col.id]: {
-              threads: res.data.filter((t) => t.latestMessage !== null),
+              threads: res.data.filter((thread) => thread.latestMessage !== null),
               total: res.pagination.total,
               loading: false,
               hasMore: res.pagination.page < res.pagination.totalPages,
@@ -367,12 +378,14 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       })();
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, refreshKey]);
 
   const loadMore = useCallback((colId: string) => {
-    const col = COLUMNS.find((c) => c.id === colId);
+    const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
     if (!col) return;
     setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
     const nextPage = colStatesRef.current[colId].page + 1;
@@ -384,7 +397,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         setColStates((prev) => ({
           ...prev,
           [colId]: {
-            threads: [...prev[colId].threads, ...res.data.filter((t) => t.latestMessage !== null)],
+            threads: [...prev[colId].threads, ...res.data.filter((thread) => thread.latestMessage !== null)],
             total: res.pagination.total,
             loading: false,
             hasMore: res.pagination.page < res.pagination.totalPages,
@@ -408,7 +421,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   };
 
   // Sync department selection to auth store (same as list view)
-  const setSelectedDepartment = useAuthStore((s) => s.setSelectedDepartment);
+  const setSelectedDepartment = useAuthStore((store) => store.setSelectedDepartment);
   useEffect(() => {
     if (filters.departmentRole && filters.departmentRole !== 'all') {
       setSelectedDepartment(filters.departmentRole);
@@ -423,7 +436,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const threadId = event.active.id as string;
     const colId = event.active.data.current?.colId as string;
-    const thread = colStatesRef.current[colId]?.threads.find((t) => t.threadId === threadId);
+    const thread = colStatesRef.current[colId]?.threads.find((thr) => thr.threadId === threadId);
     setActiveThread(thread ?? null);
     setActiveDragColId(colId);
   }, []);
@@ -444,7 +457,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     const action = getDndAction(fromColId, toColId);
     if (!action) return;
 
-    const thread = colStatesRef.current[fromColId]?.threads.find((t) => t.threadId === threadId);
+    const thread = colStatesRef.current[fromColId]?.threads.find((thr) => thr.threadId === threadId);
     if (!thread?.latestMessage) return;
 
     // Spam-log synthetic threads have negative message IDs and cannot be classified
@@ -458,7 +471,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     // Capture original index before optimistic move so rollback restores the card
     // to its original position rather than prepending at index 0.
     const originalIndex = colStatesRef.current[fromColId].threads.findIndex(
-      (t) => t.threadId === threadId
+      (thr) => thr.threadId === threadId
     );
 
     // Optimistic move
@@ -466,7 +479,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       ...prev,
       [fromColId]: {
         ...prev[fromColId],
-        threads: prev[fromColId].threads.filter((t) => t.threadId !== threadId),
+        threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
         total: Math.max(0, prev[fromColId].total - 1),
       },
       [toColId]: {
@@ -497,7 +510,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
           },
           [toColId]: {
             ...prev[toColId],
-            threads: prev[toColId].threads.filter((t) => t.threadId !== threadId),
+            threads: prev[toColId].threads.filter((thr) => thr.threadId !== threadId),
             total: Math.max(0, prev[toColId].total - 1),
           },
         };
@@ -513,7 +526,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragEnd={(e) => void handleDragEnd(e)}
+      onDragEnd={(event) => void handleDragEnd(event)}
     >
       <div className="space-y-3">
         {/* Column visibility toggles */}
@@ -550,7 +563,15 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
             <KanbanColumn
               key={col.id}
               col={col}
-              state={colStates[col.id] ?? { threads: [], total: 0, loading: true, hasMore: false, page: 1 }}
+              state={
+                colStates[col.id] ?? {
+                  threads: [],
+                  total: 0,
+                  loading: true,
+                  hasMore: false,
+                  page: 1,
+                }
+              }
               isDndEnabled={DND_COLS.has(col.id)}
               activeDragColId={activeDragColId}
               activeThreadId={activeThread?.threadId ?? null}

@@ -58,7 +58,7 @@ export const AIAutoReplyCard = ({
                 <input
                   type="checkbox"
                   checked={autoReplyEnabled}
-                  onChange={(e) => onAutoReplyChange(e.target.checked)}
+                  onChange={(event) => onAutoReplyChange(event.target.checked)}
                   disabled={savingAutoReply}
                   className="sr-only peer"
                 />
@@ -88,7 +88,7 @@ export const AIAutoReplyCard = ({
                     <input
                       type="checkbox"
                       checked={requestMissingInfo}
-                      onChange={(e) => onRequestMissingInfoChange(e.target.checked)}
+                      onChange={(event) => onRequestMissingInfoChange(event.target.checked)}
                       disabled={savingAutoReply}
                       className="sr-only peer"
                     />
@@ -117,7 +117,7 @@ export const AIAutoReplyCard = ({
                     <input
                       type="checkbox"
                       checked={suggestSolutions}
-                      onChange={(e) => onSuggestSolutionsChange(e.target.checked)}
+                      onChange={(event) => onSuggestSolutionsChange(event.target.checked)}
                       disabled={savingAutoReply}
                       className="sr-only peer"
                     />
@@ -153,7 +153,7 @@ export const AIAutoReplyCard = ({
                 max="100"
                 step="5"
                 value={Math.round(tempThreshold * 100)}
-                onChange={(e) => onThresholdChange(Number(e.target.value) / 100)}
+                onChange={(event) => onThresholdChange(Number(event.target.value) / 100)}
                 onMouseUp={onThresholdSave}
                 onTouchEnd={onThresholdSave}
                 disabled={savingAutoReply}

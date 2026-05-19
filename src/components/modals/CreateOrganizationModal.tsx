@@ -49,8 +49,8 @@ export const CreateOrganizationModal = ({
 
   const needsConnectionDetails = formData.deploymentType !== 'shared';
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
 
     if (!formData.name || !formData.slug) {
@@ -93,8 +93,8 @@ export const CreateOrganizationModal = ({
   };
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
         onClose();
       }
     };
@@ -117,7 +117,7 @@ export const CreateOrganizationModal = ({
         role="dialog"
         aria-modal="true"
         className="w-full max-w-md rounded-lg shadow-xl bg-card"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-border">
@@ -145,7 +145,7 @@ export const CreateOrganizationModal = ({
               type="text"
               placeholder="Acme Corporation"
               value={formData.name}
-              onChange={(e) => handleNameChange(e.target.value)}
+              onChange={(event) => handleNameChange(event.target.value)}
               required
             />
             <p className="mt-1 text-sm text-muted-foreground">The full name of your organization</p>
@@ -157,7 +157,7 @@ export const CreateOrganizationModal = ({
               type="text"
               placeholder="acme-corp"
               value={formData.slug}
-              onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, slug: event.target.value })}
               required
             />
             <p className="mt-1 text-sm text-muted-foreground">
@@ -171,7 +171,7 @@ export const CreateOrganizationModal = ({
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, description: event.target.value })}
               className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               rows={3}
               placeholder="Brief description of the organization"
@@ -211,7 +211,7 @@ export const CreateOrganizationModal = ({
                   type="text"
                   placeholder="ORG_ACME_DB_URL"
                   value={formData.dbSecretRef}
-                  onChange={(e) => setFormData({ ...formData, dbSecretRef: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, dbSecretRef: event.target.value })}
                   required
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -224,7 +224,7 @@ export const CreateOrganizationModal = ({
                   type="text"
                   placeholder="eu-west-1"
                   value={formData.region}
-                  onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, region: event.target.value })}
                 />
               </div>
             </>

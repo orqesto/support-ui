@@ -13,7 +13,7 @@ import { makeKBHandlers } from '@/hooks/useEmailProcessingKBHandlers';
 type ProcessingStatus = 'idle' | 'started' | 'processing' | 'complete' | 'error';
 
 type EmailProcessingEvent = {
-  type: 'started' | 'found' | 'processing' | 'processed' | 'complete' | 'error';
+  type: 'started' | 'found' | 'processing' | 'processed' | 'complete' | 'error' | 'linked';
   integrationId?: number;
   integrationName?: string;
   organizationId?: number; // Organization this integration belongs to
@@ -31,6 +31,7 @@ type EmailProcessingEvent = {
     failed?: number;
     error?: string;
     found?: number; // Number of messages fetched so far (used in 'found' events)
+    linkedReplies?: number; // Sent folder replies linked to existing threads
     // Performance timing fields (in milliseconds)
     fetchTime?: number;
     processTime?: number;
@@ -384,20 +385,19 @@ export const useEmailProcessingSocket = ({
                 // Preserve existing analyzed count - only use event value if it's > 0
                 const analyzed =
                   (event.data?.analyzed ?? 0) > 0 ? event.data?.analyzed : existing.analyzed;
-
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: 'complete',
-                  current, // Set to processed count
-                  total, // Update total if provided
+                  current,
+                  total,
                   processed,
                   failed,
-                  analyzed, // Use preserved or updated analyzed count
+                  analyzed,
                   isProcessing: false,
                   progress: 100,
-                  fetchTime: event.data?.fetchTime,
-                  processTime: event.data?.processTime,
-                  totalTime: event.data?.totalTime,
+                  fetchTime: event.data?.fetchTime ?? existing.fetchTime,
+                  processTime: event.data?.processTime ?? existing.processTime,
+                  totalTime: event.data?.totalTime ?? existing.totalTime,
                 });
               } else {
                 // No existing session — backend skipped (all messages already in DB)
@@ -424,6 +424,16 @@ export const useEmailProcessingSocket = ({
                   kbQAPairs: 0,
                   kbDocuments: 0,
                   kbStandaloneKnowledge: 0,
+                });
+              }
+              break;
+
+            case 'linked':
+              if (existing) {
+                newSessions.set(sessionKey, {
+                  ...existing,
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                  linkedReplies: event.data?.linkedReplies ?? existing.linkedReplies,
                 });
               }
               break;

@@ -74,18 +74,18 @@ export const AIModulesPage = () => {
   }, []);
 
   const isModuleEnabled = (moduleId: number) =>
-    enabledModules.some((m) => m.moduleId === moduleId && m.isEnabled);
+    enabledModules.some((mod) => mod.moduleId === moduleId && mod.isEnabled);
 
   const calculateTotalCost = () => {
-    const enabledIds = enabledModules.filter((m) => m.isEnabled).map((m) => m.moduleId);
+    const enabledIds = enabledModules.filter((mod) => mod.isEnabled).map((mod) => mod.moduleId);
     const enabledModuleCosts = availableModules
-      .filter((m) => enabledIds.includes(m.id))
-      .reduce((sum, m) => sum + m.monthlyFee, 0);
+      .filter((mod) => enabledIds.includes(mod.id))
+      .reduce((sum, mod) => sum + mod.monthlyFee, 0);
     return enabledModuleCosts;
   };
 
   const handleToggleModule = async (moduleId: number) => {
-    const module = availableModules.find((m) => m.id === moduleId);
+    const module = availableModules.find((mod) => mod.id === moduleId);
     const isEnabled = isModuleEnabled(moduleId);
     const endpoint = isEnabled
       ? `/api/subscriptions/modules/${moduleId}/disable`
@@ -154,7 +154,7 @@ export const AIModulesPage = () => {
                 <p className="mb-1 text-sm text-gray-500">Total Monthly Cost</p>
                 <p className="text-3xl font-bold">€{(totalCost / 100).toFixed(2)}</p>
                 <p className="mt-1 text-sm text-gray-500">
-                  {enabledModules.filter((m) => m.isEnabled).length} modules enabled
+                  {enabledModules.filter((mod) => mod.isEnabled).length} modules enabled
                 </p>
               </div>
               <div className="text-right">
@@ -169,7 +169,7 @@ export const AIModulesPage = () => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {availableModules.map((module) => {
             const enabled = isModuleEnabled(module.id);
-            const enabledData = enabledModules.find((m) => m.moduleId === module.id);
+            const enabledData = enabledModules.find((mod) => mod.moduleId === module.id);
             const usagePercentage = enabledData
               ? (enabledData.currentPeriodUsage / enabledData.includedUnits) * 100
               : 0;

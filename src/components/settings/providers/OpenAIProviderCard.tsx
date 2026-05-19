@@ -231,7 +231,7 @@ export const OpenAIProviderCard = ({
                 <input
                   type="password"
                   value={config.apiKey}
-                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                  onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="sk-..."
                 />
@@ -241,7 +241,7 @@ export const OpenAIProviderCard = ({
                 value={config.defaultChatModel}
                 onChange={(value) => setConfig({ ...config, defaultChatModel: value })}
                 options={models
-                  .filter((m) => m.type === 'chat')
+                  .filter((mod) => mod.type === 'chat')
                   .map((model) => ({
                     value: model.id,
                     label: model.name,
@@ -254,7 +254,7 @@ export const OpenAIProviderCard = ({
                 <input
                   type="text"
                   value={config.organization}
-                  onChange={(e) => setConfig({ ...config, organization: e.target.value })}
+                  onChange={(event) => setConfig({ ...config, organization: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="org-..."
                 />
@@ -266,7 +266,7 @@ export const OpenAIProviderCard = ({
                 <input
                   type="url"
                   value={config.baseUrl}
-                  onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
+                  onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="https://api.openai.com"
                 />

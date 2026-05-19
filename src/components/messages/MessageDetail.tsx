@@ -5,15 +5,12 @@ import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificat
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
-import { ConvertBotConversationModal } from '@/components/modals/ConvertBotConversationModal';
 import { useResolveMessageToKB } from '@/hooks/useResolveMessageToKB';
-import { messageService, type MessageNote } from '@/services/message.service';
-import { ticketService } from '@/services/ticket.service';
+import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
 import {
   organizationService,
   type LeadQualificationFieldConfig,
 } from '@/services/organization.service';
-import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import type { Message } from '@/types';
 import type { ContradictionCheckMetadata } from '@/types/ai';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,6 +23,9 @@ import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { MessageActionStrip } from './MessageActionStrip';
 import { MessagePanelTabs } from './MessagePanelTabs';
+import { History } from 'lucide-react';
+import type { Attachment } from './MessageAttachments';
+import { apiClient } from '@/lib/api-client';
 import {
   toGhostOption,
   type GhostOption,
@@ -67,11 +67,11 @@ export const MessageDetail = ({
 }: MessageDetailProps) => {
   const location = useLocation();
   const isFullPage = location.pathname.startsWith('/messages/');
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((store) => store.user);
 
   // ── Zone state ───────────────────────────────────────────────────────────
   const [tab, setTab] = useState<
-    'ai' | 'customer' | 'linked' | 'kb' | 'activity' | 'lead' | 'notes' | 'contradiction'
+    'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'lead' | 'notes' | 'contradiction'
   >('ai');
   const [panelOpen, setPanelOpen] = useState(false);
   const [composer, setComposer] = useState('');
@@ -86,19 +86,20 @@ export const MessageDetail = ({
   const [noteActivityLog, setNoteActivityLog] = useState<
     { label: string; who: string; time: string }[]
   >([]);
+  const [messageActivity, setMessageActivity] = useState<MessageActivityEntry[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
+  const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Map<number, Attachment[]>>(new Map());
 
   // ── Business state ───────────────────────────────────────────────────────
-  const [replyFromSuggested, setReplyFromSuggested] = useState(false);
+  const [suggestedSource, setSuggestedSource] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
-  const [linkedTicketStatus, setLinkedTicketStatus] = useState<string | null>(null);
   const [leadState, setLeadState] = useState<LeadState | null>(null);
   const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
+  const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(null);
   const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
-  const [convertBotOpen, setConvertBotOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{
@@ -114,19 +115,25 @@ export const MessageDetail = ({
     setTab('ai');
     setComposer('');
     setComposerMode('reply');
-    setReplyFromSuggested(false);
+    setSuggestedSource(null);
     setSelectedFiles([]);
+    setNoteActivityLog([]);
   }, [message.id]);
 
-  // ── Fetch thread + notes ─────────────────────────────────────────────────
+  // ── Fetch thread + notes + activity ─────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setThreadLoading(true);
-    Promise.all([messageService.getThreadMessages(message.id), messageService.getNotes(message.id)])
-      .then(([threadRes, notesRes]) => {
+    Promise.all([
+      messageService.getThreadMessages(message.id),
+      messageService.getNotes(message.id),
+      messageService.getActivity(message.id),
+    ])
+      .then(([threadRes, notesRes, activityData]) => {
         if (cancelled) return;
         if (threadRes.success && threadRes.data) setThreadMessages(threadRes.data);
         if (notesRes.success && notesRes.data) setNotes(notesRes.data);
+        setMessageActivity(activityData);
       })
       .catch(() => {})
       .finally(() => {
@@ -135,6 +142,25 @@ export const MessageDetail = ({
     return () => {
       cancelled = true;
     };
+  }, [message.id, threadRefreshKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{ success: boolean; data: Attachment[] }>(`/api/messages/${message.id}/attachments`)
+      .then((res) => {
+        if (cancelled) return;
+        const map = new Map<number, Attachment[]>();
+        for (const att of res.data.data ?? []) {
+          if (att.messageId === null) continue;
+          const list = map.get(att.messageId) ?? [];
+          list.push(att);
+          map.set(att.messageId, list);
+        }
+        setAttachmentsByMessageId(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [message.id, threadRefreshKey]);
 
   useEffect(() => {
@@ -161,11 +187,11 @@ export const MessageDetail = ({
     messageService
       .getThreadMessages(message.id)
       .then((res) => {
-        const sorted = [...(res.data ?? [])].sort((a, b) => b.id - a.id);
+        const sorted = [...(res.data ?? [])].sort((itemA, itemB) => itemB.id - itemA.id);
         for (const msg of sorted) {
-          const s = msg.metadata?.leadState;
-          if (s) {
-            setLeadState(s as LeadState);
+          const stat = msg.metadata?.leadState;
+          if (stat) {
+            setLeadState(stat as LeadState);
             return;
           }
         }
@@ -178,33 +204,10 @@ export const MessageDetail = ({
       });
   }, [message.id, message.isLead, message.metadata]);
 
-  // ── Linked ticket status ─────────────────────────────────────────────────
-  useEffect(() => {
-    if (!message.ticketId) {
-      setLinkedTicketStatus(null);
-      return;
-    }
-    ticketService
-      .getById(message.ticketId)
-      .then((r) => {
-        if (r?.data) setLinkedTicketStatus(r.data.status);
-      })
-      .catch(() => {});
-  }, [message.ticketId]);
-
-  useEffect(() => {
-    if (!message.ticketId) return;
-    const handler = (data: unknown) => {
-      const ev = data as { ticketId: number; status?: string };
-      if (ev.ticketId === message.ticketId && ev.status) setLinkedTicketStatus(ev.status);
-    };
-    subscribeToEvent('ticket:updated', handler);
-    return () => unsubscribeFromEvent('ticket:updated', handler);
-  }, [message.ticketId]);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (event: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement;
       if (
         el?.tagName === 'TEXTAREA' ||
@@ -213,13 +216,13 @@ export const MessageDetail = ({
         el?.isContentEditable
       )
         return;
-      if (e.key === 'Escape') onClose?.();
-      if (e.key === 'r' || e.key === 'R') {
+      if (event.key === 'Escape') onClose?.();
+      if (event.key === 'r' || event.key === 'R') {
         setComposerMode('reply');
         setComposer('');
         setTimeout(() => richEditorRef.current?.focus(), 50);
       }
-      if (e.key === 'n' || e.key === 'N') {
+      if (event.key === 'n' || event.key === 'N') {
         setComposerMode('note');
         setComposer('');
         setTimeout(() => noteEditorRef.current?.focus(), 50);
@@ -231,17 +234,17 @@ export const MessageDetail = ({
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const handleGhostClick = useCallback((answer: string) => {
+  const handleGhostClick = useCallback((answer: string, source: string) => {
     setComposer(answer);
     setComposerMode('reply');
-    setReplyFromSuggested(true);
+    setSuggestedSource(source);
     setTimeout(() => richEditorRef.current?.focus(), 50);
   }, []);
 
-  const handleSelectSimilarAnswer = useCallback((answer: string) => {
+  const handleSelectSimilarAnswer = useCallback((answer: string, source?: string) => {
     setComposer(answer);
     setComposerMode('reply');
-    setReplyFromSuggested(true);
+    setSuggestedSource(source ?? 'message');
     setSimilarMessagesOpen(false);
     setTimeout(() => richEditorRef.current?.focus(), 50);
   }, []);
@@ -269,6 +272,11 @@ export const MessageDetail = ({
     }
   }, [message.id, onRefresh, onResolve]);
 
+  const handleCheckContradiction = useCallback(async () => {
+    await messageService.checkContradiction(message.id);
+    onRefresh?.();
+  }, [message.id, onRefresh]);
+
   const handleSendComposer = useCallback(async () => {
     const isEmpty = !composer || composer === '<p></p>';
     if (isEmpty || submitting) return;
@@ -281,7 +289,7 @@ export const MessageDetail = ({
         const sig = user?.signature
           ? `<p></p><p>--</p>${user.signature
               .split('\n')
-              .map((l) => `<p>${l || '<br>'}</p>`)
+              .map((line) => `<p>${line || '<br>'}</p>`)
               .join('')}`
           : '';
         await messageService.replyWithAttachments(
@@ -289,11 +297,12 @@ export const MessageDetail = ({
           composer + sig,
           selectedFiles,
           false,
-          replyFromSuggested
+          suggestedSource !== null,
+          suggestedSource ?? undefined
         );
         setSelectedFiles([]);
-        setReplyFromSuggested(false);
-        setThreadRefreshKey((k) => k + 1);
+        setSuggestedSource(null);
+        setThreadRefreshKey((key) => key + 1);
         onRefresh?.();
       }
       setComposer('');
@@ -307,7 +316,7 @@ export const MessageDetail = ({
     composerMode,
     message.id,
     selectedFiles,
-    replyFromSuggested,
+    suggestedSource,
     user?.signature,
     onRefresh,
     submitting,
@@ -315,7 +324,7 @@ export const MessageDetail = ({
 
   const handleNoteUpdated = useCallback(
     (noteId: number, content: string) => {
-      setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, content } : n)));
+      setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, content } : note)));
       setNoteActivityLog((prev) => [
         ...prev,
         {
@@ -330,7 +339,7 @@ export const MessageDetail = ({
 
   const handleNoteDeleted = useCallback(
     (noteId: number) => {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setNotes((prev) => prev.filter((note) => note.id !== noteId));
       setNoteActivityLog((prev) => [
         ...prev,
         {
@@ -369,22 +378,22 @@ export const MessageDetail = ({
   const ghostOption = selectedGhost ?? metadataGhost ?? autoKbGhost;
 
   const sortedThread = useMemo(() => {
-    const msgTime = (m: Message) => {
+    const msgTime = (msg: Message) => {
       const outgoing =
-        m.isOutgoing === true ||
-        m.sender.toLowerCase() === 'bot' ||
-        (m.metadata as { isSystemReply?: boolean } | null)?.isSystemReply === true;
-      const t = outgoing
-        ? (m.repliedAt ?? (m.metadata as { receivedAt?: string } | null)?.receivedAt ?? m.createdAt)
-        : ((m.metadata as { receivedAt?: string } | null)?.receivedAt ?? m.createdAt);
-      return new Date(t).getTime();
+        msg.isOutgoing === true ||
+        msg.sender.toLowerCase() === 'bot' ||
+        (msg.metadata as { isSystemReply?: boolean } | null)?.isSystemReply === true;
+      const ts = outgoing
+        ? (msg.repliedAt ?? (msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt)
+        : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
+      return new Date(ts).getTime();
     };
     return [...threadMessages]
       .filter(
-        (m) =>
-          (m.metadata as { skippedReason?: string } | null)?.skippedReason !== 'sent_only_label'
+        (msg) =>
+          (msg.metadata as { skippedReason?: string } | null)?.skippedReason !== 'sent_only_label'
       )
-      .sort((a, b) => msgTime(a) - msgTime(b));
+      .sort((itemA, itemB) => msgTime(itemA) - msgTime(itemB));
   }, [threadMessages]);
 
   const currentUserId = user?.id ?? null;
@@ -429,6 +438,16 @@ export const MessageDetail = ({
             </div>
           )}
 
+          {/* Banner when the earliest thread message is a team reply — the original
+              client email was sent before this integration was connected or lived
+              in a different Gmail thread due to missing In-Reply-To headers. */}
+          {!threadLoading && sortedThread.length > 0 && sortedThread[0].isOutgoing === true && (
+            <div className="flex gap-2 items-center px-3 py-2 mb-1 text-xs rounded-md border bg-muted/40 border-border text-muted-foreground">
+              <History className="w-3.5 h-3.5 shrink-0" />
+              Earlier conversation history is not available
+            </div>
+          )}
+
           {!threadLoading &&
             sortedThread.map((msg) => (
               <ThreadMessageItem
@@ -436,9 +455,11 @@ export const MessageDetail = ({
                 msg={msg}
                 mainMessageId={message.id}
                 onMessageNavigate={onMessageNavigate}
-                onShowAttachments={() => {
-                  setTab('customer');
+                attachments={attachmentsByMessageId.get(msg.id) ?? []}
+                onOpenAttachment={(id) => {
+                  setTab('attachments');
                   setPanelOpen(true);
+                  setHighlightAttachmentId(id);
                 }}
               />
             ))}
@@ -520,13 +541,15 @@ export const MessageDetail = ({
         onNoteUpdated={handleNoteUpdated}
         onNoteDeleted={handleNoteDeleted}
         noteActivityLog={noteActivityLog}
+        messageActivity={messageActivity}
         sortedThread={sortedThread}
         threadRefreshKey={threadRefreshKey}
+        highlightAttachmentId={highlightAttachmentId}
+        attachments={Array.from(attachmentsByMessageId.values()).flat()}
         currentUserId={currentUserId}
         leadState={leadState}
         setLeadState={setLeadState}
         leadFieldDefs={leadFieldDefs}
-        linkedTicketStatus={linkedTicketStatus}
         onGhostClick={handleGhostClick}
         onOptionSelect={(
           answer: string,
@@ -538,10 +561,9 @@ export const MessageDetail = ({
           setAutoKbGhost({ answer, label, type })
         }
         onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
-        onApprove={onApprove}
         setComposerMode={setComposerMode}
         noteEditorRef={noteEditorRef}
-        setConvertBotOpen={setConvertBotOpen}
+        onCheckContradiction={handleCheckContradiction}
       />
 
       {/* ── Dialogs ──────────────────────────────────────────────────────── */}
@@ -561,22 +583,6 @@ export const MessageDetail = ({
         onClose={() => setSimilarMessagesOpen(false)}
         onSelectAnswer={handleSelectSimilarAnswer}
       />
-
-      {message.ticketId && (
-        <ConvertBotConversationModal
-          open={convertBotOpen}
-          onOpenChange={setConvertBotOpen}
-          ticketId={message.ticketId}
-          onSuccess={(converted) => {
-            setAlertDialog({
-              open: true,
-              title: 'Conversation Imported',
-              description: `${converted} message${converted !== 1 ? 's' : ''} imported as ticket comments.`,
-              variant: 'success',
-            });
-          }}
-        />
-      )}
 
       <AlertDialog
         open={alertDialog.open}

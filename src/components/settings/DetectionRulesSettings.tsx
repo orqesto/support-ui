@@ -316,7 +316,7 @@ export const DetectionRulesSettings = () => {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="e.g., urgent_customer_issue"
               />
@@ -325,7 +325,7 @@ export const DetectionRulesSettings = () => {
               <label className="block mb-1 text-sm font-medium">Description</label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-background"
                 placeholder="What this rule detects"
                 rows={2}
@@ -336,7 +336,7 @@ export const DetectionRulesSettings = () => {
               <input
                 type="text"
                 value={formData.pattern}
-                onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
+                onChange={(event) => setFormData({ ...formData, pattern: event.target.value })}
                 className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-background"
                 placeholder="problem|issue|error|need help"
               />
@@ -364,7 +364,7 @@ export const DetectionRulesSettings = () => {
                   max="100"
                   step="5"
                   value={formData.confidence}
-                  onChange={(e) => setFormData({ ...formData, confidence: parseInt(e.target.value) })}
+                  onChange={(event) => setFormData({ ...formData, confidence: parseInt(event.target.value) })}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -379,7 +379,7 @@ export const DetectionRulesSettings = () => {
                 type="checkbox"
                 id="active"
                 checked={formData.active}
-                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
                 className="rounded"
               />
               <label htmlFor="active" className="text-sm">Active</label>

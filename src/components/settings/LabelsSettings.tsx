@@ -39,7 +39,7 @@ export const LabelsSettings = () => {
   };
 
   useEffect(() => {
-    fetchLabels().catch((e) => { logger.error(e); });
+    fetchLabels().catch((err) => { logger.error(err); });
   }, []);
 
   const handleEdit = (label: Label) => {
@@ -123,7 +123,7 @@ export const LabelsSettings = () => {
               type="text"
               placeholder="Label name"
               value={formData.name}
-              onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+              onChange={(event) => setFormData((prev) => ({ ...prev, name: event.target.value }))}
               className="flex-1 px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               maxLength={50}
             />
@@ -132,21 +132,21 @@ export const LabelsSettings = () => {
           <div className="space-y-1.5">
             <p className="text-xs text-muted-foreground">Color</p>
             <div className="flex items-center gap-2 flex-wrap">
-              {PRESET_COLORS.map((c) => (
+              {PRESET_COLORS.map((clr) => (
                 <button
-                  key={c}
+                  key={clr}
                   className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                    formData.color === c ? 'border-foreground scale-110' : 'border-transparent'
+                    formData.color === clr ? 'border-foreground scale-110' : 'border-transparent'
                   }`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setFormData((p) => ({ ...p, color: c }))}
+                  style={{ backgroundColor: clr }}
+                  onClick={() => setFormData((prev) => ({ ...prev, color: clr }))}
                   type="button"
                 />
               ))}
               <input
                 type="color"
                 value={formData.color}
-                onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
+                onChange={(event) => setFormData((prev) => ({ ...prev, color: event.target.value }))}
                 className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent"
                 title="Custom color"
               />

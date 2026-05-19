@@ -30,7 +30,7 @@ export const ChatWidgetSettings = () => {
   });
 
   useEffect(() => {
-    fetchWidgets().catch((e) => { logger.error(e); });
+    fetchWidgets().catch((err) => { logger.error(err); });
   }, []);
 
   const fetchWidgets = async () => {
@@ -259,7 +259,7 @@ export const ChatWidgetSettings = () => {
         onSuccess={() => {
           setShowCreateModal(false);
           setEditingWidget(null);
-          fetchWidgets().catch((e) => { logger.error(e); });
+          fetchWidgets().catch((err) => { logger.error(err); });
         }}
         onShowAlert={setAlertDialog}
       />

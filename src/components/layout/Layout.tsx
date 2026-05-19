@@ -132,7 +132,7 @@ export const Layout = ({ children }: LayoutProps) => {
       organizationService
         .getAll('', 1, 100)
         .then((result) => {
-          const org = result.data.find((o: Organization) => o.id === selectedOrganizationId);
+          const org = result.data.find((org: Organization) => org.id === selectedOrganizationId);
           if (org) {
             setSelectedOrgName(org.name);
           }

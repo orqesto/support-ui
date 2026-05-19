@@ -84,6 +84,9 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
 
+      // Naming
+      'id-length': ['error', { min: 2, exceptions: ['_'], properties: 'never' }],
+
       // General code quality
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
       'no-debugger': 'error',

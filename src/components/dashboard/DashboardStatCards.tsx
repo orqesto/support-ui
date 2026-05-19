@@ -73,7 +73,7 @@ interface StatusBarSectionProps {
 }
 
 export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProps) {
-  const total = cards.reduce((s, c) => s + c.value, 0);
+  const total = cards.reduce((sum, card) => sum + card.value, 0);
   return (
     <Card>
       <CardHeader className="pb-2 pt-4">

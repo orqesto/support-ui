@@ -83,8 +83,8 @@ export const InviteUserModal = ({
     prefilledOrganizationId,
   ]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
 
     if (!organizationId) {
@@ -119,8 +119,8 @@ export const InviteUserModal = ({
   };
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
         onClose();
       }
     };
@@ -143,7 +143,7 @@ export const InviteUserModal = ({
         role="dialog"
         aria-modal="true"
         className="w-full max-w-md rounded-lg shadow-xl bg-card"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-border">
@@ -171,7 +171,7 @@ export const InviteUserModal = ({
               type="email"
               placeholder="user@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               required
             />
             <p className="mt-1 text-sm text-muted-foreground">

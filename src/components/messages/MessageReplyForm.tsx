@@ -22,14 +22,14 @@ export const MessageReplyForm = ({ onSend, onCancel, submitting }: MessageReplyF
     setSelectedFiles([]);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setSelectedFiles(Array.from(event.target.files));
     }
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles((files) => files.filter((_, i) => i !== index));
+    setSelectedFiles((files) => files.filter((_, idx) => idx !== index));
   };
 
   return (
