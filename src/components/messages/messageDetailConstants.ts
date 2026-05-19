@@ -217,7 +217,7 @@ export function splitAtQuote(
     ]) {
       const match = content.match(pattern);
       if (match?.index !== undefined && match.index > 80)
-        return { main: content.slice(0, m.index).trimEnd(), quote: content.slice(m.index) };
+        return { main: content.slice(0, match.index).trimEnd(), quote: content.slice(match.index) };
     }
     const bq = content.indexOf('<blockquote');
     if (bq > 150) return { main: content.slice(0, bq).trimEnd(), quote: content.slice(bq) };

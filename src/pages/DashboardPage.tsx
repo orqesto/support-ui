@@ -314,9 +314,11 @@ export const DashboardPage = () => {
 
         {loading ? (
           <div className="space-y-6">
+            {/* eslint-disable react/no-array-index-key */}
             <div><div className="w-32 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">{Array.from({ length: 5 }).map((_, idx) => <div key={`sk-sla-${idx}`}>{skeletonCard}</div>)}</div></div>
             <div><div className="w-24 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, idx) => <div key={`sk-msg-${idx}`}>{skeletonCard}</div>)}</div></div>
             <div><div className="w-16 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 sm:grid-cols-3">{Array.from({ length: 3 }).map((_, idx) => <div key={`sk-tkt-${idx}`}>{skeletonCard}</div>)}</div></div>
+            {/* eslint-enable react/no-array-index-key */}
             <div><div className="w-32 h-4 bg-gray-200 rounded mb-3" /><div className="grid gap-4 max-w-xs">{skeletonCard}</div></div>
           </div>
         ) : (

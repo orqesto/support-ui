@@ -5,7 +5,7 @@ import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
-import { similarResultsCache } from '@/components/messages/AiTabPanel';
+import { similarResultsCache, type SimilarResult } from '@/components/messages/AiTabPanel';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 
@@ -31,8 +31,7 @@ export const MessageDetailPage = () => {
               if (!similarResultsCache.has(latestIncoming.id)) {
                 void messageService
                   .getSimilarResolvedMessages(latestIncoming.id, 3, 0.75)
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .then((res) => { if (res.success && res.data) similarResultsCache.set(latestIncoming.id, res.data as any); });
+                  .then((res) => { if (res.success && res.data) similarResultsCache.set(latestIncoming.id, res.data as SimilarResult[]); });
               }
               void fetchMessage(latestIncoming.id);
             }

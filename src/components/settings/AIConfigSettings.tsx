@@ -44,7 +44,7 @@ export const AIConfigSettings = () => {
             key={sect.id}
             onClick={() => setActive(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-              active === s.id
+              active === sect.id
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
             }`}
