@@ -130,9 +130,9 @@ export const StatisticsPage = () => {
           <div className="animate-pulse">
             <div className="mb-4 w-1/4 h-8 rounded bg-muted" />
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
-              {Array.from({ length: 4 }).map((_, i) => (
+              {Array.from({ length: 4 }).map((_, idx) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <div key={`stat-skeleton-${i}`} className="h-32 rounded bg-muted" />
+                <div key={`stat-skeleton-${idx}`} className="h-32 rounded bg-muted" />
               ))}
             </div>
           </div>

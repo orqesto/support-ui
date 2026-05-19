@@ -135,7 +135,7 @@ export const TicketListItem = ({
       }
       actions={
         <>
-          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onOpen(ticket); }}>
+          <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); onOpen(ticket); }}>
             <ExternalLinkIcon className="mr-1 w-3 h-3" />
             Open
           </Button>
@@ -143,7 +143,7 @@ export const TicketListItem = ({
             {!ticket.externalId && (
               <Button
                 size="sm"
-                onClick={(e) => { e.stopPropagation(); onPushToJira(ticket.id); }}
+                onClick={(event) => { event.stopPropagation(); onPushToJira(ticket.id); }}
                 isLoading={isSyncing}
               >
                 <Send className="mr-1 w-3 h-3" />
@@ -155,7 +155,7 @@ export const TicketListItem = ({
             <Button
               size="sm"
               variant="destructive"
-              onClick={(e) => { e.stopPropagation(); onDelete(ticket); }}
+              onClick={(event) => { event.stopPropagation(); onDelete(ticket); }}
               aria-label="Delete ticket"
             >
               <Trash2 className="mr-2 w-4 h-4" />

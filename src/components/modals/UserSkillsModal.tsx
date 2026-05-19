@@ -55,7 +55,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
         setLoading(false);
       }
     };
-    load().catch((e) => { logger.error(e); });
+    load().catch((err) => { logger.error(err); });
   }, [isOpen, user]);
 
   const handleToggleCanEdit = async () => {
@@ -78,29 +78,29 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
     const existing = skills[key] ?? [];
     if (existing.includes(val)) return;
     const updated = [...existing, val];
-    setSaving((s) => ({ ...s, [key]: true }));
+    setSaving((prev) => ({ ...prev, [key]: true }));
     try {
       await userService.setSkillValues(user.id, key, updated);
-      setSkills((s) => ({ ...s, [key]: updated }));
-      setInputs((i) => ({ ...i, [key]: '' }));
+      setSkills((prev) => ({ ...prev, [key]: updated }));
+      setInputs((prev) => ({ ...prev, [key]: '' }));
     } catch (err) {
       logger.error('Failed to add skill value:', err);
     } finally {
-      setSaving((s) => ({ ...s, [key]: false }));
+      setSaving((prev) => ({ ...prev, [key]: false }));
     }
   };
 
   const handleRemoveValue = async (key: string, value: string) => {
     if (!user) return;
-    const updated = (skills[key] ?? []).filter((v) => v !== value);
-    setSaving((s) => ({ ...s, [key]: true }));
+    const updated = (skills[key] ?? []).filter((val) => val !== value);
+    setSaving((prev) => ({ ...prev, [key]: true }));
     try {
       await userService.setSkillValues(user.id, key, updated);
-      setSkills((s) => ({ ...s, [key]: updated }));
+      setSkills((prev) => ({ ...prev, [key]: updated }));
     } catch (err) {
       logger.error('Failed to remove skill value:', err);
     } finally {
-      setSaving((s) => ({ ...s, [key]: false }));
+      setSaving((prev) => ({ ...prev, [key]: false }));
     }
   };
 
@@ -141,7 +141,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                       {val}
                       <button
                         type="button"
-                        onClick={() => handleRemoveValue(key, val).catch((e) => { logger.error(e); })}
+                        onClick={() => handleRemoveValue(key, val).catch((err) => { logger.error(err); })}
                         disabled={saving[key]}
                         className="hover:text-red-600 disabled:opacity-40"
                         aria-label={`Remove ${val}`}
@@ -160,9 +160,9 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                     className="flex-1 h-7 px-2 text-xs border rounded bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
                     placeholder="Add value..."
                     value={inputs[key] ?? ''}
-                    onChange={(e) => setInputs((i) => ({ ...i, [key]: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddValue(key).catch((e) => { logger.error(e); });
+                    onChange={(event) => setInputs((prev) => ({ ...prev, [key]: event.target.value }))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') handleAddValue(key).catch((err) => { logger.error(err); });
                     }}
                     disabled={saving[key]}
                   />
@@ -170,7 +170,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                     size="sm"
                     variant="outline"
                     className="h-7 px-2"
-                    onClick={() => handleAddValue(key).catch((e) => { logger.error(e); })}
+                    onClick={() => handleAddValue(key).catch((err) => { logger.error(err); })}
                     disabled={saving[key] || !inputs[key]?.trim()}
                   >
                     <Plus className="w-3 h-3" />

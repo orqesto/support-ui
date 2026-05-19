@@ -39,14 +39,14 @@ export function MessageComposer({
   selectedFiles,
   onFilesChange,
 }: MessageComposerProps) {
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((store) => store.user);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) onFilesChange(Array.from(e.target.files));
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) onFilesChange(Array.from(event.target.files));
   };
 
   const handleRemoveFile = (index: number) => {
-    onFilesChange(selectedFiles.filter((_, i) => i !== index));
+    onFilesChange(selectedFiles.filter((_, idx) => idx !== index));
   };
 
   void message;
@@ -151,7 +151,7 @@ export function MessageComposer({
       {/* Selected files */}
       {selectedFiles.length > 0 && (
         <div className="mt-1 space-y-0.5">
-          {selectedFiles.map((file, i) => (
+          {selectedFiles.map((file, idx) => (
             <div
               key={file.name}
               className="flex items-center gap-2 text-[11px] text-muted-foreground"
@@ -159,7 +159,7 @@ export function MessageComposer({
               <Paperclip className="w-2.5 h-2.5 flex-shrink-0" />
               <span className="flex-1 truncate">{file.name}</span>
               <button
-                onClick={() => handleRemoveFile(i)}
+                onClick={() => handleRemoveFile(idx)}
                 className="text-stone-400 hover:text-red-500"
               >
                 <X className="w-2.5 h-2.5" />

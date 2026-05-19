@@ -5,17 +5,13 @@ import {
   StickyNote,
   Pencil,
   Trash2,
-  Plus,
-  ExternalLink,
-  MessageSquare,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { ContradictionAlert } from './ContradictionAlert';
-import { MessageAttachments } from './MessageAttachments';
+import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel } from './AiTabPanel';
-import { messageService, type MessageNote } from '@/services/message.service';
+import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
 
@@ -29,13 +25,81 @@ import { MONO, relativeTime, getInitials } from './messageDetailConstants';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
+// ─── Activity helpers ─────────────────────────────────────────────────────────
+
+type TimelineItem = { label: string; time: string; who: string; dot: string | undefined };
+
+const ACTION_LABEL: Record<string, string> = {
+  'message.reply': 'Reply sent',
+  'message.assign': 'Assigned',
+  'ticket.create': 'Ticket created',
+  'ticket.resolve': 'Resolved',
+  'ticket.reopen': 'Reopened',
+};
+
+const ACTION_DOT: Record<string, string> = {
+  'ticket.resolve': 'bg-green-500/60',
+  'ticket.reopen': 'bg-yellow-500/60',
+};
+
+function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
+  if (action === 'message.status_change') {
+    const from = details?.['from'] as string | undefined;
+    const to = details?.['to'] as string | undefined;
+    return to ? `Status changed${from ? ` from ${from}` : ''} to ${to}` : 'Status changed';
+  }
+  if (action === 'message.priority_change') {
+    const to = details?.['to'] as string | undefined;
+    return to ? `Priority set to ${to}` : 'Priority changed';
+  }
+  if (action === 'message.category_change') {
+    return details?.['to'] ? 'Category assigned' : 'Category removed';
+  }
+  if (action === 'message.update') {
+    const detail = typeof details?.['action'] === 'string' ? details['action'] : '';
+    if (detail === 'mark_processed') return 'Marked as processed';
+    if (detail === 'mark_suspicious') return 'Marked as suspicious';
+    if (detail === 'move_to_spam') return 'Moved to spam';
+    if (detail === 'mark_unprocessed') return 'Marked as unprocessed';
+    if (detail === 'approve') return 'Approved';
+    return 'Message updated';
+  }
+  return ACTION_LABEL[action] ?? action;
+}
+
+function buildTimeline(
+  activity: MessageActivityEntry[],
+  notes: MessageNote[],
+  inSession: { label: string; who: string; time: string }[]
+): TimelineItem[] {
+  const fromAudit: TimelineItem[] = activity.map((entry) => ({
+    label: auditEntryLabel(entry.action, entry.details),
+    time: entry.createdAt,
+    who: entry.userEmail ?? 'System',
+    dot: ACTION_DOT[entry.action],
+  }));
+
+  const fromNotes: TimelineItem[] = notes.map((note) => ({
+    label: 'Internal note',
+    time: note.createdAt,
+    who: note.user ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim() : note.authorName,
+    dot: 'bg-amber-400/70',
+  }));
+
+  const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, dot: undefined }));
+
+  return [...fromAudit, ...fromNotes, ...ephemeral].sort(
+    (itemA, itemB) => new Date(itemA.time).getTime() - new Date(itemB.time).getTime()
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export type MessagePanelTabsProps = {
   message: Message;
-  tab: 'ai' | 'customer' | 'linked' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction';
+  tab: 'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction';
   setTab: (
-    t: 'ai' | 'customer' | 'linked' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction'
+    t: 'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction'
   ) => void;
   panelOpen: boolean;
   setPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -43,22 +107,23 @@ export type MessagePanelTabsProps = {
   onNoteUpdated: (noteId: number, content: string) => void;
   onNoteDeleted: (noteId: number) => void;
   noteActivityLog: { label: string; who: string; time: string }[];
+  messageActivity: MessageActivityEntry[];
   sortedThread: Message[];
   threadRefreshKey: number;
+  highlightAttachmentId?: number | null;
+  attachments?: Attachment[];
   currentUserId: number | null;
   leadState: LeadState | null;
   setLeadState: React.Dispatch<React.SetStateAction<LeadState | null>>;
   leadFieldDefs: LeadQualificationFieldConfig[];
-  linkedTicketStatus: string | null;
-  onGhostClick: (answer: string) => void;
+  onGhostClick: (answer: string, source: string) => void;
   onOptionSelect?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
   onOptionsLoaded?: (total: number) => void;
   onAutoSuggest?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
   onAiLoadingChange?: (loading: boolean) => void;
-  onApprove?: () => void;
   setComposerMode: React.Dispatch<React.SetStateAction<'reply' | 'note'>>;
   noteEditorRef: React.RefObject<RichTextEditorHandle>;
-  setConvertBotOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onCheckContradiction?: () => Promise<void>;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -73,26 +138,39 @@ export function MessagePanelTabs({
   onNoteUpdated,
   onNoteDeleted,
   noteActivityLog,
+  messageActivity,
   sortedThread,
   threadRefreshKey,
+  highlightAttachmentId,
+  attachments,
   currentUserId,
   leadState,
   setLeadState,
   leadFieldDefs,
-  linkedTicketStatus,
   onGhostClick,
   onOptionSelect,
   onOptionsLoaded,
   onAutoSuggest,
   onAiLoadingChange,
-  onApprove,
   setComposerMode,
   noteEditorRef,
-  setConvertBotOpen,
+  onCheckContradiction,
 }: MessagePanelTabsProps) {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editNoteContent, setEditNoteContent] = useState('');
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
+  const [checkingContradiction, setCheckingContradiction] = useState(false);
+  const [kbResultCount, setKbResultCount] = useState<number | null>(null);
+
+  const handleCheckContradiction = useCallback(async () => {
+    if (!onCheckContradiction) return;
+    setCheckingContradiction(true);
+    try {
+      await onCheckContradiction();
+    } finally {
+      setCheckingContradiction(false);
+    }
+  }, [onCheckContradiction]);
 
   const handleEditNote = useCallback(
     async (noteId: number) => {
@@ -140,14 +218,11 @@ export function MessagePanelTabs({
           [
             { id: 'ai', label: 'AI', badge: 0 },
             { id: 'customer', label: 'Customer', badge: 0 },
-            { id: 'linked', label: 'Linked', badge: message.ticketId ? 1 : 0 },
+            { id: 'attachments', label: 'Files', badge: 0 },
             { id: 'kb', label: 'KB', badge: 0 },
             { id: 'activity', label: 'Activity', badge: 0 },
             { id: 'notes', label: 'Notes', badge: notes.length },
-            ...(message.metadata?.contradictionCheck ||
-            message.metadata?.intraMessageContradictionCheck
-              ? [{ id: 'contradiction', label: 'Conflict', badge: 0 }]
-              : []),
+            { id: 'contradiction', label: 'Conflict', badge: 0 },
             ...(message.isLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
           ] as { id: typeof tab; label: string; badge: number }[]
         ).map(({ id, label, badge }) => (
@@ -178,7 +253,7 @@ export function MessagePanelTabs({
           </button>
         ))}
         <button
-          onClick={() => setPanelOpen((o) => !o)}
+          onClick={() => setPanelOpen((open) => !open)}
           className="flex flex-1 items-center justify-end gap-1 px-1 h-[33px] text-muted-foreground hover:text-foreground transition-colors group"
           title={panelOpen ? 'Collapse panel' : 'Expand panel'}
         >
@@ -255,93 +330,99 @@ export function MessagePanelTabs({
                 ))}
               </div>
 
-              <MessageAttachments message={message} sortedThread={sortedThread} refreshKey={threadRefreshKey} />
             </div>
           )}
 
-          {/* Linked Tab */}
-          {tab === 'linked' && (
-            <div className="space-y-2">
-              {message.ticketId ? (
-                <>
-                  <div
-                    className={`p-2 rounded border-l-2 border border-border bg-card ${linkedTicketStatus === 'in_progress' ? 'border-l-emerald-500 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-l-blue-400 dark:border-blue-800 dark:bg-blue-950/20'}`}
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span
-                        className={`${MONO} ${linkedTicketStatus === 'in_progress' ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}
-                      >
-                        TICKET #{message.ticketId}
-                      </span>
-                      {linkedTicketStatus && (
-                        <span
-                          className={`text-[10px] font-medium ${linkedTicketStatus === 'in_progress' ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}
-                        >
-                          {linkedTicketStatus
-                            .replace('_', ' ')
-                            .replace(/\b\w/g, (c) => c.toUpperCase())}
-                        </span>
-                      )}
-                    </div>
-                    <Link
-                      to={`/tickets?id=${message.ticketId}`}
-                      className={`text-[11px] flex items-center gap-1 ${linkedTicketStatus === 'in_progress' ? 'text-emerald-700 dark:text-emerald-400 hover:text-emerald-900' : 'text-blue-700 dark:text-blue-400 hover:text-blue-900'}`}
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      View Ticket
-                    </Link>
-                  </div>
-                  {message.channel === 'chat' && (
-                    <button
-                      onClick={() => setConvertBotOpen(true)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-border text-[11px] text-muted-foreground hover:bg-accent transition-colors"
-                    >
-                      <MessageSquare className="w-3 h-3" />
-                      Convert Bot Conversation
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div>
-                  {message.processed ? (
-                    <button
-                      onClick={onApprove}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded border-2 border-dashed border-border text-[11px] text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-accent transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      CREATE TICKET FROM MESSAGE
-                    </button>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground text-center py-4">
-                      Process the message first to create a ticket.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+          {/* Attachments Tab */}
+          {tab === 'attachments' && (
+            <MessageAttachments message={message} sortedThread={sortedThread} refreshKey={threadRefreshKey} highlightId={highlightAttachmentId} preloadedAttachments={attachments} />
           )}
 
           {/* Contradiction Tab */}
-          {tab === 'contradiction' && (
-            <div className="space-y-2">
-              {!!message.metadata?.intraMessageContradictionCheck && (
-                <ContradictionAlert
-                  contradictionCheck={
-                    message.metadata.intraMessageContradictionCheck as ContradictionCheckMetadata
-                  }
-                />
-              )}
-              {/* Only show cross-thread contradiction separately — intra-message is shown above */}
-              {!!(message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined)
-                ?.result?.contradictingMessageId && (
-                <ContradictionAlert
-                  contradictionCheck={
-                    message?.metadata?.contradictionCheck as ContradictionCheckMetadata
-                  }
-                />
-              )}
-            </div>
-          )}
+          {tab === 'contradiction' && (() => {
+            const crossCheck = message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined;
+            const intraCheck = message.metadata?.intraMessageContradictionCheck as ContradictionCheckMetadata | undefined;
+            const hasCrossContradiction = !!crossCheck?.result?.contradictingMessageId;
+            const hasIntraContradiction = !!(intraCheck?.result?.hasContradiction);
+            const checkWasRun = !!crossCheck || !!intraCheck;
+
+            const confidencePill: Record<string, string> = {
+              high: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+              medium: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+              low: 'bg-muted text-muted-foreground',
+            };
+
+            const CleanResult = ({ check }: { check: ContradictionCheckMetadata }) => (
+              <div className="p-2 rounded border border-border bg-card space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                    No contradiction found
+                  </span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${confidencePill[check.result.confidence] ?? confidencePill.low}`}>
+                    {check.result.confidence} confidence
+                  </span>
+                </div>
+                {check.claimToVerify && (
+                  <div>
+                    <p className={`${MONO} text-muted-foreground mb-0.5`}>CLAIM CHECKED</p>
+                    <p className="text-[11px] italic text-foreground">"{check.claimToVerify}"</p>
+                  </div>
+                )}
+                {check.result.explanation && (
+                  <div>
+                    <p className={`${MONO} text-muted-foreground mb-0.5`}>ANALYSIS</p>
+                    <p className="text-[11px] text-muted-foreground">{check.result.explanation}</p>
+                  </div>
+                )}
+                <p className="text-[9px] text-muted-foreground pt-1 border-t border-border">
+                  {check.triggeredBy === 'auto_pattern' ? 'Auto' : 'Manual'} · {new Date(check.checkedAt).toLocaleString()}
+                </p>
+              </div>
+            );
+
+            if (hasIntraContradiction || hasCrossContradiction) {
+              return (
+                <div className="space-y-2">
+                  {intraCheck && <ContradictionAlert contradictionCheck={intraCheck} />}
+                  {crossCheck && hasCrossContradiction && <ContradictionAlert contradictionCheck={crossCheck} />}
+                  {crossCheck && !hasCrossContradiction && !crossCheck.result.hasContradiction && <CleanResult check={crossCheck} />}
+                </div>
+              );
+            }
+
+            if (checkWasRun) {
+              return (
+                <div className="space-y-2">
+                  {crossCheck && <CleanResult check={crossCheck} />}
+                  {intraCheck && <CleanResult check={intraCheck} />}
+                  {onCheckContradiction && (
+                    <button
+                      onClick={() => void handleCheckContradiction()}
+                      disabled={checkingContradiction}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                      {checkingContradiction ? 'Checking…' : 'Re-check'}
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                <p className="text-[11px] text-muted-foreground">Not checked yet.</p>
+                {onCheckContradiction && (
+                  <button
+                    onClick={() => void handleCheckContradiction()}
+                    disabled={checkingContradiction}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {checkingContradiction ? 'Checking…' : 'Check contradiction'}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           {/* KB Tab — always mounted so similar-results are fetched once and never re-generated */}
           <div className={tab === 'kb' ? 'space-y-2' : 'hidden'}>
@@ -349,95 +430,39 @@ export function MessagePanelTabs({
               message={message}
               onGhostClick={onGhostClick}
               onOptionSelect={onOptionSelect}
-              onOptionsLoaded={onOptionsLoaded}
+              onOptionsLoaded={(total) => { setKbResultCount(total); onOptionsLoaded?.(total); }}
               onLoadingChange={onAiLoadingChange}
               onAutoSuggest={onAutoSuggest}
               section="suggested"
             />
             <MessageKBReferences messageId={message.id} />
+            {kbResultCount === 0 && (
+              <p className="text-[11px] text-muted-foreground text-center py-3">
+                No suggestions found — use the KB button to search manually.
+              </p>
+            )}
           </div>
 
           {/* Activity Tab */}
           {tab === 'activity' && (
             <div className="space-y-0">
-              {(
-                [
-                  {
-                    label: 'Message received',
-                    time:
-                      (message.metadata as { receivedAt?: string })?.receivedAt ??
-                      message.createdAt,
-                    who: message.sender,
-                  },
-                  ...(message.processed
-                    ? [{ label: 'Marked as processed', time: message.createdAt, who: 'Agent' }]
-                    : []),
-                  ...(message.assignedAt
-                    ? [
-                        {
-                          label: `Assigned to ${message.assigneeName ?? 'agent'}`,
-                          time: message.assignedAt,
-                          who: 'System',
-                        },
-                      ]
-                    : []),
-                  ...(message.repliedAt
-                    ? [
-                        {
-                          label: 'Reply sent',
-                          time: message.repliedAt,
-                          who: message.assigneeName ?? 'Agent',
-                        },
-                      ]
-                    : []),
-                  ...(message.firstResponseAt
-                    ? [{ label: 'First response', time: message.firstResponseAt, who: 'Agent' }]
-                    : []),
-                  ...(message.resolved
-                    ? [
-                        {
-                          label: 'Resolved',
-                          time: message.closedAt ?? message.createdAt,
-                          who: 'Agent',
-                        },
-                      ]
-                    : []),
-                  ...noteActivityLog,
-                ] as { label: string; time: string; who: string }[]
-              )
-                .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-                .map((item) => (
-                  <div
-                    key={`${item.label}-${item.time}`}
-                    className="flex gap-2 items-start py-1 border-b border-border last:border-0"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 flex-shrink-0" />
-                    <span className="font-mono text-[10px] text-muted-foreground w-14 flex-shrink-0 tabular-nums">
-                      {relativeTime(item.time)}
-                    </span>
-                    <span className="flex-1 text-[11px]">
-                      {item.who} · {item.label}
-                    </span>
-                  </div>
-                ))}
-              {notes.length > 0 &&
-                notes.map((n) => (
-                  <div
-                    key={`act-note-${n.id}`}
-                    className="flex gap-2 items-start py-1 border-b border-border last:border-0"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 dark:bg-amber-400 mt-1.5 flex-shrink-0" />
-                    <span className="font-mono text-[10px] text-muted-foreground w-14 flex-shrink-0 tabular-nums">
-                      {relativeTime(n.createdAt)}
-                    </span>
-                    <span className="flex-1 text-[11px]">
-                      {n.user
-                        ? `${n.user.firstName} ${n.user.lastName ?? ''}`.trim()
-                        : n.authorName}{' '}
-                      · Internal note
-                    </span>
-                  </div>
-                ))}
+              {buildTimeline(messageActivity, notes, noteActivityLog).map((item) => (
+                <div
+                  key={`${item.time}-${item.label}-${item.who}`}
+                  className="flex gap-2 items-start py-1 border-b border-border last:border-0"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${item.dot ?? 'bg-muted-foreground/30'}`} />
+                  <span className="font-mono text-[10px] text-muted-foreground w-14 flex-shrink-0 [font-variant-numeric:tabular-nums]">
+                    {relativeTime(item.time)}
+                  </span>
+                  <span className="flex-1 text-[11px]">
+                    {item.who} · {item.label}
+                  </span>
+                </div>
+              ))}
+              {messageActivity.length === 0 && noteActivityLog.length === 0 && notes.length === 0 && (
+                <p className="text-[11px] text-muted-foreground text-center py-4">No activity yet</p>
+              )}
             </div>
           )}
 

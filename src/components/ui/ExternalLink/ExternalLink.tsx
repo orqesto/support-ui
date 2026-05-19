@@ -13,9 +13,9 @@ export const ExternalLink = ({
   onClick,
   ...props
 }: ExternalLinkProps) => {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.stopPropagation();
-    onClick?.(e);
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.stopPropagation();
+    onClick?.(event);
   };
 
   return (

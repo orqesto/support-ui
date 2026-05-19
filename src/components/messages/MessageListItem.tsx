@@ -121,7 +121,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
                   >
                     <Target className="w-2.5 h-2.5" />
                     {STAGE_COLORS[stage] === 'danger' && <AlertTriangle className="w-2.5 h-2.5" />}
-                    {stage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {stage.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
                   </Badge>
                 );
               }

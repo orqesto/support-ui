@@ -46,12 +46,12 @@ export const STATUS_MENU_LABELS: Record<ThreadStatus, string> = {
   filtered: 'Filtered',
 };
 
-export const STATUS_OPTIONS = SETTABLE_STATUSES.map((s) => ({
-  value: s,
-  label: STATUS_DISPLAY[s].label,
-  menuLabel: STATUS_MENU_LABELS[s],
-  chipClassName: STATUS_DISPLAY[s].chip,
-  dotClassName: STATUS_DISPLAY[s].dot,
+export const STATUS_OPTIONS = SETTABLE_STATUSES.map((stat) => ({
+  value: stat,
+  label: STATUS_DISPLAY[stat].label,
+  menuLabel: STATUS_MENU_LABELS[stat],
+  chipClassName: STATUS_DISPLAY[stat].chip,
+  dotClassName: STATUS_DISPLAY[stat].dot,
 }));
 
 export const PRIORITY_OPTIONS: {
@@ -150,18 +150,18 @@ export function minAgo(dateStr: string): number {
 }
 
 export function relativeTime(dateStr: string): string {
-  const m = minAgo(dateStr);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  const mins = minAgo(dateStr);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
-export function fmtMin(m: number): string {
-  if (m < 60) return `${m}m`;
-  if (m < 1440) return `${Math.round(m / 60)}h`;
-  return `${Math.round(m / 1440)}d`;
+export function fmtMin(mins: number): string {
+  if (mins < 60) return `${mins}m`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h`;
+  return `${Math.round(mins / 1440)}d`;
 }
 
 export function renderMarkdown(raw: string): string {
@@ -215,8 +215,8 @@ export function splitAtQuote(
       /<hr\s*[^>]*\/?>/i,
       /<div[^>]*(?:gmail_quote|yahoo_quoted|quoted-text)[^>]*>/i,
     ]) {
-      const m = content.match(pattern);
-      if (m?.index !== undefined && m.index > 80)
+      const match = content.match(pattern);
+      if (match?.index !== undefined && match.index > 80)
         return { main: content.slice(0, m.index).trimEnd(), quote: content.slice(m.index) };
     }
     const bq = content.indexOf('<blockquote');

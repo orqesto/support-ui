@@ -63,12 +63,12 @@ export const ChatWidgetModal = ({
         allowedDomains: widget.allowedDomains,
       });
       setDomainsText(widget.allowedDomains.join('\n'));
-      const t = (widget.metadata?.theme as typeof theme) ?? {};
+      const themeData = (widget.metadata?.theme as typeof theme) ?? {};
       setTheme({
-        botBubbleColor: t.botBubbleColor ?? '#ffffff',
-        botTextColor: t.botTextColor ?? '#1f2937',
-        borderRadius: t.borderRadius ?? 'rounded',
-        fontFamily: t.fontFamily ?? '',
+        botBubbleColor: themeData.botBubbleColor ?? '#ffffff',
+        botTextColor: themeData.botTextColor ?? '#1f2937',
+        borderRadius: themeData.borderRadius ?? 'rounded',
+        fontFamily: themeData.fontFamily ?? '',
       });
     } else {
       setFormData({
@@ -91,15 +91,15 @@ export const ChatWidgetModal = ({
     }
   }, [widget, open]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setSaving(true);
 
     try {
       const domains = domainsText
         .split('\n')
-        .map((d) => d.trim())
-        .filter((d) => d.length > 0);
+        .map((domain) => domain.trim())
+        .filter((domain) => domain.length > 0);
 
       const data = {
         ...formData,
@@ -159,7 +159,7 @@ export const ChatWidgetModal = ({
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, name: event.target.value })}
               placeholder="Support Chat Widget"
               required
             />
@@ -191,7 +191,7 @@ export const ChatWidgetModal = ({
             <Input
               id="welcomeMessage"
               value={formData.welcomeMessage}
-              onChange={(e) => setFormData({ ...formData, welcomeMessage: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, welcomeMessage: event.target.value })}
               placeholder="Hi! How can I help you today?"
             />
           </div>
@@ -201,7 +201,7 @@ export const ChatWidgetModal = ({
             <Input
               id="placeholder"
               value={formData.placeholder}
-              onChange={(e) => setFormData({ ...formData, placeholder: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, placeholder: event.target.value })}
               placeholder="Type your message..."
             />
           </div>
@@ -214,12 +214,12 @@ export const ChatWidgetModal = ({
                   type="color"
                   id="primaryColor"
                   value={formData.primaryColor}
-                  onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, primaryColor: event.target.value })}
                   className="h-10 w-20"
                 />
                 <Input
                   value={formData.primaryColor}
-                  onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, primaryColor: event.target.value })}
                   placeholder="#0070F3"
                   className="flex-1 font-mono"
                 />
@@ -249,7 +249,7 @@ export const ChatWidgetModal = ({
             <textarea
               id="allowedDomains"
               value={domainsText}
-              onChange={(e) => setDomainsText(e.target.value)}
+              onChange={(event) => setDomainsText(event.target.value)}
               placeholder="example.com&#10;*.example.com&#10;app.example.com"
               className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
@@ -263,7 +263,7 @@ export const ChatWidgetModal = ({
               type="checkbox"
               id="collectUserInfo"
               checked={formData.collectUserInfo}
-              onChange={(e) => setFormData({ ...formData, collectUserInfo: e.target.checked })}
+              onChange={(event) => setFormData({ ...formData, collectUserInfo: event.target.checked })}
               className="h-4 w-4 rounded border-gray-300"
             />
             <Label htmlFor="collectUserInfo" className="!mb-0">
@@ -300,12 +300,12 @@ export const ChatWidgetModal = ({
                     type="color"
                     id="botBubbleColor"
                     value={theme.botBubbleColor}
-                    onChange={(e) => setTheme({ ...theme, botBubbleColor: e.target.value })}
+                    onChange={(event) => setTheme({ ...theme, botBubbleColor: event.target.value })}
                     className="h-10 w-20"
                   />
                   <Input
                     value={theme.botBubbleColor}
-                    onChange={(e) => setTheme({ ...theme, botBubbleColor: e.target.value })}
+                    onChange={(event) => setTheme({ ...theme, botBubbleColor: event.target.value })}
                     placeholder="#ffffff"
                     className="flex-1 font-mono"
                   />
@@ -319,12 +319,12 @@ export const ChatWidgetModal = ({
                     type="color"
                     id="botTextColor"
                     value={theme.botTextColor}
-                    onChange={(e) => setTheme({ ...theme, botTextColor: e.target.value })}
+                    onChange={(event) => setTheme({ ...theme, botTextColor: event.target.value })}
                     className="h-10 w-20"
                   />
                   <Input
                     value={theme.botTextColor}
-                    onChange={(e) => setTheme({ ...theme, botTextColor: e.target.value })}
+                    onChange={(event) => setTheme({ ...theme, botTextColor: event.target.value })}
                     placeholder="#1f2937"
                     className="flex-1 font-mono"
                   />
@@ -336,7 +336,7 @@ export const ChatWidgetModal = ({
                 <Input
                   id="fontFamily"
                   value={theme.fontFamily}
-                  onChange={(e) => setTheme({ ...theme, fontFamily: e.target.value })}
+                  onChange={(event) => setTheme({ ...theme, fontFamily: event.target.value })}
                   placeholder="inherit from website"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">e.g. Inter, Arial, Georgia</p>

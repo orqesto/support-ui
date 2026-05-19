@@ -36,7 +36,7 @@ export function useTicketsRealtime({
     integrationsService.getAll()
       .then((response) => {
         if (response.success && response.data) {
-          const jiras = response.data.filter((i) => i.type === 'jira' && i.enabled) as JiraIntegration[];
+          const jiras = response.data.filter((intg) => intg.type === 'jira' && intg.enabled) as JiraIntegration[];
           setJiraIntegrations(jiras);
           if (jiras.length === 1) setSelectedJiraId(jiras[0].id);
         }

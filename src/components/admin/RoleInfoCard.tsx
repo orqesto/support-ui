@@ -193,7 +193,7 @@ export const RoleInfoCard = ({ role, compact = false }: RoleInfoCardProps) => {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Info className="w-4 h-4" />
-            {role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())} Role
+            {role.replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())} Role
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -226,16 +226,16 @@ export const RoleInfoCard = ({ role, compact = false }: RoleInfoCardProps) => {
 
   return (
     <div className="space-y-4">
-      {roles.map((r) => {
-        const capabilities = roleCapabilities[r];
+      {roles.map((role) => {
+        const capabilities = roleCapabilities[role];
         return (
-          <Card key={r} className="border-l-4 border-l-primary">
+          <Card key={role} className="border-l-4 border-l-primary">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5" />
-                {r.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())} Role
+                {role.replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())} Role
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">{roleDescriptions[r]}</p>
+              <p className="text-sm text-muted-foreground mt-2">{roleDescriptions[role]}</p>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 gap-4">

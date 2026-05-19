@@ -59,8 +59,8 @@ apiClient.interceptors.request.use(
             `🏷️ [API] Department Context: ${selectedDept} | ${config.method?.toUpperCase()} ${config.url}`
           );
         }
-      } catch (e) {
-        logger.error('❌ [API] Failed to parse auth storage:', e);
+      } catch (err) {
+        logger.error('❌ [API] Failed to parse auth storage:', err);
       }
     }
 

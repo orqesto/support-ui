@@ -1,26 +1,86 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FileText, RefreshCw, Filter, X } from 'lucide-react';
+import { FileText, RefreshCw, X } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { auditLogService } from '@/services/auditLog.service';
+import type { AuditLogFilters } from '@/services/auditLog.service';
+import { organizationService } from '@/services/organization.service';
+import type { OrganizationMember } from '@/services/organization.service';
 import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
+
+const ACTION_OPTIONS = [
+  { value: '', label: 'All Actions' },
+  { value: 'user.create', label: 'User → Create' },
+  { value: 'user.update', label: 'User → Update' },
+  { value: 'user.role_change', label: 'User → Role Change' },
+  { value: 'user.skills_update', label: 'User → Skills Update' },
+  { value: 'user.delete', label: 'User → Delete' },
+  { value: 'message.reply', label: 'Message → Reply' },
+  { value: 'message.update', label: 'Message → Update' },
+  { value: 'ticket.create', label: 'Ticket → Create' },
+  { value: 'ticket.update', label: 'Ticket → Update' },
+  { value: 'ticket.assign', label: 'Ticket → Assign' },
+  { value: 'ticket.resolve', label: 'Ticket → Resolve' },
+  { value: 'ticket.reopen', label: 'Ticket → Reopen' },
+  { value: 'ticket.delete', label: 'Ticket → Delete' },
+  { value: 'integration.create', label: 'Integration → Create' },
+  { value: 'integration.update', label: 'Integration → Update' },
+  { value: 'integration.delete', label: 'Integration → Delete' },
+  { value: 'category.create', label: 'Category → Create' },
+  { value: 'category.update', label: 'Category → Update' },
+  { value: 'category.delete', label: 'Category → Delete' },
+  { value: 'prompt.create', label: 'Prompt → Create' },
+  { value: 'prompt.update', label: 'Prompt → Update' },
+  { value: 'prompt.delete', label: 'Prompt → Delete' },
+  { value: 'organization.update', label: 'Organization → Update' },
+  { value: 'organization.member_add', label: 'Organization → Member Add' },
+  { value: 'organization.member_remove', label: 'Organization → Member Remove' },
+  { value: 'settings.update', label: 'Settings → Update' },
+  { value: 'settings.routing_key_add', label: 'Settings → Routing Key Add' },
+  { value: 'settings.routing_key_delete', label: 'Settings → Routing Key Delete' },
+  { value: 'documentation.update', label: 'Documentation → Update' },
+  { value: 'documentation.delete', label: 'Documentation → Delete' },
+  { value: 'ai.auto_reply_enable', label: 'AI → Auto-reply Enable' },
+  { value: 'ai.auto_reply_disable', label: 'AI → Auto-reply Disable' },
+];
+
+const ENTITY_OPTIONS = [
+  { value: '', label: 'All Entities' },
+  { value: 'user', label: 'User' },
+  { value: 'message', label: 'Message' },
+  { value: 'ticket', label: 'Ticket' },
+  { value: 'integration', label: 'Integration' },
+  { value: 'category', label: 'Category' },
+  { value: 'organization', label: 'Organization' },
+  { value: 'prompt_template', label: 'Prompt Template' },
+  { value: 'kb_entry', label: 'KB Entry' },
+  { value: 'kb_document', label: 'KB Document' },
+  { value: 'lead_config', label: 'Lead Config' },
+  { value: 'settings', label: 'Settings' },
+];
+
+const filterSelectClass =
+  'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer';
+
+const filterInputClass =
+  'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring dark:[color-scheme:dark]';
 
 export const AuditLogsPage = () => {
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [userSearch, setUserSearch] = useState('');
 
   const logs = useAuditLogsStore((state) => state.logs);
   const filters = useAuditLogsStore((state) => state.filters);
@@ -28,12 +88,18 @@ export const AuditLogsPage = () => {
   const setFilters = useAuditLogsStore((state) => state.setFilters);
   const resetFilters = useAuditLogsStore((state) => state.resetFilters);
 
-  // Local filter state
-  const [localFilters, setLocalFilters] = useState({
-    search: '',
-    action: '',
-    entity: '',
-  });
+  const patchFilter = (patch: Partial<AuditLogFilters>) => {
+    setFilters({ ...filters, ...patch });
+    setCurrentPage(1);
+  };
+
+  const activeFilterCount = [
+    filters.action,
+    filters.entity,
+    filters.startDate,
+    filters.endDate,
+    filters.userId,
+  ].filter(Boolean).length;
 
   const fetchLogs = useCallback(
     async (isRefresh = false) => {
@@ -42,12 +108,8 @@ export const AuditLogsPage = () => {
       } else {
         setLoading(true);
       }
-
       try {
-        const result = await auditLogService.getAll({
-          ...filters,
-          page: currentPage,
-        });
+        const result = await auditLogService.getAll({ ...filters, page: currentPage });
         setLogs(result.logs);
         setTotalCount(result.pagination.total);
         setTotalPages(result.pagination.totalPages);
@@ -65,53 +127,65 @@ export const AuditLogsPage = () => {
 
   useEffect(() => {
     if (canView) {
-      fetchLogs().catch((error) => {
-        logger.error('Failed to fetch logs:', error);
-      });
+      fetchLogs().catch((error) => logger.error('Failed to fetch logs:', error));
     }
   }, [canView, fetchLogs]);
 
-  const handleRefresh = () => {
-    fetchLogs(true).catch((error) => {
-      logger.error('Failed to refresh logs:', error);
-    });
+  useEffect(() => {
+    if (canView) {
+      organizationService
+        .getMembers()
+        .then((data) => {
+          const seen = new Set<number>();
+          setMembers(data.filter((member) => !seen.has(member.userId) && seen.add(member.userId) !== undefined));
+        })
+        .catch(() => {});
+    }
+  }, [canView]);
+
+  const handleUserSearchChange = (value: string) => {
+    setUserSearch(value);
+    if (!value) {
+      patchFilter({ userId: undefined });
+      return;
+    }
+    const match = members.find((member) => member.email.toLowerCase() === value.toLowerCase());
+    if (match) patchFilter({ userId: match.userId });
   };
 
-  const handleApplyFilters = () => {
-    setFilters({
-      ...filters,
-      action: localFilters.action || undefined,
-      entity: localFilters.entity || undefined,
-    });
-    setCurrentPage(1);
+  const handleRefresh = () => {
+    fetchLogs(true).catch((error) => logger.error('Failed to refresh logs:', error));
   };
 
   const handleClearFilters = () => {
-    setLocalFilters({
-      search: '',
-      action: '',
-      entity: '',
-    });
     resetFilters();
+    setUserSearch('');
     setCurrentPage(1);
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  // Click a user cell to populate the search input and apply the filter
+  const handleClickUser = (userId: number | null, userEmail: string | null) => {
+    if (!userId) return;
+    patchFilter({ userId });
+    setUserSearch(userEmail ?? String(userId));
+  };
+
+  // Click an action badge to filter by that action
+  const handleClickAction = (action: string) => {
+    patchFilter({ action });
+  };
+
+  // Click an entity badge to filter by that entity
+  const handleClickEntity = (entity: string) => {
+    patchFilter({ entity });
   };
 
   const getActionBadgeVariant = (
     action: string
   ): 'default' | 'success' | 'warning' | 'danger' | 'secondary' => {
-    if (action.includes('create')) {
-      return 'success';
-    }
-    if (action.includes('delete')) {
-      return 'danger';
-    }
-    if (action.includes('update')) {
-      return 'warning';
-    }
+    if (action.includes('create')) return 'success';
+    if (action.includes('delete')) return 'danger';
+    if (action.includes('update')) return 'warning';
     return 'default';
   };
 
@@ -136,91 +210,100 @@ export const AuditLogsPage = () => {
                 View system activity and changes ({totalCount} total)
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  setShowFilters(!showFilters);
-                }}
-                variant="outline"
-                size="sm"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filters
-              </Button>
-              <Button onClick={handleRefresh} disabled={refreshing} variant="outline" size="sm">
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
+            <Button onClick={handleRefresh} disabled={refreshing} variant="outline" size="sm">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
 
-          {/* Filters */}
-          {showFilters && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <ReactSelect
-                      label="Action"
-                      id="action-filter"
-                      value={localFilters.action}
-                      onChange={(value) => {
-                        setLocalFilters({ ...localFilters, action: value });
-                      }}
-                      options={[
-                        { value: '', label: 'All Actions' },
-                        { value: 'user.create', label: 'User Create' },
-                        { value: 'user.update', label: 'User Update' },
-                        { value: 'user.delete', label: 'User Delete' },
-                        { value: 'ticket.create', label: 'Ticket Create' },
-                        { value: 'message.create', label: 'Message Create' },
-                        { value: 'integration.create', label: 'Integration Create' },
-                        { value: 'settings.update', label: 'Settings Update' },
-                      ]}
-                    />
-                  </div>
-
-                  <div>
-                    <ReactSelect
-                      label="Entity"
-                      id="entity-filter"
-                      value={localFilters.entity}
-                      onChange={(value) => {
-                        setLocalFilters({ ...localFilters, entity: value });
-                      }}
-                      options={[
-                        { value: '', label: 'All Entities' },
-                        { value: 'user', label: 'User' },
-                        { value: 'ticket', label: 'Ticket' },
-                        { value: 'message', label: 'Message' },
-                        { value: 'integration', label: 'Integration' },
-                        { value: 'category', label: 'Category' },
-                        { value: 'settings', label: 'Settings' },
-                      ]}
-                    />
-                  </div>
-
-                  <div className="flex gap-2 items-end">
-                    <Button onClick={handleApplyFilters} size="sm" className="flex-1">
-                      Apply
-                    </Button>
-                    <Button
-                      onClick={handleClearFilters}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Audit Logs Table */}
+          {/* Table card */}
           <Card className="flex-1 flex flex-col overflow-hidden">
             <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+
+              {/* Filter bar */}
+              <div className="border-b px-4 py-3 flex flex-wrap gap-2 items-center bg-muted/30">
+                {/* Action */}
+                <select
+                  value={filters.action ?? ''}
+                  onChange={(event) => patchFilter({ action: event.target.value || undefined })}
+                  className={filterSelectClass}
+                  aria-label="Filter by action"
+                >
+                  {ACTION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Entity */}
+                <select
+                  value={filters.entity ?? ''}
+                  onChange={(event) => patchFilter({ entity: event.target.value || undefined })}
+                  className={filterSelectClass}
+                  aria-label="Filter by entity"
+                >
+                  {ENTITY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Date range */}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={filters.startDate ?? ''}
+                    max={filters.endDate ?? undefined}
+                    onChange={(event) => patchFilter({ startDate: event.target.value || undefined })}
+                    className={filterInputClass}
+                    aria-label="From date"
+                    title="From date"
+                  />
+                  <span className="text-xs text-muted-foreground">–</span>
+                  <input
+                    type="date"
+                    value={filters.endDate ?? ''}
+                    min={filters.startDate ?? undefined}
+                    onChange={(event) => patchFilter({ endDate: event.target.value || undefined })}
+                    className={filterInputClass}
+                    aria-label="To date"
+                    title="To date"
+                  />
+                </div>
+
+                {/* User search */}
+                <div className="relative">
+                  <input
+                    type="search"
+                    list="user-search-datalist"
+                    value={userSearch}
+                    onChange={(event) => handleUserSearchChange(event.target.value)}
+                    placeholder="Search user…"
+                    className={`${filterInputClass} w-48 pr-2`}
+                    aria-label="Filter by user"
+                  />
+                  <datalist id="user-search-datalist">
+                    {members.map((member) => (
+                      <option key={member.userId} value={member.email}>
+                        {member.firstName} {member.lastName}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Clear all */}
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear all ({activeFilterCount})
+                  </button>
+                )}
+              </div>
+
               {loading ? (
                 <div className="p-8 text-center">
                   <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
@@ -230,7 +313,16 @@ export const AuditLogsPage = () => {
                 <div className="p-8 text-center">
                   <FileText className="mx-auto mb-4 w-16 h-16 text-gray-400" />
                   <h3 className="mb-2 text-lg font-semibold">No Audit Logs Found</h3>
-                  <p className="text-muted-foreground">No activity recorded yet.</p>
+                  <p className="text-muted-foreground">
+                    {activeFilterCount > 0
+                      ? 'No logs match the active filters.'
+                      : 'No activity recorded yet.'}
+                  </p>
+                  {activeFilterCount > 0 && (
+                    <Button onClick={handleClearFilters} variant="outline" size="sm" className="mt-4">
+                      Clear filters
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -239,37 +331,51 @@ export const AuditLogsPage = () => {
                     <div className="divide-y divide-border overflow-auto flex-1">
                       {logs.map((log) => (
                         <div key={log.id} className="p-4 transition-colors hover:bg-accent">
-                          <div className="flex gap-3 items-start">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex gap-2 flex-wrap items-center mb-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex gap-2 flex-wrap items-center mb-2">
+                              <button
+                                onClick={() => handleClickAction(log.action)}
+                                title="Filter by this action"
+                                className="cursor-pointer"
+                              >
                                 <Badge variant={getActionBadgeVariant(log.action)}>
                                   {formatAction(log.action)}
                                 </Badge>
+                              </button>
+                              <button
+                                onClick={() => handleClickEntity(log.entity)}
+                                title="Filter by this entity"
+                                className="cursor-pointer"
+                              >
                                 <Badge variant="secondary">{log.entity}</Badge>
+                              </button>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                              <div>
+                                <span className="font-medium">Entity ID:</span> {log.entityId}
                               </div>
-                              <div className="space-y-1 text-sm">
-                                <div>
-                                  <span className="font-medium">Entity ID:</span> {log.entityId}
-                                </div>
-                                {log.userEmail && (
-                                  <div>
-                                    <span className="font-medium">User:</span> {log.userEmail}
-                                  </div>
-                                )}
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDate(log.createdAt)}
-                                </div>
-                                {log.details && Object.keys(log.details).length > 0 && (
-                                  <details className="mt-2">
-                                    <summary className="text-xs cursor-pointer text-primary">
-                                      Show Details
-                                    </summary>
-                                    <pre className="overflow-x-auto mt-2 p-2 text-xs rounded bg-muted">
-                                      {JSON.stringify(log.details, null, 2)}
-                                    </pre>
-                                  </details>
-                                )}
+                              {log.userEmail && (
+                                <button
+                                  onClick={() => handleClickUser(log.userId, log.userEmail)}
+                                  title="Filter by this user"
+                                  className="text-left hover:underline text-primary cursor-pointer"
+                                >
+                                  {log.userEmail}
+                                </button>
+                              )}
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(log.createdAt)}
                               </div>
+                              {log.details && Object.keys(log.details).length > 0 && (
+                                <details className="mt-2">
+                                  <summary className="text-xs cursor-pointer text-primary">
+                                    Show Details
+                                  </summary>
+                                  <pre className="overflow-x-auto mt-2 p-2 text-xs rounded bg-muted">
+                                    {JSON.stringify(log.details, null, 2)}
+                                  </pre>
+                                </details>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -310,17 +416,37 @@ export const AuditLogsPage = () => {
                                 {formatDate(log.createdAt)}
                               </td>
                               <td className="px-4 py-3 text-sm">
-                                {log.userEmail ?? (
+                                {log.userEmail ? (
+                                  <button
+                                    onClick={() => handleClickUser(log.userId, log.userEmail)}
+                                    title="Filter by this user"
+                                    className="hover:underline text-left cursor-pointer"
+                                  >
+                                    {log.userEmail}
+                                  </button>
+                                ) : (
                                   <span className="italic text-muted-foreground">System</span>
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                <Badge variant={getActionBadgeVariant(log.action)}>
-                                  {formatAction(log.action)}
-                                </Badge>
+                                <button
+                                  onClick={() => handleClickAction(log.action)}
+                                  title="Filter by this action"
+                                  className="cursor-pointer"
+                                >
+                                  <Badge variant={getActionBadgeVariant(log.action)}>
+                                    {formatAction(log.action)}
+                                  </Badge>
+                                </button>
                               </td>
                               <td className="px-4 py-3">
-                                <Badge variant="secondary">{log.entity}</Badge>
+                                <button
+                                  onClick={() => handleClickEntity(log.entity)}
+                                  title="Filter by this entity"
+                                  className="cursor-pointer"
+                                >
+                                  <Badge variant="secondary">{log.entity}</Badge>
+                                </button>
                               </td>
                               <td className="px-4 py-3 text-sm font-mono">{log.entityId}</td>
                               <td className="px-4 py-3 text-sm">
@@ -346,9 +472,7 @@ export const AuditLogsPage = () => {
                   {totalPages > 1 && (
                     <div className="flex gap-2 justify-between items-center p-4 border-t">
                       <Button
-                        onClick={() => {
-                          handlePageChange(currentPage - 1);
-                        }}
+                        onClick={() => setCurrentPage(currentPage - 1)}
                         disabled={currentPage === 1}
                         size="sm"
                         variant="outline"
@@ -359,9 +483,7 @@ export const AuditLogsPage = () => {
                         Page {currentPage} of {totalPages}
                       </span>
                       <Button
-                        onClick={() => {
-                          handlePageChange(currentPage + 1);
-                        }}
+                        onClick={() => setCurrentPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
                         size="sm"
                         variant="outline"

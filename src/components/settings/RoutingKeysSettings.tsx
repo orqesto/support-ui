@@ -172,8 +172,8 @@ export const RoutingKeysSettings = () => {
             <input
               type="text"
               value={newKey}
-              onChange={(e) => setNewKey(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd(); } }}
+              onChange={(event) => setNewKey(event.target.value.toLowerCase().replace(/\s+/g, '_'))}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void handleAdd(); } }}
               placeholder="Key (e.g. language, region)"
               className={`w-36 px-3 py-1.5 text-sm rounded-md border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary ${newKey && !/^[a-z0-9_-]+$/.test(newKey) ? 'border-destructive' : 'border-border'}`}
             />
@@ -184,8 +184,8 @@ export const RoutingKeysSettings = () => {
           <input
             type="text"
             value={newDescription}
-            onChange={(e) => setNewDescription(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd(); } }}
+            onChange={(event) => setNewDescription(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void handleAdd(); } }}
             placeholder="Description (optional)"
             className="flex-1 px-3 py-1.5 text-sm rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />

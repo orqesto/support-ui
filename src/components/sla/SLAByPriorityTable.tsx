@@ -78,7 +78,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
         resolutionBreached: stats.resolutionBreached,
       };
     })
-    .filter((r): r is NonNullable<typeof r> => r !== null);
+    .filter((row): row is NonNullable<typeof row> => row !== null);
 
   if (rows.length === 0) {
     return (

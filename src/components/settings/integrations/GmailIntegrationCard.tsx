@@ -59,7 +59,7 @@ export const GmailIntegrationCard = ({
   const [showMenu, setShowMenu] = useState<number | null>(null);
   const [config, setConfig] = useState<GmailConfig>(defaultConfig);
 
-  const gmailIntegrations = integrations.filter((i) => i.type === 'gmail');
+  const gmailIntegrations = integrations.filter((integ) => integ.type === 'gmail');
 
   const handleUpdateBulkImportDays = async () => {
     if (!editBulkImport) return;
@@ -323,7 +323,7 @@ export const GmailIntegrationCard = ({
                           <div
                             className="fixed inset-0 z-10"
                             onClick={() => setShowMenu(null)}
-                            onKeyDown={(e) => e.key === 'Escape' && setShowMenu(null)}
+                            onKeyDown={(event) => event.key === 'Escape' && setShowMenu(null)}
                             role="button"
                             tabIndex={0}
                             aria-label="Close menu"

@@ -19,8 +19,8 @@ export const Pagination = ({
     const maxVisible = 7;
 
     if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
+      for (let idx = 1; idx <= totalPages; idx++) {
+        pages.push(idx);
       }
     } else {
       pages.push(1);
@@ -32,8 +32,8 @@ export const Pagination = ({
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
 
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
+      for (let idx = start; idx <= end; idx++) {
+        pages.push(idx);
       }
 
       if (currentPage < totalPages - 2) {

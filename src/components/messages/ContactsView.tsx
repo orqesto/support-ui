@@ -76,7 +76,7 @@ function ContactRow({
         setSubjectState({ loading: false, data: [] });
       }
     }
-    setExpanded((v) => !v);
+    setExpanded((val) => !val);
   }, [expanded, subjectState.data, contact.sender, apiFilters]);
 
   const handleSubjectClick = useCallback(
@@ -105,7 +105,7 @@ function ContactRow({
           tabIndex={0}
           className="flex gap-3 items-center px-4 py-3 w-full text-left transition-colors hover:bg-muted/50 cursor-pointer"
           onClick={() => void handleExpand()}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleExpand(); } }}
+          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void handleExpand(); } }}
         >
           <span className="text-muted-foreground">
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -147,7 +147,7 @@ function ContactRow({
               size="sm"
               variant="outline"
               className="flex gap-1 items-center h-7 shrink-0"
-              onClick={(e) => { e.stopPropagation(); onViewProfile(contact.sender); }}
+              onClick={(event) => { event.stopPropagation(); onViewProfile(contact.sender); }}
             >
               <User className="w-3 h-3" />
               Profile
@@ -160,8 +160,8 @@ function ContactRow({
           <div className="border-t divide-y">
             {subjectState.loading && (
               <div className="px-10 py-3 space-y-2">
-                {(['s1', 's2'] as const).map((k) => (
-                  <div key={k} className="h-4 rounded animate-pulse bg-muted" />
+                {(['s1', 's2'] as const).map((key) => (
+                  <div key={key} className="h-4 rounded animate-pulse bg-muted" />
                 ))}
               </div>
             )}
@@ -248,8 +248,8 @@ function SenderFocusView({
 
       {loading && (
         <div className="space-y-2">
-          {(['s1', 's2', 's3'] as const).map((k) => (
-            <Card key={k}>
+          {(['s1', 's2', 's3'] as const).map((key) => (
+            <Card key={key}>
               <CardContent className="p-4">
                 <div className="h-4 rounded animate-pulse bg-muted w-2/3" />
               </CardContent>
@@ -347,7 +347,7 @@ export function ContactsView({ apiFilters, focusSender, onOpenMessage, onPaginat
       <SenderFocusView
         sender={focusSender}
         apiFilters={apiFilters}
-        onBack={() => setSearchParams((p) => { p.delete('sender'); p.delete('mode'); return p; }, { replace: true })}
+        onBack={() => setSearchParams((params) => { params.delete('sender'); params.delete('mode'); return params; }, { replace: true })}
         onOpenMessage={onOpenMessage}
       />
     );
@@ -356,12 +356,12 @@ export function ContactsView({ apiFilters, focusSender, onOpenMessage, onPaginat
   if (loading) {
     return (
       <div className="space-y-2">
-        {(['c1','c2','c3','c4','c5','c6','c7','c8'] as const).map((k, i) => (
-          <Card key={k}>
+        {(['c1','c2','c3','c4','c5','c6','c7','c8'] as const).map((key, idx) => (
+          <Card key={key}>
             <CardContent className="p-4">
               <div
                 className="h-4 rounded animate-pulse bg-muted"
-                style={{ width: `${40 + (i % 3) * 15}%` }}
+                style={{ width: `${40 + (idx % 3) * 15}%` }}
               />
             </CardContent>
           </Card>

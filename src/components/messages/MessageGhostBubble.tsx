@@ -11,7 +11,7 @@ type Props = {
   composerMode: 'reply' | 'note';
   resolved: boolean;
   alternativeCount: number;
-  onGhostClick: (answer: string) => void;
+  onGhostClick: (answer: string, source: string) => void;
   onShowAlternatives: () => void;
 };
 
@@ -66,8 +66,8 @@ export function MessageGhostBubble({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onGhostClick(ghostOption.answer)}
-      onKeyDown={(e) => e.key === 'Enter' && onGhostClick(ghostOption.answer)}
+      onClick={() => onGhostClick(ghostOption.answer, ghostOption.type === 'lead' ? 'lead_qualification' : ghostOption.type === 'similar' ? 'message' : 'documentation')}
+      onKeyDown={(event) => event.key === 'Enter' && onGhostClick(ghostOption.answer, ghostOption.type === 'lead' ? 'lead_qualification' : ghostOption.type === 'similar' ? 'message' : 'documentation')}
       className="flex flex-row-reverse gap-2 w-full group cursor-pointer"
     >
       <div className="flex flex-shrink-0 justify-center items-center mt-1 w-6 h-6 bg-violet-100 rounded-full ring-1 ring-violet-200 dark:bg-violet-950/40 dark:ring-violet-800">
@@ -83,8 +83,8 @@ export function MessageGhostBubble({
           </span>
           {alternativeCount > 1 && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 onShowAlternatives();
               }}
               className="text-[9px] font-mono text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 underline transition-colors"

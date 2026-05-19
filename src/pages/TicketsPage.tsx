@@ -438,7 +438,7 @@ export const TicketsPage = () => {
                 onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
                 options={[
                   { value: '', label: 'All Jira' },
-                  ...jiraIntegrations.map((j) => ({ value: j.id.toString(), label: j.name })),
+                  ...jiraIntegrations.map((jira) => ({ value: jira.id.toString(), label: jira.name })),
                 ]}
                 className="w-40"
               />
@@ -487,15 +487,15 @@ export const TicketsPage = () => {
             filters={filters}
             onOpen={(ticket) => {
               setSelectedTicket(ticket);
-              setSearchParams((p) => { p.set('id', ticket.id.toString()); return p; });
+              setSearchParams((params) => { params.set('id', ticket.id.toString()); return params; });
             }}
           />
         ) : loading ? (
           <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 5 }).map((_, idx) => (
               // Index key is safe: array is immutable (recreated from text split), no reordering
               // eslint-disable-next-line react/no-array-index-key
-              <Card key={`ticket-skeleton-${i}`} className="animate-pulse">
+              <Card key={`ticket-skeleton-${idx}`} className="animate-pulse">
                 <CardContent className="p-6">
                   <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
                   <div className="w-1/2 h-4 bg-gray-200 rounded" />
@@ -518,9 +518,9 @@ export const TicketsPage = () => {
                 key={ticket.id}
                 ticket={ticket}
                 isSyncing={syncing === ticket.id}
-                onOpen={(t) => {
-                  setSelectedTicket(t);
-                  setSearchParams((p) => { p.set('id', t.id.toString()); return p; });
+                onOpen={(ticket) => {
+                  setSelectedTicket(ticket);
+                  setSearchParams((params) => { params.set('id', ticket.id.toString()); return params; });
                 }}
                 onPushToJira={handlePushToJira}
                 onDelete={handleDeleteClick}
@@ -563,7 +563,7 @@ export const TicketsPage = () => {
         <Drawer
           open={!!selectedTicket}
           onClose={() => {
-            setSearchParams((p) => { p.delete('id'); return p; });
+            setSearchParams((params) => { params.delete('id'); return params; });
             setSelectedTicket(null);
           }}
           title="Ticket Details"

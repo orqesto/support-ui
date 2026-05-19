@@ -93,7 +93,7 @@ export const KBTableView = ({
                   <a
                     href={`/messages?id=${entry.metadata.sourceMessageId}`}
                     className="font-mono text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
                   >
                     #{entry.metadata.sourceMessageId}
                   </a>

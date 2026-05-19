@@ -132,7 +132,7 @@ export const MessageFilters = ({
         const res = await integrationsService.getAll();
         if (res.success && res.data) {
           setMessageSources(
-            res.data.filter((i) => SOURCE_GROUPS.flatMap((g) => g.types).includes(i.type))
+            res.data.filter((integration) => SOURCE_GROUPS.flatMap((grp) => grp.types).includes(integration.type))
           );
         }
       } catch (err) {
@@ -143,10 +143,10 @@ export const MessageFilters = ({
   }, []);
 
   const { showAdvancedFilters, toggleAdvancedFilters } = useFilterPanel({ filters });
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  const activeGroups = SOURCE_GROUPS.filter((g) =>
-    messageSources.some((s) => g.types.includes(s.type))
+  const activeGroups = SOURCE_GROUPS.filter((grp) =>
+    messageSources.some((src) => grp.types.includes(src.type))
   );
 
   const start = (pagination.page - 1) * pagination.limit + 1;
@@ -159,9 +159,9 @@ export const MessageFilters = ({
         <div className="flex gap-2 justify-between items-center">
           {/* Left: icon + title + badge + count */}
           <button
-            className="flex gap-2 items-center min-w-0 md:cursor-default"
-            onClick={() => setMobileExpanded((v) => !v)}
-            aria-expanded={mobileExpanded}
+            className="flex gap-2 items-center min-w-0 cursor-pointer"
+            onClick={() => setExpanded((val) => !val)}
+            aria-expanded={expanded}
           >
             <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-sm font-semibold">Filters</span>
@@ -176,7 +176,7 @@ export const MessageFilters = ({
               </span>
             )}
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform md:hidden ${mobileExpanded ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
             />
           </button>
 
@@ -219,22 +219,22 @@ export const MessageFilters = ({
           size="sm"
         />
 
-        {/* Collapsible body — hidden on mobile until toggled, always visible md+ */}
+        {/* Collapsible body */}
         <div
-          className={`${mobileExpanded ? 'flex' : 'hidden'} md:flex flex-col gap-0 divide-y divide-border/40`}
+          className={`${expanded ? 'flex' : 'hidden'} flex-col gap-0 divide-y divide-border/40`}
         >
           {/* ── Channel ───────────────────────────────────────────── */}
           {activeGroups.length > 0 && (
             <FilterSection label="Channel">
               <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {activeGroups.map((group) => {
-                  const groupSources = messageSources.filter((s) => group.types.includes(s.type));
+                  const groupSources = messageSources.filter((src) => group.types.includes(src.type));
                   const options = [
                     { value: 'all', label: `All ${group.label}` },
-                    ...groupSources.map((s) => ({ value: s.id.toString(), label: s.name })),
+                    ...groupSources.map((src) => ({ value: src.id.toString(), label: src.name })),
                   ];
                   const activeSourceInGroup = groupSources.some(
-                    (s) => s.id.toString() === filters.messageSourceId
+                    (src) => src.id.toString() === filters.messageSourceId
                   );
                   const selectValue = activeSourceInGroup
                     ? (filters.messageSourceId ?? 'all')
@@ -372,7 +372,7 @@ export const MessageFilters = ({
                     onChange={(value) => onFilterChange('labelId', value)}
                     options={[
                       { value: 'all', label: 'All Labels' },
-                      ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
+                      ...labels.map((lbl) => ({ value: lbl.id.toString(), label: lbl.name })),
                     ]}
                     formatOptionLabel={(option) => (
                       <div className="flex gap-2 items-center">
@@ -381,7 +381,7 @@ export const MessageFilters = ({
                             className="inline-block w-2 h-2 rounded-full shrink-0"
                             style={{
                               backgroundColor:
-                                labels.find((l) => l.id.toString() === option.value)?.color ??
+                                labels.find((lbl) => lbl.id.toString() === option.value)?.color ??
                                 '#888',
                             }}
                           />

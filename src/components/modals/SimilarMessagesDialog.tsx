@@ -44,7 +44,7 @@ type SimilarMessagesDialogProps = {
   messageId: number;
   open: boolean;
   onClose: () => void;
-  onSelectAnswer: (answer: string) => void;
+  onSelectAnswer: (answer: string, source?: string) => void;
   preloadedSources?: SimilarMessage[];
   preloadedTitle?: string;
 };
@@ -142,7 +142,7 @@ export const SimilarMessagesDialog = ({
       } catch (error) {
         logger.error('Failed to save suggested answer:', error);
       }
-      onSelectAnswer(textToUse);
+      onSelectAnswer(textToUse, 'ai-generated');
       onClose();
       return;
     }
@@ -168,7 +168,7 @@ export const SimilarMessagesDialog = ({
         logger.error('Failed to save suggested answer:', error);
       }
 
-      onSelectAnswer(answer);
+      onSelectAnswer(answer, msg.source);
       onClose();
     }
   };
@@ -223,9 +223,9 @@ export const SimilarMessagesDialog = ({
                   setUseAiResponse(true);
                   setSelectedIndex(null);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
                     setUseAiResponse(true);
                     setSelectedIndex(null);
                   }
@@ -275,8 +275,8 @@ export const SimilarMessagesDialog = ({
                     placeholder="Select language..."
                   />
                   <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.stopPropagation();
                       void handleTranslateAiResponse();
                     }}
                     disabled={isTranslating || !selectedLanguage}
@@ -312,14 +312,14 @@ export const SimilarMessagesDialog = ({
                   <div className="p-3 mt-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded border border-blue-200 dark:from-blue-950/20 dark:to-blue-900/30 dark:border-blue-800">
                     <div className="flex justify-between items-center mb-2">
                       <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                        Translated to {languages?.find((l) => l.code === selectedLanguage)?.name}:
+                        Translated to {languages?.find((lang) => lang.code === selectedLanguage)?.name}:
                       </p>
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-auto px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={(event) => {
+                          event.stopPropagation();
                           void handleUseAnswer(aiResponse);
                         }}
                       >
@@ -388,9 +388,9 @@ export const SimilarMessagesDialog = ({
                       : `msg-${msg.messageId}-${index}`
                   }
                   onClick={() => setSelectedIndex(index)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
                       setSelectedIndex(index);
                     }
                   }}
@@ -459,16 +459,16 @@ export const SimilarMessagesDialog = ({
                     <div className="mb-3">
                       {msg.content && (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setExpandedQuotes((prev) => {
-                              const s = new Set(prev);
-                              if (s.has(index)) {
-                                s.delete(index);
+                              const nextSet = new Set(prev);
+                              if (nextSet.has(index)) {
+                                nextSet.delete(index);
                               } else {
-                                s.add(index);
+                                nextSet.add(index);
                               }
-                              return s;
+                              return nextSet;
                             });
                           }}
                           className="flex gap-1 items-center text-xs transition-colors text-muted-foreground hover:text-primary"
@@ -534,8 +534,8 @@ export const SimilarMessagesDialog = ({
                         msg.detectedLanguage !== 'en' && (
                           <div className="flex gap-1">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 setShowEnglish((prev) => ({ ...prev, [index]: false }));
                               }}
                               className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
@@ -548,8 +548,8 @@ export const SimilarMessagesDialog = ({
                               {msg.detectedLanguage.toUpperCase()}
                             </button>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 setShowEnglish((prev) => ({ ...prev, [index]: true }));
                               }}
                               className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
@@ -590,7 +590,7 @@ export const SimilarMessagesDialog = ({
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-medium underline transition-colors hover:text-primary"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(event) => event.stopPropagation()}
                             >
                               {msg.documentTitle}
                             </Link>
@@ -600,7 +600,7 @@ export const SimilarMessagesDialog = ({
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-medium underline transition-colors hover:text-primary"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(event) => event.stopPropagation()}
                             >
                               {msg.documentTitle}
                             </Link>
@@ -611,7 +611,7 @@ export const SimilarMessagesDialog = ({
                         {msg.references && msg.references.length > 0 ? (
                           <div className="ml-5 space-y-0.5">
                             {msg.references.map((ref) => {
-                              const m = ref.metadata as { page?: number } | null;
+                              const meta = ref.metadata as { page?: number } | null;
                               const sec =
                                 ref.chunkIndex !== null && ref.chunkIndex !== undefined
                                   ? ref.chunkIndex + 1
@@ -619,7 +619,7 @@ export const SimilarMessagesDialog = ({
                               return (
                                 <div key={ref.chunkId}>
                                   • Section {sec}
-                                  {m?.page && ` (Page ${m.page})`}
+                                  {meta?.page && ` (Page ${meta.page})`}
                                 </div>
                               );
                             })}
@@ -641,7 +641,7 @@ export const SimilarMessagesDialog = ({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex gap-1 items-center transition-colors hover:text-primary"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
                         >
                           <ExternalLink className="w-3 h-3" />
                           <span className="underline">View Original Message #{msg.messageId}</span>

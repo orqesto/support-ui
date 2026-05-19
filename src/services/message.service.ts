@@ -3,8 +3,17 @@ import { PAGINATION } from '@/lib/constants';
 import type { Message, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
-const cleanFilters = (f?: Record<string, string>): Record<string, string> =>
-  Object.fromEntries(Object.entries(f ?? {}).filter(([, v]) => v !== null && v !== undefined));
+const cleanFilters = (filters?: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(Object.entries(filters ?? {}).filter(([, val]) => val !== null && val !== undefined));
+
+export type MessageActivityEntry = {
+  id: number;
+  action: string;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+  userEmail: string | null;
+  userId: number | null;
+};
 
 export type MessageNote = {
   id: number;
@@ -167,20 +176,22 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       content,
       resolve,
       usedSuggestedAnswer,
+      ...(suggestedAnswerSource && { suggestedAnswerSource }),
     });
     return response.data;
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false) => {
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string) => {
     const formData = new FormData();
     formData.append('content', content);
     formData.append('resolve', String(resolve));
     formData.append('usedSuggestedAnswer', String(usedSuggestedAnswer));
+    if (suggestedAnswerSource) formData.append('suggestedAnswerSource', suggestedAnswerSource);
 
     files.forEach((file) => {
       formData.append('attachments', file);
@@ -322,6 +333,13 @@ export const messageService = {
   },
 
   // ─── Message ticket parity ───────────────────────────────────────────────
+
+  getActivity: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<MessageActivityEntry[]>>(
+      `/api/messages/${id}/activity`
+    );
+    return response.data.data ?? [];
+  },
 
   getNotes: async (id: number) => {
     const response = await apiClient.get<ApiResponse<MessageNote[]>>(`/api/messages/${id}/notes`);

@@ -70,9 +70,9 @@ export const DocumentationUploadForm = ({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
                 document.getElementById('doc-file')?.click();
               }
             }}
@@ -231,7 +231,7 @@ export const DocumentationUploadForm = ({
                 name="visibility"
                 value="department"
                 checked={visibility === 'department'}
-                onChange={(e) => onVisibilityChange(e.target.value as 'department')}
+                onChange={(event) => onVisibilityChange(event.target.value as 'department')}
                 className="w-4 h-4"
               />
               <Lock className="w-4 h-4" />
@@ -243,7 +243,7 @@ export const DocumentationUploadForm = ({
                 name="visibility"
                 value="organization"
                 checked={visibility === 'organization'}
-                onChange={(e) => onVisibilityChange(e.target.value as 'organization')}
+                onChange={(event) => onVisibilityChange(event.target.value as 'organization')}
                 className="w-4 h-4"
               />
               <Globe className="w-4 h-4" />

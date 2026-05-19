@@ -44,8 +44,8 @@ export const AssigneeFilter = ({
       }
     };
 
-    fetchUsers().catch((e) => {
-      logger.error(e);
+    fetchUsers().catch((err) => {
+      logger.error(err);
     });
     // skillFilterKey is the stable JSON serialization of skillFilter (via useMemo on line ~29).
     // skillFilter itself is intentionally omitted from deps: using the raw object reference would
@@ -60,7 +60,7 @@ export const AssigneeFilter = ({
     { value: 'unassigned', label: 'Unassigned' },
     ...(currentUser ? [{ value: String(currentUser.id), label: 'Me' }] : []),
     ...users
-      .filter((u) => !currentUser || u.id !== currentUser.id)
+      .filter((usr) => !currentUser || usr.id !== currentUser.id)
       .map((user) => ({
         value: String(user.id),
         label: `${user.firstName} ${user.lastName}`,

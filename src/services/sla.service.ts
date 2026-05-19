@@ -5,14 +5,14 @@ export type SLASummary = {
     avgResponseTime: number | null;
     avgResponsePeriodDays: number | null; // which window had data (1/7/30/365), null if none
     breaches24h: number;
-    complianceRate: number;
+    complianceRate: number | null; // null when no replied messages exist yet
   };
   tickets: {
     avgFirstResponse: number | null; // null when no first-response data yet
     avgResolution: number | null;    // null when no resolved tickets yet
     firstResponseBreaches24h: number;
     resolutionBreaches24h: number;
-    complianceRate: number;
+    complianceRate: number | null; // null when no tickets with first_response_at exist yet
   };
 };
 

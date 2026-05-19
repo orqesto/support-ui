@@ -22,8 +22,8 @@ export const ForgotPasswordPage = () => {
     }
   }, [location]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
 
     // Validate email format
@@ -102,7 +102,7 @@ export const ForgotPasswordPage = () => {
               type="email"
               placeholder="your.email@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               required
             />
             {error && (

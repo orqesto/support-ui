@@ -38,9 +38,10 @@ import { logger } from '@/lib/logger';
 type TicketCommentsProps = {
   ticketId: number;
   hasJiraLink: boolean;
+  onCountChange?: (count: number) => void;
 };
 
-export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) => {
+export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketCommentsProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
@@ -71,6 +72,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
       const response = await commentsService.getAll(ticketId);
       if (response.success && response.data) {
         setComments(response.data);
+        onCountChange?.(response.data.length);
       }
     } catch (error) {
       logger.error('Failed to fetch comments:', error);
@@ -90,8 +92,8 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
         };
         setCurrentUserId(payload.userId);
         setCurrentUserRole(payload.role);
-      } catch (e) {
-        logger.error('Failed to parse token:', e);
+      } catch (err) {
+        logger.error('Failed to parse token:', err);
       }
     }
 
@@ -247,14 +249,14 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setSelectedFiles(Array.from(event.target.files));
     }
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const handleSyncFromJira = async () => {
@@ -558,7 +560,7 @@ export const TicketComments = ({ ticketId, hasJiraLink }: TicketCommentsProps) =
               <input
                 type="checkbox"
                 checked={isInternal}
-                onChange={(e) => setIsInternal(e.target.checked)}
+                onChange={(event) => setIsInternal(event.target.checked)}
                 className="rounded"
                 disabled={isSubmitting}
               />

@@ -69,7 +69,7 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
               <a
                 href={`/messages?id=${entry.metadata.sourceMessageId}`}
                 className="font-mono text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
               >
                 #{entry.metadata.sourceMessageId}
               </a>

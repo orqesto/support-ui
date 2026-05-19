@@ -2,7 +2,6 @@ import {
   XCircle,
   Paperclip,
   ShieldX,
-  Ticket,
   AlertTriangle,
   Clock,
   BellRing,
@@ -29,9 +28,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
 
   const spamCheck = getSpamCheck(message);
   const hasAttachments = hasMessageAttachments(message);
-  const analysis = message.metadata?.analysis as
-    | { needsMoreInfo?: boolean }
-    | undefined;
+  const analysis = message.metadata?.analysis as { needsMoreInfo?: boolean } | undefined;
 
   const renderSla = () => {
     if (message.resolved || message.isOutgoing || !message.slaResponseMinutes) return null;
@@ -157,11 +154,6 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         </Badge>
       )}
       {renderSla()}
-      {message.ticketId && (
-        <Badge variant="default" className={bc} title={`Ticket #${message.ticketId}`}>
-          <Ticket className={ic} />#{message.ticketId}
-        </Badge>
-      )}
       {message.processingError && (
         <Badge variant="danger" className={bc} title={message.processingError}>
           <XCircle className={ic} />
@@ -181,7 +173,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
       {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
         <Badge
           variant="default"
-          className={`${bc} text-white bg-purple-600 hover:bg-purple-700`}
+          className={`text-white bg-purple-600 ${bc} hover:bg-purple-700`}
           title="Message from Knowledge Base source"
         >
           <BookOpen className={ic} />
@@ -189,7 +181,9 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         </Badge>
       )}
       {message.resolved && (
-        <Badge className="text-white bg-green-600 hover:bg-green-700" title="Message resolved">✓ Resolved</Badge>
+        <Badge className="text-white bg-green-600 hover:bg-green-700" title="Message resolved">
+          ✓ Resolved
+        </Badge>
       )}
     </>
   );

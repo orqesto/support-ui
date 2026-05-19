@@ -90,7 +90,7 @@ export const TicketFilters = ({
 }: TicketFiltersProps) => {
   const [labels, setLabels] = useState<Label[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     labelService.getLabels().then(setLabels).catch(() => {});
@@ -107,9 +107,9 @@ export const TicketFilters = ({
         {/* Header */}
         <div className="flex items-center justify-between gap-2">
           <button
-            className="flex items-center gap-2 min-w-0 md:cursor-default"
-            onClick={() => setMobileExpanded((v) => !v)}
-            aria-expanded={mobileExpanded}
+            className="flex items-center gap-2 min-w-0 cursor-pointer"
+            onClick={() => setExpanded((val) => !val)}
+            aria-expanded={expanded}
           >
             <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-sm font-semibold">Filters</span>
@@ -122,7 +122,7 @@ export const TicketFilters = ({
               </span>
             )}
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform md:hidden ${mobileExpanded ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
             />
           </button>
 
@@ -159,7 +159,7 @@ export const TicketFilters = ({
         />
 
         {/* Collapsible body */}
-        <div className={`${mobileExpanded ? 'flex' : 'hidden'} md:flex flex-col gap-0 divide-y divide-border/40`}>
+        <div className={`${expanded ? 'flex' : 'hidden'} flex-col gap-0 divide-y divide-border/40`}>
 
           {/* ── Queue ─────────────────────────────────────────────── */}
           <FilterSection label="Queue">
@@ -210,7 +210,7 @@ export const TicketFilters = ({
                     onChange={(value) => onFilterChange('categoryId', value || 'all')}
                     options={[
                       { value: '', label: 'All' },
-                      ...categories.map((c) => ({ value: c.id.toString(), label: c.name })),
+                      ...categories.map((cat) => ({ value: cat.id.toString(), label: cat.name })),
                     ]}
                     className="w-full"
                     isSearchable
@@ -230,7 +230,7 @@ export const TicketFilters = ({
                     onChange={(value) => onFilterChange('labelId', value)}
                     options={[
                       { value: '', label: 'All Labels' },
-                      ...labels.map((l) => ({ value: l.id.toString(), label: l.name })),
+                      ...labels.map((lbl) => ({ value: lbl.id.toString(), label: lbl.name })),
                     ]}
                     className="w-full"
                   />

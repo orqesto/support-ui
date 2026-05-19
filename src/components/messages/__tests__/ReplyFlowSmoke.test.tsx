@@ -14,7 +14,7 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
     <textarea
       data-testid="rich-text-editor"
       placeholder={placeholder}
-      onChange={(e) => onChange?.(e.target.value)}
+      onChange={(event) => onChange?.(event.target.value)}
     />
   ),
 }));
