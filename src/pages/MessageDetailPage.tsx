@@ -6,6 +6,7 @@ import { MessageDetail } from '@/components/messages/MessageDetail';
 import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
 import { similarResultsCache, type SimilarResult } from '@/components/messages/AiTabPanel';
+import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 
@@ -30,7 +31,7 @@ export const MessageDetailPage = () => {
               // Pre-warm KB cache so AiTabPanel gets an instant hit when it mounts for this ID.
               if (!similarResultsCache.has(latestIncoming.id)) {
                 void messageService
-                  .getSimilarResolvedMessages(latestIncoming.id, 3, 0.75)
+                  .getSimilarResolvedMessages(latestIncoming.id, SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY)
                   .then((res) => { if (res.success && res.data) similarResultsCache.set(latestIncoming.id, res.data as SimilarResult[]); });
               }
               void fetchMessage(latestIncoming.id);
