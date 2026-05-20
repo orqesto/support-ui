@@ -49,6 +49,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchSimilarTickets = async () => {
       try {
         setLoading(true);
@@ -56,6 +57,8 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
           ticketService.getSimilar(messageId, { limit: 3, minSimilarity: 0.75 }),
           messageService.getSimilarResolvedMessages(messageId, 3, 0.75),
         ]);
+
+        if (cancelled) return;
 
         const tickets =
           ticketsResponse.status === 'fulfilled' ? (ticketsResponse.value.data ?? []) : [];
@@ -123,15 +126,16 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
           }
         }
 
-        setSimilarTickets(deduplicated);
+        if (!cancelled) setSimilarTickets(deduplicated);
       } catch {
-        setSimilarTickets([]);
+        if (!cancelled) setSimilarTickets([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     void fetchSimilarTickets();
+    return () => { cancelled = true; };
   }, [messageId]);
 
   const handleCopyResponse = (content: string, responseId: number) => {
