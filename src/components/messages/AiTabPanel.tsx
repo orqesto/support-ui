@@ -144,7 +144,15 @@ export function AiTabPanel({
 
     const applyResults = (data: SimilarResult[]) => {
       if (cancelled) return;
-      setSimilarResults(data);
+      // Deduplicate: remove entries that are already represented by the metadata suggestedAnswer
+      // (same messageId or documentationId) to avoid showing the same suggestion twice.
+      const deduped = data.filter(
+        (result) =>
+          result.messageId !== suggestedAnswer?.similarMessageId &&
+          !(result.documentationId !== undefined &&
+            result.documentationId === suggestedAnswer?.documentationId)
+      );
+      setSimilarResults(deduped);
       const hasSuggested = !!suggestedAnswer?.answer;
       onOptionsLoaded?.((hasSuggested ? 1 : 0) + data.length);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).

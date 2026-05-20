@@ -82,6 +82,11 @@ const systemService = {
     });
     return response.data;
   },
+
+  cleanupSpamLog: async (days = 90) => {
+    const response = await apiClient.delete<ApiResponse<{ deletedCount: number }>>('/api/spam-logs/cleanup', { params: { days } });
+    return response.data;
+  },
 };
 
 export default systemService;

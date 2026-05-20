@@ -8,9 +8,11 @@ import {
   Tag,
   X,
   Plus,
+  Pencil,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
+import RichTextEditor from '@/components/shared/RichTextEditor';
 import { TicketPanelTabs } from './TicketPanelTabs';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
@@ -78,6 +80,8 @@ export const TicketDetail = ({
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const labelPickerRef = useRef<HTMLDivElement>(null);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
 
   useEffect(() => {
     if (!showLabelPicker) return;
@@ -107,7 +111,9 @@ export const TicketDetail = ({
     setLocalStatus(ticket.status);
     setLocalPriority(ticket.priority);
     setLocalCategoryId(ticket.categoryId?.toString() ?? '');
-  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId]);
+    setLocalDescription(ticket.description ?? '');
+    setEditingDescription(false);
+  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description]);
 
   useEffect(() => {
     categoryService.getAll().then((res) => { if (res.data) setCategories(res.data); }).catch(() => {});
@@ -355,18 +361,56 @@ export const TicketDetail = ({
       <div className="pt-6 border-t">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-muted-foreground">Description</h3>
-          <TranslateButton
-            ticketId={ticket.id}
-            originalContent={ticket.description}
-            originalSubject={ticket.title}
-            variant="ghost"
-            size="sm"
-          />
+          <div className="flex gap-1 items-center">
+            {hasManageTickets && !ticket.externalId && !editingDescription && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Edit description"
+                onClick={() => setEditingDescription(true)}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <TranslateButton
+              ticketId={ticket.id}
+              originalContent={ticket.description}
+              originalSubject={ticket.title}
+              variant="ghost"
+              size="sm"
+            />
+          </div>
         </div>
-        <div
-          className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: ticket.description }}
-        />
+        {editingDescription ? (
+          <div className="space-y-2">
+            <RichTextEditor
+              content={localDescription}
+              onChange={setLocalDescription}
+              placeholder="Enter ticket description..."
+              minHeight="120px"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => { void handleFieldUpdate('description', localDescription); setEditingDescription(false); }}
+              >
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setLocalDescription(ticket.description ?? ''); setEditingDescription(false); }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: ticket.description }}
+          />
+        )}
       </div>
 
       <TicketPanelTabs
