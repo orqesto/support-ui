@@ -238,13 +238,13 @@ export const GmailIntegrationCard = ({
             </CardTitle>
             <Button
               size="sm"
-              className='py-5'
+              className="py-5"
               onClick={() => {
                 resetForm();
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4 hidden block:sm" />
+              <Plus className="mr-1 w-4 h-4" />
               Add Gmail
             </Button>
           </div>
