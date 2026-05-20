@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import {
   ExternalLink as ExternalLinkIcon,
   Send,
@@ -408,7 +409,7 @@ export const TicketDetail = ({
         ) : (
           <div
             className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: ticket.description }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.description ?? '') }}
           />
         )}
       </div>
