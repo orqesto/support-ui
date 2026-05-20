@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Copy, CheckCircle, ExternalLink, ChevronDown, ChevronRight, BookOpen, MessageSquare } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Link } from 'react-router-dom';
@@ -42,6 +42,11 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const fetchSimilarTickets = async () => {
@@ -130,9 +135,10 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
   }, [messageId]);
 
   const handleCopyResponse = (content: string, responseId: number) => {
-    void navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(content).catch(() => {});
     setCopiedId(responseId);
-    void setTimeout(() => setCopiedId(null), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => { setCopiedId(null); copyTimerRef.current = null; }, 2000);
   };
 
   const handleUseResponse = (content: string) => {
