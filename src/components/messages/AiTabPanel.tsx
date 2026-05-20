@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
 import { getSpamCheck } from '@/lib/messageHelpers';
 import { MONO } from './messageDetailConstants';
+import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Spinner } from '@/components/ui/Spinner';
@@ -189,7 +190,7 @@ export function AiTabPanel({
           let inflight = similarResultsInFlight.get(message.id);
           if (!inflight) {
             inflight = messageService
-              .getSimilarResolvedMessages(message.id, 3, 0.75)
+              .getSimilarResolvedMessages(message.id, SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY)
               .then((res) => {
                 const data = res.success && res.data ? res.data : [];
                 similarResultsCache.set(message.id, data);

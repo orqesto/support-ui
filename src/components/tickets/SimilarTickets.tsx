@@ -8,6 +8,7 @@ import { formatDate } from '@/lib/utils';
 import { stripHtml } from '@/lib/stripHtml';
 import { ticketService } from '@/services/ticket.service';
 import { messageService } from '@/services/message.service';
+import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 
 type SimilarTicket = {
   ticketId: number;
@@ -54,8 +55,8 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
       try {
         setLoading(true);
         const [ticketsResponse, messagesResponse] = await Promise.allSettled([
-          ticketService.getSimilar(messageId, { limit: 3, minSimilarity: 0.75 }),
-          messageService.getSimilarResolvedMessages(messageId, 3, 0.75),
+          ticketService.getSimilar(messageId, { limit: SIMILAR_RESULTS_LIMIT, minSimilarity: SIMILAR_RESULTS_MIN_SIMILARITY }),
+          messageService.getSimilarResolvedMessages(messageId, SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY),
         ]);
 
         if (cancelled) return;
