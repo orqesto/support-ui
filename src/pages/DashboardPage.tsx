@@ -68,6 +68,8 @@ export const DashboardPage = () => {
 
   const pollingIntervalRef = useRef<number | null>(null);
   const noNewMessagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const [noNewMessagesInfo, setNoNewMessagesInfo] = useState<{
     show: boolean;
@@ -165,7 +167,7 @@ export const DashboardPage = () => {
       } else {
         if (noNewMessagesTimerRef.current) clearTimeout(noNewMessagesTimerRef.current);
         setNoNewMessagesInfo({ show: true, type: 'email' });
-        noNewMessagesTimerRef.current = setTimeout(() => { setNoNewMessagesInfo({ show: false, type: null }); noNewMessagesTimerRef.current = null; }, 5000);
+        noNewMessagesTimerRef.current = setTimeout(() => { if (mountedRef.current) setNoNewMessagesInfo({ show: false, type: null }); noNewMessagesTimerRef.current = null; }, 5000);
       }
     }
     prevProcessingStatus.current = processingStatus;
@@ -179,7 +181,7 @@ export const DashboardPage = () => {
       } else {
         if (noNewMessagesTimerRef.current) clearTimeout(noNewMessagesTimerRef.current);
         setNoNewMessagesInfo({ show: true, type: 'telegram' });
-        noNewMessagesTimerRef.current = setTimeout(() => { setNoNewMessagesInfo({ show: false, type: null }); noNewMessagesTimerRef.current = null; }, 5000);
+        noNewMessagesTimerRef.current = setTimeout(() => { if (mountedRef.current) setNoNewMessagesInfo({ show: false, type: null }); noNewMessagesTimerRef.current = null; }, 5000);
       }
     }
     prevIsTelegramProcessing.current = isTelegramProcessing;
@@ -244,6 +246,7 @@ export const DashboardPage = () => {
         if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         let attempts = 0;
         pollingIntervalRef.current = setInterval(() => {
+          if (!mountedRef.current) { clearInterval(pollingIntervalRef.current!); pollingIntervalRef.current = null; return; }
           attempts++;
           void fetchStats().finally(() => {
             if (attempts >= 12 && pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; }
