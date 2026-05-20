@@ -29,6 +29,7 @@ export const SystemManagementSettings = () => {
   const [loading, setLoading] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [spamLogDays, setSpamLogDays] = useState<string>('90');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -157,6 +158,17 @@ export const SystemManagementSettings = () => {
       'DELETE KB',
       true
     );
+  };
+
+  const handleCleanupSpamLog = () => {
+    const days = parseInt(spamLogDays, 10);
+    const description =
+      days === 0
+        ? 'This will permanently delete ALL spam log entries. This action cannot be undone.'
+        : `This will permanently delete all spam log entries older than ${days} days. This action cannot be undone.`;
+    void handleAction('Clear Spam Log', description, async () => {
+      await systemService.cleanupSpamLog(days);
+    });
   };
 
   const handleNuclear = () => {
@@ -299,6 +311,33 @@ export const SystemManagementSettings = () => {
             <Button variant="destructive" size="sm" onClick={handleDeleteKB} className="ml-4">
               <Trash2 className="mr-1 w-4 h-4" />
               Delete KB
+            </Button>
+          </div>
+
+          <div className="flex justify-between items-start pt-3 border-t border-red-200 dark:border-red-900">
+            <div className="flex-1">
+              <p className="font-medium text-red-600 dark:text-red-400">Clear Spam Log</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Delete spam log entries older than the selected number of days
+              </p>
+              <div className="mt-2 w-40">
+                <ReactSelect
+                  value={spamLogDays}
+                  onChange={(val) => setSpamLogDays(val)}
+                  options={[
+                    { value: '0', label: 'All (clear everything)' },
+                    { value: '30', label: 'Older than 30 days' },
+                    { value: '60', label: 'Older than 60 days' },
+                    { value: '90', label: 'Older than 90 days' },
+                    { value: '180', label: 'Older than 180 days' },
+                    { value: '365', label: 'Older than 365 days' },
+                  ]}
+                />
+              </div>
+            </div>
+            <Button variant="destructive" size="sm" onClick={handleCleanupSpamLog} className="ml-4 mt-1">
+              <Trash2 className="mr-1 w-4 h-4" />
+              Clear Spam Log
             </Button>
           </div>
         </div>
