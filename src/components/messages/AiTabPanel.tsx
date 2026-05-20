@@ -91,8 +91,17 @@ type Props = {
 };
 
 // Session-scoped cache: survives remount (inbox → full page nav) but cleared on refresh.
-export const similarResultsCache = new Map<number, SimilarResult[]>();
+// Exposed via accessor functions only — callers must not mutate the Map directly.
+const _similarResultsCache = new Map<number, SimilarResult[]>();
 const similarResultsInFlight = new Map<number, Promise<SimilarResult[]>>();
+
+export const similarResultsCache = {
+  has: (id: number) => _similarResultsCache.has(id),
+  get: (id: number) => _similarResultsCache.get(id),
+  set: (id: number, data: SimilarResult[]) => { _similarResultsCache.set(id, data); },
+  delete: (id: number) => { _similarResultsCache.delete(id); },
+  clear: () => { _similarResultsCache.clear(); },
+};
 
 const PILL_BASE: Record<ReplyOption['type'], string> = {
   lead: 'text-violet-600 border-violet-200 bg-violet-50 dark:text-violet-400 dark:border-violet-800/50 dark:bg-violet-950/20',
