@@ -154,7 +154,7 @@ export function AiTabPanel({
       );
       setSimilarResults(deduped);
       const hasSuggested = !!suggestedAnswer?.answer;
-      onOptionsLoaded?.((hasSuggested ? 1 : 0) + data.length);
+      onOptionsLoaded?.((hasSuggested ? 1 : 0) + deduped.length);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).
       onLoadingChange?.(false);
       if (!hasSuggested && data.length > 0) {
