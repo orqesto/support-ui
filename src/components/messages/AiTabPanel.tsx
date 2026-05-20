@@ -77,6 +77,7 @@ type ReplyOption = {
   sender?: string;
   references?: KBReference[] | ChunkReference[];
   kbSources?: KBSourceRef[];
+  similarity?: number;
 };
 
 type Props = {
@@ -261,6 +262,7 @@ export function AiTabPanel({
       subject: result.subject,
       sender: result.sender,
       references: result.references,
+      similarity: result.similarity,
     });
   });
 
@@ -574,7 +576,7 @@ export function AiTabPanel({
               subject: viewOriginal.subject,
               sender: viewOriginal.sender,
               directReply: viewOriginal.answer,
-              similarity: parseFloat(viewOriginal.sublabel ?? '0') / 100,
+              similarity: viewOriginal.similarity ?? 0,
               source: 'message' as const,
             },
           ]}
