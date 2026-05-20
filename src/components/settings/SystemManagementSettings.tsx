@@ -97,21 +97,23 @@ export const SystemManagementSettings = () => {
   };
 
   const handleStopQueues = () => {
-    void handleAction(
+    handleAction(
       'Stop All Queues',
       'This will pause all background processing. Messages and tickets will not be processed until queues are restarted.',
       async () => {
-        await systemService.stopQueues();
+        const res = await systemService.stopQueues();
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
       }
     );
   };
 
   const handleClearQueues = () => {
-    void handleAction(
+    handleAction(
       'Clear All Queues',
       'This will delete all pending jobs from Redis. Any unprocessed messages or tasks will be lost.',
       async () => {
-        await systemService.clearQueues();
+        const res = await systemService.clearQueues();
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
       },
       'CLEAR QUEUES',
       true
@@ -121,11 +123,12 @@ export const SystemManagementSettings = () => {
   const handleDeleteMessages = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
     const scope = dept ? `${dept} department` : 'your organization';
-    void handleAction(
+    handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Messages`,
       `This will permanently delete all messages for ${scope}. This action cannot be undone.`,
       async () => {
-        await systemService.deleteAllMessages(dept);
+        const res = await systemService.deleteAllMessages(dept);
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
       },
       'DELETE MESSAGES',
       true
@@ -135,11 +138,12 @@ export const SystemManagementSettings = () => {
   const handleDeleteTickets = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
     const scope = dept ? `${dept} department` : 'your organization';
-    void handleAction(
+    handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Tickets`,
       `This will permanently delete all tickets for ${scope}. This action cannot be undone.`,
       async () => {
-        await systemService.deleteAllTickets(dept);
+        const res = await systemService.deleteAllTickets(dept);
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
       },
       'DELETE TICKETS',
       true
@@ -149,11 +153,12 @@ export const SystemManagementSettings = () => {
   const handleDeleteKB = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
     const scope = dept ? `${dept} department` : 'your organization';
-    void handleAction(
+    handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Knowledge Base`,
       `This will permanently delete all KB entries and documentation for ${scope}. This action cannot be undone.`,
       async () => {
-        await systemService.deleteAllKB(dept);
+        const res = await systemService.deleteAllKB(dept);
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
       },
       'DELETE KB',
       true
@@ -166,17 +171,19 @@ export const SystemManagementSettings = () => {
       days === 0
         ? 'This will permanently delete ALL spam log entries. This action cannot be undone.'
         : `This will permanently delete all spam log entries older than ${days} days. This action cannot be undone.`;
-    void handleAction('Clear Spam Log', description, async () => {
-      await systemService.cleanupSpamLog(days);
+    handleAction('Clear Spam Log', description, async () => {
+      const res = await systemService.cleanupSpamLog(days);
+      if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
     });
   };
 
   const handleNuclear = () => {
-    void handleAction(
+    handleAction(
       'Nuclear Cleanup',
       'This will permanently delete EVERYTHING for your organization: all messages, tickets, KB entries, attachments, and clear all queues. This action cannot be undone and will reset your organization to a clean state.',
       async () => {
-        await systemService.nuclearCleanup('DELETE EVERYTHING');
+        const res = await systemService.nuclearCleanup('DELETE EVERYTHING');
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
       },
       'DELETE EVERYTHING',
       true
