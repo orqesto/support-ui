@@ -118,7 +118,9 @@ export const TicketDetail = ({
   }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description, editingDescription]);
 
   useEffect(() => {
-    categoryService.getAll().then((res) => { if (res.data) setCategories(res.data); }).catch(() => {});
+    categoryService.getAll()
+      .then((res) => { if (res.data) setCategories(res.data); })
+      .catch((err) => { logger.error('Failed to load categories:', err); });
   }, []);
 
   const handleFieldUpdate = async (field: string, value: string) => {
