@@ -233,12 +233,11 @@ export const DashboardPage = () => {
     }
     setIngesting(type);
     try {
-      let response;
-      switch (type) {
-        case 'all': response = await ingestionService.startAll(); break;
-        case 'email': response = await ingestionService.checkEmails(); break;
-        case 'telegram': response = await ingestionService.startTelegram(); break;
-      }
+      const response = await (
+        type === 'all'       ? ingestionService.startAll() :
+        type === 'email'     ? ingestionService.checkEmails() :
+                               ingestionService.startTelegram()
+      );
       if (response.success) {
         clearMessagesCache();
         await fetchStats();
