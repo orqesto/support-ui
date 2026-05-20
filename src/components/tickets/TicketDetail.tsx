@@ -112,9 +112,10 @@ export const TicketDetail = ({
     setLocalStatus(ticket.status);
     setLocalPriority(ticket.priority);
     setLocalCategoryId(ticket.categoryId?.toString() ?? '');
-    setLocalDescription(ticket.description ?? '');
-    setEditingDescription(false);
-  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description]);
+    if (!editingDescription) {
+      setLocalDescription(ticket.description ?? '');
+    }
+  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description, editingDescription]);
 
   useEffect(() => {
     categoryService.getAll().then((res) => { if (res.data) setCategories(res.data); }).catch(() => {});
