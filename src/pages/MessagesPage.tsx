@@ -74,12 +74,14 @@ export const MessagesPage = () => {
   const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
-  // Lock body scroll while the detail panel is open
+  // Lock body scroll while the detail panel is open + notify Layout to hide header
   useEffect(() => {
     if (selectedMessage) {
       document.body.style.overflow = 'hidden';
+      window.dispatchEvent(new CustomEvent('detail-panel-change', { detail: { open: true } }));
     } else {
       document.body.style.overflow = '';
+      window.dispatchEvent(new CustomEvent('detail-panel-change', { detail: { open: false } }));
     }
     return () => {
       document.body.style.overflow = '';
@@ -573,7 +575,7 @@ export const MessagesPage = () => {
             <button
               type="button"
               aria-label="Close"
-              className="fixed inset-0 top-14 z-20 cursor-default lg:top-0 lg:left-64 bg-black/25 dark:bg-black/50"
+              className="fixed inset-0 z-20 cursor-default lg:left-64 bg-black/25 dark:bg-black/50"
               onClick={() => {
                 const params = new URLSearchParams(searchParams);
                 params.delete('id');
@@ -583,7 +585,10 @@ export const MessagesPage = () => {
             />
 
             {/* Detail panel — slides in from right, full viewport height */}
-            <div className="fixed top-14 lg:top-0 right-0 bottom-0 w-full sm:w-[40rem] z-30 border-l border-border bg-background flex flex-col overflow-hidden shadow-2xl">
+            <div
+              className="fixed right-0 bottom-0 w-full sm:w-[40rem] z-[60] border-l border-border bg-background flex flex-col overflow-hidden shadow-2xl transition-[top] duration-300"
+              style={{ top: 'var(--mobile-header-h, 0px)' }}
+            >
               <MessageDetail
                 message={selectedMessage}
                 onClose={() => {

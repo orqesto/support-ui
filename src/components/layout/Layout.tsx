@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import {
   LayoutDashboard,
   Mail,
@@ -115,6 +115,10 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHoveringTopZone = useRef(false);
   const { hasPermission, orgRole } = usePermissions();
   const { hasModule } = useModules();
   const slaNotifications = useSLANotifications();
@@ -184,6 +188,67 @@ export const Layout = ({ children }: LayoutProps) => {
       return new Set();
     }
   });
+
+  // Sync header visibility as a CSS variable so panels can offset themselves
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    document.documentElement.style.setProperty(
+      '--mobile-header-h',
+      isMobile && headerVisible ? '3.5rem' : '0px'
+    );
+  }, [headerVisible]);
+
+  // Force-hide header when a detail panel opens (e.g. message detail)
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const open = (event as CustomEvent<{ open: boolean }>).detail.open;
+      if (open) {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        setHeaderVisible(false);
+      } else {
+        setHeaderVisible(true);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = setTimeout(() => setHeaderVisible(false), 3000);
+      }
+    };
+    window.addEventListener('detail-panel-change', handler);
+    return () => window.removeEventListener('detail-panel-change', handler);
+  }, []);
+
+  // Hide header on scroll down, reveal on scroll up, auto-hide after 3s (mobile only)
+  useEffect(() => {
+    const startHideTimer = () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setHeaderVisible(false), 3000);
+    };
+
+    const reveal = () => {
+      setHeaderVisible(true);
+      startHideTimer();
+    };
+
+    // Auto-hide 3s after mount
+    startHideTimer();
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY < 10) {
+        reveal();
+      } else if (currentY > lastScrollY.current + 4 && !isHoveringTopZone.current) {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        setHeaderVisible(false);
+      } else if (currentY < lastScrollY.current - 4) {
+        reveal();
+      }
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
 
   // Handle session close
   const handleSessionClose = (sessionKey: string) => {
@@ -404,8 +469,28 @@ export const Layout = ({ children }: LayoutProps) => {
 
         {/* Main content */}
         <div className="flex flex-col flex-1 w-full lg:overflow-x-hidden lg:ml-0 bg-background">
+          {/* Invisible hover/touch zone — reveals header when it's hidden */}
+          <div
+            className="fixed top-0 left-0 right-0 h-6 z-[70] lg:hidden"
+            onMouseEnter={() => {
+              isHoveringTopZone.current = true;
+              setHeaderVisible(true);
+              if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+              hideTimerRef.current = setTimeout(() => setHeaderVisible(false), 3000);
+            }}
+            onMouseLeave={() => {
+              isHoveringTopZone.current = false;
+            }}
+          />
+
           {/* Mobile header with hamburger menu */}
-          <header className="flex fixed top-0 right-0 left-0 z-50 justify-between items-center px-4 h-14 border-b bg-card lg:hidden">
+          <header
+            className={cn(
+              'flex fixed top-0 right-0 left-0 z-[65] justify-between items-center px-4 h-14 border-b bg-card lg:hidden',
+              'transition-transform duration-300',
+              headerVisible ? 'translate-y-0' : '-translate-y-full'
+            )}
+          >
             <div className="flex items-center">
               <Button className="mr-4" onClick={() => setSidebarOpen(true)}>
                 <Menu className="w-6 h-6" />
@@ -419,8 +504,13 @@ export const Layout = ({ children }: LayoutProps) => {
               <ThemeToggle />
             </div>
           </header>
-          {/* Spacer for fixed header */}
-          <div className="h-14 lg:hidden" />
+          {/* Spacer for fixed header — collapses when header hides */}
+          <div
+            className={cn(
+              'lg:hidden overflow-hidden transition-all duration-300',
+              headerVisible ? 'h-14' : 'h-0'
+            )}
+          />
 
           <main className="flex flex-col flex-1 p-2 w-full max-w-full lg:overflow-x-hidden lg:p-4 bg-background">
             {children}
