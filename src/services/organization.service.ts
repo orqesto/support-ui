@@ -85,7 +85,7 @@ export const organizationService = {
     return response.data.data;
   },
 
-  update: async (data: { name?: string; description?: string; active?: boolean }) => {
+  update: async (data: { name?: string; description?: string | null; active?: boolean }) => {
     const response = await apiClient.patch<ApiResponse<Organization>>(
       '/api/organizations/current',
       data
@@ -119,7 +119,7 @@ export const organizationService = {
     id: number,
     data: {
       name?: string;
-      description?: string;
+      description?: string | null;
       active?: boolean;
     }
   ) => {

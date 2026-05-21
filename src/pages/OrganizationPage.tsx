@@ -155,7 +155,7 @@ export const OrganizationPage = () => {
     try {
       const updated = await organizationService.update({
         name: editForm.name,
-        description: editForm.description || undefined,
+        description: editForm.description || null,
       });
       setOrganization(updated);
       setIsEditing(false);
@@ -214,7 +214,7 @@ export const OrganizationPage = () => {
     try {
       const updated = await organizationService.updateById(orgId, {
         name: editOrgForm.name,
-        description: editOrgForm.description || undefined,
+        description: editOrgForm.description || null,
         active: editOrgForm.active,
       });
       // Update in the list
