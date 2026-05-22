@@ -1,7 +1,5 @@
 import { useState, useCallback } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
   StickyNote,
   Pencil,
   Trash2,
@@ -10,7 +8,7 @@ import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPa
 import { ContradictionAlert } from './ContradictionAlert';
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
-import { AiTabPanel } from './AiTabPanel';
+import { AiTabPanel, type KBAttachment } from './AiTabPanel';
 import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
@@ -116,7 +114,7 @@ export type MessagePanelTabsProps = {
   leadState: LeadState | null;
   setLeadState: React.Dispatch<React.SetStateAction<LeadState | null>>;
   leadFieldDefs: LeadQualificationFieldConfig[];
-  onGhostClick: (answer: string, source: string) => void;
+  onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
   onOptionSelect?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
   onOptionsLoaded?: (total: number) => void;
   onAutoSuggest?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
@@ -211,9 +209,21 @@ export function MessagePanelTabs({
     | undefined;
 
   return (
-    <div className="flex flex-col flex-shrink-0 border-t border-border">
+    <div className={`flex flex-col border-b border-border ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}>
       {/* Tab bar */}
       <div className="flex w-full border-b border-border">
+        {/* Thread tab — active when panel is closed */}
+        <button
+          onClick={() => { setPanelOpen(false); setComposerMode('reply'); }}
+          className={`flex flex-1 justify-center items-center px-2 h-[33px] ${MONO} border-b-2 transition-colors ${
+            !panelOpen
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Thread
+        </button>
+
         {(
           [
             { id: 'ai', label: 'AI', badge: 0 },
@@ -229,8 +239,14 @@ export function MessagePanelTabs({
           <button
             key={id}
             onClick={() => {
-              setTab(id);
-              if (!panelOpen) setPanelOpen(true);
+              if (panelOpen && tab === id) {
+                setPanelOpen(false);
+                setComposerMode('reply');
+              } else {
+                setTab(id);
+                setPanelOpen(true);
+                setComposerMode(id === 'notes' ? 'note' : 'reply');
+              }
             }}
             className={`flex flex-1 justify-center items-center gap-1 px-2 h-[33px] ${MONO} border-b-2 transition-colors ${
               tab === id && panelOpen
@@ -252,27 +268,11 @@ export function MessagePanelTabs({
             )}
           </button>
         ))}
-        <button
-          onClick={() => setPanelOpen((open) => !open)}
-          className="flex flex-1 items-center justify-end gap-1 px-1 h-[33px] text-muted-foreground hover:text-foreground transition-colors group"
-          title={panelOpen ? 'Collapse panel' : 'Expand panel'}
-        >
-          <span className="text-[9px] font-medium tracking-wide uppercase opacity-0 group-hover:opacity-60 transition-opacity select-none">
-            {panelOpen ? 'collapse' : 'expand'}
-          </span>
-          {panelOpen ? (
-            <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
-          ) : (
-            <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" />
-          )}
-        </button>
       </div>
 
       {/* Tab content */}
-      <div
-        className={`overflow-hidden transition-[height] duration-200 ease-in-out ${panelOpen ? 'h-[calc(30vh-33px)]' : 'h-0'}`}
-      >
-        <div className="h-full overflow-y-auto p-2 text-[12px] text-foreground">
+      <div className={`${panelOpen ? 'flex-1 min-h-0 overflow-y-auto' : 'hidden'}`}>
+        <div className="p-2 text-[12px] text-foreground">
           {/* AI Tab */}
           {tab === 'ai' && (
             <div className="space-y-2">

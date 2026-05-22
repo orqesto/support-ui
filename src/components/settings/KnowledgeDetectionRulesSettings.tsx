@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogHeader,
   DialogTitle,
+  DialogClose,
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
@@ -383,6 +384,7 @@ export const KnowledgeDetectionRulesSettings = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isCreating ? 'Create' : 'Edit'} Knowledge Detection Rule</DialogTitle>
+            <DialogClose onClose={handleCancel} />
           </DialogHeader>
 
           {/* Success Message */}
@@ -518,6 +520,7 @@ export const KnowledgeDetectionRulesSettings = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Knowledge Detection Rule</DialogTitle>
+            <DialogClose onClose={() => setDeleteDialogOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete &quot;{ruleToDelete?.name}&quot;? This action cannot be

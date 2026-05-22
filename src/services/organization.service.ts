@@ -54,6 +54,12 @@ export type OrgLeadConfig = {
 };
 
 export const organizationService = {
+  getById: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<Organization>>(`/api/organizations/${id}`);
+    if (!response.data.data) throw new Error('Organization not found');
+    return response.data.data;
+  },
+
   getAll: async (search?: string, page: number = 1, limit: number = 10) => {
     const params = new URLSearchParams();
     if (search?.trim()) {
@@ -237,5 +243,22 @@ export const organizationService = {
 
   updateSelfEditSkills: async (allowSelfEditSkills: boolean): Promise<void> => {
     await apiClient.patch('/api/organizations/self-edit-skills', { allowSelfEditSkills });
+  },
+
+  getSecuritySettings: async (): Promise<{ require2FA: boolean }> => {
+    const response = await apiClient.get<ApiResponse<{ require2FA: boolean }>>(
+      '/api/organizations/security-settings'
+    );
+    return response.data.data ?? { require2FA: false };
+  },
+
+  updateSecuritySettings: async (data: {
+    require2FA?: boolean;
+  }): Promise<{ require2FA: boolean }> => {
+    const response = await apiClient.patch<ApiResponse<{ require2FA: boolean }>>(
+      '/api/organizations/security-settings',
+      data
+    );
+    return response.data.data ?? { require2FA: false };
   },
 };

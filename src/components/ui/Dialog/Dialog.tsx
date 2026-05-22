@@ -36,7 +36,7 @@ export const Dialog = ({
 };
 
 export const DialogHeader = ({ className, children }: DialogSubComponentProps) => (
-  <div className={cn('flex justify-between items-center p-6 border-b border-border', className)}>
+  <div className={cn('flex justify-between items-center p-2 border-b border-border', className)}>
     {children}
   </div>
 );

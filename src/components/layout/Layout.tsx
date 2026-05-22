@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import {
   LayoutDashboard,
   Mail,
@@ -24,7 +24,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useModules } from '@/hooks/useModules';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
-import { organizationService, type Organization } from '@/services/organization.service';
+import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
@@ -132,19 +132,19 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Fetch organization name for admins
   useEffect(() => {
-    if (user?.role === 'admin' && selectedOrganizationId) {
-      organizationService
-        .getAll('', 1, 100)
-        .then((result) => {
-          const org = result.data.find((org: Organization) => org.id === selectedOrganizationId);
-          if (org) {
-            setSelectedOrgName(org.name);
-          }
-        })
-        .catch((error) => {
-          logger.error('Failed to load organization name:', error);
-        });
-    }
+    if (user?.role !== 'admin' || !selectedOrganizationId) return;
+    let cancelled = false;
+    organizationService
+      .getById(selectedOrganizationId)
+      .then((org) => {
+        if (!cancelled) setSelectedOrgName(org.name);
+      })
+      .catch((error) => {
+        if (!cancelled) logger.error('Failed to load organization name:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedOrganizationId, user?.role]);
   const { sessions, removeSession } = useEmailProcessing(
     true,
@@ -169,7 +169,7 @@ export const Layout = ({ children }: LayoutProps) => {
         user?.role
       );
     }
-  }, [organizationFilter, user?.organizationId, user?.role]);
+  }, [organizationFilter]);
 
   // Persist closed sessions in localStorage to survive page navigation
   // Only track manually dismissed sessions — auto-close should not block future sessions
@@ -189,14 +189,19 @@ export const Layout = ({ children }: LayoutProps) => {
     }
   });
 
-  // Sync header visibility as a CSS variable so panels can offset themselves
+  // Sync header offset as a CSS variable so panels can offset themselves.
+  // Always 3.5rem on mobile (main content has permanent pt-16 regardless of header visibility).
   useEffect(() => {
-    const isMobile = window.innerWidth < 1024;
-    document.documentElement.style.setProperty(
-      '--mobile-header-h',
-      isMobile && headerVisible ? '3.5rem' : '0px'
-    );
-  }, [headerVisible]);
+    const update = () => {
+      document.documentElement.style.setProperty(
+        '--mobile-header-h',
+        window.innerWidth < 1024 ? '3.5rem' : '0px'
+      );
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   // Force-hide header when a detail panel opens (e.g. message detail)
   useEffect(() => {
@@ -217,6 +222,8 @@ export const Layout = ({ children }: LayoutProps) => {
 
   // Hide header on scroll down, reveal on scroll up, auto-hide after 3s (mobile only)
   useEffect(() => {
+    if (window.innerWidth >= 1024) return; // desktop has no auto-hide header
+
     const startHideTimer = () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       hideTimerRef.current = setTimeout(() => setHeaderVisible(false), 3000);
@@ -251,24 +258,27 @@ export const Layout = ({ children }: LayoutProps) => {
   }, []);
 
   // Handle session close
-  const handleSessionClose = (sessionKey: string) => {
-    // Check if user manually dismissed BEFORE removeSession clears these keys
-    const wasManuallyClosed =
-      localStorage.getItem(`emailProcessingWidget_${sessionKey}_dismissed`) === 'true';
+  const handleSessionClose = useCallback(
+    (sessionKey: string) => {
+      // Check if user manually dismissed BEFORE removeSession clears these keys
+      const wasManuallyClosed =
+        localStorage.getItem(`emailProcessingWidget_${sessionKey}_dismissed`) === 'true';
 
-    // Remove from hook's session map and cleanup localStorage
-    removeSession(sessionKey);
+      // Remove from hook's session map and cleanup localStorage
+      removeSession(sessionKey);
 
-    // Only track in closedSessions for manual dismissals (X button).
-    // Auto-close should not block future sessions from appearing.
-    if (wasManuallyClosed) {
-      setClosedSessions((prev) => {
-        const newSet = new Set(prev).add(sessionKey);
-        localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
-        return newSet;
-      });
-    }
-  };
+      // Only track in closedSessions for manual dismissals (X button).
+      // Auto-close should not block future sessions from appearing.
+      if (wasManuallyClosed) {
+        setClosedSessions((prev) => {
+          const newSet = new Set(prev).add(sessionKey);
+          localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
+          return newSet;
+        });
+      }
+    },
+    [removeSession]
+  );
 
   // Auto-reopen widgets when a previously closed session starts processing again
   useEffect(() => {
@@ -463,6 +473,13 @@ export const Layout = ({ children }: LayoutProps) => {
                 <LogOut className="w-4 h-4" />
                 Logout
               </Button>
+              <p className="mt-2 text-center text-[10px] text-muted-foreground/50 select-none">
+                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-call */}
+                v{__APP_VERSION__}
+                {String(__GIT_SHA__) !== 'dev' && (
+                  <span title={`Built ${String(__BUILD_TIME__)}`}> · {String(__GIT_SHA__).slice(0, 7)}</span>
+                )}
+              </p>
             </div>
           </div>
         </aside>
@@ -496,7 +513,10 @@ export const Layout = ({ children }: LayoutProps) => {
                 <Menu className="w-6 h-6" />
               </Button>
               <h2 className="text-lg font-semibold">
-                {navigation.find((item) => item.href === location.pathname)?.name ?? 'Dashboard'}
+                {navigation.find(
+                  (item) =>
+                    location.pathname === item.href || location.pathname.startsWith(item.href + '/')
+                )?.name ?? 'Dashboard'}
               </h2>
             </div>
             <div className="flex gap-1 items-center">
@@ -504,15 +524,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <ThemeToggle />
             </div>
           </header>
-          {/* Spacer for fixed header — collapses when header hides */}
-          <div
-            className={cn(
-              'lg:hidden overflow-hidden transition-all duration-300',
-              headerVisible ? 'h-14' : 'h-0'
-            )}
-          />
-
-          <main className="flex flex-col flex-1 p-2 w-full max-w-full lg:overflow-x-hidden lg:p-4 bg-background">
+          <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
             {children}
           </main>
         </div>

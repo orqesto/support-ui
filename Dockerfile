@@ -12,6 +12,12 @@ RUN npm install && npm install @rollup/rollup-linux-arm64-musl --save-optional 2
 # Copy source
 COPY . .
 
+# Version info baked in at build time
+ARG VITE_GIT_SHA=dev
+ARG BUILD_TIME=unknown
+ENV VITE_GIT_SHA=$VITE_GIT_SHA
+ENV BUILD_TIME=$BUILD_TIME
+
 # Build application
 RUN npm run build
 

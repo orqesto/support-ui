@@ -31,4 +31,21 @@ export const twoFactorService = {
     >('/api/auth/2fa/authenticate', { tempToken, code });
     return res.data.data!;
   },
+
+  async forcedSetup(tempToken: string): Promise<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }> {
+    const res = await apiClient.post<
+      ApiResponse<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }>
+    >('/api/auth/2fa/forced-setup', { tempToken });
+    return res.data.data!;
+  },
+
+  async forcedEnable(
+    tempToken: string,
+    code: string
+  ): Promise<{ token: string; user: Record<string, unknown> }> {
+    const res = await apiClient.post<
+      ApiResponse<{ token: string; user: Record<string, unknown> }>
+    >('/api/auth/2fa/forced-enable', { tempToken, code });
+    return res.data.data!;
+  },
 };

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { Dialog, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/Dialog';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import {
@@ -371,6 +371,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogHeader>
           <DialogTitle>Delete Attachment</DialogTitle>
+          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
         </DialogHeader>
         <div className="p-6">
           <p className="mb-4 text-sm text-gray-600">

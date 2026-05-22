@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Paperclip, User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import type { Message } from '@/types';
@@ -20,6 +21,8 @@ export function ThreadMessageItem({
   attachments = [],
   onOpenAttachment,
 }: Props) {
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+
   const isAgent =
     msg.isOutgoing === true ||
     msg.sender.toLowerCase() === 'bot' ||
@@ -31,7 +34,7 @@ export function ThreadMessageItem({
       msg.createdAt)
     : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
 
-  const initials = getInitials(isAgent ? 'Team Reply' : msg.sender);
+  const initials = getInitials(msg.sender);
   if (isAgent) {
     return (
       <div className="flex flex-row-reverse gap-2">
@@ -39,11 +42,26 @@ export function ThreadMessageItem({
           {initials}
         </div>
         <div className="flex flex-col items-end max-w-[88%]">
-          <span className="font-mono text-[9px] text-muted-foreground mb-0.5">
-            {isAgent ? 'Team Reply' : msg.sender} • {relativeTime(msgTime)}
-          </span>
-          <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed break-words">
-            <ThreadBubble content={msg.content} isAgent={true} />
+          <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-muted-foreground mb-0.5">
+            <span>{msg.sender}</span>
+            <span>{relativeTime(msgTime)}</span>
+          </div>
+          <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed">
+            <div className="flex items-start gap-1.5">
+              <div className="flex-1 min-w-0 break-words">
+                <ThreadBubble content={translatedContent ?? msg.content} isAgent={true} />
+              </div>
+              <div className="flex-shrink-0 mt-0.5">
+                <TranslateButton
+                  messageId={msg.id}
+                  onTranslated={(content) => setTranslatedContent(content)}
+                  onCleared={() => setTranslatedContent(null)}
+                  buttonClassName="inline-flex items-center justify-center w-5 h-5 rounded transition-colors text-primary-foreground/40 hover:text-primary-foreground"
+                  spinnerClassName="text-primary-foreground/70"
+                  clearClassName="inline-flex items-center justify-center w-4 h-4 rounded transition-colors text-primary-foreground/50 hover:text-primary-foreground flex-shrink-0"
+                />
+              </div>
+            </div>
           </div>
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
@@ -63,14 +81,6 @@ export function ThreadMessageItem({
           {msg.isOutgoing && (
             <span className="font-mono text-[9px] text-foreground/55 mt-0.5">✓ Sent</span>
           )}
-          <div className="mt-0.5">
-            <TranslateButton
-              messageId={msg.id}
-              originalContent={msg.content}
-              variant="ghost"
-              size="sm"
-            />
-          </div>
         </div>
       </div>
     );
@@ -82,16 +92,28 @@ export function ThreadMessageItem({
         <User className="w-3 h-3" />
       </div>
       <div className="flex flex-col max-w-[88%]">
-        <span className="font-mono text-[9px] text-foreground/55 mb-0.5">
-          {msg.sender} · {relativeTime(msgTime)}
-        </span>
+        <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-foreground/55 mb-0.5">
+          <span>{msg.sender}</span>
+          <span>{relativeTime(msgTime)}</span>
+        </div>
         {msg.id === mainMessageId ? (
-          <div className="rounded-lg px-3 py-2 text-[12px] leading-relaxed break-words bg-card border border-border text-foreground ring-1 ring-ring/40">
-            <ThreadBubble content={msg.content} isAgent={false} />
+          <div className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground ring-1 ring-ring/40">
+            <div className="flex items-start gap-1.5">
+              <div className="flex-1 min-w-0 break-words">
+                <ThreadBubble content={translatedContent ?? msg.content} isAgent={false} />
+              </div>
+              <div className="flex-shrink-0 mt-0.5">
+                <TranslateButton
+                  messageId={msg.id}
+                  onTranslated={(content) => setTranslatedContent(content)}
+                  onCleared={() => setTranslatedContent(null)}
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div
-            className="rounded-lg px-3 py-2 text-[12px] leading-relaxed break-words bg-card border border-border text-foreground"
+            className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground"
             role="button"
             tabIndex={0}
             onClick={() => onMessageNavigate?.(msg.id)}
@@ -99,7 +121,23 @@ export function ThreadMessageItem({
               if (event.key === 'Enter' || event.key === ' ') onMessageNavigate?.(msg.id);
             }}
           >
-            <ThreadBubble content={msg.content} isAgent={false} />
+            <div className="flex items-start gap-1.5">
+              <div className="flex-1 min-w-0 break-words">
+                <ThreadBubble content={translatedContent ?? msg.content} isAgent={false} />
+              </div>
+              <div
+                className="flex-shrink-0 mt-0.5"
+                onClick={(ev) => ev.stopPropagation()}
+                onKeyDown={(ev) => ev.stopPropagation()}
+                role="none"
+              >
+                <TranslateButton
+                  messageId={msg.id}
+                  onTranslated={(content) => setTranslatedContent(content)}
+                  onCleared={() => setTranslatedContent(null)}
+                />
+              </div>
+            </div>
           </div>
         )}
         {attachments.length > 0 && (
@@ -117,15 +155,6 @@ export function ThreadMessageItem({
             ))}
           </div>
         )}
-        <div className="flex justify-end mt-0.5">
-          <TranslateButton
-            messageId={msg.id}
-            originalContent={msg.content}
-            originalSubject={msg.id === mainMessageId ? (msg.subject ?? undefined) : undefined}
-            variant="ghost"
-            size="sm"
-          />
-        </div>
       </div>
     </div>
   );

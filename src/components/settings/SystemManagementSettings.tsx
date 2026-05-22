@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
@@ -393,6 +394,7 @@ export const SystemManagementSettings = () => {
             <AlertTriangle className="w-5 h-5 text-red-500" />
             {confirmDialog.title}
           </DialogTitle>
+          <DialogClose onClose={() => setConfirmDialog({ ...confirmDialog, open: false })} />
         </DialogHeader>
         <DialogContent>
           <div className="space-y-4">
