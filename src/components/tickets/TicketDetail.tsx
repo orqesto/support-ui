@@ -83,6 +83,7 @@ export const TicketDetail = ({
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
+  const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showLabelPicker) return;
@@ -378,10 +379,8 @@ export const TicketDetail = ({
             )}
             <TranslateButton
               ticketId={ticket.id}
-              originalContent={ticket.description}
-              originalSubject={ticket.title}
-              variant="ghost"
-              size="sm"
+              onTranslated={(content) => setTranslatedDescription(content)}
+              onCleared={() => setTranslatedDescription(null)}
             />
           </div>
         </div>
@@ -412,7 +411,7 @@ export const TicketDetail = ({
         ) : (
           <div
             className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.description ?? '') }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedDescription ?? ticket.description ?? '') }}
           />
         )}
       </div>

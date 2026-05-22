@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, forwardRef, useState } from 'react';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -13,6 +13,8 @@ import {
   Redo,
   Code,
   Quote,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -26,6 +28,7 @@ type RichTextEditorProps = {
   className?: string;
   minHeight?: string;
   maxHeight?: string;
+  initiallyHidden?: boolean;
 };
 
 export type RichTextEditorHandle = {
@@ -43,9 +46,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       className,
       minHeight = '150px',
       maxHeight,
+      initiallyHidden = true,
     },
     ref
   ) => {
+    const [isExpanded, setIsExpanded] = useState(!initiallyHidden);
     const onSubmitRef = useRef(onSubmit);
     useEffect(() => {
       onSubmitRef.current = onSubmit;
@@ -99,12 +104,32 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     // Expose focus method to parent
     useImperativeHandle(ref, () => ({
       focus: () => {
+        setIsExpanded(true);
         editor?.commands.focus();
       },
     }));
 
     if (!editor) {
       return null;
+    }
+
+    if (!isExpanded) {
+      return (
+        <button
+          type="button"
+          className={cn(
+            'w-full flex items-center justify-between border rounded-lg bg-background border-border px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors',
+            className
+          )}
+          onClick={() => {
+            setIsExpanded(true);
+            setTimeout(() => editor.commands.focus(), 0);
+          }}
+        >
+          <span>{placeholder}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" />
+        </button>
+      );
     }
 
     const addLink = () => {
@@ -236,6 +261,20 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             >
               <Redo className="h-4 w-4" />
             </Button>
+
+            {initiallyHidden && (
+              <>
+                <div className="w-px h-8 bg-border mx-1" />
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="flex items-center gap-1 ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors px-2 rounded"
+                >
+                  <ChevronUp className="h-3 w-3" />
+                  Collapse
+                </button>
+              </>
+            )}
           </div>
         )}
 

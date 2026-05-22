@@ -25,6 +25,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { formatDate } from '@/lib/utils';
@@ -205,13 +206,16 @@ export const SimilarMessagesDialog = ({
     >
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex gap-2 items-center">
-            <Search className="w-5 h-5" />
-            {preloadedTitle ?? 'AI Knowledge Search'}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Searching documentation, resolved tickets, and previous messages
-          </p>
+          <div>
+            <DialogTitle className="flex gap-2 items-center">
+              <Search className="w-5 h-5" />
+              {preloadedTitle ?? 'AI Knowledge Search'}
+            </DialogTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Searching documentation, resolved tickets, and previous messages
+            </p>
+          </div>
+          <DialogClose onClose={onClose} />
         </DialogHeader>
 
         <div className="overflow-y-auto flex-1">
@@ -302,7 +306,7 @@ export const SimilarMessagesDialog = ({
                   <p className="mb-2 text-sm font-medium text-muted-foreground">
                     {showTranslation && translatedAiResponse ? 'Original:' : 'Suggested Answer:'}
                   </p>
-                  <div className="overflow-y-auto min-h-[80px] max-h-[200px]">
+                  <div className="overflow-y-auto max-h-[200px]">
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
                   </div>
                 </div>
@@ -326,7 +330,7 @@ export const SimilarMessagesDialog = ({
                         Use original instead
                       </Button>
                     </div>
-                    <div className="overflow-y-auto min-h-[80px] max-h-[200px]">
+                    <div className="overflow-y-auto max-h-[200px]">
                       <p className="text-sm leading-relaxed text-blue-900 whitespace-pre-wrap dark:text-blue-100">
                         {translatedAiResponse}
                       </p>

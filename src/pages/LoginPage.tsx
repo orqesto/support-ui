@@ -21,9 +21,12 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<'email' | 'selectOrg' | 'password' | 'totp'>('email');
+  const [step, setStep] = useState<'email' | 'selectOrg' | 'password' | 'totp' | 'setup2fa'>('email');
   const [tempToken, setTempToken] = useState('');
   const [totpCode, setTotpCode] = useState('');
+  const [setup2faQr, setSetup2faQr] = useState('');
+  const [setup2faSecret, setSetup2faSecret] = useState('');
+  const [setup2faCode, setSetup2faCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -115,7 +118,22 @@ export const LoginPage = () => {
         captchaToken: captchaToken ?? undefined,
       });
       if (response.success && response.data) {
-        if (response.data.twoFactorRequired && response.data.tempToken) {
+        if (response.data.twoFactorRequired && response.data.twoFactorSetupRequired && response.data.tempToken) {
+          // Org requires 2FA but user hasn't set it up — force setup during login
+          setTempToken(response.data.tempToken);
+          setIsLoading(true);
+          try {
+            const setupData = await twoFactorService.forcedSetup(response.data.tempToken);
+            setSetup2faQr(setupData.qrCodeDataUrl);
+            setSetup2faSecret(setupData.secret);
+            setStep('setup2fa');
+            setInfo('Your organization requires two-factor authentication. Scan the QR code and enter the code to complete login.');
+          } catch {
+            setError('Failed to initialize 2FA setup. Please try again.');
+          } finally {
+            setIsLoading(false);
+          }
+        } else if (response.data.twoFactorRequired && response.data.tempToken) {
           // 2FA required — show TOTP input
           setTempToken(response.data.tempToken);
           setStep('totp');
@@ -162,6 +180,24 @@ export const LoginPage = () => {
     }
   };
 
+  const handleSetup2faVerify = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      const data = await twoFactorService.forcedEnable(tempToken, setup2faCode);
+      login(data.token, data.user as Parameters<typeof login>[1]);
+      const orgId = (data.user as { organizationId?: number }).organizationId;
+      if (orgId) setSelectedOrganization(orgId);
+      navigate('/dashboard');
+    } catch {
+      setError('Invalid code. Please try again.');
+      setSetup2faCode('');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleBackToEmail = () => {
     setStep('email');
     setPassword('');
@@ -195,7 +231,9 @@ export const LoginPage = () => {
                   ? handleSelectOrg
                   : step === 'totp'
                     ? handleTotpVerify
-                    : handleLogin
+                    : step === 'setup2fa'
+                      ? handleSetup2faVerify
+                      : handleLogin
             }
             className="space-y-4"
           >
@@ -246,6 +284,37 @@ export const LoginPage = () => {
                   maxLength={6}
                   value={totpCode}
                   onChange={(event) => setTotpCode(event.target.value.replace(/\D/g, ''))}
+                  required
+                />
+              </div>
+            )}
+            {step === 'setup2fa' && (
+              <div className="space-y-3">
+                <div className="flex justify-center">
+                  <ShieldCheck className="w-10 h-10 text-primary" />
+                </div>
+                <p className="text-sm text-center text-muted-foreground">
+                  Scan this QR code with your authenticator app (e.g. Google Authenticator, Authy).
+                </p>
+                {setup2faQr && (
+                  <div className="flex justify-center">
+                    <img src={setup2faQr} alt="2FA QR code" className="w-40 h-40 rounded border" />
+                  </div>
+                )}
+                {setup2faSecret && (
+                  <p className="px-2 py-1 text-xs text-center font-mono rounded bg-muted text-muted-foreground break-all">
+                    {setup2faSecret}
+                  </p>
+                )}
+                <Input
+                  label="Authenticator code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="000000"
+                  maxLength={6}
+                  value={setup2faCode}
+                  onChange={(event) => setSetup2faCode(event.target.value.replace(/\D/g, ''))}
                   required
                 />
               </div>
