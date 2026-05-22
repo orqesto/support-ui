@@ -234,11 +234,22 @@ export const MessageDetail = ({
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const handleGhostClick = useCallback((answer: string, source: string) => {
+  type KBAttachmentRef = { id: number; filename: string; originalFilename: string; url: string; mimeType: string };
+
+  const handleGhostClick = useCallback((answer: string, source: string, kbAttachments?: KBAttachmentRef[]) => {
     setComposer(answer);
     setComposerMode('reply');
     setSuggestedSource(source);
     setTimeout(() => richEditorRef.current?.focus(), 50);
+    if (kbAttachments && kbAttachments.length > 0) {
+      const fetchFile = (att: KBAttachmentRef): Promise<File> =>
+        fetch(att.url)
+          .then((res) => res.blob())
+          .then((blob) => new File([blob], att.originalFilename ?? att.filename, { type: att.mimeType }));
+      void Promise.all(kbAttachments.map(fetchFile))
+        .then((files) => setSelectedFiles(files))
+        .catch(() => {});
+    }
   }, []);
 
   const handleSelectSimilarAnswer = useCallback((answer: string, source?: string) => {
@@ -423,9 +434,45 @@ export const MessageDetail = ({
         onClassify={onClassify}
       />
 
-      {/* ════════ ZONE 2 — Thread + Composer ════════ */}
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3 min-h-0">
+      {/* ════════ ZONE 2 — Tabbed Panel ════════ */}
+      <MessagePanelTabs
+        message={message}
+        tab={tab}
+        setTab={setTab}
+        panelOpen={panelOpen}
+        setPanelOpen={setPanelOpen}
+        notes={notes}
+        onNoteUpdated={handleNoteUpdated}
+        onNoteDeleted={handleNoteDeleted}
+        noteActivityLog={noteActivityLog}
+        messageActivity={messageActivity}
+        sortedThread={sortedThread}
+        threadRefreshKey={threadRefreshKey}
+        highlightAttachmentId={highlightAttachmentId}
+        attachments={Array.from(attachmentsByMessageId.values()).flat()}
+        currentUserId={currentUserId}
+        leadState={leadState}
+        setLeadState={setLeadState}
+        leadFieldDefs={leadFieldDefs}
+        onGhostClick={handleGhostClick}
+        onOptionSelect={(
+          answer: string,
+          label: string,
+          type: 'lead' | 'documentation' | 'similar'
+        ) => setSelectedGhost({ answer, label, type })}
+        onOptionsLoaded={(total: number) => setAlternativeCount(total)}
+        onAutoSuggest={(answer: string, label: string, type: 'lead' | 'documentation' | 'similar') =>
+          setAutoKbGhost({ answer, label, type })
+        }
+        onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
+        setComposerMode={setComposerMode}
+        noteEditorRef={noteEditorRef}
+        onCheckContradiction={handleCheckContradiction}
+      />
+
+      {/* ════════ ZONE 3 — Thread + Composer ════════ */}
+      <div className={`flex flex-col flex-1 min-h-0 ${panelOpen ? 'hidden' : ''}`}>
+        <div className="overflow-y-auto flex-1 px-4 py-2 space-y-1.5 min-h-0">
           {!!message.metadata?.contradictionCheck && (
             <ContradictionAlert
               contradictionCheck={message.metadata.contradictionCheck as ContradictionCheckMetadata}
@@ -496,21 +543,22 @@ export const MessageDetail = ({
           <div ref={threadEndRef} />
         </div>
 
-        <MessageComposer
-          message={message}
-          composer={composer}
-          setComposer={setComposer}
-          composerMode={composerMode}
-          setComposerMode={setComposerMode}
-          submitting={submitting}
-          onSend={() => void handleSendComposer()}
-          richEditorRef={richEditorRef}
-          noteEditorRef={noteEditorRef}
-          onOpenSimilarMessages={() => setSimilarMessagesOpen(true)}
-          selectedFiles={selectedFiles}
-          onFilesChange={setSelectedFiles}
-        />
       </div>
+
+      <MessageComposer
+        message={message}
+        composer={composer}
+        setComposer={setComposer}
+        composerMode={composerMode}
+        setComposerMode={setComposerMode}
+        submitting={submitting}
+        onSend={() => void handleSendComposer()}
+        richEditorRef={richEditorRef}
+        noteEditorRef={noteEditorRef}
+        onOpenSimilarMessages={() => setSimilarMessagesOpen(true)}
+        selectedFiles={selectedFiles}
+        onFilesChange={setSelectedFiles}
+      />
 
       {/* ════════ Action Strip ════════ */}
       <MessageActionStrip
@@ -528,42 +576,6 @@ export const MessageDetail = ({
         setRejectDialogOpen={setRejectDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
         onRefresh={onRefresh}
-      />
-
-      {/* ════════ ZONE 3 — Tabbed Panel ════════ */}
-      <MessagePanelTabs
-        message={message}
-        tab={tab}
-        setTab={setTab}
-        panelOpen={panelOpen}
-        setPanelOpen={setPanelOpen}
-        notes={notes}
-        onNoteUpdated={handleNoteUpdated}
-        onNoteDeleted={handleNoteDeleted}
-        noteActivityLog={noteActivityLog}
-        messageActivity={messageActivity}
-        sortedThread={sortedThread}
-        threadRefreshKey={threadRefreshKey}
-        highlightAttachmentId={highlightAttachmentId}
-        attachments={Array.from(attachmentsByMessageId.values()).flat()}
-        currentUserId={currentUserId}
-        leadState={leadState}
-        setLeadState={setLeadState}
-        leadFieldDefs={leadFieldDefs}
-        onGhostClick={handleGhostClick}
-        onOptionSelect={(
-          answer: string,
-          label: string,
-          type: 'lead' | 'documentation' | 'similar'
-        ) => setSelectedGhost({ answer, label, type })}
-        onOptionsLoaded={(total: number) => setAlternativeCount(total)}
-        onAutoSuggest={(answer: string, label: string, type: 'lead' | 'documentation' | 'similar') =>
-          setAutoKbGhost({ answer, label, type })
-        }
-        onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
-        setComposerMode={setComposerMode}
-        noteEditorRef={noteEditorRef}
-        onCheckContradiction={handleCheckContradiction}
       />
 
       {/* ── Dialogs ──────────────────────────────────────────────────────── */}

@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogHeader,
   DialogTitle,
+  DialogClose,
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
@@ -210,6 +211,7 @@ export const LabelsSettings = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Label</DialogTitle>
+            <DialogClose onClose={() => setDeleteDialogOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Delete <strong>{labelToDelete?.name}</strong>? It will be removed from all tickets.

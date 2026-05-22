@@ -602,6 +602,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogHeader>
           <DialogTitle>Delete Comment</DialogTitle>
+          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
         </DialogHeader>
         <div className="p-6">
           <p className="mb-4 text-sm text-gray-600">

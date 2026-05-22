@@ -3,6 +3,7 @@ import {
   Dialog,
   DialogHeader,
   DialogTitle,
+  DialogClose,
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
@@ -32,6 +33,7 @@ export const MessageDetailConfirmDialogs = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Mark as Processed?</DialogTitle>
+          <DialogClose onClose={() => setRejectDialogOpen(false)} />
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Mark this message as processed without creating a ticket? This action cannot be undone.
@@ -58,6 +60,7 @@ export const MessageDetailConfirmDialogs = ({
           <DialogTitle>
             {message.resolved ? 'Unresolve Message?' : 'Unprocess Message?'}
           </DialogTitle>
+          <DialogClose onClose={() => setReopenDialogOpen(false)} />
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           This will mark the message as unprocessed and remove any KB entries created from it.

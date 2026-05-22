@@ -142,6 +142,7 @@ export type LoginRequest = {
 
 export type LoginResponse = {
   twoFactorRequired: boolean;
+  twoFactorSetupRequired?: boolean;
   token?: string;
   user?: User;
   tempToken?: string;

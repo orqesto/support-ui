@@ -1,210 +1,159 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Languages, Loader2, X } from 'lucide-react';
-import DOMPurify from 'dompurify';
-import { Button } from '@/components/ui/Button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/Dialog';
-import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useTranslation, useSupportedLanguages } from '@/hooks/useTranslation';
-import { linkifyText } from '@/lib/linkify';
-import { THREAD_SANITIZE } from '@/components/messages/messageDetailConstants';
+import { useTheme } from '@/contexts/ThemeContext';
 import { logger } from '@/lib/logger';
-
-const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
-
-const renderContent = (text: string) => {
-  if (isHtml(text)) {
-    return (
-      <div
-        className="prose prose-sm max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text, THREAD_SANITIZE) }}
-      />
-    );
-  }
-  return <>{linkifyText(text)}</>;
-};
 
 type TranslateButtonProps = {
   messageId?: number;
   ticketId?: number;
-  originalContent: string;
-  originalSubject?: string;
-  variant?: 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  onTranslated: (content: string, subject?: string) => void;
+  onCleared: () => void;
+  buttonClassName?: string;
+  spinnerClassName?: string;
+  clearClassName?: string;
 };
 
 export const TranslateButton = ({
   messageId,
   ticketId,
-  originalContent,
-  originalSubject,
-  variant = 'outline',
-  size = 'sm',
+  onTranslated,
+  onCleared,
+  buttonClassName,
+  spinnerClassName,
+  clearClassName,
 }: TranslateButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
-  const [translatedData, setTranslatedData] = useState<{
-    content: string;
-    subject?: string;
-    sourceLanguage: string;
-  } | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [hasTranslation, setHasTranslation] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { translateMessage, translateTicket, isTranslating, error } = useTranslation();
+  const { translateMessage, translateTicket, isTranslating } = useTranslation();
   const { languages, fetchLanguages } = useSupportedLanguages();
+  const { theme } = useTheme();
+  const bgColor = theme === 'dark' ? '#1e293b' : '#ffffff';
 
   useEffect(() => {
     if (isOpen) {
       void fetchLanguages();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, fetchLanguages]);
+  }, [isOpen]);
 
-  const handleTranslate = async () => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const handleSelect = async (language: string) => {
+    setSelectedLanguage(language);
+    setIsOpen(false);
     try {
       if (messageId) {
-        const result = await translateMessage(messageId, selectedLanguage);
-        setTranslatedData({
-          content: result.translated.content,
-          subject: result.translated.subject,
-          sourceLanguage: result.original.language,
-        });
+        const result = await translateMessage(messageId, language);
+        onTranslated(result.translated.content, result.translated.subject);
       } else if (ticketId) {
-        const result = await translateTicket(ticketId, selectedLanguage);
-        setTranslatedData({
-          content: result.translated.description ?? '',
-          subject: result.translated.title,
-          sourceLanguage: result.original.language,
-        });
+        const result = await translateTicket(ticketId, language);
+        onTranslated(result.translated.description ?? '', result.translated.title);
       }
+      setHasTranslation(true);
     } catch (err) {
       logger.error('Translation error:', err);
     }
   };
 
-  const handleClose = () => {
+  const handleClear = () => {
     setIsOpen(false);
-    setTranslatedData(null);
+    setSelectedLanguage('');
+    setHasTranslation(false);
+    onCleared();
+  };
+
+  const languageOptions =
+    languages.length > 0
+      ? languages.map((lang) => ({ value: lang.code, label: lang.name }))
+      : [{ value: 'en', label: 'English' }];
+
+  const handleToggle = () => {
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: rect.right - 110,
+      });
+    }
+    setIsOpen(!isOpen);
   };
 
   return (
-    <>
-      <Button variant={variant} size={size} onClick={() => setIsOpen(true)}>
-        <Languages className="mr-2 w-4 h-4" />
-        Translate
-      </Button>
+    <div className="flex items-center gap-1">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={handleToggle}
+        title="Translate"
+        className={
+          buttonClassName ??
+          `inline-flex items-center justify-center w-5 h-5 rounded transition-colors ${
+            isOpen || hasTranslation
+              ? 'text-primary'
+              : 'text-muted-foreground/40 hover:text-muted-foreground'
+          }`
+        }
+      >
+        <Languages className="w-3 h-3" />
+      </button>
+      {isTranslating && (
+        <Loader2 className={`w-3 h-3 animate-spin flex-shrink-0 ${spinnerClassName ?? 'text-muted-foreground'}`} />
+      )}
+      {hasTranslation && !isTranslating && (
+        <button
+          type="button"
+          onClick={handleClear}
+          title="Show original"
+          className={clearClassName ?? 'inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground/60 hover:text-muted-foreground transition-colors flex-shrink-0'}
+        >
+          <X className="w-2.5 h-2.5" />
+        </button>
+      )}
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              <div className="flex justify-between items-center">
-                <span className="flex gap-2 items-center">
-                  <Languages className="w-5 h-5" />
-                  Translate Content
-                </span>
-                <Button variant="ghost" size="sm" onClick={handleClose} className="p-0 w-8 h-8">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Language Selector */}
-            <div className="flex gap-4 items-center">
-              <div className="flex-1">
-                <ReactSelect
-                  label="Translate to:"
-                  id="language-select"
-                  value={selectedLanguage}
-                  onChange={(value) => setSelectedLanguage(value)}
-                  options={
-                    languages && languages.length > 0
-                      ? languages.map((lang) => ({
-                          value: lang.code,
-                          label: lang.name,
-                        }))
-                      : [{ value: 'en', label: 'English' }]
-                  }
-                />
-              </div>
-              <Button onClick={handleTranslate} disabled={isTranslating}>
-                {isTranslating ? (
-                  <>
-                    <Loader2 className="mr-2 w-4 h-4 animate-spin" />
-                    Translating...
-                  </>
-                ) : (
-                  'Translate'
-                )}
-              </Button>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="p-3 text-sm text-red-800 bg-red-50 rounded-md border border-red-200 dark:bg-red-950/30 dark:border-red-800 dark:text-red-200">
-                {error}
-              </div>
-            )}
-
-            {/* Original Content */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Original
-                {translatedData && (
-                  <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                    ({translatedData.sourceLanguage})
-                  </span>
-                )}
-              </h3>
-              <div className="p-4 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                {originalSubject && (
-                  <div className="mb-2 font-medium text-gray-900 dark:text-gray-100">
-                    {linkifyText(originalSubject)}
-                  </div>
-                )}
-                <div className="text-sm text-gray-800 dark:text-gray-200">
-                  {renderContent(originalContent)}
-                </div>
-              </div>
-            </div>
-
-            {/* Translated Content */}
-            {translatedData && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Translated
-                  <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                    ({languages?.find((lang) => lang.code === selectedLanguage)?.name ?? selectedLanguage}
-                    )
-                  </span>
-                </h3>
-                <div className="p-4 bg-blue-50 rounded-md border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/50">
-                  {translatedData.subject && (
-                    <div className="mb-2 font-medium text-gray-900 dark:text-gray-100">
-                      {linkifyText(translatedData.subject)}
-                    </div>
-                  )}
-                  <div className="text-sm text-gray-800 dark:text-gray-200">
-                    {renderContent(translatedData.content)}
-                  </div>
-                </div>
-              </div>
-            )}
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, backgroundColor: bgColor, width: 'max-content' }}
+          className="z-[9999] rounded-lg border border-border shadow-lg overflow-hidden"
+        >
+          <div className="overflow-y-auto max-h-52 py-1">
+            {languageOptions.map((lang) => (
+              <button
+                key={lang.value}
+                type="button"
+                onClick={() => { void handleSelect(lang.value); }}
+                className={`block w-full whitespace-nowrap text-left px-2.5 py-1.5 text-[13px] transition-colors ${
+                  selectedLanguage === lang.value
+                    ? 'font-medium text-foreground bg-accent'
+                    : 'text-foreground/80 hover:bg-accent'
+                }`}
+              >
+                {lang.label}
+              </button>
+            ))}
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={handleClose}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>,
+        document.body
+      )}
+    </div>
   );
 };

@@ -27,6 +27,14 @@ type KBSourceRef = {
   parentDocId?: number;
 };
 
+export type KBAttachment = {
+  id: number;
+  filename: string;
+  originalFilename: string;
+  url: string;
+  mimeType: string;
+};
+
 type SuggestedAnswer = {
   answer: string;
   confidence?: number;
@@ -61,6 +69,7 @@ export type SimilarResult = {
   subject?: string | null;
   sender?: string;
   references?: KBReference[] | ChunkReference[];
+  attachments?: KBAttachment[];
 };
 
 type ReplyOption = {
@@ -78,11 +87,12 @@ type ReplyOption = {
   references?: KBReference[] | ChunkReference[];
   kbSources?: KBSourceRef[];
   similarity?: number;
+  attachments?: KBAttachment[];
 };
 
 type Props = {
   message: Message;
-  onGhostClick: (answer: string, source: string) => void;
+  onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
   onOptionSelect?: (answer: string, label: string, type: ReplyOption['type']) => void;
   onOptionsLoaded?: (total: number) => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -157,12 +167,14 @@ export function AiTabPanel({
       if (cancelled) return;
       // Deduplicate: remove entries that are already represented by the metadata suggestedAnswer
       // (same messageId or documentationId) to avoid showing the same suggestion twice.
-      const deduped = data.filter(
-        (result) =>
-          result.messageId !== suggestedAnswer?.similarMessageId &&
-          !(result.documentationId !== undefined &&
-            result.documentationId === suggestedAnswer?.documentationId)
-      );
+      // Guard against undefined comparisons: only deduplicate when the suggestedAnswer
+      // actually has a matching ID set — undefined !== undefined is false and would
+      // incorrectly drop every documentation result when no pre-computed answer exists.
+      const deduped = data.filter((result) => {
+        if (suggestedAnswer?.similarMessageId !== null && suggestedAnswer?.similarMessageId !== undefined && result.messageId === suggestedAnswer.similarMessageId) return false;
+        if (suggestedAnswer?.documentationId !== null && suggestedAnswer?.documentationId !== undefined && result.documentationId === suggestedAnswer.documentationId) return false;
+        return true;
+      });
       setSimilarResults(deduped);
       const hasSuggested = !!suggestedAnswer?.answer;
       onOptionsLoaded?.((hasSuggested ? 1 : 0) + deduped.length);
@@ -263,6 +275,7 @@ export function AiTabPanel({
       sender: result.sender,
       references: result.references,
       similarity: result.similarity,
+      attachments: result.attachments,
     });
   });
 
@@ -288,7 +301,8 @@ export function AiTabPanel({
                       ? 'lead_qualification'
                       : activeOption.type === 'similar'
                         ? 'message'
-                        : 'documentation'
+                        : 'documentation',
+                    activeOption.attachments
                   )
                 }
                 className="text-[10px] text-muted-foreground hover:text-foreground underline"

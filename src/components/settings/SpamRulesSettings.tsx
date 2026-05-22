@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogHeader,
   DialogTitle,
+  DialogClose,
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
@@ -305,6 +306,7 @@ export const SpamRulesSettings = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isCreating ? 'Create' : 'Edit'} Spam Rule</DialogTitle>
+            <DialogClose onClose={handleCancel} />
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -403,6 +405,7 @@ export const SpamRulesSettings = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Spam Rule</DialogTitle>
+            <DialogClose onClose={handleDeleteCancel} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete &quot;{ruleToDelete?.name}&quot;? This action cannot be undone.

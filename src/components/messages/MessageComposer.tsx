@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Send, Paperclip, BookOpen, Reply, StickyNote, X } from 'lucide-react';
+import { Send, Paperclip, BookOpen, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -30,7 +30,6 @@ export function MessageComposer({
   composer,
   setComposer,
   composerMode,
-  setComposerMode,
   submitting,
   onSend,
   richEditorRef,
@@ -53,27 +52,6 @@ export function MessageComposer({
 
   return (
     <div className="flex-shrink-0 px-4 pt-2 pb-3 border-t border-border">
-      {/* Mode toggle */}
-      <div className="flex items-center gap-0 mb-1.5">
-        <button
-          onClick={() => {
-            setComposerMode('reply');
-            setComposer('');
-          }}
-          className={`flex items-center gap-1 px-3 py-1 ${MONO} border-b-2 transition-colors ${composerMode === 'reply' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-        >
-          <Reply className="w-2.5 h-2.5" /> REPLY
-        </button>
-        <button
-          onClick={() => {
-            setComposerMode('note');
-            setComposer('');
-          }}
-          className={`flex items-center gap-1 px-3 py-1 ${MONO} border-b-2 transition-colors ${composerMode === 'note' ? 'border-amber-500 text-amber-700 dark:text-amber-400' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-        >
-          <StickyNote className="w-2.5 h-2.5" /> INTERNAL NOTE
-        </button>
-      </div>
 
       {/* Input frame */}
       <div
@@ -131,7 +109,7 @@ export function MessageComposer({
             </button>
           )}
           <span className="font-mono text-[9px] text-muted-foreground/70 ml-1 hidden sm:inline">
-            ⌘↵ send
+            ⌘↵ {composerMode === 'note' ? 'send internal note' : 'send reply'}
           </span>
           <button
             onClick={onSend}

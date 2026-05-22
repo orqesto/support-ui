@@ -9,8 +9,8 @@ export function ThreadBubble({ content, isAgent }: { content: string; isAgent: b
   const { main, quote } = useMemo(() => splitAtQuote(content, isHtml), [content, isHtml]);
 
   const prose = isAgent
-    ? 'prose prose-sm prose-invert dark:prose-invert max-w-none'
-    : 'prose prose-sm max-w-none';
+    ? 'prose prose-sm prose-invert dark:prose-invert max-w-none [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0'
+    : 'prose prose-sm max-w-none [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0';
 
   const renderHtml = (html: string) => (
     <div
