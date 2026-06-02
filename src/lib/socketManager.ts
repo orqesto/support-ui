@@ -20,11 +20,24 @@ export const getSocket = (): Socket => {
   if (!socket) {
     logger.info('🔌 Creating new WebSocket connection');
     socket = io(API_BASE_URL, {
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 3,
+      reconnectionAttempts: Infinity,
     });
+
+    // Re-attach any event listeners that survived a socket reset
+    for (const event of eventListeners.keys()) {
+      socket.on(event, (data: unknown) => {
+        logger.debug(`📧 Event received: ${event}`, data);
+        const callbacks = eventListeners.get(event);
+        if (callbacks) {
+          logger.info(`  ↳ Broadcasting to ${callbacks.size} subscriber(s)`);
+          callbacks.forEach((cb) => cb(data));
+        }
+      });
+    }
 
     socket.on('connect', () => {
       logger.info('✅ WebSocket connected', socket?.id);
@@ -38,6 +51,23 @@ export const getSocket = (): Socket => {
     socket.on('disconnect', (reason) => {
       logger.info('❌ WebSocket disconnected:', reason);
     });
+
+    socket.on('connect_error', (err) => {
+      const msg = err?.message ?? '';
+      if (
+        msg.includes('Session has been invalidated') ||
+        msg.includes('Invalid or expired token') ||
+        msg.includes('Authentication required')
+      ) {
+        logger.info('🔒 WS auth rejected — clearing session and redirecting to login');
+        socket?.disconnect();
+        socket = null;
+        connectionCount = 0;
+        activeOrgRooms.clear();
+        localStorage.removeItem('auth-storage');
+        window.location.href = '/login';
+      }
+    });
   }
 
   connectionCount++;
@@ -49,7 +79,8 @@ export const getSocket = (): Socket => {
 // Subscribe to events (with automatic deduplication)
 export const subscribeToEvent = (event: string, callback: EventCallback) => {
   if (!socket) {
-    throw new Error('Socket not initialized. Call getSocket() first.');
+    logger.warn(`subscribeToEvent called for '${event}' but socket is not yet acquired — call getSocket() first`);
+    return;
   }
 
   if (!eventListeners.has(event)) {
@@ -57,7 +88,7 @@ export const subscribeToEvent = (event: string, callback: EventCallback) => {
 
     // Add single listener to socket that broadcasts to all subscribers
     socket.on(event, (data: unknown) => {
-      logger.info(`📧 Event received: ${event}`, data);
+      logger.debug(`📧 Event received: ${event}`, data);
 
       const callbacks = eventListeners.get(event);
       if (callbacks) {
@@ -91,7 +122,7 @@ export const unsubscribeFromEvent = (event: string, callback: EventCallback) => 
 };
 
 export const releaseSocket = () => {
-  connectionCount--;
+  connectionCount = Math.max(0, connectionCount - 1);
   logger.info(`📊 Active connections: ${connectionCount}`);
 
   // Delay disconnect to handle React StrictMode double-mounting
@@ -103,6 +134,8 @@ export const releaseSocket = () => {
         socket.disconnect();
         socket = null;
         connectionCount = 0;
+        activeOrgRooms.clear();
+        eventListeners.clear();
       } else {
         logger.info('✅ Disconnect cancelled - components reconnected');
       }
@@ -116,6 +149,8 @@ export const forceDisconnect = () => {
     socket.disconnect();
     socket = null;
     connectionCount = 0;
+    activeOrgRooms.clear();
+    eventListeners.clear();
   }
 };
 

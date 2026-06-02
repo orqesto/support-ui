@@ -10,12 +10,12 @@ import {
   X,
   Users,
   Building2,
-  Briefcase,
   FileText,
   CreditCard,
   TrendingUp,
   BookOpen,
   Receipt,
+  Trash2,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -24,11 +24,10 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useModules } from '@/hooks/useModules';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
-import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
+import { apiClient } from '@/lib/api-client';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
-import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
@@ -65,7 +64,6 @@ const allNavigation = [
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
     moduleRequired: 'billing-intelligence',
-    departmentRequired: 'billing' as const,
   },
   {
     name: 'Usage Stats',
@@ -94,6 +92,12 @@ const allNavigation = [
     adminOnly: true, // Only visible to global admins
   },
   {
+    name: 'Deleted Messages',
+    href: '/deleted-messages',
+    icon: Trash2,
+    permission: Permission.VIEW_MESSAGES,
+  },
+  {
     name: 'Admin Dashboard',
     href: '/admin',
     icon: Settings,
@@ -110,7 +114,6 @@ const allNavigation = [
 export const Layout = ({ children }: LayoutProps) => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const location = useLocation();
   const navigate = useNavigate();
@@ -123,34 +126,16 @@ export const Layout = ({ children }: LayoutProps) => {
   const { hasModule } = useModules();
   const slaNotifications = useSLANotifications();
 
-  // State for organization name
-  const [selectedOrgName, setSelectedOrgName] = useState<string>('Organization');
-
-  // For admins: use selectedOrganizationId to filter widgets by current org context
+  // For admins: use selectedOrganizationId to filter widgets by current org context.
+  // WS-H-04: fall back to user.organizationId so the WS room is joined on first login
+  // before OrganizationSwitcher auto-selects an org (avoids transient no-events window).
   // For regular users: use their user.organizationId
-  const organizationFilter = user?.role === 'admin' ? selectedOrganizationId : user?.organizationId;
+  const organizationFilter =
+    user?.role === 'admin'
+      ? (selectedOrganizationId ?? user?.organizationId ?? null)
+      : user?.organizationId;
 
-  // Fetch organization name for admins
-  useEffect(() => {
-    if (user?.role !== 'admin' || !selectedOrganizationId) return;
-    let cancelled = false;
-    organizationService
-      .getById(selectedOrganizationId)
-      .then((org) => {
-        if (!cancelled) setSelectedOrgName(org.name);
-      })
-      .catch((error) => {
-        if (!cancelled) logger.error('Failed to load organization name:', error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedOrganizationId, user?.role]);
-  const { sessions, removeSession } = useEmailProcessing(
-    true,
-    selectedDepartmentRole ?? undefined,
-    organizationFilter ?? undefined
-  );
+  const { sessions, removeSession } = useEmailProcessing(true, organizationFilter ?? undefined);
 
   // Join/leave organization-specific WebSocket rooms for targeted event delivery
   useEffect(() => {
@@ -169,7 +154,7 @@ export const Layout = ({ children }: LayoutProps) => {
         user?.role
       );
     }
-  }, [organizationFilter]);
+  }, [organizationFilter, user?.organizationId, user?.role]);
 
   // Persist closed sessions in localStorage to survive page navigation
   // Only track manually dismissed sessions — auto-close should not block future sessions
@@ -334,20 +319,18 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.moduleRequired && !hasModule(item.moduleRequired)) {
           return false;
         }
-        // Check department gate (item only visible in the required department context)
-        if (item.departmentRequired && selectedDepartmentRole !== item.departmentRequired) {
-          return false;
-        }
         // Check permissions
         if (!item.permission) {
           return true;
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasModule, user?.role, selectedDepartmentRole]
+    [hasPermission, hasModule, user?.role]
   );
 
   const handleLogout = () => {
+    // Call BE to clear httpOnly cookie and revoke jwtVersion; fire-and-forget
+    void apiClient.post('/api/auth/logout').catch(() => {});
     logout();
     navigate('/login');
   };
@@ -414,37 +397,8 @@ export const Layout = ({ children }: LayoutProps) => {
             </nav>
 
             <div className="p-4 border-t">
-              {/* Current Context Indicator */}
-              {(user?.role === 'admin' && selectedOrganizationId) || selectedDepartmentRole ? (
-                <div className="mb-3 p-2.5 rounded-lg bg-muted/10 border border-primary/20">
-                  <p className="mb-2 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
-                    Workspace
-                  </p>
-                  {user?.role === 'admin' && selectedOrganizationId && (
-                    <div className="flex gap-2 items-center mb-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-sm font-medium truncate text-foreground">
-                        {selectedOrgName}
-                      </span>
-                    </div>
-                  )}
-                  {selectedDepartmentRole && (
-                    <div className="flex gap-2 items-center">
-                      <Briefcase className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-sm font-medium text-foreground">
-                        {selectedDepartmentRole.charAt(0).toUpperCase() +
-                          selectedDepartmentRole.slice(1)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
               {/* Organization Switcher for Global Admins */}
               <OrganizationSwitcher />
-
-              {/* Department Switcher for Multi-Department Users */}
-              <DepartmentSwitcher />
 
               <div className="flex justify-between items-center mb-3">
                 <div className="flex gap-2 items-center min-w-0">
@@ -474,10 +428,12 @@ export const Layout = ({ children }: LayoutProps) => {
                 Logout
               </Button>
               <p className="mt-2 text-center text-[10px] text-muted-foreground/50 select-none">
-                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-call */}
-                v{__APP_VERSION__}
+                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-call */}v{__APP_VERSION__}
                 {String(__GIT_SHA__) !== 'dev' && (
-                  <span title={`Built ${String(__BUILD_TIME__)}`}> · {String(__GIT_SHA__).slice(0, 7)}</span>
+                  <span title={`Built ${String(__BUILD_TIME__)}`}>
+                    {' '}
+                    · {String(__GIT_SHA__).slice(0, 7)}
+                  </span>
                 )}
               </p>
             </div>

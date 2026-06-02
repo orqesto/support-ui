@@ -36,9 +36,7 @@ export const authService = {
   },
 
   verifyEmail: async (token: string) => {
-    const response = await apiClient.get<ApiResponse<null>>(
-      `/api/auth/verify-email?token=${token}`
-    );
+    const response = await apiClient.post<ApiResponse<null>>('/api/auth/verify-email', { token });
     return response.data;
   },
 

@@ -1,4 +1,5 @@
 import { CheckCircle, Eye, EyeOff, FileText, Maximize2, MessageSquare, Trash2 } from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { KBEntry } from '@/services/kb.service';
@@ -105,7 +106,7 @@ export const KBTableView = ({
                 <Badge className="max-w-full truncate">{entry.category}</Badge>
               </td>
               <td className="hidden px-3 py-3 xl:table-cell">
-                <Badge className="max-w-full truncate">{entry.departmentRole}</Badge>
+                <DepartmentBadge departmentId={entry.departmentId} />
               </td>
               <td className="hidden px-3 py-3 text-center sm:table-cell">
                 <span className={`font-medium ${getQualityColor(entry.qualityScore)}`}>

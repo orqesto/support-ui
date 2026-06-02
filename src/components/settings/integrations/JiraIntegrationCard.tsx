@@ -129,8 +129,8 @@ export const JiraIntegrationCard = ({
                         <p className="font-medium">
                           {(integration.config as JiraConfig).projectKey ?? integration.name}
                         </p>
-                        {integration.departmentRole && (
-                          <DepartmentBadge department={integration.departmentRole} size="sm" />
+                        {typeof integration.departmentId === 'number' && (
+                          <DepartmentBadge departmentId={integration.departmentId} size="sm" />
                         )}
                         {integration.isDefault && (
                           <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-100 rounded-full dark:bg-amber-900/30 dark:text-amber-500">

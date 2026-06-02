@@ -76,63 +76,75 @@ export const useTranslation = () => {
     setIsTranslating(true);
     setError(null);
 
-    try {
-      const token = localStorage.getItem('token');
-      const eventSource = new EventSource(
-        `/api/translation/messages/${messageId}/stream?token=${token}&targetLanguage=${targetLanguage}`
-      );
+    let mounted = true;
+    const controller = new AbortController();
 
-      type SSEData =
-        | { type: 'start'; sourceLang: string; targetLanguage: string }
-        | { type: 'chunk'; field: 'content' | 'subject'; text: string }
-        | { type: 'done' }
-        | { type: 'error'; error: string };
+    type SSEData =
+      | { type: 'start'; sourceLang: string; targetLanguage: string }
+      | { type: 'chunk'; field: 'content' | 'subject'; text: string }
+      | { type: 'done' }
+      | { type: 'error'; error: string };
 
-      eventSource.onmessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data as string) as SSEData;
+    const run = async () => {
+      try {
+        const response = await fetch(`/api/translation/messages/${messageId}/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetLanguage }),
+          signal: controller.signal,
+          credentials: 'include',
+        });
 
-        if (data.type === 'chunk') {
-          onChunk(data.field, data.text);
-        } else if (data.type === 'done') {
-          eventSource.close();
-          setIsTranslating(false);
-          if (onComplete) {
-            onComplete();
-          }
-        } else if (data.type === 'error') {
-          eventSource.close();
-          setIsTranslating(false);
-          const errMsg = data.error || 'Translation failed';
-          setError(errMsg);
-          if (onError) {
-            onError(errMsg);
+        if (!response.ok || !response.body) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (!line.startsWith('data:')) continue;
+            const raw = line.slice(5).trim();
+            if (!raw) continue;
+            const data = JSON.parse(raw) as SSEData;
+            if (data.type === 'chunk') {
+              onChunk(data.field, data.text);
+            } else if (data.type === 'done') {
+              if (mounted) setIsTranslating(false);
+              onComplete?.();
+              return;
+            } else if (data.type === 'error') {
+              const errMsg = data.error || 'Translation failed';
+              if (mounted) { setIsTranslating(false); setError(errMsg); }
+              onError?.(errMsg);
+              return;
+            }
           }
         }
-      };
 
-      eventSource.onerror = () => {
-        eventSource.close();
-        setIsTranslating(false);
-        const errMsg = 'Connection failed';
-        setError(errMsg);
-        if (onError) {
-          onError(errMsg);
-        }
-      };
-
-      // Return cleanup function
-      return () => {
-        eventSource.close();
-        setIsTranslating(false);
-      };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Stream failed';
-      setError(errorMessage);
-      setIsTranslating(false);
-      if (onError) {
-        onError(errorMessage);
+        if (mounted) setIsTranslating(false);
+      } catch (err) {
+        if ((err as { name?: string }).name === 'AbortError') return;
+        const errorMessage = err instanceof Error ? err.message : 'Stream failed';
+        if (mounted) { setError(errorMessage); setIsTranslating(false); }
+        onError?.(errorMessage);
       }
-    }
+    };
+
+    void run();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+      setIsTranslating(false);
+    };
   };
 
   return {

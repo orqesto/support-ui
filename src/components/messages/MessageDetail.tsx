@@ -1,31 +1,38 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
-import { ContradictionAlert } from './ContradictionAlert';
-import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
-import { AlertDialog } from '@/components/ui/AlertDialog';
-import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
-import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
-import { useResolveMessageToKB } from '@/hooks/useResolveMessageToKB';
-import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import DOMPurify from 'dompurify';
+import {
+  messageService,
+  type MessageNote,
+  type MessageActivityEntry,
+} from '@/services/message.service';
 import {
   organizationService,
   type LeadQualificationFieldConfig,
 } from '@/services/organization.service';
-import type { Message } from '@/types';
-import type { ContradictionCheckMetadata } from '@/types/ai';
+import { getSpamCheck } from '@/lib/messageHelpers';
+import {
+  getSocket,
+  releaseSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+} from '@/lib/socketManager';
+import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
-import { logger } from '@/lib/logger';
-import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
-import { ThreadMessageItem } from './ThreadMessageItem';
-import { MessageGhostBubble } from './MessageGhostBubble';
-import { InlineNoteBubble } from './InlineNoteBubble';
+import type { Message, MessageEvent } from '@/types';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { MessageActionStrip } from './MessageActionStrip';
+import { MessageGhostBubble } from './MessageGhostBubble';
+import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
+import { ThreadMessageItem } from './ThreadMessageItem';
+import { similarResultsCache } from './AiTabPanel';
+import type { KBAttachment } from './AiTabPanel';
 import { MessagePanelTabs } from './MessagePanelTabs';
-import { History } from 'lucide-react';
 import type { Attachment } from './MessageAttachments';
-import { apiClient } from '@/lib/api-client';
+import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
+import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
+import { logger } from '@/lib/logger';
+import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import {
   toGhostOption,
   type GhostOption,
@@ -33,109 +40,68 @@ import {
 } from './messageDetailConstants';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
+type PanelTab =
+  | 'ai'
+  | 'customer'
+  | 'attachments'
+  | 'kb'
+  | 'activity'
+  | 'notes'
+  | 'lead'
+  | 'contradiction';
 
-// ─── Props ───────────────────────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 
-type MessageDetailProps = {
+export type MessageDetailProps = {
   message: Message;
   onClose?: () => void;
-  showFullPageButton?: boolean;
   onApprove?: () => void;
   onReject?: () => void;
   onReopen?: () => void;
   onDelete?: () => void;
-  onResolve?: () => Promise<void>;
+  onResolve?: () => void;
   onRefresh?: () => void;
-  onMessageNavigate?: (messageId: number) => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
+  onMessageNavigate?: (messageId: number) => void;
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
-export const MessageDetail = ({
+export function MessageDetail({
   message,
   onClose,
-  showFullPageButton = true,
   onApprove,
   onReject,
   onReopen,
   onDelete,
   onResolve,
   onRefresh,
-  onMessageNavigate,
   onClassify,
-}: MessageDetailProps) => {
-  const location = useLocation();
-  const isFullPage = location.pathname.startsWith('/messages/');
-  const user = useAuthStore((store) => store.user);
-
-  // ── Zone state ───────────────────────────────────────────────────────────
-  const [tab, setTab] = useState<
-    'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'lead' | 'notes' | 'contradiction'
-  >('ai');
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [composer, setComposer] = useState('');
-  const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
-  const noteEditorRef = useRef<RichTextEditorHandle>(null);
-  const richEditorRef = useRef<RichTextEditorHandle>(null);
-  const threadEndRef = useRef<HTMLDivElement>(null);
-
-  // ── Thread / notes state ─────────────────────────────────────────────────
-  const [threadMessages, setThreadMessages] = useState<Message[]>([]);
-  const [notes, setNotes] = useState<MessageNote[]>([]);
-  const [noteActivityLog, setNoteActivityLog] = useState<
-    { label: string; who: string; time: string }[]
-  >([]);
-  const [messageActivity, setMessageActivity] = useState<MessageActivityEntry[]>([]);
+  onMessageNavigate,
+}: MessageDetailProps) {
+  // ── Thread state ───────────────────────────────────────────────────────────
+  const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState<string | null>(null);
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
-  const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Map<number, Attachment[]>>(new Map());
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
-  // ── Business state ───────────────────────────────────────────────────────
-  const [suggestedSource, setSuggestedSource] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const { resolving, resolveMessage: resolveToKB } = useResolveMessageToKB();
-  const [leadState, setLeadState] = useState<LeadState | null>(null);
-  const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
-  const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(null);
-  const [similarMessagesOpen, setSimilarMessagesOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
-  const [alertDialog, setAlertDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    variant?: 'error' | 'success' | 'warning' | 'info';
-    onClose?: () => void | Promise<void>;
-  }>({ open: false, title: '', description: '' });
-
-  // ── Reset on message change ──────────────────────────────────────────────
-  useEffect(() => {
-    setTab('ai');
-    setComposer('');
-    setComposerMode('reply');
-    setSuggestedSource(null);
-    setSelectedFiles([]);
-    setNoteActivityLog([]);
-  }, [message.id]);
-
-  // ── Fetch thread + notes + activity ─────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setThreadLoading(true);
-    Promise.all([
-      messageService.getThreadMessages(message.id),
-      messageService.getNotes(message.id),
-      messageService.getActivity(message.id),
-    ])
-      .then(([threadRes, notesRes, activityData]) => {
-        if (cancelled) return;
-        if (threadRes.success && threadRes.data) setThreadMessages(threadRes.data);
-        if (notesRes.success && notesRes.data) setNotes(notesRes.data);
-        setMessageActivity(activityData);
+    setThreadError(null);
+    messageService
+      .getThreadMessages(message.id)
+      .then((res) => {
+        if (!cancelled) setThreadMessages(res.data ?? []);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          logger.error('Failed to load thread:', err);
+          setThreadError('Failed to load thread. Please try again.');
+        }
+      })
       .finally(() => {
         if (!cancelled) setThreadLoading(false);
       });
@@ -144,6 +110,120 @@ export const MessageDetail = ({
     };
   }, [message.id, threadRefreshKey]);
 
+  // ── Sorted thread ──────────────────────────────────────────────────────────
+
+  const sortedThread = useMemo<MessageEvent[]>(() => {
+    const msgs = [...threadMessages];
+    const msgTime = (msg: MessageEvent) =>
+      new Date(
+        msg.sentAt ?? (msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt
+      ).getTime();
+    msgs.sort((ma, mb) => msgTime(ma) - msgTime(mb));
+    return msgs;
+  }, [threadMessages]);
+
+  // ── Composer state ─────────────────────────────────────────────────────────
+  const [composer, setComposer] = useState('');
+  const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
+  const [submitting, setSubmitting] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [sendFailedError, setSendFailedError] = useState<string | null>(null);
+  const richEditorRef = useRef<RichTextEditorHandle>(null);
+  const noteEditorRef = useRef<RichTextEditorHandle>(null);
+
+  // ── Real-time reply events ─────────────────────────────────────────────────
+  useEffect(() => {
+    getSocket();
+    const handleSendFailed = (data: unknown) => {
+      const event = data as { messageId: number; channel: string };
+      if (event.messageId === message.id) {
+        setSendFailedError(
+          `Reply could not be delivered via ${event.channel}. The message was saved but not sent — please try again.`
+        );
+      }
+    };
+    const handleReplied = (data: unknown) => {
+      const event = data as { messageId: number };
+      if (event.messageId === message.id) {
+        setThreadRefreshKey((key) => key + 1);
+        onRefreshRef.current?.();
+      }
+    };
+    subscribeToEvent('send-failed', handleSendFailed);
+    subscribeToEvent('message:replied', handleReplied);
+    return () => {
+      unsubscribeFromEvent('send-failed', handleSendFailed);
+      unsubscribeFromEvent('message:replied', handleReplied);
+      releaseSocket();
+    };
+  }, [message.id]);
+
+  // ── AI ghost state ─────────────────────────────────────────────────────────
+  const [aiLoading, setAiLoading] = useState(false);
+  const [ghostOption, setGhostOption] = useState<GhostOption | null>(() =>
+    toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+  );
+  const [alternativeCount, setAlternativeCount] = useState(0);
+
+  // Reset ghost when message changes
+  useEffect(() => {
+    setGhostOption(
+      toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+    );
+  }, [message.id, message.metadata]);
+
+  // ── Similar messages dialog ────────────────────────────────────────────────
+  const [similarOpen, setSimilarOpen] = useState(false);
+
+  // ── Panel tab state ────────────────────────────────────────────────────────
+  const [tab, setTab] = useState<PanelTab>('ai');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(null);
+
+  // Reset panel when message changes
+  useEffect(() => {
+    setPanelOpen(false);
+    setTab('ai');
+    setHighlightAttachmentId(null);
+  }, [message.id]);
+
+  // ── Notes / activity / attachments / lead state ────────────────────────────
+  const user = useAuthStore((store) => store.user);
+  const currentUserId = user?.id ?? null;
+
+  const [notes, setNotes] = useState<MessageNote[]>([]);
+  const [messageActivity, setMessageActivity] = useState<MessageActivityEntry[]>([]);
+  const [noteActivityLog, setNoteActivityLog] = useState<
+    { label: string; who: string; time: string }[]
+  >([]);
+  const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Map<number, Attachment[]>>(
+    new Map()
+  );
+  const [leadState, setLeadState] = useState<LeadState | null>(null);
+  const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
+
+  // Fetch notes + activity alongside thread refreshes
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      messageService.getNotes(message.id).catch(() => null),
+      messageService.getActivity(message.id).catch(() => [] as MessageActivityEntry[]),
+    ])
+      .then(([notesRes, activity]) => {
+        if (cancelled) return;
+        if (notesRes && notesRes.success && notesRes.data) setNotes(notesRes.data);
+        setMessageActivity(activity);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [message.id, threadRefreshKey]);
+
+  // Fetch attachments for the whole thread (used by the Files tab + thread item attachment chips)
   useEffect(() => {
     let cancelled = false;
     apiClient
@@ -152,22 +232,20 @@ export const MessageDetail = ({
         if (cancelled) return;
         const map = new Map<number, Attachment[]>();
         for (const att of res.data.data ?? []) {
-          if (att.messageId === null) continue;
-          const list = map.get(att.messageId) ?? [];
+          if (att.messageEventId === null) continue;
+          const list = map.get(att.messageEventId) ?? [];
           list.push(att);
-          map.set(att.messageId, list);
+          map.set(att.messageEventId, list);
         }
         setAttachmentsByMessageId(map);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [message.id, threadRefreshKey]);
 
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [threadMessages.length, notes.length]);
-
-  // ── Lead state ───────────────────────────────────────────────────────────
+  // Lead config — fetched once
   useEffect(() => {
     organizationService
       .getLeadConfig()
@@ -177,6 +255,7 @@ export const MessageDetail = ({
       .catch(() => {});
   }, []);
 
+  // Lead state — derived from this message + thread
   useEffect(() => {
     if (!message.isLead) {
       setLeadState(null);
@@ -189,149 +268,135 @@ export const MessageDetail = ({
       .then((res) => {
         const sorted = [...(res.data ?? [])].sort((itemA, itemB) => itemB.id - itemA.id);
         for (const msg of sorted) {
-          const stat = msg.metadata?.leadState;
+          const stat = (msg.metadata as { leadState?: LeadState } | null)?.leadState;
           if (stat) {
-            setLeadState(stat as LeadState);
+            setLeadState(stat);
             return;
           }
         }
-        const fb = message.metadata?.leadState;
-        setLeadState(fb ? (fb as LeadState) : null);
+        const fb = message.metadata?.leadState as LeadState | undefined;
+        setLeadState(fb ?? null);
       })
       .catch(() => {
-        const fb = message.metadata?.leadState;
-        setLeadState(fb ? (fb as LeadState) : null);
+        const fb = message.metadata?.leadState as LeadState | undefined;
+        setLeadState(fb ?? null);
       });
   }, [message.id, message.isLead, message.metadata]);
 
+  // ── Computed flags ─────────────────────────────────────────────────────────
+  const spamCheck = getSpamCheck(message);
+  void spamCheck;
 
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const el = document.activeElement as HTMLElement;
-      if (
-        el?.tagName === 'TEXTAREA' ||
-        el?.tagName === 'INPUT' ||
-        el?.tagName === 'SELECT' ||
-        el?.isContentEditable
-      )
-        return;
-      if (event.key === 'Escape') onClose?.();
-      if (event.key === 'r' || event.key === 'R') {
-        setComposerMode('reply');
-        setComposer('');
-        setTimeout(() => richEditorRef.current?.focus(), 50);
-      }
-      if (event.key === 'n' || event.key === 'N') {
-        setComposerMode('note');
-        setComposer('');
-        setTimeout(() => noteEditorRef.current?.focus(), 50);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const isFiltered = message.status === 'filtered';
+  const isSuspicious =
+    !isFiltered &&
+    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
+  const isActive = !isFiltered && !isSuspicious && message.status !== 'closed';
+  const ghostVisible = message.status !== 'resolved';
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  const autoReply = message.metadata?.autoReply as { sent?: boolean } | undefined;
 
-  type KBAttachmentRef = { id: number; filename: string; originalFilename: string; url: string; mimeType: string };
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const handleGhostClick = useCallback((answer: string, source: string, kbAttachments?: KBAttachmentRef[]) => {
-    setComposer(answer);
-    setComposerMode('reply');
-    setSuggestedSource(source);
-    setTimeout(() => richEditorRef.current?.focus(), 50);
-    if (kbAttachments && kbAttachments.length > 0) {
-      const fetchFile = (att: KBAttachmentRef): Promise<File> =>
-        fetch(att.url)
-          .then((res) => res.blob())
-          .then((blob) => new File([blob], att.originalFilename ?? att.filename, { type: att.mimeType }));
-      void Promise.all(kbAttachments.map(fetchFile))
-        .then((files) => setSelectedFiles(files))
-        .catch(() => {});
-    }
-  }, []);
-
-  const handleSelectSimilarAnswer = useCallback((answer: string, source?: string) => {
-    setComposer(answer);
-    setComposerMode('reply');
-    setSuggestedSource(source ?? 'message');
-    setSimilarMessagesOpen(false);
-    setTimeout(() => richEditorRef.current?.focus(), 50);
-  }, []);
-
-  const handleResolveWithoutReply = useCallback(async () => {
-    const result = await resolveToKB(message.id, onResolve);
-    if (result) {
-      setAlertDialog({
-        ...result.alertState,
-        onClose: async () => {
-          setAlertDialog({ open: false, title: '', description: '', variant: 'info' });
-          await result.refresh();
-        },
-      });
-    }
-  }, [message.id, onResolve, resolveToKB]);
-
-  const handleResolveSimple = useCallback(async () => {
-    try {
-      await messageService.resolve(message.id);
-      onRefresh?.();
-      await onResolve?.();
-    } catch (err) {
-      logger.error('Failed to resolve:', err);
-    }
-  }, [message.id, onRefresh, onResolve]);
-
-  const handleCheckContradiction = useCallback(async () => {
-    await messageService.checkContradiction(message.id);
-    onRefresh?.();
-  }, [message.id, onRefresh]);
-
-  const handleSendComposer = useCallback(async () => {
-    const isEmpty = !composer || composer === '<p></p>';
-    if (isEmpty || submitting) return;
+  const handleSend = useCallback(async () => {
+    if (!composer || composer === '<p></p>') return;
     setSubmitting(true);
+    setSendFailedError(null);
     try {
       if (composerMode === 'note') {
-        const res = await messageService.addNote(message.id, composer);
-        if (res.success && res.data) setNotes((prev) => [...prev, res.data!]);
+        await messageService.addNote(message.id, composer);
+      } else if (selectedFiles.length > 0) {
+        await messageService.replyWithAttachments(message.id, composer, selectedFiles, false);
       } else {
-        const sig = user?.signature
-          ? `<p></p><p>--</p>${user.signature
-              .split('\n')
-              .map((line) => `<p>${line || '<br>'}</p>`)
-              .join('')}`
-          : '';
-        await messageService.replyWithAttachments(
-          message.id,
-          composer + sig,
-          selectedFiles,
-          false,
-          suggestedSource !== null,
-          suggestedSource ?? undefined
-        );
-        setSelectedFiles([]);
-        setSuggestedSource(null);
-        setThreadRefreshKey((key) => key + 1);
-        onRefresh?.();
+        await messageService.reply(message.id, composer, false);
       }
       setComposer('');
+      setSelectedFiles([]);
+      setThreadRefreshKey((key) => key + 1);
+      onRefresh?.();
     } catch (err) {
       logger.error('Failed to send:', err);
+      setSendFailedError('Failed to send. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [
-    composer,
-    composerMode,
-    message.id,
-    selectedFiles,
-    suggestedSource,
-    user?.signature,
-    onRefresh,
-    submitting,
-  ]);
+  }, [composer, composerMode, message.id, onRefresh, selectedFiles]);
+
+  const handleResolveWithoutReply = useCallback(async () => {
+    setResolving(true);
+    try {
+      await messageService.resolve(message.id);
+      onResolve?.();
+    } catch (err) {
+      logger.error('Failed to resolve:', err);
+    } finally {
+      setResolving(false);
+    }
+  }, [message.id, onResolve]);
+
+  const handleGhostClick = useCallback(
+    (answer: string, _source: string, _attachments?: KBAttachment[]) => {
+      setComposer(
+        DOMPurify.sanitize(answer, {
+          ALLOWED_TAGS: [
+            'p',
+            'br',
+            'b',
+            'i',
+            'u',
+            'strong',
+            'em',
+            'a',
+            'ul',
+            'ol',
+            'li',
+            'blockquote',
+            'pre',
+            'code',
+          ],
+          ALLOWED_ATTR: ['href', 'target', 'rel'],
+          ALLOWED_URI_REGEXP: /^https?:/i,
+        })
+      );
+      setComposerMode('reply');
+    },
+    []
+  );
+
+  const handleReject = useCallback(async () => {
+    try {
+      await messageService.markAsProcessed(message.id);
+      onReject?.();
+    } catch (err) {
+      logger.error('Failed to mark as processed:', err);
+    }
+  }, [message.id, onReject]);
+
+  const handleReopen = useCallback(async () => {
+    try {
+      await messageService.reopen(message.id);
+      onReopen?.();
+    } catch (err) {
+      logger.error('Failed to reopen:', err);
+    }
+  }, [message.id, onReopen]);
+
+  const handleClassify = useCallback(
+    async (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => {
+      if (onClassify) await onClassify(action);
+    },
+    [onClassify]
+  );
+
+  const handleDelete = useCallback(() => {
+    similarResultsCache.delete(message.id);
+    onDelete?.();
+  }, [message.id, onDelete]);
+
+  const handleRefresh = useCallback(() => {
+    setThreadRefreshKey((key) => key + 1);
+    onRefresh?.();
+  }, [onRefresh]);
 
   const handleNoteUpdated = useCallback(
     (noteId: number, content: string) => {
@@ -363,78 +428,44 @@ export const MessageDetail = ({
     [user]
   );
 
-  // ── Derived data ─────────────────────────────────────────────────────────
+  const handleCheckContradiction = useCallback(async () => {
+    await messageService.checkContradiction(message.id);
+    setThreadRefreshKey((key) => key + 1);
+    onRefresh?.();
+  }, [message.id, onRefresh]);
 
-  const isFiltered = message.status === 'filtered';
-  const isSuspicious =
-    !isFiltered &&
-    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
-  const isActive = !message.resolved && !isFiltered && !isSuspicious && message.status !== 'closed';
+  // ── History banner ─────────────────────────────────────────────────────────
+  const showHistoryBanner = sortedThread.length > 0 && sortedThread[0].type !== 'inbound';
 
-  const suggestedAnswer = message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined;
-  const autoReply = message.metadata?.autoReply as { sent?: boolean } | undefined;
+  const flatAttachments = useMemo(
+    () => Array.from(attachmentsByMessageId.values()).flat(),
+    [attachmentsByMessageId]
+  );
 
-  const metadataGhost = useMemo(() => toGhostOption(suggestedAnswer), [suggestedAnswer]);
-  const [selectedGhost, setSelectedGhost] = useState<GhostOption | null>(null);
-  const [autoKbGhost, setAutoKbGhost] = useState<GhostOption | null>(null);
-  const [alternativeCount, setAlternativeCount] = useState(0);
-  const [aiLoading, setAiLoading] = useState(true);
-  useEffect(() => {
-    setSelectedGhost(null);
-    setAutoKbGhost(null);
-    setAlternativeCount(0);
-    setAiLoading(true);
-  }, [message.id]);
-  // Priority: explicit user selection > metadata pre-computation > KB auto-suggestion
-  const ghostOption = selectedGhost ?? metadataGhost ?? autoKbGhost;
-
-  const sortedThread = useMemo(() => {
-    const msgTime = (msg: Message) => {
-      const outgoing =
-        msg.isOutgoing === true ||
-        msg.sender.toLowerCase() === 'bot' ||
-        (msg.metadata as { isSystemReply?: boolean } | null)?.isSystemReply === true;
-      const ts = outgoing
-        ? (msg.repliedAt ?? (msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt)
-        : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
-      return new Date(ts).getTime();
-    };
-    return [...threadMessages]
-      .filter(
-        (msg) =>
-          (msg.metadata as { skippedReason?: string } | null)?.skippedReason !== 'sent_only_label'
-      )
-      .sort((itemA, itemB) => msgTime(itemA) - msgTime(itemB));
-  }, [threadMessages]);
-
-  const currentUserId = user?.id ?? null;
-
-  const ghostVisible =
-    !!ghostOption &&
-    !autoReply?.sent &&
-    (!composer || composer === '<p></p>') &&
-    composerMode === 'reply' &&
-    !message.resolved;
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex overflow-hidden flex-col flex-1 min-h-0 bg-background">
-      {/* ════════ ZONE 1 — Header ════════ */}
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      {/* Header */}
       <MessageDetailHeader
         message={message}
         onClose={onClose}
-        showFullPageButton={showFullPageButton}
-        isFullPage={isFullPage}
+        showFullPageButton={!!onClose}
+        isFullPage={!onClose}
         threadCount={sortedThread.length}
-        onRefresh={onRefresh}
-        onDelete={onDelete}
+        onRefresh={handleRefresh}
+        onDelete={handleDelete}
         onClassify={onClassify}
       />
 
-      {/* ════════ ZONE 2 — Tabbed Panel ════════ */}
+      {/* History banner */}
+      {showHistoryBanner && (
+        <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800">
+          This thread starts with an outbound message — older history may be missing.
+        </div>
+      )}
+
+      {/* Tabbed panel: Thread tab closes the panel; other tabs show their content above the thread */}
       <MessagePanelTabs
         message={message}
         tab={tab}
@@ -449,20 +480,15 @@ export const MessageDetail = ({
         sortedThread={sortedThread}
         threadRefreshKey={threadRefreshKey}
         highlightAttachmentId={highlightAttachmentId}
-        attachments={Array.from(attachmentsByMessageId.values()).flat()}
+        attachments={flatAttachments}
         currentUserId={currentUserId}
         leadState={leadState}
         setLeadState={setLeadState}
         leadFieldDefs={leadFieldDefs}
         onGhostClick={handleGhostClick}
-        onOptionSelect={(
-          answer: string,
-          label: string,
-          type: 'lead' | 'documentation' | 'similar'
-        ) => setSelectedGhost({ answer, label, type })}
         onOptionsLoaded={(total: number) => setAlternativeCount(total)}
         onAutoSuggest={(answer: string, label: string, type: 'lead' | 'documentation' | 'similar') =>
-          setAutoKbGhost({ answer, label, type })
+          setGhostOption({ answer, label, type })
         }
         onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
         setComposerMode={setComposerMode}
@@ -470,60 +496,48 @@ export const MessageDetail = ({
         onCheckContradiction={handleCheckContradiction}
       />
 
-      {/* ════════ ZONE 3 — Thread + Composer ════════ */}
-      <div className={`flex flex-col flex-1 min-h-0 ${panelOpen ? 'hidden' : ''}`}>
-        <div className="overflow-y-auto flex-1 px-4 py-2 space-y-1.5 min-h-0">
-          {!!message.metadata?.contradictionCheck && (
-            <ContradictionAlert
-              contradictionCheck={message.metadata.contradictionCheck as ContradictionCheckMetadata}
+      {/* Thread view — visible when no panel tab is open */}
+      <div className={`flex-1 min-h-0 overflow-y-auto ${panelOpen ? 'hidden' : ''}`}>
+        <div className="px-4 py-3 space-y-3">
+          {threadLoading && sortedThread.length === 0 && (
+            <div className="py-8 text-sm text-center text-muted-foreground">
+              <div className="mx-auto mb-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent" />
+              Loading thread…
+            </div>
+          )}
+          {threadError && (
+            <div className="py-4 text-sm text-center text-destructive">
+              {threadError}
+              <button
+                type="button"
+                onClick={() => setThreadRefreshKey((key) => key + 1)}
+                className="block mx-auto mt-1 text-xs underline hover:no-underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {!threadLoading && !threadError && sortedThread.length === 0 && (
+            <div className="py-6 text-[12px] text-center text-muted-foreground">
+              No messages in thread yet.
+            </div>
+          )}
+          {sortedThread.map((msg) => (
+            <ThreadMessageItem
+              key={msg.id}
+              msg={msg}
+              mainMessageId={message.id}
+              onMessageNavigate={onMessageNavigate}
+              attachments={attachmentsByMessageId.get(msg.id) ?? []}
+              onOpenAttachment={(id) => {
+                setTab('attachments');
+                setPanelOpen(true);
+                setHighlightAttachmentId(id);
+              }}
             />
-          )}
+          ))}
 
-          {threadLoading && (
-            <div className="flex justify-center py-6">
-              <div className="w-4 h-4 rounded-full border-2 animate-spin border-border border-t-foreground" />
-            </div>
-          )}
-
-          {/* Banner when the earliest thread message is a team reply — the original
-              client email was sent before this integration was connected or lived
-              in a different Gmail thread due to missing In-Reply-To headers. */}
-          {!threadLoading && sortedThread.length > 0 && sortedThread[0].isOutgoing === true && (
-            <div className="flex gap-2 items-center px-3 py-2 mb-1 text-xs rounded-md border bg-muted/40 border-border text-muted-foreground">
-              <History className="w-3.5 h-3.5 shrink-0" />
-              Earlier conversation history is not available
-            </div>
-          )}
-
-          {!threadLoading &&
-            sortedThread.map((msg) => (
-              <ThreadMessageItem
-                key={msg.id}
-                msg={msg}
-                mainMessageId={message.id}
-                onMessageNavigate={onMessageNavigate}
-                attachments={attachmentsByMessageId.get(msg.id) ?? []}
-                onOpenAttachment={(id) => {
-                  setTab('attachments');
-                  setPanelOpen(true);
-                  setHighlightAttachmentId(id);
-                }}
-              />
-            ))}
-
-          {/* Inline note bubbles */}
-          {!threadLoading &&
-            notes.map((note) => (
-              <InlineNoteBubble
-                key={`note-${note.id}`}
-                note={note}
-                messageId={message.id}
-                currentUserId={currentUserId}
-                onUpdated={handleNoteUpdated}
-                onDeleted={handleNoteDeleted}
-              />
-            ))}
-
+          {/* Ghost bubble */}
           <MessageGhostBubble
             aiLoading={aiLoading}
             ghostVisible={ghostVisible}
@@ -531,7 +545,7 @@ export const MessageDetail = ({
             autoReply={autoReply}
             composer={composer}
             composerMode={composerMode}
-            resolved={!!message.resolved}
+            resolved={message.status === 'resolved'}
             alternativeCount={alternativeCount}
             onGhostClick={handleGhostClick}
             onShowAlternatives={() => {
@@ -539,73 +553,83 @@ export const MessageDetail = ({
               setPanelOpen(true);
             }}
           />
-
-          <div ref={threadEndRef} />
         </div>
-
       </div>
 
-      <MessageComposer
-        message={message}
-        composer={composer}
-        setComposer={setComposer}
-        composerMode={composerMode}
-        setComposerMode={setComposerMode}
-        submitting={submitting}
-        onSend={() => void handleSendComposer()}
-        richEditorRef={richEditorRef}
-        noteEditorRef={noteEditorRef}
-        onOpenSimilarMessages={() => setSimilarMessagesOpen(true)}
-        selectedFiles={selectedFiles}
-        onFilesChange={setSelectedFiles}
-      />
-
-      {/* ════════ Action Strip ════════ */}
+      {/* Action strip */}
       <MessageActionStrip
         message={message}
         isFiltered={isFiltered}
         isSuspicious={isSuspicious}
         isActive={isActive}
         resolving={resolving}
+        hasLinkedTicket={false}
         onApprove={onApprove}
-        onReopen={onReopen}
-        onDelete={onDelete}
-        onClassify={onClassify}
-        onResolveWithoutReply={() => void handleResolveWithoutReply()}
-        onResolveSimple={() => void handleResolveSimple()}
+        onReopen={handleReopen}
+        onDelete={handleDelete}
+        onClassify={handleClassify}
+        onResolveWithoutReply={handleResolveWithoutReply}
+        onResolveSimple={handleResolveWithoutReply}
         setRejectDialogOpen={setRejectDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
-        onRefresh={onRefresh}
+        onRefresh={handleRefresh}
       />
 
-      {/* ── Dialogs ──────────────────────────────────────────────────────── */}
+      {/* Send failure alert — shown when BE confirms delivery failed */}
+      {sendFailedError && (
+        <div className="mx-4 p-3 text-sm rounded-md text-destructive bg-destructive/10 flex justify-between items-start gap-2">
+          <span>{sendFailedError}</span>
+          <button
+            type="button"
+            onClick={() => setSendFailedError(null)}
+            className="shrink-0 text-destructive/70 hover:text-destructive"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Composer — shown for active conversations */}
+      {isActive && (
+        <MessageComposer
+          message={message}
+          composer={composer}
+          setComposer={setComposer}
+          composerMode={composerMode}
+          setComposerMode={setComposerMode}
+          submitting={submitting}
+          onSend={() => void handleSend()}
+          richEditorRef={richEditorRef}
+          noteEditorRef={noteEditorRef}
+          onOpenSimilarMessages={() => setSimilarOpen(true)}
+          selectedFiles={selectedFiles}
+          onFilesChange={setSelectedFiles}
+        />
+      )}
+
+      {/* Confirm dialogs */}
       <MessageDetailConfirmDialogs
         message={message}
         rejectDialogOpen={rejectDialogOpen}
         setRejectDialogOpen={setRejectDialogOpen}
         reopenDialogOpen={reopenDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
-        onReject={onReject}
-        onReopen={onReopen}
+        onReject={handleReject}
+        onReopen={handleReopen}
       />
 
-      <SimilarMessagesDialog
-        messageId={message.id}
-        open={similarMessagesOpen}
-        onClose={() => setSimilarMessagesOpen(false)}
-        onSelectAnswer={handleSelectSimilarAnswer}
-      />
-
-      <AlertDialog
-        open={alertDialog.open}
-        onOpenChange={(open) => {
-          if (!open && alertDialog.onClose) void alertDialog.onClose();
-          else setAlertDialog({ ...alertDialog, open });
-        }}
-        title={alertDialog.title}
-        description={alertDialog.description}
-        variant={alertDialog.variant}
-      />
+      {/* Similar messages dialog */}
+      {similarOpen && (
+        <SimilarMessagesDialog
+          messageId={message.id}
+          open={similarOpen}
+          onClose={() => setSimilarOpen(false)}
+          onSelectAnswer={(answer, source) => {
+            handleGhostClick(answer, source ?? '');
+            setSimilarOpen(false);
+          }}
+        />
+      )}
     </div>
   );
-};
+}

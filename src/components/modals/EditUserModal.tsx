@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AlertTriangle, Tag, X } from 'lucide-react';
 import { userService } from '@/services/user.service';
 import { organizationService, type Organization } from '@/services/organization.service';
+import { departmentService, type Department } from '@/services/department.service';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -16,8 +17,8 @@ import {
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
-import type { User, DepartmentRole } from '@/types';
-import { roleDisplayNames, type OrganizationRole, type GlobalRole } from '@/types/roles';
+import type { User } from '@/types';
+import { roleDisplayNames, ORGANIZATION_ROLES, type OrganizationRole, type GlobalRole } from '@/types/roles';
 import { RoleInfoCard } from '../admin/RoleInfoCard';
 import { logger } from '@/lib/logger';
 
@@ -35,7 +36,7 @@ type EditUserModalProps = {
       phone?: string;
       organizationRole?: OrganizationRole;
       role?: GlobalRole;
-      departments?: DepartmentRole[];
+      departmentIds?: number[];
     }
   ) => Promise<void>;
   user: User | null;
@@ -43,15 +44,7 @@ type EditUserModalProps = {
 };
 
 const globalRoles: GlobalRole[] = ['admin', 'user'];
-const orgRoles: OrganizationRole[] = ['org_admin', 'moderator', 'support', 'associate'];
-const departments: DepartmentRole[] = ['support', 'sales', 'billing', 'general', 'hr'];
-const departmentLabels: Record<DepartmentRole, string> = {
-  support: 'Support',
-  sales: 'Sales',
-  billing: 'Billing',
-  general: 'General',
-  hr: 'HR',
-};
+const orgRoles: OrganizationRole[] = [...ORGANIZATION_ROLES];
 
 export const EditUserModal = ({
   isOpen,
@@ -70,9 +63,10 @@ export const EditUserModal = ({
   const [phone, setPhone] = useState('');
   const [globalRole, setGlobalRole] = useState<GlobalRole>('user');
   const [organizationRole, setOrganizationRole] = useState<OrganizationRole>('associate');
-  const [selectedDepartments, setSelectedDepartments] = useState<DepartmentRole[]>([]);
+  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
   const [orgChangeDialog, setOrgChangeDialog] = useState({ open: false, newOrgId: 0 });
 
@@ -126,6 +120,12 @@ export const EditUserModal = ({
   }, [isAdmin, isOpen]);
 
   useEffect(() => {
+    if (isOpen) {
+      departmentService.getAll().then(setAvailableDepartments).catch(() => setAvailableDepartments([]));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (user) {
       setFirstName(user.firstName ?? '');
       setLastName(user.lastName ?? '');
@@ -135,7 +135,7 @@ export const EditUserModal = ({
       setPhone(user.phone ?? '');
       setGlobalRole(user.role);
       setOrganizationRole(user.organizationRole ?? 'associate');
-      setSelectedDepartments(user.departmentRoles ?? ['support']);
+      setSelectedDepartmentIds(user.departmentIds ?? []);
       setSelectedOrgId(user.organizationId);
       void userService.getSkillValues(user.id).then(setSkillValues).catch(() => setSkillValues({}));
       void userService.getCanEditSkills(user.id).then(setCanEditSkillsState).catch(() => setCanEditSkillsState(false));
@@ -202,7 +202,7 @@ export const EditUserModal = ({
         phone: phone.trim() ?? undefined,
         role: canEditRoles && isAdmin ? globalRole : undefined,
         organizationRole: canEditRoles ? organizationRole : undefined,
-        departments: canEditRoles ? selectedDepartments : undefined,
+        departmentIds: canEditRoles ? selectedDepartmentIds : undefined,
       });
       onClose();
     } catch (error) {
@@ -244,7 +244,7 @@ export const EditUserModal = ({
         phone: phone.trim() ?? undefined,
         role: canEditRoles && isAdmin ? globalRole : undefined,
         organizationRole: canEditRoles ? organizationRole : undefined,
-        departments: canEditRoles ? selectedDepartments : undefined,
+        departmentIds: canEditRoles ? selectedDepartmentIds : undefined,
       });
       onClose();
     } catch (error) {
@@ -422,26 +422,25 @@ export const EditUserModal = ({
                     ) : (
                       <>
                         <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
-                          {departments.map((dept) => (
-                            <label key={dept} className="flex gap-2 items-center cursor-pointer">
+                          {availableDepartments.map((dept) => (
+                            <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
                               <input
                                 type="checkbox"
-                                checked={selectedDepartments.includes(dept)}
+                                checked={selectedDepartmentIds.includes(dept.id)}
                                 onChange={(event) => {
                                   if (event.target.checked) {
-                                    setSelectedDepartments([...selectedDepartments, dept]);
+                                    setSelectedDepartmentIds([...selectedDepartmentIds, dept.id]);
                                   } else {
-                                    // Prevent deselecting all departments
-                                    if (selectedDepartments.length > 1) {
-                                      setSelectedDepartments(
-                                        selectedDepartments.filter((dep) => dep !== dept)
+                                    if (selectedDepartmentIds.length > 1) {
+                                      setSelectedDepartmentIds(
+                                        selectedDepartmentIds.filter((depId) => depId !== dept.id)
                                       );
                                     }
                                   }
                                 }}
                                 className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                               />
-                              <span className="text-sm">{departmentLabels[dept]}</span>
+                              <span className="text-sm">{dept.name}</span>
                             </label>
                           ))}
                         </div>

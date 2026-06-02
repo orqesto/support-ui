@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Check, Eye, EyeOff } from 'lucide-react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -9,8 +9,7 @@ import { authService } from '@/services/auth.service';
 import { logger } from '@/lib/logger';
 
 export const SignupPage = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
@@ -43,8 +42,8 @@ export const SignupPage = () => {
 
       setIsValidatingToken(true);
       try {
-        // Validate the invitation token and get invitation details
-        const response = await apiClient.get(`/api/auth/validate-invitation/${token}`);
+        // Validate the invitation token via POST (token in body — not URL — to avoid log exposure)
+        const response = await apiClient.post('/api/auth/validate-invitation', { token });
         const data = response.data as {
           success: boolean;
           data: {
@@ -69,6 +68,9 @@ export const SignupPage = () => {
         setInvitationEmail(email);
         setOrganizationName(data.data.invitation.organizationName || 'the organization');
         setInvitationRole(data.data.invitation.role);
+
+        // Remove the token from the URL hash so it isn't exposed in browser history or referrer headers
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
       } catch {
         setError('Failed to validate invitation. Please try again.');
       } finally {
@@ -232,6 +234,7 @@ export const SignupPage = () => {
               <Input
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="At least 8 characters"
                 value={formData.password}
                 onChange={(event) => handleChange('password', event.target.value)}
@@ -251,6 +254,7 @@ export const SignupPage = () => {
               <Input
                 label="Confirm Password"
                 type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="Re-enter your password"
                 value={formData.confirmPassword}
                 onChange={(event) => handleChange('confirmPassword', event.target.value)}

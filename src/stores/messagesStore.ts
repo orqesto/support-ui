@@ -42,7 +42,6 @@ export type FilterState = {
   linked?: LinkedFilter;
   linkedTicketStatus?: LinkedTicketStatusFilter;
   search?: string;
-  departmentRole?: 'all' | 'support' | 'sales' | 'billing' | 'general' | 'hr';
   slaFilter?: 'all' | 'breached' | 'at_risk';
 };
 
@@ -82,7 +81,6 @@ export const defaultFilters: FilterState = {
   linked: 'all',
   linkedTicketStatus: 'all',
   search: undefined,
-  departmentRole: 'all',
   slaFilter: 'all',
 };
 

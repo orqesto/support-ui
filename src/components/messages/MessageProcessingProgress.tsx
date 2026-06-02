@@ -35,6 +35,9 @@ export const MessageProcessingProgress = ({
   const navigate = useNavigate();
   const SourceIcon = icon;
 
+  // Sanitize sessionKey before using as a localStorage key component
+  const safeKey = session.sessionKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+
   // Persist state across navigation using localStorage
   const [isExpanded, setIsExpanded] = useState(() => {
     const saved = localStorage.getItem('emailProcessingWidget_expanded');
@@ -44,14 +47,14 @@ export const MessageProcessingProgress = ({
   // Use session-specific closed state to avoid hiding all widgets
   const [isClosed, setIsClosed] = useState(() => {
     // Check localStorage for this specific session's closed state
-    const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_closed`);
+    const saved = localStorage.getItem(`emailProcessingWidget_${safeKey}_closed`);
     // Default to false (open) for new sessions
     return saved === 'true' && session.status === 'complete';
   });
 
   // Track if user manually dismissed (different from auto-close)
   const [userDismissed, setUserDismissed] = useState(() => {
-    const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_dismissed`);
+    const saved = localStorage.getItem(`emailProcessingWidget_${safeKey}_dismissed`);
     return saved === 'true';
   });
 
@@ -67,7 +70,7 @@ export const MessageProcessingProgress = ({
     if (isMobile) {
       return { xPos: 0, yPos: 0 };
     }
-    const saved = localStorage.getItem(`emailProcessingWidget_${session.sessionKey}_position`);
+    const saved = localStorage.getItem(`emailProcessingWidget_${safeKey}_position`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Position;
@@ -88,16 +91,13 @@ export const MessageProcessingProgress = ({
 
   // Save closed state per session
   useEffect(() => {
-    localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_closed`, String(isClosed));
-  }, [isClosed, session.sessionKey]);
+    localStorage.setItem(`emailProcessingWidget_${safeKey}_closed`, String(isClosed));
+  }, [isClosed, safeKey, session.sessionKey]);
 
   // Save user dismissed state
   useEffect(() => {
-    localStorage.setItem(
-      `emailProcessingWidget_${session.sessionKey}_dismissed`,
-      String(userDismissed)
-    );
-  }, [userDismissed, session.sessionKey]);
+    localStorage.setItem(`emailProcessingWidget_${safeKey}_dismissed`, String(userDismissed));
+  }, [userDismissed, session.sessionKey, safeKey]);
 
   // Use session data from props instead of hook
   const {
@@ -154,11 +154,8 @@ export const MessageProcessingProgress = ({
 
   // Save position to localStorage with session-specific key
   useEffect(() => {
-    localStorage.setItem(
-      `emailProcessingWidget_${session.sessionKey}_position`,
-      JSON.stringify(position)
-    );
-  }, [position, session.sessionKey]);
+    localStorage.setItem(`emailProcessingWidget_${safeKey}_position`, JSON.stringify(position));
+  }, [position, safeKey, session.sessionKey]);
 
   // Drag handlers (desktop only)
   const handleMouseDown = (event: React.MouseEvent) => {
@@ -231,12 +228,12 @@ export const MessageProcessingProgress = ({
       // Clear dismissed flag if new messages found
       if (hasNewMessages) {
         setUserDismissed(false);
-        localStorage.removeItem(`emailProcessingWidget_${session.sessionKey}_dismissed`);
+        localStorage.removeItem(`emailProcessingWidget_${safeKey}_dismissed`);
       }
       // Clear the closed state from localStorage when reprocessing
-      localStorage.removeItem(`emailProcessingWidget_${session.sessionKey}_closed`);
+      localStorage.removeItem(`emailProcessingWidget_${safeKey}_closed`);
     }
-  }, [status, isProcessing, total, userDismissed, session.sessionKey]);
+  }, [status, isProcessing, total, userDismissed, session.sessionKey, safeKey]);
 
   // Calculate if there are messages still being processed
   const messagesInProgress = Math.max(0, current - (successful ?? 0) - (skipped ?? 0) - failed);
@@ -358,8 +355,8 @@ export const MessageProcessingProgress = ({
             onClick={() => {
               setIsClosed(true);
               setUserDismissed(true); // Prevent reopening on empty polls
-              localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_closed`, 'true');
-              localStorage.setItem(`emailProcessingWidget_${session.sessionKey}_dismissed`, 'true');
+              localStorage.setItem(`emailProcessingWidget_${safeKey}_closed`, 'true');
+              localStorage.setItem(`emailProcessingWidget_${safeKey}_dismissed`, 'true');
               // Remove session immediately when manually closed
               setTimeout(() => onClose(session.sessionKey), 1000);
             }}

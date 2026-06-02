@@ -22,7 +22,6 @@ type EmailProcessingState = {
 
 export const useEmailProcessing = (
   enabled = true,
-  filterByDepartment?: string,
   filterByOrganization?: number
 ) => {
   const [state, setState] = useState<EmailProcessingState>({
@@ -36,14 +35,12 @@ export const useEmailProcessing = (
   });
 
   const { sessions, setSessions, removeSession } = useEmailProcessingSessions({
-    filterByDepartment,
     filterByOrganization,
     setState,
   });
 
   const { socket } = useEmailProcessingSocket({
     enabled,
-    filterByDepartment,
     filterByOrganization,
     setSessions,
     setState,

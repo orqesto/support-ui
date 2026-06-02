@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { departmentService, type Department } from '@/services/department.service';
 import { logger } from '@/lib/logger';
 
 interface ChatWidgetModalProps {
@@ -33,7 +34,7 @@ export const ChatWidgetModal = ({
 }: ChatWidgetModalProps) => {
   const [formData, setFormData] = useState<CreateChatWidgetRequest>({
     name: '',
-    departmentRole: 'support',
+    departmentId: null,
     welcomeMessage: 'Hi! How can I help you today?',
     placeholder: 'Type your message...',
     primaryColor: '#0070F3',
@@ -43,6 +44,7 @@ export const ChatWidgetModal = ({
   });
   const [domainsText, setDomainsText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [theme, setTheme] = useState({
     botBubbleColor: '#ffffff',
     botTextColor: '#1f2937',
@@ -51,10 +53,16 @@ export const ChatWidgetModal = ({
   });
 
   useEffect(() => {
+    if (open) {
+      departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (widget) {
       setFormData({
         name: widget.name,
-        departmentRole: widget.departmentRole,
+        departmentId: widget.departmentId,
         welcomeMessage: widget.welcomeMessage ?? '',
         placeholder: widget.placeholder ?? '',
         primaryColor: widget.primaryColor,
@@ -73,7 +81,7 @@ export const ChatWidgetModal = ({
     } else {
       setFormData({
         name: '',
-        departmentRole: 'support',
+        departmentId: null,
         welcomeMessage: 'Hi! How can I help you today?',
         placeholder: 'Type your message...',
         primaryColor: '#0070F3',
@@ -169,20 +177,15 @@ export const ChatWidgetModal = ({
             <ReactSelect
               label="Department"
               id="department"
-              value={formData.departmentRole}
+              value={formData.departmentId !== null && formData.departmentId !== undefined ? String(formData.departmentId) : ''}
               onChange={(value) =>
                 setFormData({
                   ...formData,
-                  departmentRole: value as 'support' | 'sales' | 'billing' | 'general' | 'hr',
+                  departmentId: value ? Number(value) : null,
                 })
               }
-              options={[
-                { value: 'support', label: 'Support' },
-                { value: 'sales', label: 'Sales' },
-                { value: 'billing', label: 'Billing' },
-                { value: 'general', label: 'General' },
-                { value: 'hr', label: 'HR' },
-              ]}
+              options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
+              placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
             />
           </div>
 

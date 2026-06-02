@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { apiClient } from '@/lib/api-client';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
+import { API_BASE_URL } from '@/lib/config';
 import type { AttachmentMetadata } from '@/types/ai';
-import type { Message } from '@/types';
+import type { Message, MessageEvent } from '@/types';
 import { logger } from '@/lib/logger';
 
 export type Attachment = {
   id: number;
-  messageId: number | null;
+  messageEventId: number | null;
   filename: string;
   originalFilename: string;
   mimeType: string;
@@ -22,7 +22,7 @@ export type Attachment = {
 
 type MessageAttachmentsProps = {
   message: Message;
-  sortedThread?: Message[];
+  sortedThread?: MessageEvent[];
   refreshKey?: number;
   highlightId?: number | null;
   preloadedAttachments?: Attachment[];
@@ -38,7 +38,7 @@ const formatFileSize = (bytes?: number) => {
 const isImage = (mimeType: string) => mimeType.startsWith('image/');
 
 const getDownloadUrl = (att: Attachment) =>
-  `${API_BASE_URL}/api/attachments/${att.id}/download?token=${getAuthToken()}`;
+  `${API_BASE_URL}/api/attachments/${att.id}/download`;
 
 const FileIcon = ({ mimeType }: { mimeType: string }) => {
   const cls = 'w-4 h-4 text-muted-foreground';
@@ -93,7 +93,7 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
       });
       const url = URL.createObjectURL(response.data as Blob);
       if (inline) {
-        window.open(url, '_blank');
+        window.open(url, '_blank', 'noopener,noreferrer');
         setTimeout(() => URL.revokeObjectURL(url), 10000);
       } else {
         const anchor = document.createElement('a');

@@ -1,16 +1,17 @@
 import type { GlobalRole, OrganizationRole } from './roles';
 
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
+export const MESSAGE_SOURCE_TYPES = ['email', 'gmail', 'telegram', 'slack', 'chat'] as const;
+export type MessageSourceType = (typeof MESSAGE_SOURCE_TYPES)[number];
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ThreadStatus =
   | 'open' // user-settable: unprocessed (DB: 'new')
   | 'in_progress' // user-settable: agent working
   | 'pending' // user-settable: awaiting more info
+  | 'resolved' // user-settable: resolved with KB capture
   | 'closed' // user-settable: done, no KB capture
   | 'filtered'; // system: spam/noreply, hidden from inbox
-
-export type DepartmentRole = 'support' | 'sales' | 'billing' | 'general' | 'hr';
 
 export type User = {
   id: number;
@@ -20,8 +21,9 @@ export type User = {
   position: string | null;
   role: GlobalRole; // Global role (admin, user)
   organizationRole?: OrganizationRole; // Role in current organization
-  departmentRoles?: DepartmentRole[]; // ALL departments/functions within organization (can have multiple!)
+  departmentIds?: number[]; // ALL department IDs the user belongs to in their current organization
   organizationId?: number; // Current organization ID
+  organizationSlug?: string; // Slug of the current organization (present in login response)
   // Optional contact methods
   telegram?: string | null; // Telegram username (e.g., @username)
   slack?: string | null; // Slack username or user ID
@@ -35,54 +37,48 @@ export type Message = {
   id: number;
   channel: ChannelType;
   sender: string;
-  recipient: string | null;
   subject: string | null;
-  content: string;
-  processed: boolean;
-  ticketId: number | null;
-  threadId?: string | null;
-  processingError?: string | null;
+  status: ThreadStatus;
+  needsHumanReview: boolean;
   createdAt: string;
   updatedAt?: string;
-  metadata?: Record<string, unknown>;
-  rawData?: Record<string, unknown>;
-  // AI model tracking
-  embeddingProvider?: string | null;
-  embeddingModel?: string | null;
-  analysisProvider?: string | null;
-  analysisModel?: string | null;
-  // Threading
-  parentMessageId?: number | null;
-  // Direct reply tracking
-  isOutgoing?: boolean;
-  directReply?: string | null;
-  repliedBy?: number | null;
-  repliedAt?: string | null;
-  resolved?: boolean;
-  awaitingCustomerResponse?: boolean;
-  // Lead tracking
+  metadata?: Record<string, unknown> | null;
+  externalThreadId?: string | null;
   isLead?: boolean;
-  // Attachment tracking
-  attachmentCount?: number;
-  // Assignment tracking
   assigneeId?: number | null;
-  assigneeName?: string;
+  assigneeName?: string | null;
   assignedAt?: string | null;
-  // Ticket parity fields
-  status?: ThreadStatus;
-  priority?: TicketPriority;
+  priority?: TicketPriority | null;
   categoryId?: number | null;
   closedAt?: string | null;
-  needsHumanReview?: boolean;
-  labels?: { id: number; name: string; color: string }[];
-  // SLA tracking
+  attachmentCount?: number;
   slaResponseMinutes?: number | null;
   slaResponseBreached?: boolean | null;
   firstResponseAt?: string | null;
   actualResponseSeconds?: number | null;
-  // Thread reply state
   lastReplyAt?: string | null;
   lastReplyFromClient?: boolean | null;
+  labels?: { id: number; name: string; color: string }[];
+  botHandled?: boolean;
+  // sparse: only present on spam_log fake entries
+  content?: string | null;
+};
+
+export type MessageEvent = {
+  id: number;
+  conversationId: number;
+  type: string;
+  content: string;
+  channel: ChannelType;
+  authorId?: number | null;
+  authorEmail?: string | null;
+  parentEventId?: number | null;
+  processingError?: string | null;
+  sentAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  metadata?: Record<string, unknown> | null;
+  assigneeName?: string | null;
 };
 
 export type Ticket = {

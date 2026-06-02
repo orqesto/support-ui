@@ -144,7 +144,7 @@ const getSummary = async (): Promise<SLASummary> => {
 
 const getStatistics = async (params?: {
   channel?: string;
-  departmentRole?: string;
+  departmentSlug?: string;
   days?: number;
 }): Promise<SLAStatistics> => {
   const response = await apiClient.get<SLAStatistics>('/api/sla/statistics', { params });

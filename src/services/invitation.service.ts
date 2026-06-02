@@ -1,10 +1,11 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
+import type { OrganizationRole } from '@/types/roles';
 
 export type Invitation = {
   id: number;
   email: string;
-  role: string;
+  role: OrganizationRole;
   invitedBy: string;
   invitedByName: string;
   createdAt: string;
@@ -12,11 +13,11 @@ export type Invitation = {
 };
 
 export const invitationService = {
-  invite: async (email: string, role: string, departmentRole: string, organizationId: number) => {
+  invite: async (email: string, role: OrganizationRole, departmentId: number, organizationId: number) => {
     const response = await apiClient.post<ApiResponse<null>>('/api/invitations', {
       email,
       role,
-      departmentRole,
+      departmentId,
       organizationId,
     });
     return response.data;

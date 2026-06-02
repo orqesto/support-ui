@@ -21,7 +21,6 @@ export const AssigneeFilter = ({
 }: AssigneeFilterProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const selectedDepartmentRole = useAuthStore((state) => state.selectedDepartmentRole);
   const currentUser = useAuthStore((state) => state.user);
 
   // Serialize the skillFilter object so the effect only re-runs when the
@@ -32,10 +31,7 @@ export const AssigneeFilter = ({
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const data = await assignmentService.getAssignableUsers(
-          selectedDepartmentRole ?? undefined,
-          skillFilter
-        );
+        const data = await assignmentService.getAssignableUsers(skillFilter);
         setUsers(data);
       } catch (error) {
         logger.error('Failed to fetch assignable users:', error);
@@ -52,8 +48,7 @@ export const AssigneeFilter = ({
     // cause the effect to re-run on every parent render when the parent recreates the object literal.
     // This is safe because useMemo runs synchronously before effects, so skillFilter is always
     // up-to-date when the effect fires.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- skillFilterKey is the stable serialization; skillFilter captured safely via synchronous useMemo
-  }, [selectedDepartmentRole, skillFilterKey]);
+  }, [skillFilterKey]);
 
   const options = [
     { value: 'all', label: 'All Assignees' },

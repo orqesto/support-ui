@@ -8,6 +8,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import type { SpamLogFilters as SpamLogFiltersType } from '@/services/spamLog.service';
 import { logger } from '@/lib/logger';
+import { MESSAGE_SOURCE_TYPES } from '@/types';
 
 type SpamLogFiltersProps = {
   filters: SpamLogFiltersType;
@@ -48,7 +49,7 @@ export const SpamLogFilters = ({
         const response = await integrationsService.getAll();
         if (response.success && response.data) {
           const sources = response.data.filter((integration) =>
-            ['email', 'gmail', 'telegram', 'slack'].includes(integration.type)
+            (MESSAGE_SOURCE_TYPES as readonly string[]).includes(integration.type)
           );
           setMessageSources(sources);
         }

@@ -50,8 +50,7 @@ export function useStatisticsFetch<T>(
         setRefreshing(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [days, fetchFn]
+    [days, fetchFn, onError]
   );
 
   useEffect(() => {

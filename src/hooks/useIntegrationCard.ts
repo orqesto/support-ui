@@ -9,6 +9,13 @@ type UseIntegrationCardOptions<T> = {
   initialConfig: T;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
+  /**
+   * Called after a successful CREATE (not update) with the new integration id.
+   * Use this to chain post-create work like department assignment. Failures inside
+   * the callback should NOT throw — handle them in-line (the integration itself was
+   * already created successfully).
+   */
+  onCreated?: (newIntegrationId: number) => Promise<void> | void;
 };
 
 export const useIntegrationCard = <T extends Record<string, unknown>>({
@@ -17,6 +24,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
   initialConfig,
   onRefresh,
   onShowAlert,
+  onCreated,
 }: UseIntegrationCardOptions<T>) => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,6 +58,12 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         });
 
         if (response.success) {
+          // If this was a fresh CREATE, hand the new id to the caller for post-create work
+          // (e.g., department M:N assignment). Caller is responsible for non-throwing handling.
+          const isCreate = response.action !== 'updated';
+          if (isCreate && onCreated && response.data?.id) {
+            await onCreated(response.data.id);
+          }
           await onRefresh();
           resetForm();
           onShowAlert({
@@ -71,7 +85,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         setSaving(false);
       }
     },
-    [config, integrationType, integrationDisplayName, onRefresh, onShowAlert, resetForm]
+    [config, integrationType, integrationDisplayName, onRefresh, onShowAlert, onCreated, resetForm]
   );
 
   const testConnection = useCallback(

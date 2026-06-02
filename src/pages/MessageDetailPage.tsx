@@ -17,17 +17,18 @@ export const MessageDetailPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
+    const numId = id ? parseInt(id, 10) : NaN;
+    if (id && !isNaN(numId)) {
       void (async () => {
-        await fetchMessage(parseInt(id), true);
+        await fetchMessage(numId, true);
         // Auto-navigate to the latest message in the thread
         try {
-          const threadRes = await messageService.getThreadMessages(parseInt(id));
+          const threadRes = await messageService.getThreadMessages(numId);
           if (threadRes.success && threadRes.data && threadRes.data.length > 0) {
             const latestIncoming = threadRes.data
-              .filter((msg) => !msg.isOutgoing)
+              .filter((msg) => msg.type === 'inbound')
               .sort((itemA, itemB) => itemB.id - itemA.id)[0];
-            if (latestIncoming && latestIncoming.id !== parseInt(id)) {
+            if (latestIncoming && latestIncoming.id !== numId) {
               // Pre-warm KB cache so AiTabPanel gets an instant hit when it mounts for this ID.
               if (!similarResultsCache.has(latestIncoming.id)) {
                 void messageService

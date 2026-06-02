@@ -1,7 +1,9 @@
-import { TestTube2, Save } from 'lucide-react';
+import { TestTube2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
+import { DepartmentMultiPicker } from './DepartmentMultiPicker';
+import type { Department } from '@/services/department.service';
 
 type EmailConfig = {
   host: string;
@@ -47,9 +49,16 @@ type EmailFormProps = {
   checkingCount: boolean;
   messageCount: number | null;
   showAdvanced: boolean;
+  /** Create-only — when editing an existing source, departments are managed via the per-source editor. */
+  departments: Department[];
+  departmentsLoading?: boolean;
+  selectedDepartmentIds: number[];
+  defaultDepartmentId: number | undefined;
   onConfigChange: (config: EmailConfig) => void;
   onToggleAdvanced: () => void;
   onCheckMessagesCount: () => void;
+  onSelectedDepartmentsChange: (next: number[]) => void;
+  onDefaultDepartmentChange: (id: number | undefined) => void;
   onSave: () => void;
   onCancel: () => void;
 };
@@ -61,12 +70,20 @@ export const EmailForm = ({
   checkingCount,
   messageCount,
   showAdvanced,
+  departments,
+  departmentsLoading,
+  selectedDepartmentIds,
+  defaultDepartmentId,
   onConfigChange,
   onToggleAdvanced,
   onCheckMessagesCount,
+  onSelectedDepartmentsChange,
+  onDefaultDepartmentChange,
   onSave,
   onCancel,
 }: EmailFormProps) => {
+  const isCreating = editingId === null;
+  const deptsValid = !isCreating || selectedDepartmentIds.length > 0;
   const setSmtpField = (field: Partial<NonNullable<EmailConfig['smtp']>>) => {
     onConfigChange({
       ...config,
@@ -219,7 +236,7 @@ export const EmailForm = ({
 
           <div>
             <label htmlFor="bulkImportMaxResults" className="text-sm font-medium">
-              Bulk Import Max Results
+              Initial Sync Page Size
             </label>
             <input
               type="number"
@@ -234,7 +251,7 @@ export const EmailForm = ({
               min="1"
               max="2000"
             />
-            <p className="mt-1 text-xs text-muted-foreground">Max for bulk imports</p>
+            <p className="mt-1 text-xs text-muted-foreground">Max results per page on first connect</p>
           </div>
 
           {/* SMTP Configuration for Sending Replies */}
@@ -342,6 +359,32 @@ export const EmailForm = ({
         </div>
       )}
 
+      {isCreating && (
+        <div className="space-y-2 pt-1 border-t">
+          <label className="text-sm font-medium flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5" /> Departments
+          </label>
+          <DepartmentMultiPicker
+            allDepts={departments}
+            selected={selectedDepartmentIds}
+            defaultId={defaultDepartmentId}
+            loading={departmentsLoading}
+            onSelectedChange={onSelectedDepartmentsChange}
+            onDefaultChange={onDefaultDepartmentChange}
+          />
+          {!departmentsLoading && departments.length === 0 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              No active departments. Create one before connecting a source.
+            </p>
+          )}
+          {!departmentsLoading && departments.length > 0 && !deptsValid && (
+            <p className="text-xs text-muted-foreground">
+              Select at least one department to route messages from this source.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -355,7 +398,7 @@ export const EmailForm = ({
         <Button
           onClick={onSave}
           isLoading={saving}
-          disabled={!config.host || !config.user || !config.password}
+          disabled={!config.host || !config.user || !config.password || !deptsValid}
         >
           <Save className="mr-2 w-4 h-4" />
           {editingId ? 'Update' : 'Save'} Email

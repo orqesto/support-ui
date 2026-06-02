@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AIAutoReplyCard } from '@/components/settings/AIAutoReplyCard';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
@@ -15,6 +15,7 @@ import { integrationsService, type Integration } from '@/services/integrations.s
 import { organizationService } from '@/services/organization.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
 import { logger } from '@/lib/logger';
+import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 
 export const AIProvidersSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -58,6 +59,26 @@ export const AIProvidersSettings = () => {
       logger.error('Failed to initialize:', error);
     });
   }, []);
+
+  const handleProviderDisabled = useCallback(
+    (data: unknown) => {
+      const event = data as { name?: string; provider?: string; reason?: string };
+      const label = event.name ?? event.provider ?? 'An AI provider';
+      fetchIntegrations().catch((err) => logger.error('Failed to refresh integrations:', err));
+      setAlertDialog({
+        open: true,
+        title: 'AI Provider Disabled',
+        description: `${label} was automatically disabled due to a health check failure${event.reason ? `: ${event.reason}` : '.'} Please review and re-enable it once the issue is resolved.`,
+        variant: 'warning',
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    subscribeToEvent('provider_disabled', handleProviderDisabled);
+    return () => unsubscribeFromEvent('provider_disabled', handleProviderDisabled);
+  }, [handleProviderDisabled]);
 
   const fetchAutoReplySettings = async () => {
     try {
@@ -459,7 +480,6 @@ export const AIProvidersSettings = () => {
           autoReplyEnabled={autoReplyEnabled}
           requestMissingInfo={requestMissingInfo}
           suggestSolutions={suggestSolutions}
-          highConfidenceThreshold={highConfidenceThreshold}
           tempThreshold={tempThreshold}
           savingAutoReply={savingAutoReply}
           thresholdSaved={thresholdSaved}

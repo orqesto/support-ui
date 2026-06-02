@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, Eye, EyeOff, Trash2, Edit, Download, FileText, Image, Video, Volume2, Loader2 } from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
@@ -14,14 +15,24 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 import { logger } from '@/lib/logger';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) => IMAGE_EXTS.has(filename.split('.').pop()?.toLowerCase() ?? '');
-const getDownloadUrl = (id: number) => `${API_BASE_URL}/api/attachments/${id}/download?token=${getAuthToken()}`;
+
+const AuthenticatedImage = ({ attachmentId, filename }: { attachmentId: number; filename: string }) => {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let blobUrl: string;
+    apiClient.get(`/api/attachments/${attachmentId}/download`, { responseType: 'blob' })
+      .then((resp) => { blobUrl = URL.createObjectURL(resp.data as Blob); setSrc(blobUrl); })
+      .catch(() => { /* non-fatal — icon fallback renders */ });
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [attachmentId]);
+  return src ? <img src={src} alt={filename} className="w-full h-full object-cover" /> : <AttachmentFileIcon filename={filename} />;
+};
 
 const AttachmentFileIcon = ({ filename }: { filename: string }) => {
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
@@ -146,7 +157,9 @@ export const KBEntryDetail = ({
             </div>
             <div>
               <span className="text-muted-foreground">Department:</span>
-              <div className="font-medium">{displayEntry.departmentRole}</div>
+              <div className="font-medium">
+                <DepartmentBadge departmentId={displayEntry.departmentId} />
+              </div>
             </div>
             <div>
               <span className="text-muted-foreground">Quality Score:</span>
@@ -271,7 +284,7 @@ export const KBEntryDetail = ({
                       );
                       const url = URL.createObjectURL(response.data);
                       if (inline) {
-                        window.open(url, '_blank');
+                        window.open(url, '_blank', 'noopener,noreferrer');
                         setTimeout(() => URL.revokeObjectURL(url), 10000);
                       } else {
                         const anchor = document.createElement('a');
@@ -294,11 +307,7 @@ export const KBEntryDetail = ({
                         <div className="group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors">
                           <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center bg-muted/60 overflow-hidden">
                             {isImageFile(filename) ? (
-                              <img
-                                src={getDownloadUrl(attachmentId)}
-                                alt={filename}
-                                className="w-full h-full object-cover"
-                              />
+                              <AuthenticatedImage attachmentId={attachmentId} filename={filename} />
                             ) : (
                               <AttachmentFileIcon filename={filename} />
                             )}

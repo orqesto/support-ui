@@ -24,7 +24,6 @@ import {
   Ban,
 } from 'lucide-react';
 import { messageService, type MessageThread } from '@/services/message.service';
-import { useAuthStore } from '@/stores/authStore';
 import type { FilterState } from '@/stores/messagesStore';
 import { KanbanCard } from './KanbanCard';
 import { logger } from '@/lib/logger';
@@ -325,7 +324,10 @@ const SWITCHABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved', 'suspici
 
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
-    COLUMNS.map((col) => [col.id, { threads: [], total: 0, loading: true, hasMore: false, page: 1 }])
+    COLUMNS.map((col) => [
+      col.id,
+      { threads: [], total: 0, loading: true, hasMore: false, page: 1 },
+    ])
   );
 
 export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanbanViewProps) => {
@@ -381,7 +383,6 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, refreshKey]);
 
   const loadMore = useCallback((colId: string) => {
@@ -397,7 +398,10 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         setColStates((prev) => ({
           ...prev,
           [colId]: {
-            threads: [...prev[colId].threads, ...res.data.filter((thread) => thread.latestMessage !== null)],
+            threads: [
+              ...prev[colId].threads,
+              ...res.data.filter((thread) => thread.latestMessage !== null),
+            ],
             total: res.pagination.total,
             loading: false,
             hasMore: res.pagination.page < res.pagination.totalPages,
@@ -419,14 +423,6 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       return next;
     });
   };
-
-  // Sync department selection to auth store (same as list view)
-  const setSelectedDepartment = useAuthStore((store) => store.setSelectedDepartment);
-  useEffect(() => {
-    if (filters.departmentRole && filters.departmentRole !== 'all') {
-      setSelectedDepartment(filters.departmentRole);
-    }
-  }, [filters.departmentRole, setSelectedDepartment]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -457,7 +453,9 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     const action = getDndAction(fromColId, toColId);
     if (!action) return;
 
-    const thread = colStatesRef.current[fromColId]?.threads.find((thr) => thr.threadId === threadId);
+    const thread = colStatesRef.current[fromColId]?.threads.find(
+      (thr) => thr.threadId === threadId
+    );
     if (!thread?.latestMessage) return;
 
     // Spam-log synthetic threads have negative message IDs and cannot be classified

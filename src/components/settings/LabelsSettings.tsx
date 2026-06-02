@@ -1,3 +1,4 @@
+import { safeCssColor } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -179,7 +180,7 @@ export const LabelsSettings = () => {
               <div className="flex items-center gap-3">
                 <div
                   className="w-4 h-4 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: label.color }}
+                  style={{ backgroundColor: safeCssColor(label.color) }}
                 />
                 <span className="text-sm font-medium">{label.name}</span>
               </div>

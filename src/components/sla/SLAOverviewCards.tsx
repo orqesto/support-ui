@@ -8,7 +8,8 @@ export const SLAOverviewCards = () => {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['sla-summary'],
     queryFn: slaService.getSummary,
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
   });
 
   if (isLoading) {

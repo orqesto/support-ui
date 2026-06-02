@@ -17,7 +17,8 @@ type EmailProcessingEvent = {
   integrationId?: number;
   integrationName?: string;
   organizationId?: number; // Organization this integration belongs to
-  departmentRole?: string; // Department this integration belongs to
+  departmentSlug?: string; // Department this integration belongs to
+  departmentId?: number; // Numeric dept ID (Phase 6+)
   data?: {
     total?: number;
     current?: number;
@@ -29,6 +30,7 @@ type EmailProcessingEvent = {
     processed?: number;
     analyzed?: number; // Number of messages that went through AI analysis
     failed?: number;
+    skipped?: number;
     error?: string;
     found?: number; // Number of messages fetched so far (used in 'found' events)
     linkedReplies?: number; // Sent folder replies linked to existing threads
@@ -55,7 +57,6 @@ type EmailProcessingState = {
 
 type UseEmailProcessingSocketParams = {
   enabled: boolean;
-  filterByDepartment?: string;
   filterByOrganization?: number;
   setSessions: React.Dispatch<React.SetStateAction<Map<string, ProcessingSession>>>;
   setState: React.Dispatch<React.SetStateAction<EmailProcessingState>>;
@@ -63,7 +64,6 @@ type UseEmailProcessingSocketParams = {
 
 export const useEmailProcessingSocket = ({
   enabled,
-  filterByDepartment,
   filterByOrganization,
   setSessions,
   setState,
@@ -87,22 +87,13 @@ export const useEmailProcessingSocket = ({
 
       // If integrationId is provided, track this session separately
       if (event.integrationId) {
-        // Filter by department if specified - ignore events from other departments
+        // Filter by organization — reject events with missing or mismatched organizationId
         if (
-          filterByDepartment &&
-          event.departmentRole &&
-          event.departmentRole !== filterByDepartment
+          filterByOrganization &&
+          (event.organizationId === null ||
+            event.organizationId === undefined ||
+            event.organizationId !== filterByOrganization)
         ) {
-          logger.warn('[useEmailProcessing] Event filtered by department:', {
-            filterByDepartment,
-            eventDept: event.departmentRole,
-            eventType: event.type,
-          });
-          return;
-        }
-
-        // Filter by organization if specified - ignore events from other organizations
-        if (filterByOrganization && event.organizationId !== filterByOrganization) {
           logger.warn('[useEmailProcessing] Event filtered by organization:', {
             filterByOrganization,
             eventOrgId: event.organizationId,
@@ -115,9 +106,9 @@ export const useEmailProcessingSocket = ({
           const newSessions = new Map(prev);
           const integrationId = event.integrationId as number;
           const integrationName = event.integrationName ?? `Integration ${integrationId}`;
-          const departmentRole = event.departmentRole ?? 'general';
-          // Use composite key: integrationId-departmentRole
-          const sessionKey = `${integrationId}-${departmentRole}`;
+          const departmentSlug = event.departmentSlug ?? 'general';
+          const departmentId = event.departmentId;
+          const sessionKey = `${integrationId}`;
           const existing = newSessions.get(sessionKey);
 
           switch (event.type) {
@@ -128,7 +119,8 @@ export const useEmailProcessingSocket = ({
                 sessionKey,
                 integrationId,
                 integrationName,
-                departmentRole, // Use normalized value
+                departmentSlug,
+                departmentId,
                 status: 'started',
                 total: 0,
                 current: 0,
@@ -137,7 +129,7 @@ export const useEmailProcessingSocket = ({
                 analyzed: 0,
                 isProcessing: true,
                 progress: 0,
-                timestamp: Date.now(), // NEW timestamp for THIS cycle (detect overlapping cycles)
+                timestamp: Date.now(),
                 kbEntriesTotal: 0,
                 kbQAPairs: 0,
                 kbDocuments: 0,
@@ -165,7 +157,8 @@ export const useEmailProcessingSocket = ({
                   sessionKey,
                   integrationId,
                   integrationName,
-                  departmentRole,
+                  departmentSlug,
+                  departmentId,
                   status: 'processing',
                   stage: 'fetching',
                   total,
@@ -207,7 +200,7 @@ export const useEmailProcessingSocket = ({
                     sessionKey,
                     integrationId: existing.integrationId,
                     integrationName: existing.integrationName,
-                    departmentRole: existing.departmentRole,
+                    departmentSlug: existing.departmentSlug,
                     status: 'processing',
                     total: eventTotal,
                     current: eventCurrent,
@@ -290,9 +283,9 @@ export const useEmailProcessingSocket = ({
                   stage: preserveKBStage ? existing.stage : eventStage,
                   current,
                   total,
-                  emailTotal, // Preserve original email count
-                  // Update analyzed if provided by analyzing stage
+                  emailTotal,
                   ...(event.data?.analyzed !== undefined && { analyzed: event.data.analyzed }),
+                  ...(event.data?.skipped !== undefined && { skipped: event.data.skipped }),
                   progress: clampedProgress,
                   isProcessing: stillProcessing,
                 });
@@ -302,7 +295,8 @@ export const useEmailProcessingSocket = ({
                   sessionKey,
                   integrationId,
                   integrationName,
-                  departmentRole, // Use normalized value
+                  departmentSlug,
+                  departmentId,
                   status: 'processing',
                   total: event.data?.total ?? 0,
                   current: event.data?.current ?? 0,
@@ -310,8 +304,7 @@ export const useEmailProcessingSocket = ({
                   failed: 0,
                   isProcessing: true,
                   progress: 0,
-                  timestamp: Date.now(), // Track when session started
-                  // Initialize KB counters to 0
+                  timestamp: Date.now(),
                   kbEntriesTotal: 0,
                   kbQAPairs: 0,
                   kbDocuments: 0,
@@ -355,17 +348,17 @@ export const useEmailProcessingSocket = ({
                   sessionKey,
                   integrationId,
                   integrationName,
-                  departmentRole, // Use normalized value
+                  departmentSlug,
+                  departmentId,
                   status: 'processing',
                   total: event.data?.total ?? 0,
                   current: 0,
                   processed: event.data?.processed ?? 1,
-                  analyzed: 1, // Start counting analyzed messages
+                  analyzed: 1,
                   failed: 0,
                   isProcessing: true,
                   progress: 0,
-                  timestamp: Date.now(), // Track when session started
-                  // Initialize KB counters to 0
+                  timestamp: Date.now(),
                   kbEntriesTotal: 0,
                   kbQAPairs: 0,
                   kbDocuments: 0,
@@ -393,6 +386,7 @@ export const useEmailProcessingSocket = ({
                   processed,
                   failed,
                   analyzed,
+                  skipped: event.data?.skipped ?? existing.skipped,
                   isProcessing: false,
                   progress: 100,
                   fetchTime: event.data?.fetchTime ?? existing.fetchTime,
@@ -406,7 +400,8 @@ export const useEmailProcessingSocket = ({
                   sessionKey,
                   integrationId,
                   integrationName,
-                  departmentRole,
+                  departmentSlug,
+                  departmentId,
                   status: 'complete',
                   stage: undefined,
                   total: event.data?.total ?? 0,
@@ -414,6 +409,7 @@ export const useEmailProcessingSocket = ({
                   processed: event.data?.processed ?? 0,
                   failed: event.data?.failed ?? 0,
                   analyzed: event.data?.analyzed ?? 0,
+                  skipped: event.data?.skipped ?? 0,
                   isProcessing: false,
                   progress: 100,
                   timestamp: Date.now(),
@@ -432,7 +428,6 @@ export const useEmailProcessingSocket = ({
               if (existing) {
                 newSessions.set(sessionKey, {
                   ...existing,
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   linkedReplies: event.data?.linkedReplies ?? existing.linkedReplies,
                 });
               }
@@ -441,13 +436,6 @@ export const useEmailProcessingSocket = ({
 
           return newSessions;
         });
-      }
-
-      // Maintain backward compatibility with legacy single-session state
-      // Skip global events when department filtering is active to prevent cross-department interference
-      if (filterByDepartment && !event.integrationId) {
-        // Ignoring global event - department filter active
-        return;
       }
 
       // Skip global events when organization filtering is active
@@ -521,7 +509,6 @@ export const useEmailProcessingSocket = ({
 
     // KB handlers are extracted to keep this file under the line limit
     const { handleKBProgress, handleKBCompleted } = makeKBHandlers({
-      filterByDepartment,
       filterByOrganization,
       setSessions,
     });
@@ -537,7 +524,7 @@ export const useEmailProcessingSocket = ({
       unsubscribeFromEvent('kb:completed', handleKBCompleted);
       releaseSocket();
     };
-  }, [enabled, filterByDepartment, filterByOrganization, setSessions, setState]);
+  }, [enabled, filterByOrganization, setSessions, setState]);
 
   return { socket };
 };

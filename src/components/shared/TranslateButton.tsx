@@ -40,15 +40,16 @@ export const TranslateButton = ({
     if (isOpen) {
       void fetchLanguages();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current && !buttonRef.current.contains(event.target as Node)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
       }
@@ -116,44 +117,58 @@ export const TranslateButton = ({
         <Languages className="w-3 h-3" />
       </button>
       {isTranslating && (
-        <Loader2 className={`w-3 h-3 animate-spin flex-shrink-0 ${spinnerClassName ?? 'text-muted-foreground'}`} />
+        <Loader2
+          className={`w-3 h-3 animate-spin flex-shrink-0 ${spinnerClassName ?? 'text-muted-foreground'}`}
+        />
       )}
       {hasTranslation && !isTranslating && (
         <button
           type="button"
           onClick={handleClear}
           title="Show original"
-          className={clearClassName ?? 'inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground/60 hover:text-muted-foreground transition-colors flex-shrink-0'}
+          className={
+            clearClassName ??
+            'inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground/60 hover:text-muted-foreground transition-colors flex-shrink-0'
+          }
         >
           <X className="w-2.5 h-2.5" />
         </button>
       )}
 
-      {isOpen && createPortal(
-        <div
-          ref={dropdownRef}
-          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, backgroundColor: bgColor, width: 'max-content' }}
-          className="z-[9999] rounded-lg border border-border shadow-lg overflow-hidden"
-        >
-          <div className="overflow-y-auto max-h-52 py-1">
-            {languageOptions.map((lang) => (
-              <button
-                key={lang.value}
-                type="button"
-                onClick={() => { void handleSelect(lang.value); }}
-                className={`block w-full whitespace-nowrap text-left px-2.5 py-1.5 text-[13px] transition-colors ${
-                  selectedLanguage === lang.value
-                    ? 'font-medium text-foreground bg-accent'
-                    : 'text-foreground/80 hover:bg-accent'
-                }`}
-              >
-                {lang.label}
-              </button>
-            ))}
-          </div>
-        </div>,
-        document.body
-      )}
+      {isOpen &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              backgroundColor: bgColor,
+              width: 'max-content',
+            }}
+            className="z-[9999] rounded-lg border border-border shadow-lg overflow-hidden"
+          >
+            <div className="overflow-y-auto max-h-52 py-1">
+              {languageOptions.map((lang) => (
+                <button
+                  key={lang.value}
+                  type="button"
+                  onClick={() => {
+                    void handleSelect(lang.value);
+                  }}
+                  className={`block w-full whitespace-nowrap text-left px-2.5 py-1.5 text-[13px] transition-colors ${
+                    selectedLanguage === lang.value
+                      ? 'font-medium text-foreground bg-accent'
+                      : 'text-foreground/80 hover:bg-accent'
+                  }`}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

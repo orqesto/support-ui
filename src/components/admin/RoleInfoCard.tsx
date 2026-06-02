@@ -1,5 +1,6 @@
 import { Info, Check, X, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ORGANIZATION_ROLES } from '@/types/roles';
 import type { OrganizationRole } from '@/types/roles';
 
 type RoleCapability = {
@@ -184,7 +185,7 @@ type RoleInfoCardProps = {
 export const RoleInfoCard = ({ role, compact = false }: RoleInfoCardProps) => {
   const roles: OrganizationRole[] = role
     ? [role]
-    : ['org_admin', 'moderator', 'support', 'associate'];
+    : [...ORGANIZATION_ROLES];
 
   if (compact && role) {
     const capabilities = roleCapabilities[role];

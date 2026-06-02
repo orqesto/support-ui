@@ -57,13 +57,15 @@ function ContactRow({
   useEffect(() => {
     if (initialExpanded && subjectState.data === null) {
       setSubjectState({ loading: true, data: null });
-      void messageService.getContactSubjects(contact.sender, apiFilters).then((response) => {
-        setSubjectState({ loading: false, data: response.data ?? [] });
-      }).catch(() => {
-        setSubjectState({ loading: false, data: [] });
-      });
+      void messageService
+        .getContactSubjects(contact.sender, apiFilters)
+        .then((response) => {
+          setSubjectState({ loading: false, data: response.data ?? [] });
+        })
+        .catch(() => {
+          setSubjectState({ loading: false, data: [] });
+        });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleExpand = useCallback(async () => {
@@ -105,7 +107,12 @@ function ContactRow({
           tabIndex={0}
           className="flex gap-3 items-center px-4 py-3 w-full text-left transition-colors hover:bg-muted/50 cursor-pointer"
           onClick={() => void handleExpand()}
-          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void handleExpand(); } }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              void handleExpand();
+            }
+          }}
         >
           <span className="text-muted-foreground">
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -147,7 +154,10 @@ function ContactRow({
               size="sm"
               variant="outline"
               className="flex gap-1 items-center h-7 shrink-0"
-              onClick={(event) => { event.stopPropagation(); onViewProfile(contact.sender); }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewProfile(contact.sender);
+              }}
             >
               <User className="w-3 h-3" />
               Profile
@@ -277,18 +287,19 @@ function SenderFocusView({
                 setOpeningId(subject.latestMessageId);
                 void messageService
                   .getById(subject.latestMessageId)
-                  .then((res) => { if (res.success && res.data) onOpenMessage(res.data); })
+                  .then((res) => {
+                    if (res.success && res.data) onOpenMessage(res.data);
+                  })
                   .catch(() => undefined)
                   .finally(() => setOpeningId(null));
               }}
             >
               <CardContent className="flex gap-3 justify-between items-center p-4">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">
-                    {subject.displaySubject ?? '(no subject)'}
-                  </p>
+                  <p className="font-medium truncate">{subject.displaySubject ?? '(no subject)'}</p>
                   <p className="text-xs text-muted-foreground">
-                    {subject.messageCount} message{subject.messageCount !== 1 ? 's' : ''} · {formatDate(subject.lastMessageAt)}
+                    {subject.messageCount} message{subject.messageCount !== 1 ? 's' : ''} ·{' '}
+                    {formatDate(subject.lastMessageAt)}
                   </p>
                 </div>
                 {openingId === subject.latestMessageId && (
@@ -303,7 +314,12 @@ function SenderFocusView({
   );
 }
 
-export function ContactsView({ apiFilters, focusSender, onOpenMessage, onPaginationChange }: ContactsViewProps) {
+export function ContactsView({
+  apiFilters,
+  focusSender,
+  onOpenMessage,
+  onPaginationChange,
+}: ContactsViewProps) {
   const [, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<MessageContact[]>([]);
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
@@ -334,7 +350,6 @@ export function ContactsView({ apiFilters, focusSender, onOpenMessage, onPaginat
         setLoading(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [filtersKey]
   );
 
@@ -347,7 +362,16 @@ export function ContactsView({ apiFilters, focusSender, onOpenMessage, onPaginat
       <SenderFocusView
         sender={focusSender}
         apiFilters={apiFilters}
-        onBack={() => setSearchParams((params) => { params.delete('sender'); params.delete('mode'); return params; }, { replace: true })}
+        onBack={() =>
+          setSearchParams(
+            (params) => {
+              params.delete('sender');
+              params.delete('mode');
+              return params;
+            },
+            { replace: true }
+          )
+        }
         onOpenMessage={onOpenMessage}
       />
     );
@@ -356,7 +380,7 @@ export function ContactsView({ apiFilters, focusSender, onOpenMessage, onPaginat
   if (loading) {
     return (
       <div className="space-y-2">
-        {(['c1','c2','c3','c4','c5','c6','c7','c8'] as const).map((key, idx) => (
+        {(['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'] as const).map((key, idx) => (
           <Card key={key}>
             <CardContent className="p-4">
               <div

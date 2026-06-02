@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '@/lib/api-client';
 
 type Prefs = {
@@ -48,6 +48,9 @@ export const NotificationPreferencesSettings = () => {
   const [prefs, setPrefs] = useState<Prefs>(defaults);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); }, []);
 
   useEffect(() => {
     apiClient
@@ -57,14 +60,19 @@ export const NotificationPreferencesSettings = () => {
   }, []);
 
   const update = (patch: Partial<Prefs>) => {
+    const preUpdatePrefs = prefs;
     const next = { ...prefs, ...patch };
     setPrefs(next);
     setSaving(true);
     setSaved(false);
     apiClient
       .put('/api/users/me/notification-preferences', patch)
-      .then(() => { setSaved(true); setTimeout(() => setSaved(false), 2000); })
-      .catch(() => setPrefs(prefs))
+      .then(() => {
+        setSaved(true);
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
+      })
+      .catch(() => setPrefs(preUpdatePrefs))
       .finally(() => setSaving(false));
   };
 

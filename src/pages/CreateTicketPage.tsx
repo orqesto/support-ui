@@ -60,9 +60,12 @@ export const CreateTicketPage = () => {
 
   useEffect(() => {
     if (messageId) {
-      fetchMessage(parseInt(messageId)).catch((error) => {
-        logger.error('Failed to fetch message:', error);
-      });
+      const numId = parseInt(messageId, 10);
+      if (!isNaN(numId)) {
+        fetchMessage(numId).catch((error) => {
+          logger.error('Failed to fetch message:', error);
+        });
+      }
     }
     fetchCategories().catch((error) => {
       logger.error('Failed to fetch categories:', error);
@@ -130,7 +133,7 @@ export const CreateTicketPage = () => {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
 
-        const htmlDescription = data.content
+        const htmlDescription = (data.content ?? '')
           .split('\n')
           .filter((line) => line.trim()) // Remove empty lines
           .map((line) => `<p>${escapeHtml(line)}</p>`)

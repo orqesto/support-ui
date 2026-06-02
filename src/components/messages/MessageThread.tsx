@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import DOMPurify from 'dompurify';
+import { addNoopenerHook } from './messageDetailConstants';
+
+addNoopenerHook(DOMPurify);
 import {
   MessageSquare,
   ChevronDown,
@@ -13,8 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { LinkifiedText } from '@/lib/linkify';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
-import type { Message } from '@/types';
-import { MessageSignalBadges } from './MessageSignalBadges';
+import type { MessageEvent } from '@/types';
 
 type MessageThreadProps = {
   messageId: number;
@@ -25,8 +27,8 @@ type MessageThreadProps = {
 };
 
 type ConversationPair = {
-  customerEmail: Message;
-  systemReplies: Message[];
+  customerEmail: MessageEvent;
+  systemReplies: MessageEvent[];
 };
 
 export const MessageThread = ({
@@ -58,10 +60,10 @@ export const MessageThread = ({
         const allMessages = response.data ?? [];
 
         // Sort by actual message time.
-        // Priority: repliedAt (outgoing send time) > metadata.receivedAt (incoming email header) > createdAt (DB insert, may be batch-constant)
-        const msgTime = (msg: Message) =>
+        // Priority: sentAt (outgoing send time) > metadata.receivedAt (incoming email header) > createdAt (DB insert, may be batch-constant)
+        const msgTime = (msg: MessageEvent) =>
           new Date(
-            msg.repliedAt ??
+            msg.sentAt ??
             (msg.metadata as { receivedAt?: string } | null)?.receivedAt ??
             msg.createdAt
           ).getTime();
@@ -72,22 +74,19 @@ export const MessageThread = ({
         const timeCache = new Map<number, number>(
           allMessages.map((msg) => [msg.id, msgTime(msg)])
         );
-        const cachedTime = (msg: Message) => timeCache.get(msg.id)!;
+        const cachedTime = (msg: MessageEvent) => timeCache.get(msg.id)!;
 
         // Separate customer emails from system replies
-        const systemEmails: Message[] = [];
-        const customerEmails: Message[] = [];
+        const systemEmails: MessageEvent[] = [];
+        const customerEmails: MessageEvent[] = [];
 
-        allMessages.forEach((msg: Message) => {
+        allMessages.forEach((msg: MessageEvent) => {
           // Check if this is a system reply using authoritative BE fields.
-          // isOutgoing is set by the BE for every sent message; isSystemReply is set in
-          // metadata for bot/AI replies. These two fields are the source of truth.
-          // The old isFromSupport heuristic (sender contains "support" or equals "me") is
-          // removed: it misclassifies incoming messages from customers whose address happens
-          // to contain the word "support", causing them to disappear from the thread view.
+          // type !== 'inbound' covers outgoing/bot messages.
+          // isSystemReply in metadata is also checked for legacy records.
           const isSystemReply = msg.metadata?.isSystemReply === true;
-          const isOutgoingMessage = msg.isOutgoing === true;
-          const isBotSender = msg.sender.toLowerCase() === 'bot';
+          const isOutgoingMessage = msg.type !== 'inbound';
+          const isBotSender = (msg.authorEmail ?? '').toLowerCase() === 'bot';
 
           // Skip sent_only_label stubs: Gmail phantom records with no real content that
           // were saved as outgoing placeholders during ingestion. They render as empty
@@ -116,10 +115,10 @@ export const MessageThread = ({
             idx + 1 < customerEmails.length ? cachedTime(customerEmails[idx + 1]) : Infinity;
 
           const replies = systemEmails.filter((sysMsg) => {
-            // If the reply has a parentMessageId pointing to a known customer message,
+            // If the reply has a parentEventId pointing to a known customer message,
             // only attach it here if it points to THIS customer message.
-            if (sysMsg.parentMessageId !== null && sysMsg.parentMessageId !== undefined) {
-              return sysMsg.parentMessageId === customerMsg.id;
+            if (sysMsg.parentEventId !== null && sysMsg.parentEventId !== undefined) {
+              return sysMsg.parentEventId === customerMsg.id;
             }
             // No parentMessageId — fall back to timestamp window.
             // When nextCustomerTime === cachedTime(customerMsg) (batch-imported messages with
@@ -255,10 +254,10 @@ export const MessageThread = ({
                             <User className="w-4 h-4" />
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm font-medium">{pair.customerEmail.sender}</div>
-                            {pair.customerEmail.subject && (
+                            <div className="text-sm font-medium">{pair.customerEmail.authorEmail ?? 'Customer'}</div>
+                            {(pair.customerEmail.metadata as { subject?: string })?.subject && (
                               <div className="text-xs truncate text-muted-foreground">
-                                {pair.customerEmail.subject}
+                                {(pair.customerEmail.metadata as { subject?: string })?.subject}
                               </div>
                             )}
                           </div>
@@ -287,7 +286,7 @@ export const MessageThread = ({
 
                       {/* Customer Email Content */}
                       <div className="ml-10 text-sm whitespace-pre-wrap break-words">
-                        <LinkifiedText>{pair.customerEmail.content}</LinkifiedText>
+                        <LinkifiedText>{pair.customerEmail.content ?? ''}</LinkifiedText>
                       </div>
 
                       {/* Inline signal badges + AI summary */}
@@ -297,14 +296,6 @@ export const MessageThread = ({
                           | undefined;
                         return (
                           <div className="mt-2 ml-10 space-y-1">
-                            <div className="flex flex-wrap gap-1">
-                              <MessageSignalBadges message={pair.customerEmail} size="sm" />
-                              {pair.customerEmail.processed && (
-                                <Badge variant="success" className="flex gap-1 items-center h-5 px-1.5">
-                                  Processed
-                                </Badge>
-                              )}
-                            </div>
                             {analysis?.summary && (
                               <p className="text-xs text-muted-foreground">{analysis.summary}</p>
                             )}
@@ -335,7 +326,7 @@ export const MessageThread = ({
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
                               {formatDate(
                                 new Date(
-                                  reply.repliedAt ??
+                                  reply.sentAt ??
                                   (reply.metadata as { receivedAt?: string })?.receivedAt ??
                                   reply.createdAt
                                 )
@@ -346,7 +337,7 @@ export const MessageThread = ({
                           {/* Reply Content */}
                           <div className="ml-10 text-sm whitespace-pre-wrap break-words text-foreground/80">
                             {(() => {
-                              const html = reply.content;
+                              const html = reply.content ?? '';
                               const isHtml = /<[a-z][\s\S]*>/i.test(html);
                               return isHtml ? (
                                 <div
@@ -355,6 +346,7 @@ export const MessageThread = ({
                                     __html: DOMPurify.sanitize(html, {
                                       ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code'],
                                       ALLOWED_ATTR: ['href', 'target', 'rel'],
+                                      ALLOWED_URI_REGEXP: /^https?:/i,
                                     }),
                                   }}
                                 />
@@ -379,7 +371,7 @@ export const MessageThread = ({
                           })()}
 
                           {/* Reply Status */}
-                          {reply.isOutgoing && (
+                          {reply.type !== 'inbound' && (
                             <div className="mt-2 ml-10">
                               <Badge variant="success" className="text-xs">
                                 ✓ Sent

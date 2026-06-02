@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, X, AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type SLABreachNotification, type UseSLANotificationsResult } from '@/hooks/useSLANotifications';
+import {
+  type SLABreachNotification,
+  type UseSLANotificationsResult,
+} from '@/hooks/useSLANotifications';
 
 const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
@@ -30,7 +33,10 @@ const NotificationItem = ({
   onDismiss: (id: number) => void;
 }) => {
   const isCritical = notification.severity === 'critical';
-  const href = notification.type === 'message' ? `/messages/${notification.entityId}` : `/tickets/${notification.entityId}`;
+  const href =
+    notification.type === 'message'
+      ? `/messages/${notification.entityId}`
+      : `/tickets/${notification.entityId}`;
   return (
     <div
       className={cn(
@@ -50,9 +56,7 @@ const NotificationItem = ({
             <span
               className={cn(
                 'text-xs font-semibold shrink-0',
-                isCritical
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-amber-600 dark:text-amber-400'
+                isCritical ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
               )}
             >
               {formatBreachAmount(notification.breachAmount)}
@@ -68,28 +72,51 @@ const NotificationItem = ({
           </div>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground">
-          {notification.details.title ?? notification.details.subject ?? notification.details.sender}
+          {notification.details.title ??
+            notification.details.subject ??
+            notification.details.sender}
         </p>
         <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">
-          {notification.details.channel && <span className="capitalize">{notification.details.channel}</span>}
-          {notification.details.priority && <span className="capitalize">{notification.details.priority} priority</span>}
+          {notification.details.channel && (
+            <span className="capitalize">{notification.details.channel}</span>
+          )}
+          {notification.details.priority && (
+            <span className="capitalize">{notification.details.priority} priority</span>
+          )}
           <span className="flex gap-1 items-center ml-auto">
             <Clock className="w-3 h-3" />
-            {notification.details.targetMinutes !== null && notification.details.targetMinutes !== undefined
+            {notification.details.targetMinutes !== null &&
+            notification.details.targetMinutes !== undefined
               ? `SLA: ${notification.details.targetMinutes < 60 ? `${notification.details.targetMinutes}m` : `${Math.round(notification.details.targetMinutes / 60)}h`}`
               : ''}
           </span>
         </div>
       </div>
       {/* Link overlay last in DOM — stacks above non-positioned content, below the dismiss button */}
-      <Link to={href} className="absolute inset-0 z-[1] rounded-lg" aria-label={typeLabel(notification.type)} />
+      <Link
+        to={href}
+        className="absolute inset-0 z-[1] rounded-lg"
+        aria-label={typeLabel(notification.type)}
+      />
     </div>
   );
 };
 
-export const SLANotificationBell = ({ notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead }: UseSLANotificationsResult) => {
+export const SLANotificationBell = ({
+  notifications,
+  total,
+  unreadCount,
+  fetchError,
+  onlyAssignedToMe,
+  setOnlyMine,
+  clearAll,
+  dismiss,
+  markAllRead,
+}: UseSLANotificationsResult) => {
   const [open, setOpen] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
+  const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({
+    left: 0,
+  });
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -113,7 +140,6 @@ export const SLANotificationBell = ({ notifications, total, unreadCount, fetchEr
   // Mark all read after the panel becomes visible, not before it renders.
   useEffect(() => {
     if (open && unreadCount > 0) markAllRead();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const handleOpen = () => {

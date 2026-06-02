@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, MessageSquare, Settings, X, Filter, Library } from 'lucide-react';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
@@ -27,12 +27,16 @@ import { logger } from '@/lib/logger';
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
 
+const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documentation'];
+
 export const KnowledgeBasePage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Get active tab from URL hash, default to 'all'
-  const activeTab = (location.hash.replace('#', '') || 'all') as FilterType;
+  const hashTab = location.hash.replace('#', '') as FilterType;
+  const activeTab: FilterType = VALID_FILTER_TYPES.includes(hashTab) ? hashTab : 'all';
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -46,9 +50,9 @@ export const KnowledgeBasePage = () => {
   const filterType = activeTab; // Use hash-based tab as filter type
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
-  // Handle tab change by updating URL hash
+  // Handle tab change by updating URL hash via React Router
   const handleTabChange = (tabId: FilterType) => {
-    window.location.hash = tabId;
+    navigate('#' + tabId, { replace: true });
   };
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
@@ -62,30 +66,33 @@ export const KnowledgeBasePage = () => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
-  const fetchEntries = async (page = 1) => {
-    try {
-      setLoading(true);
-      const response = await kbService.getAll({
-        type: filterType === 'all' ? undefined : filterType,
-        page,
-        limit: pagination.limit,
-        search: searchQuery || undefined,
-        status: filterStatus === 'all' ? undefined : filterStatus,
-      });
-      setEntries(response.data.entries);
-      setPagination(response.data.pagination);
-    } catch (error) {
-      logger.error('Failed to fetch KB entries:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Load',
-        description: error instanceof Error ? error.message : 'Failed to fetch KB entries',
-        variant: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchEntries = useCallback(
+    async (page = 1) => {
+      try {
+        setLoading(true);
+        const response = await kbService.getAll({
+          type: filterType === 'all' ? undefined : filterType,
+          page,
+          limit: pagination.limit,
+          search: searchQuery || undefined,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+        });
+        setEntries(response.data.entries);
+        setPagination(response.data.pagination);
+      } catch (error) {
+        logger.error('Failed to fetch KB entries:', error);
+        setAlertDialog({
+          open: true,
+          title: 'Failed to Load',
+          description: error instanceof Error ? error.message : 'Failed to fetch KB entries',
+          variant: 'error',
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filterType, filterStatus, searchQuery, pagination.limit]
+  );
 
   // Refetch when filters change (immediate, no debounce)
   // Skip fetching when on Documentation tab (shows settings, not KB entries)
@@ -93,8 +100,7 @@ export const KnowledgeBasePage = () => {
     if (filterType !== 'documentation') {
       void fetchEntries(1); // Reset to page 1 when filters change
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterType, filterStatus, searchQuery]);
+  }, [filterType, filterStatus, searchQuery, fetchEntries]);
 
   // Handle ID URL parameter (e.g., /knowledge-base?id=123)
   // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
@@ -121,7 +127,6 @@ export const KnowledgeBasePage = () => {
         params.delete('id');
         setSearchParams(params, { replace: true });
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const handleSearch = () => {
@@ -208,7 +213,9 @@ export const KnowledgeBasePage = () => {
   // Handle opening entry - update URL with ID
   const handleOpenEntry = (entry: KBEntry) => {
     setSelectedEntry(entry);
-    setSearchParams({ id: entry.id.toString() });
+    const params = new URLSearchParams(searchParams);
+    params.set('id', entry.id.toString());
+    setSearchParams(params, { replace: true });
   };
 
   // Handle closing entry - remove ID from URL
@@ -446,7 +453,6 @@ export const KnowledgeBasePage = () => {
                 loading={loading}
               />
             )}
-
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

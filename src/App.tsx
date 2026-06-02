@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 // Eager load critical routes
@@ -9,6 +9,7 @@ import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
 
@@ -37,7 +38,9 @@ const StatisticsPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((mod) => ({ default: mod.SettingsPage }))
 );
-const UsersPage = lazy(() => import('./pages/UsersPage').then((mod) => ({ default: mod.UsersPage })));
+const UsersPage = lazy(() =>
+  import('./pages/UsersPage').then((mod) => ({ default: mod.UsersPage }))
+);
 const OrganizationPage = lazy(() =>
   import('./pages/OrganizationPage').then((mod) => ({ default: mod.OrganizationPage }))
 );
@@ -65,6 +68,9 @@ const KnowledgeBasePage = lazy(() =>
 const BillingDashboardPage = lazy(() =>
   import('./pages/BillingDashboardPage').then((mod) => ({ default: mod.BillingDashboardPage }))
 );
+const DeletedMessagesPage = lazy(() =>
+  import('./pages/DeletedMessagesPage').then((mod) => ({ default: mod.DeletedMessagesPage }))
+);
 const SLADashboardPage = lazy(() =>
   import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
 );
@@ -80,11 +86,40 @@ const LoadingFallback = () => (
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  const user = useAuthStore((state) => state.user);
+  return isAuthenticated && user ? children : <Navigate to="/login" />;
 };
 
 const AppRoutes = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+  const logout = useAuthStore((state) => state.logout);
+  const [isRestoringProfile, setIsRestoringProfile] = useState(false);
+
+  // After page reload the persisted user has no role/organizationRole (intentionally not stored).
+  // Re-fetch the profile from the server to restore those fields so ProtectedRoute works correctly.
+  // Show a loading state until the role is available to prevent fail-open redirects.
+  useEffect(() => {
+    if (isAuthenticated && user && !user.role) {
+      setIsRestoringProfile(true);
+      userService
+        .getCurrentUser()
+        .then((freshUser) => {
+          setUser(freshUser);
+        })
+        .catch(() => {
+          logout();
+        })
+        .finally(() => {
+          setIsRestoringProfile(false);
+        });
+    }
+  }, [isAuthenticated]);
+
+  if (isAuthenticated && user && !user.role && isRestoringProfile) {
+    return <LoadingFallback />;
+  }
 
   return (
     <Routes>
@@ -265,9 +300,11 @@ const AppRoutes = () => {
         path="/admin"
         element={
           <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <AdminDashboardPage />
-            </Suspense>
+            <ProtectedRoute requiredRole="admin">
+              <Suspense fallback={<LoadingFallback />}>
+                <AdminDashboardPage />
+              </Suspense>
+            </ProtectedRoute>
           </PrivateRoute>
         }
       />
@@ -317,8 +354,26 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      <Route
+        path="/deleted-messages"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <DeletedMessagesPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
       <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route path="*" element={<Navigate to="/dashboard" />} />
+      <Route
+        path="*"
+        element={
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <h1>404 - Page Not Found</h1>
+            <p>The page you requested does not exist.</p>
+          </div>
+        }
+      />
     </Routes>
   );
 };

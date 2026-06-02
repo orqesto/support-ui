@@ -111,7 +111,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
         ) : (
           <div
             className="rounded-lg px-3 py-2 border-l-2 border-l-amber-400 border border-border bg-card dark:border-amber-700/40 dark:bg-amber-300/5 text-foreground dark:text-amber-50/90 text-[12px] leading-relaxed break-words prose prose-sm max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content, { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'code', 'pre'], ALLOWED_ATTR: [] }) }}
           />
         )}
       </div>

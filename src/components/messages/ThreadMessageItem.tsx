@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Paperclip, User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
-import type { Message } from '@/types';
+import type { MessageEvent } from '@/types';
 import { ThreadBubble } from './ThreadBubble';
 import { relativeTime, getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
 
 type Props = {
-  msg: Message;
+  msg: MessageEvent;
   mainMessageId: number;
   onMessageNavigate?: (id: number) => void;
   attachments?: Attachment[];
@@ -24,17 +24,17 @@ export function ThreadMessageItem({
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
 
   const isAgent =
-    msg.isOutgoing === true ||
-    msg.sender.toLowerCase() === 'bot' ||
+    msg.type !== 'inbound' ||
+    (msg.authorEmail ?? '').toLowerCase() === 'bot' ||
     (msg.metadata as { isSystemReply?: boolean } | null)?.isSystemReply === true;
 
   const msgTime = isAgent
-    ? (msg.repliedAt ??
+    ? (msg.sentAt ??
       (msg.metadata as { receivedAt?: string } | null)?.receivedAt ??
       msg.createdAt)
     : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
 
-  const initials = getInitials(msg.sender);
+  const initials = getInitials(msg.authorEmail ?? '');
   if (isAgent) {
     return (
       <div className="flex flex-row-reverse gap-2">
@@ -43,7 +43,7 @@ export function ThreadMessageItem({
         </div>
         <div className="flex flex-col items-end max-w-[88%]">
           <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-muted-foreground mb-0.5">
-            <span>{msg.sender}</span>
+            <span>{msg.authorEmail ?? 'Support'}</span>
             <span>{relativeTime(msgTime)}</span>
           </div>
           <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed">
@@ -78,7 +78,7 @@ export function ThreadMessageItem({
               ))}
             </div>
           )}
-          {msg.isOutgoing && (
+          {msg.type !== 'inbound' && (
             <span className="font-mono text-[9px] text-foreground/55 mt-0.5">✓ Sent</span>
           )}
         </div>
@@ -93,7 +93,7 @@ export function ThreadMessageItem({
       </div>
       <div className="flex flex-col max-w-[88%]">
         <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-foreground/55 mb-0.5">
-          <span>{msg.sender}</span>
+          <span>{msg.authorEmail ?? 'Customer'}</span>
           <span>{relativeTime(msgTime)}</span>
         </div>
         {msg.id === mainMessageId ? (

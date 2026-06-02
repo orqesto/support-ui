@@ -1,6 +1,7 @@
 import axios from 'axios';
-import { API_BASE_URL, getAuthToken } from './config';
+import { API_BASE_URL } from './config';
 import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/authStore';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -19,49 +20,20 @@ apiClient.interceptors.request.use(
       delete config.headers['Content-Type'];
     }
 
-    const token = getAuthToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Add selected organization context — read directly from Zustand store to avoid
+    // JSON.parse(localStorage) on every request (avoids parsing cost and stale-parse issues).
+    const selectedOrgId = useAuthStore.getState().selectedOrganizationId;
+    if (selectedOrgId) {
+      config.headers['X-Organization-Context'] = String(selectedOrgId);
+      logger.debug(
+        `🏢 [API] Organization Context set | ${config.method?.toUpperCase()} ${config.url}`
+      );
     } else {
-      logger.warn('⚠️ [API] No auth token found!');
-    }
-
-    // Add selected organization and department context
-    const authStorage = localStorage.getItem('auth-storage');
-    if (authStorage) {
-      try {
-        const parsed = JSON.parse(authStorage) as {
-          state?: {
-            selectedOrganizationId?: number;
-            selectedDepartmentRole?: string;
-          };
-        };
-        const selectedOrgId = parsed.state?.selectedOrganizationId;
-        const selectedDept = parsed.state?.selectedDepartmentRole;
-
-        if (selectedOrgId) {
-          config.headers['X-Organization-Context'] = String(selectedOrgId);
-          logger.info(
-            `🏢 [API] Organization Context: ${selectedOrgId} | ${config.method?.toUpperCase()} ${config.url}`
-          );
-        } else {
-          logger.warn(
-            '⚠️ [API] No organization context set!',
-            config.method?.toUpperCase(),
-            config.url
-          );
-        }
-
-        // Add department context if selected
-        if (selectedDept) {
-          config.headers['X-Department-Context'] = selectedDept;
-          logger.info(
-            `🏷️ [API] Department Context: ${selectedDept} | ${config.method?.toUpperCase()} ${config.url}`
-          );
-        }
-      } catch (err) {
-        logger.error('❌ [API] Failed to parse auth storage:', err);
-      }
+      logger.warn(
+        '⚠️ [API] No organization context set!',
+        config.method?.toUpperCase(),
+        config.url
+      );
     }
 
     return config;
@@ -89,13 +61,8 @@ apiClient.interceptors.response.use(
         currentPath === '/reset-password';
 
       if (!isOnAuthPage) {
-        // Clear all authentication data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('auth-storage');
+        useAuthStore.getState().logout();
         sessionStorage.clear();
-
-        // Redirect to login
         window.location.href = '/login';
       }
     }
@@ -104,12 +71,18 @@ apiClient.interceptors.response.use(
     if (isAxiosError(error) && error.response?.data) {
       const errorData = error.response.data as { error?: string; message?: string };
       const baseError = error as { message?: string };
-      const errorMessage =
+      const rawMessage =
         errorData.error ?? errorData.message ?? baseError.message ?? 'Unknown error';
+      const status = error.response.status ?? 0;
 
-      // Create a more detailed error with status and message
+      // 5xx errors hide internal details; client errors pass through user-facing messages
+      const errorMessage =
+        status >= 500
+          ? 'A server error occurred. Please try again later.'
+          : rawMessage;
+
       const enhancedError = new Error(errorMessage) as Error & { status?: number; data?: unknown };
-      enhancedError.status = error.response.status;
+      enhancedError.status = status;
       enhancedError.data = errorData;
 
       return Promise.reject(enhancedError);

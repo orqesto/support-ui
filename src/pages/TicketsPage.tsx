@@ -88,7 +88,7 @@ export const TicketsPage = () => {
   const [deleting, setDeleting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
 
-  useTicketsUrlSync({ displayMode, selectedTicket, setSelectedTicket });
+  useTicketsUrlSync({ displayMode, setSelectedTicket });
 
   const fetchTickets = useCallback(
     async (page = 1, force = false) => {
@@ -154,7 +154,7 @@ export const TicketsPage = () => {
 
           // If current page exceeds total pages, reset to page 1
           if (page > response.pagination.totalPages && response.pagination.totalPages > 0) {
-            fetchTickets(1).catch((error) => {
+            void fetchTickets(1).catch((error) => {
               logger.error('Failed to fetch tickets:', error);
             });
           }

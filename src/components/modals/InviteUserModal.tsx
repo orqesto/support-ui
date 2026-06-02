@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
+import type { OrganizationRole } from '@/types/roles';
 import { organizationService, type Organization } from '@/services/organization.service';
+import { departmentService, type Department } from '@/services/department.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
@@ -13,8 +15,8 @@ type InviteUserModalProps = {
   onClose: () => void;
   onInvite: (
     email: string,
-    role: string,
-    departmentRole: string,
+    role: OrganizationRole,
+    departmentId: number,
     organizationId: number
   ) => Promise<void>;
   prefilledEmail?: string;
@@ -31,10 +33,11 @@ export const InviteUserModal = ({
   const { isAdmin } = usePermissions();
   const user = useAuthStore((state) => state.user);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<string>('associate');
-  const [departmentRole, setDepartmentRole] = useState<string>('support');
+  const [role, setRole] = useState<OrganizationRole>('associate');
+  const [departmentId, setDepartmentId] = useState<number | null>(null);
   const [organizationId, setOrganizationId] = useState<number | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -66,13 +69,22 @@ export const InviteUserModal = ({
     };
 
     if (isOpen) {
-      // Reset to prefilled email if provided
       if (prefilledEmail) {
         setEmail(prefilledEmail);
       }
       loadOrganizations().catch((error) => {
         logger.error('Failed to load organizations:', error);
       });
+      departmentService
+        .getAll()
+        .then((depts) => {
+          setDepartments(depts);
+          // Default to first active department if none selected yet
+          if (depts.length > 0) {
+            setDepartmentId((prev) => prev ?? depts[0].id);
+          }
+        })
+        .catch(() => setDepartments([]));
     }
   }, [
     isOpen,
@@ -91,14 +103,18 @@ export const InviteUserModal = ({
       setError('Please select an organization');
       return;
     }
+    if (!departmentId) {
+      setError('Please select a department');
+      return;
+    }
 
     setIsLoading(true);
 
     try {
-      await onInvite(email, role, departmentRole, organizationId);
+      await onInvite(email, role, departmentId, organizationId);
       setEmail('');
       setRole('associate');
-      setDepartmentRole('support');
+      setDepartmentId(departments[0]?.id ?? null);
       // Keep organization selected (for org_admin it's their org, for admin keep first)
       if (!isAdmin) {
         // For org_admin, keep their organization
@@ -201,7 +217,7 @@ export const InviteUserModal = ({
           <ReactSelect
             label="Role"
             value={role}
-            onChange={(value) => setRole(value)}
+            onChange={(value) => setRole(value as OrganizationRole)}
             options={[
               { value: 'associate', label: 'Associate - Read-only with request permissions' },
               { value: 'support', label: 'Support - Manage tickets and messages' },
@@ -220,15 +236,10 @@ export const InviteUserModal = ({
 
           <ReactSelect
             label="Department"
-            value={departmentRole}
-            onChange={(value) => setDepartmentRole(value)}
-            options={[
-              { value: 'support', label: 'Support - Customer support team' },
-              { value: 'sales', label: 'Sales - Sales team' },
-              { value: 'billing', label: 'Billing - Billing/finance team' },
-              { value: 'hr', label: 'HR - Human resources team' },
-              { value: 'general', label: 'General - General/shared/admin' },
-            ]}
+            value={String(departmentId ?? '')}
+            onChange={(value) => setDepartmentId(value ? Number(value) : null)}
+            options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
+            placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
             required
           />
           <p className="-mt-2 text-sm text-muted-foreground">

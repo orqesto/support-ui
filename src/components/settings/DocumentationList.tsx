@@ -188,7 +188,7 @@ export const DocumentationList = ({
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
-                    <DepartmentBadge department={doc.departmentRole} size="sm" />
+                    <DepartmentBadge departmentId={doc.departmentId} size="sm" />
                     {doc.visibility === 'organization' ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         <Globe className="w-3 h-3" />
@@ -283,8 +283,8 @@ export const DocumentationList = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const filename = doc.url.split('/').pop();
-                    window.open(`/api/documentation/download/${filename}`, '_blank');
+                    const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
+                    window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
                   }}
                   title="Download file"
                 >

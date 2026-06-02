@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, forwardRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, forwardRef, useState, useCallback } from 'react';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -51,6 +51,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     ref
   ) => {
     const [isExpanded, setIsExpanded] = useState(!initiallyHidden);
+    const [linkInputOpen, setLinkInputOpen] = useState(false);
+    const [linkInputValue, setLinkInputValue] = useState('');
     const onSubmitRef = useRef(onSubmit);
     useEffect(() => {
       onSubmitRef.current = onSubmit;
@@ -109,6 +111,20 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       },
     }));
 
+    const submitLink = useCallback((url: string) => {
+      if (!editor) return;
+      setLinkInputOpen(false);
+      setLinkInputValue('');
+      if (url === '') {
+        editor.chain().focus().extendMarkRange('link').unsetLink().run();
+        return;
+      }
+      if (!/^https?:\/\//i.test(url) && !/^\/[^/]/i.test(url)) {
+        return;
+      }
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    }, [editor]);
+
     if (!editor) {
       return null;
     }
@@ -132,21 +148,10 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       );
     }
 
-    const addLink = () => {
+    const openLinkInput = () => {
       const previousUrl = editor.getAttributes('link').href as string | undefined;
-      // eslint-disable-next-line no-alert
-      const url = prompt('Enter URL:', previousUrl ?? '');
-
-      if (url === null) {
-        return;
-      }
-
-      if (url === '') {
-        editor.chain().focus().extendMarkRange('link').unsetLink().run();
-        return;
-      }
-
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+      setLinkInputValue(previousUrl ?? '');
+      setLinkInputOpen(true);
     };
 
     return (
@@ -229,7 +234,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               type="button"
               variant="ghost"
               size="sm"
-              onClick={addLink}
+              onClick={openLinkInput}
               className={cn('h-8 w-8 p-0', editor.isActive('link') && 'bg-accent')}
               title="Add Link"
             >
@@ -275,6 +280,27 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {linkInputOpen && (
+          <div className="border-b bg-muted/30 px-2 py-1 flex items-center gap-2">
+            <input
+              autoFocus
+              type="url"
+              value={linkInputValue}
+              onChange={(evt) => setLinkInputValue(evt.target.value)}
+              onKeyDown={(evt) => {
+                if (evt.key === 'Enter') { evt.preventDefault(); submitLink(linkInputValue); }
+                if (evt.key === 'Escape') { setLinkInputOpen(false); setLinkInputValue(''); }
+              }}
+              placeholder="https://example.com"
+              className="flex-1 text-sm bg-background border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+              onClick={() => submitLink(linkInputValue)}>Apply</Button>
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+              onClick={() => { setLinkInputOpen(false); setLinkInputValue(''); }}>Cancel</Button>
           </div>
         )}
 

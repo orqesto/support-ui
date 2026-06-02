@@ -1,39 +1,48 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mail, Plus, MoreVertical, Trash2, TestTube2, Calendar, Save } from 'lucide-react';
+import {
+  Mail,
+  Plus,
+  MoreVertical,
+  Trash2,
+  TestTube2,
+  Calendar,
+  Save,
+  Building2,
+} from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { GmailForm } from '@/components/settings/integrations/GmailForm';
+import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
+import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect';
+import { logger } from '@/lib/logger';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
-import { logger } from '@/lib/logger';
 
 type GmailConfig = {
   isKnowledgeBase?: boolean;
   searchQuery: string;
-  lookbackDays?: number;
   maxResults: number;
   pollingMaxPages: number;
   bulkImportDays: number;
-  bulkImportMaxResults: number;
 };
 
 const defaultConfig: GmailConfig = {
   isKnowledgeBase: false,
-  searchQuery: 'is:unread',
-  lookbackDays: 30,
+  searchQuery: '',
   maxResults: 500,
-  pollingMaxPages: 200,
+  pollingMaxPages: 50,
   bulkImportDays: 0,
-  bulkImportMaxResults: 500,
 };
 
 export const GmailIntegrationCard = ({
   integrations,
   onRefresh,
   onShowAlert,
+  defaultKB,
 }: IntegrationCardProps) => {
   const abortRef = useRef(false);
   useEffect(() => {
@@ -47,9 +56,8 @@ export const GmailIntegrationCard = ({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
-  const [pollingPagesInput, setPollingPagesInput] = useState<string>('200');
+  const [pollingPagesInput, setPollingPagesInput] = useState<string>('50');
   const [maxResultsInput, setMaxResultsInput] = useState<string>('500');
-  const [bulkImportMaxResultsInput, setBulkImportMaxResultsInput] = useState<string>('500');
   const [editBulkImport, setEditBulkImport] = useState<{
     id: number;
     name: string;
@@ -57,9 +65,20 @@ export const GmailIntegrationCard = ({
   } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [showMenu, setShowMenu] = useState<number | null>(null);
+  const [editDepts, setEditDepts] = useState<number | null>(null);
   const [config, setConfig] = useState<GmailConfig>(defaultConfig);
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [manualAuthUrl, setManualAuthUrl] = useState<string | null>(null);
 
-  const gmailIntegrations = integrations.filter((integ) => integ.type === 'gmail');
+  // Centralized create-form department picker state (load + default + selection).
+  const deptPicker = useCreateSourceDepartments();
+
+  const gmailIntegrations = integrations.filter(
+    (integ) =>
+      integ.type === 'gmail' &&
+      (defaultKB === undefined || (integ.isKnowledgeBase ?? false) === defaultKB)
+  );
 
   const handleUpdateBulkImportDays = async () => {
     if (!editBulkImport) return;
@@ -82,11 +101,11 @@ export const GmailIntegrationCard = ({
         variant: 'success',
       });
     } catch (error) {
-      logger.error('Failed to update bulk import days:', error);
+      logger.error('Failed to update initial sync range:', error);
       onShowAlert({
         open: true,
         title: 'Update Failed',
-        description: error instanceof Error ? error.message : 'Failed to update bulk import days',
+        description: error instanceof Error ? error.message : 'Failed to update initial sync range',
         variant: 'error',
       });
     } finally {
@@ -95,53 +114,66 @@ export const GmailIntegrationCard = ({
   };
 
   const resetForm = () => {
-    setConfig(defaultConfig);
-    setPollingPagesInput('200');
+    setConfig({ ...defaultConfig, isKnowledgeBase: !!defaultKB });
+    setPollingPagesInput('50');
     setMaxResultsInput('500');
-    setBulkImportMaxResultsInput('500');
     setShowForm(false);
+  };
+
+  const handleOAuthSuccess = async (data: { email: string; id: number }) => {
+    const newIntegrationId = data.id;
+    if (newIntegrationId) {
+      const assigned = await deptPicker.assignToNewSource(newIntegrationId);
+      if (!assigned) {
+        onShowAlert({
+          open: true,
+          title: 'Department assignment failed',
+          description:
+            'The Gmail account was connected, but department assignment failed. Edit departments from the source list.',
+          variant: 'warning',
+        });
+      }
+    }
+
+    try {
+      await onRefresh();
+    } catch (fetchError) {
+      logger.error('Failed to refresh integrations list:', fetchError);
+    }
+
+    if (abortRef.current) return;
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    resetForm();
+
+    onShowAlert({
+      open: true,
+      title: 'Success',
+      description: `Gmail account connected successfully!\n\n${data.email ?? 'Account'} has been added.`,
+      variant: 'success',
+    });
   };
 
   const handleGmailOAuth = async () => {
     setSaving(true);
+    setPopupBlocked(false);
     try {
-      let finalQuery = config.searchQuery || '';
-      if (config.lookbackDays && config.lookbackDays > 0) {
-        const timestamp = Math.floor(Date.now() / 1000 - config.lookbackDays * 86400);
-        const timeFilter = `after:${timestamp}`;
-        finalQuery = finalQuery ? `${finalQuery} ${timeFilter}` : timeFilter;
-      }
-
       const response = await gmailOAuthService.connectWithPopup({
-        searchQuery: finalQuery,
+        searchQuery: config.searchQuery || '',
         maxResults: config.maxResults,
         pollingMaxPages: config.pollingMaxPages,
         bulkImportDays: config.bulkImportDays,
-        bulkImportMaxResults: config.bulkImportMaxResults,
         isKnowledgeBase: config.isKnowledgeBase,
       });
 
       if (abortRef.current) return;
 
-      if (response.success) {
-        try {
-          await onRefresh();
-        } catch (fetchError) {
-          logger.error('Failed to refresh integrations list:', fetchError);
-        }
-
-        if (abortRef.current) return;
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        resetForm();
-
-        onShowAlert({
-          open: true,
-          title: 'Success',
-          description: `Gmail account connected successfully!\n\n${response.data?.email ?? 'Account'} has been added.`,
-          variant: 'success',
-        });
+      if (response.success && response.data) {
+        await handleOAuthSuccess(response.data);
+      } else if (response.error === 'POPUP_BLOCKED') {
+        // Surface the retry banner; don't show a generic alert.
+        setPopupBlocked(true);
       } else {
         logger.error('Gmail OAuth failed:', response);
         onShowAlert({
@@ -165,6 +197,55 @@ export const GmailIntegrationCard = ({
       if (!abortRef.current) setSaving(false);
     }
   };
+
+  const handleGmailRedirect = async () => {
+    setRedirecting(true);
+    const response = await gmailOAuthService.redirectToOAuth({
+      searchQuery: config.searchQuery || '',
+      maxResults: config.maxResults,
+      pollingMaxPages: config.pollingMaxPages,
+      bulkImportDays: config.bulkImportDays,
+      isKnowledgeBase: config.isKnowledgeBase,
+    });
+    setRedirecting(false);
+    if (response.success && response.data?.authUrl) {
+      // Render a manual anchor as a safety net: if the scripted nav above is blocked
+      // by a privacy extension, the user can click this link to navigate explicitly.
+      // (When the redirect works, the page is gone before this state renders.)
+      setManualAuthUrl(response.data.authUrl);
+    } else {
+      onShowAlert({
+        open: true,
+        title: 'Gmail Connection Failed',
+        description: `Failed to start redirect flow: ${response.error ?? 'Unknown error'}`,
+        variant: 'error',
+      });
+    }
+  };
+
+  // On mount, finish any redirect-flow OAuth that landed back here via OAuthCallbackPage.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const result = await gmailOAuthService.consumePendingRedirectResult();
+      if (cancelled || !result) return;
+      if (result.success && result.data) {
+        await handleOAuthSuccess(result.data);
+      } else {
+        onShowAlert({
+          open: true,
+          title: 'Gmail Connection Failed',
+          description: `Failed to finish Gmail OAuth: ${result.error ?? 'Unknown error'}`,
+          variant: 'error',
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // We intentionally only run this on mount — the redirect result is consumed once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const testConnection = async (id: number, name: string) => {
     try {
@@ -234,7 +315,7 @@ export const GmailIntegrationCard = ({
           <div className="flex justify-between items-center gap-1">
             <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
               <Mail className="w-5 h-5 text-red-600 " />
-              Gmail Accounts (OAuth2)
+              {defaultKB ? 'Gmail KB Sources (OAuth2)' : 'Gmail Accounts (OAuth2)'}
             </CardTitle>
             <Button
               size="sm"
@@ -253,130 +334,193 @@ export const GmailIntegrationCard = ({
           {gmailIntegrations.length > 0 && (
             <div className="space-y-2">
               {gmailIntegrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className="flex justify-between items-center p-3 rounded-lg border"
-                >
-                  <div className="flex gap-3 items-center">
-                    <div
-                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                    />
-                    <div>
-                      <div className="flex gap-2 items-center">
-                        <p className="font-medium">
-                          {(integration.config as { user?: string }).user ?? integration.name}
+                <div key={integration.id}>
+                  <div className="flex justify-between items-center p-3 rounded-lg border">
+                    <div className="flex gap-3 items-center">
+                      <div
+                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                      />
+                      <div>
+                        <div className="flex gap-2 items-center">
+                          <p className="font-medium">
+                            {(integration.config as { user?: string }).user ?? integration.name}
+                          </p>
+                          {typeof integration.departmentId === 'number' && (
+                            <DepartmentBadge departmentId={integration.departmentId} size="sm" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          OAuth2 •{' '}
+                          {(() => {
+                            const gmailConfig = (
+                              integration.config as {
+                                gmail?: { lookbackDays?: number; searchQuery?: string };
+                              }
+                            ).gmail;
+                            const lookbackDays = gmailConfig?.lookbackDays;
+                            if (lookbackDays !== undefined) {
+                              if (lookbackDays === 0) return 'All Time';
+                              if (lookbackDays === 7) return 'Last 7 Days';
+                              if (lookbackDays === 30) return 'Last 30 Days';
+                              if (lookbackDays === 90) return 'Last 90 Days';
+                              if (lookbackDays === 180) return 'Last 6 Months';
+                              if (lookbackDays === 365) return 'Last Year';
+                              return `${lookbackDays} days`;
+                            }
+                            const query = gmailConfig?.searchQuery ?? '';
+                            return query === '' ? 'Everything' : query;
+                          })()}
+                          {(() => {
+                            const gmailConfig = (
+                              integration.config as { gmail?: { bulkImportDays?: number } }
+                            ).gmail;
+                            const bulkDays = gmailConfig?.bulkImportDays ?? 0;
+                            return bulkDays === 0 ? (
+                              <span className="ml-2 font-medium text-orange-600">
+                                ⚠️ Bulk: All time
+                              </span>
+                            ) : (
+                              <span className="ml-2 text-muted-foreground">
+                                📅 Bulk: {bulkDays}d
+                              </span>
+                            );
+                          })()}
                         </p>
-                        {integration.departmentRole && (
-                          <DepartmentBadge department={integration.departmentRole} size="sm" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setShowMenu(showMenu === integration.id ? null : integration.id)
+                          }
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                        {showMenu === integration.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setShowMenu(null)}
+                              onKeyDown={(event) => event.key === 'Escape' && setShowMenu(null)}
+                              role="button"
+                              tabIndex={0}
+                              aria-label="Close menu"
+                            />
+                            <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md border shadow-lg dark:bg-gray-800">
+                              <div className="py-1">
+                                <button
+                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                  onClick={() => {
+                                    const gmailConfig = (
+                                      integration.config as { gmail?: { bulkImportDays?: number } }
+                                    ).gmail;
+                                    const bulkDays = gmailConfig?.bulkImportDays ?? 0;
+                                    setEditBulkImport({
+                                      id: integration.id,
+                                      name: integration.name,
+                                      currentDays: bulkDays,
+                                    });
+                                    setBulkImportDaysInput(bulkDays.toString());
+                                    setShowMenu(null);
+                                  }}
+                                >
+                                  <Calendar className="mr-2 w-4 h-4" />
+                                  Initial Sync Range
+                                </button>
+                                <button
+                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                  onClick={() => {
+                                    void testConnection(integration.id, integration.name);
+                                    setShowMenu(null);
+                                  }}
+                                >
+                                  <TestTube2 className="mr-2 w-4 h-4" />
+                                  Test Connection
+                                </button>
+                                <button
+                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                  onClick={() => {
+                                    setEditDepts(integration.id);
+                                    setShowMenu(null);
+                                  }}
+                                >
+                                  <Building2 className="mr-2 w-4 h-4" />
+                                  Assign Departments
+                                </button>
+                                <button
+                                  className="flex items-center px-3 py-2 w-full text-sm text-red-600 hover:bg-accent"
+                                  onClick={() => {
+                                    setDeleteConfirm({
+                                      id: integration.id,
+                                      name: integration.name,
+                                    });
+                                    setShowMenu(null);
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 w-4 h-4" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        OAuth2 •{' '}
-                        {(() => {
-                          const gmailConfig = (
-                            integration.config as {
-                              gmail?: { lookbackDays?: number; searchQuery?: string };
-                            }
-                          ).gmail;
-                          const lookbackDays = gmailConfig?.lookbackDays;
-                          if (lookbackDays !== undefined) {
-                            if (lookbackDays === 0) return 'All Time';
-                            if (lookbackDays === 7) return 'Last 7 Days';
-                            if (lookbackDays === 30) return 'Last 30 Days';
-                            if (lookbackDays === 90) return 'Last 90 Days';
-                            if (lookbackDays === 180) return 'Last 6 Months';
-                            if (lookbackDays === 365) return 'Last Year';
-                            return `${lookbackDays} days`;
-                          }
-                          const query = gmailConfig?.searchQuery ?? 'is:unread';
-                          return query === '' ? 'Everything' : query;
-                        })()}
-                        {(() => {
-                          const gmailConfig = (
-                            integration.config as { gmail?: { bulkImportDays?: number } }
-                          ).gmail;
-                          const bulkDays = gmailConfig?.bulkImportDays ?? 0;
-                          return bulkDays === 0 ? (
-                            <span className="ml-2 font-medium text-orange-600">
-                              ⚠️ Bulk: All time
-                            </span>
-                          ) : (
-                            <span className="ml-2 text-muted-foreground">📅 Bulk: {bulkDays}d</span>
-                          );
-                        })()}
-                      </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <div className="relative">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setShowMenu(showMenu === integration.id ? null : integration.id)
-                        }
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                      {showMenu === integration.id && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-10"
-                            onClick={() => setShowMenu(null)}
-                            onKeyDown={(event) => event.key === 'Escape' && setShowMenu(null)}
-                            role="button"
-                            tabIndex={0}
-                            aria-label="Close menu"
-                          />
-                          <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md border shadow-lg dark:bg-gray-800">
-                            <div className="py-1">
-                              <button
-                                className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
-                                onClick={() => {
-                                  const gmailConfig = (
-                                    integration.config as { gmail?: { bulkImportDays?: number } }
-                                  ).gmail;
-                                  const bulkDays = gmailConfig?.bulkImportDays ?? 0;
-                                  setEditBulkImport({
-                                    id: integration.id,
-                                    name: integration.name,
-                                    currentDays: bulkDays,
-                                  });
-                                  setBulkImportDaysInput(bulkDays.toString());
-                                  setShowMenu(null);
-                                }}
-                              >
-                                <Calendar className="mr-2 w-4 h-4" />
-                                Bulk Import Days
-                              </button>
-                              <button
-                                className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
-                                onClick={() => {
-                                  void testConnection(integration.id, integration.name);
-                                  setShowMenu(null);
-                                }}
-                              >
-                                <TestTube2 className="mr-2 w-4 h-4" />
-                                Test Connection
-                              </button>
-                              <button
-                                className="flex items-center px-3 py-2 w-full text-sm text-red-600 hover:bg-accent"
-                                onClick={() => {
-                                  setDeleteConfirm({ id: integration.id, name: integration.name });
-                                  setShowMenu(null);
-                                }}
-                              >
-                                <Trash2 className="mr-2 w-4 h-4" />
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  {editDepts === integration.id && (
+                    <SourceDepartmentEditor
+                      sourceId={integration.id}
+                      onClose={() => setEditDepts(null)}
+                      onSaved={() => {
+                        setEditDepts(null);
+                        void onRefresh();
+                      }}
+                    />
+                  )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {popupBlocked && (
+            <div className="p-3 mb-3 text-sm border rounded-md border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+              <div className="font-medium">Your browser blocked the OAuth popup.</div>
+              <div className="mt-1">{getPopupUnblockInstructions(detectBrowser())}</div>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={handleGmailOAuth}
+                  disabled={saving || redirecting}
+                  className="font-medium underline hover:no-underline disabled:opacity-50"
+                >
+                  Try the popup again
+                </button>
+                {' or '}
+                <button
+                  type="button"
+                  onClick={handleGmailRedirect}
+                  disabled={saving || redirecting}
+                  className="font-medium underline hover:no-underline disabled:opacity-50"
+                >
+                  continue without popup
+                </button>
+                {' (this redirects the whole page and may clear unsaved settings).'}
+              </div>
+              {manualAuthUrl && (
+                <div className="pt-2 mt-2 border-t border-amber-300/60 dark:border-amber-700/60">
+                  Page didn't navigate?{' '}
+                  <a
+                    href={manualAuthUrl}
+                    className="font-medium underline hover:no-underline"
+                  >
+                    Open Google in this tab
+                  </a>
+                  {' — a manual click bypasses extensions that block scripted redirects.'}
+                </div>
+              )}
             </div>
           )}
 
@@ -386,7 +530,11 @@ export const GmailIntegrationCard = ({
               saving={saving}
               pollingPagesInput={pollingPagesInput}
               maxResultsInput={maxResultsInput}
-              bulkImportMaxResultsInput={bulkImportMaxResultsInput}
+              defaultKB={!!defaultKB}
+              departments={deptPicker.departments}
+              departmentsLoading={deptPicker.loading}
+              selectedDepartmentIds={deptPicker.selectedIds}
+              defaultDepartmentId={deptPicker.defaultId}
               onConfigChange={setConfig}
               onPollingPagesChange={setPollingPagesInput}
               onPollingPagesBlur={() => {
@@ -402,13 +550,8 @@ export const GmailIntegrationCard = ({
                 setConfig({ ...config, maxResults: validated });
                 setMaxResultsInput(validated.toString());
               }}
-              onBulkImportMaxResultsChange={setBulkImportMaxResultsInput}
-              onBulkImportMaxResultsBlur={() => {
-                const value = parseInt(bulkImportMaxResultsInput) || 500;
-                const validated = Math.min(Math.max(value, 100), 500);
-                setConfig({ ...config, bulkImportMaxResults: validated });
-                setBulkImportMaxResultsInput(validated.toString());
-              }}
+              onSelectedDepartmentsChange={deptPicker.setSelectedIds}
+              onDefaultDepartmentChange={deptPicker.setDefaultId}
               onConnect={handleGmailOAuth}
               onCancel={resetForm}
             />
@@ -420,16 +563,16 @@ export const GmailIntegrationCard = ({
             </p>
           )}
 
-          {/* Bulk Import Days Edit Modal */}
+          {/* Initial Sync Range Edit Modal */}
           {editBulkImport && (
             <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
               <div className="p-6 w-full max-w-md rounded-lg border shadow-lg bg-card">
-                <h3 className="mb-4 text-lg font-semibold">Change Bulk Import Days</h3>
+                <h3 className="mb-4 text-lg font-semibold">Change Initial Sync Range</h3>
                 <p className="mb-4 text-sm text-muted-foreground">{editBulkImport.name}</p>
                 <div className="space-y-4">
                   <div>
                     <ReactSelect
-                      label="Import Time Range"
+                      label="Historical Import Range"
                       value={bulkImportDaysInput}
                       onChange={(value) => setBulkImportDaysInput(value)}
                       options={[
@@ -443,8 +586,8 @@ export const GmailIntegrationCard = ({
                       ]}
                     />
                     <p className="mt-2 text-xs text-muted-foreground">
-                      How far back to fetch emails during bulk import. Set to &quot;All Time&quot;
-                      to fetch everything (may take a while).
+                      How far back to fetch emails on first connect. Set to &quot;All Time&quot; to
+                      fetch everything (may take a while).
                     </p>
                   </div>
                   <div className="flex gap-2">

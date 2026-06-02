@@ -3,6 +3,9 @@ import { twMerge } from 'tailwind-merge';
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
+export const safeCssColor = (color: string): string =>
+  /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(/.test(color.trim()) ? color.trim() : '#64748b';
+
 export const formatDate = (date: string | Date) => new Date(date).toLocaleString();
 
 export const formatAge = (date: string | Date): string => {

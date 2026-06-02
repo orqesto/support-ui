@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
-import type { Message, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
+import type { Message, MessageEvent, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
 const cleanFilters = (filters?: Record<string, string>): Record<string, string> =>
@@ -222,7 +222,14 @@ export const messageService = {
   },
 
   getThreadMessages: async (id: number) => {
-    const response = await apiClient.get<ApiResponse<Message[]>>(`/api/messages/${id}/thread`);
+    const response = await apiClient.get<ApiResponse<MessageEvent[]>>(`/api/messages/${id}/thread`);
+    return response.data;
+  },
+
+  getLinkedTicket: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<{ id: number; status: string } | null>>(
+      `/api/messages/${id}/linked-ticket`
+    );
     return response.data;
   },
 

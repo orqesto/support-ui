@@ -1,12 +1,12 @@
 import { apiClient } from '@/lib/api-client';
-import type { PaginationMeta } from '@/types';
+import type { PaginationMeta, ChannelType } from '@/types';
 
 export type SpamLog = {
   id: number;
   organizationId: number;
   messageSourceId: number | null;
   messageSourceName: string | null;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr' | null;
+  departmentId: number | null;
   spamRuleId: number | null;
   ruleName: string;
   senderEmail: string;
@@ -25,9 +25,9 @@ export type SpamLog = {
 };
 
 export type SpamLogFilters = {
-  channel?: 'email' | 'telegram' | 'slack';
+  channel?: ChannelType;
   category?: string;
-  departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentSlug?: string;
   messageSourceId?: number;
   senderDomain?: string;
   minSeverity?: number;
@@ -96,8 +96,8 @@ const getAll = async (
     params.append('category', filters.category);
   }
 
-  if (filters.departmentRole) {
-    params.append('departmentRole', filters.departmentRole);
+  if (filters.departmentSlug) {
+    params.append('departmentRole', filters.departmentSlug);
   }
 
   if (filters.messageSourceId) {

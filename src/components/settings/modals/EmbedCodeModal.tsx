@@ -1,5 +1,7 @@
+import { safeCssColor } from '@/lib/utils';
 import { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { ChatWidget } from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
@@ -31,7 +33,7 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
       <div className="w-full max-w-3xl rounded-lg bg-background p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Embed Code</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -74,7 +76,9 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
               </div>
               <div className="flex">
                 <dt className="w-32 text-muted-foreground">Department:</dt>
-                <dd className="capitalize">{widget.departmentRole}</dd>
+                <dd>
+                  <DepartmentBadge departmentId={widget.departmentId} />
+                </dd>
               </div>
               <div className="flex">
                 <dt className="w-32 text-muted-foreground">Position:</dt>
@@ -85,7 +89,7 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
                 <dd className="flex items-center gap-2">
                   <div
                     className="h-4 w-4 rounded border"
-                    style={{ backgroundColor: widget.primaryColor }}
+                    style={{ backgroundColor: safeCssColor(widget.primaryColor) }}
                   />
                   <span className="font-mono">{widget.primaryColor}</span>
                 </dd>

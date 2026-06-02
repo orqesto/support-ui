@@ -7,21 +7,28 @@ import { ExternalLink } from 'lucide-react';
 export const linkifyText = (text: string): React.ReactNode => {
   // URL regex pattern - matches http://, https://, and www. URLs
   const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  const trailingPunct = /[.,;:!?'")\]}>]+$/;
 
   const parts = text.split(urlPattern);
 
   return parts.map((part, index) => {
     // Check if this part is a URL
     if (part.match(urlPattern)) {
-      let href = part;
+      const cleanPart = part.replace(trailingPunct, '');
+      let href = cleanPart;
 
       // Add https:// if it starts with www.
-      if (part.startsWith('www.')) {
-        href = `https://${part}`;
+      if (cleanPart.startsWith('www.')) {
+        href = `https://${cleanPart}`;
+      }
+
+      // Only allow http/https — block javascript: and other schemes
+      if (!/^https?:\/\//i.test(href)) {
+        return <span key={`text-${index}-${part.substring(0, 20)}`}>{part}</span>;
       }
 
       // Truncate very long URLs for display
-      const displayText = part.length > 60 ? `${part.substring(0, 60)}...` : part;
+      const displayText = cleanPart.length > 60 ? `${cleanPart.substring(0, 60)}...` : cleanPart;
 
       return (
         // Index key is safe: array is immutable (recreated from text split), no reordering

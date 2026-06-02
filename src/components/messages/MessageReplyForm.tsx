@@ -17,14 +17,21 @@ export const MessageReplyForm = ({ onSend, onCancel, submitting }: MessageReplyF
     if (!replyContent.trim()) {
       return;
     }
-    await onSend(replyContent, selectedFiles);
-    setReplyContent('');
-    setSelectedFiles([]);
+    try {
+      await onSend(replyContent, selectedFiles);
+      // Only clear on success so the user can retry if it fails
+      setReplyContent('');
+      setSelectedFiles([]);
+    } catch {
+      // Error display is the caller's responsibility; prevent unhandled rejection
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      setSelectedFiles(Array.from(event.target.files));
+      const incoming = Array.from(event.target.files);
+      setSelectedFiles((prev) => [...prev, ...incoming]);
+      event.target.value = '';
     }
   };
 
@@ -68,7 +75,9 @@ export const MessageReplyForm = ({ onSend, onCancel, submitting }: MessageReplyF
 
       {/* Actions */}
       <div className="flex gap-2 justify-between">
-        <label className="cursor-pointer">
+        <label
+          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors ${submitting ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
+        >
           <input
             type="file"
             multiple
@@ -76,10 +85,8 @@ export const MessageReplyForm = ({ onSend, onCancel, submitting }: MessageReplyF
             onChange={handleFileSelect}
             disabled={submitting}
           />
-          <Button type="button" variant="outline" size="sm" disabled={submitting}>
-            <Paperclip className="mr-2 w-4 h-4" />
-            Attach Files
-          </Button>
+          <Paperclip className="w-4 h-4" />
+          Attach Files
         </label>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={onCancel} disabled={submitting}>

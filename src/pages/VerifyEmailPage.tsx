@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Check, X, Loader2 } from 'lucide-react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { authService } from '@/services/auth.service';
 import { logger } from '@/lib/logger';
 
 export const VerifyEmailPage = () => {
-  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
-  const token = searchParams.get('token');
+  const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -30,14 +29,9 @@ export const VerifyEmailPage = () => {
           setStatus('error');
           setMessage(response.message ?? 'Verification failed');
         }
-      } catch (err: unknown) {
+      } catch {
         setStatus('error');
-        const errorMessage =
-          err && typeof err === 'object' && 'response' in err
-            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
-              'An error occurred during verification'
-            : 'An error occurred during verification';
-        setMessage(errorMessage);
+        setMessage('Verification failed. The link may have expired or already been used.');
       }
     };
 

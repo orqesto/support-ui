@@ -48,10 +48,8 @@ export const ForgotPasswordPage = () => {
     try {
       await authService.forgotPassword(email.trim(), captchaToken || undefined);
       setSuccess(true);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'An error occurred. Please try again.';
-      setError(errorMessage);
+    } catch {
+      setError('Unable to send reset email. Please try again.');
     } finally {
       setIsLoading(false);
     }

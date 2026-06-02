@@ -8,6 +8,7 @@ export type GlobalRole = 'admin' | 'user';
 
 // Organization roles
 export type OrganizationRole = 'org_admin' | 'moderator' | 'support' | 'associate';
+export const ORGANIZATION_ROLES = ['org_admin', 'moderator', 'support', 'associate'] as const satisfies readonly OrganizationRole[];
 
 // All possible roles
 export type UserRole = GlobalRole | OrganizationRole;

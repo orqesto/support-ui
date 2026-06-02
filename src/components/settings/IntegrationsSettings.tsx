@@ -47,36 +47,61 @@ export const IntegrationsSettings = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <EmailIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
+    <div className="space-y-10">
+      {/* Active Sources */}
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold">Active Sources</h3>
+          <p className="text-sm text-muted-foreground">Inboxes that receive and process incoming messages</p>
+        </div>
+        <EmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={false}
+        />
+        <GmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={false}
+        />
+        <JiraIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+        />
+        <TelegramIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+        />
+        <SlackIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+        />
+      </div>
 
-      <GmailIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
-      <JiraIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
-      <TelegramIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
-      <SlackIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
+      {/* Knowledge Base Sources */}
+      <div className="space-y-6">
+        <div className="pt-4 border-t">
+          <h3 className="text-base font-semibold">Knowledge Base Sources</h3>
+          <p className="text-sm text-muted-foreground">Email accounts used to extract Q&amp;A pairs and documentation for AI responses</p>
+        </div>
+        <EmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={true}
+        />
+        <GmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={true}
+        />
+      </div>
 
       <AlertDialog
         open={alertDialog.open}

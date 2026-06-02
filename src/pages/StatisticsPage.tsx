@@ -102,7 +102,7 @@ export const StatisticsPage = () => {
         setStats(statsResponse.data);
       }
       setKbStats(kbStatsData);
-      setKbEntries(Array.isArray(kbEntriesData?.data) ? kbEntriesData.data : []);
+      setKbEntries(Array.isArray(kbEntriesData?.data?.entries) ? kbEntriesData.data.entries : []);
     } catch (error) {
       logger.error('Failed to fetch statistics:', error);
     } finally {
@@ -118,9 +118,27 @@ export const StatisticsPage = () => {
   }, [fetchStatistics]);
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    refreshAI();
-    await fetchStatistics();
+    switch (activeTab) {
+      case 'team':
+        refreshTeam();
+        break;
+      case 'messages':
+        refreshMsg();
+        refreshLabels();
+        break;
+      case 'sla':
+        void queryClient.invalidateQueries({ queryKey: ['sla-summary'] });
+        void queryClient.invalidateQueries({ queryKey: ['sla-breaches'] });
+        void queryClient.invalidateQueries({ queryKey: ['sla-trends'] });
+        void queryClient.invalidateQueries({ queryKey: ['sla-statistics'] });
+        break;
+      case 'overview':
+      default:
+        setRefreshing(true);
+        refreshAI();
+        await fetchStatistics();
+        break;
+    }
   };
 
   if (loading) {
@@ -222,36 +240,42 @@ export const StatisticsPage = () => {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <StatisticsOverviewTab
-            stats={stats}
-            kbStats={kbStats}
-            kbEntries={kbEntries}
-            aiStats={aiStats}
-            aiLoading={aiLoading}
-            aiDays={aiDays}
-            onAiDaysChange={setAiDays}
-          />
+          <div id="panel-overview" role="tabpanel">
+            <StatisticsOverviewTab
+              stats={stats}
+              kbStats={kbStats}
+              kbEntries={kbEntries}
+              aiStats={aiStats}
+              aiLoading={aiLoading}
+              aiDays={aiDays}
+              onAiDaysChange={setAiDays}
+            />
+          </div>
         )}
 
         {activeTab === 'team' && (
-          <StatisticsTeamTab
-            teamData={teamData}
-            teamLoading={teamLoading}
-            teamError={teamError}
-            teamDays={teamDays}
-            onTeamDaysChange={setTeamDays}
-          />
+          <div id="panel-team" role="tabpanel">
+            <StatisticsTeamTab
+              teamData={teamData}
+              teamLoading={teamLoading}
+              teamError={teamError}
+              teamDays={teamDays}
+              onTeamDaysChange={setTeamDays}
+            />
+          </div>
         )}
 
         {activeTab === 'messages' && (
-          <StatisticsMessagesTab
-            msgStats={msgStats}
-            msgLoading={msgLoading}
-            labelStats={labelStats}
-            labelLoading={labelLoading}
-            msgDays={msgDays}
-            onMsgDaysChange={setMsgDays}
-          />
+          <div id="panel-messages" role="tabpanel">
+            <StatisticsMessagesTab
+              msgStats={msgStats}
+              msgLoading={msgLoading}
+              labelStats={labelStats}
+              labelLoading={labelLoading}
+              msgDays={msgDays}
+              onMsgDaysChange={setMsgDays}
+            />
+          </div>
         )}
 
         {activeTab === 'sla' && (

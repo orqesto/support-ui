@@ -58,11 +58,21 @@ export const DocumentationSettings = () => {
   const [docProgress, setDocProgress] = useState<Record<number, DocumentationProgress>>({});
   const docsRef = useRef<Documentation[]>([]);
   docsRef.current = docs;
+  const fetchingProgressRef = useRef(false);
+  const loadingRef = useRef(false);
 
   const [searchParams] = useSearchParams();
-  const highlightDocId = searchParams.get('docId') ? parseInt(searchParams.get('docId')!, 10) : undefined;
+  const rawDocId = searchParams.get('docId');
+  const highlightDocId =
+    rawDocId !== null
+      ? isNaN(parseInt(rawDocId, 10))
+        ? undefined
+        : parseInt(rawDocId, 10)
+      : undefined;
 
   const loadDocumentation = useCallback(async (isInitialLoad = false) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
       if (isInitialLoad) setLoading(true);
       const [docsData, statsData] = await Promise.all([
@@ -74,6 +84,7 @@ export const DocumentationSettings = () => {
     } catch (error) {
       logger.error('Failed to load documentation:', error);
     } finally {
+      loadingRef.current = false;
       if (isInitialLoad) setLoading(false);
     }
   }, []);
@@ -96,29 +107,35 @@ export const DocumentationSettings = () => {
     .join(',');
 
   useEffect(() => {
-    if (!processingDocIds) return;
+    const ids = docs.filter((doc) => doc.status === 'processing').map((doc) => doc.id);
 
-    const ids = processingDocIds.split(',').map(Number);
+    if (ids.length === 0) return;
 
     const fetchProgress = async () => {
-      const progressPromises = ids.map(async (id) => {
-        try {
-          const progress = await documentationService.getProgress(id);
-          return { id, progress };
-        } catch (error) {
-          logger.error(`Failed to fetch progress for doc ${id}:`, error);
-          return null;
-        }
-      });
+      if (fetchingProgressRef.current) return;
+      fetchingProgressRef.current = true;
+      try {
+        const progressPromises = ids.map(async (id) => {
+          try {
+            const progress = await documentationService.getProgress(id);
+            return { id, progress };
+          } catch (error) {
+            logger.error(`Failed to fetch progress for doc ${id}:`, error);
+            return null;
+          }
+        });
 
-      const results = await Promise.all(progressPromises);
-      const newProgress: Record<number, DocumentationProgress> = {};
-      results.forEach((result) => {
-        if (result) {
-          newProgress[result.id] = result.progress;
-        }
-      });
-      setDocProgress(newProgress);
+        const results = await Promise.all(progressPromises);
+        const newProgress: Record<number, DocumentationProgress> = {};
+        results.forEach((result) => {
+          if (result) {
+            newProgress[result.id] = result.progress;
+          }
+        });
+        setDocProgress(newProgress);
+      } finally {
+        fetchingProgressRef.current = false;
+      }
     };
 
     void fetchProgress();
@@ -129,7 +146,7 @@ export const DocumentationSettings = () => {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [processingDocIds, loadDocumentation]);
+  }, [processingDocIds, loadDocumentation, docs]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -289,6 +306,9 @@ export const DocumentationSettings = () => {
       await loadDocumentation();
     } catch (error) {
       logger.error('Failed to delete documentation:', error);
+      // Refresh state even on partial failure so UI stays consistent (P7-IN-06)
+      setSelectedDocs(new Set());
+      void loadDocumentation();
     }
   };
 
@@ -317,6 +337,8 @@ export const DocumentationSettings = () => {
       setDeleteDialog({ open: false, docId: null });
     } catch (error) {
       logger.error('Failed to delete documentation:', error);
+      // Close dialog even on error to prevent it from staying open (P7-IN-07)
+      setDeleteDialog({ open: false, docId: null });
     }
   };
 

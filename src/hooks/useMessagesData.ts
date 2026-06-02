@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
-import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 
 type MessagesDataReturn = {
@@ -10,7 +9,13 @@ type MessagesDataReturn = {
   loading: boolean;
   refreshing: boolean;
   setRefreshing: Dispatch<SetStateAction<boolean>>;
-  messagesPagination: { page: number; limit: number; total: number; totalPages: number; hasMore: boolean };
+  messagesPagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
   fetchMessages: (page?: number, force?: boolean) => Promise<void>;
   handlePageChange: (page: number) => Promise<void>;
   handleRefresh: () => Promise<void>;
@@ -137,7 +142,11 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.hasJiraTicket = 'true';
         }
 
-        if (linked !== 'all' && currentFilters.linkedTicketStatus && currentFilters.linkedTicketStatus !== 'all') {
+        if (
+          linked !== 'all' &&
+          currentFilters.linkedTicketStatus &&
+          currentFilters.linkedTicketStatus !== 'all'
+        ) {
           apiFilters.linkedTicketStatus = currentFilters.linkedTicketStatus;
         }
 
@@ -153,11 +162,6 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.search = currentFilters.search.trim();
         }
 
-        // DEPARTMENT (syncs auth store, not sent as API param directly)
-        if (currentFilters.departmentRole && currentFilters.departmentRole !== 'all') {
-          useAuthStore.getState().setSelectedDepartment(currentFilters.departmentRole);
-        }
-
         const currentSorting = useMessagesStore.getState().sorting;
         const response = await messageService.getThreads(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
@@ -171,7 +175,11 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
 
-          if (page > 1 && page > response.pagination.totalPages && response.pagination.totalPages > 0) {
+          if (
+            page > 1 &&
+            page > response.pagination.totalPages &&
+            response.pagination.totalPages > 0
+          ) {
             await fetchMessages(1);
           }
         }
@@ -185,15 +193,14 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     [getCached, setMessages]
   );
 
-
   // Fetch on filter/sorting change
+  // fetchMessages reads filters/sorting from store directly to avoid stale closure without listing them as deps
   useEffect(() => {
     if (!urlSyncedRef.current) return;
 
     fetchMessages(1).catch((error) => {
       logger.error('Failed to fetch messages:', error);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.messageSourceId,
     filters.status,
@@ -205,7 +212,6 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.linked,
     filters.linkedTicketStatus,
     filters.search,
-    filters.departmentRole,
     filters.slaFilter,
     sorting.sortOrder,
   ]);
