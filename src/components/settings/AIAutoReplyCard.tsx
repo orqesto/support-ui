@@ -5,7 +5,7 @@ type AIAutoReplyCardProps = {
   autoReplyEnabled: boolean;
   requestMissingInfo: boolean;
   suggestSolutions: boolean;
-  highConfidenceThreshold: number;
+  // Parent owns the canonical threshold; only the editable tempThreshold is displayed here.
   tempThreshold: number;
   savingAutoReply: boolean;
   thresholdSaved: boolean;
@@ -20,7 +20,6 @@ export const AIAutoReplyCard = ({
   autoReplyEnabled,
   requestMissingInfo,
   suggestSolutions,
-  highConfidenceThreshold: _highConfidenceThreshold,
   tempThreshold,
   savingAutoReply,
   thresholdSaved,

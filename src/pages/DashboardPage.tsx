@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
-import { getSocket, releaseSocket } from '@/lib/socketManager';
+import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { ingestionService } from '@/services/ingestion.service';
 import { integrationsService } from '@/services/integrations.service';
 import { documentationService } from '@/services/documentation.service';
@@ -30,9 +30,9 @@ import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
 import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
-import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
+import { MESSAGE_SOURCE_TYPES } from '@/types';
 import { DashboardSystemStatus } from '@/components/dashboard/DashboardSystemStatus';
 import { DashboardSLASection, DashboardStatusBarSection } from '@/components/dashboard/DashboardStatCards';
 
@@ -69,6 +69,7 @@ export const DashboardPage = () => {
   const pollingIntervalRef = useRef<number | null>(null);
   const noNewMessagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const fetchGenRef = useRef(0); // monotonic counter — stale responses are discarded on arrival
   useEffect(() => () => { mountedRef.current = false; }, []);
 
   const [noNewMessagesInfo, setNoNewMessagesInfo] = useState<{
@@ -85,14 +86,13 @@ export const DashboardPage = () => {
 
   const { health, isWebSocketConnected } = useSystemHealth(300000);
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
-  const selectedDepartment = useAuthStore((state) => state.selectedDepartmentRole);
 
   const {
     status: processingStatus,
     stage: processingStage,
     processed: processedCount,
     isProcessing,
-  } = useEmailProcessing(true, selectedDepartment ?? undefined);
+  } = useEmailProcessing(true);
   const prevProcessingStatus = useRef(processingStatus);
 
   const { isProcessing: isTelegramProcessing, totalProcessed: telegramProcessedCount } =
@@ -100,8 +100,8 @@ export const DashboardPage = () => {
   const prevIsTelegramProcessing = useRef(isTelegramProcessing);
 
   const fetchStats = useCallback(async () => {
+    const gen = ++fetchGenRef.current;
     try {
-      const deptFilter: Record<string, string> = selectedDepartment ? { departmentRole: selectedDepartment } : {};
       const [
         slaBreachRes, slaAtRiskRes, slaSummary,
         resolvedExclKBRes, closedExclKBRes,
@@ -110,17 +110,17 @@ export const DashboardPage = () => {
         openTicketsRes, inProgressTicketsRes, pendingTicketsRes,
         kbQARes, kbDocRes, docStatsRes,
       ] = await Promise.all([
-        messageService.getThreads({ view: 'work_queue', slaBreached: 'true', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'work_queue', slaAtRisk: 'true', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'work_queue', slaBreached: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'work_queue', slaAtRisk: 'true' }, 1, 1),
         slaService.getSummary().catch(() => null),
-        messageService.getThreads({ view: 'resolved', excludeKB: 'true', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'active', processed: 'closed', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'inbox', excludeNotAnalysed: 'true', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'client_replied', excludeSuspicious: 'true', excludeNotAnalysed: 'true', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'awaiting_response', excludeSuspicious: 'true', excludeNotAnalysed: 'true', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'suspicious', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'not_analysed', ...deptFilter }, 1, 1),
-        messageService.getThreads({ view: 'resolved', ...deptFilter }, 1, 1),
+        messageService.getThreads({ view: 'resolved', excludeKB: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'active', processed: 'closed' }, 1, 1),
+        messageService.getThreads({ view: 'inbox', excludeNotAnalysed: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'client_replied', excludeSuspicious: 'true', excludeNotAnalysed: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'awaiting_response', excludeSuspicious: 'true', excludeNotAnalysed: 'true' }, 1, 1),
+        messageService.getThreads({ view: 'suspicious' }, 1, 1),
+        messageService.getThreads({ view: 'not_analysed' }, 1, 1),
+        messageService.getThreads({ view: 'resolved' }, 1, 1),
         ticketService.getAll({ status: 'open' }, 1, 1),
         ticketService.getAll({ status: 'in_progress' }, 1, 1),
         ticketService.getAll({ status: 'pending' }, 1, 1),
@@ -129,6 +129,7 @@ export const DashboardPage = () => {
         documentationService.getStats(),
       ]);
 
+      if (gen !== fetchGenRef.current) return; // newer fetch already in flight — discard stale response
       setStats({
         slaBreachCount: slaBreachRes.success ? slaBreachRes.pagination.total : 0,
         slaAtRiskCount: slaAtRiskRes.success ? slaAtRiskRes.pagination.total : 0,
@@ -155,7 +156,7 @@ export const DashboardPage = () => {
       setLoading(false);
       setLastUpdated(new Date());
     }
-  }, [selectedDepartment]);
+  }, []);
 
   useEffect(() => {
     const wasNotComplete = prevProcessingStatus.current !== 'complete';
@@ -194,7 +195,7 @@ export const DashboardPage = () => {
         const active = response.data?.filter((intg) => intg.enabled) ?? [];
         const emailInt = active.filter((intg) => intg.type === 'email' || intg.type === 'gmail');
         const telegramInt = active.filter((intg) => intg.type === 'telegram');
-        const msgSrc = active.filter((intg) => ['email', 'gmail', 'telegram', 'slack'].includes(intg.type));
+        const msgSrc = active.filter((intg) => (MESSAGE_SOURCE_TYPES as readonly string[]).includes(intg.type));
         setHasIntegrations(active.length > 0);
         setHasMessageSources(msgSrc.length > 0);
         setHasEmailIntegrations(emailInt.length > 0);
@@ -212,11 +213,12 @@ export const DashboardPage = () => {
   }, [fetchStats]);
 
   useEffect(() => {
-    const socket = getSocket();
-    const handleStatsUpdate = (_updatedStats: Record<string, number>) => { /* rely on fetchStats */ };
-    socket.on('stats:update', handleStatsUpdate);
-    return () => { socket.off('stats:update', handleStatsUpdate); releaseSocket(); };
-  }, []);
+    const handleStatsUpdate = (_updatedStats: unknown) => {
+      fetchStats().catch((error) => { logger.error('Failed to refresh stats on WS update:', error); });
+    };
+    subscribeToEvent('stats:update', handleStatsUpdate);
+    return () => { unsubscribeFromEvent('stats:update', handleStatsUpdate); };
+  }, [fetchStats]);
 
   useEffect(() => () => {
     if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; }
@@ -272,7 +274,7 @@ export const DashboardPage = () => {
   const slaCards = [
     { title: 'SLA Breach', value: stats.slaBreachCount, icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/50', borderColor: '#dc2626', hint: 'Active breaches', onClick: () => navigate('/messages?slaBreached=true'), isClickable: true },
     { title: 'SLA At Risk', value: stats.slaAtRiskCount, icon: AlertCircle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/50', borderColor: '#d97706', hint: '>80% of deadline', onClick: () => navigate('/messages?slaAtRisk=true'), isClickable: true },
-    { title: 'Avg First Response', value: formatMinutes(stats.avgFirstResponseMins), icon: Timer, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/50', borderColor: '#2563eb', hint: stats.avgFirstResponsePeriodDays === null ? 'No data' : stats.avgFirstResponsePeriodDays === 1 ? 'Last 24 hours' : stats.avgFirstResponsePeriodDays === 7 ? 'Last 7 days' : stats.avgFirstResponsePeriodDays === 30 ? 'Last 30 days' : 'Last year', onClick: () => navigate('/sla-dashboard'), isClickable: false },
+    { title: 'Avg First Response', value: formatMinutes(stats.avgFirstResponseMins), icon: Timer, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/50', borderColor: '#2563eb', hint: stats.avgFirstResponsePeriodDays === null ? 'No data' : stats.avgFirstResponsePeriodDays === 1 ? 'Last 24 hours' : stats.avgFirstResponsePeriodDays === 7 ? 'Last 7 days' : stats.avgFirstResponsePeriodDays === 30 ? 'Last 30 days' : 'Last year', onClick: () => navigate('/sla'), isClickable: false },
     { title: 'Resolved', value: stats.resolvedExclKB, icon: CheckCircle, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950/50', borderColor: '#16a34a', hint: 'Excl. KB processing', onClick: () => navigate('/messages?status=resolved'), isClickable: true },
     { title: 'Closed', value: stats.closedExclKB, icon: Archive, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-950/50', borderColor: '#475569', hint: 'Excl. KB processing', onClick: () => navigate('/messages?threadStatus=closed'), isClickable: true },
   ];

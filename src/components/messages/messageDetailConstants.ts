@@ -1,3 +1,4 @@
+import type DOMPurifyType from 'dompurify';
 import type React from 'react';
 import type { ThreadStatus, TicketPriority } from '@/types';
 
@@ -24,6 +25,11 @@ export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; 
     dot: 'bg-amber-400',
     chip: 'text-amber-700  border-amber-200  bg-amber-50  dark:text-amber-400  dark:bg-amber-950/30  dark:border-amber-800',
   },
+  resolved: {
+    label: 'RESOLVED',
+    dot: 'bg-emerald-500',
+    chip: 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800',
+  },
   closed: {
     label: 'CLOSED',
     dot: 'bg-muted-foreground/50',
@@ -42,6 +48,7 @@ export const STATUS_MENU_LABELS: Record<ThreadStatus, string> = {
   open: 'Open',
   in_progress: 'In Progress',
   pending: 'Pending',
+  resolved: 'Resolved',
   closed: 'Closed',
   filtered: 'Filtered',
 };
@@ -120,15 +127,31 @@ export const THREAD_SANITIZE = {
     'pre',
     'code',
     'hr',
-    'div',
     'span',
     'table',
     'tr',
     'td',
     'th',
   ],
-  ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  ALLOWED_ATTR: ['href', 'target', 'rel'],
+  FORBID_ATTR: ['style', 'class', 'id'],
+  ALLOWED_URI_REGEXP: /^https?:/i,
 };
+
+/**
+ * DOMPurify hook config that forces rel="noopener noreferrer" on target="_blank" anchors.
+ * Pass as the second argument to DOMPurify.sanitize alongside a config object.
+ */
+let noopenerHookRegistered = false;
+export function addNoopenerHook(DOMPurify: typeof DOMPurifyType): void {
+  if (noopenerHookRegistered) return;
+  noopenerHookRegistered = true;
+  DOMPurify.addHook('afterSanitizeAttributes', (node: Element) => {
+    if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,10 +195,7 @@ export function renderMarkdown(raw: string): string {
     .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
     .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
     .replace(/_([^_\n]+)_/g, '<em>$1</em>')
-    .replace(
-      /`([^`\n]+)`/g,
-      '<code class="text-[11px] bg-muted px-0.5 rounded font-mono">$1</code>'
-    )
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
     .replace(/\n/g, '<br>');
 }
 

@@ -191,7 +191,7 @@ export const DetectionRulesSettings = () => {
                 <tr key={rule.id} className="hover:bg-muted/50">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <p className="text-sm font-medium">{rule.name}</p>
-                    <DepartmentBadge department={rule.departmentRole} size="sm" />
+                    <DepartmentBadge departmentId={rule.departmentId} size="sm" />
                   </td>
                   <td className="px-4 py-3 text-sm whitespace-nowrap">
                     <Badge variant="secondary" className="capitalize">{rule.category}</Badge>
@@ -259,7 +259,7 @@ export const DetectionRulesSettings = () => {
                   <p className="text-sm font-medium truncate">{rule.name}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     <Badge variant="secondary" className="capitalize">{rule.category}</Badge>
-                    <DepartmentBadge department={rule.departmentRole} size="sm" />
+                    <DepartmentBadge departmentId={rule.departmentId} size="sm" />
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">

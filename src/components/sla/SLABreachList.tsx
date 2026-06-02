@@ -13,7 +13,8 @@ export const SLABreachList = () => {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['sla-breaches'],
     queryFn: () => slaService.getBreaches({ limit: 20 }),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
 
   if (isLoading) {

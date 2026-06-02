@@ -25,6 +25,7 @@ export type SLABreachNotification = {
   };
   createdAt: string;
   receivedAt: number;
+  isRead: boolean;
 };
 
 type UserPrefs = {
@@ -51,8 +52,6 @@ const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: 
   return true;
 };
 
-const LAST_READ_KEY = 'sla_notifications_last_read';
-
 type NotificationRow = {
   id: number;
   entityId: number;
@@ -62,6 +61,7 @@ type NotificationRow = {
   breachAmount: number;
   details: SLABreachNotification['details'];
   createdAt: string;
+  isRead?: boolean;
 };
 
 export type UseSLANotificationsResult = ReturnType<typeof useSLANotifications>;
@@ -82,7 +82,6 @@ export const useSLANotifications = () => {
         const payload = (res.data as { data: { notifications: NotificationRow[]; total: number } }).data;
         const rows = payload.notifications;
         const totalCount = payload.total;
-        const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
         const loaded: SLABreachNotification[] = rows.map((row) => ({
           id: row.id,
           entityId: row.entityId,
@@ -93,12 +92,12 @@ export const useSLANotifications = () => {
           details: row.details,
           createdAt: row.createdAt,
           receivedAt: Date.now(),
+          isRead: row.isRead ?? false,
         }));
         seenIds.current = new Set(loaded.map((notif) => notif.id));
         setNotifications(loaded);
         setTotal(totalCount);
-        const unread = loaded.filter((notif) => new Date(notif.createdAt).getTime() > lastRead).length;
-        setUnreadCount(unread);
+        setUnreadCount(loaded.filter((notif) => !notif.isRead).length);
         setFetchError(false);
       })
       .catch(() => {
@@ -139,7 +138,9 @@ export const useSLANotifications = () => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Real-time WebSocket delivery
+  // Real-time WebSocket delivery.
+  // Depends on Layout.tsx having already called joinOrganizationRoom() so the socket
+  // is subscribed to `org-<id>` before sla_breach events arrive.
   useEffect(() => {
     getSocket();
 
@@ -148,28 +149,48 @@ export const useSLANotifications = () => {
       if (seenIds.current.has(breach.id)) return;
       if (!matchesPrefs(breach, prefsRef.current)) return;
       seenIds.current.add(breach.id);
-      const notification: SLABreachNotification = { ...breach, receivedAt: Date.now() };
+      if (seenIds.current.size > 500) {
+        const oldest = seenIds.current.values().next().value as number;
+        seenIds.current.delete(oldest);
+      }
+      const notification: SLABreachNotification = { ...breach, receivedAt: Date.now(), isRead: false };
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
     };
 
+    // Sync read state from another device/tab for the same user
+    const handleNotificationRead = (data: unknown) => {
+      const { notificationId } = data as { notificationId: number };
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif.id === notificationId ? { ...notif, isRead: true } : notif
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    };
+
+    // Re-fetch on reconnect to recover notifications missed during the disconnection gap
+    const handleReconnect = () => { fetchNotifications(); };
+
     subscribeToEvent('sla_breach', handleBreach);
+    subscribeToEvent('notification:read', handleNotificationRead);
+    subscribeToEvent('connect', handleReconnect);
     return () => {
       unsubscribeFromEvent('sla_breach', handleBreach);
+      unsubscribeFromEvent('notification:read', handleNotificationRead);
+      unsubscribeFromEvent('connect', handleReconnect);
       releaseSocket();
     };
-  }, []);
+  }, [fetchNotifications]);
 
   const dismiss = useCallback((id: number) => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
     setNotifications((prev) => {
       const target = prev.find((notif) => notif.id === id);
-      if (target) {
-        const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
-        if (new Date(target.createdAt).getTime() > lastRead) {
-          setUnreadCount((count) => Math.max(0, count - 1));
-        }
+      if (target && !target.isRead) {
+        setUnreadCount((count) => Math.max(0, count - 1));
       }
+      setTotal((prev) => Math.max(0, prev - 1));
       return prev.filter((notif) => notif.id !== id);
     });
     // Keep id in seenIds so a re-broadcast doesn't re-add it
@@ -182,13 +203,20 @@ export const useSLANotifications = () => {
     setNotifications([]);
     setTotal(0);
     setUnreadCount(0);
-    localStorage.setItem(LAST_READ_KEY, String(Date.now()));
+  }, []);
+
+  const markRead = useCallback((id: number) => {
+    apiClient.patch(`/api/notifications/${id}/read`).catch(() => {});
+    setNotifications((prev) =>
+      prev.map((notif) => (notif.id === id ? { ...notif, isRead: true } : notif))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   }, []);
 
   const markAllRead = useCallback(() => {
+    setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
     setUnreadCount(0);
-    localStorage.setItem(LAST_READ_KEY, String(Date.now()));
   }, []);
 
-  return { notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markAllRead };
+  return { notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markRead, markAllRead };
 };

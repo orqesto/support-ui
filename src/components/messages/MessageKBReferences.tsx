@@ -123,7 +123,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => window.open(`/knowledge-base?id=${ref.id}`, '_blank')}
+                onClick={() => window.open(`/knowledge-base?id=${ref.id}`, '_blank', 'noopener,noreferrer')}
                 title="View in Knowledge Base"
                 className="flex-shrink-0"
               >

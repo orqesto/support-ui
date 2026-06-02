@@ -1,25 +1,39 @@
 import { Settings, BarChart3 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
+import { Permission } from '@/types/roles';
 import { AdminPlansTab } from './admin/AdminPlansTab';
 import { AdminUsageTab } from './admin/AdminUsageTab';
 
 type TabType = 'plans' | 'usage';
 
+const VALID_TABS: TabType[] = ['plans', 'usage'];
+
 export const AdminDashboardPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Get active tab from URL hash, default to 'plans'
-  const activeTab = (location.hash.replace('#', '') || 'plans') as TabType;
+  // Validate hash against known tabs to avoid silently casting arbitrary values
+  const rawTab = location.hash.replace('#', '');
+  const activeTab: TabType = (VALID_TABS as string[]).includes(rawTab) ? (rawTab as TabType) : 'plans';
 
-  // Handle tab change by updating URL hash
+  // Use navigate so the back button restores the previous tab correctly
   const handleTabChange = (tabId: TabType) => {
-    window.location.hash = tabId;
+    navigate({ hash: tabId }, { replace: true });
   };
 
   return (
     <Layout>
+      <PermissionGuard
+        permission={Permission.MANAGE_ORGANIZATION}
+        fallback={
+          <div className="flex items-center justify-center h-64 text-gray-500">
+            You do not have permission to access System Administration.
+          </div>
+        }
+      >
       <div className="px-6 py-6 mx-auto space-y-6 w-full max-w-7xl">
         {/* Header */}
         <div>
@@ -57,6 +71,7 @@ export const AdminDashboardPage = () => {
           {activeTab === 'usage' && <AdminUsageTab />}
         </Tabs>
       </div>
+      </PermissionGuard>
     </Layout>
   );
 };

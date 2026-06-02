@@ -6,7 +6,7 @@ export type TicketingSystem = {
   name: string;
   type: 'jira' | 'asana' | 'linear' | 'clickup' | 'monday';
   enabled: boolean;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentId: number | null;
   isDefault: boolean;
   config: Record<string, unknown>;
   createdAt: string;
@@ -53,7 +53,7 @@ export const ticketingSystemsService = {
     ApiResponse<{
       id: number;
       name: string;
-      departmentRole: string;
+      departmentId: number | null;
       isDefault: boolean;
     }>
   > => {
@@ -63,7 +63,7 @@ export const ticketingSystemsService = {
       data: {
         id: number;
         name: string;
-        departmentRole: string;
+        departmentId: number | null;
         isDefault: boolean;
       };
     }>(`/api/ticketing-systems/${id}/set-default?type=${type}`);

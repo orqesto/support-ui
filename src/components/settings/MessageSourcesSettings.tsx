@@ -46,37 +46,66 @@ export const MessageSourcesSettings = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Message Sources</h2>
-        <p className="text-sm text-muted-foreground">
-          Configure where your messages come from - email, chat platforms, and more.
-        </p>
+    <div className="space-y-10">
+      {/* Active Sources */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Active Sources</h2>
+          <p className="text-sm text-muted-foreground">
+            Inboxes that receive and process incoming messages.
+          </p>
+        </div>
+
+        <EmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={false}
+        />
+
+        <GmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={false}
+        />
+
+        <TelegramIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+        />
+
+        <SlackIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+        />
       </div>
 
-      <EmailIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
+      {/* Knowledge Base Sources */}
+      <div className="space-y-6">
+        <div className="pt-4 border-t">
+          <h2 className="text-lg font-semibold text-foreground">Knowledge Base Sources</h2>
+          <p className="text-sm text-muted-foreground">
+            Email accounts used to extract Q&amp;A pairs and documentation for AI-powered responses. These don't appear in the active inbox.
+          </p>
+        </div>
 
-      <GmailIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
+        <EmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={true}
+        />
 
-      <TelegramIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
-
-      <SlackIntegrationCard
-        integrations={integrations}
-        onRefresh={fetchIntegrations}
-        onShowAlert={setAlertDialog}
-      />
+        <GmailIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+          defaultKB={true}
+        />
+      </div>
 
       <AlertDialog
         open={alertDialog.open}

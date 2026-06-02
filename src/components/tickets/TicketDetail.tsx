@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import DOMPurify from 'dompurify';
+import { addNoopenerHook } from '@/components/messages/messageDetailConstants';
+
+addNoopenerHook(DOMPurify);
 import {
   ExternalLink as ExternalLinkIcon,
   Send,
@@ -20,7 +23,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { ReactSelect } from '@/components/ui/ReactSelect';
-import { formatDate } from '@/lib/utils';
+import { formatDate, safeCssColor } from '@/lib/utils';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { labelService, type Label } from '@/services/settings.service';
@@ -258,7 +261,7 @@ export const TicketDetail = ({
                 <span
                   key={label.id}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                  style={{ backgroundColor: label.color }}
+                  style={{ backgroundColor: safeCssColor(label.color) }}
                 >
                   {label.name}
                   {hasManageLabels && (
@@ -295,7 +298,7 @@ export const TicketDetail = ({
                         >
                           <span
                             className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: label.color }}
+                            style={{ backgroundColor: safeCssColor(label.color) }}
                           />
                           <span className="flex-1">{label.name}</span>
                           {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
@@ -411,7 +414,7 @@ export const TicketDetail = ({
         ) : (
           <div
             className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedDescription ?? ticket.description ?? '') }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedDescription ?? ticket.description ?? '', { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'h4'], ALLOWED_ATTR: ['href', 'target', 'rel'], ALLOWED_URI_REGEXP: /^https?:/i }) }}
           />
         )}
       </div>

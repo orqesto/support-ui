@@ -58,7 +58,7 @@ export const MessageDetailConfirmDialogs = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {message.resolved ? 'Unresolve Message?' : 'Unprocess Message?'}
+            {message.status === 'resolved' ? 'Unresolve Message?' : 'Unprocess Message?'}
           </DialogTitle>
           <DialogClose onClose={() => setReopenDialogOpen(false)} />
         </DialogHeader>
@@ -76,7 +76,7 @@ export const MessageDetailConfirmDialogs = ({
               onReopen?.();
             }}
           >
-            {message.resolved ? 'Unresolve & Clean Up' : 'Unprocess & Clean Up'}
+            {message.status === 'resolved' ? 'Unresolve & Clean Up' : 'Unprocess & Clean Up'}
           </Button>
         </DialogFooter>
       </DialogContent>

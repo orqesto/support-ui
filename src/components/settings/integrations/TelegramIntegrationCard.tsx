@@ -1,8 +1,12 @@
-import { MessageSquare, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import { useState } from 'react';
+import { MessageSquare, Plus, Save, TestTube2, Trash2, Edit, Building2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { DepartmentMultiPicker } from '@/components/settings/integrations/DepartmentMultiPicker';
+import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 
 type TelegramConfig = {
@@ -14,6 +18,11 @@ export const TelegramIntegrationCard = ({
   onRefresh,
   onShowAlert,
 }: IntegrationCardProps) => {
+  const [editDepts, setEditDepts] = useState<number | null>(null);
+
+  // Centralized create-form department picker state.
+  const deptPicker = useCreateSourceDepartments();
+
   const {
     showForm,
     saving,
@@ -36,6 +45,18 @@ export const TelegramIntegrationCard = ({
     initialConfig: { botToken: '' },
     onRefresh,
     onShowAlert,
+    onCreated: async (newIntegrationId) => {
+      const assigned = await deptPicker.assignToNewSource(newIntegrationId);
+      if (!assigned) {
+        onShowAlert({
+          open: true,
+          title: 'Department assignment failed',
+          description:
+            'The Telegram bot was created, but department assignment failed. Edit departments from the source list.',
+          variant: 'warning',
+        });
+      }
+    },
   });
 
   const telegramIntegrations = integrations.filter((integ) => integ.type === 'telegram');
@@ -72,61 +93,75 @@ export const TelegramIntegrationCard = ({
           {telegramIntegrations.length > 0 && (
             <div className="space-y-2">
               {telegramIntegrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className="flex justify-between items-center p-3 rounded-lg border"
-                >
-                  <div className="flex gap-3 items-center">
-                    <div
-                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{integration.name}</p>
-                        {integration.departmentRole && (
-                          <DepartmentBadge department={integration.departmentRole} size="sm" />
-                        )}
+                <div key={integration.id}>
+                  <div className="flex justify-between items-center p-3 rounded-lg border">
+                    <div className="flex gap-3 items-center">
+                      <div
+                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{integration.name}</p>
+                          {typeof integration.departmentId === 'number' && (
+                            <DepartmentBadge departmentId={integration.departmentId} size="sm" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {(integration.config as TelegramConfig).botToken
+                            ? 'Token configured'
+                            : 'Not configured'}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {(integration.config as TelegramConfig).botToken
-                          ? 'Token configured'
-                          : 'Not configured'}
-                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          loadForEdit(integration.id, integration.config as TelegramConfig)
+                        }
+                        disabled={editingId === integration.id}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testConnection(integration.id, integration.name)}
+                        isLoading={testing === integration.id}
+                        disabled={!integration.hasCredentials}
+                      >
+                        <TestTube2 className="w-4 h-4" />
+                        Poke
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditDepts(integration.id)}
+                        title="Assign departments"
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setDeleteConfirm({ id: integration.id, name: integration.name })
+                        }
+                        isLoading={deleting === integration.id}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        loadForEdit(integration.id, integration.config as TelegramConfig)
-                      }
-                      disabled={editingId === integration.id}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => testConnection(integration.id, integration.name)}
-                      isLoading={testing === integration.id}
-                      disabled={!integration.hasCredentials}
-                    >
-                      <TestTube2 className="w-4 h-4" />
-                      Poke
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setDeleteConfirm({ id: integration.id, name: integration.name })
-                      }
-                      isLoading={deleting === integration.id}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </div>
+                  {editDepts === integration.id && (
+                    <SourceDepartmentEditor
+                      sourceId={integration.id}
+                      onClose={() => setEditDepts(null)}
+                      onSaved={() => { setEditDepts(null); void onRefresh(); }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -160,11 +195,42 @@ export const TelegramIntegrationCard = ({
                   </a>
                 </p>
               </div>
+
+              {editingId === null && (
+                <div className="space-y-2 pt-1 border-t">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5" /> Departments
+                  </label>
+                  <DepartmentMultiPicker
+                    allDepts={deptPicker.departments}
+                    selected={deptPicker.selectedIds}
+                    defaultId={deptPicker.defaultId}
+                    loading={deptPicker.loading}
+                    onSelectedChange={deptPicker.setSelectedIds}
+                    onDefaultChange={deptPicker.setDefaultId}
+                  />
+                  {!deptPicker.loading && deptPicker.departments.length === 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      No active departments. Create one before adding a source.
+                    </p>
+                  )}
+                  {!deptPicker.loading &&
+                    deptPicker.departments.length > 0 &&
+                    !deptPicker.isValid && (
+                      <p className="text-xs text-muted-foreground">
+                        Select at least one department to route messages from this source.
+                      </p>
+                    )}
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <Button
                   onClick={() => saveIntegration()}
                   isLoading={saving}
-                  disabled={!config.botToken}
+                  disabled={
+                    !config.botToken || (editingId === null && !deptPicker.isValid)
+                  }
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Telegram

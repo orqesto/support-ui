@@ -3,6 +3,7 @@ import { Inbox } from 'lucide-react';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
+import { MESSAGE_SOURCE_TYPES } from '@/types';
 
 type MessageSourceFilterProps = {
   value: string | undefined;
@@ -21,7 +22,7 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
         if (response.success && response.data) {
           // Filter to only message sources (email, gmail, telegram, slack)
           const sources = response.data.filter((integration) =>
-            ['email', 'gmail', 'telegram', 'slack'].includes(integration.type)
+            (MESSAGE_SOURCE_TYPES as readonly string[]).includes(integration.type)
           );
           setMessageSources(sources);
         }

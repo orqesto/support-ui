@@ -13,7 +13,7 @@ import { messageService, type MessageNote, type MessageActivityEntry } from '@/s
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
 
-import type { Message } from '@/types';
+import type { Message, MessageEvent } from '@/types';
 import type { ContradictionCheckMetadata } from '@/types/ai';
 import { logger } from '@/lib/logger';
 import RichTextEditor from '@/components/shared/RichTextEditor';
@@ -106,7 +106,7 @@ export type MessagePanelTabsProps = {
   onNoteDeleted: (noteId: number) => void;
   noteActivityLog: { label: string; who: string; time: string }[];
   messageActivity: MessageActivityEntry[];
-  sortedThread: Message[];
+  sortedThread: MessageEvent[];
   threadRefreshKey: number;
   highlightAttachmentId?: number | null;
   attachments?: Attachment[];
@@ -543,7 +543,7 @@ export function MessagePanelTabs({
                     ) : (
                       <div
                         className="text-[11px] leading-snug prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content) }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content, { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'code', 'pre'], ALLOWED_ATTR: [] }) }}
                       />
                     )}
                   </div>

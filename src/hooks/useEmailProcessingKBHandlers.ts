@@ -21,13 +21,15 @@ type KBProgressEvent = {
     standaloneKnowledge: number;
     documents: number;
   };
-  departmentRole?: string; // May include department
+  departmentSlug?: string; // May include department
+  departmentId?: number;
   totalFinalized?: boolean; // True when backend knows the definitive total
   aiAnalysisCalls?: number; // Number of AI analysis completions
 };
 
 type KBCompletedEvent = {
   messageSourceId: number;
+  organizationId?: number;
   status: string;
   messageSourceName: string;
   messages: {
@@ -44,61 +46,35 @@ type KBCompletedEvent = {
     documents: number;
   };
   duration?: number;
-  departmentRole?: string;
+  departmentSlug?: string;
+  departmentId?: number;
+  forced?: boolean;
+  reason?: string;
 };
 
 type KBHandlerParams = {
-  filterByDepartment?: string;
   filterByOrganization?: number;
   setSessions: SetSessions;
 };
 
 /** Returns event-handler functions for kb:progress and kb:completed socket events. */
-export const makeKBHandlers = ({
-  filterByDepartment,
-  filterByOrganization,
-  setSessions,
-}: KBHandlerParams) => {
+export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerParams) => {
   // Handle KB progress events (different format from email events)
   const handleKBProgress = (data: unknown) => {
     const kbEvent = data as KBProgressEvent;
-
-    // Filter by department if specified - ignore events from other departments
-    if (
-      filterByDepartment &&
-      kbEvent.departmentRole &&
-      kbEvent.departmentRole !== filterByDepartment
-    ) {
-      return;
-    }
 
     // Filter by organization if specified - ignore events from other organizations
     if (filterByOrganization && kbEvent.organizationId !== filterByOrganization) {
       return;
     }
 
-    // Try to find existing email processing session first
-    // Check all possible session keys for this integration
     const integrationId = kbEvent.messageSourceId;
-    const possibleKeys = [
-      `${integrationId}-general`,
-      `${integrationId}-support`,
-      `${integrationId}-sales`,
-      `${integrationId}-billing`,
-      kbEvent.departmentRole ? `${integrationId}-${kbEvent.departmentRole}` : null,
-    ].filter((key): key is string => key !== null);
+    const sessionKey = `${integrationId}`;
 
     setSessions((prev) => {
       const newSessions = new Map(prev);
 
-      // Try to find existing session for this integration
-      let existingKey: string | null = null;
-      for (const key of possibleKeys) {
-        if (newSessions.has(key)) {
-          existingKey = key;
-          break;
-        }
-      }
+      const existingKey: string | null = newSessions.has(sessionKey) ? sessionKey : null;
 
       // If existing session found, merge KB data into it
       if (existingKey) {
@@ -169,17 +145,17 @@ export const makeKBHandlers = ({
       // 2. Page refreshed after email session completed but KB still running
       // 3. Email processing completed and cleaned up, but KB still running
       // CREATE a new session for standalone KB processing
-      const kbIntegrationId = kbEvent.messageSourceId;
-      const departmentRole = kbEvent.departmentRole ?? 'general';
-      const sessionKey = `${kbIntegrationId}-${departmentRole}`;
+      const departmentSlug = kbEvent.departmentSlug ?? 'general';
+      const departmentId = kbEvent.departmentId;
 
       // Only create if status is processing (not idle)
       if (kbEvent.status === 'processing' && kbEvent.messages.total > 0) {
         const newSession = {
           sessionKey,
-          integrationId: kbIntegrationId,
+          integrationId,
           integrationName: kbEvent.messageSourceName,
-          departmentRole,
+          departmentSlug,
+          departmentId,
           status: 'processing' as const,
           stage: 'kb-processing',
           total: kbEvent.messages.total,
@@ -216,27 +192,18 @@ export const makeKBHandlers = ({
   const handleKBCompleted = (data: unknown) => {
     const kbEvent = data as KBCompletedEvent;
 
-    // Try to find existing email processing session first
+    if (filterByOrganization && kbEvent.organizationId !== filterByOrganization) {
+      return;
+    }
+
     const kbIntegrationId = kbEvent.messageSourceId;
-    const possibleKeys = [
-      `${kbIntegrationId}-general`,
-      `${kbIntegrationId}-support`,
-      `${kbIntegrationId}-sales`,
-      `${kbIntegrationId}-billing`,
-      kbEvent.departmentRole ? `${kbIntegrationId}-${kbEvent.departmentRole}` : null,
-    ].filter((key): key is string => key !== null);
+    const kbSessionKey = `${kbIntegrationId}`;
+    const completionStatus = kbEvent.forced ? 'error' : 'complete';
 
     setSessions((prev) => {
       const newSessions = new Map(prev);
 
-      // Try to find existing session for this integration
-      let existingKey: string | null = null;
-      for (const key of possibleKeys) {
-        if (newSessions.has(key)) {
-          existingKey = key;
-          break;
-        }
-      }
+      const existingKey: string | null = newSessions.has(kbSessionKey) ? kbSessionKey : null;
 
       // If existing session found, merge KB completion into it
       if (existingKey) {
@@ -246,9 +213,9 @@ export const makeKBHandlers = ({
         }
         newSessions.set(existingKey, {
           ...existing,
-          status: 'complete',
+          status: completionStatus,
           isProcessing: false,
-          progress: 100,
+          progress: kbEvent.forced ? existing.progress : 100,
           totalTime: kbEvent.duration,
           kbEntriesTotal: kbEvent.kbEntries?.total,
           kbQAPairs: kbEvent.kbEntries?.qaPairs,
@@ -267,17 +234,17 @@ export const makeKBHandlers = ({
 
       // No existing session found - KB completed without email session
       // Create a completed session to show the final results
-      const completedIntegrationId = kbEvent.messageSourceId;
-      const departmentRole = kbEvent.departmentRole ?? 'general';
-      const sessionKey = `${completedIntegrationId}-${departmentRole}`;
+      const departmentSlug = kbEvent.departmentSlug ?? 'general';
+      const departmentId = kbEvent.departmentId;
 
-      // Create a brief completed session to show results
-      if (kbEvent.messages.total > 0) {
-        newSessions.set(sessionKey, {
-          sessionKey,
-          integrationId: completedIntegrationId,
+      // Create a brief completed session to show results (skip forced completions — no useful data to show)
+      if (kbEvent.messages.total > 0 && !kbEvent.forced) {
+        newSessions.set(kbSessionKey, {
+          sessionKey: kbSessionKey,
+          integrationId: kbIntegrationId,
           integrationName: kbEvent.messageSourceName,
-          departmentRole,
+          departmentSlug,
+          departmentId,
           status: 'complete',
           stage: 'kb-processing',
           total: kbEvent.messages.total,

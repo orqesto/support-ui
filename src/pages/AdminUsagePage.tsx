@@ -80,8 +80,10 @@ export const AdminUsagePage = () => {
   useEffect(() => {
     const fetchUsage = async () => {
       try {
+        // TODO(P6-M-03): server-side sorting and cursor-based pagination needed for large deployments.
+        // Using a large page size here to reduce the chance of missing high-usage orgs when sorting client-side.
         const response = await apiClient.get<{ data: OrganizationUsage[] }>(
-          '/api/admin/organizations/usage'
+          '/api/admin/organizations/usage?limit=1000'
         );
         setOrganizations(response.data.data || []);
       } catch (error) {

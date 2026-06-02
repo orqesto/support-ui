@@ -6,7 +6,7 @@ export type KBEntry = {
   title: string;
   content: string;
   category: string;
-  departmentRole: string;
+  departmentId: number | null;
   qualityScore: number;
   approved: boolean;
   hidden: boolean;

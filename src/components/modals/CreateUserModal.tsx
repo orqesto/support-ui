@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { departmentService, type Department } from '@/services/department.service';
+import type { OrganizationRole } from '@/types/roles';
 
 type CreateUserModalProps = {
   isOpen: boolean;
@@ -14,8 +16,8 @@ type CreateUserModalProps = {
     lastName?: string;
     position?: string;
     role?: 'admin' | 'user';
-    organizationRole: 'org_admin' | 'moderator' | 'support' | 'associate';
-    departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+    organizationRole: OrganizationRole;
+    departmentIds: number[];
   }) => Promise<void>;
 };
 
@@ -26,10 +28,23 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   const [lastName, setLastName] = useState('');
   const [position, setPosition] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>('user');
-  const [organizationRole, setOrganizationRole] = useState<'org_admin' | 'moderator' | 'support' | 'associate'>('associate');
-  const [departmentRole, setDepartmentRole] = useState<'support' | 'sales' | 'billing' | 'general' | 'hr'>('general');
+  const [organizationRole, setOrganizationRole] = useState<OrganizationRole>('associate');
+  const [departmentId, setDepartmentId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      departmentService
+        .getAll()
+        .then((depts) => {
+          setDepartments(depts);
+          if (depts.length > 0) setDepartmentId((prev) => prev ?? depts[0].id);
+        })
+        .catch(() => setDepartments([]));
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -56,9 +71,9 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
         position: position || undefined,
         role,
         organizationRole,
-        departmentRole,
+        departmentIds: departmentId ? [departmentId] : [],
       });
-      
+
       // Reset form
       setEmail('');
       setPassword('');
@@ -67,7 +82,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
       setPosition('');
       setRole('user');
       setOrganizationRole('associate');
-      setDepartmentRole('general');
+      setDepartmentId(departments[0]?.id ?? null);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user');
@@ -85,13 +100,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
     { value: 'associate', label: 'Associate' },
   ];
 
-  const departmentRoleOptions = [
-    { value: 'general', label: 'General' },
-    { value: 'support', label: 'Support' },
-    { value: 'sales', label: 'Sales' },
-    { value: 'billing', label: 'Billing' },
-    { value: 'hr', label: 'HR' },
-  ];
+  const departmentOptions = departments.map((dept) => ({ value: String(dept.id), label: dept.name }));
 
   const globalRoleOptions = [
     { value: 'user', label: 'User' },
@@ -194,17 +203,17 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           <ReactSelect
             label="Organization Role"
             value={organizationRole}
-            onChange={(value) => setOrganizationRole(value as 'org_admin' | 'moderator' | 'support' | 'associate')}
+            onChange={(value) => setOrganizationRole(value as OrganizationRole)}
             options={organizationRoleOptions}
             placeholder="Select organization role"
           />
 
           <ReactSelect
             label="Department"
-            value={departmentRole}
-            onChange={(value) => setDepartmentRole(value as 'support' | 'sales' | 'billing' | 'general' | 'hr')}
-            options={departmentRoleOptions}
-            placeholder="Select department"
+            value={String(departmentId ?? '')}
+            onChange={(value) => setDepartmentId(value ? Number(value) : null)}
+            options={departmentOptions}
+            placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
           />
 
           {error && (

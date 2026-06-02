@@ -1,4 +1,5 @@
 import { ShieldX, Mail, AlertTriangle, Info, X } from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
@@ -34,7 +35,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary">{log.channel}</Badge>
         <Badge variant="default">{log.category}</Badge>
-        {log.departmentRole && <Badge variant="secondary">{log.departmentRole}</Badge>}
+        {log.departmentId !== null && <DepartmentBadge departmentId={log.departmentId} />}
         <Badge variant="default" className={`${getSeverityColor(log.severity)} text-white`}>
           Severity: {log.severity}
         </Badge>

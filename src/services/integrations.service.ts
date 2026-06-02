@@ -83,7 +83,7 @@ export type BaseIntegration = {
     | 'ollama'
     | 'local_embeddings';
   enabled: boolean;
-  departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentId?: number | null;
   isDefault?: boolean;
   isKnowledgeBase?: boolean; // If true, extract Q&A pairs for KB (email/gmail only)
   createdAt: string;
@@ -299,6 +299,30 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
+  getSourceDepartments: async (
+    id: number
+  ): Promise<
+    ApiResponse<{ id: number; departmentId: number; isDefault: boolean; name: string; slug: string; color: string | null }[]>
+  > => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: { id: number; departmentId: number; isDefault: boolean; name: string; slug: string; color: string | null }[];
+    }>(`/api/integrations/${id}/departments`);
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  setSourceDepartments: async (
+    id: number,
+    departmentIds: number[],
+    defaultDepartmentId?: number
+  ): Promise<ApiResponse<void>> => {
+    const response = await apiClient.put<{ success: boolean }>(
+      `/api/integrations/${id}/departments`,
+      { departmentIds, defaultDepartmentId }
+    );
+    return { success: response.data.success };
+  },
+
   /**
    * @deprecated Use ticketingSystemsService.setDefault instead
    * This method is kept for backwards compatibility but uses the new endpoint
@@ -310,7 +334,7 @@ export const integrationsService = {
     ApiResponse<{
       id: number;
       name: string;
-      departmentRole: string;
+      departmentId: number | null;
       isDefault: boolean;
     }>
   > => {
@@ -320,7 +344,7 @@ export const integrationsService = {
       data: {
         id: number;
         name: string;
-        departmentRole: string;
+        departmentId: number | null;
         isDefault: boolean;
       };
     }>(`/api/ticketing-systems/${id}/set-default?type=${type}`);
@@ -329,80 +353,5 @@ export const integrationsService = {
       message: response.data.message,
       data: response.data.data,
     };
-  },
-};
-
-// Jira-specific service
-export const jiraService = {
-  getAll: async (): Promise<ApiResponse<JiraIntegration[]>> => {
-    const response = await apiClient.get<{ success: boolean; data: JiraIntegration[] }>(
-      '/api/integrations/jira'
-    );
-    return { success: response.data.success, data: response.data.data };
-  },
-
-  create: async (data: {
-    name: string;
-    enabled?: boolean;
-    config: JiraConfig;
-  }): Promise<ApiResponse<JiraIntegration>> => {
-    const response = await apiClient.post<{ success: boolean; data: JiraIntegration }>(
-      '/api/integrations/jira',
-      {
-        ...data,
-        enabled: data.enabled ?? true,
-      }
-    );
-    return { success: response.data.success, data: response.data.data };
-  },
-};
-
-// Telegram-specific service
-export const telegramService = {
-  getAll: async (): Promise<ApiResponse<TelegramIntegration[]>> => {
-    const response = await apiClient.get<{ success: boolean; data: TelegramIntegration[] }>(
-      '/api/integrations/telegram'
-    );
-    return { success: response.data.success, data: response.data.data };
-  },
-
-  create: async (data: {
-    name: string;
-    enabled?: boolean;
-    config: TelegramConfig;
-  }): Promise<ApiResponse<TelegramIntegration>> => {
-    const response = await apiClient.post<{ success: boolean; data: TelegramIntegration }>(
-      '/api/integrations/telegram',
-      {
-        ...data,
-        enabled: data.enabled ?? true,
-      }
-    );
-    return { success: response.data.success, data: response.data.data };
-  },
-};
-
-// Slack-specific service
-export const slackService = {
-  getAll: async (): Promise<ApiResponse<SlackIntegration[]>> => {
-    const response = await apiClient.get<{ success: boolean; data: SlackIntegration[] }>(
-      '/api/integrations/slack'
-    );
-    return { success: response.data.success, data: response.data.data };
-  },
-
-  create: async (data: {
-    name: string;
-    enabled?: boolean;
-    config: SlackConfig;
-  }): Promise<ApiResponse<SlackIntegration>> => {
-    const response = await apiClient.post<{ success: boolean; data: SlackIntegration }>(
-      '/api/integrations/slack',
-      {
-        ...data,
-        enabled: data.enabled ?? true,
-      }
-    );
-    return { success: response.data.success, data: response.data.data };
   },
 };

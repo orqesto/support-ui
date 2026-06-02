@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import {
   MessageSquare,
   Send,
@@ -24,7 +25,7 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
+import { apiClient } from '@/lib/api-client';
 import {
   getSocket,
   subscribeToEvent,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/socketManager';
 import { formatDate } from '@/lib/utils';
 import { commentsService, type Comment } from '@/services/comments.service';
+import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
 type TicketCommentsProps = {
@@ -49,8 +51,8 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
+  const currentUserRole = useAuthStore((state) => state.user?.role ?? null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
@@ -82,21 +84,6 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   }, [ticketId, onCountChange]);
 
   useEffect(() => {
-    // Get current user from token
-    const token = getAuthToken();
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1])) as {
-          userId: number;
-          role: string;
-        };
-        setCurrentUserId(payload.userId);
-        setCurrentUserRole(payload.role);
-      } catch (err) {
-        logger.error('Failed to parse token:', err);
-      }
-    }
-
     fetchComments().catch((error) => {
       logger.error('Failed to fetch comments:', error);
     });
@@ -453,7 +440,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                 <>
                   <div
                     className="max-w-none text-sm prose prose-sm"
-                    dangerouslySetInnerHTML={{ __html: comment.content }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(comment.content, { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'code', 'pre'], ALLOWED_ATTR: [] }) }}
                   />
                   {/* Attachments */}
                   {comment.attachments && comment.attachments.length > 0 && (
@@ -472,15 +459,19 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                               {formatFileSize(attachment.size)}
                             </p>
                           </div>
-                          <a
-                            href={`${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${getAuthToken()}`}
-                            download={attachment.originalFilename}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => {
+                              void apiClient.get(`/api/attachments/${attachment.id}/download`, { responseType: 'blob' }).then((response) => {
+                                const url = URL.createObjectURL(response.data as Blob);
+                                const anchor = document.createElement('a');
+                                anchor.href = url; anchor.download = attachment.originalFilename; anchor.click();
+                                URL.revokeObjectURL(url);
+                              });
+                            }}
                             className="p-1 rounded hover:bg-accent"
                           >
                             <Download className="w-4 h-4 text-gray-600" />
-                          </a>
+                          </button>
                           {canEditComment(comment) && (
                             <Button
                               variant="ghost"

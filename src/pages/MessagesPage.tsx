@@ -125,7 +125,6 @@ export const MessagesPage = () => {
     handleRefresh,
     clearCache,
   } = useMessagesData({ urlSyncedRef });
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const threads: MessageThread[] = rawThreads;
 
   const pagination = messagesPagination;
@@ -192,11 +191,9 @@ export const MessagesPage = () => {
       // Preferred starting message: same one the list shows analysis badges for
       const preferredId = thread.latestIncomingMessage?.id ?? anchorId;
       try {
-        const { data: threadMessages } = await messageService.getThreadMessages(anchorId);
-        if (threadMessages && threadMessages.length > 0) {
-          const messageToShow =
-            threadMessages.find((msg) => msg.id === preferredId) ??
-            threadMessages[threadMessages.length - 1];
+        const res = await messageService.getById(preferredId);
+        if (res.success && res.data) {
+          const messageToShow = res.data;
           fetchedMessageIdRef.current = messageToShow.id;
           setSelectedMessage({
             ...messageToShow,
@@ -291,7 +288,8 @@ export const MessagesPage = () => {
       if (response.success && response.data) {
         setSelectedMessage({
           ...response.data,
-          lastReplyFromClient: response.data.lastReplyFromClient ?? selectedMessage.lastReplyFromClient,
+          lastReplyFromClient:
+            response.data.lastReplyFromClient ?? selectedMessage.lastReplyFromClient,
         });
       }
       if (!abortController.signal.aborted) {
@@ -395,7 +393,6 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
-    (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0) +
     (!isKanban && filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
   // Full count (no isKanban gate) — used for "Clear All" disabled state so that
   // list-mode filters set before switching to kanban can still be cleared.
@@ -409,7 +406,6 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
-    (filters.departmentRole && filters.departmentRole !== 'all' ? 1 : 0) +
     (filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
 
   return (
@@ -484,7 +480,8 @@ export const MessagesPage = () => {
                     const status = filters.status ?? 'all';
                     if (status === 'all') filterObj.view = 'work_queue';
                     else if (status === 'active') filterObj.view = 'active';
-                    else if (status === 'awaiting_response') filterObj.awaitingCustomerResponse = 'true';
+                    else if (status === 'awaiting_response')
+                      filterObj.awaitingCustomerResponse = 'true';
                     else if (status === 'client_replied') filterObj.customerResponded = 'true';
                     else if (status === 'suspicious') filterObj.view = 'suspicious';
                     else if (status === 'not_analysed') filterObj.view = 'not_analysed';
@@ -494,7 +491,8 @@ export const MessagesPage = () => {
                     if (filters.messageSourceId && filters.messageSourceId !== 'all')
                       filterObj.messageSourceId = filters.messageSourceId;
                     if (filters.assigneeId && filters.assigneeId !== 'all')
-                      filterObj.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+                      filterObj.assigneeId =
+                        filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
                     if (filters.aiState === 'lead') filterObj.isLead = 'true';
                     if (filters.aiState === 'needs_review') filterObj.needsHumanReview = 'true';
                     if (filters.aiState === 'needs_info') filterObj.showNeedsInfo = 'true';
@@ -505,7 +503,8 @@ export const MessagesPage = () => {
                     if (filters.linked === 'has_jira') filterObj.hasJiraTicket = 'true';
                     if (filters.priority && filters.priority !== 'all')
                       filterObj.priority = filters.priority;
-                    if (filters.labelId && filters.labelId !== 'all') filterObj.labelId = filters.labelId;
+                    if (filters.labelId && filters.labelId !== 'all')
+                      filterObj.labelId = filters.labelId;
                     if (filters.search?.trim()) filterObj.search = filters.search.trim();
                     return filterObj;
                   })()}

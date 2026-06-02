@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { getChannelIcon, getCategoryDisplay } from '@/lib/messageHelpers';
-import { formatDate, formatAge } from '@/lib/utils';
+import { formatDate, formatAge, safeCssColor } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 import { MessageSignalBadges } from './MessageSignalBadges';
 
@@ -40,7 +40,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
         {/* Row 1: channel icon + sender + time + Open */}
         <div className="flex gap-2 items-center min-w-0">
           <span className="shrink-0 text-muted-foreground">{getChannelIcon(msg.channel)}</span>
-          <span className="flex-1 min-w-0 text-sm font-semibold truncate">{msg.sender}</span>
+          <span className="flex-1 min-w-0 text-sm font-semibold truncate">{thread.sender}</span>
           <span
             className="text-xs whitespace-nowrap text-muted-foreground shrink-0"
             title={`Received: ${formatDate(receivedAt)}`}
@@ -61,7 +61,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
 
         {/* Row 3: content preview */}
         <p className="pl-5 mt-1 text-sm break-words text-muted-foreground line-clamp-2">
-          {msg.content}
+          {msg.content ?? msg.subject ?? ''}
         </p>
 
         {/* Row 4: Assignee + linked ticket */}
@@ -76,17 +76,17 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
               {msg.assigneeName ?? 'User'}
             </Badge>
           )}
-          {msg.ticketId && (
+          {thread.hasTicket && (
             <Badge
               variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
               className="flex gap-1 items-center h-5 px-1.5"
               title={
                 thread.linkedTicketStatus
-                  ? `Ticket #${msg.ticketId} · ${thread.linkedTicketStatus.replace('_', ' ')}`
-                  : `Ticket #${msg.ticketId}`
+                  ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
+                  : 'Ticket'
               }
             >
-              <Ticket className="w-2.5 h-2.5" />#{msg.ticketId}
+              <Ticket className="w-2.5 h-2.5" />Ticket
               {thread.linkedTicketStatus === 'in_progress' && <span>· In progress</span>}
             </Badge>
           )}
@@ -160,7 +160,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: label.color }}
+                  style={{ backgroundColor: safeCssColor(label.color) }}
                 />
                 {label.name}
               </Badge>

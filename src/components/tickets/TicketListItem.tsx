@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { ListCard } from '@/components/ui/ListCard';
-import { formatDate, formatAge } from '@/lib/utils';
+import { formatDate, formatAge, safeCssColor } from '@/lib/utils';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 import { Permission } from '@/types/roles';
 
@@ -92,7 +92,7 @@ export const TicketListItem = ({
                 <span
                   key={label.id}
                   className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                  style={{ backgroundColor: label.color }}
+                  style={{ backgroundColor: safeCssColor(label.color) }}
                   title={label.name}
                 >
                   {label.name}

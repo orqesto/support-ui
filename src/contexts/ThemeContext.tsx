@@ -16,25 +16,10 @@ type ThemeProviderProps = {
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const root = window.document.documentElement;
-
-    // Check localStorage first
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme) {
-      root.classList.remove('light', 'dark');
-      root.classList.add(savedTheme);
-      return savedTheme;
-    }
-
-    // Check system preference
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      root.classList.remove('light', 'dark');
-      root.classList.add('dark');
-      return 'dark';
-    }
-
-    root.classList.remove('light', 'dark');
-    root.classList.add('light');
+    if (typeof window === 'undefined') return 'light';
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
     return 'light';
   });
 

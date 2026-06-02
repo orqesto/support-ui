@@ -7,7 +7,7 @@ import {
   Layers,
   Plug,
 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { AIConfigSettings } from '@/components/settings/AIConfigSettings';
@@ -20,16 +20,19 @@ import { SystemManagementSettings } from '@/components/settings/SystemManagement
 import { useAuthStore } from '@/stores/authStore';
 
 type TabType = 'profile' | 'organization' | 'ai' | 'integrations' | 'rules' | 'system';
+const VALID_TABS: TabType[] = ['profile', 'organization', 'ai', 'integrations', 'rules', 'system'];
 
 export const SettingsPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
 
-  const activeTab = (location.hash.replace('#', '') || 'profile') as TabType;
+  const hashTab = location.hash.replace('#', '') as TabType;
+  const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'profile';
 
   const handleTabChange = (tabId: TabType) => {
-    window.location.hash = tabId;
+    navigate('#' + tabId, { replace: true });
   };
 
   const tabs: Tab<TabType>[] = [
