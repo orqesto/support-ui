@@ -1,4 +1,5 @@
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Brain } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -24,7 +25,10 @@ type SpamRuleFormData = {
   active: boolean;
 };
 
+type RuleFilter = 'all' | 'manual' | 'feedback';
+
 export const SpamRulesSettings = () => {
+  const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
   const {
     loading,
     rules,
@@ -83,6 +87,13 @@ export const SpamRulesSettings = () => {
     }
   };
 
+  const feedbackCount = rules.filter((rule) => rule.name.startsWith('feedback_')).length;
+  const filteredRules = rules.filter((rule) => {
+    if (ruleFilter === 'feedback') return rule.name.startsWith('feedback_');
+    if (ruleFilter === 'manual') return !rule.name.startsWith('feedback_');
+    return true;
+  });
+
   const getSeverityVariant = (severity: number): 'danger' | 'warning' | 'default' | 'secondary' => {
     if (severity >= 50) return 'danger';
     if (severity >= 25) return 'warning';
@@ -117,187 +128,279 @@ export const SpamRulesSettings = () => {
       <div className="p-4 space-y-1 rounded-lg border bg-amber-500/10 border-amber-500/20">
         <p className="text-sm text-amber-600 dark:text-amber-400">
           <strong>Severity:</strong> 1–49 = Flag for review · 50–99 = Mark as spam ·{' '}
-          <strong className="text-red-600 dark:text-red-400">100 = Auto-reject (not saved to DB)</strong>
+          <strong className="text-red-600 dark:text-red-400">
+            100 = Auto-reject (not saved to DB)
+          </strong>
         </p>
       </div>
+
+      {/* Filter tabs */}
+      {!loading && rules.length > 0 && (
+        <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
+          {(['all', 'manual', 'feedback'] as RuleFilter[]).map((filter) => {
+            const label =
+              filter === 'all'
+                ? `All (${rules.length})`
+                : filter === 'manual'
+                  ? `Manual (${rules.length - feedbackCount})`
+                  : `Auto-learned (${feedbackCount})`;
+            return (
+              <button
+                key={filter}
+                onClick={() => setRuleFilter(filter)}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {filter === 'feedback' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Rules Table */}
       {loading ? (
         <div className="py-12 text-center text-muted-foreground">Loading rules...</div>
-      ) : rules.length === 0 ? (
+      ) : filteredRules.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
-          No spam rules configured. Add your first rule to get started.
+          {rules.length === 0
+            ? 'No spam rules configured. Add your first rule to get started.'
+            : 'No rules match the selected filter.'}
         </div>
       ) : (
         <>
-        <div className="hidden lg:block overflow-x-auto rounded-lg border">
-          <table className="min-w-full divide-y divide-border">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Name</th>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Category</th>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Description</th>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">Pattern</th>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-center uppercase text-muted-foreground">Severity</th>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-center uppercase text-muted-foreground">Status</th>
-                <th className="px-4 py-3 text-xs font-medium tracking-wider text-right uppercase text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y bg-background divide-border">
-              {rules.map((rule) => {
-                const isProtected = rule.category === 'security';
-                return (
-                  <tr key={rule.id} className="hover:bg-muted/50">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <p className="text-sm font-medium">{rule.name}</p>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        <DepartmentBadge department={rule.departmentRole} size="sm" />
-                        {isProtected && (
-                          <Badge variant="danger" className="text-xs">🔒 Protected</Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      <Badge variant="secondary" className="capitalize">{rule.category}</Badge>
-                    </td>
-                    <td className="px-4 py-3 max-w-xs text-sm truncate text-muted-foreground">
-                      {rule.description}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {rule.pattern ? (
-                        <code className="block max-w-[180px] truncate px-2 py-0.5 font-mono text-xs rounded bg-muted">
-                          {rule.pattern}
-                        </code>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <div className="flex flex-col gap-1 items-center">
-                        <Badge variant={getSeverityVariant(rule.severity)}>{rule.severity}</Badge>
-                        {rule.severity >= 100 && (
-                          <Badge variant="danger" className="text-xs">🚫 Auto-Reject</Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <button
-                        onClick={() => !isProtected && toggleActive(rule.id)}
-                        disabled={isProtected}
-                        className="inline-flex gap-1 items-center transition-colors hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={isProtected ? 'Security rules cannot be disabled' : rule.active ? 'Deactivate' : 'Activate'}
-                      >
-                        {rule.active ? (
-                          <>
-                            <Eye className="w-4 h-4 text-green-600" />
-                            <span className="text-xs text-green-600">Active</span>
-                          </>
+          <div className="hidden lg:block overflow-x-auto rounded-lg border">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                    Category
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                    Pattern
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-center uppercase text-muted-foreground">
+                    Severity
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-center uppercase text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-right uppercase text-muted-foreground">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y bg-background divide-border">
+                {filteredRules.map((rule) => {
+                  const isProtected = rule.category === 'security';
+                  const isFeedback = rule.name.startsWith('feedback_');
+                  return (
+                    <tr key={rule.id} className="hover:bg-muted/50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-sm font-medium">{rule.name}</p>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          <DepartmentBadge departmentId={rule.departmentId} size="sm" />
+                          {isProtected && (
+                            <Badge variant="danger" className="text-xs">
+                              🔒 Protected
+                            </Badge>
+                          )}
+                          {isFeedback && (
+                            <Badge variant="secondary" className="text-xs gap-0.5">
+                              <Brain className="w-2.5 h-2.5" />
+                              Auto-learned
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        <Badge variant="secondary" className="capitalize">
+                          {rule.category}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 max-w-xs text-sm truncate text-muted-foreground">
+                        {rule.description}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {rule.pattern ? (
+                          <code className="block max-w-[180px] truncate px-2 py-0.5 font-mono text-xs rounded bg-muted">
+                            {rule.pattern}
+                          </code>
                         ) : (
-                          <>
-                            <EyeOff className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Inactive</span>
-                          </>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(rule)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center">
+                        <div className="flex flex-col gap-1 items-center">
+                          <Badge variant={getSeverityVariant(rule.severity)}>{rule.severity}</Badge>
+                          {rule.severity >= 100 && (
+                            <Badge variant="danger" className="text-xs">
+                              🚫 Auto-Reject
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center">
+                        <button
+                          onClick={() => !isProtected && toggleActive(rule.id)}
                           disabled={isProtected}
-                          title={isProtected ? 'Security rules cannot be edited' : 'Edit'}
+                          className="inline-flex gap-1 items-center transition-colors hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={
+                            isProtected
+                              ? 'Security rules cannot be disabled'
+                              : rule.active
+                                ? 'Deactivate'
+                                : 'Activate'
+                          }
                         >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(rule)}
-                          disabled={isProtected}
-                          title={isProtected ? 'Security rules cannot be deleted' : 'Delete'}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:text-muted-foreground"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          {rule.active ? (
+                            <>
+                              <Eye className="w-4 h-4 text-green-600" />
+                              <span className="text-xs text-green-600">Active</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Inactive</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
+                        <div className="flex gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(rule)}
+                            disabled={isProtected || isFeedback}
+                            title={
+                              isProtected
+                                ? 'Security rules cannot be edited'
+                                : isFeedback
+                                  ? 'Auto-learned rules cannot be edited'
+                                  : 'Edit'
+                            }
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(rule)}
+                            disabled={isProtected}
+                            title={isProtected ? 'Security rules cannot be deleted' : 'Delete'}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:text-muted-foreground"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Mobile cards */}
-        <div className="lg:hidden space-y-3">
-          {rules.map((rule) => {
-            const isProtected = rule.category === 'security';
-            return (
-              <div key={rule.id} className="p-4 rounded-lg border bg-card space-y-3">
-                <div className="flex justify-between items-start gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{rule.name}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      <Badge variant="secondary" className="capitalize">{rule.category}</Badge>
-                      <DepartmentBadge department={rule.departmentRole} size="sm" />
-                      {isProtected && <Badge variant="danger" className="text-xs">🔒 Protected</Badge>}
+          {/* Mobile cards */}
+          <div className="lg:hidden space-y-3">
+            {filteredRules.map((rule) => {
+              const isProtected = rule.category === 'security';
+              const isFeedback = rule.name.startsWith('feedback_');
+              return (
+                <div key={rule.id} className="p-4 rounded-lg border bg-card space-y-3">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{rule.name}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Badge variant="secondary" className="capitalize">
+                          {rule.category}
+                        </Badge>
+                        <DepartmentBadge departmentId={rule.departmentId} size="sm" />
+                        {isProtected && (
+                          <Badge variant="danger" className="text-xs">
+                            🔒 Protected
+                          </Badge>
+                        )}
+                        {isFeedback && (
+                          <Badge variant="secondary" className="text-xs gap-0.5">
+                            <Brain className="w-2.5 h-2.5" />
+                            Auto-learned
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(rule)}
+                        disabled={isProtected || isFeedback}
+                        title={
+                          isProtected
+                            ? 'Security rules cannot be edited'
+                            : isFeedback
+                              ? 'Auto-learned rules cannot be edited'
+                              : 'Edit'
+                        }
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(rule)}
+                        disabled={isProtected}
+                        title={isProtected ? 'Security rules cannot be deleted' : 'Delete'}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:text-muted-foreground"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(rule)}
+                  <p className="text-sm text-muted-foreground">{rule.description}</p>
+                  {rule.pattern && (
+                    <code className="block px-2 py-1 font-mono text-xs rounded bg-muted break-all">
+                      {rule.pattern}
+                    </code>
+                  )}
+                  <div className="flex flex-wrap gap-2 items-center justify-between">
+                    <div className="flex flex-wrap gap-1 items-center">
+                      <Badge variant={getSeverityVariant(rule.severity)}>{rule.severity}</Badge>
+                      {rule.severity >= 100 && (
+                        <Badge variant="danger" className="text-xs">
+                          🚫 Auto-Reject
+                        </Badge>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => !isProtected && toggleActive(rule.id)}
                       disabled={isProtected}
-                      title={isProtected ? 'Security rules cannot be edited' : 'Edit'}
+                      className="inline-flex gap-1 items-center transition-colors hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteClick(rule)}
-                      disabled={isProtected}
-                      title={isProtected ? 'Security rules cannot be deleted' : 'Delete'}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:text-muted-foreground"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      {rule.active ? (
+                        <>
+                          <Eye className="w-4 h-4 text-green-600" />
+                          <span className="text-xs text-green-600">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Inactive</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">{rule.description}</p>
-                {rule.pattern && (
-                  <code className="block px-2 py-1 font-mono text-xs rounded bg-muted break-all">{rule.pattern}</code>
-                )}
-                <div className="flex flex-wrap gap-2 items-center justify-between">
-                  <div className="flex flex-wrap gap-1 items-center">
-                    <Badge variant={getSeverityVariant(rule.severity)}>{rule.severity}</Badge>
-                    {rule.severity >= 100 && <Badge variant="danger" className="text-xs">🚫 Auto-Reject</Badge>}
-                  </div>
-                  <button
-                    onClick={() => !isProtected && toggleActive(rule.id)}
-                    disabled={isProtected}
-                    className="inline-flex gap-1 items-center transition-colors hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {rule.active ? (
-                      <>
-                        <Eye className="w-4 h-4 text-green-600" />
-                        <span className="text-xs text-green-600">Active</span>
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Inactive</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         </>
       )}
 
@@ -366,7 +469,9 @@ export const SpamRulesSettings = () => {
                   max="100"
                   step="5"
                   value={formData.severity}
-                  onChange={(event) => setFormData({ ...formData, severity: parseInt(event.target.value) })}
+                  onChange={(event) =>
+                    setFormData({ ...formData, severity: parseInt(event.target.value) })
+                  }
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -384,7 +489,9 @@ export const SpamRulesSettings = () => {
                 onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
                 className="rounded"
               />
-              <label htmlFor="active" className="text-sm">Active</label>
+              <label htmlFor="active" className="text-sm">
+                Active
+              </label>
             </div>
           </div>
           <DialogFooter>
@@ -392,7 +499,11 @@ export const SpamRulesSettings = () => {
               <X className="mr-1 w-4 h-4" />
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name || !formData.description} className="gap-1">
+            <Button
+              onClick={handleSave}
+              disabled={!formData.name || !formData.description}
+              className="gap-1"
+            >
               <Save className="w-4 h-4" />
               Save
             </Button>
@@ -408,10 +519,13 @@ export const SpamRulesSettings = () => {
             <DialogClose onClose={handleDeleteCancel} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete &quot;{ruleToDelete?.name}&quot;? This action cannot be undone.
+            Are you sure you want to delete &quot;{ruleToDelete?.name}&quot;? This action cannot be
+            undone.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={handleDeleteCancel}>Cancel</Button>
+            <Button variant="outline" onClick={handleDeleteCancel}>
+              Cancel
+            </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
               <Trash2 className="mr-1 w-4 h-4" />
               Delete

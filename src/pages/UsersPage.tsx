@@ -23,12 +23,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
+import { departmentService, type Department } from '@/services/department.service';
 import { invitationService } from '@/services/invitation.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useUsersStore } from '@/stores/usersStore';
 import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
+import type { OrganizationRole } from '@/types/roles';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
@@ -57,6 +59,8 @@ export const UsersPage = () => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
+
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   // Use users store
   const usersFromStore = useUsersStore((state) => state.users);
@@ -97,8 +101,14 @@ export const UsersPage = () => {
       fetchUsers().catch((error) => {
         logger.error('Failed to fetch users:', error);
       });
+      departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
     }
   }, [canViewUsers, fetchUsers]);
+
+  const deptNameById = (id: number) => {
+    const found = departments.find((dep) => dep.id === id);
+    return found?.name ?? `Department ${id}`;
+  };
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
@@ -120,11 +130,11 @@ export const UsersPage = () => {
 
   const handleInviteUser = async (
     email: string,
-    role: string,
-    departmentRole: string,
+    role: OrganizationRole,
+    departmentId: number,
     organizationId: number
   ) => {
-    await invitationService.invite(email, role, departmentRole, organizationId);
+    await invitationService.invite(email, role, departmentId, organizationId);
     // Optionally refresh users list or show a success message
   };
 
@@ -135,8 +145,8 @@ export const UsersPage = () => {
     lastName?: string;
     position?: string;
     role?: 'admin' | 'user';
-    organizationRole: 'org_admin' | 'moderator' | 'support' | 'associate';
-    departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+    organizationRole: OrganizationRole;
+    departmentIds: number[];
   }) => {
     await userService.create(data);
     await fetchUsers();
@@ -404,14 +414,14 @@ export const UsersPage = () => {
                                     {roleDisplayNames[user.organizationRole]}
                                   </Badge>
                                 )}
-                                {user.departmentRoles && user.departmentRoles.length > 0 && (
+                                {user.departmentIds && user.departmentIds.length > 0 && (
                                   <>
-                                    {user.departmentRoles.map((dept) => (
+                                    {user.departmentIds.map((deptId) => (
                                       <Badge
-                                        key={dept}
+                                        key={deptId}
                                         className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
                                       >
-                                        {dept.charAt(0).toUpperCase() + dept.slice(1)}
+                                        {deptNameById(deptId)}
                                       </Badge>
                                     ))}
                                   </>
@@ -502,14 +512,14 @@ export const UsersPage = () => {
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              {user.departmentRoles && user.departmentRoles.length > 0 ? (
+                              {user.departmentIds && user.departmentIds.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                  {user.departmentRoles.map((dept) => (
+                                  {user.departmentIds.map((deptId) => (
                                     <Badge
-                                      key={dept}
+                                      key={deptId}
                                       className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
                                     >
-                                      {dept.charAt(0).toUpperCase() + dept.slice(1)}
+                                      {deptNameById(deptId)}
                                     </Badge>
                                   ))}
                                 </div>

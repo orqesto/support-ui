@@ -27,6 +27,7 @@ export const RoutingKeysSettings = () => {
   const [savingMode, setSavingMode] = useState(false);
   const [allowSelfEditSkills, setAllowSelfEditSkills] = useState(false);
   const [savingSelfEdit, setSavingSelfEdit] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchKeys = async () => {
     setLoading(true);
@@ -87,12 +88,13 @@ export const RoutingKeysSettings = () => {
 
   const handleDelete = async () => {
     if (!deleteDialog.key) return;
+    setDeleteError(null);
     try {
       await organizationService.deleteRoutingKey(deleteDialog.key);
       setDeleteDialog({ open: false, key: null });
       await fetchKeys();
     } catch {
-      // ignore
+      setDeleteError('Failed to delete routing key. Please try again.');
     }
   };
 
@@ -231,9 +233,13 @@ export const RoutingKeysSettings = () => {
         </div>
       )}
 
+      {deleteError && (
+        <p className="text-sm text-destructive">{deleteError}</p>
+      )}
+
       <ConfirmDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ open, key: null })}
+        onOpenChange={(open) => { setDeleteDialog({ open, key: null }); setDeleteError(null); }}
         onConfirm={() => void handleDelete()}
         title="Delete Routing Key"
         description={

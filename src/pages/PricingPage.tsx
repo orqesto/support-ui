@@ -241,7 +241,7 @@ export const PricingPage = () => {
           <h2 className="mb-6 text-2xl font-bold text-center">Frequently Asked Questions</h2>
           <div className="space-y-6">
             {[
-              { question: 'Can I change plans later?', answer: 'Yes, you can upgrade or downgrade your plan at any time. Changes take effect at the next billing cycle.' },
+              { question: 'Can I change plans later?', answer: 'Yes, you can upgrade or downgrade your plan at any time. Plan changes take effect immediately.' },
               { question: 'What happens if I exceed my limits?', answer: "For AI modules, you'll be charged the overage rate shown. For user/storage limits, you'll need to upgrade your plan." },
               { question: 'Is there a free trial?', answer: 'Yes, all plans come with a 14-day free trial. No credit card required.' },
             ].map(({ question, answer }) => (

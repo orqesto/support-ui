@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { getSocket, subscribeToEvent, unsubscribeFromEvent, releaseSocket } from '@/lib/socketManager';
+import {
+  getSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+  releaseSocket,
+} from '@/lib/socketManager';
 import { integrationsService, type JiraIntegration } from '@/services/integrations.service';
 import { ticketService } from '@/services/ticket.service';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -33,17 +38,30 @@ export function useTicketsRealtime({
   // Fetch Jira integrations
   useEffect(() => {
     if (!hasPermission(Permission.VIEW_INTEGRATIONS)) return;
-    integrationsService.getAll()
+    integrationsService
+      .getAll()
       .then((response) => {
         if (response.success && response.data) {
-          const jiras = response.data.filter((intg) => intg.type === 'jira' && intg.enabled) as JiraIntegration[];
+          const jiras = response.data.filter(
+            (intg) => intg.type === 'jira' && intg.enabled
+          ) as JiraIntegration[];
           setJiraIntegrations(jiras);
           if (jiras.length === 1) setSelectedJiraId(jiras[0].id);
         }
       })
-      .catch((error) => { logger.error('Failed to fetch Jira integrations:', error); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch((error) => {
+        logger.error('Failed to fetch Jira integrations:', error);
+      });
   }, [user?.id]);
+
+  const selectedTicketRef = useRef(selectedTicket);
+  selectedTicketRef.current = selectedTicket;
+
+  const setSelectedTicketRef = useRef(setSelectedTicket);
+  setSelectedTicketRef.current = setSelectedTicket;
+
+  const paginationPageRef = useRef(paginationPage);
+  paginationPageRef.current = paginationPage;
 
   // WebSocket real-time updates
   useEffect(() => {
@@ -52,17 +70,26 @@ export function useTicketsRealtime({
     const handleTicketUpdate = (data: unknown) => {
       const ticketUpdate = data as { ticketId: number; jiraKey: string; changedFields?: string[] };
       clearCache();
-      fetchTicketsRef.current(paginationPage, true).catch((error) => { logger.error('Failed to fetch tickets:', error); });
-      if (selectedTicket && selectedTicket.id === ticketUpdate.ticketId) {
-        ticketService.getById(ticketUpdate.ticketId)
-          .then((response) => { if (response.success && response.data) setSelectedTicket(response.data); })
-          .catch((error) => { logger.error('Failed to refresh ticket:', error); });
+      fetchTicketsRef.current(paginationPageRef.current, true).catch((error) => {
+        logger.error('Failed to fetch tickets:', error);
+      });
+      if (selectedTicketRef.current && selectedTicketRef.current.id === ticketUpdate.ticketId) {
+        ticketService
+          .getById(ticketUpdate.ticketId)
+          .then((response) => {
+            if (response.success && response.data) setSelectedTicketRef.current(response.data);
+          })
+          .catch((error) => {
+            logger.error('Failed to refresh ticket:', error);
+          });
       }
     };
 
     const handleTicketCreated = (_data: unknown) => {
       clearCache();
-      fetchTicketsRef.current(paginationPage, true).catch((error) => { logger.error('Failed to fetch tickets after creation:', error); });
+      fetchTicketsRef.current(paginationPageRef.current, true).catch((error) => {
+        logger.error('Failed to fetch tickets after creation:', error);
+      });
     };
 
     subscribeToEvent('ticket:updated', handleTicketUpdate);
@@ -73,6 +100,5 @@ export function useTicketsRealtime({
       unsubscribeFromEvent('ticket:created', handleTicketCreated);
       releaseSocket();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paginationPage, selectedTicket, clearCache]);
+  }, [clearCache]);
 }

@@ -1,4 +1,5 @@
 import { ShieldX, AlertTriangle, Clock, ExternalLink, Paperclip } from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -114,11 +115,7 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => (
         )}
 
         {/* Department */}
-        {log.departmentRole && (
-          <Badge variant="secondary" className="h-5 px-1.5">
-            {log.departmentRole}
-          </Badge>
-        )}
+        {log.departmentId !== null && <DepartmentBadge departmentId={log.departmentId} />}
 
         {/* Source */}
         {log.messageSourceName && (

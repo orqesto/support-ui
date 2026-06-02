@@ -96,11 +96,11 @@ const PRIORITY_VARIANT = {
 
 // Allowed drag transitions — prevents logically invalid moves (e.g. closed → open)
 const VALID_TRANSITIONS: Record<string, Set<string>> = {
-  open:        new Set(['in_progress', 'pending', 'closed']),
+  open: new Set(['in_progress', 'pending', 'closed']),
   in_progress: new Set(['open', 'pending', 'resolved', 'closed']),
-  pending:     new Set(['open', 'in_progress']),
-  resolved:    new Set(['closed']),
-  closed:      new Set([]),
+  pending: new Set(['open', 'in_progress']),
+  resolved: new Set(['closed']),
+  closed: new Set([]),
 };
 
 const PAGE_SIZE = 20;
@@ -124,7 +124,8 @@ type TicketWithExtras = TicketType & TicketRuntimeExtras;
 
 // Shared card content used by both draggable cards and the drag overlay ghost
 function TicketCardContent({ ticket }: { ticket: TicketType }) {
-  const priorityVariant = PRIORITY_VARIANT[ticket.priority as keyof typeof PRIORITY_VARIANT] ?? 'default';
+  const priorityVariant =
+    PRIORITY_VARIANT[ticket.priority as keyof typeof PRIORITY_VARIANT] ?? 'default';
   const ticketWithExtras = ticket as TicketWithExtras;
 
   return (
@@ -181,11 +182,7 @@ function TicketKanbanCard({
       <GripVertical className="absolute top-2 right-2 w-3.5 h-3.5 text-muted-foreground/30 hover:text-muted-foreground/70 pointer-events-none" />
 
       {/* distance:8 activation means short taps still fire onClick without starting a drag */}
-      <button
-        type="button"
-        onClick={() => onOpen(ticket)}
-        className="w-full text-left p-3"
-      >
+      <button type="button" onClick={() => onOpen(ticket)} className="w-full text-left p-3">
         <TicketCardContent ticket={ticket} />
       </button>
     </div>
@@ -222,34 +219,30 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
       </div>
 
       {/* Cards */}
-      <div
-        className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]"
-      >
+      <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]">
         {state.loading && state.tickets.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
-            <div key={idx} className="min-w-[240px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0">
+            <div
+              key={idx}
+              className="min-w-[240px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+            >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
           ))
         ) : state.tickets.length === 0 ? (
-          <div className={`py-4 px-3 flex-1 rounded-md transition-colors ${isOver ? 'bg-muted/40 border-2 border-dashed border-border' : ''}`}>
+          <div
+            className={`py-4 px-3 flex-1 rounded-md transition-colors ${isOver ? 'bg-muted/40 border-2 border-dashed border-border' : ''}`}
+          >
             <p className="text-xs text-muted-foreground md:text-center">{col.emptyText}</p>
           </div>
         ) : (
           <>
             {state.tickets.map((ticket) => (
-              <TicketKanbanCard
-                key={ticket.id}
-                ticket={ticket}
-                colId={col.id}
-                onOpen={onOpen}
-              />
+              <TicketKanbanCard key={ticket.id} ticket={ticket} colId={col.id} onOpen={onOpen} />
             ))}
             {/* Drop target padding so there's always somewhere to drop at the bottom */}
-            {activeTicketId !== null && (
-              <div className="min-h-[60px] shrink-0" />
-            )}
+            {activeTicketId !== null && <div className="min-h-[60px] shrink-0" />}
             {state.hasMore && (
               <button
                 type="button"
@@ -282,7 +275,10 @@ type TicketsKanbanViewProps = {
 
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
-    COLUMNS.map((col) => [col.id, { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }])
+    COLUMNS.map((col) => [
+      col.id,
+      { tickets: [], total: 0, loading: true, hasMore: false, page: 1 },
+    ])
   );
 
 export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) => {
@@ -292,13 +288,21 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     if (filters.priority && filters.priority !== 'all') filterObj.priority = filters.priority;
     if (filters.assigneeId && filters.assigneeId !== 'all')
       filterObj.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-    if (filters.categoryId && filters.categoryId !== 'all') filterObj.categoryId = filters.categoryId;
+    if (filters.categoryId && filters.categoryId !== 'all')
+      filterObj.categoryId = filters.categoryId;
     if (filters.labelId && filters.labelId !== 'all') filterObj.labelId = filters.labelId;
     if (filters.search?.trim()) filterObj.search = filters.search.trim();
     if (filters.linked === 'synced_to_jira') filterObj.syncedToJira = 'true';
     else if (filters.linked === 'not_synced') filterObj.syncedToJira = 'false';
     return filterObj;
-  }, [filters.priority, filters.assigneeId, filters.categoryId, filters.labelId, filters.search, filters.linked]);
+  }, [
+    filters.priority,
+    filters.assigneeId,
+    filters.categoryId,
+    filters.labelId,
+    filters.search,
+    filters.linked,
+  ]);
 
   const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
 
@@ -316,7 +320,10 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     let cancelled = false;
     setColStates(
       Object.fromEntries(
-        COLUMNS.map((col) => [col.id, { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }])
+        COLUMNS.map((col) => [
+          col.id,
+          { tickets: [], total: 0, loading: true, hasMore: false, page: 1 },
+        ])
       )
     );
 
@@ -353,7 +360,6 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);
 
   const loadMore = useCallback((colId: string) => {
@@ -364,7 +370,13 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     const filterSnapshot = { ...sharedFiltersRef.current, status: col.status };
     void (async () => {
       try {
-        const res = await ticketService.getAll(filterSnapshot, nextPage, PAGE_SIZE, 'updatedAt', 'desc');
+        const res = await ticketService.getAll(
+          filterSnapshot,
+          nextPage,
+          PAGE_SIZE,
+          'updatedAt',
+          'desc'
+        );
         if (!res.success) return;
         setColStates((prev) => ({
           ...prev,
@@ -479,7 +491,9 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
           <KanbanColumn
             key={col.id}
             col={col}
-            state={colStates[col.id] ?? { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }}
+            state={
+              colStates[col.id] ?? { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }
+            }
             activeTicketId={activeTicket?.id ?? null}
             onLoadMore={() => loadMore(col.id)}
             onOpen={onOpen}

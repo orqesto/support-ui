@@ -32,7 +32,7 @@ export function TicketPanelTabs({
       id: 'messages',
       label: 'Messages',
       badge: linkedMessages.length > 0
-        ? new Set(linkedMessages.map((msg) => msg.threadId ?? `solo-${msg.id}`)).size
+        ? new Set(linkedMessages.map((msg) => msg.externalThreadId ?? `solo-${msg.id}`)).size
         : undefined,
     },
   ];
@@ -93,7 +93,7 @@ export function TicketPanelTabs({
               // Group by threadId; messages without one are shown individually
               const groups = new Map<string, typeof linkedMessages>();
               for (const msg of linkedMessages) {
-                const key = msg.threadId ?? `solo-${msg.id}`;
+                const key = msg.externalThreadId ?? `solo-${msg.id}`;
                 const arr = groups.get(key) ?? [];
                 arr.push(msg);
                 groups.set(key, arr);
@@ -102,7 +102,7 @@ export function TicketPanelTabs({
                 const sorted = [...msgs].sort(
                   (msgA, msgB) => new Date(msgA.createdAt).getTime() - new Date(msgB.createdAt).getTime()
                 );
-                const root = sorted.find((msg) => !msg.parentMessageId) ?? sorted[0];
+                const root = sorted[0];
                 const count = sorted.length;
                 return (
                   <Link

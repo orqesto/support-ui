@@ -138,8 +138,8 @@ export const LoginPage = () => {
           setTempToken(response.data.tempToken);
           setStep('totp');
           setInfo('Enter the 6-digit code from your authenticator app.');
-        } else if (response.data.token && response.data.user) {
-          login(response.data.token, response.data.user);
+        } else if (!response.data.twoFactorRequired && response.data.user) {
+          login(null, response.data.user);
           if (response.data.user.organizationId) {
             setSelectedOrganization(response.data.user.organizationId);
             logger.info(
@@ -168,7 +168,7 @@ export const LoginPage = () => {
     setIsLoading(true);
     try {
       const data = await twoFactorService.authenticate(tempToken, totpCode);
-      login(data.token, data.user as Parameters<typeof login>[1]);
+      login(null, data.user as Parameters<typeof login>[1]);
       const orgId = (data.user as { organizationId?: number }).organizationId;
       if (orgId) setSelectedOrganization(orgId);
       navigate('/dashboard');
@@ -186,7 +186,7 @@ export const LoginPage = () => {
     setIsLoading(true);
     try {
       const data = await twoFactorService.forcedEnable(tempToken, setup2faCode);
-      login(data.token, data.user as Parameters<typeof login>[1]);
+      login(null, data.user as Parameters<typeof login>[1]);
       const orgId = (data.user as { organizationId?: number }).organizationId;
       if (orgId) setSelectedOrganization(orgId);
       navigate('/dashboard');
@@ -241,6 +241,7 @@ export const LoginPage = () => {
               <Input
                 label="Email"
                 type="email"
+                autoComplete="username"
                 placeholder="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -325,6 +326,7 @@ export const LoginPage = () => {
                   <Input
                     label="Password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     placeholder="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}

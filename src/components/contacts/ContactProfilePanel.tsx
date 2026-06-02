@@ -8,7 +8,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
-import { formatAge, formatDate } from '@/lib/utils';
+import { formatAge, formatDate, safeCssColor } from '@/lib/utils';
 import type { ApiResponse } from '@/types';
 import { type ContactProfile, type ContactProfileType, contactService } from '@/services/contact.service';
 
@@ -303,7 +303,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                 <span
                   key={label.id}
                   className="inline-flex gap-1 items-center px-2 py-0.5 text-xs font-medium rounded-full text-white"
-                  style={{ backgroundColor: label.color }}
+                  style={{ backgroundColor: safeCssColor(label.color) }}
                 >
                   {label.name}
                   <button onClick={() => void handleRemoveLabel(label.id)}>
@@ -326,7 +326,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
                     >
                       <span
                         className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: label.color }}
+                        style={{ backgroundColor: safeCssColor(label.color) }}
                       />
                       {label.name}
                     </button>

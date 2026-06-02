@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Mail, Plus, TestTube2, Trash2, Edit, Calendar } from 'lucide-react';
+import { Mail, Plus, TestTube2, Trash2, Edit, Calendar, Building2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
+import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 
@@ -48,6 +50,7 @@ export const EmailIntegrationCard = ({
   integrations,
   onRefresh,
   onShowAlert,
+  defaultKB,
 }: IntegrationCardProps) => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,8 +69,16 @@ export const EmailIntegrationCard = ({
     currentDays: number;
   } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
+  const [editDepts, setEditDepts] = useState<number | null>(null);
 
-  const emailIntegrations = integrations.filter((int) => int.type === 'email');
+  // Centralized create-form department picker state.
+  const deptPicker = useCreateSourceDepartments();
+
+  const emailIntegrations = integrations.filter(
+    (int) =>
+      int.type === 'email' &&
+      (defaultKB === undefined || (int.isKnowledgeBase ?? false) === defaultKB)
+  );
 
   const handleCheckMessagesCount = async () => {
     setCheckingCount(true);
@@ -129,16 +140,16 @@ export const EmailIntegrationCard = ({
 
       onShowAlert({
         open: true,
-        title: 'Bulk Import Started',
-        description: `Will import emails from last ${days === 0 ? 'all time' : `${days} days`}. Check the dashboard for progress.`,
+        title: 'Sync Range Updated',
+        description: `Will sync emails from ${days === 0 ? 'all time' : `last ${days} days`} on next polling cycle.`,
         variant: 'success',
       });
     } catch (error) {
-      logger.error('Failed to start bulk import:', error);
+      logger.error('Failed to update sync range:', error);
       onShowAlert({
         open: true,
-        title: 'Bulk Import Failed',
-        description: error instanceof Error ? error.message : 'Failed to start bulk import',
+        title: 'Update Failed',
+        description: error instanceof Error ? error.message : 'Failed to update sync range',
         variant: 'error',
       });
     } finally {
@@ -147,7 +158,7 @@ export const EmailIntegrationCard = ({
   };
 
   const resetForm = () => {
-    setConfig(defaultConfig);
+    setConfig({ ...defaultConfig, isKnowledgeBase: defaultKB ?? false });
     setShowForm(false);
     setEditingId(null);
     setEditingName(null);
@@ -184,6 +195,23 @@ export const EmailIntegrationCard = ({
       });
 
       if (response.success) {
+        // On CREATE only: assign departments via the M:N table. Updates leave them alone
+        // — those are managed via the per-source editor.
+        const isCreate = response.action !== 'updated';
+        const newIntegrationId = response.data?.id;
+        if (isCreate && newIntegrationId) {
+          const assigned = await deptPicker.assignToNewSource(newIntegrationId);
+          if (!assigned) {
+            onShowAlert({
+              open: true,
+              title: 'Department assignment failed',
+              description:
+                'The email account was created, but department assignment failed. Edit departments from the source list.',
+              variant: 'warning',
+            });
+          }
+        }
+
         await onRefresh();
         resetForm();
 
@@ -283,7 +311,7 @@ export const EmailIntegrationCard = ({
           <div className="flex justify-between items-center">
             <CardTitle className="flex gap-2 items-center">
               <Mail className="w-5 h-5 text-blue-600" />
-              Email Accounts (IMAP)
+              {defaultKB ? 'Email KB Sources (IMAP)' : 'Email Accounts (IMAP)'}
             </CardTitle>
             <Button
               size="sm"
@@ -301,85 +329,99 @@ export const EmailIntegrationCard = ({
           {emailIntegrations.length > 0 && (
             <div className="space-y-2">
               {emailIntegrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className="flex justify-between items-center p-3 rounded-lg border"
-                >
-                  <div className="flex gap-3 items-center">
-                    <div
-                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
-                    />
-                    <div>
-                      <div className="flex gap-2 items-center">
-                        <p className="font-medium">
-                          {(integration.config as { email?: EmailConfig }).email?.user ??
-                            integration.name}
+                <div key={integration.id}>
+                  <div className="flex justify-between items-center p-3 rounded-lg border">
+                    <div className="flex gap-3 items-center">
+                      <div
+                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                      />
+                      <div>
+                        <div className="flex gap-2 items-center">
+                          <p className="font-medium">
+                            {(integration.config as { email?: EmailConfig }).email?.user ??
+                              integration.name}
+                          </p>
+                          {typeof integration.departmentId === 'number' && (
+                            <DepartmentBadge departmentId={integration.departmentId} size="sm" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {(integration.config as { email?: EmailConfig }).email?.host ??
+                            'Not configured'}
                         </p>
-                        {integration.departmentRole && (
-                          <DepartmentBadge department={integration.departmentRole} size="sm" />
-                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {(integration.config as { email?: EmailConfig }).email?.host ??
-                          'Not configured'}
-                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const emailConfig = (integration.config as { email?: EmailConfig }).email;
+                          const currentDays = emailConfig?.bulkImportDays ?? 0;
+                          setEditBulkImport({
+                            id: integration.id,
+                            name: integration.name,
+                            currentDays,
+                          });
+                          setBulkImportDaysInput('7');
+                        }}
+                        title="Bulk import historical emails"
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          loadForEdit(
+                            integration.id,
+                            integration.config as Record<string, unknown>,
+                            integration.name,
+                            integration.isKnowledgeBase ?? false
+                          )
+                        }
+                        disabled={editingId === integration.id}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testConnection(integration.id, integration.name)}
+                        isLoading={testing === integration.id}
+                        disabled={!integration.hasCredentials}
+                      >
+                        <TestTube2 className="w-4 h-4" />
+                        Poke
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditDepts(integration.id)}
+                        title="Assign departments"
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setDeleteConfirm({ id: integration.id, name: integration.name })
+                        }
+                        isLoading={deleting === integration.id}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const emailConfig = (integration.config as { email?: EmailConfig }).email;
-                        const currentDays = emailConfig?.bulkImportDays ?? 0;
-                        setEditBulkImport({
-                          id: integration.id,
-                          name: integration.name,
-                          currentDays,
-                        });
-                        setBulkImportDaysInput('7');
-                      }}
-                      title="Bulk import historical emails"
-                    >
-                      <Calendar className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        loadForEdit(
-                          integration.id,
-                          integration.config as Record<string, unknown>,
-                          integration.name,
-                          integration.isKnowledgeBase ?? false
-                        )
-                      }
-                      disabled={editingId === integration.id}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => testConnection(integration.id, integration.name)}
-                      isLoading={testing === integration.id}
-                      disabled={!integration.hasCredentials}
-                    >
-                      <TestTube2 className="w-4 h-4" />
-                      Poke
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setDeleteConfirm({ id: integration.id, name: integration.name })
-                      }
-                      isLoading={deleting === integration.id}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </div>
+                  {editDepts === integration.id && (
+                    <SourceDepartmentEditor
+                      sourceId={integration.id}
+                      onClose={() => setEditDepts(null)}
+                      onSaved={() => { setEditDepts(null); void onRefresh(); }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -393,9 +435,15 @@ export const EmailIntegrationCard = ({
               checkingCount={checkingCount}
               messageCount={messageCount}
               showAdvanced={showAdvanced}
+              departments={deptPicker.departments}
+              departmentsLoading={deptPicker.loading}
+              selectedDepartmentIds={deptPicker.selectedIds}
+              defaultDepartmentId={deptPicker.defaultId}
               onConfigChange={setConfig}
               onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
               onCheckMessagesCount={handleCheckMessagesCount}
+              onSelectedDepartmentsChange={deptPicker.setSelectedIds}
+              onDefaultDepartmentChange={deptPicker.setDefaultId}
               onSave={saveIntegration}
               onCancel={resetForm}
             />
@@ -438,18 +486,18 @@ export const EmailIntegrationCard = ({
         </div>
       )}
 
-      {/* Bulk Import Modal */}
+      {/* Initial Sync Range Modal */}
       {editBulkImport && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
-            <h3 className="mb-2 text-lg font-semibold">Bulk Import Emails</h3>
+            <h3 className="mb-2 text-lg font-semibold">Initial Sync Range</h3>
             <p className="mb-4 text-sm text-muted-foreground">
-              Import historical emails for <strong>{editBulkImport.name}</strong>
+              Configure historical import range for <strong>{editBulkImport.name}</strong>
             </p>
 
             <div className="mb-4">
               <ReactSelect
-                label="Import emails from:"
+                label="Fetch emails from:"
                 value={bulkImportDaysInput}
                 onChange={(value) => setBulkImportDaysInput(value)}
                 options={[
@@ -460,8 +508,7 @@ export const EmailIntegrationCard = ({
                 ]}
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                This will temporarily override the checkpoint and import historical emails. After
-                completion, normal syncing will resume.
+                How far back to fetch emails on first connect. After the initial sync, normal incremental polling resumes.
               </p>
             </div>
 

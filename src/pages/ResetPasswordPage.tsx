@@ -1,15 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
 
 export const ResetPasswordPage = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
+  // Token arrives exclusively via hash fragment (#token=...) so it is never sent to the server
+  // or recorded in Referer headers. Query-param fallback removed — links must use hash form.
+  const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -109,6 +110,7 @@ export const ResetPasswordPage = () => {
               <Input
                 label="New Password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="Enter new password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -128,6 +130,7 @@ export const ResetPasswordPage = () => {
               <Input
                 label="Confirm Password"
                 type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="Confirm new password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}

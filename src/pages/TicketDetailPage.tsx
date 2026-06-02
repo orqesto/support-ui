@@ -24,24 +24,33 @@ export const TicketDetailPage = () => {
   const clearCache = useTicketsStore((state) => state.clearCache);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      void fetchTicket(parseInt(id));
+    const numId = id ? parseInt(id, 10) : NaN;
+    if (id && !isNaN(numId)) {
+      void fetchTicket(numId);
+    } else {
+      setLoading(false);
     }
   }, [id]);
 
   const fetchTicket = async (ticketId: number) => {
     try {
       setLoading(true);
+      setFetchError(null);
       const response = await ticketService.getById(ticketId);
       if (response.success && response.data) {
         setTicket(response.data);
+      } else {
+        setFetchError('Ticket not found');
       }
     } catch (error) {
       logger.error('Failed to fetch ticket:', error);
+      setFetchError('Failed to load ticket. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -66,6 +75,7 @@ export const TicketDetailPage = () => {
       navigate('/tickets');
     } catch (error) {
       logger.error('Failed to delete ticket:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete ticket');
     } finally {
       setDeleting(false);
     }
@@ -86,7 +96,7 @@ export const TicketDetailPage = () => {
     return (
       <Layout>
         <div className="flex flex-col gap-4 justify-center items-center h-64">
-          <div className="text-muted-foreground">Ticket not found</div>
+          <div className="text-muted-foreground">{fetchError ?? 'Ticket not found'}</div>
           <Button onClick={handleBack} variant="outline">
             <ArrowLeft className="mr-2 w-4 h-4" />
             Back to Tickets
@@ -133,6 +143,9 @@ export const TicketDetailPage = () => {
                 <span className="font-medium">{ticket.priority}</span>
               </p>
             </div>
+          )}
+          {deleteError && (
+            <p className="mt-2 text-sm text-destructive">{deleteError}</p>
           )}
         </DialogContent>
         <DialogFooter>

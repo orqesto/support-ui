@@ -3,8 +3,8 @@ import { MessageSquare, Send, Lock, Pencil, Trash2, Check, X } from 'lucide-reac
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
-import { getAuthToken } from '@/lib/config';
 import { messageService, type MessageNote } from '@/services/message.service';
+import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
 type MessageNotesProps = {
@@ -12,7 +12,7 @@ type MessageNotesProps = {
 };
 
 export const MessageNotes = ({ messageId }: MessageNotesProps) => {
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const [notes, setNotes] = useState<MessageNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -20,18 +20,8 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = getAuthToken();
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1])) as { userId: number };
-        setCurrentUserId(payload.userId);
-      } catch (err) {
-        logger.error('Failed to parse token:', err);
-      }
-    }
-  }, []);
 
   const fetchNotes = useCallback(async () => {
     try {
@@ -55,6 +45,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
     if (!newNote.trim()) return;
     try {
       setIsSubmitting(true);
+      setNoteError(null);
       const response = await messageService.addNote(messageId, newNote.trim());
       if (response.success) {
         setNewNote('');
@@ -62,6 +53,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       }
     } catch (error) {
       logger.error('Failed to add note:', error);
+      setNoteError('Failed to save note. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -90,18 +82,21 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       }
     } catch (error) {
       logger.error('Failed to update note:', error);
+      setNoteError('Failed to update note. Please try again.');
     }
   };
 
   const handleDelete = async (noteId: number) => {
     try {
       setDeletingId(noteId);
+      setNoteError(null);
       const response = await messageService.deleteNote(messageId, noteId);
       if (response.success) {
         setNotes((prev) => prev.filter((note) => note.id !== noteId));
       }
     } catch (error) {
       logger.error('Failed to delete note:', error);
+      setNoteError('Failed to delete note. Please try again.');
     } finally {
       setDeletingId(null);
     }
@@ -204,6 +199,9 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
         </div>
       )}
 
+      {noteError && (
+        <p className="text-xs text-destructive">{noteError}</p>
+      )}
       <div className="flex gap-2 pt-2">
         <textarea
           value={newNote}

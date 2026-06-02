@@ -20,7 +20,6 @@ import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
-import { ticketService } from '@/services/ticket.service';
 import { getSpamCheck } from '@/lib/messageHelpers';
 import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
@@ -60,7 +59,7 @@ export function MessageDetailHeader({
   threadCount,
   onRefresh,
   onDelete,
-  onClassify: _onClassify,
+  onClassify: onClassify,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
@@ -108,28 +107,30 @@ export function MessageDetailHeader({
     return () => document.removeEventListener('mousedown', handler);
   }, [showLabelPicker]);
 
-  useEffect(() => {
-    if (!message.ticketId) {
-      setLinkedTicketStatus(null);
-      return;
-    }
-    ticketService
-      .getById(message.ticketId)
-      .then((result) => {
-        if (result?.data) setLinkedTicketStatus(result.data.status);
-      })
-      .catch(() => {});
-  }, [message.ticketId]);
+  const [linkedTicketId, setLinkedTicketId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!message.ticketId) return;
+    setLinkedTicketId(null);
+    setLinkedTicketStatus(null);
+    messageService.getLinkedTicket(message.id)
+      .then((res) => {
+        if (res?.data) {
+          setLinkedTicketId(res.data.id);
+          setLinkedTicketStatus(res.data.status);
+        }
+      })
+      .catch(() => {});
+  }, [message.id]);
+
+  useEffect(() => {
+    if (!linkedTicketId) return;
     const handler = (data: unknown) => {
       const ev = data as { ticketId: number; status?: string };
-      if (ev.ticketId === message.ticketId && ev.status) setLinkedTicketStatus(ev.status);
+      if (ev.ticketId === linkedTicketId && ev.status) setLinkedTicketStatus(ev.status);
     };
     subscribeToEvent('ticket:updated', handler);
     return () => unsubscribeFromEvent('ticket:updated', handler);
-  }, [message.ticketId]);
+  }, [linkedTicketId]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ export function MessageDetailHeader({
     !isFiltered &&
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
   const isActive =
-    !message.resolved &&
+    message.status !== 'resolved' &&
     !isFiltered &&
     !isSuspicious &&
     message.status !== 'closed';
@@ -152,11 +153,11 @@ export function MessageDetailHeader({
   };
   const currentStatus: ThreadStatus =
     (STATUS_NORMALIZE[message.status ?? ''] as ThreadStatus | undefined) ??
-    (message.status as ThreadStatus) ??
+    message.status ??
     'open';
 
   const slaInfo = useMemo(() => {
-    if (!message.slaResponseMinutes || message.isOutgoing) return null;
+    if (!message.slaResponseMinutes) return null;
     const target = message.slaResponseMinutes;
     const startTime =
       typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
@@ -197,7 +198,6 @@ export function MessageDetailHeader({
     };
   }, [
     message.slaResponseMinutes,
-    message.isOutgoing,
     message.firstResponseAt,
     message.slaResponseBreached,
     message.createdAt,
@@ -217,7 +217,7 @@ export function MessageDetailHeader({
         icon: <AlertTriangle className="w-2.5 h-2.5" />,
         cls: 'text-amber-900 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-800',
       };
-    if (message.resolved)
+    if (message.status === 'resolved')
       return {
         label: 'RESOLVED',
         icon: <CheckCircle className="w-2.5 h-2.5" />,
@@ -235,7 +235,7 @@ export function MessageDetailHeader({
         icon: <Reply className="w-2.5 h-2.5" />,
         cls: 'text-green-700 border-green-200 bg-green-50 dark:text-green-400 dark:bg-green-950/30 dark:border-green-800',
       };
-    if (!message.processed)
+    if (message.status === 'open')
       return {
         label: 'NOT ANALYSED',
         icon: null,
@@ -381,7 +381,7 @@ export function MessageDetailHeader({
         setMoreOpen(false);
       },
     },
-    message.threadId && {
+    message.externalThreadId && {
       label: checkingContradiction ? 'Checking…' : 'Check Contradiction',
       icon: <AlertTriangle className="w-3 h-3" />,
       action: () => {
@@ -415,11 +415,11 @@ export function MessageDetailHeader({
         setMoreOpen(false);
       },
     },
-    isActive && _onClassify && {
+    isActive && onClassify && {
       label: 'Mark as Suspicious',
       icon: <ShieldAlert className="w-3 h-3" />,
       action: () => {
-        void _onClassify('mark_suspicious');
+        void onClassify('mark_suspicious');
         setMoreOpen(false);
       },
     },
@@ -502,7 +502,7 @@ export function MessageDetailHeader({
       </div>
 
       {/* Ticket bar */}
-      {message.ticketId && !message.resolved && message.status !== 'closed' && (
+      {linkedTicketId && message.status !== 'resolved' && message.status !== 'closed' && (
         <div className="px-4 pb-2">
           <div
             className={`flex items-center justify-between px-2 py-1 rounded border-l-2 border border-border bg-card ${linkedTicketStatus === 'in_progress' ? 'border-l-emerald-500 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-l-blue-400 dark:border-blue-800 dark:bg-blue-950/20'}`}
@@ -510,7 +510,7 @@ export function MessageDetailHeader({
             <span
               className={`text-[11px] font-medium ${linkedTicketStatus === 'in_progress' ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}
             >
-              ✓ Ticket #{message.ticketId}
+              ✓ Ticket #{linkedTicketId}
               {linkedTicketStatus && (
                 <span className="ml-1 font-normal opacity-85">
                   · {linkedTicketStatus.replace('_', ' ')}
@@ -518,7 +518,7 @@ export function MessageDetailHeader({
               )}
             </span>
             <Link
-              to={`/tickets?id=${message.ticketId}`}
+              to={`/tickets?id=${linkedTicketId}`}
               className={`text-[11px] flex items-center gap-1 ${linkedTicketStatus === 'in_progress' ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'} hover:underline`}
             >
               View <Maximize2 className="w-2.5 h-2.5" />

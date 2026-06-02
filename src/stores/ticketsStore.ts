@@ -46,7 +46,7 @@ type TicketsState = {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-const defaultFilters: TicketFilters = {
+export const defaultFilters: TicketFilters = {
   status: 'all',
   priority: 'all',
   categoryId: 'all',

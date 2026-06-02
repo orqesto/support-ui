@@ -1,4 +1,6 @@
+import { safeCssColor } from '@/lib/utils';
 import { useState, useEffect, type FormEvent } from 'react';
+import DOMPurify from 'dompurify';
 import { AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -47,8 +49,9 @@ export const EditTicketPage = () => {
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   useEffect(() => {
-    if (id) {
-      fetchTicket(parseInt(id)).catch((error) => {
+    const ticketId = parseInt(id ?? '', 10);
+    if (id && !isNaN(ticketId)) {
+      fetchTicket(ticketId).catch((error) => {
         logger.error('Failed to fetch ticket:', error);
       });
       fetchCategories().catch((error) => {
@@ -60,7 +63,7 @@ export const EditTicketPage = () => {
       labelService.getLabels().then(setAllLabels).catch((error) => {
         logger.error('Failed to fetch labels:', error);
       });
-      labelService.getTicketLabels(parseInt(id)).then((labels) => {
+      labelService.getTicketLabels(ticketId).then((labels) => {
         const ids = new Set(labels.map((lbl) => lbl.id));
         setSelectedLabelIds(ids);
         setInitialLabelIds(ids);
@@ -75,9 +78,7 @@ export const EditTicketPage = () => {
       const response = await ticketService.getById(ticketId);
       if (response.success && response.data) {
         setTicket(response.data);
-        const div = document.createElement('div');
-        div.innerHTML = response.data.description;
-        const plainDescription = div.textContent ?? div.innerText ?? response.data.description;
+        const plainDescription = DOMPurify.sanitize(response.data.description ?? '', { ALLOWED_TAGS: [] });
         setFormData({
           title: response.data.title,
           description: plainDescription,
@@ -117,28 +118,65 @@ export const EditTicketPage = () => {
       return;
     }
 
+    const ticketId = parseInt(id, 10);
+    if (isNaN(ticketId)) return;
+
     setSaving(true);
     try {
-      const response = await ticketService.update(parseInt(id), {
+      const response = await ticketService.update(ticketId, {
         ...formData,
         categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
       });
 
       if (response.success) {
-        await assignmentService.assignTicket(parseInt(id), assigneeId ? parseInt(assigneeId) : null);
-        const ticketId = parseInt(id);
-        await Promise.all([
-          ...[...selectedLabelIds].filter((lid) => !initialLabelIds.has(lid)).map((lid) => labelService.assignLabelToTicket(ticketId, lid)),
-          ...[...initialLabelIds].filter((lid) => !selectedLabelIds.has(lid)).map((lid) => labelService.removeLabelFromTicket(ticketId, lid)),
-        ]);
+        const partialFailures: string[] = [];
+
+        // Assignment — separate try/catch so label mutations still run on failure
+        try {
+          await assignmentService.assignTicket(ticketId, assigneeId ? parseInt(assigneeId) : null);
+        } catch (assignErr) {
+          logger.error('Failed to update ticket assignment:', assignErr);
+          partialFailures.push('assignment');
+        }
+
+        // Label mutations — each failure is collected independently
+        const labelAdds = [...selectedLabelIds]
+          .filter((lid) => !initialLabelIds.has(lid))
+          .map((lid) =>
+            labelService.assignLabelToTicket(ticketId, lid).catch((err: unknown) => {
+              logger.error('Failed to assign label:', err);
+              partialFailures.push('label assignment');
+            })
+          );
+        const labelRemoves = [...initialLabelIds]
+          .filter((lid) => !selectedLabelIds.has(lid))
+          .map((lid) =>
+            labelService.removeLabelFromTicket(ticketId, lid).catch((err: unknown) => {
+              logger.error('Failed to remove label:', err);
+              partialFailures.push('label removal');
+            })
+          );
+        await Promise.all([...labelAdds, ...labelRemoves]);
+
         clearCache(); // Clear cache to refresh tickets list
-        setAlertDialog({
-          open: true,
-          title: 'Success',
-          description: 'Ticket updated successfully',
-          variant: 'success',
-        });
-        setTimeout(() => navigate(`/tickets`), 1500);
+
+        if (partialFailures.length > 0) {
+          const unique = [...new Set(partialFailures)].join(' and ');
+          setAlertDialog({
+            open: true,
+            title: 'Partially Updated',
+            description: `Ticket core fields saved, but ${unique} failed — please retry those changes.`,
+            variant: 'error',
+          });
+        } else {
+          setAlertDialog({
+            open: true,
+            title: 'Success',
+            description: 'Ticket updated successfully',
+            variant: 'success',
+          });
+          setTimeout(() => navigate(`/tickets`), 1500);
+        }
       }
     } catch (error) {
       logger.error('Failed to update ticket:', error);
@@ -163,6 +201,16 @@ export const EditTicketPage = () => {
     );
   }
 
+  const safeExternalUrl = (() => {
+    if (!ticket?.externalUrl) return undefined;
+    try {
+      const parsed = new URL(ticket.externalUrl);
+      return ['http:', 'https:'].includes(parsed.protocol) ? ticket.externalUrl : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+
   return (
     <Layout>
       <div className="px-4 pb-6 mx-auto space-y-4 w-full max-w-7xl">
@@ -184,9 +232,9 @@ export const EditTicketPage = () => {
                     This ticket has been pushed to Jira and should be edited there to maintain
                     consistency. Changes made here will not sync back to Jira.
                   </p>
-                  {ticket.externalUrl && (
+                  {safeExternalUrl && (
                     <a
-                      href={ticket.externalUrl}
+                      href={safeExternalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex gap-2 items-center text-sm font-medium text-blue-600 hover:text-blue-800"
@@ -332,7 +380,7 @@ export const EditTicketPage = () => {
                             });
                           }}
                           className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
-                          style={{ backgroundColor: label.color }}
+                          style={{ backgroundColor: safeCssColor(label.color) }}
                         >
                           {label.name}
                         </button>

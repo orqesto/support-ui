@@ -5,8 +5,10 @@ import {
   RotateCcw,
   MessageSquare,
   ShieldCheck,
+  ShieldAlert,
   Trash2,
 } from 'lucide-react';
+import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import type { Message } from '@/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -17,6 +19,7 @@ export type MessageActionStripProps = {
   isSuspicious: boolean;
   isActive: boolean;
   resolving: boolean;
+  hasLinkedTicket?: boolean;
   onApprove?: () => void;
   onReopen?: () => void;
   onDelete?: () => void;
@@ -35,6 +38,7 @@ export function MessageActionStrip({
   isFiltered,
   isSuspicious,
   resolving,
+  hasLinkedTicket,
   onApprove,
   onReopen,
   onClassify,
@@ -62,30 +66,43 @@ export function MessageActionStrip({
   const statusLabel = 'font-mono text-[9px] tracking-wide uppercase text-muted-foreground mb-1.5';
   const strip = 'flex-shrink-0 px-4 pt-2 pb-2.5 border-t border-border';
 
-  // Filtered: approve to active
+  // Filtered: category-aware label and actions
   if (isFiltered && onClassify) {
+    const spamCheck = getSpamCheck(message);
+    const meta = getFilteredCategoryMeta(spamCheck?.category);
+    const isSecurityThreat = spamCheck?.category === 'phishing' || spamCheck?.category === 'scam';
     return (
       <div className={strip}>
-        <p className={statusLabel}>Filtered — excluded from active inbox</p>
+        <p className={`${statusLabel} ${meta.statusClass}`}>{meta.statusText}</p>
         <div className="flex gap-2">
           <button
             onClick={() => void handleClassify('approve')}
             disabled={classifying}
-            className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
+            className={`${btnBase} ${meta.approveClass}`}
           >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            {classifying ? 'Approving…' : 'Approve — Move to Active'}
+            {isSecurityThreat ? (
+              <ShieldAlert className="w-3.5 h-3.5" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5" />
+            )}
+            {classifying ? 'Approving…' : meta.approveLabel}
           </button>
         </div>
       </div>
     );
   }
 
-  // Suspicious: not spam or move to spam
+  // Suspicious: phishing/scam threats get a warning label and no "move to spam" action
   if (isSuspicious && onClassify) {
+    const spamCheck = getSpamCheck(message);
+    const category = spamCheck?.category;
+    const isSecurityThreat = category === 'phishing' || category === 'scam';
+    const statusText = isSecurityThreat
+      ? `Flagged as possible ${category} — review before approving`
+      : 'Flagged as suspicious by spam filter';
     return (
       <div className={strip}>
-        <p className={statusLabel}>Flagged as suspicious by spam filter</p>
+        <p className={`${statusLabel} ${isSecurityThreat ? 'text-red-500' : ''}`}>{statusText}</p>
         <div className="flex gap-2">
           <button
             onClick={() => void handleClassify('approve')}
@@ -93,23 +110,25 @@ export function MessageActionStrip({
             className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            {classifying ? 'Updating…' : 'Not Spam — Approve'}
+            {classifying ? 'Updating…' : isSecurityThreat ? 'Not a Threat — Approve' : 'Not Spam — Approve'}
           </button>
-          <button
-            onClick={() => void handleClassify('move_to_spam')}
-            disabled={classifying}
-            className={`text-red-600 border border-red-300 ${btnBase} hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            {classifying ? 'Moving…' : 'Move to Spam'}
-          </button>
+          {!isSecurityThreat && (
+            <button
+              onClick={() => void handleClassify('move_to_spam')}
+              disabled={classifying}
+              className={`text-red-600 border border-red-300 ${btnBase} hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {classifying ? 'Moving…' : 'Move to Spam'}
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
   // Unprocessed
-  if (!message.processed && !isSuspicious && onReopen) {
+  if (message.status === 'open' && !isSuspicious && onReopen) {
     return (
       <div className={strip}>
         <p className={statusLabel}>New — needs processing before ticket creation</p>
@@ -128,10 +147,10 @@ export function MessageActionStrip({
 
   // Processed, no ticket, not resolved/closed
   if (
-    message.processed &&
-    !message.resolved &&
+    message.status !== 'open' &&
+    message.status !== 'resolved' &&
     message.status !== 'closed' &&
-    !message.ticketId &&
+    !hasLinkedTicket &&
     !isSuspicious
   ) {
     return (
@@ -173,7 +192,7 @@ export function MessageActionStrip({
   }
 
   // Resolved, no ticket
-  if (message.resolved && !message.ticketId && onReopen) {
+  if (message.status === 'resolved' && !hasLinkedTicket && onReopen) {
     return (
       <div className={strip}>
         <p className={statusLabel}>Resolved</p>
@@ -191,7 +210,7 @@ export function MessageActionStrip({
   }
 
   // Closed
-  if (message.status === 'closed' && !message.ticketId && onReopen) {
+  if (message.status === 'closed' && !hasLinkedTicket && onReopen) {
     return (
       <div className={strip}>
         <p className={statusLabel}>Closed</p>

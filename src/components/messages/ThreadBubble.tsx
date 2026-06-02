@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import { THREAD_SANITIZE, renderMarkdown, splitAtQuote } from './messageDetailConstants';
+import { THREAD_SANITIZE, addNoopenerHook, renderMarkdown, splitAtQuote } from './messageDetailConstants';
+
+addNoopenerHook(DOMPurify);
 
 export function ThreadBubble({ content, isAgent }: { content: string; isAgent: boolean }) {
   const [showQuote, setShowQuote] = useState(false);
@@ -19,7 +21,15 @@ export function ThreadBubble({ content, isAgent }: { content: string; isAgent: b
     />
   );
   const renderText = (text: string) => (
-    <div className={prose} dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />
+    <div
+      className={prose}
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(renderMarkdown(text), {
+          ALLOWED_TAGS: ['strong', 'em', 'code', 'br'],
+          ALLOWED_ATTR: [],
+        }),
+      }}
+    />
   );
   const render = (chunk: string) => (isHtml ? renderHtml(chunk) : renderText(chunk));
 

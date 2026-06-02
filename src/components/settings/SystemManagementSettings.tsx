@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Trash2, StopCircle, Database, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
@@ -14,6 +14,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import systemService from '@/services/system.service';
+import { departmentService, type Department } from '@/services/department.service';
 
 type ConfirmDialog = {
   open: boolean;
@@ -30,6 +31,11 @@ export const SystemManagementSettings = () => {
   const [loading, setLoading] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
   const [spamLogDays, setSpamLogDays] = useState<string>('90');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
@@ -266,11 +272,7 @@ export const SystemManagementSettings = () => {
             onChange={(value) => setSelectedDepartment(value)}
             options={[
               { value: 'all', label: 'All Departments' },
-              { value: 'support', label: 'Support' },
-              { value: 'sales', label: 'Sales' },
-              { value: 'billing', label: 'Billing' },
-              { value: 'hr', label: 'HR' },
-              { value: 'general', label: 'General' },
+              ...departments.map((dept) => ({ value: dept.slug, label: dept.name })),
             ]}
             placeholder="Select department scope"
           />

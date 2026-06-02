@@ -1,3 +1,4 @@
+import { safeCssColor } from '@/lib/utils';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X, Tag, Plus } from 'lucide-react';
@@ -51,10 +52,7 @@ export function HeaderMetaStrip({
   }, [showLabelPicker]);
 
   const threadItemId = message.subject
-    ? `subj::${message.subject
-        .replace(/^((re(\[\d+\])?|fwd|fw)\s*:\s*)*/gi, '')
-        .trim()
-        .toLowerCase()}::${message.sender < (message.recipient ?? '') ? message.sender : (message.recipient ?? '')}::${message.sender > (message.recipient ?? '') ? message.sender : (message.recipient ?? '')}`
+    ? `subj::${message.subject.replace(/^((re(\[\d+\])?|fwd|fw)\s*:\s*)*/gi, '').trim().toLowerCase()}::${message.sender}`
     : message.id;
 
   return (
@@ -106,7 +104,7 @@ export function HeaderMetaStrip({
               <span
                 key={label.id}
                 className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[10px] font-semibold text-white shadow-sm whitespace-nowrap"
-                style={{ backgroundColor: label.color }}
+                style={{ backgroundColor: safeCssColor(label.color) }}
               >
                 {label.name}
                 {hasManageLabels && (
@@ -149,7 +147,7 @@ export function HeaderMetaStrip({
                         >
                           <span
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-black/10"
-                            style={{ backgroundColor: label.color }}
+                            style={{ backgroundColor: safeCssColor(label.color) }}
                           />
                           <span className="flex-1 text-foreground">{label.name}</span>
                           {assigned && <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />}

@@ -5,7 +5,7 @@ export type DocumentType = 'technical' | 'nda' | 'legal' | 'policy' | 'template'
 export type Documentation = {
   id: number;
   organizationId: number;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentId: number | null;
   visibility: 'department' | 'organization';
   documentType: DocumentType;
   chunkingStrategy: string | null;

@@ -1,4 +1,5 @@
 import { usePermissions } from '@/hooks/usePermissions';
+import { logger } from '@/lib/logger';
 import type { Permission } from '@/types/roles';
 
 type PermissionGuardProps = {
@@ -51,8 +52,9 @@ export const PermissionGuard = ({
     // Multiple permissions check
     hasAccess = requireAll ? hasAllPermissions(permissions) : hasAnyPermission(permissions);
   } else {
-    // No permissions specified - always show
-    hasAccess = true;
+    // No permissions specified — fail closed in all environments to prevent accidental exposure.
+    logger.error('PermissionGuard rendered without permission or permissions prop — access denied');
+    hasAccess = false;
   }
 
   if (!hasAccess) {

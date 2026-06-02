@@ -50,6 +50,7 @@ export const DialogClose = ({ onClose }: DialogCloseProps) => (
     variant="ghost"
     size="sm"
     onClick={onClose}
+    aria-label="Close"
     className="rounded-sm opacity-70 transition-opacity hover:opacity-100"
   >
     <X className="w-4 h-4" />

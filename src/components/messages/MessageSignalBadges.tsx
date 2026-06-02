@@ -1,5 +1,4 @@
 import {
-  XCircle,
   Paperclip,
   ShieldX,
   AlertTriangle,
@@ -12,6 +11,7 @@ import {
   hasMessageAttachments,
   getSpamCheck,
   getFilteredCategoryLabel,
+  humanizeSignalFlag,
 } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
 import type { Message } from '@/types';
@@ -31,11 +31,10 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
   const analysis = message.metadata?.analysis as { needsMoreInfo?: boolean } | undefined;
 
   const renderSla = () => {
-    if (message.resolved || message.isOutgoing || !message.slaResponseMinutes) return null;
+    if (message.status === 'resolved' || !message.slaResponseMinutes) return null;
     const target = message.slaResponseMinutes;
 
     if (message.lastReplyFromClient && message.lastReplyAt) {
-      if (message.directReply) return null;
       const elapsed = Math.floor((Date.now() - new Date(message.lastReplyAt).getTime()) / 60000);
       const breached = elapsed > target;
       const atRisk = !breached && elapsed > target * 0.8;
@@ -112,7 +111,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         <Badge
           variant="danger"
           className={bc}
-          title={`Spam: ${spamCheck.redFlags?.join(', ') ?? ''}`}
+          title={`Spam: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
         >
           <ShieldX className={ic} />
           {getFilteredCategoryLabel(spamCheck.category)}
@@ -122,7 +121,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         <Badge
           variant="warning"
           className={bc}
-          title={`Suspicious: ${spamCheck.redFlags?.join(', ') ?? ''}`}
+          title={`Suspicious: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
         >
           <AlertTriangle className={ic} />
           Suspicious
@@ -154,12 +153,6 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
         </Badge>
       )}
       {renderSla()}
-      {message.processingError && (
-        <Badge variant="danger" className={bc} title={message.processingError}>
-          <XCircle className={ic} />
-          Failed
-        </Badge>
-      )}
       {hasAttachments && (
         <Badge
           variant="default"
@@ -180,7 +173,7 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
           Knowledge Base
         </Badge>
       )}
-      {message.resolved && (
+      {message.status === 'resolved' && (
         <Badge className="text-white bg-green-600 hover:bg-green-700" title="Message resolved">
           ✓ Resolved
         </Badge>

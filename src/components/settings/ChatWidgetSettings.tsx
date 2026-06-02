@@ -1,5 +1,7 @@
+import { safeCssColor } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { Plus, Code, Trash2, Edit, Power, Globe, Palette, MessageSquare, Copy, Check } from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { chatWidgetService, type ChatWidget } from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -161,9 +163,10 @@ export const ChatWidgetSettings = () => {
                       {widget.enabled ? 'Active' : 'Disabled'}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground capitalize">
-                    {widget.departmentRole} • {widget.position.replace('-', ' ')}
-                  </p>
+                  <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <DepartmentBadge departmentId={widget.departmentId} />
+                    <span className="capitalize">{widget.position.replace('-', ' ')}</span>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -191,7 +194,7 @@ export const ChatWidgetSettings = () => {
                   <span className="text-muted-foreground">Color:</span>
                   <div
                     className="h-4 w-4 rounded border"
-                    style={{ backgroundColor: widget.primaryColor }}
+                    style={{ backgroundColor: safeCssColor(widget.primaryColor) }}
                   />
                   <span className="font-mono text-xs">{widget.primaryColor}</span>
                 </div>

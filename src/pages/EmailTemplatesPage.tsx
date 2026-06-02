@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Mail, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Mail, Eye, RefreshCw, AlertCircle, Pencil, Save, X } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 
@@ -43,17 +44,24 @@ export const EmailTemplatesPage = () => {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const loadPreview = async (templateType: TemplateType) => {
     setIsLoadingPreview(true);
     setError(null);
+    setIsEditing(false);
     try {
       const response = await apiClient.get<string>(`/api/email-templates/${templateType}/render`, {
         responseType: 'text',
       });
       setPreviewHtml(response.data);
       setSelectedTemplate(templateType);
-    } catch (error) {
-      logger.error('Error loading template preview:', error);
+    } catch (err) {
+      logger.error('Error loading template preview:', err);
       setError('Failed to load template preview. Please make sure you are logged in as an admin.');
     } finally {
       setIsLoadingPreview(false);
@@ -66,10 +74,50 @@ export const EmailTemplatesPage = () => {
     }
   };
 
+  const startEditing = async () => {
+    if (!selectedTemplate) return;
+    setIsLoadingContent(true);
+    setSaveError(null);
+    try {
+      const response = await apiClient.get<{ data: { type: string; content: string } }>(
+        `/api/email-templates/${selectedTemplate}`
+      );
+      setEditContent(response.data.data.content);
+      setIsEditing(true);
+    } catch (err) {
+      logger.error('Error loading template content:', err);
+      setError('Failed to load template content for editing.');
+    } finally {
+      setIsLoadingContent(false);
+    }
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditContent('');
+    setSaveError(null);
+  };
+
+  const saveTemplate = async () => {
+    if (!selectedTemplate || !editContent.trim()) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await apiClient.put(`/api/email-templates/${selectedTemplate}`, { content: editContent });
+      setIsEditing(false);
+      setEditContent('');
+      await loadPreview(selectedTemplate);
+    } catch (err) {
+      logger.error('Error saving template:', err);
+      setSaveError('Failed to save template. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="px-4 mx-auto space-y-6 w-full max-w-7xl">
-        {/* Header */}
         <div className="flex justify-between items-start">
           <div>
             <h2 className="flex gap-2 items-center text-2xl font-bold">
@@ -156,12 +204,15 @@ export const EmailTemplatesPage = () => {
                         </>
                       )}
                       {selectedTemplate === 'verification' && (
-                        <>
-                          <div>
-                            <span className="text-primary">{'{{verificationUrl}}'}</span> -
-                            Verification link
-                          </div>
-                        </>
+                        <div>
+                          <span className="text-primary">{'{{verificationUrl}}'}</span> -
+                          Verification link
+                        </div>
+                      )}
+                      {selectedTemplate === 'password_reset' && (
+                        <div>
+                          <span className="text-primary">{'{{resetUrl}}'}</span> - Reset link
+                        </div>
                       )}
                     </div>
                   </div>
@@ -170,34 +221,74 @@ export const EmailTemplatesPage = () => {
             )}
           </div>
 
-          {/* Preview Area */}
+          {/* Preview / Edit Area */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
                     <CardTitle className="flex gap-2 items-center">
-                      <Eye className="w-5 h-5" />
-                      Preview
+                      {isEditing ? <Pencil className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {isEditing ? 'Edit Template' : 'Preview'}
                     </CardTitle>
                     <CardDescription>
                       {selectedTemplate
-                        ? `Preview of ${TEMPLATES.find((tmpl) => tmpl.type === selectedTemplate)?.name}`
+                        ? `${isEditing ? 'Editing' : 'Preview of'} ${TEMPLATES.find((tmpl) => tmpl.type === selectedTemplate)?.name}`
                         : 'Select a template to preview'}
                     </CardDescription>
                   </div>
-                  {selectedTemplate && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={refreshPreview}
-                      disabled={isLoadingPreview}
-                    >
-                      <RefreshCw
-                        className={`w-4 h-4 mr-2 ${isLoadingPreview ? 'animate-spin' : ''}`}
-                      />
-                      Refresh
-                    </Button>
+                  {selectedTemplate && !isEditing && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={startEditing}
+                        disabled={isLoadingPreview || isLoadingContent}
+                      >
+                        {isLoadingContent ? (
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Pencil className="w-4 h-4 mr-2" />
+                        )}
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={refreshPreview}
+                        disabled={isLoadingPreview}
+                      >
+                        <RefreshCw
+                          className={`w-4 h-4 mr-2 ${isLoadingPreview ? 'animate-spin' : ''}`}
+                        />
+                        Refresh
+                      </Button>
+                    </div>
+                  )}
+                  {isEditing && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelEditing}
+                        disabled={isSaving}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={saveTemplate}
+                        disabled={isSaving || !editContent.trim()}
+                      >
+                        {isSaving ? (
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4 mr-2" />
+                        )}
+                        Save
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>
@@ -226,7 +317,28 @@ export const EmailTemplatesPage = () => {
                   </div>
                 )}
 
-                {selectedTemplate && !isLoadingPreview && !error && previewHtml && (
+                {saveError && (
+                  <div className="flex gap-3 items-start p-4 mb-4 bg-red-50 rounded-lg border border-red-200">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700">{saveError}</p>
+                  </div>
+                )}
+
+                {isEditing && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Edit the HTML template below. Use the variables listed on the left.
+                    </p>
+                    <Textarea
+                      value={editContent}
+                      onChange={(event) => setEditContent(event.target.value)}
+                      className="font-mono text-xs h-[560px] resize-y"
+                      disabled={isSaving}
+                    />
+                  </div>
+                )}
+
+                {selectedTemplate && !isLoadingPreview && !error && previewHtml && !isEditing && (
                   <div className="overflow-hidden rounded-lg border">
                     <div className="px-4 py-2 text-xs text-gray-600 bg-gray-100 border-b">
                       Preview with sample data

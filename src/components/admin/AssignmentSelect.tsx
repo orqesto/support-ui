@@ -7,7 +7,6 @@ type AssignmentSelectProps = {
   type: 'message' | 'ticket' | 'thread';
   itemId: number | string; // threadId can be string
   currentAssigneeId?: number | null;
-  departmentRole?: string;
   skillFilter?: { key: string; value: string };
   onAssign?: () => void;
   className?: string;
@@ -17,7 +16,6 @@ export const AssignmentSelect = ({
   type,
   itemId,
   currentAssigneeId,
-  departmentRole,
   skillFilter,
   onAssign,
   className,
@@ -29,14 +27,14 @@ export const AssignmentSelect = ({
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await assignmentService.getAssignableUsers(departmentRole, skillFilter);
+      const data = await assignmentService.getAssignableUsers(skillFilter);
       setUsers(data);
     } catch (error) {
       logger.error('Failed to fetch assignable users:', error);
     } finally {
       setLoading(false);
     }
-  }, [departmentRole, skillFilter]);
+  }, [skillFilter]);
 
   useEffect(() => {
     fetchUsers().catch((err) => { logger.error(err); });

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
-import { getSpamCheck } from '@/lib/messageHelpers';
+import { getSpamCheck, humanizeSignalFlag } from '@/lib/messageHelpers';
 import { MONO } from './messageDetailConstants';
 import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
@@ -110,9 +110,15 @@ const similarResultsInFlight = new Map<number, Promise<SimilarResult[]>>();
 export const similarResultsCache = {
   has: (id: number) => _similarResultsCache.has(id),
   get: (id: number) => _similarResultsCache.get(id),
-  set: (id: number, data: SimilarResult[]) => { _similarResultsCache.set(id, data); },
-  delete: (id: number) => { _similarResultsCache.delete(id); },
-  clear: () => { _similarResultsCache.clear(); },
+  set: (id: number, data: SimilarResult[]) => {
+    _similarResultsCache.set(id, data);
+  },
+  delete: (id: number) => {
+    _similarResultsCache.delete(id);
+  },
+  clear: () => {
+    _similarResultsCache.clear();
+  },
 };
 
 const PILL_BASE: Record<ReplyOption['type'], string> = {
@@ -171,8 +177,18 @@ export function AiTabPanel({
       // actually has a matching ID set — undefined !== undefined is false and would
       // incorrectly drop every documentation result when no pre-computed answer exists.
       const deduped = data.filter((result) => {
-        if (suggestedAnswer?.similarMessageId !== null && suggestedAnswer?.similarMessageId !== undefined && result.messageId === suggestedAnswer.similarMessageId) return false;
-        if (suggestedAnswer?.documentationId !== null && suggestedAnswer?.documentationId !== undefined && result.documentationId === suggestedAnswer.documentationId) return false;
+        if (
+          suggestedAnswer?.similarMessageId !== null &&
+          suggestedAnswer?.similarMessageId !== undefined &&
+          result.messageId === suggestedAnswer.similarMessageId
+        )
+          return false;
+        if (
+          suggestedAnswer?.documentationId !== null &&
+          suggestedAnswer?.documentationId !== undefined &&
+          result.documentationId === suggestedAnswer.documentationId
+        )
+          return false;
         return true;
       });
       setSimilarResults(deduped);
@@ -203,12 +219,18 @@ export function AiTabPanel({
           let inflight = similarResultsInFlight.get(message.id);
           if (!inflight) {
             inflight = messageService
-              .getSimilarResolvedMessages(message.id, SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY)
+              .getSimilarResolvedMessages(
+                message.id,
+                SIMILAR_RESULTS_LIMIT,
+                SIMILAR_RESULTS_MIN_SIMILARITY
+              )
               .then((res) => {
                 const data = res.success && res.data ? res.data : [];
                 similarResultsCache.set(message.id, data);
-                similarResultsInFlight.delete(message.id);
                 return data;
+              })
+              .finally(() => {
+                similarResultsInFlight.delete(message.id);
               });
             similarResultsInFlight.set(message.id, inflight);
           }
@@ -225,7 +247,6 @@ export function AiTabPanel({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.id]); // intentionally keyed on message.id only — callbacks are stable refs
 
   const options: ReplyOption[] = [];
@@ -514,7 +535,7 @@ export function AiTabPanel({
           <p className={`mb-1 text-red-500 ${MONO}`}>RED FLAGS</p>
           {spamCheck.redFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-red-600 dark:text-red-400">
-              • {flag}
+              • {humanizeSignalFlag(flag)}
             </p>
           ))}
         </div>
@@ -525,7 +546,7 @@ export function AiTabPanel({
           <p className={`mb-1 text-green-600 ${MONO}`}>GREEN FLAGS</p>
           {spamCheck.greenFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-green-700 dark:text-green-400">
-              • {flag}
+              • {humanizeSignalFlag(flag)}
             </p>
           ))}
         </div>

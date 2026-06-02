@@ -1,13 +1,14 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { logger } from '@/lib/logger';
 
 type ProcessingStatus = 'idle' | 'started' | 'processing' | 'complete' | 'error';
 
 export type ProcessingSession = {
-  sessionKey: string; // Composite key: integrationId-departmentRole
+  sessionKey: string; // integrationId (string)
   integrationId: number;
   integrationName: string;
-  departmentRole?: string; // Department this integration belongs to
+  departmentSlug?: string; // Department this integration belongs to
+  departmentId?: number; // Numeric dept ID (Phase 6+)
   status: ProcessingStatus;
   stage?: string; // Current stage: 'fetching', 'analyzing', 'kb-processing', 'complete'
   total: number;
@@ -56,40 +57,36 @@ type EmailProcessingState = {
 };
 
 type UseEmailProcessingSessionsParams = {
-  filterByDepartment?: string;
   filterByOrganization?: number;
   setState: React.Dispatch<React.SetStateAction<EmailProcessingState>>;
 };
 
 export const useEmailProcessingSessions = ({
-  filterByDepartment,
   filterByOrganization,
   setState,
 }: UseEmailProcessingSessionsParams) => {
-  // Track multiple processing sessions by sessionKey (integrationId-departmentRole)
+  // Track multiple processing sessions by sessionKey (integrationId)
   // Restore sessions from localStorage on mount
   const [sessions, setSessions] = useState<Map<string, ProcessingSession>>(() => {
     try {
       const saved = localStorage.getItem('emailProcessing_sessions');
       if (saved) {
-        const parsed = JSON.parse(saved) as Array<[string, ProcessingSession]>;
-        // Only restore active sessions from last 30 minutes
+        const parsed: unknown = JSON.parse(saved);
+        if (!Array.isArray(parsed)) return new Map();
         const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-        const filtered = parsed.filter(([_, session]) => {
-          // Add timestamp if not present (for backward compatibility)
-          const timestamp = session.timestamp ?? Date.now();
-          // Skip completed/error sessions - they should auto-remove
-          if (session.status === 'complete' || session.status === 'error') {
-            return false;
-          }
-          // Filter by department if specified - prevents cross-department widgets on reload
-          if (filterByDepartment && session.departmentRole !== filterByDepartment) {
-            return false;
-          }
-          // Filter by organization if specified - prevents cross-organization widgets on reload
-          // Note: organizationId not stored in session, so we can't filter by it during restoration
-          // This is OK because organization context changes clear all sessions (lines 179-185)
-          return timestamp > thirtyMinutesAgo;
+        const filtered = (parsed as Array<unknown>).filter((entry): entry is [string, ProcessingSession] => {
+          if (!Array.isArray(entry) || entry.length !== 2) return false;
+          const [key, session] = entry as [unknown, unknown];
+          if (typeof key !== 'string') return false;
+          if (!session || typeof session !== 'object') return false;
+          const sess = session as Record<string, unknown>;
+          if (typeof sess['status'] !== 'string') return false;
+          const timestamp = typeof sess['timestamp'] === 'number' ? sess['timestamp'] : Date.now();
+          if (sess['status'] === 'complete' || sess['status'] === 'error') return false;
+          if (timestamp <= thirtyMinutesAgo) return false;
+          // Drop stale sessions using old integrationId-departmentSlug key format
+          if (/^\d+-\w+$/.test(key)) return false;
+          return true;
         });
         return new Map(filtered);
       }
@@ -99,11 +96,22 @@ export const useEmailProcessingSessions = ({
     return new Map();
   });
 
-  // Persist sessions to localStorage whenever they change
+  // Persist minimal session state to localStorage — omit counts/metadata to limit
+  // operational data exposure on shared machines (only restore UI state on refresh).
   useEffect(() => {
     if (sessions.size > 0) {
       try {
-        const sessionArray = Array.from(sessions.entries());
+        const sessionArray = Array.from(sessions.entries()).map(([key, session]) => [
+          key,
+          {
+            sessionKey: session.sessionKey,
+            integrationId: session.integrationId,
+            integrationName: session.integrationName,
+            status: session.status,
+            timestamp: session.timestamp,
+            isProcessing: session.isProcessing,
+          },
+        ]);
         localStorage.setItem('emailProcessing_sessions', JSON.stringify(sessionArray));
       } catch (error) {
         logger.error('[useEmailProcessing] Failed to save sessions:', error);
@@ -151,29 +159,19 @@ export const useEmailProcessingSessions = ({
   }, []);
 
   // Clear all sessions when organization changes (admin switching context)
+  // Skip on first render to avoid wiping restored sessions from localStorage
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (filterByOrganization) {
       setSessions(new Map());
       // Clear localStorage for stale organization
       localStorage.removeItem('emailProcessing_sessions');
     }
   }, [filterByOrganization]);
-
-  // Filter sessions when department filter changes (user switching departments)
-  useEffect(() => {
-    if (filterByDepartment) {
-      setSessions((prev) => {
-        const filtered = new Map<string, ProcessingSession>();
-        for (const [key, session] of prev.entries()) {
-          // Only keep sessions matching the selected department
-          if (session.departmentRole === filterByDepartment) {
-            filtered.set(key, session);
-          }
-        }
-        return filtered;
-      });
-    }
-  }, [filterByDepartment]);
 
   const removeSession = useCallback(
     (sessionKey: string) => {

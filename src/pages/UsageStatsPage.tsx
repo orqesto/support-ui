@@ -131,7 +131,7 @@ export const UsageStatsPage = () => {
     anchor.href = url;
     anchor.download = `usage-${new Date().toISOString().split('T')[0]}.csv`;
     anchor.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   if (loading) {

@@ -1,6 +1,7 @@
 import type { AxiosResponse } from 'axios';
 import { apiClient } from '@/lib/api-client';
 import type { User, PaginationMeta, ApiResponse } from '@/types';
+import type { OrganizationRole } from '@/types/roles';
 
 export const userService = {
   // Get all users
@@ -110,8 +111,8 @@ export const userService = {
     lastName?: string;
     position?: string;
     role?: 'admin' | 'user';
-    organizationRole?: 'org_admin' | 'moderator' | 'support' | 'associate';
-    departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+    organizationRole?: OrganizationRole;
+    departmentIds?: number[];
   }): Promise<User> => {
     const response: AxiosResponse<ApiResponse<User>> = await apiClient.post('/api/users', data);
     return response.data.data as User;

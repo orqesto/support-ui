@@ -5,7 +5,7 @@ export interface ChatWidget {
   id: number;
   organizationId: number;
   name: string;
-  departmentRole: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentId: number | null;
   enabled: boolean;
   welcomeMessage: string | null;
   placeholder: string | null;
@@ -23,7 +23,7 @@ export interface ChatWidget {
 
 export interface CreateChatWidgetRequest {
   name: string;
-  departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentId?: number | null;
   welcomeMessage?: string;
   placeholder?: string;
   primaryColor?: string;
@@ -35,7 +35,7 @@ export interface CreateChatWidgetRequest {
 
 export interface UpdateChatWidgetRequest {
   name?: string;
-  departmentRole?: 'support' | 'sales' | 'billing' | 'general' | 'hr';
+  departmentId?: number | null;
   welcomeMessage?: string;
   placeholder?: string;
   primaryColor?: string;

@@ -4,7 +4,6 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Dialog, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/Dialog';
 import { apiClient } from '@/lib/api-client';
-import { API_BASE_URL, getAuthToken } from '@/lib/config';
 import {
   getSocket,
   subscribeToEvent,
@@ -35,6 +34,8 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
+
+  const [imageBlobUrls, setImageBlobUrls] = useState<Record<number, string>>({});
 
   const fetchAttachments = useCallback(async () => {
     try {
@@ -79,6 +80,38 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     };
   }, [ticketId, fetchAttachments]);
 
+  // Load blob URLs for image thumbnails via authenticated fetch
+  useEffect(() => {
+    const imageAttachments = attachments.filter((att) => att.mimeType.startsWith('image/'));
+    if (imageAttachments.length === 0) return;
+
+    const blobUrls: Record<number, string> = {};
+    let cancelled = false;
+
+    const load = async () => {
+      for (const attachment of imageAttachments) {
+        if (cancelled) break;
+        try {
+          const path = attachment.externalId && attachment.url.startsWith('http')
+            ? `/api/attachments/jira/${attachment.id}/download`
+            : `/api/attachments/${attachment.id}/download`;
+          const response = await apiClient.get(path, { responseType: 'blob' });
+          blobUrls[attachment.id] = URL.createObjectURL(response.data as Blob);
+        } catch {
+          // thumbnail load failure is non-fatal — icon fallback renders instead
+        }
+      }
+      if (!cancelled) setImageBlobUrls(blobUrls);
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+      Object.values(blobUrls).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [attachments]);
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) {
       return bytes + ' B';
@@ -87,18 +120,6 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       return (bytes / 1024).toFixed(1) + ' KB';
     }
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const getAttachmentUrl = (attachment: Attachment) => {
-    const token = getAuthToken();
-
-    // If it's a Jira attachment (has externalId AND starts with https://), use the proxy endpoint
-    if (attachment.externalId && attachment.url.startsWith('http')) {
-      return `${API_BASE_URL}/api/attachments/jira/${attachment.id}/download?token=${token}`;
-    }
-
-    // Otherwise, it's a local file (from email or app) - use authenticated download endpoint
-    return `${API_BASE_URL}/api/attachments/${attachment.id}/download?token=${token}`;
   };
 
   const isImage = (mimeType: string) => mimeType.startsWith('image/');
@@ -161,7 +182,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       const response = await apiClient.get(path, { responseType: 'blob' });
       const url = URL.createObjectURL(response.data as Blob);
       if (inline) {
-        window.open(url, '_blank');
+        window.open(url, '_blank', 'noopener,noreferrer');
         // Delay revoke so the new tab has time to load the blob
         setTimeout(() => URL.revokeObjectURL(url), 10000);
       } else {
@@ -294,9 +315,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                 <tr key={attachment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-4 py-3">
                     <div className="flex gap-2 items-center">
-                      {isImage(attachment.mimeType) ? (
+                      {isImage(attachment.mimeType) && imageBlobUrls[attachment.id] ? (
                         <img
-                          src={getAttachmentUrl(attachment)}
+                          src={imageBlobUrls[attachment.id]}
                           alt={attachment.originalFilename}
                           className="object-cover w-10 h-10 rounded"
                         />

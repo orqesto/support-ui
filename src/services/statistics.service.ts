@@ -67,7 +67,7 @@ export type UserStatEntry = {
   lastName: string | null;
   email: string;
   orgRole: string;
-  departmentRoles: string[];
+  departmentSlugs: string[];
   stats: {
     messagesAssigned: number;
     messagesProcessed: number;
