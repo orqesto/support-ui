@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
+import { toast } from '@/lib/toast';
 
 export const ProfileSettings = () => {
   const user = useAuthStore((state) => state.user);
@@ -58,8 +59,9 @@ export const ProfileSettings = () => {
       useAuthStore.setState((store) => ({
         user: store.user ? { ...store.user, signature: signature.trim() || null } : store.user,
       }));
-    } catch {
-      setNotification({ type: 'error', message: 'Failed to save signature. Please try again.' });
+      toast.success('Signature saved');
+    } catch (error) {
+      toast.failure('save signature', error);
     } finally {
       setSigSaving(false);
     }
