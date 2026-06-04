@@ -238,12 +238,24 @@ export function MessageDetailHeader({
         icon: <Reply className="w-2.5 h-2.5" />,
         cls: 'text-green-700 border-green-200 bg-green-50 dark:text-green-400 dark:bg-green-950/30 dark:border-green-800',
       };
-    if (message.status === 'open')
-      return {
-        label: 'NOT ANALYSED',
-        icon: null,
-        cls: 'text-muted-foreground border-border bg-muted/60',
-      };
+    if (message.status === 'open') {
+      // "NOT ANALYSED" really means "status=open AND no AI analysis ran yet."
+      // Reanalyse intentionally sets status='open' on success, so we'd
+      // otherwise re-light this badge despite analysis being present —
+      // gate on metadata.analysis to tell the two apart.
+      const hasAnalysis = !!(message.metadata as Record<string, unknown> | undefined)?.analysis;
+      return hasAnalysis
+        ? {
+            label: 'ACTIVE',
+            icon: null,
+            cls: 'text-sky-700 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
+          }
+        : {
+            label: 'NOT ANALYSED',
+            icon: null,
+            cls: 'text-muted-foreground border-border bg-muted/60',
+          };
+    }
     if (isActive)
       return {
         label: 'ACTIVE',
