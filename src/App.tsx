@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -70,6 +71,9 @@ const BillingDashboardPage = lazy(() =>
 );
 const DeletedMessagesPage = lazy(() =>
   import('./pages/DeletedMessagesPage').then((mod) => ({ default: mod.DeletedMessagesPage }))
+);
+const NeedsRoutingPage = lazy(() =>
+  import('./pages/NeedsRoutingPage').then((mod) => ({ default: mod.NeedsRoutingPage }))
 );
 const SLADashboardPage = lazy(() =>
   import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
@@ -241,7 +245,6 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      <Route path="/team-stats" element={<Navigate to="/statistics#team" replace />} />
       <Route
         path="/settings"
         element={
@@ -268,9 +271,11 @@ const AppRoutes = () => {
         path="/organization"
         element={
           <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <OrganizationPage />
-            </Suspense>
+            <ProtectedRoute requiredPermission={Permission.MANAGE_ORGANIZATION}>
+              <Suspense fallback={<LoadingFallback />}>
+                <OrganizationPage />
+              </Suspense>
+            </ProtectedRoute>
           </PrivateRoute>
         }
       />
@@ -278,9 +283,11 @@ const AppRoutes = () => {
         path="/email-templates"
         element={
           <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <EmailTemplatesPage />
-            </Suspense>
+            <ProtectedRoute requiredRole="admin">
+              <Suspense fallback={<LoadingFallback />}>
+                <EmailTemplatesPage />
+              </Suspense>
+            </ProtectedRoute>
           </PrivateRoute>
         }
       />
@@ -358,8 +365,20 @@ const AppRoutes = () => {
         path="/deleted-messages"
         element={
           <PrivateRoute>
+            <ProtectedRoute requiredRole="admin">
+              <Suspense fallback={<LoadingFallback />}>
+                <DeletedMessagesPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/needs-routing"
+        element={
+          <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
-              <DeletedMessagesPage />
+              <NeedsRoutingPage />
             </Suspense>
           </PrivateRoute>
         }
@@ -380,7 +399,9 @@ const AppRoutes = () => {
 
 const App = () => (
   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-    <AppRoutes />
+    <ErrorBoundary>
+      <AppRoutes />
+    </ErrorBoundary>
   </BrowserRouter>
 );
 
