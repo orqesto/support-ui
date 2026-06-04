@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/utils';
 import { messageService, type MessageNote } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { formatError } from '@/lib/errorMessages';
 
 type MessageNotesProps = {
   messageId: number;
@@ -53,7 +54,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       }
     } catch (error) {
       logger.error('Failed to add note:', error);
-      setNoteError('Failed to save note. Please try again.');
+      setNoteError(formatError('save note', error));
     } finally {
       setIsSubmitting(false);
     }
@@ -82,7 +83,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       }
     } catch (error) {
       logger.error('Failed to update note:', error);
-      setNoteError('Failed to update note. Please try again.');
+      setNoteError(formatError('update note', error));
     }
   };
 
@@ -96,7 +97,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
       }
     } catch (error) {
       logger.error('Failed to delete note:', error);
-      setNoteError('Failed to delete note. Please try again.');
+      setNoteError(formatError('delete note', error));
     } finally {
       setDeletingId(null);
     }
