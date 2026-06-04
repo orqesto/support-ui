@@ -10,12 +10,16 @@ import {
   X,
   Users,
   Building2,
-  FileText,
   CreditCard,
   TrendingUp,
   BookOpen,
   Receipt,
   Trash2,
+  GitBranch,
+  ShieldAlert,
+  MailOpen,
+  ScrollText,
+  Timer,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +32,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { apiClient } from '@/lib/api-client';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
+import { DepartmentSwitcher } from './DepartmentSwitcher';
+import { useNeedsRoutingCount } from '@/hooks/useNeedsRoutingCount';
 import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
@@ -42,74 +48,152 @@ type LayoutProps = {
   children: ReactNode;
 };
 
-const allNavigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Messages', href: '/messages', icon: Mail, permission: Permission.VIEW_MESSAGES },
-  { name: 'Tickets', href: '/tickets', icon: Ticket, permission: Permission.VIEW_TICKETS },
+// Sidebar is grouped into Work / Insights / Admin sections. Groups render with a
+// section header; a group whose items are all gated out hides its header too.
+// "Needs Routing" lives in Work per Wave 5 C-2 spec (top-nav triage queue for all
+// VIEW_MESSAGES users so admins stop being the bottleneck). "Deleted Messages" is
+// a recovery tool — moved to Admin and gated to global admin (was misleadingly
+// surfaced to every VIEW_MESSAGES user before).
+type NavGroup = 'work' | 'insights' | 'admin';
+
+const allNavigation: Array<{
+  group: NavGroup;
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  permission?: Permission;
+  adminOnly?: boolean;
+  moduleRequired?: string;
+  showBadge?: boolean;
+}> = [
+  // ─── Work — daily inbox / triage ────────────────────────────────────────────
+  { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { group: 'work', name: 'Messages', href: '/messages', icon: Mail, permission: Permission.VIEW_MESSAGES },
+  { group: 'work', name: 'Tickets', href: '/tickets', icon: Ticket, permission: Permission.VIEW_TICKETS },
   {
+    group: 'work',
+    name: 'Needs Routing',
+    href: '/needs-routing',
+    icon: GitBranch,
+    permission: Permission.VIEW_MESSAGES,
+    showBadge: true,
+  },
+  {
+    group: 'work',
     name: 'Knowledge Base',
     href: '/knowledge-base',
     icon: BookOpen,
     permission: Permission.VIEW_MESSAGES,
   },
+
+  // ─── Insights — reporting & finance ─────────────────────────────────────────
   {
+    group: 'insights',
     name: 'Statistics',
     href: '/statistics',
     icon: BarChart3,
     permission: Permission.VIEW_STATISTICS,
   },
   {
+    group: 'insights',
+    name: 'SLA Performance',
+    href: '/sla',
+    icon: Timer,
+    permission: Permission.VIEW_STATISTICS,
+  },
+  {
+    group: 'insights',
+    name: 'Usage Stats',
+    href: '/usage-stats',
+    icon: TrendingUp,
+    permission: Permission.VIEW_USAGE_STATS,
+  },
+  {
+    group: 'insights',
     name: 'Billing Intelligence',
     href: '/billing',
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
     moduleRequired: 'billing-intelligence',
   },
+
+  // ─── Admin — configuration & rare-use ───────────────────────────────────────
+  { group: 'admin', name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
+  { group: 'admin', name: 'Organization', href: '/organization', icon: Building2 },
   {
-    name: 'Usage Stats',
-    href: '/usage-stats',
-    icon: TrendingUp,
-    permission: Permission.VIEW_USAGE_STATS,
-  },
-  { name: 'Organization', href: '/organization', icon: Building2 },
-  {
+    group: 'admin',
     name: 'Settings',
     href: '/settings',
     icon: Settings,
     permission: Permission.VIEW_ORGANIZATION_SETTINGS,
   },
   {
+    group: 'admin',
     name: 'Subscription',
     href: '/subscription',
     icon: CreditCard,
-    adminOnly: true, // Only visible to global admins
+    permission: Permission.VIEW_SUBSCRIPTION,
   },
-  { name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
   {
+    group: 'admin',
     name: 'Email Templates',
     href: '/email-templates',
-    icon: FileText,
-    adminOnly: true, // Only visible to global admins
+    icon: MailOpen,
+    adminOnly: true,
   },
   {
+    group: 'admin',
+    name: 'Audit Logs',
+    href: '/audit-logs',
+    icon: ScrollText,
+    permission: Permission.VIEW_AUDIT_LOGS,
+  },
+  {
+    group: 'admin',
+    name: 'Admin Dashboard',
+    href: '/admin',
+    icon: ShieldAlert,
+    adminOnly: true,
+  },
+  {
+    group: 'admin',
     name: 'Deleted Messages',
     href: '/deleted-messages',
     icon: Trash2,
-    permission: Permission.VIEW_MESSAGES,
-  },
-  {
-    name: 'Admin Dashboard',
-    href: '/admin',
-    icon: Settings,
-    adminOnly: true, // Only visible to global admins
-  },
-  {
-    name: 'Audit Logs',
-    href: '/audit-logs',
-    icon: FileText,
-    permission: Permission.VIEW_AUDIT_LOGS,
+    adminOnly: true,
   },
 ];
+
+const NAV_GROUP_LABELS: Record<NavGroup, string> = {
+  work: 'Work',
+  insights: 'Insights',
+  admin: 'Admin',
+};
+const NAV_GROUP_ORDER: NavGroup[] = ['work', 'insights', 'admin'];
+
+/**
+ * Routes that are reachable but don't have a top-nav entry. Used so the mobile
+ * breadcrumb shows the right title instead of falling back to "Dashboard".
+ */
+const DEEP_ROUTE_TITLES: Record<string, string> = {
+  '/pricing': 'Pricing',
+  '/tickets/create': 'Create Ticket',
+};
+
+const getPageTitle = (
+  pathname: string,
+  navItems: typeof allNavigation,
+): string => {
+  // Exact deep-route override (most specific wins).
+  if (DEEP_ROUTE_TITLES[pathname]) return DEEP_ROUTE_TITLES[pathname];
+  // Sort nav items by href length descending so `/tickets/edit/:id` matches
+  // a longer `/tickets/edit` entry before the broader `/tickets`.
+  const sorted = [...navItems].sort((left, right) => right.href.length - left.href.length);
+  const match = sorted.find(
+    (item) => pathname === item.href || pathname.startsWith(item.href + '/'),
+  );
+  return match?.name ?? 'Dashboard';
+};
 
 export const Layout = ({ children }: LayoutProps) => {
   const user = useAuthStore((state) => state.user);
@@ -136,6 +220,7 @@ export const Layout = ({ children }: LayoutProps) => {
       : user?.organizationId;
 
   const { sessions, removeSession } = useEmailProcessing(true, organizationFilter ?? undefined);
+  const { data: needsRoutingCount = 0 } = useNeedsRoutingCount();
 
   // Join/leave organization-specific WebSocket rooms for targeted event delivery
   useEffect(() => {
@@ -368,30 +453,53 @@ export const Layout = ({ children }: LayoutProps) => {
                   />
                 </Link>
               </h1>
-              <Button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+              <Button
+                className="lg:hidden"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close sidebar"
+              >
                 <X className="w-6 h-6" />
               </Button>
             </div>
 
-            <nav className="overflow-y-auto flex-1 px-4 py-4 space-y-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.href;
+            <nav className="overflow-y-auto flex-1 px-4 py-4">
+              {NAV_GROUP_ORDER.map((group, groupIdx) => {
+                const items = navigation.filter((entry) => entry.group === group);
+                if (items.length === 0) return null;
                 return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      'flex gap-3 items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground'
-                    )}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.name}
-                  </Link>
+                  <div key={group} className={groupIdx > 0 ? 'mt-4' : ''}>
+                    <p className="px-3 mb-1 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/70">
+                      {NAV_GROUP_LABELS[group]}
+                    </p>
+                    <div className="space-y-1">
+                      {items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname === item.href;
+                        const badge = item.showBadge ? needsRoutingCount : 0;
+                        return (
+                          <Link
+                            key={item.name}
+                            to={item.href}
+                            className={cn(
+                              'flex gap-3 items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                              isActive
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground'
+                            )}
+                            onClick={() => setSidebarOpen(false)}
+                          >
+                            <Icon className="w-5 h-5 flex-shrink-0" />
+                            <span className="flex-1">{item.name}</span>
+                            {badge > 0 && (
+                              <span className="flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground">
+                                {badge > 99 ? '99+' : badge}
+                              </span>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </nav>
@@ -399,6 +507,8 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="p-4 border-t">
               {/* Organization Switcher for Global Admins */}
               <OrganizationSwitcher />
+              {/* Department filter switcher for multi-dept users */}
+              <DepartmentSwitcher />
 
               <div className="flex justify-between items-center mb-3">
                 <div className="flex gap-2 items-center min-w-0">
@@ -465,14 +575,15 @@ export const Layout = ({ children }: LayoutProps) => {
             )}
           >
             <div className="flex items-center">
-              <Button className="mr-4" onClick={() => setSidebarOpen(true)}>
+              <Button
+                className="mr-4"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open sidebar"
+              >
                 <Menu className="w-6 h-6" />
               </Button>
               <h2 className="text-lg font-semibold">
-                {navigation.find(
-                  (item) =>
-                    location.pathname === item.href || location.pathname.startsWith(item.href + '/')
-                )?.name ?? 'Dashboard'}
+                {getPageTitle(location.pathname, navigation)}
               </h2>
             </div>
             <div className="flex gap-1 items-center">
