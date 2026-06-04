@@ -4,6 +4,7 @@ import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -415,34 +416,33 @@ export const MessagesPage = () => {
         <div className="overflow-y-auto flex-1 min-w-0">
           <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
             {/* Header */}
-            <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
-              <div>
-                <h2 className="text-2xl font-bold">Messages</h2>
-                <p className="text-sm text-muted-foreground">
-                  Manage and process incoming messages
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
-                  <Button
-                    onClick={handleSyncEmails}
-                    disabled={refreshing}
-                    variant="outline"
-                    className="flex-1 sm:flex-none"
-                  >
-                    <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    Sync New
-                  </Button>
-                </PermissionGuard>
-                <Button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="flex-1 sm:flex-none"
-                >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </div>
+            <div className="mb-6">
+              <PageHeader
+                title="Messages"
+                description="Manage and process incoming messages"
+                actions={
+                  <>
+                    <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
+                      <Button
+                        onClick={handleSyncEmails}
+                        disabled={refreshing}
+                        variant="outline"
+                      >
+                        <RefreshCw
+                          className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+                        />
+                        Sync New
+                      </Button>
+                    </PermissionGuard>
+                    <Button onClick={handleRefresh} disabled={refreshing}>
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+                      />
+                      Refresh
+                    </Button>
+                  </>
+                }
+              />
             </div>
 
             <>
