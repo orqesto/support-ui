@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -308,13 +309,17 @@ export const DashboardPage = () => {
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Real-time overview of your support operations</p>
-          </div>
-          {lastUpdated && <div className="text-right text-s text-muted-foreground">Last updated: {lastUpdated.toLocaleTimeString()}</div>}
-        </div>
+        <PageHeader
+          title="Dashboard"
+          description="Real-time overview of your support operations"
+          actions={
+            lastUpdated && (
+              <span className="text-sm text-muted-foreground">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )
+          }
+        />
 
         {loading ? (
           <div className="space-y-6">

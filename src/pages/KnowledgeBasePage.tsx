@@ -6,6 +6,7 @@ import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
 import { Layout } from '@/components/layout/Layout';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -266,10 +267,10 @@ export const KnowledgeBasePage = () => {
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Knowledge Base</h2>
-          <p className="text-sm text-muted-foreground">
-            Review and manage automatically extracted knowledge from your messages
-          </p>
+          <PageHeader
+            title="Knowledge Base"
+            description="Review and manage automatically extracted knowledge from your messages"
+          />
         </div>
 
         {/* Tabs for Type Selection */}

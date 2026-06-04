@@ -6,6 +6,7 @@ import { useTicketsUrlSync } from '@/hooks/useTicketsUrlSync';
 import { useTicketsRealtime } from '@/hooks/useTicketsRealtime';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { TicketFilters } from '@/components/tickets/TicketFilters';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
@@ -426,41 +427,49 @@ export const TicketsPage = () => {
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-2xl font-bold">Tickets</h2>
-            <p className="text-sm text-muted-foreground">Manage and track support tickets</p>
-          </div>
-          <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
-            {jiraIntegrations.length > 1 && (
-              <ReactSelect
-                value={selectedJiraId?.toString() ?? ''}
-                onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
-                options={[
-                  { value: '', label: 'All Jira' },
-                  ...jiraIntegrations.map((jira) => ({ value: jira.id.toString(), label: jira.name })),
-                ]}
-                className="w-40"
-              />
-            )}
-            {jiraIntegrations.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSyncAll}
-                disabled={!hasPermission(Permission.MANAGE_TICKETS) || isSyncingAll || (jiraIntegrations.length > 1 && !selectedJiraId)}
-                isLoading={isSyncingAll}
-                className="flex-1 sm:flex-none"
-              >
-                <Send className="mr-2 w-4 h-4" />
-                Sync to Jira
-              </Button>
-            )}
-            <Button onClick={handleRefresh} disabled={refreshing} className="flex-1 sm:flex-none">
-              <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+        <div className="mb-6">
+          <PageHeader
+            title="Tickets"
+            description="Manage and track support tickets"
+            actions={
+              <>
+                {jiraIntegrations.length > 1 && (
+                  <ReactSelect
+                    value={selectedJiraId?.toString() ?? ''}
+                    onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
+                    options={[
+                      { value: '', label: 'All Jira' },
+                      ...jiraIntegrations.map((jira) => ({
+                        value: jira.id.toString(),
+                        label: jira.name,
+                      })),
+                    ]}
+                    className="w-40"
+                  />
+                )}
+                {jiraIntegrations.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSyncAll}
+                    disabled={
+                      !hasPermission(Permission.MANAGE_TICKETS) ||
+                      isSyncingAll ||
+                      (jiraIntegrations.length > 1 && !selectedJiraId)
+                    }
+                    isLoading={isSyncingAll}
+                  >
+                    <Send className="mr-2 w-4 h-4" />
+                    Sync to Jira
+                  </Button>
+                )}
+                <Button onClick={handleRefresh} disabled={refreshing}>
+                  <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </>
+            }
+          />
         </div>
 
         {/* Filters Card */}
