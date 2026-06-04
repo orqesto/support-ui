@@ -16,6 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useDepartments } from '@/hooks/useDepartments';
 import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
@@ -63,8 +64,10 @@ export function MessageDetailHeader({
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
+  const { data: allDepts = [] } = useDepartments();
 
   const [moreOpen, setMoreOpen] = useState(false);
+  const [routingTo, setRoutingTo] = useState<number | null>(null);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
@@ -352,6 +355,21 @@ export function MessageDetailHeader({
     }
   }, [message.id, onRefresh]);
 
+  const handleManualRoute = useCallback(
+    async (deptId: number) => {
+      try {
+        setRoutingTo(deptId);
+        await messageService.manualRoute(message.id, deptId);
+        onRefresh?.();
+      } catch (err) {
+        logger.error('Failed to manually route:', err);
+      } finally {
+        setRoutingTo(null);
+      }
+    },
+    [message.id, onRefresh]
+  );
+
   const handleReanalyze = useCallback(async () => {
     try {
       setReanalyzing(true);
@@ -526,6 +544,37 @@ export function MessageDetailHeader({
           </div>
         </div>
       )}
+
+      {/* Re-route banner — runner-up depts from the routing engine.
+          Lets an agent move the conversation to a near-miss dept in one click. */}
+      {(message.nearMissDepts?.length ?? 0) > 0 &&
+        message.status !== 'resolved' &&
+        message.status !== 'closed' && (
+          <div className="px-4 pb-2">
+            <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-blue-200 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-950/20">
+              <span className="text-[11px] text-blue-900 dark:text-blue-300">
+                🔀 Also matched:
+              </span>
+              {message.nearMissDepts!.map((deptId) => {
+                const dept = allDepts.find((entry) => entry.id === deptId);
+                if (!dept) return null;
+                const busy = routingTo === deptId;
+                return (
+                  <button
+                    key={deptId}
+                    type="button"
+                    onClick={() => void handleManualRoute(deptId)}
+                    disabled={busy}
+                    title={`Move this conversation to ${dept.name}`}
+                    className="text-[11px] px-1.5 py-0.5 rounded font-medium bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
+                  >
+                    {busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       {/* Action chip row */}
       <div className="flex items-center gap-1.5 flex-nowrap px-4 pb-3 overflow-visible">
