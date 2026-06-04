@@ -14,7 +14,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import RichTextEditor from '@/components/shared/RichTextEditor';
-import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -36,6 +35,7 @@ import { formatDate } from '@/lib/utils';
 import { commentsService, type Comment } from '@/services/comments.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 
 type TicketCommentsProps = {
   ticketId: number;
@@ -59,14 +59,6 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-
-  // Alert dialog state
-  const [alertDialog, setAlertDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    variant: 'success' | 'error' | 'warning' | 'info';
-  }>({ open: false, title: '', description: '', variant: 'info' });
 
   const fetchComments = useCallback(async () => {
     try {
@@ -144,12 +136,9 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
             await commentsService.uploadAttachments(response.data.id, selectedFiles);
           } catch (uploadError: unknown) {
             logger.error('Failed to upload attachments:', uploadError);
-            const errorMsg = uploadError instanceof Error ? uploadError.message : 'Unknown error';
-            setAlertDialog({
-              open: true,
-              title: 'Attachment Upload Failed',
-              description: `Comment created but failed to upload attachments: ${errorMsg}`,
-              variant: 'warning',
+            toast.warning('Comment created, but attachment upload failed', {
+              description:
+                uploadError instanceof Error ? uploadError.message : undefined,
             });
           }
         }
@@ -160,12 +149,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       }
     } catch (error) {
       logger.error('Failed to add comment:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Comment Failed',
-        description: 'Failed to add comment. Please try again.',
-        variant: 'error',
-      });
+      toast.failure('add comment', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -195,14 +179,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       }
     } catch (error: unknown) {
       logger.error('Failed to update comment:', error);
-      const errorMsg =
-        error instanceof Error ? error.message : 'Failed to update comment. Please try again.';
-      setAlertDialog({
-        open: true,
-        title: 'Update Failed',
-        description: errorMsg,
-        variant: 'error',
-      });
+      toast.failure('update comment', error);
     }
   };
 
@@ -223,14 +200,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       await fetchComments(); // Refresh immediately
     } catch (error: unknown) {
       logger.error('Failed to delete comment:', error);
-      const errorMsg =
-        error instanceof Error ? error.message : 'Failed to delete comment. Please try again.';
-      setAlertDialog({
-        open: true,
-        title: 'Delete Failed',
-        description: errorMsg,
-        variant: 'error',
-      });
+      toast.failure('delete comment', error);
       setDeleteDialogOpen(false);
       setCommentToDelete(null);
     }
@@ -253,13 +223,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       await fetchComments();
     } catch (error: unknown) {
       logger.error('Failed to sync comments:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to sync comments from Jira';
-      setAlertDialog({
-        open: true,
-        title: 'Sync Failed',
-        description: errorMsg,
-        variant: 'error',
-      });
+      toast.failure('sync comments from Jira', error);
     } finally {
       setIsSyncing(false);
     }
@@ -282,14 +246,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       setAttachmentToDelete(null);
     } catch (error: unknown) {
       logger.error('Failed to delete attachment:', error);
-      const errorMsg =
-        error instanceof Error ? error.message : 'Failed to delete attachment. Please try again.';
-      setAlertDialog({
-        open: true,
-        title: 'Delete Failed',
-        description: errorMsg,
-        variant: 'error',
-      });
+      toast.failure('delete attachment', error);
     }
   };
 
@@ -642,15 +599,6 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           </Button>
         </DialogFooter>
       </Dialog>
-
-      {/* Alert Dialog */}
-      <AlertDialog
-        open={alertDialog.open}
-        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
-        title={alertDialog.title}
-        description={alertDialog.description}
-        variant={alertDialog.variant}
-      />
     </div>
   );
 };

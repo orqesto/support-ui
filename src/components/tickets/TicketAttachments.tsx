@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
-import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Dialog, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/Dialog';
 import { apiClient } from '@/lib/api-client';
@@ -12,6 +11,7 @@ import {
 } from '@/lib/socketManager';
 import { commentsService, type Attachment } from '@/services/comments.service';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 
 type TicketAttachmentsProps = {
   ticketId: number;
@@ -26,14 +26,6 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   const [attachmentToDelete, setAttachmentToDelete] = useState<{ id: number; name: string } | null>(
     null
   );
-
-  // Alert dialog state
-  const [alertDialog, setAlertDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    variant: 'success' | 'error' | 'warning' | 'info';
-  }>({ open: false, title: '', description: '', variant: 'info' });
 
   const [imageBlobUrls, setImageBlobUrls] = useState<Record<number, string>>({});
 
@@ -162,12 +154,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       await fetchAttachments(); // Refresh list
     } catch (error) {
       logger.error('Failed to upload attachments:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Upload Failed',
-        description: 'Failed to upload attachments. Please try again.',
-        variant: 'error',
-      });
+      toast.failure('upload attachments', error);
     } finally {
       setIsUploading(false);
     }
@@ -194,12 +181,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       }
     } catch (error) {
       logger.error('Failed to download attachment:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Download Failed',
-        description: 'Failed to download attachment. Please try again.',
-        variant: 'error',
-      });
+      toast.failure('download attachment', error);
     }
   };
 
@@ -221,14 +203,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       await fetchAttachments(); // Refresh list
     } catch (error: unknown) {
       logger.error('Failed to delete attachment:', error);
-      const errorMsg =
-        error instanceof Error ? error.message : 'Failed to delete attachment. Please try again.';
-      setAlertDialog({
-        open: true,
-        title: 'Delete Failed',
-        description: errorMsg,
-        variant: 'error',
-      });
+      toast.failure('delete attachment', error);
       setDeleteDialogOpen(false);
       setAttachmentToDelete(null);
     }
@@ -420,15 +395,6 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
           </div>
         </div>
       </Dialog>
-
-      {/* Alert Dialog */}
-      <AlertDialog
-        open={alertDialog.open}
-        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
-        title={alertDialog.title}
-        description={alertDialog.description}
-        variant={alertDialog.variant}
-      />
     </div>
   );
 };
