@@ -4,6 +4,7 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
@@ -45,6 +46,7 @@ export const DeletedMessagesPage = () => {
   const [isPermanentDeleting, setIsPermanentDeleting] = useState(false);
   const [olderThanDays, setOlderThanDays] = useState(30);
   const [permanentDeleteResult, setPermanentDeleteResult] = useState<string | null>(null);
+  const [confirmPermanentDeleteOpen, setConfirmPermanentDeleteOpen] = useState(false);
 
   const fetchMessages = useCallback(async (page: number) => {
     setIsLoading(true);
@@ -268,7 +270,7 @@ export const DeletedMessagesPage = () => {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={handlePermanentDelete}
+                  onClick={() => setConfirmPermanentDeleteOpen(true)}
                   disabled={isPermanentDeleting}
                 >
                   {isPermanentDeleting ? (
@@ -286,6 +288,15 @@ export const DeletedMessagesPage = () => {
           </Card>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmPermanentDeleteOpen}
+        onOpenChange={setConfirmPermanentDeleteOpen}
+        onConfirm={() => void handlePermanentDelete()}
+        title="Permanently delete messages?"
+        description={`This will permanently delete all soft-deleted messages older than ${olderThanDays} days. This action cannot be undone.`}
+        confirmText="Permanently delete"
+        variant="danger"
+      />
     </Layout>
   );
 };
