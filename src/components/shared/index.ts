@@ -1,3 +1,8 @@
+export { DepartmentMultiPicker } from './DepartmentMultiPicker';
+export { PageHeader } from './PageHeader';
+export { PageSkeleton, TableSkeleton, DetailSkeleton } from './Skeletons';
+export { RuleEditor } from './RuleEditor';
+export type { RuleEditorColumn, RuleEditorProps } from './RuleEditor';
 export { FormattedKBContent } from './FormattedKBContent';
 export { default as RichTextEditor } from './RichTextEditor';
 export { ScrollButtons } from './ScrollButtons';
