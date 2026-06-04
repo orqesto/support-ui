@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 // Eager load critical routes
@@ -402,6 +403,7 @@ const App = () => (
     <ErrorBoundary>
       <AppRoutes />
     </ErrorBoundary>
+    <Toaster position="top-right" richColors closeButton />
   </BrowserRouter>
 );
 
