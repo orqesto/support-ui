@@ -3,7 +3,6 @@ import { AlertTriangle, Tag, X } from 'lucide-react';
 import { userService } from '@/services/user.service';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { departmentService, type Department } from '@/services/department.service';
-import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
@@ -18,9 +17,17 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
-import { roleDisplayNames, ORGANIZATION_ROLES, type OrganizationRole, type GlobalRole } from '@/types/roles';
+import {
+  roleDisplayNames,
+  ORGANIZATION_ROLES,
+  type OrganizationRole,
+  type GlobalRole,
+  type PermissionOverrides,
+} from '@/types/roles';
 import { RoleInfoCard } from '../admin/RoleInfoCard';
+import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 
 type EditUserModalProps = {
   isOpen: boolean;
@@ -37,6 +44,7 @@ type EditUserModalProps = {
       organizationRole?: OrganizationRole;
       role?: GlobalRole;
       departmentIds?: number[];
+      permissionOverrides?: PermissionOverrides;
     }
   ) => Promise<void>;
   user: User | null;
@@ -69,14 +77,9 @@ export const EditUserModal = ({
   const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
   const [orgChangeDialog, setOrgChangeDialog] = useState({ open: false, newOrgId: 0 });
-
-  // Alert dialog state
-  const [alertDialog, setAlertDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    variant: 'success' | 'error' | 'warning' | 'info';
-  }>({ open: false, title: '', description: '', variant: 'info' });
+  const [generalDeptUnlinkConfirm, setGeneralDeptUnlinkConfirm] = useState({ open: false, deptId: 0 });
+  // Wave 5 B (Model A): per-user permission overrides on top of role defaults.
+  const [permissionOverrides, setPermissionOverrides] = useState<PermissionOverrides>({});
 
   // Skill values state
   const [skillValues, setSkillValues] = useState<Record<string, string[]>>({});
@@ -137,6 +140,7 @@ export const EditUserModal = ({
       setOrganizationRole(user.organizationRole ?? 'associate');
       setSelectedDepartmentIds(user.departmentIds ?? []);
       setSelectedOrgId(user.organizationId);
+      setPermissionOverrides(user.permissionOverrides ?? {});
       void userService.getSkillValues(user.id).then(setSkillValues).catch(() => setSkillValues({}));
       void userService.getCanEditSkills(user.id).then(setCanEditSkillsState).catch(() => setCanEditSkillsState(false));
     }
@@ -203,16 +207,12 @@ export const EditUserModal = ({
         role: canEditRoles && isAdmin ? globalRole : undefined,
         organizationRole: canEditRoles ? organizationRole : undefined,
         departmentIds: canEditRoles ? selectedDepartmentIds : undefined,
+        permissionOverrides: canEditRoles ? permissionOverrides : undefined,
       });
       onClose();
     } catch (error) {
       logger.error('Failed to update user:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Update Failed',
-        description: 'Failed to update user. Please try again.',
-        variant: 'error',
-      });
+      toast.failure('update user', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -245,16 +245,12 @@ export const EditUserModal = ({
         role: canEditRoles && isAdmin ? globalRole : undefined,
         organizationRole: canEditRoles ? organizationRole : undefined,
         departmentIds: canEditRoles ? selectedDepartmentIds : undefined,
+        permissionOverrides: canEditRoles ? permissionOverrides : undefined,
       });
       onClose();
     } catch (error) {
       logger.error('Failed to change organization:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Organization Change Failed',
-        description: 'Failed to change organization. Please try again.',
-        variant: 'error',
-      });
+      toast.failure('change organization', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -422,27 +418,40 @@ export const EditUserModal = ({
                     ) : (
                       <>
                         <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
-                          {availableDepartments.map((dept) => (
-                            <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectedDepartmentIds.includes(dept.id)}
-                                onChange={(event) => {
-                                  if (event.target.checked) {
-                                    setSelectedDepartmentIds([...selectedDepartmentIds, dept.id]);
-                                  } else {
-                                    if (selectedDepartmentIds.length > 1) {
-                                      setSelectedDepartmentIds(
-                                        selectedDepartmentIds.filter((depId) => depId !== dept.id)
-                                      );
+                          {availableDepartments.map((dept) => {
+                            const isGeneral = dept.slug === 'general';
+                            const isChecked = selectedDepartmentIds.includes(dept.id);
+                            return (
+                              <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(event) => {
+                                    if (event.target.checked) {
+                                      setSelectedDepartmentIds([...selectedDepartmentIds, dept.id]);
+                                    } else {
+                                      if (selectedDepartmentIds.length > 1) {
+                                        if (isGeneral) {
+                                          setGeneralDeptUnlinkConfirm({ open: true, deptId: dept.id });
+                                        } else {
+                                          setSelectedDepartmentIds(
+                                            selectedDepartmentIds.filter((depId) => depId !== dept.id)
+                                          );
+                                        }
+                                      }
                                     }
-                                  }
-                                }}
-                                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                              />
-                              <span className="text-sm">{dept.name}</span>
-                            </label>
-                          ))}
+                                  }}
+                                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <span className="text-sm">{dept.name}</span>
+                                {isGeneral && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground">
+                                    catch-all
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
                           User can access tickets and messages from selected departments
@@ -450,6 +459,15 @@ export const EditUserModal = ({
                       </>
                     )}
                   </div>
+
+                  {/* Wave 5 B: per-user permission overrides */}
+                  {globalRole !== 'admin' && (
+                    <PermissionOverridesSection
+                      role={organizationRole}
+                      value={permissionOverrides}
+                      onChange={setPermissionOverrides}
+                    />
+                  )}
                 </>
               )}
 
@@ -610,6 +628,21 @@ export const EditUserModal = ({
       </Dialog>
 
       <ConfirmDialog
+        open={generalDeptUnlinkConfirm.open}
+        onOpenChange={(open) => setGeneralDeptUnlinkConfirm({ open, deptId: 0 })}
+        onConfirm={() => {
+          const { deptId } = generalDeptUnlinkConfirm;
+          setGeneralDeptUnlinkConfirm({ open: false, deptId: 0 });
+          setSelectedDepartmentIds(selectedDepartmentIds.filter((id) => id !== deptId));
+        }}
+        title="Remove catch-all department?"
+        description="The General department is the triage catch-all. Removing it means this user won't see messages that arrive without a specific department match. Are you sure?"
+        confirmText="Remove"
+        cancelText="Keep"
+        variant="warning"
+      />
+
+      <ConfirmDialog
         open={orgChangeDialog.open}
         onOpenChange={(open) => setOrgChangeDialog({ open, newOrgId: 0 })}
         onConfirm={async () => {
@@ -626,14 +659,6 @@ export const EditUserModal = ({
         confirmText="Move User"
         cancelText="Cancel"
         variant="warning"
-      />
-
-      <AlertDialog
-        open={alertDialog.open}
-        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
-        title={alertDialog.title}
-        description={alertDialog.description}
-        variant={alertDialog.variant}
       />
     </>
   );
