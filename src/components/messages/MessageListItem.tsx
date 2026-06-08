@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useDepartments } from '@/hooks/useDepartments';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { getChannelIcon, getCategoryDisplay } from '@/lib/messageHelpers';
 import { formatDate, formatAge, safeCssColor } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
@@ -53,13 +54,12 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
         <div className="flex gap-2 items-center min-w-0">
           <span className="shrink-0 text-muted-foreground">{getChannelIcon(msg.channel)}</span>
           <span className="flex-1 min-w-0 text-sm font-semibold truncate">{thread.sender}</span>
-          <span
-            className="text-xs whitespace-nowrap text-muted-foreground shrink-0"
-            title={`Received: ${formatDate(receivedAt)}`}
-          >
-            <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
-            {formatAge(receivedAt)}
-          </span>
+          <Tooltip content={`Received: ${formatDate(receivedAt)}`} size="sm">
+            <span className="text-xs whitespace-nowrap text-muted-foreground shrink-0">
+              <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
+              {formatAge(receivedAt)}
+            </span>
+          </Tooltip>
           <Button variant="outline" onClick={() => onOpen(thread)} className="gap-1.5 shrink-0">
             <ExternalLink className="w-4 h-4" />
             Open
@@ -95,29 +95,31 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
         {/* Row 4: Assignee + linked ticket */}
         <div className="flex gap-2 items-center pl-5 mt-2">
           {msg.assigneeId && (
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5"
-              title={`Assigned to ${msg.assigneeName ?? 'User'}`}
-            >
-              <User className="w-2.5 h-2.5" />
-              {msg.assigneeName ?? 'User'}
-            </Badge>
+            <Tooltip content={`Assigned to ${msg.assigneeName ?? 'User'}`} size="sm">
+              <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5">
+                <User className="w-2.5 h-2.5" />
+                {msg.assigneeName ?? 'User'}
+              </Badge>
+            </Tooltip>
           )}
           {thread.hasTicket && (
-            <Badge
-              variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
-              className="flex gap-1 items-center h-5 px-1.5"
-              title={
+            <Tooltip
+              content={
                 thread.linkedTicketStatus
                   ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
                   : 'Ticket'
               }
+              size="sm"
             >
-              <Ticket className="w-2.5 h-2.5" />
-              Ticket
-              {thread.linkedTicketStatus === 'in_progress' && <span>· In progress</span>}
-            </Badge>
+              <Badge
+                variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
+                className="flex gap-1 items-center h-5 px-1.5"
+              >
+                <Ticket className="w-2.5 h-2.5" />
+                Ticket
+                {thread.linkedTicketStatus === 'in_progress' && <span>· In progress</span>}
+              </Badge>
+            </Tooltip>
           )}
         </div>
 
@@ -127,14 +129,12 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
 
           {/* Category */}
           {analysis?.suggestedCategory && getCategoryDisplay(analysis.suggestedCategory) && (
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5"
-              title="AI Suggested Category"
-            >
-              <Folder className="w-2.5 h-2.5" />
-              {getCategoryDisplay(analysis.suggestedCategory)}
-            </Badge>
+            <Tooltip content="AI Suggested Category" size="sm">
+              <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5">
+                <Folder className="w-2.5 h-2.5" />
+                {getCategoryDisplay(analysis.suggestedCategory)}
+              </Badge>
+            </Tooltip>
           )}
 
           {/* Lead — single badge showing stage or fallback */}
@@ -143,56 +143,52 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
               const stage = leadMeta?.leadState?.stage;
               if (stage !== undefined && stage in STAGE_COLORS) {
                 return (
-                  <Badge
-                    variant={STAGE_COLORS[stage]}
-                    className="flex gap-1 items-center h-5 px-1.5"
-                    title={`Lead · ${stage.replace(/_/g, ' ')}`}
-                  >
-                    <Target className="w-2.5 h-2.5" />
-                    {STAGE_COLORS[stage] === 'danger' && <AlertTriangle className="w-2.5 h-2.5" />}
-                    {stage.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
-                  </Badge>
+                  <Tooltip content={`Lead · ${stage.replace(/_/g, ' ')}`} size="sm">
+                    <Badge
+                      variant={STAGE_COLORS[stage]}
+                      className="flex gap-1 items-center h-5 px-1.5"
+                    >
+                      <Target className="w-2.5 h-2.5" />
+                      {STAGE_COLORS[stage] === 'danger' && (
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                      )}
+                      {stage.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                    </Badge>
+                  </Tooltip>
                 );
               }
               return (
-                <Badge
-                  variant="default"
-                  className="flex gap-1 items-center h-5 px-1.5"
-                  title="Qualified lead"
-                >
-                  <Target className="w-2.5 h-2.5" />
-                  Lead
-                </Badge>
+                <Tooltip content="Qualified lead" size="sm">
+                  <Badge variant="default" className="flex gap-1 items-center h-5 px-1.5">
+                    <Target className="w-2.5 h-2.5" />
+                    Lead
+                  </Badge>
+                </Tooltip>
               );
             })()}
 
           {/* Bot replied */}
           {(msg.metadata?.autoReply as { sent?: boolean } | undefined)?.sent && (
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5"
-              title="Auto-reply sent by bot"
-            >
-              <Bot className="w-2.5 h-2.5" />
-              Bot Replied
-            </Badge>
+            <Tooltip content="Auto-reply sent by bot" size="sm">
+              <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5">
+                <Bot className="w-2.5 h-2.5" />
+                Bot Replied
+              </Badge>
+            </Tooltip>
           )}
 
           {/* Labels */}
           {(msg.labels as { id: number; name: string; color: string }[] | undefined)?.map(
             (label) => (
-              <Badge
-                key={label.id}
-                variant="secondary"
-                className="flex gap-1 items-center h-5 px-1.5"
-                title={label.name}
-              >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: safeCssColor(label.color) }}
-                />
-                {label.name}
-              </Badge>
+              <Tooltip key={label.id} content={label.name} size="sm">
+                <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: safeCssColor(label.color) }}
+                  />
+                  {label.name}
+                </Badge>
+              </Tooltip>
             )
           )}
 

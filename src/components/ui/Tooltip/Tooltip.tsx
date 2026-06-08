@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getTooltipClasses, getTooltipArrowClasses } from './tooltip.styles';
+import { getTooltipClasses } from './tooltip.styles';
 import type { TooltipProps } from './tooltip.types';
 
 export const Tooltip = ({
@@ -41,7 +41,6 @@ export const Tooltip = ({
       {isVisible && content && (
         <span className={getTooltipClasses(side, size)} role="tooltip">
           {content}
-          <span className={getTooltipArrowClasses(side)} />
         </span>
       )}
     </span>

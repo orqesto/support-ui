@@ -13,6 +13,7 @@ import {
 import type { Department } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 import { Badge } from '@/components/ui/Badge';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { getCategoryDisplay, getChannelIcon } from '@/lib/messageHelpers';
 import { formatAge } from '@/lib/utils';
@@ -94,18 +95,19 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
         </span>
         <span className="flex-1 min-w-0 text-sm font-semibold truncate">{customer}</span>
         {directionLabel && (
-          <span
-            title={directionLabel}
-            className={`shrink-0 ${
-              lastReplyFromClient ? 'text-amber-500' : 'text-muted-foreground'
-            }`}
-          >
-            {lastReplyFromClient ? (
-              <ArrowLeft className="w-3 h-3" />
-            ) : (
-              <ArrowRight className="w-3 h-3" />
-            )}
-          </span>
+          <Tooltip content={directionLabel} size="sm">
+            <span
+              className={`shrink-0 ${
+                lastReplyFromClient ? 'text-amber-500' : 'text-muted-foreground'
+              }`}
+            >
+              {lastReplyFromClient ? (
+                <ArrowLeft className="w-3 h-3" />
+              ) : (
+                <ArrowRight className="w-3 h-3" />
+              )}
+            </span>
+          </Tooltip>
         )}
         <span className="text-xs whitespace-nowrap text-muted-foreground shrink-0">
           <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
@@ -144,97 +146,114 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             scoped to `latestIncomingMessage` — would miss it. Show the paperclip when
             the latest message has its own attachments and signalMessage doesn't. */}
         {(msg.attachmentCount ?? 0) > 0 && signalMessage.id !== msg.id && (
-          <Badge
-            variant="default"
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
-            title={`${msg.attachmentCount} attachment(s) on the latest message`}
+          <Tooltip
+            content={`${msg.attachmentCount} attachment(s) on the latest message`}
+            size="sm"
           >
-            <Paperclip className="w-2 h-2" />
-            {msg.attachmentCount}
-          </Badge>
+            <Badge
+              variant="default"
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            >
+              <Paperclip className="w-2 h-2" />
+              {msg.attachmentCount}
+            </Badge>
+          </Tooltip>
         )}
 
         {msg.priority && (
-          <Badge
-            variant={PRIORITY_VARIANT[msg.priority]}
-            className="h-4 px-1 text-[10px] shrink-0"
-            title={`Priority: ${msg.priority}`}
-          >
-            {msg.priority}
-          </Badge>
+          <Tooltip content={`Priority: ${msg.priority}`} size="sm">
+            <Badge
+              variant={PRIORITY_VARIANT[msg.priority]}
+              className="h-4 px-1 text-[10px] shrink-0"
+            >
+              {msg.priority}
+            </Badge>
+          </Tooltip>
         )}
 
         {category && (
-          <Badge
-            variant="secondary"
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
-            title="AI Suggested Category"
-          >
-            <Folder className="w-2 h-2" />
-            {category}
-          </Badge>
+          <Tooltip content="AI Suggested Category" size="sm">
+            <Badge
+              variant="secondary"
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            >
+              <Folder className="w-2 h-2" />
+              {category}
+            </Badge>
+          </Tooltip>
         )}
 
         {thread.isLead && (
-          <Badge
-            variant={leadVariant ?? 'default'}
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
-            title={leadStage ? `Lead · ${leadStage.replace(/_/g, ' ')}` : 'Qualified lead'}
+          <Tooltip
+            content={leadStage ? `Lead · ${leadStage.replace(/_/g, ' ')}` : 'Qualified lead'}
+            size="sm"
           >
-            <Target className="w-2 h-2" />
-            {leadStage ? leadStage.replace(/_/g, ' ') : 'Lead'}
-          </Badge>
+            <Badge
+              variant={leadVariant ?? 'default'}
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            >
+              <Target className="w-2 h-2" />
+              {leadStage ? leadStage.replace(/_/g, ' ') : 'Lead'}
+            </Badge>
+          </Tooltip>
         )}
 
         {autoReplied && (
-          <Badge
-            variant="secondary"
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
-            title="Auto-reply sent by bot"
-          >
-            <Bot className="w-2 h-2" />
-            Bot
-          </Badge>
+          <Tooltip content="Auto-reply sent by bot" size="sm">
+            <Badge
+              variant="secondary"
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            >
+              <Bot className="w-2 h-2" />
+              Bot
+            </Badge>
+          </Tooltip>
         )}
 
         {msg.assigneeId && (
-          <Badge
-            variant="secondary"
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] min-w-0 overflow-hidden"
-            title={`Assigned to ${msg.assigneeName ?? 'Agent'}`}
-          >
-            <User className="w-2 h-2 shrink-0" />
-            <span className="truncate">{msg.assigneeName ?? 'Assigned'}</span>
-          </Badge>
+          <Tooltip content={`Assigned to ${msg.assigneeName ?? 'Agent'}`} size="sm">
+            <Badge
+              variant="secondary"
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] min-w-0 overflow-hidden"
+            >
+              <User className="w-2 h-2 shrink-0" />
+              <span className="truncate">{msg.assigneeName ?? 'Assigned'}</span>
+            </Badge>
+          </Tooltip>
         )}
 
         {thread.hasTicket && (
-          <Badge
-            variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
-            title={
+          <Tooltip
+            content={
               thread.linkedTicketStatus
                 ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
                 : 'Ticket'
             }
+            size="sm"
           >
-            <Ticket className="w-2 h-2" />
-            Ticket
-            {thread.linkedTicketStatus === 'in_progress' && (
-              <span className="ml-0.5">· In progress</span>
-            )}
-          </Badge>
+            <Badge
+              variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            >
+              <Ticket className="w-2 h-2" />
+              Ticket
+              {thread.linkedTicketStatus === 'in_progress' && (
+                <span className="ml-0.5">· In progress</span>
+              )}
+            </Badge>
+          </Tooltip>
         )}
 
         {thread.messageCount > 1 && (
-          <Badge
-            variant="default"
-            className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
-            title={`${thread.messageCount} messages in thread`}
-          >
-            <MessagesSquare className="w-2 h-2" />
-            {thread.messageCount}
-          </Badge>
+          <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
+            <Badge
+              variant="default"
+              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+            >
+              <MessagesSquare className="w-2 h-2" />
+              {thread.messageCount}
+            </Badge>
+          </Tooltip>
         )}
 
         <span className="ml-auto font-mono text-[10px] text-muted-foreground shrink-0">
