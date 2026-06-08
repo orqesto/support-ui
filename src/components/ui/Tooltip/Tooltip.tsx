@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getTooltipClasses, getTooltipArrowClasses } from './tooltip.styles';
 import type { TooltipProps } from './tooltip.types';
 
@@ -11,18 +11,6 @@ export const Tooltip = ({
 }: TooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1280);
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handleMouseEnter = () => {
     const id = window.setTimeout(() => {
@@ -40,7 +28,7 @@ export const Tooltip = ({
   };
 
   return (
-    <div
+    <span
       role="presentation"
       className="inline-flex relative"
       onMouseEnter={handleMouseEnter}
@@ -50,12 +38,12 @@ export const Tooltip = ({
     >
       {children}
 
-      {isVisible && content && isMobile && (
-        <div className={getTooltipClasses(side, size)} role="tooltip">
+      {isVisible && content && (
+        <span className={getTooltipClasses(side, size)} role="tooltip">
           {content}
-          <div className={getTooltipArrowClasses(side)} />
-        </div>
+          <span className={getTooltipArrowClasses(side)} />
+        </span>
       )}
-    </div>
+    </span>
   );
 };

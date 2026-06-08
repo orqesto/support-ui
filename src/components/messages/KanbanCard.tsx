@@ -1,24 +1,23 @@
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Bot,
-  Building2,
   Clock,
   Folder,
-  GitBranch,
   MessagesSquare,
   Paperclip,
   Target,
   Ticket,
   User,
 } from 'lucide-react';
+import type { Department } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 import { Badge } from '@/components/ui/Badge';
 import { useDepartments } from '@/hooks/useDepartments';
 import { getCategoryDisplay, getChannelIcon } from '@/lib/messageHelpers';
-import { formatAge, safeCssColor } from '@/lib/utils';
+import { formatAge } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
+import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 
 type KanbanCardProps = {
@@ -49,10 +48,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
     ? allDepts.find((dept) => dept.id === msg.departmentId)
     : undefined;
   const needsRouting = msg.status === 'needs_routing';
-  const nearMissNames =
-    (msg.nearMissDepts ?? [])
-      .map((deptId) => allDepts.find((dept) => dept.id === deptId)?.name)
-      .filter((name): name is string => Boolean(name));
+  const nearMissDepts = (msg.nearMissDepts ?? [])
+    .map((deptId) => allDepts.find((dept) => dept.id === deptId))
+    .filter((dept): dept is Department => Boolean(dept));
 
   // The customer is `thread.sender` (always the requester). `msg.sender` is the latest
   // event's author — for an agent_reply that is the agent, not the customer.
@@ -62,19 +60,14 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
   // customer-side spam/contradiction/attachment signals once the agent replies.
   const signalMessage = thread.latestIncomingMessage ?? msg;
 
-  const analysis = signalMessage.metadata?.analysis as
-    | { suggestedCategory?: string }
-    | undefined;
-  const leadMeta = signalMessage.metadata as
-    | { leadState?: { stage: string } }
-    | undefined;
+  const analysis = signalMessage.metadata?.analysis as { suggestedCategory?: string } | undefined;
+  const leadMeta = signalMessage.metadata as { leadState?: { stage: string } } | undefined;
   const autoReplied = (signalMessage.metadata?.autoReply as { sent?: boolean } | undefined)?.sent;
   const category = analysis?.suggestedCategory
     ? getCategoryDisplay(analysis.suggestedCategory)
     : null;
   const leadStage = leadMeta?.leadState?.stage;
-  const leadVariant =
-    leadStage && leadStage in STAGE_COLORS ? STAGE_COLORS[leadStage] : undefined;
+  const leadVariant = leadStage && leadStage in STAGE_COLORS ? STAGE_COLORS[leadStage] : undefined;
 
   // Direction indicator — tells the user "we owe a reply" vs "customer owes a reply".
   // Columns sort by status; this small marker tells the same story at card scope so
@@ -121,48 +114,19 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
       </div>
 
       {/* Subject */}
-      {msg.subject && (
-        <p className="text-xs truncate text-muted-foreground">{msg.subject}</p>
-      )}
+      {msg.subject && <p className="text-xs truncate text-muted-foreground">{msg.subject}</p>}
 
       {/* Dept badge row — primary routed dept (or needs-routing warning) +
           near-miss runner-ups so other depts can still discover the message. */}
-      {(primaryDept || needsRouting || nearMissNames.length > 0) && (
+      {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
         <div className="flex flex-wrap gap-1 items-center">
           {needsRouting ? (
-            <span
-              className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
-              title="Routing engine found no winner — needs manual triage"
-            >
-              <AlertTriangle className="w-2.5 h-2.5" />
-              Needs routing
-            </span>
+            <DepartmentBadge variant="needs" />
           ) : (
-            primaryDept && (
-              <span
-                className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded"
-                style={{
-                  backgroundColor: primaryDept.color
-                    ? `${safeCssColor(primaryDept.color)}22`
-                    : undefined,
-                  color: primaryDept.color ? safeCssColor(primaryDept.color) : undefined,
-                }}
-                title={`Routed to ${primaryDept.name}`}
-              >
-                <Building2 className="w-2.5 h-2.5" />
-                {primaryDept.name}
-              </span>
-            )
+            primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
           )}
-          {nearMissNames.map((name) => (
-            <span
-              key={name}
-              className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200"
-              title="The routing engine also considered this department"
-            >
-              <GitBranch className="w-2.5 h-2.5" />
-              also: {name}
-            </span>
+          {nearMissDepts.map((dept) => (
+            <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
           ))}
         </div>
       )}
