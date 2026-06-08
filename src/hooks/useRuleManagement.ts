@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useDepartmentContextKey } from './useDepartmentContextKey';
 import { logger } from '@/lib/logger';
 
 type UseRuleManagementOptions<T, TFormData> = {
@@ -18,57 +19,78 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   getInitialFormData,
   getFormDataFromRule,
 }: UseRuleManagementOptions<T, TFormData>) => {
+  // Callers commonly pass inline arrow functions (DetectionRulesSettings does so
+  // because the service returns ApiResponse<T> and needs a `.data` unwrap). Without
+  // stabilising via refs, every parent render produces new fn refs → loadRules
+  // useCallback dep changes → mount useEffect fires every render → infinite refetch
+  // loop (the page "blinks"). Keep latest fn in a ref; effect runs on mount only.
+  const fetchRulesRef = useRef(fetchRules);
+  const createRuleRef = useRef(createRule);
+  const updateRuleRef = useRef(updateRule);
+  const deleteRuleRef = useRef(deleteRule);
+  const getInitialFormDataRef = useRef(getInitialFormData);
+  const getFormDataFromRuleRef = useRef(getFormDataFromRule);
+
+  // Keep refs pointing at the latest fns without invalidating callbacks below.
+  fetchRulesRef.current = fetchRules;
+  createRuleRef.current = createRule;
+  updateRuleRef.current = updateRule;
+  deleteRuleRef.current = deleteRule;
+  getInitialFormDataRef.current = getInitialFormData;
+  getFormDataFromRuleRef.current = getFormDataFromRule;
+
   const [loading, setLoading] = useState(true);
   const [rules, setRules] = useState<T[]>([]);
   const [editingRule, setEditingRule] = useState<T | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ruleToDelete, setRuleToDelete] = useState<T | null>(null);
-  const [formData, setFormData] = useState<TFormData>(getInitialFormData());
+  const [formData, setFormData] = useState<TFormData>(() => getInitialFormDataRef.current());
 
   const loadRules = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchRules();
+      const data = await fetchRulesRef.current();
       setRules(data);
     } catch (error) {
       logger.error('Error fetching rules:', error);
     } finally {
       setLoading(false);
     }
-  }, [fetchRules]);
+  }, []);
 
+  // SpamRules + DetectionRules controllers honour X-Department-Context on the
+  // list endpoints — refetch when the checkbox-driven dept selection changes
+  // so the editor shows rules in scope.
+  const selectedDeptKey = useDepartmentContextKey();
   useEffect(() => {
     loadRules().catch((error) => {
       logger.error('Failed to fetch rules:', error);
     });
-  }, [loadRules]);
+  }, [loadRules, selectedDeptKey]);
 
-  const handleEdit = useCallback(
-    (rule: T) => {
-      setEditingRule(rule);
-      setFormData(getFormDataFromRule(rule));
-    },
-    [getFormDataFromRule]
-  );
+  const handleEdit = useCallback((rule: T) => {
+    setEditingRule(rule);
+    setFormData(getFormDataFromRuleRef.current(rule));
+  }, []);
 
   const handleCreate = useCallback(() => {
     setIsCreating(true);
-    setFormData(getInitialFormData());
-  }, [getInitialFormData]);
+    setFormData(getInitialFormDataRef.current());
+  }, []);
 
   const handleCancel = useCallback(() => {
     setEditingRule(null);
     setIsCreating(false);
-    setFormData(getInitialFormData());
-  }, [getInitialFormData]);
+    setFormData(getInitialFormDataRef.current());
+  }, []);
 
   const handleSave = useCallback(async () => {
     try {
       if (editingRule) {
-        await updateRule(editingRule.id, formData);
+        await updateRuleRef.current(editingRule.id, formData);
       } else if (isCreating) {
-        await createRule(formData);
+        await createRuleRef.current(formData);
       }
       await loadRules();
       handleCancel();
@@ -76,7 +98,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       logger.error('Error saving rule:', error);
       throw error;
     }
-  }, [editingRule, isCreating, formData, updateRule, createRule, loadRules, handleCancel]);
+  }, [editingRule, isCreating, formData, loadRules, handleCancel]);
 
   const handleDeleteClick = useCallback((rule: T) => {
     setRuleToDelete(rule);
@@ -87,7 +109,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     if (!ruleToDelete) return;
 
     try {
-      await deleteRule(ruleToDelete.id);
+      await deleteRuleRef.current(ruleToDelete.id);
       await loadRules();
       setDeleteDialogOpen(false);
       setRuleToDelete(null);
@@ -95,7 +117,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       logger.error('Error deleting rule:', error);
       throw error;
     }
-  }, [ruleToDelete, deleteRule, loadRules]);
+  }, [ruleToDelete, loadRules]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteDialogOpen(false);

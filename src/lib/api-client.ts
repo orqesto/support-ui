@@ -2,6 +2,7 @@ import axios from 'axios';
 import { API_BASE_URL } from './config';
 import { logger } from '@/lib/logger';
 import { useAuthStore } from '@/stores/authStore';
+import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -34,6 +35,12 @@ apiClient.interceptors.request.use(
         config.method?.toUpperCase(),
         config.url
       );
+    }
+
+    // Add department context filter — attach CSV header when user has narrowed their view
+    const selectedDeptIds = useDepartmentContextStore.getState().getSelectedDeptIds();
+    if (selectedDeptIds.length > 0) {
+      config.headers['X-Department-Context'] = selectedDeptIds.join(',');
     }
 
     return config;

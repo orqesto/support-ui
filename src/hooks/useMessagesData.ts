@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { useMessagesStore } from '@/stores/messagesStore';
+import { useDepartmentContextKey } from './useDepartmentContextKey';
 
 type MessagesDataReturn = {
   threads: MessageThread[];
@@ -46,6 +47,9 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
   const setMessages = useMessagesStore((state) => state.setMessages);
   const clearCache = useMessagesStore((state) => state.clearCache);
   const getCached = useMessagesStore((state) => state.getCached);
+  // The checkbox-driven DepartmentSwitcher writes the X-Department-Context CSV
+  // header. Subscribing here makes the effect re-run when the user toggles.
+  const selectedDeptKey = useDepartmentContextKey();
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
@@ -100,6 +104,18 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.showSpam = 'true';
         } else if (status === 'resolved') {
           apiFilters.view = 'resolved';
+        }
+
+        // DEPARTMENT — 'needs_routing' sentinel overrides the view to the dedicated
+        // needs_routing queue (org-wide, ignores user dept membership). A real dept id
+        // just narrows the existing view to that dept.
+        if (currentFilters.departmentId && currentFilters.departmentId !== 'all') {
+          if (currentFilters.departmentId === 'needs_routing') {
+            apiFilters.view = 'needs_routing';
+            delete apiFilters.processed;
+          } else {
+            apiFilters.departmentId = currentFilters.departmentId;
+          }
         }
 
         // PRIORITY
@@ -197,12 +213,12 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
   // fetchMessages reads filters/sorting from store directly to avoid stale closure without listing them as deps
   useEffect(() => {
     if (!urlSyncedRef.current) return;
-
     fetchMessages(1).catch((error) => {
       logger.error('Failed to fetch messages:', error);
     });
   }, [
     filters.messageSourceId,
+    filters.departmentId,
     filters.status,
     filters.threadStatus,
     filters.priority,
@@ -214,6 +230,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.search,
     filters.slaFilter,
     sorting.sortOrder,
+    selectedDeptKey,
   ]);
 
   const handlePageChange = async (page: number) => {

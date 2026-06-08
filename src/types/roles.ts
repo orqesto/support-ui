@@ -76,7 +76,7 @@ export const Permission = {
 export type Permission = (typeof Permission)[keyof typeof Permission];
 
 // Permission mapping for each role
-const rolePermissions: Record<UserRole, Permission[]> = {
+export const rolePermissions: Record<UserRole, Permission[]> = {
   // Global admin has all permissions
   admin: Object.values(Permission),
 
@@ -165,26 +165,58 @@ const rolePermissions: Record<UserRole, Permission[]> = {
 };
 
 /**
- * Check if a user has a specific permission
+ * Wave 5 B (Model A) — per-user permission overrides on top of role defaults.
+ * Stored on user_organizations.permission_overrides and sent to the FE via the
+ * user payload. Mirrors the BE PermissionOverrides type so the same effective
+ * set is computed on both sides.
+ */
+export type PermissionOverrides = {
+  added?: string[];
+  removed?: string[];
+};
+
+/**
+ * Compute the effective permission set (role defaults + added − removed).
+ * Mirrors the BE computeEffectivePermissions: global admin and org_admin are
+ * unconditionally bypassed (prevents self-lockout); malformed JSONB shapes
+ * are defensively treated as empty.
+ */
+export const computeEffectivePermissions = (
+  userRole: GlobalRole,
+  orgRole: OrganizationRole | null | undefined,
+  overrides?: PermissionOverrides | null
+): Set<Permission> => {
+  if (userRole === 'admin' || orgRole === 'org_admin') {
+    return new Set(rolePermissions[userRole === 'admin' ? 'admin' : 'org_admin']);
+  }
+  const base = new Set<Permission>();
+  if (orgRole) for (const perm of rolePermissions[orgRole] ?? []) base.add(perm);
+  for (const perm of rolePermissions[userRole] ?? []) base.add(perm);
+  if (!overrides) return base;
+  const addedList = Array.isArray(overrides.added) ? overrides.added : [];
+  const removedList = Array.isArray(overrides.removed) ? overrides.removed : [];
+  const removed = new Set(removedList);
+  const result = new Set<Permission>();
+  for (const perm of base) {
+    if (!removed.has(perm)) result.add(perm);
+  }
+  for (const perm of addedList) {
+    result.add(perm as Permission); // `added` overrides `removed`
+  }
+  return result;
+};
+
+/**
+ * Check if a user has a specific permission. Optional `overrides` enables
+ * per-user grants beyond the role defaults; existing call sites without
+ * overrides see no behavior change.
  */
 export const hasPermission = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined,
-  permission: Permission
-): boolean => {
-  // Global admin has all permissions
-  if (userRole === 'admin') {
-    return true;
-  }
-
-  // Check organization role permissions
-  if (orgRole && rolePermissions[orgRole]?.includes(permission)) {
-    return true;
-  }
-
-  // Check global user role permissions
-  return rolePermissions[userRole]?.includes(permission) || false;
-};
+  permission: Permission,
+  overrides?: PermissionOverrides | null
+): boolean => computeEffectivePermissions(userRole, orgRole, overrides).has(permission);
 
 /**
  * Check if user has ANY of the specified permissions
@@ -192,8 +224,9 @@ export const hasPermission = (
 export const hasAnyPermission = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined,
-  permissions: Permission[]
-): boolean => permissions.some((permission) => hasPermission(userRole, orgRole, permission));
+  permissions: Permission[],
+  overrides?: PermissionOverrides | null
+): boolean => permissions.some((permission) => hasPermission(userRole, orgRole, permission, overrides));
 
 /**
  * Check if user has ALL of the specified permissions
@@ -201,8 +234,9 @@ export const hasAnyPermission = (
 export const hasAllPermissions = (
   userRole: GlobalRole,
   orgRole: OrganizationRole | null | undefined,
-  permissions: Permission[]
-): boolean => permissions.every((permission) => hasPermission(userRole, orgRole, permission));
+  permissions: Permission[],
+  overrides?: PermissionOverrides | null
+): boolean => permissions.every((permission) => hasPermission(userRole, orgRole, permission, overrides));
 
 /**
  * Get user's effective role for display
@@ -254,20 +288,32 @@ export const isOrgAdminOrHigher = (
  */
 export const canManageUsers = (
   userRole: GlobalRole,
-  orgRole: OrganizationRole | null | undefined
+  orgRole: OrganizationRole | null | undefined,
+  overrides?: PermissionOverrides | null
 ): boolean =>
-  hasAnyPermission(userRole, orgRole, [Permission.MANAGE_USERS, Permission.CREATE_USERS]);
+  hasAnyPermission(
+    userRole,
+    orgRole,
+    [Permission.MANAGE_USERS, Permission.CREATE_USERS],
+    overrides
+  );
 
 /**
  * Check if user can access settings
  */
 export const canAccessSettings = (
   userRole: GlobalRole,
-  orgRole: OrganizationRole | null | undefined
+  orgRole: OrganizationRole | null | undefined,
+  overrides?: PermissionOverrides | null
 ): boolean =>
-  hasAnyPermission(userRole, orgRole, [
-    Permission.MANAGE_INTEGRATIONS,
-    Permission.MANAGE_CATEGORIES,
-    Permission.MANAGE_AI_PROMPTS,
-    Permission.VIEW_ORGANIZATION_SETTINGS,
-  ]);
+  hasAnyPermission(
+    userRole,
+    orgRole,
+    [
+      Permission.MANAGE_INTEGRATIONS,
+      Permission.MANAGE_CATEGORIES,
+      Permission.MANAGE_AI_PROMPTS,
+      Permission.VIEW_ORGANIZATION_SETTINGS,
+    ],
+    overrides
+  );

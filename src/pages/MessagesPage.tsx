@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Mail, RefreshCw } from 'lucide-react';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -36,6 +37,7 @@ import { logger } from '@/lib/logger';
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const token = useAuthStore((state) => state.token);
 
   const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
@@ -353,7 +355,7 @@ export const MessagesPage = () => {
     setDeleting(true);
     try {
       await messageService.delete(messageToDelete.id);
-      clearCache();
+      clearCache(); void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       setDeleteDialogOpen(false);
       setMessageToDelete(null);
       setSelectedMessage(null);
@@ -382,10 +384,27 @@ export const MessagesPage = () => {
     return () => unsubscribeFromEvent('ticket:updated', handleTicketUpdated);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
+  // Refresh when ANOTHER agent re-routes a conversation. Without this, agents
+  // viewing the inbox/kanban in another tab see stale data: a conv they had in
+  // their dept queue continues to display there until they manually refresh,
+  // even after a colleague moved it elsewhere. The BE emits 'conversation:routed'
+  // org-wide on every manualRouteMessage; the badge count, list, and kanban
+  // columns all need to re-fetch to pick up the new dept assignment.
+  useEffect(() => {
+    const handleConversationRouted = () => {
+      clearCache();
+      void fetchMessages(messagesPagination.page, true);
+      bumpKanban();
+    };
+    subscribeToEvent('conversation:routed', handleConversationRouted);
+    return () => unsubscribeFromEvent('conversation:routed', handleConversationRouted);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+
   const isKanban = displayMode === 'kanban';
   // Visible badge count: kanban-hidden filters (status/slaFilter) excluded
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
+    (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
     (!isKanban && filters.status && filters.status !== 'all' ? 1 : 0) +
     (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
@@ -399,6 +418,7 @@ export const MessagesPage = () => {
   // list-mode filters set before switching to kanban can still be cleared.
   const clearableFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
+    (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
     (filters.status && filters.status !== 'all' ? 1 : 0) +
     (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
@@ -490,6 +510,13 @@ export const MessagesPage = () => {
                       filterObj.processed = filters.threadStatus as string;
                     if (filters.messageSourceId && filters.messageSourceId !== 'all')
                       filterObj.messageSourceId = filters.messageSourceId;
+                    if (filters.departmentId && filters.departmentId !== 'all') {
+                      if (filters.departmentId === 'needs_routing') {
+                        filterObj.view = 'needs_routing';
+                      } else {
+                        filterObj.departmentId = filters.departmentId;
+                      }
+                    }
                     if (filters.assigneeId && filters.assigneeId !== 'all')
                       filterObj.assigneeId =
                         filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
@@ -614,6 +641,7 @@ export const MessagesPage = () => {
                   await messageService.classify(selectedMessage.id, action);
                   clearCache();
                   bumpKanban();
+                  void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
                   await fetchMessages(messagesPagination.page, true);
                   setSelectedMessage(null);
                 }}

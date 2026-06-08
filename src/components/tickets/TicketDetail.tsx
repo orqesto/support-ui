@@ -13,10 +13,12 @@ import {
   X,
   Plus,
   Pencil,
+  GitBranch,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import RichTextEditor from '@/components/shared/RichTextEditor';
+import { MoveDepartmentDialog } from './MoveDepartmentDialog';
 import { TicketPanelTabs } from './TicketPanelTabs';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
@@ -87,6 +89,7 @@ export const TicketDetail = ({
   const [editingDescription, setEditingDescription] = useState(false);
   const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
   const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
+  const [moveDeptOpen, setMoveDeptOpen] = useState(false);
 
   useEffect(() => {
     if (!showLabelPicker) return;
@@ -340,6 +343,7 @@ export const TicketDetail = ({
             type="ticket"
             itemId={ticket.id}
             currentAssigneeId={ticket.assigneeId}
+            departmentId={ticket.departmentId ?? null}
             onAssign={onRefresh}
           />
         </div>
@@ -351,6 +355,12 @@ export const TicketDetail = ({
           <LinkIcon className="mr-2 w-4 h-4" />
           {linkCopied ? 'Link Copied!' : 'Copy Link'}
         </Button>
+        {hasManageTickets && (
+          <Button onClick={() => setMoveDeptOpen(true)} variant="outline" size="sm">
+            <GitBranch className="mr-2 w-4 h-4" />
+            Move department
+          </Button>
+        )}
         {!ticket.externalId && onPushToJira && (
           <Button onClick={onPushToJira} isLoading={isPushingToJira} size="sm">
             <Send className="mr-2 w-4 h-4" />
@@ -364,6 +374,16 @@ export const TicketDetail = ({
           </Button>
         )}
       </div>
+
+      <MoveDepartmentDialog
+        isOpen={moveDeptOpen}
+        onClose={() => setMoveDeptOpen(false)}
+        ticketId={ticket.id}
+        currentDepartmentId={ticket.departmentId ?? null}
+        currentAssigneeId={ticket.assigneeId}
+        currentAssigneeName={ticket.assigneeName}
+        onMoved={onRefresh}
+      />
 
       {/* Description */}
       <div className="pt-6 border-t">

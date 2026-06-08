@@ -11,6 +11,7 @@ import {
   User,
 } from 'lucide-react';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -333,6 +334,8 @@ export function ContactsView({
   const [loading, setLoading] = useState(true);
 
   const filtersKey = JSON.stringify(apiFilters);
+  // BE `messageContactController.getContacts` is dept-scoped via X-Department-Context.
+  const selectedDeptKey = useDepartmentContextKey();
 
   const fetchContacts = useCallback(
     async (page: number) => {
@@ -350,7 +353,9 @@ export function ContactsView({
         setLoading(false);
       }
     },
-    [filtersKey]
+    // selectedDeptKey is a refresh trigger via the axios interceptor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtersKey, selectedDeptKey]
   );
 
   useEffect(() => {

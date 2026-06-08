@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, BookOpen, Inbox, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
-import { DepartmentMultiPicker } from './DepartmentMultiPicker';
+import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import type { Department } from '@/services/department.service';
 
 type GmailConfig = {

@@ -469,4 +469,15 @@ export const messageService = {
     );
     return response.data;
   },
+
+  getNeedsRoutingCount: async () => {
+    const response = await apiClient.get<{ success: boolean; count: number }>(
+      '/api/messages/needs-routing/count'
+    );
+    return response.data.count;
+  },
+
+  manualRoute: async (id: number, departmentId: number) => {
+    await apiClient.patch(`/api/messages/${id}/manual-route`, { departmentId });
+  },
 };

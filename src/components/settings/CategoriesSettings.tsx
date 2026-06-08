@@ -244,7 +244,7 @@ export const CategoriesSettings = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h4 className="text-lg font-semibold">{category.name}</h4>
-                      <DepartmentBadge departmentId={category.departmentId} />
+                      <DepartmentBadge departmentId={category.departmentId} nullVariant="baseline" />
                     </div>
 
                     {category.description && (

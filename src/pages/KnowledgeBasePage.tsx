@@ -22,8 +22,9 @@ import {
 } from '@/components/ui/Dialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
+import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
@@ -67,6 +68,8 @@ export const KnowledgeBasePage = () => {
     description: string;
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
+  // BE `knowledgeBaseController.getAll` is dept-scoped via X-Department-Context.
+  const selectedDeptKey = useDepartmentContextKey();
   const fetchEntries = useCallback(
     async (page = 1) => {
       try {
@@ -92,7 +95,9 @@ export const KnowledgeBasePage = () => {
         setLoading(false);
       }
     },
-    [filterType, filterStatus, searchQuery, pagination.limit]
+    // selectedDeptKey forces re-create on dept toggle; consumer useEffect re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filterType, filterStatus, searchQuery, pagination.limit, selectedDeptKey]
   );
 
   // Refetch when filters change (immediate, no debounce)

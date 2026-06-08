@@ -1,13 +1,7 @@
 import { apiClient } from '@/lib/api-client';
+import type { Department } from '@/types';
 
-export type Department = {
-  id: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  color: string | null;
-  active: boolean;
-};
+export type { Department };
 
 export const departmentService = {
   getAll: async (): Promise<Department[]> => {
