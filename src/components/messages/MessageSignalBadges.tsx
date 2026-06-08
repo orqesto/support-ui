@@ -1,11 +1,4 @@
-import {
-  Paperclip,
-  ShieldX,
-  AlertTriangle,
-  Clock,
-  BellRing,
-  BookOpen,
-} from 'lucide-react';
+import { Paperclip, ShieldX, AlertTriangle, BellRing, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Tooltip } from '@/components/ui/Tooltip';
 import {
@@ -42,24 +35,24 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
       if (breached)
         return (
           <Tooltip
-            content={`Follow-up SLA: ${formatDuration(target)} — elapsed: ${formatDuration(elapsed)}`}
+            content={`Follow-up SLA breached · target ${formatDuration(target)} · elapsed ${formatDuration(elapsed)}`}
             size="sm"
           >
             <Badge variant="danger" className={bc}>
-              <Clock className={ic} />
-              SLA Breached
+              <AlertTriangle className={ic} />
+              SLA
             </Badge>
           </Tooltip>
         );
       if (atRisk)
         return (
           <Tooltip
-            content={`Follow-up SLA: ${formatDuration(target)} — ${formatDuration(target - elapsed)} remaining`}
+            content={`Follow-up SLA at risk · target ${formatDuration(target)} · ${formatDuration(target - elapsed)} remaining`}
             size="sm"
           >
             <Badge variant="warning" className={bc}>
-              <Clock className={ic} />
-              SLA At Risk
+              <AlertTriangle className={ic} />
+              SLA
             </Badge>
           </Tooltip>
         );
@@ -79,24 +72,24 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
       if (breached)
         return (
           <Tooltip
-            content={`SLA target: ${formatDuration(target)} — elapsed: ${formatDuration(elapsed)}`}
+            content={`SLA breached · target ${formatDuration(target)} · elapsed ${formatDuration(elapsed)}`}
             size="sm"
           >
             <Badge variant="danger" className={bc}>
-              <Clock className={ic} />
-              SLA Breached
+              <AlertTriangle className={ic} />
+              SLA
             </Badge>
           </Tooltip>
         );
       if (atRisk)
         return (
           <Tooltip
-            content={`SLA target: ${formatDuration(target)} — ${formatDuration(target - elapsed)} remaining`}
+            content={`SLA at risk · target ${formatDuration(target)} · ${formatDuration(target - elapsed)} remaining`}
             size="sm"
           >
             <Badge variant="warning" className={bc}>
-              <Clock className={ic} />
-              SLA At Risk
+              <AlertTriangle className={ic} />
+              SLA
             </Badge>
           </Tooltip>
         );

@@ -88,7 +88,18 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
       aria-label={`Open message from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
       className="w-full text-left rounded-md border bg-card p-3 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1.5"
     >
-      {/* Sender + channel + direction + age */}
+      {/* Top metadata row — id + age sit above the sender so they don't
+          crowd the customer name. The drag handle (rendered by the parent
+          column via dnd-kit) overlaps this row in the top-right corner. */}
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="font-mono shrink-0">#{msg.id}</span>
+        <span className="whitespace-nowrap shrink-0">
+          <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
+          {formatAge(receivedAt)}
+        </span>
+      </div>
+
+      {/* Sender + channel + direction */}
       <div className="flex items-center gap-1.5 min-w-0">
         <span className="text-xs shrink-0 text-muted-foreground">
           {getChannelIcon(msg.channel)}
@@ -109,10 +120,6 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             </span>
           </Tooltip>
         )}
-        <span className="text-xs whitespace-nowrap text-muted-foreground shrink-0">
-          <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
-          {formatAge(receivedAt)}
-        </span>
       </div>
 
       {/* Subject */}
@@ -152,9 +159,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           >
             <Badge
               variant="default"
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
             >
-              <Paperclip className="w-2 h-2" />
+              <Paperclip className="w-2.5 h-2.5" />
               {msg.attachmentCount}
             </Badge>
           </Tooltip>
@@ -164,7 +171,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           <Tooltip content={`Priority: ${msg.priority}`} size="sm">
             <Badge
               variant={PRIORITY_VARIANT[msg.priority]}
-              className="h-4 px-1 text-[10px] shrink-0"
+              className="h-5 px-1.5 text-[11px] shrink-0"
             >
               {msg.priority}
             </Badge>
@@ -175,9 +182,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           <Tooltip content="AI Suggested Category" size="sm">
             <Badge
               variant="secondary"
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
             >
-              <Folder className="w-2 h-2" />
+              <Folder className="w-2.5 h-2.5" />
               {category}
             </Badge>
           </Tooltip>
@@ -190,9 +197,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           >
             <Badge
               variant={leadVariant ?? 'default'}
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
             >
-              <Target className="w-2 h-2" />
+              <Target className="w-2.5 h-2.5" />
               {leadStage ? leadStage.replace(/_/g, ' ') : 'Lead'}
             </Badge>
           </Tooltip>
@@ -202,9 +209,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           <Tooltip content="Auto-reply sent by bot" size="sm">
             <Badge
               variant="secondary"
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
             >
-              <Bot className="w-2 h-2" />
+              <Bot className="w-2.5 h-2.5" />
               Bot
             </Badge>
           </Tooltip>
@@ -214,9 +221,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           <Tooltip content={`Assigned to ${msg.assigneeName ?? 'Agent'}`} size="sm">
             <Badge
               variant="secondary"
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] min-w-0 overflow-hidden"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] min-w-0 overflow-hidden"
             >
-              <User className="w-2 h-2 shrink-0" />
+              <User className="w-2.5 h-2.5 shrink-0" />
               <span className="truncate">{msg.assigneeName ?? 'Assigned'}</span>
             </Badge>
           </Tooltip>
@@ -233,9 +240,9 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           >
             <Badge
               variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
             >
-              <Ticket className="w-2 h-2" />
+              <Ticket className="w-2.5 h-2.5" />
               Ticket
               {thread.linkedTicketStatus === 'in_progress' && (
                 <span className="ml-0.5">· In progress</span>
@@ -248,17 +255,13 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
             <Badge
               variant="default"
-              className="flex gap-0.5 items-center h-4 px-1 text-[10px] shrink-0"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
             >
-              <MessagesSquare className="w-2 h-2" />
+              <MessagesSquare className="w-2.5 h-2.5" />
               {thread.messageCount}
             </Badge>
           </Tooltip>
         )}
-
-        <span className="ml-auto font-mono text-[10px] text-muted-foreground shrink-0">
-          #{msg.id}
-        </span>
       </div>
     </button>
   );
