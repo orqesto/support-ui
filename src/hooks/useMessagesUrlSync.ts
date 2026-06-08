@@ -100,6 +100,9 @@ export const useMessagesUrlSync = ({
       const urlSource = searchParams.get('source');
       if (urlSource) urlFilters.messageSourceId = urlSource;
 
+      const urlDepartmentId = searchParams.get('departmentId');
+      if (urlDepartmentId) urlFilters.departmentId = urlDepartmentId;
+
       const urlPriority = searchParams.get('priority');
       if (urlPriority && (VALID_PRIORITIES as readonly string[]).includes(urlPriority)) {
         urlFilters.priority = urlPriority as FilterState['priority'];
@@ -167,6 +170,8 @@ export const useMessagesUrlSync = ({
     }
     if (filters.messageSourceId && filters.messageSourceId !== 'all')
       params.set('source', filters.messageSourceId);
+    if (filters.departmentId && filters.departmentId !== 'all')
+      params.set('departmentId', filters.departmentId);
     if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);
     if (filters.assigneeId && filters.assigneeId !== 'all') {
       params.set('assigneeId', filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId);

@@ -145,7 +145,7 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
       // 2. Page refreshed after email session completed but KB still running
       // 3. Email processing completed and cleaned up, but KB still running
       // CREATE a new session for standalone KB processing
-      const departmentSlug = kbEvent.departmentSlug ?? 'general';
+      const departmentSlug = kbEvent.departmentSlug ?? 'info';
       const departmentId = kbEvent.departmentId;
 
       // Only create if status is processing (not idle)
@@ -234,7 +234,7 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
 
       // No existing session found - KB completed without email session
       // Create a completed session to show the final results
-      const departmentSlug = kbEvent.departmentSlug ?? 'general';
+      const departmentSlug = kbEvent.departmentSlug ?? 'info';
       const departmentId = kbEvent.departmentId;
 
       // Create a brief completed session to show results (skip forced completions — no useful data to show)

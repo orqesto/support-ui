@@ -1,11 +1,17 @@
 import { safeCssColor } from '@/lib/utils';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, X, Tag, Plus } from 'lucide-react';
+import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
+import { usePermissions } from '@/hooks/usePermissions';
+import { messageService } from '@/services/message.service';
+import { useAuthStore } from '@/stores/authStore';
+import { Permission } from '@/types/roles';
 import type { Message, Category } from '@/types';
 import type { Label } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
 import { MONO } from './messageDetailConstants';
 
 type Props = {
@@ -21,6 +27,8 @@ type Props = {
   onToggleLabel: (label: Label) => void;
   onToggleLabelPicker: () => void;
   onCloseLabelPicker: () => void;
+  /** Refetch trigger so the parent picks up the new departmentId after re-routing. */
+  onDepartmentChange?: () => void;
 };
 
 export function HeaderMetaStrip({
@@ -36,10 +44,51 @@ export function HeaderMetaStrip({
   onToggleLabel,
   onToggleLabelPicker,
   onCloseLabelPicker: _onCloseLabelPicker,
+  onDepartmentChange,
 }: Props) {
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const primaryDept = useDepartmentById(message.departmentId ?? null);
+  const needsRouting = message.status === 'needs_routing';
+  const { data: allDepts = [] } = useDepartments();
+  const { hasPermission, isOrgAdmin } = usePermissions();
+  const currentUser = useAuthStore((state) => state.user);
+  // MANAGE_MESSAGES is the matching gate on the BE manualRouteMessage endpoint —
+  // re-routing a conversation is a message operation, not a ticket operation.
+  const canRoute = hasPermission(Permission.MANAGE_MESSAGES);
+  const [editingDept, setEditingDept] = useState(false);
+  const [savingDept, setSavingDept] = useState(false);
+
+  // Only offer depts the user can actually route to. The BE bypass-list mirrors
+  // here so the picker matches what'd actually be accepted:
+  //   - global admins → all depts (BE bypass)
+  //   - org_admins   → all depts (BE bypass; org_admin has org-wide authority)
+  //   - everyone else → only depts they're a member of
+  const isGlobalAdmin = currentUser?.role === 'admin';
+  const canRouteAnyDept = isGlobalAdmin || isOrgAdmin;
+  const userDeptIds = new Set(currentUser?.departmentIds ?? []);
+  const activeDeptOptions = allDepts
+    .filter((dept) => dept.active && (canRouteAnyDept || userDeptIds.has(dept.id)))
+    .map((dept) => ({ value: String(dept.id), label: dept.name }));
+
+  const handleDeptChange = async (value: string) => {
+    const nextId = Number(value);
+    if (!Number.isFinite(nextId) || nextId === message.departmentId) {
+      setEditingDept(false);
+      return;
+    }
+    setSavingDept(true);
+    try {
+      await messageService.manualRoute(message.id, nextId);
+      onDepartmentChange?.();
+    } catch (err) {
+      logger.error('Failed to change department:', err);
+    } finally {
+      setSavingDept(false);
+      setEditingDept(false);
+    }
+  };
 
   useEffect(() => {
     if (showLabelPicker && labelBtnRef.current) {
@@ -58,6 +107,66 @@ export function HeaderMetaStrip({
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-2 pb-3 border-t border-border/40">
 
+      {/* Department (resolved by smart routing; admins can re-route inline) */}
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Department</span>
+        {editingDept && canRoute ? (
+          <ReactSelect
+            value={message.departmentId ? String(message.departmentId) : ''}
+            onChange={(value) => void handleDeptChange(value)}
+            options={activeDeptOptions}
+            isDisabled={savingDept}
+            autoFocus
+            onBlur={() => setEditingDept(false)}
+            className="min-w-[140px]"
+          />
+        ) : (
+          <button
+            type="button"
+            disabled={!canRoute}
+            onClick={() => canRoute && setEditingDept(true)}
+            title={
+              canRoute
+                ? 'Click to change department'
+                : 'You need ticket management permission to re-route'
+            }
+            className={`inline-flex gap-1 items-center px-1.5 py-0.5 text-[11px] font-medium rounded ${
+              canRoute ? 'cursor-pointer hover:ring-1 hover:ring-border' : 'cursor-default'
+            } ${
+              needsRouting
+                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200'
+                : ''
+            }`}
+            style={
+              !needsRouting && primaryDept
+                ? {
+                    backgroundColor: primaryDept.color
+                      ? `${safeCssColor(primaryDept.color)}22`
+                      : undefined,
+                    color: primaryDept.color ? safeCssColor(primaryDept.color) : undefined,
+                  }
+                : undefined
+            }
+          >
+            {needsRouting ? (
+              <>
+                <AlertTriangle className="w-3 h-3" />
+                Needs routing
+              </>
+            ) : primaryDept ? (
+              <>
+                <Building2 className="w-3 h-3" />
+                {primaryDept.name}
+              </>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </button>
+        )}
+      </div>
+
+      <span className="text-border/60 select-none px-1">·</span>
+
       {/* Assignee */}
       <div className="flex items-center gap-2 min-w-0">
         <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Assigned</span>
@@ -65,6 +174,7 @@ export function HeaderMetaStrip({
           type={message.subject ? 'thread' : 'message'}
           itemId={threadItemId}
           currentAssigneeId={message.assigneeId}
+          departmentId={message.departmentId ?? null}
           onAssign={onAssign}
         />
       </div>

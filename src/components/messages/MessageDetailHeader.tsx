@@ -684,6 +684,7 @@ export function MessageDetailHeader({
         onToggleLabel={(label) => void handleToggleLabel(label)}
         onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
         onCloseLabelPicker={() => setShowLabelPicker(false)}
+        onDepartmentChange={onRefresh}
       />
     </div>
   );

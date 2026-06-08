@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import {
   Filter,
   X,
@@ -18,11 +19,13 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { useDepartments } from '@/hooks/useDepartments';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { labelService, type Label } from '@/services/settings.service';
 import type { FilterState, SortingState } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
+import { safeCssColor } from '@/lib/utils';
 
 const SOURCE_GROUPS: { key: string; label: string; types: string[]; icon: React.ReactNode }[] = [
   { key: 'email', label: 'Email', types: ['email', 'gmail'], icon: <Mail className="w-3 h-3" /> },
@@ -43,9 +46,13 @@ const STATUS_OPTIONS = [
   { value: 'resolved', label: 'Resolved' },
 ] as const;
 
+// Labels chosen to match the user's mental model of the workflow, not the raw
+// `conversations.status` enum (which is mapped to grouped sets server-side in
+// helpers/messageFilters.ts so e.g. 'In Progress' includes awaiting_response +
+// client_replied, not just status='open' literally).
 const THREAD_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
-  { value: 'open', label: 'Open' },
+  { value: 'open', label: 'New' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'pending', label: 'Pending' },
   { value: 'closed', label: 'Closed' },
@@ -118,6 +125,8 @@ export const MessageFilters = ({
 }: MessageFiltersProps) => {
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
+  const { data: depts = [] } = useDepartments();
+  const activeDepts = depts.filter((dept) => dept.active);
 
   useEffect(() => {
     labelService
@@ -126,6 +135,10 @@ export const MessageFilters = ({
       .catch(() => {});
   }, []);
 
+  // BE `integrationsController.getAll` filters by dept via X-Department-Context.
+  // Subscribe so the sources dropdown reloads when the user changes their dept
+  // selection — otherwise the picker shows the previous dept's sources.
+  const selectedDeptKey = useDepartmentContextKey();
   useEffect(() => {
     const load = async () => {
       try {
@@ -140,7 +153,7 @@ export const MessageFilters = ({
       }
     };
     void load();
-  }, []);
+  }, [selectedDeptKey]);
 
   const { showAdvancedFilters, toggleAdvancedFilters } = useFilterPanel({ filters });
   const [expanded, setExpanded] = useState(false);
@@ -312,6 +325,38 @@ export const MessageFilters = ({
                   className="w-full [&>div]:w-full"
                 />
               </FilterCell>
+
+              {activeDepts.length > 0 && (
+                <FilterCell label="Department">
+                  <ReactSelect
+                    value={filters.departmentId ?? 'all'}
+                    onChange={(value) => onFilterChange('departmentId', value)}
+                    options={[
+                      { value: 'all', label: 'All Departments' },
+                      { value: 'needs_routing', label: 'Needs Routing' },
+                      ...activeDepts.map((dept) => ({
+                        value: dept.id.toString(),
+                        label: dept.name,
+                      })),
+                    ]}
+                    formatOptionLabel={(option) => {
+                      const dept = activeDepts.find((d) => d.id.toString() === option.value);
+                      return (
+                        <div className="flex gap-2 items-center">
+                          {dept?.color && (
+                            <span
+                              className="inline-block w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: safeCssColor(dept.color) }}
+                            />
+                          )}
+                          <span>{option.label}</span>
+                        </div>
+                      );
+                    }}
+                    className="w-full"
+                  />
+                </FilterCell>
+              )}
             </div>
 
             {/* SLA toggle pills — not shown in kanban (per-card SLA badges already visible) */}

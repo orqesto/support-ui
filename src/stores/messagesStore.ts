@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useDepartmentContextStore } from './departmentContextStore';
 import type { PaginationMeta, MessageThread } from '@/services/message.service';
 
 export type MessageViewStatus =
@@ -33,6 +34,7 @@ export type LinkedTicketStatusFilter = 'all' | 'pending' | 'open' | 'in_progress
 
 export type FilterState = {
   messageSourceId?: string;
+  departmentId?: string;
   status?: MessageViewStatus;
   threadStatus?: ThreadStatusFilter;
   priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
@@ -72,6 +74,7 @@ type MessagesState = {
 
 export const defaultFilters: FilterState = {
   messageSourceId: 'all',
+  departmentId: 'all',
   status: 'all',
   threadStatus: 'all',
   priority: 'all',
@@ -84,8 +87,13 @@ export const defaultFilters: FilterState = {
   slaFilter: 'all',
 };
 
-const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string =>
-  JSON.stringify({ filters, sorting, page });
+const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string => {
+  // Include the checkbox-driven X-Department-Context selection in the key — otherwise
+  // changing the DepartmentSwitcher selection short-circuits to a stale cached page
+  // (filter dropdown unchanged → same key → cache hit → no re-fetch).
+  const deptCtx = useDepartmentContextStore.getState().getSelectedDeptIds().join(',');
+  return JSON.stringify({ filters, sorting, page, deptCtx });
+};
 
 export const useMessagesStore = create<MessagesState>()(
   persist(

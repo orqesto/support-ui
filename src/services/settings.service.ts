@@ -176,6 +176,7 @@ const createSpamRule = async (data: {
   name: string;
   description: string;
   pattern?: string;
+  exampleText?: string;
   category: string;
   severity?: number;
   active?: boolean;
@@ -193,6 +194,7 @@ const updateSpamRule = async (
     name?: string;
     description?: string;
     pattern?: string;
+    exampleText?: string;
     category?: string;
     severity?: number;
     active?: boolean;

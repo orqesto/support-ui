@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Ticket, RefreshCw, Send } from 'lucide-react';
 import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
 import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useTicketsUrlSync } from '@/hooks/useTicketsUrlSync';
 import { useTicketsRealtime } from '@/hooks/useTicketsRealtime';
 import { useSearchParams } from 'react-router-dom';
@@ -91,6 +92,9 @@ export const TicketsPage = () => {
 
   useTicketsUrlSync({ displayMode, setSelectedTicket });
 
+  // Re-fetch when the dept-context checkboxes change.
+  const selectedDeptKey = useDepartmentContextKey();
+
   const fetchTickets = useCallback(
     async (page = 1, force = false) => {
       // Check cache first
@@ -166,7 +170,10 @@ export const TicketsPage = () => {
         setLoading(false);
       }
     },
-    [filters, sorting, getCached, setTicketsCache]
+    // selectedDeptKey is a refresh trigger — read indirectly via the axios
+    // X-Department-Context header. Force callback identity to change on toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters, sorting, getCached, setTicketsCache, selectedDeptKey]
   );
 
   useEffect(() => {

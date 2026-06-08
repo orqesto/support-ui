@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Trash2, StopCircle, Database, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
@@ -28,6 +29,7 @@ type ConfirmDialog = {
 export const SystemManagementSettings = () => {
   const { hasPermission } = usePermissions();
   const canManageSystem = hasPermission(Permission.MANAGE_ORGANIZATION);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -136,6 +138,7 @@ export const SystemManagementSettings = () => {
       async () => {
         const res = await systemService.deleteAllMessages(dept);
         if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
+        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       },
       'DELETE MESSAGES',
       true
