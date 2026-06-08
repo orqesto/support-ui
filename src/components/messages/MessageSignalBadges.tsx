@@ -7,6 +7,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Tooltip } from '@/components/ui/Tooltip';
 import {
   hasMessageAttachments,
   getSpamCheck,
@@ -40,25 +41,27 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
       const atRisk = !breached && elapsed > target * 0.8;
       if (breached)
         return (
-          <Badge
-            variant="danger"
-            className={bc}
-            title={`Follow-up SLA: ${formatDuration(target)} — elapsed: ${formatDuration(elapsed)}`}
+          <Tooltip
+            content={`Follow-up SLA: ${formatDuration(target)} — elapsed: ${formatDuration(elapsed)}`}
+            size="sm"
           >
-            <Clock className={ic} />
-            SLA Breached
-          </Badge>
+            <Badge variant="danger" className={bc}>
+              <Clock className={ic} />
+              SLA Breached
+            </Badge>
+          </Tooltip>
         );
       if (atRisk)
         return (
-          <Badge
-            variant="warning"
-            className={bc}
-            title={`Follow-up SLA: ${formatDuration(target)} — ${formatDuration(target - elapsed)} remaining`}
+          <Tooltip
+            content={`Follow-up SLA: ${formatDuration(target)} — ${formatDuration(target - elapsed)} remaining`}
+            size="sm"
           >
-            <Clock className={ic} />
-            SLA At Risk
-          </Badge>
+            <Badge variant="warning" className={bc}>
+              <Clock className={ic} />
+              SLA At Risk
+            </Badge>
+          </Tooltip>
         );
       return null;
     }
@@ -75,25 +78,27 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
       const atRisk = !breached && elapsed > target * 0.8;
       if (breached)
         return (
-          <Badge
-            variant="danger"
-            className={bc}
-            title={`SLA target: ${formatDuration(target)} — elapsed: ${formatDuration(elapsed)}`}
+          <Tooltip
+            content={`SLA target: ${formatDuration(target)} — elapsed: ${formatDuration(elapsed)}`}
+            size="sm"
           >
-            <Clock className={ic} />
-            SLA Breached
-          </Badge>
+            <Badge variant="danger" className={bc}>
+              <Clock className={ic} />
+              SLA Breached
+            </Badge>
+          </Tooltip>
         );
       if (atRisk)
         return (
-          <Badge
-            variant="warning"
-            className={bc}
-            title={`SLA target: ${formatDuration(target)} — ${formatDuration(target - elapsed)} remaining`}
+          <Tooltip
+            content={`SLA target: ${formatDuration(target)} — ${formatDuration(target - elapsed)} remaining`}
+            size="sm"
           >
-            <Clock className={ic} />
-            SLA At Risk
-          </Badge>
+            <Badge variant="warning" className={bc}>
+              <Clock className={ic} />
+              SLA At Risk
+            </Badge>
+          </Tooltip>
         );
     }
     return null;
@@ -102,81 +107,89 @@ export const MessageSignalBadges = ({ message, size = 'md' }: Props) => {
   return (
     <>
       {message.needsHumanReview && (
-        <Badge variant="warning" className={bc} title="Flagged for human review">
-          <BellRing className={ic} />
-          {size === 'sm' ? 'Review' : 'Needs Review'}
-        </Badge>
+        <Tooltip content="Flagged for human review" size="sm">
+          <Badge variant="warning" className={bc}>
+            <BellRing className={ic} />
+            {size === 'sm' ? 'Review' : 'Needs Review'}
+          </Badge>
+        </Tooltip>
       )}
       {spamCheck?.isSpam === true && (
-        <Badge
-          variant="danger"
-          className={bc}
-          title={`Spam: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+        <Tooltip
+          content={`Spam: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+          size="sm"
         >
-          <ShieldX className={ic} />
-          {getFilteredCategoryLabel(spamCheck.category)}
-        </Badge>
+          <Badge variant="danger" className={bc}>
+            <ShieldX className={ic} />
+            {getFilteredCategoryLabel(spamCheck.category)}
+          </Badge>
+        </Tooltip>
       )}
       {!spamCheck?.isSpam && spamCheck?.category === 'suspicious' && (
-        <Badge
-          variant="warning"
-          className={bc}
-          title={`Suspicious: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+        <Tooltip
+          content={`Suspicious: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+          size="sm"
         >
-          <AlertTriangle className={ic} />
-          Suspicious
-        </Badge>
+          <Badge variant="warning" className={bc}>
+            <AlertTriangle className={ic} />
+            Suspicious
+          </Badge>
+        </Tooltip>
       )}
       {(message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined)?.result
         ?.hasContradiction && (
-        <Badge variant="warning" className={bc} title="Contradicts previous statement">
-          <AlertTriangle className={ic} />
-          Contradiction
-        </Badge>
+        <Tooltip content="Contradicts previous statement" size="sm">
+          <Badge variant="warning" className={bc}>
+            <AlertTriangle className={ic} />
+            Contradiction
+          </Badge>
+        </Tooltip>
       )}
       {(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed | undefined)
         ?.hasUnusualAttachments && (
-        <Badge
-          variant="warning"
-          className={bc}
-          title={`${(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed).count} attachment(s), some unusual for this organization`}
+        <Tooltip
+          content={`${(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed).count} attachment(s), some unusual for this organization`}
+          size="sm"
         >
-          <AlertTriangle className={ic} />
-          <Paperclip className={ic} />
-          Unusual
-        </Badge>
+          <Badge variant="warning" className={bc}>
+            <AlertTriangle className={ic} />
+            <Paperclip className={ic} />
+            Unusual
+          </Badge>
+        </Tooltip>
       )}
       {analysis?.needsMoreInfo && (
-        <Badge variant="warning" className={bc} title="AI flagged as needing more information">
-          <AlertTriangle className={ic} />
-          Needs Info
-        </Badge>
+        <Tooltip content="AI flagged as needing more information" size="sm">
+          <Badge variant="warning" className={bc}>
+            <AlertTriangle className={ic} />
+            Needs Info
+          </Badge>
+        </Tooltip>
       )}
       {renderSla()}
       {hasAttachments && (
-        <Badge
-          variant="default"
-          className={bc}
-          title={`${message.attachmentCount ?? 0} attachment(s)`}
-        >
-          <Paperclip className={ic} />
-          {message.attachmentCount ?? 0}
-        </Badge>
+        <Tooltip content={`${message.attachmentCount ?? 0} attachment(s)`} size="sm">
+          <Badge variant="default" className={bc}>
+            <Paperclip className={ic} />
+            {message.attachmentCount ?? 0}
+          </Badge>
+        </Tooltip>
       )}
       {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
-        <Badge
-          variant="default"
-          className={`text-white bg-purple-600 ${bc} hover:bg-purple-700`}
-          title="Message from Knowledge Base source"
-        >
-          <BookOpen className={ic} />
-          Knowledge Base
-        </Badge>
+        <Tooltip content="Message from Knowledge Base source" size="sm">
+          <Badge
+            variant="default"
+            className={`text-white bg-purple-600 ${bc} hover:bg-purple-700`}
+          >
+            <BookOpen className={ic} />
+            Knowledge Base
+          </Badge>
+        </Tooltip>
       )}
       {message.status === 'resolved' && (
-        <Badge className="text-white bg-green-600 hover:bg-green-700" title="Message resolved">
-          ✓ Resolved
-        </Badge>
+        <Tooltip content="Message resolved" size="sm">
+          <Badge className="text-white bg-green-600 hover:bg-green-700">✓ Resolved</Badge>
+        </Tooltip>
       )}
     </>
   );
