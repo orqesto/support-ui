@@ -50,16 +50,21 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-sm">
       <CardContent className="p-3">
-        {/* Row 1: channel icon + sender + time + Open */}
-        <div className="flex gap-2 items-center min-w-0">
-          <span className="shrink-0 text-muted-foreground">{getChannelIcon(msg.channel)}</span>
-          <span className="flex-1 min-w-0 text-sm font-semibold truncate">{thread.sender}</span>
+        {/* Row 0: top metadata — id + age. Same anchor pattern as KanbanCard. */}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="font-mono shrink-0">#{msg.id}</span>
           <Tooltip content={`Received: ${formatDate(receivedAt)}`} size="sm">
-            <span className="text-xs whitespace-nowrap text-muted-foreground shrink-0">
+            <span className="whitespace-nowrap shrink-0">
               <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
               {formatAge(receivedAt)}
             </span>
           </Tooltip>
+        </div>
+
+        {/* Row 1: channel icon + sender + Open */}
+        <div className="flex gap-2 items-center min-w-0 mt-1">
+          <span className="shrink-0 text-muted-foreground">{getChannelIcon(msg.channel)}</span>
+          <span className="flex-1 min-w-0 text-sm font-semibold truncate">{thread.sender}</span>
           <Button variant="outline" onClick={() => onOpen(thread)} className="gap-1.5 shrink-0">
             <ExternalLink className="w-4 h-4" />
             Open
@@ -191,11 +196,6 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
               </Tooltip>
             )
           )}
-
-          {/* ID */}
-          <span className="ml-auto font-mono text-xs text-muted-foreground shrink-0">
-            #{msg.id}
-          </span>
         </div>
       </CardContent>
     </Card>
