@@ -40,6 +40,11 @@ export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; 
     dot: 'bg-muted-foreground/30',
     chip: 'text-muted-foreground/60 border-border/50 bg-muted/50',
   },
+  needs_routing: {
+    label: 'NEEDS ROUTING',
+    dot: 'bg-orange-500',
+    chip: 'text-orange-700  border-orange-200  bg-orange-50  dark:text-orange-400  dark:bg-orange-950/30  dark:border-orange-800',
+  },
 };
 
 export const SETTABLE_STATUSES: ThreadStatus[] = ['open', 'in_progress', 'pending', 'closed'];
@@ -51,6 +56,7 @@ export const STATUS_MENU_LABELS: Record<ThreadStatus, string> = {
   resolved: 'Resolved',
   closed: 'Closed',
   filtered: 'Filtered',
+  needs_routing: 'Needs Routing',
 };
 
 export const STATUS_OPTIONS = SETTABLE_STATUSES.map((stat) => ({

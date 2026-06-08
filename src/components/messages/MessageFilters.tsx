@@ -340,7 +340,7 @@ export const MessageFilters = ({
                       })),
                     ]}
                     formatOptionLabel={(option) => {
-                      const dept = activeDepts.find((d) => d.id.toString() === option.value);
+                      const dept = activeDepts.find((dep) => dep.id.toString() === option.value);
                       return (
                         <div className="flex gap-2 items-center">
                           {dept?.color && (
