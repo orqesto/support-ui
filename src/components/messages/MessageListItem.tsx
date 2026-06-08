@@ -7,9 +7,8 @@ import {
   Bot,
   AlertTriangle,
   Ticket,
-  GitBranch,
-  Building2,
 } from 'lucide-react';
+import type { Department } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 import { Badge } from '@/components/ui/Badge';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -18,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { getChannelIcon, getCategoryDisplay } from '@/lib/messageHelpers';
 import { formatDate, formatAge, safeCssColor } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
+import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 
 type MessageListItemProps = {
@@ -30,10 +30,9 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const { data: allDepts = [] } = useDepartments();
   if (!msg) return null;
   // Wave 5 C-1: runner-up depts from the routing decision. Empty array = nothing to render.
-  const nearMissNames =
-    (msg.nearMissDepts ?? [])
-      .map((deptId) => allDepts.find((dept) => dept.id === deptId)?.name)
-      .filter((name): name is string => Boolean(name));
+  const nearMissDepts = (msg.nearMissDepts ?? [])
+    .map((deptId) => allDepts.find((dept) => dept.id === deptId))
+    .filter((dept): dept is Department => Boolean(dept));
   const primaryDept = msg.departmentId
     ? allDepts.find((dept) => dept.id === msg.departmentId)
     : undefined;
@@ -75,49 +74,22 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
         {/* Row 2.5: primary dept badge (resolved by smart routing) + Wave 5 C-1 near-miss
             chips — routing engine had this conv close between depts; surface the
             runner-ups so agents in other depts can still discover the message. */}
-        {(primaryDept || needsRouting || nearMissNames.length > 0) && (
+        {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
           <div className="flex flex-wrap gap-1 mt-1 pl-5">
             {needsRouting ? (
-              <span
-                className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
-                title="Routing engine found no winning department — awaiting manual triage"
-              >
-                <AlertTriangle className="w-3 h-3" />
-                Needs routing
-              </span>
+              <DepartmentBadge variant="needs" />
             ) : (
-              primaryDept && (
-                <span
-                  className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded"
-                  style={{
-                    backgroundColor: primaryDept.color
-                      ? `${safeCssColor(primaryDept.color)}22`
-                      : undefined,
-                    color: primaryDept.color ? safeCssColor(primaryDept.color) : undefined,
-                  }}
-                  title={`Routed to ${primaryDept.name}`}
-                >
-                  <Building2 className="w-3 h-3" />
-                  {primaryDept.name}
-                </span>
-              )
+              primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
             )}
-            {nearMissNames.map((name) => (
-              <span
-                key={name}
-                className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200"
-                title="The routing engine considered this department too — close runner-up score"
-              >
-                <GitBranch className="w-3 h-3" />
-                also matched: {name}
-              </span>
+            {nearMissDepts.map((dept) => (
+              <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
             ))}
           </div>
         )}
 
         {/* Row 3: content preview */}
         <p className="pl-5 mt-1 text-sm break-words text-muted-foreground line-clamp-2">
-          {msg.content ?? msg.subject ?? ''}
+          {msg.content ?? ''}
         </p>
 
         {/* Row 4: Assignee + linked ticket */}
@@ -142,7 +114,8 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
                   : 'Ticket'
               }
             >
-              <Ticket className="w-2.5 h-2.5" />Ticket
+              <Ticket className="w-2.5 h-2.5" />
+              Ticket
               {thread.linkedTicketStatus === 'in_progress' && <span>· In progress</span>}
             </Badge>
           )}
