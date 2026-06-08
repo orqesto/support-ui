@@ -419,7 +419,8 @@ export const EditUserModal = ({
                       <>
                         <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
                           {availableDepartments.map((dept) => {
-                            const isGeneral = dept.slug === 'general';
+                            // Catch-all dept slug was renamed 'general' → 'info'; accept both for mixed-state envs.
+                            const isGeneral = dept.slug === 'info' || dept.slug === 'general';
                             const isChecked = selectedDepartmentIds.includes(dept.id);
                             return (
                               <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
@@ -636,7 +637,7 @@ export const EditUserModal = ({
           setSelectedDepartmentIds(selectedDepartmentIds.filter((id) => id !== deptId));
         }}
         title="Remove catch-all department?"
-        description="The General department is the triage catch-all. Removing it means this user won't see messages that arrive without a specific department match. Are you sure?"
+        description="The Info department handles general information requests. Removing it means this user won't see Info messages. Are you sure?"
         confirmText="Remove"
         cancelText="Keep"
         variant="warning"

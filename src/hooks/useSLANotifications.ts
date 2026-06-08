@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useDepartmentContextKey } from './useDepartmentContextKey';
 import {
   getSocket,
   subscribeToEvent,
@@ -74,6 +75,9 @@ export const useSLANotifications = () => {
   const [fetchError, setFetchError] = useState(false);
   const seenIds = useRef<Set<number>>(new Set());
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
+  // BE `notificationsController` honours X-Department-Context. Force callback
+  // identity to change on dept toggle so consumer effects re-fetch in scope.
+  const selectedDeptKey = useDepartmentContextKey();
 
   const fetchNotifications = useCallback(() => {
     apiClient
@@ -103,7 +107,9 @@ export const useSLANotifications = () => {
       .catch(() => {
         setFetchError(true);
       });
-  }, []);
+  // selectedDeptKey is a refresh trigger (read via axios interceptor).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDeptKey]);
 
   const setOnlyMine = useCallback((value: boolean) => {
     const previousValue = prefsRef.current.onlyAssignedToMe;

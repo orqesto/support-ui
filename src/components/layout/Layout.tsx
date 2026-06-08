@@ -19,7 +19,6 @@ import {
   ShieldAlert,
   MailOpen,
   ScrollText,
-  Timer,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -34,6 +33,7 @@ import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { useNeedsRoutingCount } from '@/hooks/useNeedsRoutingCount';
+import { useTicketsCount } from '@/hooks/useTicketsCount';
 import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
@@ -68,8 +68,20 @@ const allNavigation: Array<{
 }> = [
   // ─── Work — daily inbox / triage ────────────────────────────────────────────
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { group: 'work', name: 'Messages', href: '/messages', icon: Mail, permission: Permission.VIEW_MESSAGES },
-  { group: 'work', name: 'Tickets', href: '/tickets', icon: Ticket, permission: Permission.VIEW_TICKETS },
+  {
+    group: 'work',
+    name: 'Messages',
+    href: '/messages',
+    icon: Mail,
+    permission: Permission.VIEW_MESSAGES,
+  },
+  {
+    group: 'work',
+    name: 'Tickets',
+    href: '/tickets',
+    icon: Ticket,
+    permission: Permission.VIEW_TICKETS,
+  },
   {
     group: 'work',
     name: 'Needs Routing',
@@ -92,13 +104,6 @@ const allNavigation: Array<{
     name: 'Statistics',
     href: '/statistics',
     icon: BarChart3,
-    permission: Permission.VIEW_STATISTICS,
-  },
-  {
-    group: 'insights',
-    name: 'SLA Performance',
-    href: '/sla',
-    icon: Timer,
     permission: Permission.VIEW_STATISTICS,
   },
   {
@@ -164,10 +169,18 @@ const allNavigation: Array<{
   },
 ];
 
+// 'admin' is the internal group key, but the user-facing label is 'Manage' because
+// most items in this group (Users, Organization, Settings, Subscription, Audit Logs)
+// are visible to moderators with the matching permission — not just global admins.
+// Calling the section "Admin" misled moderators into thinking they were viewing
+// admin-restricted content. The strictly admin-only items (Admin Dashboard, Email
+// Templates, Deleted Messages) still appear here but the section header is
+// role-neutral. A full role-aware split into separate moderator/admin groups remains
+// a future task — see [PLAN] Role-aware nav grouping.
 const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   work: 'Work',
   insights: 'Insights',
-  admin: 'Admin',
+  admin: 'Manage',
 };
 const NAV_GROUP_ORDER: NavGroup[] = ['work', 'insights', 'admin'];
 
@@ -180,17 +193,14 @@ const DEEP_ROUTE_TITLES: Record<string, string> = {
   '/tickets/create': 'Create Ticket',
 };
 
-const getPageTitle = (
-  pathname: string,
-  navItems: typeof allNavigation,
-): string => {
+const getPageTitle = (pathname: string, navItems: typeof allNavigation): string => {
   // Exact deep-route override (most specific wins).
   if (DEEP_ROUTE_TITLES[pathname]) return DEEP_ROUTE_TITLES[pathname];
   // Sort nav items by href length descending so `/tickets/edit/:id` matches
   // a longer `/tickets/edit` entry before the broader `/tickets`.
   const sorted = [...navItems].sort((left, right) => right.href.length - left.href.length);
   const match = sorted.find(
-    (item) => pathname === item.href || pathname.startsWith(item.href + '/'),
+    (item) => pathname === item.href || pathname.startsWith(item.href + '/')
   );
   return match?.name ?? 'Dashboard';
 };
@@ -221,6 +231,12 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const { sessions, removeSession } = useEmailProcessing(true, organizationFilter ?? undefined);
   const { data: needsRoutingCount = 0 } = useNeedsRoutingCount();
+  // Tickets nav stays hidden until the org has its first ticket. `undefined` =
+  // still loading; treat as "show" to avoid a brief flash that hides the link
+  // for users who do have tickets.
+  const { data: ticketsCount } = useTicketsCount();
+  const hasTickets = ticketsCount === undefined || ticketsCount > 0;
+  const hasRoutingItems = needsRoutingCount > 0;
 
   // Join/leave organization-specific WebSocket rooms for targeted event delivery
   useEffect(() => {
@@ -404,13 +420,21 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.moduleRequired && !hasModule(item.moduleRequired)) {
           return false;
         }
-        // Check permissions
+        // Hide Tickets until the org actually has one. Cuts noise for inbox-only
+        // teams; the link reappears the moment a ticket is created (60s polling).
+        if (item.href === '/tickets' && !hasTickets) {
+          return false;
+        }
+        if (item.href === '/needs-routing' && !hasRoutingItems) {
+          return false;
+        }
         if (!item.permission) {
+          // Check permissions
           return true;
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasModule, user?.role]
+    [hasPermission, hasModule, user?.role, hasTickets]
   );
 
   const handleLogout = () => {

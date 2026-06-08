@@ -89,7 +89,12 @@ export const SubscriptionPage = () => {
   const [loading, setLoading] = useState(true);
 
   const canManage = user
-    ? hasPermission(user.role, user.organizationRole, Permission.MANAGE_SUBSCRIPTION)
+    ? hasPermission(
+        user.role,
+        user.organizationRole,
+        Permission.MANAGE_SUBSCRIPTION,
+        user.permissionOverrides
+      )
     : false;
 
   useEffect(() => {

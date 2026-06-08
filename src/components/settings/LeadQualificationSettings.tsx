@@ -8,7 +8,7 @@ import {
   type LeadCategoryConfig,
 } from '@/services/organization.service';
 
-const ALL_DEPARTMENTS = ['sales', 'support', 'billing', 'general', 'hr'] as const;
+const ALL_DEPARTMENTS = ['sales', 'support', 'billing', 'info', 'hr'] as const;
 const ALL_CONTACT_FIELDS = ['name', 'email', 'phone', 'company'] as const;
 const PRIORITY_OPTIONS = ['high', 'medium', 'low'] as const;
 

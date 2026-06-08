@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AIAutoReplyCard } from '@/components/settings/AIAutoReplyCard';
+import { DepartmentAutoReplySettings } from '@/components/settings/DepartmentAutoReplySettings';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { DeepSeekProviderCard } from '@/components/settings/providers/DeepSeekProviderCard';
@@ -476,19 +477,22 @@ export const AIProvidersSettings = () => {
       {hasAnyProvider && <AIProviderHealthCheck />}
 
       {hasAnyProvider && (
-        <AIAutoReplyCard
-          autoReplyEnabled={autoReplyEnabled}
-          requestMissingInfo={requestMissingInfo}
-          suggestSolutions={suggestSolutions}
-          tempThreshold={tempThreshold}
-          savingAutoReply={savingAutoReply}
-          thresholdSaved={thresholdSaved}
-          onAutoReplyChange={handleAutoReplyChange}
-          onRequestMissingInfoChange={handleRequestMissingInfoChange}
-          onSuggestSolutionsChange={handleSuggestSolutionsChange}
-          onThresholdChange={handleThresholdChange}
-          onThresholdSave={handleThresholdSave}
-        />
+        <>
+          <AIAutoReplyCard
+            autoReplyEnabled={autoReplyEnabled}
+            requestMissingInfo={requestMissingInfo}
+            suggestSolutions={suggestSolutions}
+            tempThreshold={tempThreshold}
+            savingAutoReply={savingAutoReply}
+            thresholdSaved={thresholdSaved}
+            onAutoReplyChange={handleAutoReplyChange}
+            onRequestMissingInfoChange={handleRequestMissingInfoChange}
+            onSuggestSolutionsChange={handleSuggestSolutionsChange}
+            onThresholdChange={handleThresholdChange}
+            onThresholdSave={handleThresholdSave}
+          />
+          <DepartmentAutoReplySettings />
+        </>
       )}
 
       {!hasAnyProvider && <AINoProviderBanner />}

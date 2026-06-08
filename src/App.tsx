@@ -120,7 +120,7 @@ const AppRoutes = () => {
           setIsRestoringProfile(false);
         });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, logout, setUser, user]);
 
   if (isAuthenticated && user && !user.role && isRestoringProfile) {
     return <LoadingFallback />;

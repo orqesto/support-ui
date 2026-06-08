@@ -5,8 +5,6 @@ import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
-import { similarResultsCache, type SimilarResult } from '@/components/messages/AiTabPanel';
-import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 
@@ -19,29 +17,7 @@ export const MessageDetailPage = () => {
   useEffect(() => {
     const numId = id ? parseInt(id, 10) : NaN;
     if (id && !isNaN(numId)) {
-      void (async () => {
-        await fetchMessage(numId, true);
-        // Auto-navigate to the latest message in the thread
-        try {
-          const threadRes = await messageService.getThreadMessages(numId);
-          if (threadRes.success && threadRes.data && threadRes.data.length > 0) {
-            const latestIncoming = threadRes.data
-              .filter((msg) => msg.type === 'inbound')
-              .sort((itemA, itemB) => itemB.id - itemA.id)[0];
-            if (latestIncoming && latestIncoming.id !== numId) {
-              // Pre-warm KB cache so AiTabPanel gets an instant hit when it mounts for this ID.
-              if (!similarResultsCache.has(latestIncoming.id)) {
-                void messageService
-                  .getSimilarResolvedMessages(latestIncoming.id, SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY)
-                  .then((res) => { if (res.success && res.data) similarResultsCache.set(latestIncoming.id, res.data as SimilarResult[]); });
-              }
-              void fetchMessage(latestIncoming.id);
-            }
-          }
-        } catch {
-          // ignore — stay on the original message if thread fetch fails
-        }
-      })();
+      void fetchMessage(numId, true);
     }
   }, [id]);
 

@@ -63,6 +63,16 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
     setIsLoading(true);
 
     try {
+      // org_admin (and global admin) need cross-dept visibility — without it the
+      // smart-routing fan-out lands in depts they can't see. Default to all active
+      // depts; admin can pare it back via the edit modal after create.
+      const departmentIds =
+        organizationRole === 'org_admin' || role === 'admin'
+          ? departments.map((dept) => dept.id)
+          : departmentId
+            ? [departmentId]
+            : [];
+
       await onCreate({
         email,
         password,
@@ -71,7 +81,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
         position: position || undefined,
         role,
         organizationRole,
-        departmentIds: departmentId ? [departmentId] : [],
+        departmentIds,
       });
 
       // Reset form
@@ -208,13 +218,20 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             placeholder="Select organization role"
           />
 
-          <ReactSelect
-            label="Department"
-            value={String(departmentId ?? '')}
-            onChange={(value) => setDepartmentId(value ? Number(value) : null)}
-            options={departmentOptions}
-            placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
-          />
+          {organizationRole === 'org_admin' || role === 'admin' ? (
+            <div className="px-3 py-2 text-sm rounded-md border bg-muted/30 text-muted-foreground">
+              <strong>Departments:</strong> All active departments (admin role — auto-linked for
+              cross-dept routing visibility). Adjust later via Edit.
+            </div>
+          ) : (
+            <ReactSelect
+              label="Department"
+              value={String(departmentId ?? '')}
+              onChange={(value) => setDepartmentId(value ? Number(value) : null)}
+              options={departmentOptions}
+              placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
+            />
+          )}
 
           {error && (
             <div className="p-3 text-sm text-red-600 rounded bg-red-50 dark:bg-red-900/20">

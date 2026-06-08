@@ -23,6 +23,8 @@ import {
   GripVertical,
   Ban,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { messageService, type MessageThread } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 import { KanbanCard } from './KanbanCard';
@@ -143,6 +145,15 @@ function buildSharedFilters(filters: FilterState): Record<string, string> {
   const api: Record<string, string> = {};
   if (filters.messageSourceId && filters.messageSourceId !== 'all')
     api.messageSourceId = filters.messageSourceId;
+  // 'needs_routing' sentinel is a view override, not a dept filter — handled at
+  // the column level (a future 'needs_routing' column). For now, treat it as a
+  // pass-through dept selector and rely on the column's fixedFilters.
+  if (
+    filters.departmentId &&
+    filters.departmentId !== 'all' &&
+    filters.departmentId !== 'needs_routing'
+  )
+    api.departmentId = filters.departmentId;
   if (filters.priority && filters.priority !== 'all') api.priority = filters.priority;
   if (filters.assigneeId && filters.assigneeId !== 'all')
     api.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
@@ -331,6 +342,7 @@ const initialColStates = (): Record<string, ColumnState> =>
   );
 
 export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanbanViewProps) => {
+  const queryClient = useQueryClient();
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
     new Set(['not_analysed', 'spam', 'resolved', 'suspicious'])
   );
@@ -340,6 +352,8 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
 
   const sharedFilters = useMemo(() => buildSharedFilters(filters), [filters]);
   const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
+
+  const selectedDeptKey = useDepartmentContextKey();
 
   const colStatesRef = useRef(colStates);
   colStatesRef.current = colStates;
@@ -383,7 +397,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     return () => {
       cancelled = true;
     };
-  }, [filterKey, refreshKey]);
+  }, [filterKey, refreshKey, selectedDeptKey]);
 
   const loadMore = useCallback((colId: string) => {
     const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
@@ -492,6 +506,9 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         await messageService.reopen(msgId);
       } else {
         await messageService.classify(msgId, action);
+        // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
+        // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
+        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       }
     } catch (err) {
       logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
@@ -514,7 +531,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         };
       });
     }
-  }, []);
+  }, [queryClient]);
 
   const visibleColumns = COLUMNS.filter((col) => !hiddenColumns.has(col.id));
   const switchableColumns = COLUMNS.filter((col) => SWITCHABLE_COLUMNS.has(col.id));

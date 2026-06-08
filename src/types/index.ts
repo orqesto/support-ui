@@ -1,4 +1,13 @@
-import type { GlobalRole, OrganizationRole } from './roles';
+import type { GlobalRole, OrganizationRole, PermissionOverrides } from './roles';
+
+export type Department = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  color: string | null;
+  active: boolean;
+};
 
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
 export const MESSAGE_SOURCE_TYPES = ['email', 'gmail', 'telegram', 'slack', 'chat'] as const;
@@ -11,7 +20,8 @@ export type ThreadStatus =
   | 'pending' // user-settable: awaiting more info
   | 'resolved' // user-settable: resolved with KB capture
   | 'closed' // user-settable: done, no KB capture
-  | 'filtered'; // system: spam/noreply, hidden from inbox
+  | 'filtered' // system: spam/noreply, hidden from inbox
+  | 'needs_routing'; // system: routing engine found no winner; awaiting manual triage
 
 export type User = {
   id: number;
@@ -22,6 +32,7 @@ export type User = {
   role: GlobalRole; // Global role (admin, user)
   organizationRole?: OrganizationRole; // Role in current organization
   departmentIds?: number[]; // ALL department IDs the user belongs to in their current organization
+  permissionOverrides?: PermissionOverrides; // Wave 5 B per-user overrides on top of org role
   organizationId?: number; // Current organization ID
   organizationSlug?: string; // Slug of the current organization (present in login response)
   // Optional contact methods
@@ -48,6 +59,8 @@ export type Message = {
   assigneeId?: number | null;
   assigneeName?: string | null;
   assignedAt?: string | null;
+  departmentId?: number | null;
+  nearMissDepts?: number[]; // Wave 5 C-1 / Wave 4 PR 9 — runner-up depts within threshold of winner
   priority?: TicketPriority | null;
   categoryId?: number | null;
   closedAt?: string | null;
@@ -92,6 +105,7 @@ export type Ticket = {
   categoryName?: string;
   assigneeId: number | null;
   assigneeName?: string;
+  departmentId?: number | null;
   externalId: string | null;
   externalUrl: string | null;
   createdAt: string;

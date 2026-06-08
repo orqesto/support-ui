@@ -181,6 +181,18 @@ export const organizationService = {
     requestMissingInfo?: boolean;
     suggestSolutions?: boolean;
     highConfidenceThreshold?: number;
+    // Wave 4 PR 7: per-dept overrides, keyed by stringified department ID.
+    // Each entry may set any subset; unset fields fall back to the org-level value.
+    departmentSettings?: Record<
+      string,
+      {
+        autoReplyEnabled?: boolean;
+        autoReplyRequestMissingInfo?: boolean;
+        autoReplySuggestSolutions?: boolean;
+        autoReplyHighConfidenceThreshold?: number;
+        escalationPhrases?: string[];
+      }
+    >;
   }) => {
     const response = await apiClient.patch<
       ApiResponse<{

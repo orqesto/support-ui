@@ -35,10 +35,12 @@ export const ProtectedRoute = ({
 
   // Check permission if required
   if (requiredPermission) {
+    // Wave 5 B: pass permissionOverrides so per-user grants/revokes affect routing too.
     const hasRequiredPermission = hasPermission(
       user.role,
       user.organizationRole,
-      requiredPermission
+      requiredPermission,
+      user.permissionOverrides
     );
 
     if (!hasRequiredPermission) {

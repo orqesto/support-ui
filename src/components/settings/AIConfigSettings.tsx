@@ -1,18 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BrainCog, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { LeadQualificationSettings } from './LeadQualificationSettings';
+import { LearningNotificationsInbox } from './LearningNotificationsInbox';
+import { LearningSuggestionsSettings } from './LearningSuggestionsSettings';
+import { LearningTrustSettings } from './LearningTrustSettings';
 import { PromptsSettings } from './PromptsSettings';
+import { usePermissions } from '@/hooks/usePermissions';
 import { apiClient } from '@/lib/api-client';
 
-type AISection = 'prompts' | 'lead-qualification';
+type AISection =
+  | 'prompts'
+  | 'lead-qualification'
+  | 'learning'
+  | 'learning-trust'
+  | 'learning-actions';
 
-const sections = [
-  { id: 'prompts' as AISection, label: 'AI Prompts', description: 'Customize AI prompt templates' },
-  { id: 'lead-qualification' as AISection, label: 'Lead Qualification', description: 'Configure AI lead qualification for any department' },
+type SectionDef = { id: AISection; label: string; description: string; adminOnly?: boolean };
+
+const ALL_SECTIONS: SectionDef[] = [
+  { id: 'prompts', label: 'AI Prompts', description: 'Customize AI prompt templates' },
+  { id: 'lead-qualification', label: 'Lead Qualification', description: 'Configure AI lead qualification for any department' },
+  { id: 'learning', label: 'Learning Suggestions', description: 'Review and accept active-learning suggestions', adminOnly: true },
+  { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
+  { id: 'learning-actions', label: 'Engine Auto-Actions', description: 'Review and undo recent engine auto-actions', adminOnly: true },
 ];
 
 export const AIConfigSettings = () => {
+  const { isOrgAdmin } = usePermissions();
+  const sections = useMemo(
+    () => ALL_SECTIONS.filter((sect) => !sect.adminOnly || isOrgAdmin),
+    [isOrgAdmin]
+  );
   const [active, setActive] = useState<AISection>('prompts');
   const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
   const navigate = useNavigate();
@@ -56,6 +75,9 @@ export const AIConfigSettings = () => {
       </div>
 
       {active === 'prompts' && <PromptsSettings />}
+      {active === 'learning' && <LearningSuggestionsSettings />}
+      {active === 'learning-trust' && <LearningTrustSettings />}
+      {active === 'learning-actions' && <LearningNotificationsInbox />}
       {active === 'lead-qualification' && (
         hasLeadQualification === false ? (
           <div className="flex flex-col items-center justify-center py-12 text-center gap-4">

@@ -5,8 +5,11 @@ import { logger } from '@/lib/logger';
 
 /**
  * Load active departments once and manage the create-form picker state for a new
- * message source. Defaults selection to [first department] so single-dept orgs
- * don't have to make a choice.
+ * message source. With Wave 4 smart routing, the safest default is to LINK the
+ * new source to every active department (so routeMessage can fan-out across all
+ * of them on content match) with the 'info' catch-all dept marked as default.
+ * Admin can uncheck before save if they want a narrower scope. (Pre-rename orgs
+ * may still have the slug 'general' — both are accepted as the catch-all default.)
  *
  * Exposes `assignToNewSource(id)` which persists the current selection to the
  * messageSourceDepartments M:N table. Failures are logged but not thrown — the
@@ -26,12 +29,15 @@ export const useCreateSourceDepartments = () => {
         if (cancelled) return;
         setDepartments(depts);
         if (depts.length > 0) {
-          // Prefer the 'general' catch-all department as the default — it's the
-          // safest landing zone for new sources before the user thinks about routing.
-          // Fall back to the first department only if 'general' doesn't exist.
-          const general = depts.find((dept) => dept.slug === 'general');
-          const initial = general ?? depts[0];
-          setSelectedIds([initial.id]);
+          // Pre-select all active departments — Wave 4 smart routing fan-out only
+          // works for depts that are linked, so the safer default is "all". The
+          // 'info' catch-all stays the default landing zone (falls back to legacy
+          // 'general' slug, then to the first dept if neither exists).
+          const infoDept =
+            depts.find((dept) => dept.slug === 'info') ??
+            depts.find((dept) => dept.slug === 'general');
+          const initial = infoDept ?? depts[0];
+          setSelectedIds(depts.map((dept) => dept.id));
           setDefaultId(initial.id);
         }
       } catch (err) {

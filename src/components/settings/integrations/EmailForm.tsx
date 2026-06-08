@@ -2,7 +2,7 @@ import { TestTube2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
-import { DepartmentMultiPicker } from './DepartmentMultiPicker';
+import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import type { Department } from '@/services/department.service';
 
 type EmailConfig = {

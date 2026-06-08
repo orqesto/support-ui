@@ -101,7 +101,10 @@ export const UsersPage = () => {
       fetchUsers().catch((error) => {
         logger.error('Failed to fetch users:', error);
       });
-      departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
+      departmentService
+        .getAll()
+        .then(setDepartments)
+        .catch(() => setDepartments([]));
     }
   }, [canViewUsers, fetchUsers]);
 

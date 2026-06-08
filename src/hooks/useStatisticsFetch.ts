@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useDepartmentContextKey } from './useDepartmentContextKey';
 
 type FetchFn<T> = (days: number) => Promise<{ success: boolean; data?: T }>;
 
@@ -25,6 +26,9 @@ export function useStatisticsFetch<T>(
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Re-fetch when the dept-context checkboxes change (BE statistics endpoints
+  // honour `X-Department-Context` via the axios interceptor).
+  const selectedDeptKey = useDepartmentContextKey();
 
   const run = useCallback(
     async (isRefresh: boolean) => {
@@ -50,7 +54,11 @@ export function useStatisticsFetch<T>(
         setRefreshing(false);
       }
     },
-    [days, fetchFn, onError]
+    // selectedDeptKey is a refresh trigger: when the user toggles the dept
+    // checkbox, callback identity must change so the consumer effect re-runs
+    // and the axios interceptor sees the new X-Department-Context header.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [days, fetchFn, onError, selectedDeptKey]
   );
 
   useEffect(() => {

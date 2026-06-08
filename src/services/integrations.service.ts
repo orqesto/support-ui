@@ -177,6 +177,17 @@ export type Integration =
   | QwenIntegration
   | OllamaIntegration;
 
+export type SourceDepartmentLink = {
+  id: number;
+  departmentId: number;
+  isDefault: boolean;
+  priority: number;
+  autoReplyEnabled: boolean;
+  name: string;
+  slug: string;
+  color: string | null;
+};
+
 export type ApiResponse<T> = {
   success: boolean;
   data?: T;
@@ -301,12 +312,10 @@ export const integrationsService = {
 
   getSourceDepartments: async (
     id: number
-  ): Promise<
-    ApiResponse<{ id: number; departmentId: number; isDefault: boolean; name: string; slug: string; color: string | null }[]>
-  > => {
+  ): Promise<ApiResponse<SourceDepartmentLink[]>> => {
     const response = await apiClient.get<{
       success: boolean;
-      data: { id: number; departmentId: number; isDefault: boolean; name: string; slug: string; color: string | null }[];
+      data: SourceDepartmentLink[];
     }>(`/api/integrations/${id}/departments`);
     return { success: response.data.success, data: response.data.data };
   },
@@ -319,6 +328,18 @@ export const integrationsService = {
     const response = await apiClient.put<{ success: boolean }>(
       `/api/integrations/${id}/departments`,
       { departmentIds, defaultDepartmentId }
+    );
+    return { success: response.data.success };
+  },
+
+  updateSourceDepartmentLink: async (
+    sourceId: number,
+    linkId: number,
+    patch: { autoReplyEnabled?: boolean; isDefault?: boolean; priority?: number }
+  ): Promise<ApiResponse<void>> => {
+    const response = await apiClient.patch<{ success: boolean }>(
+      `/api/integrations/${sourceId}/departments/${linkId}`,
+      patch
     );
     return { success: response.data.success };
   },

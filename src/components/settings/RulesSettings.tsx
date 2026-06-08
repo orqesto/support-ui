@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Shield } from 'lucide-react';
 import { DetectionRulesSettings } from './DetectionRulesSettings';
 import { KnowledgeDetectionRulesSettings } from './KnowledgeDetectionRulesSettings';
+import { RoutingRulesSettings } from './RoutingRulesSettings';
 import { SpamRulesSettings } from './SpamRulesSettings';
 
-type RuleType = 'spam' | 'detection' | 'knowledge';
+type RuleType = 'spam' | 'detection' | 'knowledge' | 'routing';
 
 export const RulesSettings = () => {
   const [activeRuleType, setActiveRuleType] = useState<RuleType>('spam');
@@ -24,6 +25,11 @@ export const RulesSettings = () => {
       id: 'knowledge' as RuleType,
       label: 'KB Detection',
       description: 'Extract valuable knowledge for KB',
+    },
+    {
+      id: 'routing' as RuleType,
+      label: 'Routing Rules',
+      description: 'Route messages to departments by subject, sender, or header',
     },
   ];
 
@@ -65,6 +71,7 @@ export const RulesSettings = () => {
         {activeRuleType === 'spam' && <SpamRulesSettings />}
         {activeRuleType === 'detection' && <DetectionRulesSettings />}
         {activeRuleType === 'knowledge' && <KnowledgeDetectionRulesSettings />}
+        {activeRuleType === 'routing' && <RoutingRulesSettings />}
       </div>
     </div>
   );

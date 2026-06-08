@@ -6,7 +6,9 @@ import {
   User,
   Layers,
   Plug,
+  type LucideIcon,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
@@ -19,64 +21,98 @@ import { RulesSettings } from '@/components/settings/RulesSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
 import { useAuthStore } from '@/stores/authStore';
 
-type TabType = 'profile' | 'organization' | 'ai' | 'integrations' | 'rules' | 'system';
-const VALID_TABS: TabType[] = ['profile', 'organization', 'ai', 'integrations', 'rules', 'system'];
+type SettingsTabContext = {
+  isGlobalAdmin: boolean;
+};
+
+type SettingsTabDef = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  description: string;
+  render: (ctx: SettingsTabContext) => ReactNode;
+  /** When false (or undefined returning false), the tab is excluded from nav + render. */
+  visible?: (ctx: SettingsTabContext) => boolean;
+};
+
+const SETTINGS_TABS: SettingsTabDef[] = [
+  {
+    id: 'profile',
+    label: 'Profile',
+    icon: User,
+    description: 'Manage your account and password',
+    render: () => (
+      <div className="space-y-8">
+        <ProfileSettings />
+        <NotificationPreferencesSettings />
+      </div>
+    ),
+  },
+  {
+    id: 'organization',
+    label: 'Organization',
+    icon: Layers,
+    description: 'Manage categories and labels',
+    render: () => <OrganizationSettings />,
+  },
+  {
+    id: 'ai',
+    label: 'AI',
+    icon: BrainCog,
+    description: 'Configure AI prompts and lead qualification',
+    render: () => <AIConfigSettings />,
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    icon: Plug,
+    description: 'Connect channels, ticket systems, and AI providers',
+    render: (ctx) => <ConnectedServicesSettings isGlobalAdmin={ctx.isGlobalAdmin} />,
+  },
+  {
+    id: 'rules',
+    label: 'Rules',
+    icon: ShieldAlert,
+    description: 'Configure spam, detection, and KB extraction rules',
+    render: () => <RulesSettings />,
+  },
+  {
+    id: 'system',
+    label: 'System',
+    icon: Database,
+    description: 'Manage queues, cleanup data, and nuclear options (Admin only)',
+    render: () => <SystemManagementSettings />,
+    visible: (ctx) => ctx.isGlobalAdmin,
+  },
+];
+
+const DEFAULT_TAB_ID = 'profile';
 
 export const SettingsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
+  const ctx: SettingsTabContext = { isGlobalAdmin };
 
-  const hashTab = location.hash.replace('#', '') as TabType;
-  const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'profile';
+  const visibleTabs = SETTINGS_TABS.filter((tab) => (tab.visible ? tab.visible(ctx) : true));
+  const validIds = visibleTabs.map((tab) => tab.id);
 
-  const handleTabChange = (tabId: TabType) => {
+  const hashTab = location.hash.replace('#', '');
+  const activeTabId = validIds.includes(hashTab) ? hashTab : DEFAULT_TAB_ID;
+
+  const handleTabChange = (tabId: string) => {
     navigate('#' + tabId, { replace: true });
   };
 
-  const tabs: Tab<TabType>[] = [
-    {
-      id: 'profile',
-      label: 'Profile',
-      icon: User,
-      description: 'Manage your account and password',
-    },
-    {
-      id: 'organization',
-      label: 'Organization',
-      icon: Layers,
-      description: 'Manage categories and labels',
-    },
-    {
-      id: 'ai',
-      label: 'AI',
-      icon: BrainCog,
-      description: 'Configure AI prompts and lead qualification',
-    },
-    {
-      id: 'integrations',
-      label: 'Integrations',
-      icon: Plug,
-      description: 'Connect channels, ticket systems, and AI providers',
-    },
-    {
-      id: 'rules',
-      label: 'Rules',
-      icon: ShieldAlert,
-      description: 'Configure spam, detection, and KB extraction rules',
-    },
-    ...(isGlobalAdmin
-      ? [
-          {
-            id: 'system' as TabType,
-            label: 'System',
-            icon: Database,
-            description: 'Manage queues, cleanup data, and nuclear options (Admin only)',
-          },
-        ]
-      : []),
-  ];
+  const tabs: Tab<string>[] = visibleTabs.map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+    icon: tab.icon,
+    description: tab.description,
+  }));
+
+  const activeTab = visibleTabs.find((tab) => tab.id === activeTabId);
 
   return (
     <Layout>
@@ -97,23 +133,13 @@ export const SettingsPage = () => {
 
         <Tabs
           tabs={tabs}
-          activeTab={activeTab}
+          activeTab={activeTabId}
           onTabChange={handleTabChange}
           variant="default"
           size="md"
           fullWidth
         >
-          {activeTab === 'profile' && (
-            <div className="space-y-8">
-              <ProfileSettings />
-              <NotificationPreferencesSettings />
-            </div>
-          )}
-          {activeTab === 'organization' && <OrganizationSettings />}
-          {activeTab === 'ai' && <AIConfigSettings />}
-          {activeTab === 'integrations' && <ConnectedServicesSettings isGlobalAdmin={isGlobalAdmin} />}
-          {activeTab === 'rules' && <RulesSettings />}
-          {isGlobalAdmin && activeTab === 'system' && <SystemManagementSettings />}
+          {activeTab?.render(ctx)}
         </Tabs>
       </div>
     </Layout>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MessageSquare, Plus, Save, TestTube2, Trash2, Edit, Building2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
-import { DepartmentMultiPicker } from '@/components/settings/integrations/DepartmentMultiPicker';
+import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';

@@ -8,6 +8,13 @@ type AssignmentSelectProps = {
   itemId: number | string; // threadId can be string
   currentAssigneeId?: number | null;
   skillFilter?: { key: string; value: string };
+  /**
+   * Wave 5 C-4: scope the picker to users in this dept. The BE enforces the
+   * same scope on assignment, so callers should pass the item's dept here to
+   * avoid the user picking someone who'll be rejected. Pass undefined to show
+   * the full org list (used for unscoped contexts).
+   */
+  departmentId?: number | null;
   onAssign?: () => void;
   className?: string;
 };
@@ -17,6 +24,7 @@ export const AssignmentSelect = ({
   itemId,
   currentAssigneeId,
   skillFilter,
+  departmentId,
   onAssign,
   className,
 }: AssignmentSelectProps) => {
@@ -27,14 +35,17 @@ export const AssignmentSelect = ({
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await assignmentService.getAssignableUsers(skillFilter);
+      const data = await assignmentService.getAssignableUsers(
+        skillFilter,
+        departmentId ?? undefined
+      );
       setUsers(data);
     } catch (error) {
       logger.error('Failed to fetch assignable users:', error);
     } finally {
       setLoading(false);
     }
-  }, [skillFilter]);
+  }, [skillFilter, departmentId]);
 
   useEffect(() => {
     fetchUsers().catch((err) => { logger.error(err); });

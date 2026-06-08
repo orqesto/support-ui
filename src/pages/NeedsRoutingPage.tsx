@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { GitBranch, RefreshCw, ArrowRight, AlertCircle } from 'lucide-react';
+import { GitBranch, RefreshCw, ArrowRight, AlertCircle, Ban } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +25,7 @@ export const NeedsRoutingPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routingId, setRoutingId] = useState<number | null>(null);
+  const [spamId, setSpamId] = useState<number | null>(null);
   const [selectedDept, setSelectedDept] = useState<Record<number, number>>({});
   const [routeError, setRouteError] = useState<string | null>(null);
 
@@ -95,6 +96,40 @@ export const NeedsRoutingPage = () => {
       setRouteError('Failed to route the message. Please try again.');
     } finally {
       setRoutingId(null);
+    }
+  };
+
+  // Mark-as-spam for messages that reached needs_routing but the admin recognises
+  // as spam on sight (e.g. a sophisticated phishing attempt that passed spam check).
+  // Mirrors handleRoute's optimistic-removal + badge-invalidate flow.
+  const handleMarkSpam = async (id: number) => {
+    setSpamId(id);
+    setRouteError(null);
+    try {
+      await messageService.classify(id, 'move_to_spam');
+      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      const remaining = messages.filter((msg) => msg.id !== id);
+      const nextTotal = Math.max(total - 1, 0);
+      setSelectedDept((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      if (remaining.length === 0 && page > 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        setMessages(remaining);
+        setTotal(nextTotal);
+        if (remaining.length < PAGE_SIZE && nextTotal > remaining.length + (page - 1) * PAGE_SIZE) {
+          void load(page);
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to mark message as spam:', err);
+      setRouteError('Failed to mark the message as spam. Please try again.');
+    } finally {
+      setSpamId(null);
     }
   };
 
@@ -213,18 +248,34 @@ export const NeedsRoutingPage = () => {
                         </select>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <Button
-                          size="sm"
-                          onClick={() => void handleRoute(msg.id)}
-                          disabled={!selectedDept[msg.id] || routingId === msg.id}
-                        >
-                          {routingId === msg.id ? 'Routing…' : (
-                            <>
-                              <ArrowRight className="w-3.5 h-3.5 mr-1" />
-                              Route
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void handleMarkSpam(msg.id)}
+                            disabled={spamId === msg.id || routingId === msg.id}
+                            title="Mark as spam"
+                          >
+                            {spamId === msg.id ? '…' : (
+                              <>
+                                <Ban className="w-3.5 h-3.5 mr-1" />
+                                Spam
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => void handleRoute(msg.id)}
+                            disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
+                          >
+                            {routingId === msg.id ? 'Routing…' : (
+                              <>
+                                <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                                Route
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -269,9 +320,18 @@ export const NeedsRoutingPage = () => {
                       <Button
                         size="sm"
                         onClick={() => void handleRoute(msg.id)}
-                        disabled={!selectedDept[msg.id] || routingId === msg.id}
+                        disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
                       >
                         {routingId === msg.id ? '…' : <ArrowRight className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handleMarkSpam(msg.id)}
+                        disabled={spamId === msg.id || routingId === msg.id}
+                        title="Mark as spam"
+                      >
+                        {spamId === msg.id ? '…' : <Ban className="w-4 h-4" />}
                       </Button>
                     </div>
                   </CardContent>

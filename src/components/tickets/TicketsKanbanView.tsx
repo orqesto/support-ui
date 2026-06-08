@@ -23,6 +23,7 @@ import {
   User,
   GripVertical,
 } from 'lucide-react';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { ticketService } from '@/services/ticket.service';
 import { Badge } from '@/components/ui/Badge';
 import { formatAge } from '@/lib/utils';
@@ -305,6 +306,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
   ]);
 
   const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
+  const selectedDeptKey = useDepartmentContextKey();
 
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
   const [activeTicket, setActiveTicket] = useState<TicketType | null>(null);
@@ -360,7 +362,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     return () => {
       cancelled = true;
     };
-  }, [filterKey]);
+  }, [filterKey, selectedDeptKey]);
 
   const loadMore = useCallback((colId: string) => {
     const col = COLUMNS.find((column) => column.id === colId);

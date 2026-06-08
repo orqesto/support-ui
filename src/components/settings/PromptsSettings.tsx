@@ -272,7 +272,7 @@ export const PromptsSettings = () => {
                   <div className="flex flex-col gap-2">
                       <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
                       <div className="flex gap-2 items-center flex-wrap">
-                        <DepartmentBadge departmentId={prompt.departmentId} size="sm" />
+                        <DepartmentBadge departmentId={prompt.departmentId} size="sm" nullVariant="baseline" />
                         {prompt.type === 'system' && <Badge variant="default">System</Badge>}
                         <Badge variant={prompt.active ? 'success' : 'default'}>
                           {prompt.active ? 'Active' : 'Inactive'}

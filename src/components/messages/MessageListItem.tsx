@@ -7,9 +7,12 @@ import {
   Bot,
   AlertTriangle,
   Ticket,
+  GitBranch,
+  Building2,
 } from 'lucide-react';
 import type { MessageThread } from '@/services/message.service';
 import { Badge } from '@/components/ui/Badge';
+import { useDepartments } from '@/hooks/useDepartments';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { getChannelIcon, getCategoryDisplay } from '@/lib/messageHelpers';
@@ -24,7 +27,17 @@ type MessageListItemProps = {
 
 export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const msg = thread.latestMessage;
+  const { data: allDepts = [] } = useDepartments();
   if (!msg) return null;
+  // Wave 5 C-1: runner-up depts from the routing decision. Empty array = nothing to render.
+  const nearMissNames =
+    (msg.nearMissDepts ?? [])
+      .map((deptId) => allDepts.find((dept) => dept.id === deptId)?.name)
+      .filter((name): name is string => Boolean(name));
+  const primaryDept = msg.departmentId
+    ? allDepts.find((dept) => dept.id === msg.departmentId)
+    : undefined;
+  const needsRouting = msg.status === 'needs_routing';
 
   const analysis = msg.metadata?.analysis as { suggestedCategory?: string } | undefined;
 
@@ -57,6 +70,49 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
         {/* Row 2: subject */}
         {msg.subject && (
           <p className="text-xs text-muted-foreground truncate mt-0.5 pl-5">{msg.subject}</p>
+        )}
+
+        {/* Row 2.5: primary dept badge (resolved by smart routing) + Wave 5 C-1 near-miss
+            chips — routing engine had this conv close between depts; surface the
+            runner-ups so agents in other depts can still discover the message. */}
+        {(primaryDept || needsRouting || nearMissNames.length > 0) && (
+          <div className="flex flex-wrap gap-1 mt-1 pl-5">
+            {needsRouting ? (
+              <span
+                className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
+                title="Routing engine found no winning department — awaiting manual triage"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                Needs routing
+              </span>
+            ) : (
+              primaryDept && (
+                <span
+                  className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded"
+                  style={{
+                    backgroundColor: primaryDept.color
+                      ? `${safeCssColor(primaryDept.color)}22`
+                      : undefined,
+                    color: primaryDept.color ? safeCssColor(primaryDept.color) : undefined,
+                  }}
+                  title={`Routed to ${primaryDept.name}`}
+                >
+                  <Building2 className="w-3 h-3" />
+                  {primaryDept.name}
+                </span>
+              )
+            )}
+            {nearMissNames.map((name) => (
+              <span
+                key={name}
+                className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200"
+                title="The routing engine considered this department too — close runner-up score"
+              >
+                <GitBranch className="w-3 h-3" />
+                also matched: {name}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Row 3: content preview */}

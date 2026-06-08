@@ -10,6 +10,7 @@ export type DetectionRule = {
   name: string;
   description: string;
   pattern: string;
+  exampleText: string | null;
   category: DetectionRuleCategory;
   confidence: number;
   active: boolean;
@@ -21,6 +22,7 @@ export type CreateDetectionRuleInput = {
   name: string;
   description: string;
   pattern: string;
+  exampleText?: string;
   category: DetectionRuleCategory;
   confidence?: number;
   active?: boolean;
