@@ -57,19 +57,19 @@ const daysUntil = (iso: string): number => {
 
 const EngineRunReport = ({ summary }: { summary: EngineRunSummary }) => {
   const totalAction = summary.domains.reduce(
-    (acc, d) =>
-      acc + d.pass3Promoted + d.pass3Disabled + d.pass3SuggestionsEmitted + d.pass4ConflictsEmitted,
+    (acc, dom) =>
+      acc + dom.pass3Promoted + dom.pass3Disabled + dom.pass3SuggestionsEmitted + dom.pass4ConflictsEmitted,
     0
   );
-  const totalDetected = summary.domains.reduce((acc, d) => acc + d.pass4ConflictsDetected, 0);
+  const totalDetected = summary.domains.reduce((acc, dom) => acc + dom.pass4ConflictsDetected, 0);
   const activeDomains = summary.domains.filter(
-    (d) =>
-      d.pass1RulesScored > 0 ||
-      d.pass3Promoted > 0 ||
-      d.pass3Disabled > 0 ||
-      d.pass3SuggestionsEmitted > 0 ||
-      d.pass4ConflictsDetected > 0 ||
-      d.error
+    (dom) =>
+      dom.pass1RulesScored > 0 ||
+      dom.pass3Promoted > 0 ||
+      dom.pass3Disabled > 0 ||
+      dom.pass3SuggestionsEmitted > 0 ||
+      dom.pass4ConflictsDetected > 0 ||
+      dom.error
   );
 
   return (
@@ -93,21 +93,21 @@ const EngineRunReport = ({ summary }: { summary: EngineRunSummary }) => {
       </div>
       {activeDomains.length > 0 ? (
         <ul className="ml-6 text-xs space-y-0.5 list-disc">
-          {activeDomains.map((d) => (
-            <li key={d.domain}>
-              <strong className="capitalize">{d.domain}</strong>:{' '}
-              {d.error
-                ? <span className="text-red-700 dark:text-red-300">error — {d.error}</span>
+          {activeDomains.map((dom) => (
+            <li key={dom.domain}>
+              <strong className="capitalize">{dom.domain}</strong>:{' '}
+              {dom.error
+                ? <span className="text-red-700 dark:text-red-300">error — {dom.error}</span>
                 : (
                   <>
-                    pass1 scored {d.pass1RulesScored} rules
-                    {d.pass3Promoted > 0 && <>, promoted {d.pass3Promoted}</>}
-                    {d.pass3Disabled > 0 && <>, disabled {d.pass3Disabled}</>}
-                    {d.pass3SuggestionsEmitted > 0 && <>, suggested {d.pass3SuggestionsEmitted}</>}
-                    {d.pass4ConflictsDetected > 0 && (
+                    pass1 scored {dom.pass1RulesScored} rules
+                    {dom.pass3Promoted > 0 && <>, promoted {dom.pass3Promoted}</>}
+                    {dom.pass3Disabled > 0 && <>, disabled {dom.pass3Disabled}</>}
+                    {dom.pass3SuggestionsEmitted > 0 && <>, suggested {dom.pass3SuggestionsEmitted}</>}
+                    {dom.pass4ConflictsDetected > 0 && (
                       <>
-                        , conflicts {d.pass4ConflictsDetected} detected ({d.pass4ConflictsEmitted}{' '}
-                        new, {d.pass4ConflictsDetected - d.pass4ConflictsEmitted} already pending)
+                        , conflicts {dom.pass4ConflictsDetected} detected ({dom.pass4ConflictsEmitted}{' '}
+                        new, {dom.pass4ConflictsDetected - dom.pass4ConflictsEmitted} already pending)
                       </>
                     )}
                   </>
