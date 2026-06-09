@@ -145,13 +145,19 @@ export type PaginatedResponse<T> = ApiResponse<{
 }>;
 
 export type LoginRequest = {
-  organizationSlug: string;
   email: string;
   password: string;
+  // Optional — present only when the caller bypasses the multi-step picker
+  // (legacy / direct API consumers). The new FE flow leaves this out.
+  organizationSlug?: string;
 };
 
 export type LoginResponse = {
-  twoFactorRequired: boolean;
+  // Set when the user belongs to >1 active org and must pick one to continue.
+  requiresOrgSelection?: boolean;
+  organizations?: Array<{ id: number; name: string; slug: string }>;
+
+  twoFactorRequired?: boolean;
   twoFactorSetupRequired?: boolean;
   token?: string;
   user?: User;
