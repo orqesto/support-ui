@@ -25,7 +25,6 @@ import {
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
-import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
@@ -44,8 +43,6 @@ export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const token = useAuthStore((state) => state.token);
-
   const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
     const mode = searchParams.get('mode');
     if (mode === 'contacts') return 'contacts';
@@ -313,16 +310,8 @@ export const MessagesPage = () => {
   }, [selectedMessage, clearCache, fetchMessages, messagesPagination.page]);
 
   const handleSyncEmails = async () => {
-    if (!token) {
-      setAlertDialog({
-        open: true,
-        title: 'Authentication Required',
-        description: 'You must be logged in to sync emails',
-        variant: 'warning',
-      });
-      return;
-    }
-
+    // Auth is enforced by the httpOnly `jwt` cookie + BE 401 on the apiClient call.
+    // No client-side gate — the catch below surfaces failures (including session-expired).
     try {
       setRefreshing(true);
       await apiClient.post('/api/messages/check-emails');
