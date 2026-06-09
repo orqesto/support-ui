@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
-import {
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle,
-  Timer,
-  Archive,
-} from 'lucide-react';
+import { AlertTriangle, AlertCircle, CheckCircle, Timer, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -33,6 +27,7 @@ import {
   DashboardSLASection,
   DashboardStatusBarSection,
 } from '@/components/dashboard/DashboardStatCards';
+import { cn } from '@/lib/utils';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -484,6 +479,8 @@ export const DashboardPage = () => {
     },
   ];
 
+  const hasTickets = ticketCards.some((card) => card.value > 0);
+
   return (
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
@@ -505,10 +502,28 @@ export const DashboardPage = () => {
         ) : (
           <div className="space-y-6">
             <DashboardSLASection cards={slaCards} />
+            {/* Ingestion Controls */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <DashboardQuickActions
+                hasMessageSources={hasMessageSources}
+                hasEmailIntegrations={hasEmailIntegrations}
+                hasTelegramIntegrations={hasTelegramIntegrations}
+                isProcessing={isProcessing}
+                processingStatus={processingStatus}
+                processingStage={processingStage}
+                ingesting={ingesting}
+                noNewMessagesInfo={noNewMessagesInfo}
+                onIngest={handleIngestion}
+              />
 
-            <div className="grid gap-4 lg:grid-cols-2">
+              <DashboardSystemStatus health={health} isWebSocketConnected={isWebSocketConnected} />
+            </div>
+
+            <div className={cn("grid gap-4", hasTickets ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
               <DashboardStatusBarSection label="Messages by Status" cards={messageCards} />
-              <DashboardStatusBarSection label="Tickets by Status" cards={ticketCards} />
+              {hasTickets && (
+                <DashboardStatusBarSection label="Tickets by Status" cards={ticketCards} />
+              )}
             </div>
 
             <DashboardKBSection
@@ -518,23 +533,6 @@ export const DashboardPage = () => {
             />
           </div>
         )}
-
-        {/* Ingestion Controls */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <DashboardQuickActions
-            hasMessageSources={hasMessageSources}
-            hasEmailIntegrations={hasEmailIntegrations}
-            hasTelegramIntegrations={hasTelegramIntegrations}
-            isProcessing={isProcessing}
-            processingStatus={processingStatus}
-            processingStage={processingStage}
-            ingesting={ingesting}
-            noNewMessagesInfo={noNewMessagesInfo}
-            onIngest={handleIngestion}
-          />
-
-          <DashboardSystemStatus health={health} isWebSocketConnected={isWebSocketConnected} />
-        </div>
       </div>
 
       <AlertDialog
