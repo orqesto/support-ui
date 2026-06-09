@@ -21,7 +21,14 @@ export type RuleEditorColumn<TRule> = {
 };
 
 export type RuleEditorProps<
-  TRule extends { id: number; name: string; description: string; pattern?: string | null; active: boolean; departmentId?: number | null },
+  TRule extends {
+    id: number;
+    name: string;
+    description: string;
+    pattern?: string | null;
+    active: boolean;
+    departmentId?: number | null;
+  },
   TForm,
 > = {
   title: string;
@@ -84,8 +91,7 @@ export type RuleEditorProps<
   renderPattern?: (pattern: string) => string;
 };
 
-const thClass =
-  'px-4 py-3 text-xs font-medium tracking-wider uppercase text-muted-foreground';
+const thClass = 'px-4 py-3 text-xs font-medium tracking-wider uppercase text-muted-foreground';
 
 function alignClass(align?: 'left' | 'center' | 'right') {
   if (align === 'center') return 'text-center';
@@ -94,7 +100,14 @@ function alignClass(align?: 'left' | 'center' | 'right') {
 }
 
 export function RuleEditor<
-  TRule extends { id: number; name: string; description: string; pattern?: string | null; active: boolean; departmentId?: number | null },
+  TRule extends {
+    id: number;
+    name: string;
+    description: string;
+    pattern?: string | null;
+    active: boolean;
+    departmentId?: number | null;
+  },
   TForm,
 >({
   title,
@@ -141,16 +154,21 @@ export function RuleEditor<
   const [filterPos, setFilterPos] = useState<{ top: number; left: number } | null>(null);
 
   const { data: allDepts = [] } = useDepartments();
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
   const accessibleDepts =
     user?.role === 'admin'
       ? allDepts
-      : allDepts.filter(dept => (user?.departmentIds ?? []).includes(dept.id));
+      : allDepts.filter((dept) => (user?.departmentIds ?? []).includes(dept.id));
 
   const filteredRules =
     localDeptFilter.length === 0
       ? rules
-      : rules.filter(rule => rule.departmentId === null || rule.departmentId === undefined || localDeptFilter.includes(rule.departmentId));
+      : rules.filter(
+          (rule) =>
+            rule.departmentId === null ||
+            rule.departmentId === undefined ||
+            localDeptFilter.includes(rule.departmentId)
+        );
 
   const showPlaceholder = placeholder !== undefined && !loading && rules.length === 0;
   // Only show the dept filter when there are multiple accessible depts and we're past loading/placeholder
@@ -170,8 +188,8 @@ export function RuleEditor<
   };
 
   const toggleDept = (id: number) => {
-    setLocalDeptFilter(prev =>
-      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    setLocalDeptFilter((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
     );
   };
 
@@ -204,14 +222,11 @@ export function RuleEditor<
       {!loading && renderFilters?.()}
 
       {/* Dept filter dropdown portal — rendered once, outside the responsive branches */}
-      {filterOpen && filterPos &&
+      {filterOpen &&
+        filterPos &&
         createPortal(
           <>
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setFilterOpen(false)}
-              aria-hidden
-            />
+            <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} aria-hidden />
             <div
               className="fixed z-50 overflow-y-auto w-52 max-h-64 rounded-md border shadow-lg bg-card border-border"
               style={{ top: filterPos.top, left: filterPos.left }}
@@ -228,7 +243,7 @@ export function RuleEditor<
                   <span>All departments</span>
                   {localDeptFilter.length === 0 && <X className="w-3.5 h-3.5 opacity-50" />}
                 </button>
-                {accessibleDepts.map(dept => {
+                {accessibleDepts.map((dept) => {
                   const checked = localDeptFilter.includes(dept.id);
                   return (
                     <button
@@ -242,7 +257,11 @@ export function RuleEditor<
                         className={`flex-shrink-0 w-4 h-4 rounded border transition-colors ${checked ? 'bg-primary border-primary' : 'border-border'}`}
                       >
                         {checked && (
-                          <svg viewBox="0 0 16 16" fill="none" className="w-full h-full text-primary-foreground">
+                          <svg
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            className="w-full h-full text-primary-foreground"
+                          >
                             <path
                               d="M3 8l3.5 3.5L13 4.5"
                               stroke="currentColor"
@@ -350,13 +369,14 @@ export function RuleEditor<
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-sm font-medium">{rule.name}</p>
                         {renderNameMeta && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {renderNameMeta(rule)}
-                          </div>
+                          <div className="flex flex-wrap gap-1 mt-0.5">{renderNameMeta(rule)}</div>
                         )}
                       </td>
                       {prefixColumns.map((col) => (
-                        <td key={col.header} className={`px-4 py-3 text-sm whitespace-nowrap ${alignClass(col.align)}`}>
+                        <td
+                          key={col.header}
+                          className={`px-4 py-3 text-sm whitespace-nowrap ${alignClass(col.align)}`}
+                        >
                           {col.render(rule)}
                         </td>
                       ))}
@@ -373,7 +393,10 @@ export function RuleEditor<
                         )}
                       </td>
                       {suffixColumns.map((col) => (
-                        <td key={col.header} className={`px-4 py-3 text-sm ${alignClass(col.align)}`}>
+                        <td
+                          key={col.header}
+                          className={`px-4 py-3 text-sm ${alignClass(col.align)}`}
+                        >
                           {col.render(rule)}
                         </td>
                       ))}
@@ -459,9 +482,7 @@ export function RuleEditor<
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{rule.name}</p>
                       {renderNameMeta && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {renderNameMeta(rule)}
-                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">{renderNameMeta(rule)}</div>
                       )}
                     </div>
                     <div className="flex gap-1 shrink-0">
