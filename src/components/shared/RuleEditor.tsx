@@ -205,7 +205,7 @@ export function RuleEditor<
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {!showPlaceholder && (
-          <Button onClick={handleCreate}>
+          <Button onClick={handleCreate} className="shrink-0 whitespace-nowrap">
             <Plus className="mr-2 w-4 h-4" />
             Add Rule
           </Button>

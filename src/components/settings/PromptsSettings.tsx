@@ -89,15 +89,15 @@ export const PromptsSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-star">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
         <div>
           <h3 className="text-lg font-semibold">AI Prompt Templates</h3>
           <p className="text-sm text-muted-foreground">
             Customize prompts used by AI for message analysis and spam detection
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating} className='py-4 py-6'>
-          <Plus className="mr-2 w-4 h-4 hidden sm:blcok" />
+        <Button onClick={handleCreate} disabled={isCreating} className="shrink-0 whitespace-nowrap">
+          <Plus className="mr-2 w-4 h-4 hidden sm:block" />
           Add Prompt
         </Button>
       </div>
