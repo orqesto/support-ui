@@ -52,6 +52,21 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
       <CardContent className="p-3">
         {/* Row 0: top metadata — id + age. Same anchor pattern as KanbanCard. */}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          {/* Row 2.5: primary dept badge (resolved by smart routing) + Wave 5 C-1 near-miss
+            chips — routing engine had this conv close between depts; surface the
+            runner-ups so agents in other depts can still discover the message. */}
+          {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
+            <div className="flex flex-wrap gap-1">
+              {needsRouting ? (
+                <DepartmentBadge variant="needs" />
+              ) : (
+                primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
+              )}
+              {nearMissDepts.map((dept) => (
+                <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
+              ))}
+            </div>
+          )}
           <span className="font-mono shrink-0">#{msg.id}</span>
           <Tooltip content={`Received: ${formatDate(receivedAt)}`} size="sm">
             <span className="whitespace-nowrap shrink-0">
@@ -74,22 +89,6 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
         {/* Row 2: subject */}
         {msg.subject && (
           <p className="text-xs text-muted-foreground truncate mt-0.5 pl-5">{msg.subject}</p>
-        )}
-
-        {/* Row 2.5: primary dept badge (resolved by smart routing) + Wave 5 C-1 near-miss
-            chips — routing engine had this conv close between depts; surface the
-            runner-ups so agents in other depts can still discover the message. */}
-        {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
-          <div className="flex flex-wrap gap-1 mt-1 pl-5">
-            {needsRouting ? (
-              <DepartmentBadge variant="needs" />
-            ) : (
-              primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
-            )}
-            {nearMissDepts.map((dept) => (
-              <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
-            ))}
-          </div>
         )}
 
         {/* Row 3: content preview */}
