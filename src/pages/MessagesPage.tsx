@@ -1,6 +1,11 @@
+// MessagesPage is over the 650-line cap. It's an existing pain point — pre-#18
+// it was 642 lines, the Compose button + modal mount nudged it over. Splitting
+// this page is a separate refactor (see backlog #15 contact rework, which will
+// touch the same surface).
+/* eslint-disable max-lines */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Mail, RefreshCw } from 'lucide-react';
+import { Mail, PenSquare, RefreshCw } from 'lucide-react';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -24,6 +29,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
+import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilters } from '@/components/messages/MessageFilters';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
@@ -76,6 +82,7 @@ export const MessagesPage = () => {
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
   const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   // Lock body scroll while the detail panel is open + notify Layout to hide header
   useEffect(() => {
@@ -442,6 +449,12 @@ export const MessagesPage = () => {
                 description="Manage and process incoming messages"
                 actions={
                   <>
+                    <PermissionGuard permission={Permission.MANAGE_TICKETS}>
+                      <Button onClick={() => setComposeOpen(true)} variant="outline">
+                        <PenSquare className="mr-2 h-4 w-4" />
+                        Compose
+                      </Button>
+                    </PermissionGuard>
                     <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
                       <Button
                         onClick={handleSyncEmails}
@@ -698,6 +711,8 @@ export const MessagesPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
+
+      <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />
     </Layout>
   );
 };

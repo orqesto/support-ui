@@ -204,6 +204,29 @@ export const messageService = {
     return response.data;
   },
 
+  // Compose a brand-new outbound email (#18). Creates a new conversation
+  // and dispatches via the chosen integration's email channel. Attachments
+  // are optional.
+  composeNew: async (input: {
+    messageSourceId: number;
+    to: string;
+    subject: string;
+    content: string;
+    attachments?: File[];
+  }) => {
+    const formData = new FormData();
+    formData.append('messageSourceId', String(input.messageSourceId));
+    formData.append('to', input.to);
+    formData.append('subject', input.subject);
+    formData.append('content', input.content);
+    input.attachments?.forEach((file) => formData.append('attachments', file));
+
+    const response = await apiClient.post<
+      ApiResponse<{ conversationId: number; messageEventId: number }>
+    >('/api/messages/compose', formData);
+    return response.data;
+  },
+
   resolve: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/resolve`, {});
     return response.data;
