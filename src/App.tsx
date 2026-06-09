@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
+import { TrackingPage } from './pages/TrackingPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
@@ -146,6 +147,11 @@ const AppRoutes = () => {
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPasswordPage />}
       />
       <Route path="/oauth/gmail/callback" element={<OAuthCallbackPage />} />
+      {/* Public conversation tracking (#20). No auth — token in query string. */}
+      <Route
+        path="/track/:orgSlug/:deptSlug/:conversationId"
+        element={<TrackingPage />}
+      />
       <Route
         path="/dashboard"
         element={
