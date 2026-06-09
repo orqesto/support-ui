@@ -181,16 +181,29 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             </Tooltip>
           )}
 
-          {/* Labels */}
-          {(msg.labels as { id: number; name: string; color: string }[] | undefined)?.map(
+          {/* Labels (gap #16: source tag drives a small "via" hint). */}
+          {(msg.labels as { id: number; name: string; color: string; source?: 'conversation' | 'ticket' | 'contact' }[] | undefined)?.map(
             (label) => (
-              <Tooltip key={label.id} content={label.name} size="sm">
+              <Tooltip
+                key={label.id}
+                content={
+                  label.source === 'contact'
+                    ? `${label.name} — inherited from contact`
+                    : label.source === 'ticket'
+                      ? `${label.name} — via linked ticket`
+                      : label.name
+                }
+                size="sm"
+              >
                 <Badge variant="secondary" className="flex gap-1 items-center h-5 px-1.5">
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: safeCssColor(label.color) }}
                   />
                   {label.name}
+                  {label.source === 'contact' && (
+                    <span className="text-[10px] text-muted-foreground/80 ml-0.5">·contact</span>
+                  )}
                 </Badge>
               </Tooltip>
             )
