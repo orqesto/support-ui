@@ -227,7 +227,10 @@ export const LeadQualificationSettings = () => {
         <div>
           <h3 className="text-sm font-semibold">Required Contact Fields</h3>
           <p className="text-xs text-muted-foreground">
-            Fields that must be collected before a lead is considered fully contacted.
+            Fields the qualification flow must collect before a lead is considered fully contacted.
+            Email is auto-derived from the sender address on email / Gmail sources, so the
+            requirement only kicks in on chat-widget and Telegram conversations where the visitor
+            hasn&apos;t shared one yet — the AI will ask for it as part of qualification.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -239,7 +242,12 @@ export const LeadQualificationSettings = () => {
                 onChange={() => toggleContactField(field)}
                 className="rounded"
               />
-              <span className="text-sm capitalize">{field}</span>
+              <span className="text-sm capitalize">
+                {field}
+                {field === 'email' && (
+                  <span className="ml-1 text-xs text-muted-foreground">(auto on email channels)</span>
+                )}
+              </span>
             </label>
           ))}
         </div>
