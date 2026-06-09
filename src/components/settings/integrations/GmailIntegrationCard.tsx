@@ -8,8 +8,10 @@ import {
   Calendar,
   Save,
   Building2,
+  MessageSquareReply,
 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailForm } from '@/components/settings/integrations/GmailForm';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
@@ -66,6 +68,7 @@ export const GmailIntegrationCard = ({
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [showMenu, setShowMenu] = useState<number | null>(null);
   const [editDepts, setEditDepts] = useState<number | null>(null);
+  const [editAckReply, setEditAckReply] = useState<number | null>(null);
   const [config, setConfig] = useState<GmailConfig>(defaultConfig);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -451,6 +454,16 @@ export const GmailIntegrationCard = ({
                                   Assign Departments
                                 </button>
                                 <button
+                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                  onClick={() => {
+                                    setEditAckReply(integration.id);
+                                    setShowMenu(null);
+                                  }}
+                                >
+                                  <MessageSquareReply className="mr-2 w-4 h-4" />
+                                  Auto-reply Template
+                                </button>
+                                <button
                                   className="flex items-center px-3 py-2 w-full text-sm text-red-600 hover:bg-accent"
                                   onClick={() => {
                                     setDeleteConfirm({
@@ -478,6 +491,22 @@ export const GmailIntegrationCard = ({
                         setEditDepts(null);
                         void onRefresh();
                       }}
+                    />
+                  )}
+                  {editAckReply === integration.id && (
+                    <AckReplyEditor
+                      sourceId={integration.id}
+                      initial={{
+                        autoReplyEnabled: integration.autoReplyEnabled,
+                        autoReplySubject: integration.autoReplySubject,
+                        autoReplyBody: integration.autoReplyBody,
+                      }}
+                      onClose={() => setEditAckReply(null)}
+                      onSaved={async () => {
+                        setEditAckReply(null);
+                        await onRefresh();
+                      }}
+                      onShowAlert={onShowAlert}
                     />
                   )}
                 </div>

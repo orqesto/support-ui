@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Mail, Plus, TestTube2, Trash2, Edit, Calendar, Building2 } from 'lucide-react';
+import { Mail, Plus, TestTube2, Trash2, Edit, Calendar, Building2, MessageSquareReply } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
@@ -70,6 +71,7 @@ export const EmailIntegrationCard = ({
   } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [editDepts, setEditDepts] = useState<number | null>(null);
+  const [editAckReply, setEditAckReply] = useState<number | null>(null);
 
   // Centralized create-form department picker state.
   const deptPicker = useCreateSourceDepartments();
@@ -405,6 +407,14 @@ export const EmailIntegrationCard = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setEditAckReply(integration.id)}
+                        title="Auto-reply template"
+                      >
+                        <MessageSquareReply className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() =>
                           setDeleteConfirm({ id: integration.id, name: integration.name })
                         }
@@ -420,6 +430,22 @@ export const EmailIntegrationCard = ({
                       sourceId={integration.id}
                       onClose={() => setEditDepts(null)}
                       onSaved={() => { setEditDepts(null); void onRefresh(); }}
+                    />
+                  )}
+                  {editAckReply === integration.id && (
+                    <AckReplyEditor
+                      sourceId={integration.id}
+                      initial={{
+                        autoReplyEnabled: integration.autoReplyEnabled,
+                        autoReplySubject: integration.autoReplySubject,
+                        autoReplyBody: integration.autoReplyBody,
+                      }}
+                      onClose={() => setEditAckReply(null)}
+                      onSaved={async () => {
+                        setEditAckReply(null);
+                        await onRefresh();
+                      }}
+                      onShowAlert={onShowAlert}
                     />
                   )}
                 </div>

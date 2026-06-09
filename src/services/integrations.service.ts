@@ -86,6 +86,12 @@ export type BaseIntegration = {
   departmentId?: number | null;
   isDefault?: boolean;
   isKnowledgeBase?: boolean; // If true, extract Q&A pairs for KB (email/gmail only)
+  // Per-source acknowledgment auto-reply template (#19/#20). Only meaningful
+  // on email/gmail sources; the runtime skips other channels. Body supports
+  // {{customer_name}}, {{tracking_url}}, {{original_subject}} tokens.
+  autoReplyEnabled?: boolean | null;
+  autoReplySubject?: string | null;
+  autoReplyBody?: string | null;
   createdAt: string;
   updatedAt: string;
   hasCredentials?: boolean;
@@ -342,6 +348,35 @@ export const integrationsService = {
       patch
     );
     return { success: response.data.success };
+  },
+
+  // Per-source acknowledgment auto-reply template (#19/#20 — gap #3 FE).
+  // Email-only on the BE side; non-email sources will reject with 400.
+  updateAckReply: async (
+    id: number,
+    patch: {
+      autoReplyEnabled: boolean;
+      autoReplySubject?: string | null;
+      autoReplyBody?: string | null;
+    }
+  ): Promise<
+    ApiResponse<{
+      id: number;
+      autoReplyEnabled: boolean;
+      autoReplySubject: string | null;
+      autoReplyBody: string | null;
+    }>
+  > => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data: {
+        id: number;
+        autoReplyEnabled: boolean;
+        autoReplySubject: string | null;
+        autoReplyBody: string | null;
+      };
+    }>(`/api/integrations/${id}/ack-reply`, patch);
+    return { success: response.data.success, data: response.data.data };
   },
 
   /**
