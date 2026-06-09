@@ -346,12 +346,19 @@ const getMessageLabels = async (messageId: number): Promise<Label[]> => {
   return response.data.data as Label[];
 };
 
+// Direct conversation labels (#16 — gap audit 2026-06-09). The legacy
+// /api/labels/messages/* path threads through the linked ticket and 404s
+// if no ticket exists, leaving agents unable to label conversations that
+// don't have an associated ticket. The new /api/labels/conversations/*
+// endpoints write directly to conversation_labels — works regardless of
+// ticket presence. Reads (getMessageLabels above) still UNION ticket +
+// direct + inherited so the displayed label list stays consistent.
 const assignLabelToMessage = async (messageId: number, labelId: number): Promise<void> => {
-  await apiClient.post(`/api/labels/messages/${messageId}/${labelId}`);
+  await apiClient.post(`/api/labels/conversations/${messageId}/${labelId}`);
 };
 
 const removeLabelFromMessage = async (messageId: number, labelId: number): Promise<void> => {
-  await apiClient.delete(`/api/labels/messages/${messageId}/${labelId}`);
+  await apiClient.delete(`/api/labels/conversations/${messageId}/${labelId}`);
 };
 
 export const labelService = {

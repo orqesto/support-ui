@@ -71,7 +71,11 @@ export type Message = {
   actualResponseSeconds?: number | null;
   lastReplyAt?: string | null;
   lastReplyFromClient?: boolean | null;
-  labels?: { id: number; name: string; color: string }[];
+  // BE returns labels UNIONed from three sources (#16). `source` lets the FE
+  // render an "inherited via contact" badge so agents understand why the
+  // label is showing without having to look it up. Optional for back-compat
+  // with older payloads that didn't include the field.
+  labels?: { id: number; name: string; color: string; source?: 'conversation' | 'ticket' | 'contact' }[];
   botHandled?: boolean;
   // sparse: only present on spam_log fake entries
   content?: string | null;
