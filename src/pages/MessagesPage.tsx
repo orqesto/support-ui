@@ -47,11 +47,13 @@ export const MessagesPage = () => {
     const mode = searchParams.get('mode');
     if (mode === 'contacts') return 'contacts';
     if (mode === 'kanban') return 'kanban';
-    // Arriving via a status-filtered link (e.g. dashboard "Messages by Status"
-    // cards) without an explicit ?mode= → force list view. Kanban groups by
-    // status itself, so the same ?status= URL in kanban looks like a no-op.
-    // Bookmarks that explicitly request ?mode=kanban still win above.
-    if (searchParams.get('status')) return 'threads';
+    // Arriving via a filter-bearing link (e.g. dashboard cards: "Messages
+    // by Status", "Closed", SLA Breached / At Risk) without an explicit
+    // ?mode= → force list view. Kanban groups by status itself, so any of
+    // these URLs in kanban look like a no-op. Bookmarks that explicitly
+    // request ?mode=kanban still win above.
+    const FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAtRisk'];
+    if (FILTER_PARAMS.some((key) => searchParams.get(key))) return 'threads';
     const stored = localStorage.getItem('messages_view_mode');
     if (stored === 'contacts' || stored === 'kanban') return stored;
     return 'threads';
