@@ -176,6 +176,7 @@ export const LoginPage = () => {
       const response = await authService.selectOrganization({
         tempToken: orgPendingToken,
         organizationId: selectedOrgId,
+        captchaToken: captchaToken ?? undefined,
       });
       await handleLoginResponse(response);
     } catch {

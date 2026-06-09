@@ -21,8 +21,15 @@ export const authService = {
   },
 
   // Step 3: exchange the org_pending temp token + chosen org for a full JWT
-  // (or a 2fa_pending temp token if the user has 2FA enabled).
-  selectOrganization: async (data: { tempToken: string; organizationId: number }) => {
+  // (or a 2fa_pending temp token if the user has 2FA enabled). captchaToken
+  // mirrors /auth/login — required when Turnstile is configured server-side
+  // (production). The widget below the login form re-issues a fresh token
+  // after the previous step consumes its one.
+  selectOrganization: async (data: {
+    tempToken: string;
+    organizationId: number;
+    captchaToken?: string;
+  }) => {
     const response = await apiClient.post<ApiResponse<LoginResponse>>(
       '/api/auth/select-organization',
       data
