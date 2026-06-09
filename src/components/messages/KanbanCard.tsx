@@ -91,7 +91,21 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
       {/* Top metadata row — id + age sit above the sender so they don't
           crowd the customer name. The drag handle (rendered by the parent
           column via dnd-kit) overlaps this row in the top-right corner. */}
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="flex items-center  gap-4 text-[11px] text-muted-foreground">
+        {/* Dept badge row — primary routed dept (or needs-routing warning) +
+          near-miss runner-ups so other depts can still discover the message. */}
+        {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
+          <div className="flex flex-wrap gap-1 items-center">
+            {needsRouting ? (
+              <DepartmentBadge variant="needs" />
+            ) : (
+              primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
+            )}
+            {nearMissDepts.map((dept) => (
+              <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
+            ))}
+          </div>
+        )}
         <span className="font-mono shrink-0">#{msg.id}</span>
         <span className="whitespace-nowrap shrink-0">
           <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
@@ -125,21 +139,6 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
       {/* Subject */}
       {msg.subject && <p className="text-xs truncate text-muted-foreground">{msg.subject}</p>}
 
-      {/* Dept badge row — primary routed dept (or needs-routing warning) +
-          near-miss runner-ups so other depts can still discover the message. */}
-      {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
-        <div className="flex flex-wrap gap-1 items-center">
-          {needsRouting ? (
-            <DepartmentBadge variant="needs" />
-          ) : (
-            primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
-          )}
-          {nearMissDepts.map((dept) => (
-            <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
-          ))}
-        </div>
-      )}
-
       {/* Badges row */}
       <div className="flex flex-wrap gap-1 items-center">
         {/* Shared signal badges (SLA, spam, suspicious, contradiction, attachments,
@@ -153,10 +152,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             scoped to `latestIncomingMessage` — would miss it. Show the paperclip when
             the latest message has its own attachments and signalMessage doesn't. */}
         {(msg.attachmentCount ?? 0) > 0 && signalMessage.id !== msg.id && (
-          <Tooltip
-            content={`${msg.attachmentCount} attachment(s) on the latest message`}
-            size="sm"
-          >
+          <Tooltip content={`${msg.attachmentCount} attachment(s) on the latest message`} size="sm">
             <Badge
               variant="default"
               className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
