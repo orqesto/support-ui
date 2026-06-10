@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { getCategoryDisplay, getChannelIcon } from '@/lib/messageHelpers';
-import { formatAge } from '@/lib/utils';
+import { formatAge, safeCssColor } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
@@ -258,6 +258,46 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             </Badge>
           </Tooltip>
         )}
+
+        {/* Labels — kept in sync with MessageListItem so the same conversation
+            reads the same in both views. Source tag ('contact' / 'ticket')
+            drives the small "·contact" hint on inherited labels. */}
+        {(
+          msg.labels as
+            | {
+                id: number;
+                name: string;
+                color: string;
+                source?: 'conversation' | 'ticket' | 'contact';
+              }[]
+            | undefined
+        )?.map((label) => (
+          <Tooltip
+            key={label.id}
+            content={
+              label.source === 'contact'
+                ? `${label.name} — inherited from contact`
+                : label.source === 'ticket'
+                  ? `${label.name} — via linked ticket`
+                  : label.name
+            }
+            size="sm"
+          >
+            <Badge
+              variant="secondary"
+              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: safeCssColor(label.color) }}
+              />
+              {label.name}
+              {label.source === 'contact' && (
+                <span className="text-[10px] text-muted-foreground/80 ml-0.5">·contact</span>
+              )}
+            </Badge>
+          </Tooltip>
+        ))}
       </div>
     </button>
   );

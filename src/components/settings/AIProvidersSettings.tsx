@@ -4,6 +4,7 @@ import { AIAutoReplyCard } from '@/components/settings/AIAutoReplyCard';
 import { DepartmentAutoReplySettings } from '@/components/settings/DepartmentAutoReplySettings';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
+import { BedrockProviderCard } from '@/components/settings/providers/BedrockProviderCard';
 import { DeepSeekProviderCard } from '@/components/settings/providers/DeepSeekProviderCard';
 import { OpenAIProviderCard } from '@/components/settings/providers/OpenAIProviderCard';
 import { PerplexityProviderCard } from '@/components/settings/providers/PerplexityProviderCard';
@@ -208,6 +209,7 @@ export const AIProvidersSettings = () => {
               integ.type === 'perplexity' ||
               integ.type === 'qwen' ||
               integ.type === 'ollama' ||
+              integ.type === 'bedrock' ||
               integ.type === 'local_embeddings'
           )
         );
@@ -334,7 +336,7 @@ export const AIProvidersSettings = () => {
         if (integration.id === id) {
           return { ...integration, enabled: isEnabling };
         }
-        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity', 'qwen', 'ollama'].includes(
+        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity', 'qwen', 'ollama', 'bedrock'].includes(
           integration.type
         );
         if (isEnabling && isAIProvider) {
@@ -449,6 +451,7 @@ export const AIProvidersSettings = () => {
   const perplexityIntegrations = integrations.filter((integ) => integ.type === 'perplexity');
   const qwenIntegrations = integrations.filter((integ) => integ.type === 'qwen');
   const ollamaIntegrations = integrations.filter((integ) => integ.type === 'ollama');
+  const bedrockIntegrations = integrations.filter((integ) => integ.type === 'bedrock');
 
   const hasAnyProvider =
     openaiIntegrations.length > 0 ||
@@ -456,7 +459,8 @@ export const AIProvidersSettings = () => {
     deepseekIntegrations.length > 0 ||
     perplexityIntegrations.length > 0 ||
     qwenIntegrations.length > 0 ||
-    ollamaIntegrations.length > 0;
+    ollamaIntegrations.length > 0 ||
+    bedrockIntegrations.length > 0;
 
   const commonProviderProps = {
     showModels,
@@ -566,6 +570,27 @@ export const AIProvidersSettings = () => {
         onEdit={(integration) => setEditingId(integration.id)}
         onSave={(config) =>
           saveIntegration('Ollama', 'ollama', config as Record<string, string | number | boolean>)
+        }
+      />
+
+      <BedrockProviderCard
+        integrations={bedrockIntegrations}
+        showModels={showModels}
+        deleting={deleting}
+        saving={saving}
+        toggling={toggling}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onCancel={() => setEditingId(null)}
+        onSave={(config) =>
+          saveIntegration(
+            'Bedrock',
+            'bedrock',
+            config as unknown as Record<string, string | number | boolean>
+          )
         }
       />
 
