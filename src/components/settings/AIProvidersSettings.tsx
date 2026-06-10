@@ -5,6 +5,7 @@ import { DepartmentAutoReplySettings } from '@/components/settings/DepartmentAut
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { BedrockProviderCard } from '@/components/settings/providers/BedrockProviderCard';
+import { CustomProviderCard } from '@/components/settings/providers/CustomProviderCard';
 import { DeepSeekProviderCard } from '@/components/settings/providers/DeepSeekProviderCard';
 import { OpenAIProviderCard } from '@/components/settings/providers/OpenAIProviderCard';
 import { PerplexityProviderCard } from '@/components/settings/providers/PerplexityProviderCard';
@@ -452,6 +453,7 @@ export const AIProvidersSettings = () => {
   const qwenIntegrations = integrations.filter((integ) => integ.type === 'qwen');
   const ollamaIntegrations = integrations.filter((integ) => integ.type === 'ollama');
   const bedrockIntegrations = integrations.filter((integ) => integ.type === 'bedrock');
+  const customIntegrations = integrations.filter((integ) => integ.type === 'custom');
 
   const hasAnyProvider =
     openaiIntegrations.length > 0 ||
@@ -460,7 +462,8 @@ export const AIProvidersSettings = () => {
     perplexityIntegrations.length > 0 ||
     qwenIntegrations.length > 0 ||
     ollamaIntegrations.length > 0 ||
-    bedrockIntegrations.length > 0;
+    bedrockIntegrations.length > 0 ||
+    customIntegrations.length > 0;
 
   const commonProviderProps = {
     showModels,
@@ -589,6 +592,29 @@ export const AIProvidersSettings = () => {
           saveIntegration(
             'Bedrock',
             'bedrock',
+            config as unknown as Record<string, string | number | boolean>
+          )
+        }
+      />
+
+      <CustomProviderCard
+        integrations={customIntegrations}
+        showModels={showModels}
+        testing={testing}
+        deleting={deleting}
+        saving={saving}
+        toggling={toggling}
+        editingId={editingId}
+        onToggleModels={toggleModels}
+        onTest={testConnection}
+        onDelete={handleDeleteClick}
+        onToggleEnabled={toggleEnabled}
+        onEdit={(integration) => setEditingId(integration.id)}
+        onCancel={() => setEditingId(null)}
+        onSave={(config) =>
+          saveIntegration(
+            'Custom',
+            'custom',
             config as unknown as Record<string, string | number | boolean>
           )
         }
