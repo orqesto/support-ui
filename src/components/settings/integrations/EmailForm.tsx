@@ -54,6 +54,13 @@ type EmailFormProps = {
   departmentsLoading?: boolean;
   selectedDepartmentIds: number[];
   defaultDepartmentId: number | undefined;
+  /**
+   * Which section opened this form ("Active Sources" vs "Knowledge Base Sources").
+   * When `true`, the "Use as Knowledge Base Source" checkbox is hidden because
+   * the section the user clicked Add in already encodes the choice — leaving
+   * the toggle visible makes it look like a contradictory second selector.
+   */
+  defaultKB?: boolean;
   onConfigChange: (config: EmailConfig) => void;
   onToggleAdvanced: () => void;
   onCheckMessagesCount: () => void;
@@ -74,6 +81,7 @@ export const EmailForm = ({
   departmentsLoading,
   selectedDepartmentIds,
   defaultDepartmentId,
+  defaultKB,
   onConfigChange,
   onToggleAdvanced,
   onCheckMessagesCount,
@@ -334,20 +342,30 @@ export const EmailForm = ({
         </label>
       </div>
 
-      <div className="flex gap-2 items-center">
-        <input
-          type="checkbox"
-          checked={config.isKnowledgeBase ?? false}
-          onChange={(event) => onConfigChange({ ...config, isKnowledgeBase: event.target.checked })}
-          className="rounded"
-        />
-        <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
-          📚 Use as Knowledge Base Source
-        </label>
-      </div>
-      <p className="-mt-2 ml-6 text-xs text-muted-foreground">
-        Extract Q&A pairs and documents from conversations for AI-powered support responses
-      </p>
+      {/* The KB toggle is hidden when this form was opened from the
+          dedicated "Knowledge Base Sources" section — the section choice
+          already encodes isKnowledgeBase=true (set on initial config in
+          the parent card), so a second toggle just looks like a
+          conflicting selector. Shown in the "Active Sources" section so an
+          active inbox can be promoted to KB without re-adding. */}
+      {!defaultKB && (
+        <>
+          <div className="flex gap-2 items-center">
+            <input
+              type="checkbox"
+              checked={config.isKnowledgeBase ?? false}
+              onChange={(event) => onConfigChange({ ...config, isKnowledgeBase: event.target.checked })}
+              className="rounded"
+            />
+            <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
+              📚 Use as Knowledge Base Source
+            </label>
+          </div>
+          <p className="-mt-2 ml-6 text-xs text-muted-foreground">
+            Extract Q&A pairs and documents from conversations for AI-powered support responses
+          </p>
+        </>
+      )}
 
       {/* Message Count Display */}
       {messageCount !== null && (

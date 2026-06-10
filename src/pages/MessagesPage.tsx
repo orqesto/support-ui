@@ -403,6 +403,23 @@ export const MessagesPage = () => {
     return () => unsubscribeFromEvent('conversation:routed', handleConversationRouted);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
+  // Refresh when a conversation's tab membership changes: approve/mark_suspicious/
+  // move_to_spam (immediate, from the agent's own click) and bot_reply (deferred,
+  // when auto-reply completes asynchronously after AI analysis on a previously-
+  // approved conv lands the conv in awaiting_response). Without this listener,
+  // un-marking a message as suspicious shows it leave the suspicious tab but the
+  // downstream status transition (→ awaiting_response after auto-reply) only
+  // becomes visible after a manual refresh.
+  useEffect(() => {
+    const handleConversationUpdated = () => {
+      clearCache();
+      void fetchMessages(messagesPagination.page, true);
+      bumpKanban();
+    };
+    subscribeToEvent('conversation:updated', handleConversationUpdated);
+    return () => unsubscribeFromEvent('conversation:updated', handleConversationUpdated);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+
   const isKanban = displayMode === 'kanban';
   // Visible badge count: kanban-hidden filters (status/slaFilter) excluded
   const activeFilterCount =
