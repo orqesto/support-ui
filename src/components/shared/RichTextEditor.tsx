@@ -33,6 +33,19 @@ type RichTextEditorProps = {
 
 export type RichTextEditorHandle = {
   focus: () => void;
+  /**
+   * Insert content at the current cursor position. Accepts plain text OR an
+   * HTML fragment — tiptap will parse strings with tags as HTML. Used by
+   * template editors to surface "token chips" that insert
+   * `{{customer_name}}` etc. as plain text, or `<a href="{{tracking_url}}">…</a>`
+   * for tokens that should round-trip as an actual link.
+   */
+  insertText: (textOrHtml: string) => void;
+  /**
+   * Replace the entire editor content with new HTML. Used for "Use default
+   * template" buttons. Pass plain text and tiptap will wrap it.
+   */
+  setContent: (html: string) => void;
 };
 
 const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
@@ -103,11 +116,19 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       }
     }, [editor, content]);
 
-    // Expose focus method to parent
+    // Expose imperative handles to parent (focus + token/template insertion)
     useImperativeHandle(ref, () => ({
       focus: () => {
         setIsExpanded(true);
         editor?.commands.focus();
+      },
+      insertText: (text: string) => {
+        setIsExpanded(true);
+        editor?.chain().focus().insertContent(text).run();
+      },
+      setContent: (html: string) => {
+        setIsExpanded(true);
+        editor?.commands.setContent(html);
       },
     }));
 
@@ -119,7 +140,14 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         editor.chain().focus().extendMarkRange('link').unsetLink().run();
         return;
       }
-      if (!/^https?:\/\//i.test(url) && !/^\/[^/]/i.test(url)) {
+      // Accept http(s) URLs, root-relative paths, AND template placeholders
+      // like `{{tracking_url}}` so this editor can be used for email-template
+      // editing (AckReplyEditor) without a second special-case editor.
+      if (
+        !/^https?:\/\//i.test(url) &&
+        !/^\/[^/]/i.test(url) &&
+        !/^\{\{[a-z0-9_]+\}\}$/i.test(url)
+      ) {
         return;
       }
       editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();

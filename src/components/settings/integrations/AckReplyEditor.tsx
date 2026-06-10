@@ -18,6 +18,7 @@
 import { useRef, useState } from 'react';
 import { Save, X, AlertTriangle, Info } from 'lucide-react';
 import type { AlertState } from '@/components/settings/integrations/types';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { Button } from '@/components/ui/Button';
 import { integrationsService } from '@/services/integrations.service';
 
@@ -35,6 +36,10 @@ type AckReplyEditorProps = {
 
 const TOKENS = ['{{customer_name}}', '{{tracking_url}}', '{{original_subject}}'] as const;
 
+// Server-side cap on `autoReplyBody` (see `sourceAckReplyController.ts:28`).
+// Surfaced in the editor footer so admins see when they're approaching it.
+const BODY_LIMIT = 100_000;
+
 const DEFAULT_SUBJECT_PLACEHOLDER = 'Re: {{original_subject}}';
 const DEFAULT_BODY_TEMPLATE =
   '<p>Hi {{customer_name}},</p>\n\n<p>Thanks for getting in touch. We\'ve received your message and a member of our team will get back to you shortly.</p>\n\n<p>You can track the status of your request here: <a href="{{tracking_url}}">{{tracking_url}}</a></p>\n\n<p>— The Support Team</p>';
@@ -50,32 +55,42 @@ export const AckReplyEditor = ({
   const [subject, setSubject] = useState<string>(initial.autoReplySubject ?? '');
   const [body, setBody] = useState<string>(initial.autoReplyBody ?? '');
   const [saving, setSaving] = useState(false);
-  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  const bodyRef = useRef<RichTextEditorHandle | null>(null);
 
+  // Insert a `{{token}}` chip at the cursor. For tracking_url we wrap it in
+  // an `<a>` so the rendered email has a clickable link (matching the
+  // default template); other tokens go in as plain text. The literal `{{…}}`
+  // round-trips through the backend's template renderer unchanged either way.
   const insertTokenIntoBody = (token: string) => {
-    const el = bodyRef.current;
-    if (!el) {
-      setBody((prev) => `${prev}${token}`);
-      return;
-    }
-    const start = el.selectionStart ?? body.length;
-    const end = el.selectionEnd ?? body.length;
-    const next = `${body.slice(0, start)}${token}${body.slice(end)}`;
-    setBody(next);
-    // Restore caret to just after the inserted token on next paint.
-    requestAnimationFrame(() => {
-      el.focus();
-      const caret = start + token.length;
-      el.setSelectionRange(caret, caret);
-    });
+    const content =
+      token === '{{tracking_url}}'
+        ? `<a href="${token}">${token}</a>`
+        : token;
+    bodyRef.current?.insertText(content);
+  };
+
+  // Tiptap renders empty input as `<p></p>`; the backend treats that as
+  // "no body". Normalize before any "is body empty?" check.
+  const isBodyEmpty = (html: string): boolean => {
+    const stripped = html.replace(/<[^>]+>/g, '').trim();
+    return stripped.length === 0;
   };
 
   const handleSave = async () => {
-    if (enabled && !body.trim()) {
+    if (enabled && isBodyEmpty(body)) {
       onShowAlert({
         open: true,
         title: 'Body required',
         description: 'Add a body before enabling acknowledgment auto-reply.',
+        variant: 'warning',
+      });
+      return;
+    }
+    if (body.length > BODY_LIMIT) {
+      onShowAlert({
+        open: true,
+        title: 'Body too long',
+        description: `Body exceeds the ${BODY_LIMIT.toLocaleString()}-character limit by ${(body.length - BODY_LIMIT).toLocaleString()}. Trim it before saving.`,
         variant: 'warning',
       });
       return;
@@ -85,7 +100,7 @@ export const AckReplyEditor = ({
       const res = await integrationsService.updateAckReply(sourceId, {
         autoReplyEnabled: enabled,
         autoReplySubject: subject.trim() ? subject : null,
-        autoReplyBody: body.trim() ? body : null,
+        autoReplyBody: isBodyEmpty(body) ? null : body,
       });
       if (!res.success) {
         onShowAlert({
@@ -160,11 +175,11 @@ export const AckReplyEditor = ({
         </p>
       </div>
 
-      <div>
+      <div role="group" aria-labelledby="ack-body-label">
         <div className="flex justify-between items-center mb-1">
-          <label className="text-xs font-medium text-muted-foreground" htmlFor="ack-body">
-            Body (HTML)
-          </label>
+          <span id="ack-body-label" className="text-xs font-medium text-muted-foreground">
+            Body
+          </span>
           <div className="flex gap-1">
             {TOKENS.map((token) => (
               <button
@@ -179,7 +194,7 @@ export const AckReplyEditor = ({
             ))}
             <button
               type="button"
-              onClick={() => setBody(DEFAULT_BODY_TEMPLATE)}
+              onClick={() => bodyRef.current?.setContent(DEFAULT_BODY_TEMPLATE)}
               className="px-2 py-0.5 text-xs rounded border bg-background hover:bg-accent border-border"
               title="Reset to default template"
             >
@@ -187,16 +202,32 @@ export const AckReplyEditor = ({
             </button>
           </div>
         </div>
-        <textarea
+        <RichTextEditor
           ref={bodyRef}
-          id="ack-body"
-          rows={10}
-          maxLength={100000}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          placeholder="HTML body. Use the chips above to insert template tokens."
-          className="px-3 py-2 w-full font-mono text-xs rounded-md border bg-input border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          content={body}
+          onChange={setBody}
+          placeholder="Write the acknowledgment message. Use the chips above to insert template tokens."
+          minHeight="180px"
+          maxHeight="400px"
+          initiallyHidden={false}
         />
+        <div className="flex justify-between items-baseline mt-1">
+          <p className="text-xs text-muted-foreground">
+            Tokens you insert (e.g. <code>{'{{customer_name}}'}</code>) are stored as plain text and
+            substituted when the email is sent — not visible to the customer.
+          </p>
+          {/* Server enforces max(100000) on autoReplyBody. Surface the count so admins
+              know when they're close to the limit — the editor doesn't enforce it. */}
+          <p
+            className={
+              body.length > BODY_LIMIT
+                ? 'text-xs text-destructive shrink-0 ml-3'
+                : 'text-xs text-muted-foreground shrink-0 ml-3'
+            }
+          >
+            {body.length.toLocaleString()} / {BODY_LIMIT.toLocaleString()}
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-2 items-start p-3 text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">

@@ -146,8 +146,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       }
     } catch (err) {
       logger.error('[ComposeNewModal] send failed', err);
-      const message =
-        err instanceof Error && err.message ? err.message : 'Failed to send message';
+      const message = err instanceof Error && err.message ? err.message : 'Failed to send message';
       setError(message);
     } finally {
       setSubmitting(false);
@@ -159,6 +158,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Compose new message</DialogTitle>
+          <DialogClose onClose={onClose} />
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -262,9 +262,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           />
 
           {error && (
-            <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
-              {error}
-            </div>
+            <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
           )}
 
           <DialogFooter className="gap-2">
@@ -278,11 +276,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               Attach
             </Button>
             <div className="flex-1" />
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={submitting}>
-                Cancel
-              </Button>
-            </DialogClose>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+              Cancel
+            </Button>
             <Button
               type="submit"
               disabled={submitting || emailSources.length === 0 || !messageSourceId}
