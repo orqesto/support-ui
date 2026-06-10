@@ -15,7 +15,13 @@ type AssignmentSelectProps = {
    * the full org list (used for unscoped contexts).
    */
   departmentId?: number | null;
-  onAssign?: () => void;
+  /**
+   * Called after a successful assign. Receives the picked user, or null when
+   * unassigning. Lets callers optimistically update local state without a
+   * full list refetch. Optional arg kept backward-compatible — existing
+   * callers using `() => void` can ignore it.
+   */
+  onAssign?: (picked: AssignableUser | null) => void;
   className?: string;
 };
 
@@ -63,7 +69,8 @@ export const AssignmentSelect = ({
       } else {
         await assignmentService.assignTicket(itemId as number, userId);
       }
-      onAssign?.();
+      const picked = userId !== null ? (users.find((user) => user.id === userId) ?? null) : null;
+      onAssign?.(picked);
     } catch (error) {
       logger.error('[AssignmentSelect] Failed to assign:', error);
     } finally {

@@ -61,6 +61,8 @@ jobs:
         env:
           VITE_API_URL: ${{ steps.env.outputs.VITE_API_URL }}
           VITE_APP_URL: ${{ steps.env.outputs.VITE_APP_URL }}
+          # Inline version info — surfaced in Layout sidebar footer next to FE version.
+          VITE_GIT_SHA: ${{ github.sha }}
         run: npm run build
 
       - name: Install SSH Key
