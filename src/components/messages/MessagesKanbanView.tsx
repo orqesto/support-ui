@@ -200,11 +200,20 @@ function DraggableMessageCard({
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={`relative cursor-grab active:cursor-grabbing touch-manipulation select-none ${isDragging ? 'opacity-30' : ''}`}
+      className={`group relative touch-manipulation ${isDragging ? 'opacity-30' : ''}`}
     >
-      <GripVertical className="absolute top-2 right-2 z-10 w-3.5 h-3.5 text-muted-foreground/30 pointer-events-none" />
+      {/* Grip is the drag handle — listeners on the grip only, not the wrapper,
+          so the card body keeps native text-selection + click-to-open. opacity-30
+          at rest (discoverable on hover) → opacity-80 on hover. */}
+      <button
+        type="button"
+        aria-label="Drag to move card"
+        {...attributes}
+        {...listeners}
+        className="absolute top-1.5 right-1.5 z-10 p-1 rounded text-muted-foreground opacity-30 group-hover:opacity-80 transition-opacity cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
       <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} />
     </div>
   );
@@ -451,87 +460,90 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     setActiveDragColId(colId);
   }, []);
 
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveThread(null);
-    setActiveDragColId(null);
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveThread(null);
+      setActiveDragColId(null);
 
-    if (!over) return;
+      if (!over) return;
 
-    const threadId = active.id as string;
-    const fromColId = active.data.current?.colId as string;
-    const toColId = over.id as string;
+      const threadId = active.id as string;
+      const fromColId = active.data.current?.colId as string;
+      const toColId = over.id as string;
 
-    if (fromColId === toColId) return;
+      if (fromColId === toColId) return;
 
-    const action = getDndAction(fromColId, toColId);
-    if (!action) return;
+      const action = getDndAction(fromColId, toColId);
+      if (!action) return;
 
-    const thread = colStatesRef.current[fromColId]?.threads.find(
-      (thr) => thr.threadId === threadId
-    );
-    if (!thread?.latestMessage) return;
+      const thread = colStatesRef.current[fromColId]?.threads.find(
+        (thr) => thr.threadId === threadId
+      );
+      if (!thread?.latestMessage) return;
 
-    // Spam-log synthetic threads have negative message IDs and cannot be classified
-    // via the API. Guard here to prevent a silent 400 error and confusing card jump.
-    const msgId = thread.latestMessage.id;
-    if (threadId.startsWith('spamlog_') || msgId <= 0) {
-      logger.warn(`Attempted DnD on spam-log synthetic thread ${threadId} — no-op`);
-      return;
-    }
-
-    // Capture original index before optimistic move so rollback restores the card
-    // to its original position rather than prepending at index 0.
-    const originalIndex = colStatesRef.current[fromColId].threads.findIndex(
-      (thr) => thr.threadId === threadId
-    );
-
-    // Optimistic move
-    setColStates((prev) => ({
-      ...prev,
-      [fromColId]: {
-        ...prev[fromColId],
-        threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
-        total: Math.max(0, prev[fromColId].total - 1),
-      },
-      [toColId]: {
-        ...prev[toColId],
-        threads: [thread, ...prev[toColId].threads],
-        total: prev[toColId].total + 1,
-      },
-    }));
-
-    try {
-      if (action === 'reopen') {
-        await messageService.reopen(msgId);
-      } else {
-        await messageService.classify(msgId, action);
-        // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
-        // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
-        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      // Spam-log synthetic threads have negative message IDs and cannot be classified
+      // via the API. Guard here to prevent a silent 400 error and confusing card jump.
+      const msgId = thread.latestMessage.id;
+      if (threadId.startsWith('spamlog_') || msgId <= 0) {
+        logger.warn(`Attempted DnD on spam-log synthetic thread ${threadId} — no-op`);
+        return;
       }
-    } catch (err) {
-      logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
-      // Rollback: restore card at its original position
-      setColStates((prev) => {
-        const restored = [...prev[fromColId].threads];
-        restored.splice(Math.min(originalIndex, restored.length), 0, thread);
-        return {
-          ...prev,
-          [fromColId]: {
-            ...prev[fromColId],
-            threads: restored,
-            total: prev[fromColId].total + 1,
-          },
-          [toColId]: {
-            ...prev[toColId],
-            threads: prev[toColId].threads.filter((thr) => thr.threadId !== threadId),
-            total: Math.max(0, prev[toColId].total - 1),
-          },
-        };
-      });
-    }
-  }, [queryClient]);
+
+      // Capture original index before optimistic move so rollback restores the card
+      // to its original position rather than prepending at index 0.
+      const originalIndex = colStatesRef.current[fromColId].threads.findIndex(
+        (thr) => thr.threadId === threadId
+      );
+
+      // Optimistic move
+      setColStates((prev) => ({
+        ...prev,
+        [fromColId]: {
+          ...prev[fromColId],
+          threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
+          total: Math.max(0, prev[fromColId].total - 1),
+        },
+        [toColId]: {
+          ...prev[toColId],
+          threads: [thread, ...prev[toColId].threads],
+          total: prev[toColId].total + 1,
+        },
+      }));
+
+      try {
+        if (action === 'reopen') {
+          await messageService.reopen(msgId);
+        } else {
+          await messageService.classify(msgId, action);
+          // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
+          // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
+          void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+        }
+      } catch (err) {
+        logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
+        // Rollback: restore card at its original position
+        setColStates((prev) => {
+          const restored = [...prev[fromColId].threads];
+          restored.splice(Math.min(originalIndex, restored.length), 0, thread);
+          return {
+            ...prev,
+            [fromColId]: {
+              ...prev[fromColId],
+              threads: restored,
+              total: prev[fromColId].total + 1,
+            },
+            [toColId]: {
+              ...prev[toColId],
+              threads: prev[toColId].threads.filter((thr) => thr.threadId !== threadId),
+              total: Math.max(0, prev[toColId].total - 1),
+            },
+          };
+        });
+      }
+    },
+    [queryClient]
+  );
 
   const visibleColumns = COLUMNS.filter((col) => !hiddenColumns.has(col.id));
   const switchableColumns = COLUMNS.filter((col) => SWITCHABLE_COLUMNS.has(col.id));

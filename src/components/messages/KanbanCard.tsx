@@ -1,46 +1,71 @@
+import { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  Bot,
-  Clock,
-  Folder,
+  BookOpen,
   MessagesSquare,
   Paperclip,
-  Target,
+  Plus,
   Ticket,
-  User,
 } from 'lucide-react';
-import type { Department } from '@/types';
 import type { MessageThread } from '@/services/message.service';
-import { Badge } from '@/components/ui/Badge';
+import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
-import { getCategoryDisplay, getChannelIcon } from '@/lib/messageHelpers';
+import { useAuthStore } from '@/stores/authStore';
+import { getChannelIcon } from '@/lib/messageHelpers';
 import { formatAge, safeCssColor } from '@/lib/utils';
-import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
+import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
+import {
+  SPINE_BG,
+  getAiState,
+  getAvatarColor,
+  getDirectionText,
+  getInitials,
+  getSpine,
+  hasAttachments,
+} from './inboxCardHelpers';
 
 type KanbanCardProps = {
   thread: MessageThread;
   onOpen: (thread: MessageThread) => void;
   /**
-   * Legacy prop kept for call-site compatibility. SLA suppression is now handled
-   * internally by MessageSignalBadges via lastReplyFromClient, so this is unused.
+   * Legacy prop kept for call-site compatibility. SLA suppression is handled
+   * by lastReplyFromClient inside the shared helpers.
    */
   weRepliedLast?: boolean;
 };
 
-const PRIORITY_VARIANT = {
-  critical: 'danger',
-  high: 'warning',
-  medium: 'secondary',
-  low: 'default',
-} as const;
-
 export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
+  const currentUser = useAuthStore((state) => state.user);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // Optimistic shadow of server assignee state — updated synchronously after
+  // a successful AssignmentSelect pick so the card reflects the new assignee
+  // without re-fetching the whole list. Cleared next time props update from a
+  // real refetch (the !== msg.assigneeId check below handles that).
+  const [optimisticAssignee, setOptimisticAssignee] = useState<{
+    id: number | null;
+    name: string;
+  } | null>(null);
+  const pickerWrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Click-outside to close the assign picker.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDocClick = (ev: MouseEvent) => {
+      if (!pickerWrapRef.current) return;
+      if (!pickerWrapRef.current.contains(ev.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [pickerOpen]);
+
   if (!msg) return null;
 
   const receivedAt = (msg.metadata as { receivedAt?: string })?.receivedAt ?? msg.createdAt;
@@ -49,84 +74,112 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
     ? allDepts.find((dept) => dept.id === msg.departmentId)
     : undefined;
   const needsRouting = msg.status === 'needs_routing';
-  const nearMissDepts = (msg.nearMissDepts ?? [])
-    .map((deptId) => allDepts.find((dept) => dept.id === deptId))
-    .filter((dept): dept is Department => Boolean(dept));
 
-  // The customer is `thread.sender` (always the requester). `msg.sender` is the latest
-  // event's author — for an agent_reply that is the agent, not the customer.
   const customer = thread.sender || msg.sender;
-
-  // For signal evaluation prefer the latest INCOMING message so we don't lose the
-  // customer-side spam/contradiction/attachment signals once the agent replies.
   const signalMessage = thread.latestIncomingMessage ?? msg;
+  const spine = getSpine(signalMessage, thread);
+  const aiState = getAiState(signalMessage, thread);
+  const direction = getDirectionText(thread);
 
-  const analysis = signalMessage.metadata?.analysis as { suggestedCategory?: string } | undefined;
-  const leadMeta = signalMessage.metadata as { leadState?: { stage: string } } | undefined;
-  const autoReplied = (signalMessage.metadata?.autoReply as { sent?: boolean } | undefined)?.sent;
-  const category = analysis?.suggestedCategory
-    ? getCategoryDisplay(analysis.suggestedCategory)
-    : null;
-  const leadStage = leadMeta?.leadState?.stage;
-  const leadVariant = leadStage && leadStage in STAGE_COLORS ? STAGE_COLORS[leadStage] : undefined;
+  // Optimistic state wins when it diverges from server state; clears when
+  // they converge (i.e. a fresh fetch confirmed the assignment).
+  const effectiveAssigneeId =
+    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
+      ? optimisticAssignee.id
+      : msg.assigneeId;
+  const effectiveAssigneeName =
+    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
+      ? optimisticAssignee.name
+      : (msg.assigneeName ?? null);
+  const isAssigned = effectiveAssigneeId !== null;
+  const isMine = effectiveAssigneeId === currentUser?.id;
 
-  // Direction indicator — tells the user "we owe a reply" vs "customer owes a reply".
-  // Columns sort by status; this small marker tells the same story at card scope so
-  // standalone cards (e.g. in the all-threads view) still read correctly.
-  const lastReplyFromClient = thread.lastReplyFromClient;
-  const directionLabel =
-    lastReplyFromClient === true
-      ? 'Customer replied — awaiting our response'
-      : lastReplyFromClient === false
-        ? 'We replied — awaiting customer'
-        : null;
+  const openPicker = (event: React.MouseEvent | React.PointerEvent) => {
+    event.stopPropagation();
+    setPickerOpen(true);
+  };
+
+  const handleAssigned = (picked: AssignableUser | null) => {
+    setPickerOpen(false);
+    if (picked === null) {
+      setOptimisticAssignee({ id: null, name: '' });
+    } else {
+      const name = `${picked.firstName} ${picked.lastName ?? ''}`.trim() || picked.email;
+      setOptimisticAssignee({ id: picked.id, name });
+    }
+  };
+
+  const labels =
+    (msg.labels as
+      | { id: number; name: string; color: string; source?: 'conversation' | 'ticket' | 'contact' }[]
+      | undefined) ?? [];
+  const visibleLabels = labels.slice(0, 2);
+  const overflowLabels = labels.slice(2);
+
+  const isFromKBSource = (msg.metadata as { isFromKBSource?: boolean })?.isFromKBSource;
+  const linkedTicketKey =
+    (msg.metadata as { linkedTicketExternalId?: string })?.linkedTicketExternalId ?? null;
+
+  // Don't open the conversation if the click was the end of a text selection
+  // — agents need to be able to copy IDs, sender emails, subject text.
+  const handleCardClick = () => {
+    const sel = window.getSelection?.();
+    if (sel && sel.toString().length > 0) return;
+    onOpen(thread);
+  };
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(thread)}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen(thread);
+        }
+      }}
       aria-label={`Open message from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
-      className="w-full text-left rounded-md border bg-card p-3 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1.5"
+      className="relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2.5 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1.5 overflow-hidden cursor-pointer"
     >
-      {/* Top metadata row — id + age sit above the sender so they don't
-          crowd the customer name. The drag handle (rendered by the parent
-          column via dnd-kit) overlaps this row in the top-right corner. */}
-      <div className="flex items-center  gap-4 text-[11px] text-muted-foreground">
-        {/* Dept badge row — primary routed dept (or needs-routing warning) +
-          near-miss runner-ups so other depts can still discover the message. */}
-        {((primaryDept ?? needsRouting) || nearMissDepts.length > 0) && (
-          <div className="flex flex-wrap gap-1 items-center">
+      {/* Status spine — 3px left border ranking urgency. */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
+      />
+
+      {/* Top metadata row: dept + id + grow + direction arrow + age.
+          pr-6 reserves space for the absolute-positioned grip handle in the
+          top-right corner so the time text doesn't collide with it. */}
+      <div className="flex items-center gap-2 pr-6 text-[11px] text-muted-foreground">
+        {(primaryDept ?? needsRouting) && (
+          <div className="flex items-center gap-1 shrink-0">
             {needsRouting ? (
               <DepartmentBadge variant="needs" />
             ) : (
               primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
             )}
-            {nearMissDepts.map((dept) => (
-              <DepartmentBadge key={dept.id} variant="near-miss" dept={dept} />
-            ))}
           </div>
         )}
         <span className="font-mono shrink-0">#{msg.id}</span>
-        <span className="whitespace-nowrap shrink-0">
-          <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
-          {formatAge(receivedAt)}
-        </span>
-      </div>
-
-      {/* Sender + channel + direction */}
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="text-xs shrink-0 text-muted-foreground">
-          {getChannelIcon(msg.channel)}
-        </span>
-        <span className="flex-1 min-w-0 text-sm font-semibold truncate">{customer}</span>
-        {directionLabel && (
-          <Tooltip content={directionLabel} size="sm">
+        <span className="flex-1" />
+        {direction && (
+          <Tooltip
+            content={
+              direction.tone === 'pending'
+                ? 'Customer replied — awaiting our response'
+                : direction.tone === 'waiting'
+                  ? 'We replied — awaiting customer'
+                  : 'New conversation'
+            }
+            size="sm"
+          >
             <span
               className={`shrink-0 ${
-                lastReplyFromClient ? 'text-amber-500' : 'text-muted-foreground'
+                direction.tone === 'pending' ? 'text-amber-500' : 'text-muted-foreground'
               }`}
             >
-              {lastReplyFromClient ? (
+              {direction.tone === 'pending' ? (
                 <ArrowLeft className="w-3 h-3" />
               ) : (
                 <ArrowRight className="w-3 h-3" />
@@ -134,144 +187,39 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             </span>
           </Tooltip>
         )}
+        <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
       </div>
 
-      {/* Subject */}
-      {msg.subject && <p className="text-xs truncate text-muted-foreground">{msg.subject}</p>}
+      {/* Sender row — channel icon + bold name */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-xs shrink-0 text-muted-foreground">
+          {getChannelIcon(msg.channel)}
+        </span>
+        <span className="flex-1 min-w-0 text-sm font-semibold truncate">{customer}</span>
+      </div>
 
-      {/* Badges row */}
-      <div className="flex flex-wrap gap-1 items-center">
-        {/* Shared signal badges (SLA, spam, suspicious, contradiction, attachments,
-            needsMoreInfo, needsHumanReview) — kept in sync with the list view.
-            Render unconditionally so the attachment paperclip and other badges still
-            show in the Awaiting column; MessageSignalBadges' internal SLA logic
-            already gates correctly based on lastReplyFromClient. */}
-        <MessageSignalBadges message={signalMessage} size="sm" />
-        {/* If only the agent's latest message carries attachments (e.g. a polled sent
-            reply on a thread whose customer message has none), MessageSignalBadges —
-            scoped to `latestIncomingMessage` — would miss it. Show the paperclip when
-            the latest message has its own attachments and signalMessage doesn't. */}
-        {(msg.attachmentCount ?? 0) > 0 && signalMessage.id !== msg.id && (
-          <Tooltip content={`${msg.attachmentCount} attachment(s) on the latest message`} size="sm">
-            <Badge
-              variant="default"
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
-              <Paperclip className="w-2.5 h-2.5" />
-              {msg.attachmentCount}
-            </Badge>
+      {/* Subject row — muted, separate from sender for breathing room */}
+      {msg.subject && (
+        <p className="text-xs truncate text-muted-foreground">{msg.subject}</p>
+      )}
+
+      {/* Metadata row — one line under the separator. Loud chips first (risk, AI,
+          labels, overflow), then muted reference icons (KB, ticket, thread, paperclip),
+          then spacer pushes assign (Claim or avatar) to the right. flex-wrap so a
+          flood of labels can spill to a second visual line without breaking the
+          right-pinned assign. */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-2 mt-1 border-t border-border/60">
+        <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
+
+        {aiState && (
+          <Tooltip content={aiState.tooltip} size="sm">
+            <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-300">
+              {aiState.label}
+            </span>
           </Tooltip>
         )}
 
-        {msg.priority && (
-          <Tooltip content={`Priority: ${msg.priority}`} size="sm">
-            <Badge
-              variant={PRIORITY_VARIANT[msg.priority]}
-              className="h-5 px-1.5 text-[11px] shrink-0"
-            >
-              {msg.priority}
-            </Badge>
-          </Tooltip>
-        )}
-
-        {category && (
-          <Tooltip content="AI Suggested Category" size="sm">
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
-              <Folder className="w-2.5 h-2.5" />
-              {category}
-            </Badge>
-          </Tooltip>
-        )}
-
-        {thread.isLead && (
-          <Tooltip
-            content={leadStage ? `Lead · ${leadStage.replace(/_/g, ' ')}` : 'Qualified lead'}
-            size="sm"
-          >
-            <Badge
-              variant={leadVariant ?? 'default'}
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
-              <Target className="w-2.5 h-2.5" />
-              {leadStage ? leadStage.replace(/_/g, ' ') : 'Lead'}
-            </Badge>
-          </Tooltip>
-        )}
-
-        {autoReplied && (
-          <Tooltip content="Auto-reply sent by bot" size="sm">
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
-              <Bot className="w-2.5 h-2.5" />
-              Bot
-            </Badge>
-          </Tooltip>
-        )}
-
-        {msg.assigneeId && (
-          <Tooltip content={`Assigned to ${msg.assigneeName ?? 'Agent'}`} size="sm">
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] min-w-0 overflow-hidden"
-            >
-              <User className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate">{msg.assigneeName ?? 'Assigned'}</span>
-            </Badge>
-          </Tooltip>
-        )}
-
-        {thread.hasTicket && (
-          <Tooltip
-            content={
-              thread.linkedTicketStatus
-                ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
-                : 'Ticket'
-            }
-            size="sm"
-          >
-            <Badge
-              variant={thread.linkedTicketStatus === 'in_progress' ? 'warning' : 'default'}
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
-              <Ticket className="w-2.5 h-2.5" />
-              Ticket
-              {thread.linkedTicketStatus === 'in_progress' && (
-                <span className="ml-0.5">· In progress</span>
-              )}
-            </Badge>
-          </Tooltip>
-        )}
-
-        {thread.messageCount > 1 && (
-          <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
-            <Badge
-              variant="default"
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
-              <MessagesSquare className="w-2.5 h-2.5" />
-              {thread.messageCount}
-            </Badge>
-          </Tooltip>
-        )}
-
-        {/* Labels — kept in sync with MessageListItem so the same conversation
-            reads the same in both views. Source tag ('contact' / 'ticket')
-            drives the small "·contact" hint on inherited labels. */}
-        {(
-          msg.labels as
-            | {
-                id: number;
-                name: string;
-                color: string;
-                source?: 'conversation' | 'ticket' | 'contact';
-              }[]
-            | undefined
-        )?.map((label) => (
+        {visibleLabels.map((label) => (
           <Tooltip
             key={label.id}
             content={
@@ -283,22 +231,113 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             }
             size="sm"
           >
-            <Badge
-              variant="secondary"
-              className="flex gap-1 items-center h-5 px-1.5 text-[11px] shrink-0"
-            >
+            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">
               <span
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: safeCssColor(label.color) }}
               />
               {label.name}
-              {label.source === 'contact' && (
-                <span className="text-[10px] text-muted-foreground/80 ml-0.5">·contact</span>
-              )}
-            </Badge>
+            </span>
           </Tooltip>
         ))}
+        {overflowLabels.length > 0 && (
+          <Tooltip
+            content={
+              <ul className="space-y-0.5 text-left">
+                {overflowLabels.map((label) => (
+                  <li key={label.id}>{label.name}</li>
+                ))}
+              </ul>
+            }
+            size="sm"
+          >
+            <span className="inline-flex items-center h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
+              +{overflowLabels.length}
+            </span>
+          </Tooltip>
+        )}
+
+        {isFromKBSource && (
+          <Tooltip content="From Knowledge Base source" size="sm">
+            <span className="inline-flex items-center text-muted-foreground/70">
+              <BookOpen className="w-3 h-3" />
+            </span>
+          </Tooltip>
+        )}
+        {thread.hasTicket && (
+          <Tooltip
+            content={
+              thread.linkedTicketStatus
+                ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
+                : 'Linked ticket'
+            }
+            size="sm"
+          >
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
+              <Ticket className="w-3 h-3" />
+              {linkedTicketKey ?? 'Ticket'}
+            </span>
+          </Tooltip>
+        )}
+        {thread.messageCount > 1 && (
+          <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
+              <MessagesSquare className="w-3 h-3" />
+              {thread.messageCount}
+            </span>
+          </Tooltip>
+        )}
+        {hasAttachments(signalMessage) && (
+          <Tooltip content={`${msg.attachmentCount ?? signalMessage.attachmentCount ?? 0} attachment(s)`} size="sm">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
+              <Paperclip className="w-3 h-3" />
+              {msg.attachmentCount ?? signalMessage.attachmentCount ?? 0}
+            </span>
+          </Tooltip>
+        )}
+
+        <span className="flex-1" />
+
+        {pickerOpen ? (
+          <div
+            ref={pickerWrapRef}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="min-w-[160px]"
+          >
+            <AssignmentSelect
+              type="thread"
+              itemId={thread.threadId}
+              currentAssigneeId={msg.assigneeId}
+              departmentId={msg.departmentId ?? null}
+              onAssign={handleAssigned}
+            />
+          </div>
+        ) : isAssigned && effectiveAssigneeName ? (
+          <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
+            <button
+              type="button"
+              onClick={openPicker}
+              onPointerDown={(event) => event.stopPropagation()}
+              aria-label="Re-assign"
+              className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-bold text-white shrink-0 hover:ring-2 hover:ring-primary/40 ${getAvatarColor(effectiveAssigneeName)}`}
+            >
+              {getInitials(effectiveAssigneeName)}
+            </button>
+          </Tooltip>
+        ) : (
+          <button
+            type="button"
+            onClick={openPicker}
+            onPointerDown={(event) => event.stopPropagation()}
+            disabled={!currentUser?.id}
+            className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-3 h-3" />
+            Claim
+          </button>
+        )}
       </div>
-    </button>
+    </div>
   );
 };

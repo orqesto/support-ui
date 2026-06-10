@@ -11,12 +11,19 @@ vi.mock('@/lib/messageHelpers', () => ({
   hasMessageAttachments: vi.fn().mockReturnValue(false),
   getSpamCheck: vi.fn().mockReturnValue(null),
   getFilteredCategoryLabel: vi.fn().mockReturnValue(null),
+  humanizeSignalFlag: vi.fn().mockReturnValue(''),
 }));
 
 vi.mock('@/lib/utils', () => ({
   formatDate: vi.fn().mockReturnValue('Jan 1, 2026'),
   formatAge: vi.fn().mockReturnValue('1d ago'),
+  formatDuration: vi.fn().mockReturnValue('0m'),
+  safeCssColor: (color: string) => color,
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
+}));
+
+vi.mock('@/lib/stripHtml', () => ({
+  stripHtml: (str: string) => str,
 }));
 
 vi.mock('@/components/tickets/LeadQualificationPanel', () => ({
@@ -34,8 +41,37 @@ vi.mock('@/components/ui/Button', () => ({
 }));
 
 vi.mock('@/components/ui/Card', () => ({
-  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Card: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
+    <div onClick={onClick}>{children}</div>
+  ),
   CardContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/components/ui/Tooltip', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// useDepartments uses react-query; we just return a stable empty list for smoke.
+vi.mock('@/hooks/useDepartments', () => ({
+  useDepartments: () => ({ data: [] }),
+}));
+
+// authStore is consumed for the Claim button — return a logged-in user.
+vi.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: { user: { id: number; firstName: string; lastName: string; email: string } | null }) => unknown) =>
+    selector({ user: { id: 1, firstName: 'Test', lastName: 'User', email: 't@example.com' } }),
+}));
+
+vi.mock('@/services/assignment.service', () => ({
+  assignmentService: { assignThread: vi.fn().mockResolvedValue(undefined) },
+}));
+
+vi.mock('@/components/messages/DepartmentBadge', () => ({
+  DepartmentBadge: ({ dept }: { dept?: { name: string } }) => <span>{dept?.name ?? 'dept'}</span>,
+}));
+
+vi.mock('@/components/messages/MessageSignalBadges', () => ({
+  MessageSignalBadges: () => null,
 }));
 
 import { MessageListItem } from '@/components/messages/MessageListItem';

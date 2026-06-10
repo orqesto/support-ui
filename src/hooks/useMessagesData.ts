@@ -209,7 +209,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     [getCached, setMessages]
   );
 
-  // Fetch on filter/sorting change
+  // Fetch on filter/sorting change — resets to page 1.
   // fetchMessages reads filters/sorting from store directly to avoid stale closure without listing them as deps
   useEffect(() => {
     if (!urlSyncedRef.current) return;
@@ -232,6 +232,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     sorting.sortOrder,
     selectedDeptKey,
   ]);
+
 
   const handlePageChange = async (page: number) => {
     await fetchMessages(page);
