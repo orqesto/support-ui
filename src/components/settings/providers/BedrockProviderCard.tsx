@@ -15,7 +15,9 @@ import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useBedrockModels } from '@/hooks/useBedrockModels';
 import type { Integration } from '@/services/integrations.service';
+import type { AIModel } from '@/types/aiProviders';
 import { BEDROCK_MODELS, BEDROCK_REGIONS } from '@/types/aiProviders';
 import { apiClient } from '@/lib/api-client';
 
@@ -68,16 +70,29 @@ const TRUST_POLICY_TEMPLATE = `{
 
 const PERMISSION_POLICY_TEMPLATE = `{
   "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "bedrock:InvokeModel",
-      "bedrock:InvokeModelWithResponseStream"
-    ],
-    "Resource": [
-      "arn:aws:bedrock:*::foundation-model/anthropic.claude-*"
-    ]
-  }]
+  "Statement": [
+    {
+      "Sid": "InvokeModels",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/*",
+        "arn:aws:bedrock:*:*:inference-profile/*"
+      ]
+    },
+    {
+      "Sid": "DiscoverModels",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:ListFoundationModels",
+        "bedrock:ListInferenceProfiles"
+      ],
+      "Resource": "*"
+    }
+  ]
 }`;
 
 const EMPTY_CONFIG: BedrockConfig = {
@@ -141,6 +156,26 @@ export const BedrockProviderCard = ({
   const [testResult, setTestResult] = useState<BedrockTestResult | null>(null);
   const [testing, setTesting] = useState(false);
   const [generatingId, setGeneratingId] = useState(false);
+
+  // Live model discovery — populated when the form is open AND the user has
+  // picked a region. Falls back to the static BEDROCK_MODELS catalog when
+  // discovery returns nothing (no role config yet, IAM denial, AWS hiccup).
+  const discovery = useBedrockModels(showForm ? config.region : undefined);
+  const liveModels = discovery.data?.models ?? null;
+  const modelOptions: AIModel[] = liveModels && liveModels.length > 0
+    ? liveModels.map((model) => ({
+        id: model.id,
+        name: model.name,
+        type: model.type,
+        contextWindow: 0, // not surfaced by Bedrock list API; harmless for the dropdown
+        description: model.description,
+      }))
+    : BEDROCK_MODELS;
+  const modelSourceLabel = discovery.isLoading
+    ? 'Loading…'
+    : liveModels && liveModels.length > 0
+      ? `Live from AWS · ${liveModels.length} models${discovery.data?.source === 'cache' ? ' (cached)' : ''}`
+      : 'Curated fallback list (add bedrock:ListFoundationModels to your role to see live)';
 
   // Auto-fetch a fresh externalId when opening the form for a NEW integration.
   // For edits the existing externalId is loaded from the integration row.
@@ -233,7 +268,7 @@ export const BedrockProviderCard = ({
         <div className="flex justify-between items-center">
           <CardTitle className="flex gap-2 items-center">
             <Brain className="w-5 h-5 text-orange-500" />
-            AWS Bedrock (Claude)
+            AWS Bedrock
           </CardTitle>
           <Button
             size="sm"
@@ -327,15 +362,19 @@ export const BedrockProviderCard = ({
                     <div className="p-3 border-t bg-muted/30">
                       <h5 className="mb-2 text-sm font-medium">Available Models:</h5>
                       <div className="grid grid-cols-2 gap-2">
-                        {BEDROCK_MODELS.map((model) => (
+                        {modelOptions.map((model) => (
                           <div key={model.id} className="p-2 text-xs rounded border bg-background">
                             <p className="font-medium">{model.name}</p>
                             <p className="text-muted-foreground">
-                              {model.type} · {model.contextWindow.toLocaleString()} tokens
+                              {model.type}
+                              {model.contextWindow > 0
+                                ? ` · ${model.contextWindow.toLocaleString()} tokens`
+                                : ''}
                             </p>
                           </div>
                         ))}
                       </div>
+                      <p className="mt-2 text-xs text-muted-foreground">{modelSourceLabel}</p>
                     </div>
                   )}
                 </div>
@@ -403,15 +442,18 @@ export const BedrockProviderCard = ({
                 </p>
               </div>
 
-              <ReactSelect
-                label="Default Model *"
-                value={config.defaultModel}
-                onChange={(value) => setConfig({ ...config, defaultModel: value })}
-                options={BEDROCK_MODELS.map((model) => ({
-                  value: model.id,
-                  label: model.name,
-                }))}
-              />
+              <div>
+                <ReactSelect
+                  label="Default Model *"
+                  value={config.defaultModel}
+                  onChange={(value) => setConfig({ ...config, defaultModel: value })}
+                  options={modelOptions.map((model) => ({
+                    value: model.id,
+                    label: model.name,
+                  }))}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">{modelSourceLabel}</p>
+              </div>
 
               <div>
                 <label htmlFor="bedrock-inference-profile" className="text-sm font-medium">

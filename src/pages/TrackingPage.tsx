@@ -184,10 +184,67 @@ type ReplyState =
   | { kind: 'submitting' }
   | { kind: 'error'; message: string };
 
+// Mock payload used when the page is opened in preview mode (no conv id +
+// no token). Lets designers / sales screenshot the customer-facing view
+// without provisioning a real conv + token pair. Timestamps are computed
+// at module-load time so the "X minutes ago" relative labels render
+// realistically.
+const buildPreviewData = (): TrackingPayload => {
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  return {
+    organization: { name: 'Acme Corp' },
+    department: { name: 'Customer Support' },
+    conversation: {
+      id: 0,
+      subject: 'Order #12345 — shipping confirmation?',
+      status: 'awaiting_response',
+      priority: 'medium',
+      createdAt: new Date(now - 4 * hour).toISOString(),
+      lastReplyAt: new Date(now - 0.5 * hour).toISOString(),
+      resolvedAt: null,
+      closedAt: null,
+      slaResponseMinutes: 60,
+      firstResponseAt: new Date(now - 3.5 * hour).toISOString(),
+    },
+    events: [
+      {
+        id: 1,
+        direction: 'customer',
+        isAutomated: false,
+        content:
+          "Hi, I placed order #12345 yesterday but haven't received a shipping confirmation. Can you check on it?",
+        sentAt: new Date(now - 4 * hour).toISOString(),
+      },
+      {
+        id: 2,
+        direction: 'agent',
+        isAutomated: true,
+        content:
+          "Thanks for reaching out — we've received your message and an agent will get back to you shortly. You can track this request on this page.",
+        sentAt: new Date(now - 4 * hour + 5000).toISOString(),
+      },
+      {
+        id: 3,
+        direction: 'agent',
+        isAutomated: false,
+        content:
+          "Hi! I checked your order — it's currently being prepared for shipping today. You should receive a tracking number within 24 hours. Let me know if anything else comes up.",
+        sentAt: new Date(now - 0.5 * hour).toISOString(),
+      },
+    ],
+  };
+};
+
 export const TrackingPage = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
+  // Preview mode: no conv id in path AND no token in query. Renders mocked
+  // data + a banner instead of fetching. Lets the design/demo URL
+  // /track/:orgSlug/:deptSlug show the customer-facing template without
+  // needing a real conversation provisioned.
+  const isPreview = !conversationId && !token;
 
   const [state, setState] = useState<
     { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ok'; data: TrackingPayload }
@@ -278,6 +335,12 @@ export const TrackingPage = () => {
   };
 
   useEffect(() => {
+    // Preview mode short-circuits the fetch — render the mock payload so
+    // designers/sales can demo the page at /track/:orgSlug/:deptSlug.
+    if (isPreview) {
+      setState({ kind: 'ok', data: buildPreviewData() });
+      return;
+    }
     if (!token) {
       setState({ kind: 'error', message: 'This link is missing its token.' });
       return;
@@ -308,7 +371,7 @@ export const TrackingPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [token, conversationId]);
+  }, [token, conversationId, isPreview]);
 
   if (state.kind === 'loading') {
     return (
@@ -428,6 +491,14 @@ export const TrackingPage = () => {
 
   return (
     <div className="min-h-screen bg-[hsl(210,20%,98%)] text-[hsl(222.2,84%,4.9%)] font-sans">
+      {isPreview && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-5 py-2 text-center">
+          <strong>Preview mode</strong> — showing sample data. Real customer
+          tracking links include a conversation id and token (
+          <code className="font-mono">/track/&lt;org&gt;/&lt;dept&gt;/&lt;id&gt;?t=&lt;token&gt;</code>
+          ).
+        </div>
+      )}
       {/* Top bar */}
       <header className="border-b border-[hsl(214.3,31.8%,91.4%)] bg-white">
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center gap-3">

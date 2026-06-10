@@ -465,6 +465,7 @@ export const EmailIntegrationCard = ({
               departmentsLoading={deptPicker.loading}
               selectedDepartmentIds={deptPicker.selectedIds}
               defaultDepartmentId={deptPicker.defaultId}
+              defaultKB={defaultKB}
               onConfigChange={setConfig}
               onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
               onCheckMessagesCount={handleCheckMessagesCount}

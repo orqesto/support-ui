@@ -152,6 +152,9 @@ const AppRoutes = () => {
         path="/track/:orgSlug/:deptSlug/:conversationId"
         element={<TrackingPage />}
       />
+      {/* Preview / demo of the tracking page with mock data (no conv id / token).
+          Useful for design review, screenshots, customer-facing demos. */}
+      <Route path="/track/:orgSlug/:deptSlug" element={<TrackingPage />} />
       <Route
         path="/dashboard"
         element={

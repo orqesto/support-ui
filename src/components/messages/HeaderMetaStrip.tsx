@@ -244,8 +244,8 @@ export function HeaderMetaStrip({
                 {showLabelPicker && pickerPos && createPortal(
                   <div
                     data-label-picker
-                    style={{ top: pickerPos.top, left: pickerPos.left, width: 176, background: 'var(--popover, white)', color: 'var(--popover-foreground, black)' }}
-                    className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1"
+                    style={{ top: pickerPos.top, left: pickerPos.left, width: 176 }}
+                    className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
                   >
                     {allLabels.map((label) => {
                       const assigned = messageLabels.some((lbl) => lbl.id === label.id);
@@ -256,7 +256,7 @@ export function HeaderMetaStrip({
                           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors text-left"
                         >
                           <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-black/10"
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
                             style={{ backgroundColor: safeCssColor(label.color) }}
                           />
                           <span className="flex-1 text-foreground">{label.name}</span>
