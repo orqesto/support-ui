@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { getChannelIcon, getCategoryDisplay } from '@/lib/messageHelpers';
+import { stripHtml } from '@/lib/stripHtml';
 import { formatDate, formatAge, safeCssColor } from '@/lib/utils';
 import { STAGE_COLORS } from '@/components/tickets/LeadQualificationPanel';
 import { DepartmentBadge } from './DepartmentBadge';
@@ -91,9 +92,17 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
           <p className="text-xs text-muted-foreground truncate mt-0.5 pl-5">{msg.subject}</p>
         )}
 
-        {/* Row 3: content preview */}
+        {/* Row 3: content preview. Show the customer's most recent message —
+            same source the Kanban uses for its signal badges — so the
+            preview reads as "what did the customer say?", not "what was the
+            most recent event on this thread?" (which on a brand-new conv is
+            the bot acknowledgment, full of `<p>…</p>` markup and a tracking
+            URL that's just noise to an agent triaging the inbox). Falls
+            back to the latest message overall when there's somehow no
+            customer-side event yet. stripHtml so HTML-content events still
+            render as plain text. */}
         <p className="pl-5 mt-1 text-sm break-words text-muted-foreground line-clamp-2">
-          {msg.content ?? ''}
+          {stripHtml(thread.latestIncomingMessage?.content ?? msg.content ?? '')}
         </p>
 
         {/* Row 4: Assignee + linked ticket */}

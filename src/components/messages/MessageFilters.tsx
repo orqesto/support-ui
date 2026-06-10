@@ -52,7 +52,7 @@ const STATUS_OPTIONS = [
 // client_replied, not just status='open' literally).
 const THREAD_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
-  { value: 'open', label: 'New' },
+  { value: 'open', label: 'Unreviewed' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'pending', label: 'Pending' },
   { value: 'closed', label: 'Closed' },

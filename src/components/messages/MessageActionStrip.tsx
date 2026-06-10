@@ -127,18 +127,18 @@ export function MessageActionStrip({
     );
   }
 
-  // Unprocessed
-  if (message.status === 'open' && !isSuspicious && onReopen) {
+  // Unreviewed — status='open' (unprocessed) or status='new' (just arrived)
+  if ((message.status === 'open' || message.status === 'new') && !isSuspicious && onReopen) {
     return (
       <div className={strip}>
-        <p className={statusLabel}>New — needs processing before ticket creation</p>
+        <p className={statusLabel}>Unreviewed — close without sending a reply</p>
         <div className="flex gap-2">
           <button
             onClick={() => setRejectDialogOpen(true)}
             className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
-            Mark as Processed
+            Close (no ticket)
           </button>
         </div>
       </div>
