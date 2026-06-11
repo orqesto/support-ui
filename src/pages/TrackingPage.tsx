@@ -17,6 +17,7 @@ type TrackingPayload = {
   department: { name: string | null };
   conversation: {
     id: number;
+    publicId: string | null;
     subject: string | null;
     status: string;
     priority: string;
@@ -197,6 +198,7 @@ const buildPreviewData = (): TrackingPayload => {
     department: { name: 'Customer Support' },
     conversation: {
       id: 0,
+      publicId: 'SUP-42',
       subject: 'Order #12345 — shipping confirmation?',
       status: 'awaiting_response',
       priority: 'medium',
@@ -481,9 +483,13 @@ export const TrackingPage = () => {
       ? "Our support team is on it. You'll get an email the moment there's an update — no need to refresh."
       : `Thanks — we've received this and a team member will pick it up shortly. We'll email you when there's an update.`;
 
-  // Reference number: stable, customer-facing identifier. Padded so short ids
-  // don't read as "throwaway" and long ones still fit the design's badge.
-  const referenceNumber = `#REQ-${conversation.id.toString().padStart(4, '0')}`;
+  // Reference number: stable, customer-facing identifier. Prefer the org-scoped
+  // publicId ('SUP-42') once stamped; fall back to the int-padded REQ-style id
+  // for legacy convs that pre-date the public-id rollout (will disappear once
+  // the backfill covers all rows + the NOT NULL constraint lands).
+  const referenceNumber = conversation.publicId
+    ? `#${conversation.publicId}`
+    : `#REQ-${conversation.id.toString().padStart(4, '0')}`;
 
   // Channel label — only shown if we can infer one from the events. Stays
   // generic to avoid exposing internal source/integration names.
