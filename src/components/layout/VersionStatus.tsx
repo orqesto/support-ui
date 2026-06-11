@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 
 type Drift = 'sync' | 'patch' | 'minor' | 'major' | 'unknown';
@@ -35,6 +36,7 @@ const driftLabel: Record<Drift, string> = {
 
 export const VersionStatus = () => {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const beVersion = useBackendVersion();
@@ -44,6 +46,21 @@ export const VersionStatus = () => {
   const feBuildTime = String(__BUILD_TIME__);
   const be = beVersion.data;
   const drift: Drift = be ? driftBetween(feVersion, be.version) : 'unknown';
+
+  // Compute viewport-relative coords for the portal popover when it opens.
+  // Plain absolute positioning gets clipped by the sidebar's overflow-hidden;
+  // a portal escapes the container, but then we need fixed coords keyed off
+  // the trigger button's bounding rect (anchor at the button's right edge,
+  // align bottom with the button's bottom so the chip stays visually
+  // attached to the popover when it pops out).
+  useEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPos({
+      left: rect.right + 8, // 8px gap (matches old ml-2)
+      bottom: window.innerHeight - rect.bottom,
+    });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,12 +85,13 @@ export const VersionStatus = () => {
         <span className={`inline-block w-2 h-2 rounded-full ${dotColor[drift]}`} aria-hidden />
         <span className="font-mono">v{be?.version ?? feVersion}</span>
       </button>
-      {open && (
+      {open && pos && createPortal(
         <div
           ref={popRef}
           role="dialog"
           aria-label="Version details"
-          className="absolute bottom-full left-0 mb-2 z-50 w-[220px] rounded-md border border-border bg-popover shadow-lg p-3 text-[11px]"
+          style={{ left: pos.left, bottom: pos.bottom }}
+          className="fixed z-50 w-[220px] rounded-md border border-border bg-background shadow-lg p-3 text-[11px]"
         >
           <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
             <span className={`inline-block w-2 h-2 rounded-full ${dotColor[drift]}`} aria-hidden />
@@ -103,7 +121,8 @@ export const VersionStatus = () => {
               </>
             )}
           </dl>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
