@@ -334,6 +334,18 @@ export function MessageDetail({
     }
   }, [message.id, onResolve]);
 
+  const handleClose = useCallback(async () => {
+    setResolving(true);
+    try {
+      await messageService.close(message.id);
+      onResolve?.();
+    } catch (err) {
+      logger.error('Failed to close:', err);
+    } finally {
+      setResolving(false);
+    }
+  }, [message.id, onResolve]);
+
   const handleGhostClick = useCallback(
     (answer: string, _source: string, _attachments?: KBAttachment[]) => {
       setComposer(
@@ -569,7 +581,7 @@ export function MessageDetail({
         onDelete={handleDelete}
         onClassify={handleClassify}
         onResolveWithoutReply={handleResolveWithoutReply}
-        onResolveSimple={handleResolveWithoutReply}
+        onClose={handleClose}
         setRejectDialogOpen={setRejectDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
         onRefresh={handleRefresh}
