@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Trash2,
+  X,
 } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import type { Message } from '@/types';
@@ -25,7 +26,7 @@ export type MessageActionStripProps = {
   onDelete?: () => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
   onResolveWithoutReply: () => void;
-  onResolveSimple?: () => void;
+  onClose?: () => void;
   setRejectDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setReopenDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onRefresh?: () => void;
@@ -43,7 +44,7 @@ export function MessageActionStrip({
   onReopen,
   onClassify,
   onResolveWithoutReply,
-  onResolveSimple,
+  onClose,
   setRejectDialogOpen,
   setReopenDialogOpen,
 }: MessageActionStripProps) {
@@ -177,13 +178,14 @@ export function MessageActionStrip({
             )}
             {resolving ? 'Processing…' : 'Resolve & Save to KB'}
           </button>
-          {onResolveSimple && (
+          {onClose && (
             <button
-              onClick={onResolveSimple}
+              onClick={onClose}
+              disabled={resolving}
               className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
             >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Resolve
+              <X className="w-3.5 h-3.5" />
+              Close
             </button>
           )}
         </div>
