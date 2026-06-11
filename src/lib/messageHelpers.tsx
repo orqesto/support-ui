@@ -28,6 +28,15 @@ export const getCategoryDisplay = (suggestedCat?: string) => {
 export const hasMessageAttachments = (message: { attachmentCount?: number }) =>
   (message.attachmentCount ?? 0) > 0;
 
+/**
+ * Conversation identifier for display. Prefers the Jira-style publicId
+ * ('SUP-42') and falls back to '#16798' for unstamped legacy rows / rows
+ * that bypassed the orchestrator stamping. See
+ * planning/public-id-design.md for the lifecycle.
+ */
+export const formatConvId = (msg: { id: number; publicId?: string | null }): string =>
+  msg.publicId ?? `#${msg.id}`;
+
 // Spam Check helpers
 type SpamCheckData = {
   isSpam?: boolean;

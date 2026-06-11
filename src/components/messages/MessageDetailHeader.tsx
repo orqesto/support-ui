@@ -21,7 +21,7 @@ import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
-import { getSpamCheck } from '@/lib/messageHelpers';
+import { formatConvId, getSpamCheck } from '@/lib/messageHelpers';
 import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
@@ -475,7 +475,7 @@ export function MessageDetailHeader({
     <div className="flex-shrink-0 border-b border-border bg-background">
       {/* Top strip */}
       <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-        <span className="font-mono text-[10px] text-muted-foreground">#{message.id}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">{formatConvId(message)}</span>
         <span className="text-[10px] text-muted-foreground" title={message.channel}>
           {CHANNEL_ICONS[message.channel] ?? '◌'}
         </span>

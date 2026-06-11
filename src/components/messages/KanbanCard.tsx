@@ -13,7 +13,7 @@ import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAuthStore } from '@/stores/authStore';
-import { getChannelIcon } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId } from '@/lib/messageHelpers';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
@@ -161,7 +161,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             )}
           </div>
         )}
-        <span className="font-mono shrink-0">#{msg.id}</span>
+        <span className="font-mono shrink-0">{formatConvId(msg)}</span>
         <span className="flex-1" />
         {direction && (
           <Tooltip

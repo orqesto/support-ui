@@ -6,7 +6,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAuthStore } from '@/stores/authStore';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
-import { getChannelIcon } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId } from '@/lib/messageHelpers';
 import { stripHtml } from '@/lib/stripHtml';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -146,7 +146,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             </div>
           )}
           <span className="text-muted-foreground shrink-0">{getChannelIcon(msg.channel)}</span>
-          <span className="font-mono shrink-0">#{msg.id}</span>
+          <span className="font-mono shrink-0">{formatConvId(msg)}</span>
           <span className="flex-1" />
           {direction && (
             <span
