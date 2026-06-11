@@ -34,7 +34,7 @@ import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { useNeedsRoutingCount } from '@/hooks/useNeedsRoutingCount';
 import { useTicketsCount } from '@/hooks/useTicketsCount';
-import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
@@ -220,7 +220,6 @@ export const Layout = ({ children }: LayoutProps) => {
   const { hasPermission, orgRole } = usePermissions();
   const { hasModule } = useModules();
   const slaNotifications = useSLANotifications();
-  const beVersion = useBackendVersion();
 
   // For admins: use selectedOrganizationId to filter widgets by current org context.
   // WS-H-04: fall back to user.organizationId so the WS room is joined on first login
@@ -563,25 +562,9 @@ export const Layout = ({ children }: LayoutProps) => {
                 <LogOut className="w-4 h-4" />
                 Logout
               </Button>
-              <p className="mt-2 text-center text-[10px] text-muted-foreground/50 select-none leading-tight">
-                <span title={`Built ${String(__BUILD_TIME__)}`}>
-                  {/* eslint-disable-next-line @typescript-eslint/no-unsafe-call */}FE v{__APP_VERSION__}
-                  {String(__GIT_SHA__) !== 'dev' && (
-                    <> · {String(__GIT_SHA__).slice(0, 7)}</>
-                  )}
-                </span>
-                {beVersion.data && (
-                  <>
-                    <br />
-                    <span title={`Built ${beVersion.data.buildTime}`}>
-                      BE v{beVersion.data.version}
-                      {beVersion.data.gitSha !== 'dev' && (
-                        <> · {beVersion.data.gitSha.slice(0, 7)}</>
-                      )}
-                    </span>
-                  </>
-                )}
-              </p>
+              <div className="mt-2 flex justify-center">
+                <VersionStatus />
+              </div>
             </div>
           </div>
         </aside>
