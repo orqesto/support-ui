@@ -281,42 +281,49 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
 
           <span className="flex-1" />
 
-          {pickerOpen ? (
-            <div
-              ref={pickerWrapRef}
-              onClick={(event) => event.stopPropagation()}
-              className="min-w-[180px]"
-            >
-              <AssignmentSelect
-                type="thread"
-                itemId={thread.threadId}
-                currentAssigneeId={msg.assigneeId}
-                departmentId={msg.departmentId ?? null}
-                onAssign={handleAssigned}
-              />
-            </div>
-          ) : isAssigned && effectiveAssigneeName ? (
-            <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
+          {/* Trigger stays in flow so row layout never reflows when the picker opens.
+              Picker overlays as an absolute-positioned popover anchored to the trigger. */}
+          <div ref={pickerWrapRef} className="relative">
+            {isAssigned && effectiveAssigneeName ? (
+              <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  aria-label="Re-assign"
+                  className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-bold text-white shrink-0 hover:ring-2 hover:ring-primary/40 ${getAvatarColor(effectiveAssigneeName)}`}
+                >
+                  {getInitials(effectiveAssigneeName)}
+                </button>
+              </Tooltip>
+            ) : (
               <button
                 type="button"
                 onClick={openPicker}
-                aria-label="Re-assign"
-                className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-bold text-white shrink-0 hover:ring-2 hover:ring-primary/40 ${getAvatarColor(effectiveAssigneeName)}`}
+                disabled={!currentUser?.id}
+                className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {getInitials(effectiveAssigneeName)}
+                <Plus className="w-3 h-3" />
+                Claim
               </button>
-            </Tooltip>
-          ) : (
-            <button
-              type="button"
-              onClick={openPicker}
-              disabled={!currentUser?.id}
-              className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-3 h-3" />
-              Claim
-            </button>
-          )}
+            )}
+            {pickerOpen && (
+              <div
+                role="dialog"
+                aria-label="Assign to"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+                className="absolute right-0 top-full mt-1 z-50 w-[220px] rounded-md border border-border bg-popover shadow-lg p-1"
+              >
+                <AssignmentSelect
+                  type="thread"
+                  itemId={thread.threadId}
+                  currentAssigneeId={msg.assigneeId}
+                  departmentId={msg.departmentId ?? null}
+                  onAssign={handleAssigned}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
