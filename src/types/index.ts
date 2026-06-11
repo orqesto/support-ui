@@ -46,6 +46,10 @@ export type User = {
 
 export type Message = {
   id: number;
+  // Jira-style human-readable ID (e.g. 'SUP-42'). Set once routing settles;
+  // NULL during backfill window or for unstamped legacy rows. FE renders
+  // publicId when present, falls back to #id. See planning/public-id-design.md.
+  publicId?: string | null;
   channel: ChannelType;
   sender: string;
   subject: string | null;
