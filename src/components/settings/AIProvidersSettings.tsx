@@ -500,15 +500,17 @@ export const AIProvidersSettings = () => {
             onThresholdSave={handleThresholdSave}
           />
           <DepartmentAutoReplySettings />
-          {/* Both kinds of auto-reply on inbound live near each other. The
-              per-source acknowledgment is the immediate "got your message
-              with tracking link" path; AI Auto-Reply above is the
-              substantive AI-generated answer. */}
-          <AckReplyPerSourceList onShowAlert={setAlertDialog} />
         </>
       )}
 
       {!hasAnyProvider && <AINoProviderBanner />}
+
+      {/* Both kinds of auto-reply on inbound live near each other. The
+          per-source acknowledgment is the immediate "got your message
+          with tracking link" path; AI Auto-Reply above is the
+          substantive AI-generated answer. Not gated by hasAnyProvider —
+          ack-reply works without an AI provider configured. */}
+      <AckReplyPerSourceList onShowAlert={setAlertDialog} />
 
       <OpenAIProviderCard
         {...commonProviderProps}
