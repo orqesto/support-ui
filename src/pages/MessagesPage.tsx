@@ -510,8 +510,21 @@ export const MessagesPage = () => {
                 />
               </div>
 
-              {/* Display mode toggle */}
-              <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
+              {/* Display mode toggle + inbox-level quick filter */}
+              <div className="flex justify-between items-center gap-3 flex-wrap">
+                <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
+                {displayMode === 'threads' && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={filters.excludeAwaitingResponse ?? false}
+                      onChange={(ev) => updateFilter('excludeAwaitingResponse', ev.target.checked)}
+                      className="rounded border-border accent-primary"
+                    />
+                    Hide awaiting response
+                  </label>
+                )}
+              </div>
 
               {displayMode === 'kanban' ? (
                 <MessagesKanbanView
