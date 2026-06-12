@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrainCog, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AutoReplyConfiguration } from './AutoReplyConfiguration';
 import { LeadQualificationSettings } from './LeadQualificationSettings';
 import { LearningNotificationsInbox } from './LearningNotificationsInbox';
 import { LearningSuggestionsSettings } from './LearningSuggestionsSettings';
 import { LearningTrustSettings } from './LearningTrustSettings';
 import { PromptsSettings } from './PromptsSettings';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiClient } from '@/lib/api-client';
 
 type AISection =
   | 'prompts'
+  | 'auto-reply'
   | 'lead-qualification'
   | 'learning'
   | 'learning-trust'
@@ -20,6 +23,7 @@ type SectionDef = { id: AISection; label: string; description: string; adminOnly
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'prompts', label: 'AI Prompts', description: 'Customize AI prompt templates' },
+  { id: 'auto-reply', label: 'Auto-Reply', description: 'When the AI replies on its own — org default + per-department overrides' },
   { id: 'lead-qualification', label: 'Lead Qualification', description: 'Configure AI lead qualification for any department' },
   { id: 'learning', label: 'Learning Suggestions', description: 'Review and accept active-learning suggestions', adminOnly: true },
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
@@ -34,6 +38,12 @@ export const AIConfigSettings = () => {
   );
   const [active, setActive] = useState<AISection>('prompts');
   const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', variant: 'info' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -75,6 +85,7 @@ export const AIConfigSettings = () => {
       </div>
 
       {active === 'prompts' && <PromptsSettings />}
+      {active === 'auto-reply' && <AutoReplyConfiguration onShowAlert={setAlertDialog} />}
       {active === 'learning' && <LearningSuggestionsSettings />}
       {active === 'learning-trust' && <LearningTrustSettings />}
       {active === 'learning-actions' && <LearningNotificationsInbox />}
@@ -99,6 +110,14 @@ export const AIConfigSettings = () => {
           <LeadQualificationSettings />
         ) : null
       )}
+
+      <AlertDialog
+        open={alertDialog.open}
+        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+      />
     </div>
   );
 };
