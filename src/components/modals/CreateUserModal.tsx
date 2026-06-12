@@ -29,7 +29,11 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   const [position, setPosition] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>('user');
   const [organizationRole, setOrganizationRole] = useState<OrganizationRole>('associate');
-  const [departmentId, setDepartmentId] = useState<number | null>(null);
+  // Multi-select: users belong to many depts via the user_departments junction.
+  // Holding a Set in state for O(1) toggle, materialized to a sorted number[]
+  // on submit. Default seeded to the first dept once departments load (matches
+  // the prior single-select default) — admin can toggle others.
+  const [selectedDeptIds, setSelectedDeptIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -40,11 +44,24 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
         .getAll()
         .then((depts) => {
           setDepartments(depts);
-          if (depts.length > 0) setDepartmentId((prev) => prev ?? depts[0].id);
+          setSelectedDeptIds((prev) => {
+            if (prev.size > 0) return prev;
+            if (depts.length === 0) return prev;
+            return new Set([depts[0].id]);
+          });
         })
         .catch(() => setDepartments([]));
     }
   }, [isOpen]);
+
+  const toggleDept = (deptId: number) => {
+    setSelectedDeptIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(deptId)) next.delete(deptId);
+      else next.add(deptId);
+      return next;
+    });
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -69,9 +86,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
       const departmentIds =
         organizationRole === 'org_admin' || role === 'admin'
           ? departments.map((dept) => dept.id)
-          : departmentId
-            ? [departmentId]
-            : [];
+          : Array.from(selectedDeptIds).sort((leftId, rightId) => leftId - rightId);
 
       await onCreate({
         email,
@@ -92,7 +107,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
       setPosition('');
       setRole('user');
       setOrganizationRole('associate');
-      setDepartmentId(departments[0]?.id ?? null);
+      setSelectedDeptIds(departments[0] ? new Set([departments[0].id]) : new Set());
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user');
@@ -109,8 +124,6 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
     { value: 'support', label: 'Support' },
     { value: 'associate', label: 'Associate' },
   ];
-
-  const departmentOptions = departments.map((dept) => ({ value: String(dept.id), label: dept.name }));
 
   const globalRoleOptions = [
     { value: 'user', label: 'User' },
@@ -224,13 +237,35 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
               cross-dept routing visibility). Adjust later via Edit.
             </div>
           ) : (
-            <ReactSelect
-              label="Department"
-              value={String(departmentId ?? '')}
-              onChange={(value) => setDepartmentId(value ? Number(value) : null)}
-              options={departmentOptions}
-              placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
-            />
+            <div>
+              <label className="block mb-1 text-sm font-medium">
+                Departments {selectedDeptIds.size > 0 && (
+                  <span className="text-muted-foreground">({selectedDeptIds.size})</span>
+                )}
+              </label>
+              {departments.length === 0 ? (
+                <div className="px-3 py-2 text-sm rounded-md border text-muted-foreground">
+                  Loading…
+                </div>
+              ) : (
+                <div className="overflow-y-auto p-2 max-h-40 rounded-md border">
+                  {departments.map((dept) => (
+                    <label
+                      key={dept.id}
+                      className="flex gap-2 items-center px-2 py-1.5 text-sm rounded cursor-pointer hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedDeptIds.has(dept.id)}
+                        onChange={() => toggleDept(dept.id)}
+                        className="w-4 h-4"
+                      />
+                      <span>{dept.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {error && (
