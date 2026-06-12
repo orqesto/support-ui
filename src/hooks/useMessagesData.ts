@@ -180,12 +180,9 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.linkedTicketStatus = currentFilters.linkedTicketStatus;
         }
 
-        // SLA FILTER
-        if (currentFilters.slaFilter === 'breached') {
-          apiFilters.slaBreached = 'true';
-        } else if (currentFilters.slaFilter === 'at_risk') {
-          apiFilters.slaAtRisk = 'true';
-        }
+        // SLA FILTER — independent flags. BE OR's them when both set.
+        if (currentFilters.slaBreached) apiFilters.slaBreached = 'true';
+        if (currentFilters.slaAtRisk) apiFilters.slaAtRisk = 'true';
 
         // SEARCH
         if (currentFilters.search?.trim()) {
@@ -244,7 +241,8 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.linked,
     filters.linkedTicketStatus,
     filters.search,
-    filters.slaFilter,
+    filters.slaBreached,
+    filters.slaAtRisk,
     filters.excludeAwaitingResponse,
     sorting.sortOrder,
     selectedDeptKey,

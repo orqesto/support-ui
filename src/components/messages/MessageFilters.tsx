@@ -365,14 +365,9 @@ export const MessageFilters = ({
                 <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
                 <button
                   type="button"
-                  onClick={() =>
-                    onFilterChange(
-                      'slaFilter',
-                      filters.slaFilter === 'breached' ? 'all' : 'breached'
-                    )
-                  }
+                  onClick={() => onFilterChange('slaBreached', !filters.slaBreached)}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    filters.slaFilter === 'breached'
+                    filters.slaBreached
                       ? 'bg-red-600 border-red-600 text-white'
                       : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40'
                   }`}
@@ -382,11 +377,9 @@ export const MessageFilters = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    onFilterChange('slaFilter', filters.slaFilter === 'at_risk' ? 'all' : 'at_risk')
-                  }
+                  onClick={() => onFilterChange('slaAtRisk', !filters.slaAtRisk)}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    filters.slaFilter === 'at_risk'
+                    filters.slaAtRisk
                       ? 'bg-amber-500 border-amber-500 text-white'
                       : 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40'
                   }`}
