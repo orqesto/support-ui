@@ -421,7 +421,7 @@ export const MessagesPage = () => {
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
   const isKanban = displayMode === 'kanban';
-  // Visible badge count: kanban-hidden filters (status/slaFilter) excluded
+  // Visible badge count: kanban-hidden filters (status/sla) excluded
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
     (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
@@ -433,7 +433,8 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
-    (!isKanban && filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
+    (!isKanban && filters.slaBreached ? 1 : 0) +
+    (!isKanban && filters.slaAtRisk ? 1 : 0);
   // Full count (no isKanban gate) — used for "Clear All" disabled state so that
   // list-mode filters set before switching to kanban can still be cleared.
   const clearableFilterCount =
@@ -447,7 +448,8 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
-    (filters.slaFilter && filters.slaFilter !== 'all' ? 1 : 0);
+    (filters.slaBreached ? 1 : 0) +
+    (filters.slaAtRisk ? 1 : 0);
 
   return (
     <Layout>
