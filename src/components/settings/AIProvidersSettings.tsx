@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
-import { AIAutoReplyCard } from '@/components/settings/AIAutoReplyCard';
-import { DepartmentAutoReplySettings } from '@/components/settings/DepartmentAutoReplySettings';
+import { AutoReplyConfiguration } from '@/components/settings/AutoReplyConfiguration';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { BedrockProviderCard } from '@/components/settings/providers/BedrockProviderCard';
@@ -16,7 +15,6 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { aiService } from '@/services/ai.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
-import { organizationService } from '@/services/organization.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
@@ -30,13 +28,8 @@ export const AIProvidersSettings = () => {
   const [toggling, setToggling] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
-  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
-  const [requestMissingInfo, setRequestMissingInfo] = useState(true);
-  const [suggestSolutions, setSuggestSolutions] = useState(true);
-  const [highConfidenceThreshold, setHighConfidenceThreshold] = useState(0.9);
-  const [tempThreshold, setTempThreshold] = useState(0.9);
-  const [savingAutoReply, setSavingAutoReply] = useState(false);
-  const [thresholdSaved, setThresholdSaved] = useState(false);
+  // Org-level auto-reply state moved to AutoReplyConfiguration (which owns its
+  // own load + save). Card kept here only via that component now.
 
   const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
   const [anthropicModels, setAnthropicModels] = useState<AIModel[]>([]);
@@ -59,7 +52,7 @@ export const AIProvidersSettings = () => {
   } | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchIntegrations(), loadModels(), fetchAutoReplySettings()]).catch((error) => {
+    Promise.all([fetchIntegrations(), loadModels()]).catch((error) => {
       logger.error('Failed to initialize:', error);
     });
   }, []);
@@ -83,120 +76,6 @@ export const AIProvidersSettings = () => {
     subscribeToEvent('provider_disabled', handleProviderDisabled);
     return () => unsubscribeFromEvent('provider_disabled', handleProviderDisabled);
   }, [handleProviderDisabled]);
-
-  const fetchAutoReplySettings = async () => {
-    try {
-      const settings = await organizationService.getAutoReply();
-      setAutoReplyEnabled(settings.enabled);
-      setRequestMissingInfo(settings.requestMissingInfo);
-      setSuggestSolutions(settings.suggestSolutions);
-      setHighConfidenceThreshold(settings.highConfidenceThreshold);
-      setTempThreshold(settings.highConfidenceThreshold);
-    } catch (error) {
-      logger.error('Failed to fetch auto-reply settings:', error);
-    }
-  };
-
-  const handleAutoReplyChange = async (enabled: boolean) => {
-    setSavingAutoReply(true);
-    try {
-      await organizationService.updateAutoReply({ enabled });
-      setAutoReplyEnabled(enabled);
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: `AI Auto-Reply ${enabled ? 'enabled' : 'disabled'} successfully.`,
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to update auto-reply setting:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Error',
-        description: 'Failed to update auto-reply setting',
-        variant: 'error',
-      });
-    } finally {
-      setSavingAutoReply(false);
-    }
-  };
-
-  const handleRequestMissingInfoChange = async (enabled: boolean) => {
-    setRequestMissingInfo(enabled);
-    setSavingAutoReply(true);
-    try {
-      await organizationService.updateAutoReply({ requestMissingInfo: enabled });
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: `Missing info requests ${enabled ? 'enabled' : 'disabled'} successfully`,
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to update requestMissingInfo:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Error',
-        description: 'Failed to update missing info setting',
-        variant: 'error',
-      });
-    } finally {
-      setSavingAutoReply(false);
-    }
-  };
-
-  const handleSuggestSolutionsChange = async (enabled: boolean) => {
-    setSuggestSolutions(enabled);
-    setSavingAutoReply(true);
-    try {
-      await organizationService.updateAutoReply({ suggestSolutions: enabled });
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: `Solution suggestions ${enabled ? 'enabled' : 'disabled'} successfully`,
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to update suggestSolutions:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Error',
-        description: 'Failed to update solution suggestions setting',
-        variant: 'error',
-      });
-    } finally {
-      setSavingAutoReply(false);
-    }
-  };
-
-  const handleThresholdChange = (threshold: number) => {
-    setTempThreshold(threshold);
-  };
-
-  const handleThresholdSave = async () => {
-    if (tempThreshold === highConfidenceThreshold) {
-      return;
-    }
-
-    setSavingAutoReply(true);
-    try {
-      await organizationService.updateAutoReply({ highConfidenceThreshold: tempThreshold });
-      setHighConfidenceThreshold(tempThreshold);
-      setThresholdSaved(true);
-      setTimeout(() => setThresholdSaved(false), 2000);
-    } catch (error) {
-      logger.error('Failed to update threshold:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Error',
-        description: 'Failed to update confidence threshold',
-        variant: 'error',
-      });
-      setTempThreshold(highConfidenceThreshold);
-    } finally {
-      setSavingAutoReply(false);
-    }
-  };
 
   const fetchIntegrations = async () => {
     try {
@@ -502,24 +381,7 @@ export const AIProvidersSettings = () => {
         </p>
       </div>
 
-      {hasAnyProvider && (
-        <>
-          <AIAutoReplyCard
-            autoReplyEnabled={autoReplyEnabled}
-            requestMissingInfo={requestMissingInfo}
-            suggestSolutions={suggestSolutions}
-            tempThreshold={tempThreshold}
-            savingAutoReply={savingAutoReply}
-            thresholdSaved={thresholdSaved}
-            onAutoReplyChange={handleAutoReplyChange}
-            onRequestMissingInfoChange={handleRequestMissingInfoChange}
-            onSuggestSolutionsChange={handleSuggestSolutionsChange}
-            onThresholdChange={handleThresholdChange}
-            onThresholdSave={handleThresholdSave}
-          />
-          <DepartmentAutoReplySettings />
-        </>
-      )}
+      {hasAnyProvider && <AutoReplyConfiguration onShowAlert={setAlertDialog} />}
 
       {!hasAnyProvider && <AINoProviderBanner />}
 
