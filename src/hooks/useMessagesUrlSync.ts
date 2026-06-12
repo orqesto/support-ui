@@ -121,11 +121,8 @@ export const useMessagesUrlSync = ({
 
       const urlSlaBreached = searchParams.get('slaBreached');
       const urlSlaAtRisk = searchParams.get('slaAtRisk');
-      if (urlSlaBreached === 'true') {
-        urlFilters.slaFilter = 'breached';
-      } else if (urlSlaAtRisk === 'true') {
-        urlFilters.slaFilter = 'at_risk';
-      }
+      if (urlSlaBreached === 'true') urlFilters.slaBreached = true;
+      if (urlSlaAtRisk === 'true') urlFilters.slaAtRisk = true;
 
       setFilters({ ...defaultFilters, ...urlFilters });
 
@@ -178,8 +175,8 @@ export const useMessagesUrlSync = ({
     }
     if (filters.labelId && filters.labelId !== 'all') params.set('labelId', filters.labelId);
     if (filters.search) params.set('search', filters.search);
-    if (filters.slaFilter === 'breached') params.set('slaBreached', 'true');
-    else if (filters.slaFilter === 'at_risk') params.set('slaAtRisk', 'true');
+    if (filters.slaBreached) params.set('slaBreached', 'true');
+    if (filters.slaAtRisk) params.set('slaAtRisk', 'true');
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);

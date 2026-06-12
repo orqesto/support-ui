@@ -44,7 +44,11 @@ export type FilterState = {
   linked?: LinkedFilter;
   linkedTicketStatus?: LinkedTicketStatusFilter;
   search?: string;
-  slaFilter?: 'all' | 'breached' | 'at_risk';
+  /** SLA quick-filter pills. Independent toggles — both true = OR (show
+   * breached or at-risk). Replaces the old mutually-exclusive `slaFilter`
+   * enum so the two pills can light up together. */
+  slaBreached?: boolean;
+  slaAtRisk?: boolean;
   /** Inbox toolbar checkbox: hide convs that are waiting on the customer so
    * the list shows only items needing agent attention. Session-only (no URL
    * sync, no localStorage). */
@@ -88,7 +92,8 @@ export const defaultFilters: FilterState = {
   linked: 'all',
   linkedTicketStatus: 'all',
   search: undefined,
-  slaFilter: 'all',
+  slaBreached: false,
+  slaAtRisk: false,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string => {
