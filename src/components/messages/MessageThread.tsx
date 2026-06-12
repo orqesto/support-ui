@@ -284,9 +284,39 @@ export const MessageThread = ({
                         </div>
                       </div>
 
-                      {/* Customer Email Content */}
+                      {/* Customer Email Content — match the system-reply
+                          branch: HTML emails get DOMPurify + prose; plain-text
+                          falls through to LinkifiedText. Without the isHtml
+                          gate, HTML emails rendered tags as raw text and the
+                          URL regex couldn't reliably grab links wrapped in
+                          [https://…] / href="…" shapes.
+
+                          Detection: require a real HTML closing tag (</…>)
+                          rather than any "<X>" shape. Customer emails often
+                          quote code snippets or include header-style email
+                          addresses like <user@example.com>; the looser
+                          /<[a-z]/i regex would mis-detect those as HTML
+                          and DOMPurify would strip them as unknown tags,
+                          losing the user's text. */}
                       <div className="ml-10 text-sm whitespace-pre-wrap break-words">
-                        <LinkifiedText>{pair.customerEmail.content ?? ''}</LinkifiedText>
+                        {(() => {
+                          const html = pair.customerEmail.content ?? '';
+                          const isHtml = /<\/[a-z]+\s*>/i.test(html);
+                          return isHtml ? (
+                            <div
+                              className="max-w-none prose prose-sm dark:prose-invert"
+                              dangerouslySetInnerHTML={{
+                                __html: DOMPurify.sanitize(html, {
+                                  ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code'],
+                                  ALLOWED_ATTR: ['href', 'target', 'rel'],
+                                  ALLOWED_URI_REGEXP: /^https?:/i,
+                                }),
+                              }}
+                            />
+                          ) : (
+                            <LinkifiedText>{html}</LinkifiedText>
+                          );
+                        })()}
                       </div>
 
                       {/* Inline signal badges + AI summary */}
