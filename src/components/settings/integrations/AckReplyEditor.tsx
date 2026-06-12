@@ -151,7 +151,19 @@ export const AckReplyEditor = ({
           type="checkbox"
           className="w-4 h-4"
           checked={enabled}
-          onChange={(event) => setEnabled(event.target.checked)}
+          onChange={(event) => {
+            const next = event.target.checked;
+            setEnabled(next);
+            // Auto-seed the default template the first time an admin flips
+            // this to on with an empty body. Without it the toggle goes on,
+            // save fails the body-required guard, admin has to find the
+            // "Insert default template" button and click it. One-shot
+            // friction we can just remove.
+            if (next && isBodyEmpty(body)) {
+              bodyRef.current?.setContent(DEFAULT_BODY_TEMPLATE);
+              setBody(DEFAULT_BODY_TEMPLATE);
+            }
+          }}
         />
         <span>Enabled</span>
       </label>

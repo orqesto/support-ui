@@ -484,6 +484,24 @@ export const AIProvidersSettings = () => {
     <div className="space-y-6">
       {hasAnyProvider && <AIProviderHealthCheck />}
 
+      {/* Compact orientation banner: customers see TWO automatic emails on
+          inbound — the immediate ack with a tracking link (per source,
+          configured below) and the AI-drafted answer (per org + per dept,
+          configured here). Disambiguates a section where every card is
+          labeled "Auto-Reply" something. */}
+      <div className="px-4 py-3 text-xs rounded-md border bg-muted/30 text-muted-foreground">
+        <p className="leading-relaxed">
+          <strong className="text-foreground">Two kinds of auto-reply</strong> can fire on an
+          inbound message:{' '}
+          <strong>AI Auto-Reply</strong> drafts a real answer when the AI has high confidence in
+          the documentation, and{' '}
+          <strong>Acknowledgment auto-reply</strong> sends a prepared "we got your message" note
+          with a public tracking link — always, on the first inbound. They run independently.
+          Most orgs want acknowledgment <em>on</em> per email source; AI auto-reply <em>on</em>{' '}
+          once the knowledge base is mature.
+        </p>
+      </div>
+
       {hasAnyProvider && (
         <>
           <AIAutoReplyCard
