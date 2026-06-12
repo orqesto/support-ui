@@ -41,6 +41,10 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     hasMore: false,
   });
   const messagesFetchingRef = useRef(false);
+  // After the first successful fetch, subsequent refetches keep the list
+  // visible — flipping `loading` would swap the rows for skeleton cards on
+  // every filter change, which reads as a blink.
+  const hasLoadedRef = useRef(false);
 
   const filters = useMessagesStore((state) => state.filters);
   const sorting = useMessagesStore((state) => state.sorting);
@@ -68,7 +72,11 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
       }
 
       messagesFetchingRef.current = true;
-      setLoading(true);
+      if (hasLoadedRef.current) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       try {
         const apiFilters: Record<string, string> = {};
         const currentFilters = useMessagesStore.getState().filters;
@@ -196,6 +204,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           setMessages(response.data, response.pagination);
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
+          hasLoadedRef.current = true;
 
           if (
             page > 1 &&
@@ -209,6 +218,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         logger.error('Failed to fetch messages:', error);
       } finally {
         setLoading(false);
+        setRefreshing(false);
         messagesFetchingRef.current = false;
       }
     },
