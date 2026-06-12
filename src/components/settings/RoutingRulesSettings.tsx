@@ -194,7 +194,7 @@ export const RoutingRulesSettings = () => {
         value: normalizedValue,
         weight: data.weight,
         enabled: data.enabled,
-        ...(trimmedExample.length > 0 && { exampleText: trimmedExample }),
+        exampleText: trimmedExample.length > 0 ? trimmedExample : null,
       });
       if (!response.data) throw new Error('Update failed');
       return adaptRule(response.data);
