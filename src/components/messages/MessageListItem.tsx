@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { BookOpen, Check, MessagesSquare, Paperclip, Plus, Ticket } from 'lucide-react';
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
@@ -39,14 +40,32 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
     name: string;
   } | null>(null);
   const pickerWrapRef = useRef<HTMLDivElement | null>(null);
+  const pickerBtnRef = useRef<HTMLButtonElement | null>(null);
+  // Portal coords for the assignee picker. The Card has overflow-hidden so an
+  // in-flow absolute popover gets clipped; portaling to document.body escapes
+  // that, but then we need viewport-relative fixed coords keyed off the trigger
+  // button's bounding rect.
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (pickerOpen && pickerBtnRef.current) {
+      const rect = pickerBtnRef.current.getBoundingClientRect();
+      const pickerWidth = 220;
+      const left = Math.min(rect.right - pickerWidth, window.innerWidth - pickerWidth - 8);
+      const top = rect.bottom + 6;
+      setPickerPos({ top, left: Math.max(left, 8) });
+    }
+  }, [pickerOpen]);
 
   useEffect(() => {
     if (!pickerOpen) return;
     const onDocClick = (ev: MouseEvent) => {
-      if (!pickerWrapRef.current) return;
-      if (!pickerWrapRef.current.contains(ev.target as Node)) {
-        setPickerOpen(false);
-      }
+      const target = ev.target as Node;
+      // Picker DOM lives in a body-level portal now, so check both the trigger
+      // wrapper AND the portal element. Either contains-click keeps the picker open.
+      if (pickerWrapRef.current?.contains(target)) return;
+      if (document.querySelector('[data-assignee-picker]')?.contains(target)) return;
+      setPickerOpen(false);
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
@@ -287,6 +306,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             {isAssigned && effectiveAssigneeName ? (
               <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
                 <button
+                  ref={pickerBtnRef}
                   type="button"
                   onClick={openPicker}
                   aria-label="Re-assign"
@@ -297,6 +317,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
               </Tooltip>
             ) : (
               <button
+                ref={pickerBtnRef}
                 type="button"
                 onClick={openPicker}
                 disabled={!currentUser?.id}
@@ -306,13 +327,15 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
                 Claim
               </button>
             )}
-            {pickerOpen && (
+            {pickerOpen && pickerPos && createPortal(
               <div
+                data-assignee-picker
                 role="dialog"
                 aria-label="Assign to"
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
-                className="absolute right-0 top-full mt-1 z-[60] w-[220px] rounded-md border border-border bg-popover shadow-lg p-1"
+                style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
+                className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
               >
                 <AssignmentSelect
                   type="thread"
@@ -321,7 +344,8 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
                   departmentId={msg.departmentId ?? null}
                   onAssign={handleAssigned}
                 />
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         </div>
