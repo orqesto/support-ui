@@ -84,6 +84,12 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.processed = threadStatus;
         }
 
+        // Inbox toolbar checkbox: hide "waiting on customer" so the list shows
+        // only items needing agent attention.
+        if (currentFilters.excludeAwaitingResponse) {
+          apiFilters.excludeAwaitingResponse = 'true';
+        }
+
         // STATUS → view param
         // When threadStatus is active, use view=active (not work_queue) so the status
         // restriction from work_queue doesn't block closed threads
@@ -229,6 +235,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.linkedTicketStatus,
     filters.search,
     filters.slaFilter,
+    filters.excludeAwaitingResponse,
     sorting.sortOrder,
     selectedDeptKey,
   ]);
