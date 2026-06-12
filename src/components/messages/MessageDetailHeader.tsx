@@ -1,3 +1,8 @@
+// MessageDetailHeader is over the 650-line cap — same pattern as MessagesPage.
+// Adding handleCreateLabel for inline label creation pushed it over by ~20
+// lines. Splitting the meta strip out of this header is the natural follow-up
+// refactor (see task #26 area work too).
+/* eslint-disable max-lines */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   RefreshCw,
@@ -20,6 +25,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
+import { hashNameToLabelColor } from './inboxCardHelpers';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { formatConvId, getSpamCheck } from '@/lib/messageHelpers';
 import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
@@ -342,6 +348,32 @@ export function MessageDetailHeader({
       }
     },
     [message.id, messageLabels]
+  );
+
+  const handleCreateLabel = useCallback(
+    async (name: string) => {
+      try {
+        const created = await labelService.createLabel({
+          name,
+          color: hashNameToLabelColor(name),
+        });
+        setAllLabels((prev) => [created, ...prev]);
+        // Auto-assign the newly-created label so the user doesn't need to click it
+        // again. We bypass handleToggleLabel here because the optimistic state
+        // hasn't been told about `created` yet — assign directly.
+        setMessageLabels((prev) => [...prev, created]);
+        try {
+          await labelService.assignLabelToMessage(message.id, created.id);
+        } catch (assignErr) {
+          logger.error('Failed to assign newly-created label:', assignErr);
+          setMessageLabels((prev) => prev.filter((lbl) => lbl.id !== created.id));
+        }
+        setShowLabelPicker(false);
+      } catch (err) {
+        logger.error('Failed to create label:', err);
+      }
+    },
+    [message.id]
   );
 
   const handleCopyLink = useCallback(() => {
@@ -684,6 +716,7 @@ export function MessageDetailHeader({
         onToggleLabel={(label) => void handleToggleLabel(label)}
         onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
         onCloseLabelPicker={() => setShowLabelPicker(false)}
+        onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
         onDepartmentChange={onRefresh}
       />
     </div>

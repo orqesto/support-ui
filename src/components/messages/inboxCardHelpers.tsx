@@ -302,6 +302,29 @@ export const getAvatarColor = (name: string | null | undefined): string => {
   return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length] ?? 'bg-muted-foreground';
 };
 
+// Hex equivalents of AVATAR_PALETTE for label creation. The BE requires a hex
+// color on POST /api/labels; inline label creation picks a deterministic color
+// by hashing the label name so the same name always gets the same color
+// (consistent across pickers + sessions before the user recolors).
+const LABEL_PALETTE_HEX = [
+  '#3b82f6', // blue-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
+  '#8b5cf6', // violet-500
+  '#f43f5e', // rose-500
+  '#06b6d4', // cyan-500
+  '#d946ef', // fuchsia-500
+  '#14b8a6', // teal-500
+];
+
+export const hashNameToLabelColor = (name: string): string => {
+  let hash = 0;
+  for (let idx = 0; idx < name.length; idx++) {
+    hash = (hash * 31 + name.charCodeAt(idx)) | 0;
+  }
+  return LABEL_PALETTE_HEX[Math.abs(hash) % LABEL_PALETTE_HEX.length] ?? '#6b7280';
+};
+
 export const hasAttachments = (message: Message): boolean => hasMessageAttachments(message);
 
 /** Tooltip body listing overflow signals (used by the `+N` chip). */
