@@ -45,6 +45,10 @@ export type FilterState = {
   linkedTicketStatus?: LinkedTicketStatusFilter;
   search?: string;
   slaFilter?: 'all' | 'breached' | 'at_risk';
+  /** Inbox toolbar checkbox: hide convs that are waiting on the customer so
+   * the list shows only items needing agent attention. Session-only (no URL
+   * sync, no localStorage). */
+  excludeAwaitingResponse?: boolean;
 };
 
 export type SortingState = {
