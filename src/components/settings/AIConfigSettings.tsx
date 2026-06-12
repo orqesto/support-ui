@@ -16,8 +16,7 @@ type AISection =
   | 'auto-reply'
   | 'lead-qualification'
   | 'learning'
-  | 'learning-trust'
-  | 'learning-actions';
+  | 'learning-trust';
 
 type SectionDef = { id: AISection; label: string; description: string; adminOnly?: boolean };
 
@@ -25,9 +24,11 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'prompts', label: 'AI Prompts', description: 'Customize AI prompt templates' },
   { id: 'auto-reply', label: 'Auto-Reply', description: 'When the AI replies on its own — org default + per-department overrides' },
   { id: 'lead-qualification', label: 'Lead Qualification', description: 'Configure AI lead qualification for any department' },
-  { id: 'learning', label: 'Learning Suggestions', description: 'Review and accept active-learning suggestions', adminOnly: true },
+  // Operational engine view: pending suggestions (need my action) stacked over
+  // recent auto-actions (already fired, may want to undo). Trust stays its own
+  // section because it's set-and-forget configuration, not daily activity.
+  { id: 'learning', label: 'Engine Activity', description: 'Review pending suggestions + recent auto-actions', adminOnly: true },
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
-  { id: 'learning-actions', label: 'Engine Auto-Actions', description: 'Review and undo recent engine auto-actions', adminOnly: true },
 ];
 
 export const AIConfigSettings = () => {
@@ -86,9 +87,13 @@ export const AIConfigSettings = () => {
 
       {active === 'prompts' && <PromptsSettings />}
       {active === 'auto-reply' && <AutoReplyConfiguration onShowAlert={setAlertDialog} />}
-      {active === 'learning' && <LearningSuggestionsSettings />}
+      {active === 'learning' && (
+        <div className="space-y-6">
+          <LearningSuggestionsSettings />
+          <LearningNotificationsInbox />
+        </div>
+      )}
       {active === 'learning-trust' && <LearningTrustSettings />}
-      {active === 'learning-actions' && <LearningNotificationsInbox />}
       {active === 'lead-qualification' && (
         hasLeadQualification === false ? (
           <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
