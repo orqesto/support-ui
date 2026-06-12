@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
-  ChevronDown,
-  ChevronRight,
   MessageCircle,
   Plus,
   X,
@@ -93,19 +91,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [loading, setLoading] = useState(true);
   const [savingScope, setSavingScope] = useState<'org' | number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // localStorage-persisted expand state so an admin's preference survives
-  // navigation. Default-row stays open by default (most common interaction);
-  // dept rows are recalled from the previous session.
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set(['default']);
-    try {
-      const raw = window.localStorage.getItem('auto-reply-config:expanded');
-      if (raw) return new Set(JSON.parse(raw) as string[]);
-    } catch {
-      // localStorage may throw in private-browsing / quota-exceeded cases.
-    }
-    return new Set(['default']);
-  });
   const [phraseDrafts, setPhraseDrafts] = useState<Record<string, string>>({});
 
   // Threshold is editable via a slider that triggers a save on mouse/touch up;
@@ -147,23 +132,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       cancelled = true;
     };
   }, []);
-
-  const toggleExpanded = (key: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      try {
-        window.localStorage.setItem(
-          'auto-reply-config:expanded',
-          JSON.stringify(Array.from(next))
-        );
-      } catch {
-        // best-effort persistence
-      }
-      return next;
-    });
-  };
 
   const saveOrg = useCallback(
     async (patch: Partial<{
@@ -367,16 +335,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         <div className="rounded-md border divide-y">
           {/* Default row */}
           <div className="bg-muted/30">
-            <button
-              type="button"
-              onClick={() => toggleExpanded('default')}
-              className="flex justify-between items-center px-3 py-2.5 w-full text-left hover:bg-muted/50"
-              aria-expanded={expanded.has('default')}
-            >
+            <div className="flex justify-between items-center px-3 py-2.5">
               <div className="flex gap-2 items-center min-w-0">
-                {expanded.has('default')
-                  ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                 <span className="text-sm font-semibold">Default</span>
                 <span className="text-xs text-muted-foreground">
                   · applies to every dept unless overridden
@@ -398,9 +358,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   </span>
                 )}
               </div>
-            </button>
-            {expanded.has('default') && (
-              <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
+            </div>
+            <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
                 <div className="flex justify-between items-center pt-2">
                   <div>
                     <p className="text-sm font-medium">Enable AI auto-reply</p>
@@ -487,7 +446,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   </>
                 )}
               </div>
-            )}
           </div>
 
           {/* Department rows */}
@@ -498,7 +456,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           )}
           {activeDepts.map((dept) => {
             const key = String(dept.id);
-            const isExpanded = expanded.has(key);
             const isSaving = savingScope === dept.id;
             const settings = perDept[key];
             const hasOverride = !!settings;
@@ -536,16 +493,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
             return (
               <div key={dept.id}>
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(key)}
-                  className="flex justify-between items-center px-3 py-2.5 w-full text-left hover:bg-muted/30"
-                  aria-expanded={isExpanded}
-                >
+                <div className="flex justify-between items-center px-3 py-2.5">
                   <div className="flex gap-2 items-center min-w-0">
-                    {isExpanded
-                      ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     <span className="text-sm font-medium truncate">{dept.name}</span>
                     <span className="text-[10px] text-muted-foreground">{dept.slug}</span>
                   </div>
@@ -557,9 +506,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       {summary.label}
                     </span>
                   </div>
-                </button>
-                {isExpanded && (
-                  <div className="px-3 pt-1 pb-3 space-y-3 bg-muted/10">
+                </div>
+                <div className="px-3 pt-1 pb-3 space-y-3 bg-muted/10">
                     {/* Override toggle: tri-state via two explicit choices */}
                     <div className="flex flex-wrap gap-2 items-center pt-2">
                       <span className="text-xs text-muted-foreground">Auto-reply for this dept:</span>
@@ -781,7 +729,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       </div>
                     )}
                   </div>
-                )}
               </div>
             );
           })}
