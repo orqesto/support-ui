@@ -36,7 +36,7 @@ const driftLabel: Record<Drift, string> = {
 
 export const VersionStatus = () => {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const beVersion = useBackendVersion();
@@ -47,18 +47,16 @@ export const VersionStatus = () => {
   const be = beVersion.data;
   const drift: Drift = be ? driftBetween(feVersion, be.version) : 'unknown';
 
-  // Compute viewport-relative coords for the portal popover when it opens.
-  // Plain absolute positioning gets clipped by the sidebar's overflow-hidden;
-  // a portal escapes the container, but then we need fixed coords keyed off
-  // the trigger button's bounding rect (anchor at the button's right edge,
-  // align bottom with the button's bottom so the chip stays visually
-  // attached to the popover when it pops out).
+  // Portal escapes the sidebar's overflow-hidden, but then we need fixed
+  // coords keyed off the trigger's bounding rect. Popover drops down from
+  // the button — chip lives in the top header bar now, so up-and-right
+  // would clip above the viewport.
   useEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
     setPos({
-      left: rect.right + 8, // 8px gap (matches old ml-2)
-      bottom: window.innerHeight - rect.bottom,
+      left: rect.left,
+      top: rect.bottom + 6,
     });
   }, [open]);
 
@@ -90,7 +88,7 @@ export const VersionStatus = () => {
           ref={popRef}
           role="dialog"
           aria-label="Version details"
-          style={{ left: pos.left, bottom: pos.bottom }}
+          style={{ left: pos.left, top: pos.top }}
           className="fixed z-50 w-[220px] rounded-md border border-border bg-background shadow-lg p-3 text-[11px]"
         >
           <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
