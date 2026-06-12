@@ -52,7 +52,12 @@ export type CreateRoutingRuleInput = {
   enabled?: boolean;
 };
 
-export type UpdateRoutingRuleInput = Partial<Omit<CreateRoutingRuleInput, 'departmentId'>>;
+export type UpdateRoutingRuleInput = Partial<
+  Omit<CreateRoutingRuleInput, 'departmentId' | 'exampleText'>
+> & {
+  // `null` is "clear the example text" — turns the rule deterministic-only.
+  exampleText?: string | null;
+};
 
 export const routingRuleService = {
   list: async (departmentId?: number) => {
