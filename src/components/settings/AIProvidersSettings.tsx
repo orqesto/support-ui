@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
+import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AIAutoReplyCard } from '@/components/settings/AIAutoReplyCard';
 import { DepartmentAutoReplySettings } from '@/components/settings/DepartmentAutoReplySettings';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
@@ -499,6 +500,11 @@ export const AIProvidersSettings = () => {
             onThresholdSave={handleThresholdSave}
           />
           <DepartmentAutoReplySettings />
+          {/* Both kinds of auto-reply on inbound live near each other. The
+              per-source acknowledgment is the immediate "got your message
+              with tracking link" path; AI Auto-Reply above is the
+              substantive AI-generated answer. */}
+          <AckReplyPerSourceList onShowAlert={setAlertDialog} />
         </>
       )}
 
