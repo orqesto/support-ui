@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,15 +53,30 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
     name: string;
   } | null>(null);
   const pickerWrapRef = useRef<HTMLDivElement | null>(null);
+  const pickerBtnRef = useRef<HTMLButtonElement | null>(null);
+  // The Kanban card has overflow-hidden (for the spine + rounded corners);
+  // an in-flow popover gets clipped. Portal the picker to body with
+  // viewport-relative coords from the trigger button.
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (pickerOpen && pickerBtnRef.current) {
+      const rect = pickerBtnRef.current.getBoundingClientRect();
+      const pickerWidth = 220;
+      const left = Math.min(rect.right - pickerWidth, window.innerWidth - pickerWidth - 8);
+      const top = rect.bottom + 6;
+      setPickerPos({ top, left: Math.max(left, 8) });
+    }
+  }, [pickerOpen]);
 
   // Click-outside to close the assign picker.
   useEffect(() => {
     if (!pickerOpen) return;
     const onDocClick = (ev: MouseEvent) => {
-      if (!pickerWrapRef.current) return;
-      if (!pickerWrapRef.current.contains(ev.target as Node)) {
-        setPickerOpen(false);
-      }
+      const target = ev.target as Node;
+      if (pickerWrapRef.current?.contains(target)) return;
+      if (document.querySelector('[data-assignee-picker]')?.contains(target)) return;
+      setPickerOpen(false);
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
@@ -304,6 +320,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           {isAssigned && effectiveAssigneeName ? (
             <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
               <button
+                ref={pickerBtnRef}
                 type="button"
                 onClick={openPicker}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -315,6 +332,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             </Tooltip>
           ) : (
             <button
+              ref={pickerBtnRef}
               type="button"
               onClick={openPicker}
               onPointerDown={(event) => event.stopPropagation()}
@@ -325,14 +343,16 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
               Claim
             </button>
           )}
-          {pickerOpen && (
+          {pickerOpen && pickerPos && createPortal(
             <div
+              data-assignee-picker
               role="dialog"
               aria-label="Assign to"
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
-              className="absolute right-0 top-full mt-1 z-[60] w-[220px] rounded-md border border-border bg-popover shadow-lg p-1"
+              style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
+              className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
             >
               <AssignmentSelect
                 type="thread"
@@ -341,7 +361,8 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
                 departmentId={msg.departmentId ?? null}
                 onAssign={handleAssigned}
               />
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>
