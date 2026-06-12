@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 
-type TemplateType = 'invitation' | 'verification' | 'auto_reply' | 'password_reset';
+type TemplateType = 'invitation' | 'verification' | 'password_reset';
 
 type Template = {
   type: TemplateType;
@@ -30,11 +30,6 @@ const TEMPLATES: Template[] = [
     type: 'password_reset',
     name: 'Password Reset',
     description: 'Email sent when users request to reset their password',
-  },
-  {
-    type: 'auto_reply',
-    name: 'Auto Reply',
-    description: 'Automated response sent when AI needs more information from customers',
   },
 ];
 
