@@ -80,8 +80,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   );
 
   // Org-level (the "Default" row). Source-of-truth lives on the server; this is
-  // the local mirror.
+  // the local mirror. Ref guards against concurrent toggle races at the org
+  // level just like perDeptRef does at the dept level (rapid double-click).
   const [org, setOrg] = useState<Settings>({});
+  const orgRef = useRef<Settings>({});
   // Per-dept overrides keyed by stringified dept id. Same race-safe ref pattern
   // as the original DepartmentAutoReplySettings — overlapping saves on
   // different rows must each read the latest merged map, not a stale closure.
@@ -91,7 +93,19 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [loading, setLoading] = useState(true);
   const [savingScope, setSavingScope] = useState<'org' | number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['default']));
+  // localStorage-persisted expand state so an admin's preference survives
+  // navigation. Default-row stays open by default (most common interaction);
+  // dept rows are recalled from the previous session.
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set(['default']);
+    try {
+      const raw = window.localStorage.getItem('auto-reply-config:expanded');
+      if (raw) return new Set(JSON.parse(raw) as string[]);
+    } catch {
+      // localStorage may throw in private-browsing / quota-exceeded cases.
+    }
+    return new Set(['default']);
+  });
   const [phraseDrafts, setPhraseDrafts] = useState<Record<string, string>>({});
 
   // Threshold is editable via a slider that triggers a save on mouse/touch up;
@@ -109,12 +123,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           organizationService.getCurrent(),
         ]);
         if (cancelled) return;
-        setOrg({
+        const initialOrg: Settings = {
           autoReplyEnabled: auto.enabled,
           autoReplyRequestMissingInfo: auto.requestMissingInfo,
           autoReplySuggestSolutions: auto.suggestSolutions,
           autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
-        });
+        };
+        setOrg(initialOrg);
+        orgRef.current = initialOrg;
         const settings: Record<string, unknown> = orgRow.settings ?? {};
         const dept = (settings.departmentSettings ?? {}) as Record<string, Settings>;
         setPerDept(dept);
@@ -137,6 +153,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      try {
+        window.localStorage.setItem(
+          'auto-reply-config:expanded',
+          JSON.stringify(Array.from(next))
+        );
+      } catch {
+        // best-effort persistence
+      }
       return next;
     });
   };
@@ -150,22 +174,47 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     }>) => {
       setSavingScope('org');
       setError(null);
+      // Mirror perDeptRef's pattern at the org level: write through the ref
+      // synchronously *before* the await so a second rapid save reads the
+      // pending state, not stale closure state.
+      const previous = orgRef.current;
+      const optimistic: Settings = {
+        ...previous,
+        ...(patch.enabled !== undefined && { autoReplyEnabled: patch.enabled }),
+        ...(patch.requestMissingInfo !== undefined && {
+          autoReplyRequestMissingInfo: patch.requestMissingInfo,
+        }),
+        ...(patch.suggestSolutions !== undefined && {
+          autoReplySuggestSolutions: patch.suggestSolutions,
+        }),
+        ...(patch.highConfidenceThreshold !== undefined && {
+          autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
+        }),
+      };
+      orgRef.current = optimistic;
       try {
         await organizationService.updateAutoReply(patch);
-        setOrg((prev) => ({
-          ...prev,
-          ...(patch.enabled !== undefined && { autoReplyEnabled: patch.enabled }),
-          ...(patch.requestMissingInfo !== undefined && {
-            autoReplyRequestMissingInfo: patch.requestMissingInfo,
-          }),
-          ...(patch.suggestSolutions !== undefined && {
-            autoReplySuggestSolutions: patch.suggestSolutions,
-          }),
-          ...(patch.highConfidenceThreshold !== undefined && {
-            autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
-          }),
-        }));
+        setOrg(optimistic);
+        // Success toast — covers the field that changed. Old AIAutoReplyCard
+        // emitted these per-handler; restoring parity so admins see a "yes,
+        // that saved" confirmation.
+        const field = patch.enabled !== undefined
+          ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
+          : patch.requestMissingInfo !== undefined
+            ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
+            : patch.suggestSolutions !== undefined
+              ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
+              : patch.highConfidenceThreshold !== undefined
+                ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
+                : 'Default updated';
+        onShowAlert({
+          open: true,
+          title: 'Saved',
+          description: field,
+          variant: 'success',
+        });
       } catch (err) {
+        orgRef.current = previous;
         logger.error('Failed to save org auto-reply:', err);
         setError('Failed to save the default. Please try again.');
         onShowAlert({
@@ -240,7 +289,27 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       .finally(() => setSavingScope(null));
   };
 
-  if (!isOrgAdmin) return null;
+  if (!isOrgAdmin) {
+    // Old AIAutoReplyCard was visible (read-only) to non-org-admins so they
+    // could at least see what was configured. Preserve that visibility with
+    // a non-interactive summary instead of hiding the section entirely.
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <MessageCircle className="w-5 h-5" />
+            AI Auto-Reply
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
+            {org.autoReplyEnabled && org.autoReplyHighConfidenceThreshold !== undefined &&
+              ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
+            . Only organization admins can change auto-reply settings.
+          </p>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
