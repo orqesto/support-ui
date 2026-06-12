@@ -27,6 +27,10 @@ type Props = {
   onToggleLabel: (label: Label) => void;
   onToggleLabelPicker: () => void;
   onCloseLabelPicker: () => void;
+  /** Optional inline-create handler. When omitted, the "Create" affordance is
+   * hidden (e.g. for users without manage-label permission). Parent owns the
+   * service call so it can also update allLabels + close the picker. */
+  onCreateLabel?: (name: string) => void | Promise<void>;
   /** Refetch trigger so the parent picks up the new departmentId after re-routing. */
   onDepartmentChange?: () => void;
 };
@@ -44,11 +48,17 @@ export function HeaderMetaStrip({
   onToggleLabel,
   onToggleLabelPicker,
   onCloseLabelPicker: _onCloseLabelPicker,
+  onCreateLabel,
   onDepartmentChange,
 }: Props) {
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const [labelQuery, setLabelQuery] = useState('');
+  // Reset the search input each time the picker opens so it starts fresh.
+  useEffect(() => {
+    if (!showLabelPicker) setLabelQuery('');
+  }, [showLabelPicker]);
   const primaryDept = useDepartmentById(message.departmentId ?? null);
   const needsRouting = message.status === 'needs_routing';
   const { data: allDepts = [] } = useDepartments();
@@ -242,29 +252,66 @@ export function HeaderMetaStrip({
                 </button>
 
                 {showLabelPicker && pickerPos && createPortal(
-                  <div
-                    data-label-picker
-                    style={{ top: pickerPos.top, left: pickerPos.left, width: 176 }}
-                    className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
-                  >
-                    {allLabels.map((label) => {
-                      const assigned = messageLabels.some((lbl) => lbl.id === label.id);
-                      return (
-                        <button
-                          key={label.id}
-                          onClick={() => onToggleLabel(label)}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors text-left"
-                        >
-                          <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
-                            style={{ backgroundColor: safeCssColor(label.color) }}
-                          />
-                          <span className="flex-1 text-foreground">{label.name}</span>
-                          {assigned && <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>,
+                  (() => {
+                    const trimmed = labelQuery.trim();
+                    const lower = trimmed.toLowerCase();
+                    const filtered = trimmed
+                      ? allLabels.filter((label) => label.name.toLowerCase().includes(lower))
+                      : allLabels;
+                    const exact = trimmed && allLabels.some(
+                      (label) => label.name.toLowerCase() === lower
+                    );
+                    const showCreate = !!onCreateLabel && trimmed.length > 0 && !exact;
+                    return (
+                      <div
+                        data-label-picker
+                        style={{ top: pickerPos.top, left: pickerPos.left, width: 200 }}
+                        className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
+                      >
+                        <input
+                          type="text"
+                          value={labelQuery}
+                          onChange={(ev) => setLabelQuery(ev.target.value)}
+                          placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
+                          autoFocus
+                          className="w-full px-2 py-1 mb-1 text-xs bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        {filtered.map((label) => {
+                          const assigned = messageLabels.some((lbl) => lbl.id === label.id);
+                          return (
+                            <button
+                              key={label.id}
+                              onClick={() => onToggleLabel(label)}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors text-left"
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
+                                style={{ backgroundColor: safeCssColor(label.color) }}
+                              />
+                              <span className="flex-1 text-foreground">{label.name}</span>
+                              {assigned && <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                            </button>
+                          );
+                        })}
+                        {showCreate && (
+                          <button
+                            onClick={() => void onCreateLabel?.(trimmed)}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 mt-1 rounded-md text-xs hover:bg-accent transition-colors text-left border-t border-border"
+                          >
+                            <Plus className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                            <span className="flex-1 text-foreground">
+                              Create &quot;{trimmed}&quot;
+                            </span>
+                          </button>
+                        )}
+                        {filtered.length === 0 && !showCreate && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            No labels match.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })(),
                   document.body
                 )}
               </div>

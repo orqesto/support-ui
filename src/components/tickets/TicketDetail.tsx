@@ -29,6 +29,7 @@ import { formatDate, safeCssColor } from '@/lib/utils';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { labelService, type Label } from '@/services/settings.service';
+import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { ticketService } from '@/services/ticket.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
@@ -85,6 +86,7 @@ export const TicketDetail = ({
   const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [labelQuery, setLabelQuery] = useState('');
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
@@ -101,6 +103,30 @@ export const TicketDetail = ({
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showLabelPicker]);
+
+  useEffect(() => {
+    if (!showLabelPicker) setLabelQuery('');
+  }, [showLabelPicker]);
+
+  const handleCreateLabel = async (name: string) => {
+    try {
+      const created = await labelService.createLabel({
+        name,
+        color: hashNameToLabelColor(name),
+      });
+      setAllLabels((prev) => [created, ...prev]);
+      setTicketLabels((prev) => [...prev, created]);
+      try {
+        await labelService.assignLabelToTicket(ticket.id, created.id);
+      } catch (assignErr) {
+        logger.error('Failed to assign newly-created label:', assignErr);
+        setTicketLabels((prev) => prev.filter((lbl) => lbl.id !== created.id));
+      }
+      setShowLabelPicker(false);
+    } catch (err) {
+      logger.error('Failed to create label:', err);
+    }
+  };
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/tickets?id=${ticket.id}`;
@@ -289,27 +315,60 @@ export const TicketDetail = ({
                   <Tag className="w-3 h-3 mr-1" />
                   <Plus className="w-3 h-3" />
                 </Button>
-                {showLabelPicker && allLabels.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-lg border bg-card shadow-md p-1">
-                    {allLabels.map((label) => {
-                      const isAssigned = ticketLabels.some((lbl) => lbl.id === label.id);
-                      return (
+                {showLabelPicker && (() => {
+                  const trimmed = labelQuery.trim();
+                  const lower = trimmed.toLowerCase();
+                  const filtered = trimmed
+                    ? allLabels.filter((label) => label.name.toLowerCase().includes(lower))
+                    : allLabels;
+                  const exact = trimmed && allLabels.some(
+                    (label) => label.name.toLowerCase() === lower
+                  );
+                  const showCreate = hasManageLabels && trimmed.length > 0 && !exact;
+                  return (
+                    <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] rounded-lg border bg-card shadow-md p-1">
+                      <input
+                        type="text"
+                        value={labelQuery}
+                        onChange={(ev) => setLabelQuery(ev.target.value)}
+                        placeholder={hasManageLabels ? 'Search or create…' : 'Search…'}
+                        autoFocus
+                        className="w-full px-2 py-1 mb-1 text-sm bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      {filtered.map((label) => {
+                        const isAssigned = ticketLabels.some((lbl) => lbl.id === label.id);
+                        return (
+                          <button
+                            key={label.id}
+                            onClick={() => handleToggleLabel(label)}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent text-left"
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: safeCssColor(label.color) }}
+                            />
+                            <span className="flex-1">{label.name}</span>
+                            {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
+                          </button>
+                        );
+                      })}
+                      {showCreate && (
                         <button
-                          key={label.id}
-                          onClick={() => handleToggleLabel(label)}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent text-left"
+                          onClick={() => void handleCreateLabel(trimmed)}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 mt-1 rounded text-sm hover:bg-accent text-left border-t border-border"
                         >
-                          <span
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: safeCssColor(label.color) }}
-                          />
-                          <span className="flex-1">{label.name}</span>
-                          {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
+                          <Plus className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                          <span className="flex-1">Create &quot;{trimmed}&quot;</span>
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                      {filtered.length === 0 && !showCreate && (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          No labels match.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>}
             </div>
 
