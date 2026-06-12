@@ -267,6 +267,24 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     [onShowAlert]
   );
 
+  const inheritDeptEnabled = (deptId: number) => {
+    const key = String(deptId);
+    const current = perDeptRef.current[key];
+    if (!current) return;
+    const { autoReplyEnabled: _omit, ...rest } = current;
+    const hasRemaining =
+      rest.autoReplyRequestMissingInfo !== undefined ||
+      rest.autoReplySuggestSolutions !== undefined ||
+      rest.autoReplyHighConfidenceThreshold !== undefined ||
+      (rest.escalationPhrases !== undefined && rest.escalationPhrases.length > 0);
+    if (!hasRemaining) {
+      // Avoid leaving an empty row that means nothing on the BE.
+      resetDept(deptId);
+      return;
+    }
+    void saveDept(deptId, rest);
+  };
+
   const resetDept = (deptId: number) => {
     const key = String(deptId);
     if (!perDeptRef.current[key]) return;
@@ -548,10 +566,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       <button
                         type="button"
                         disabled={isSaving}
-                        onClick={() => {
-                          if (!hasOverride) return; // Already inheriting
-                          resetDept(dept.id);
-                        }}
+                        onClick={() => inheritDeptEnabled(dept.id)}
                         className={`px-2 py-0.5 text-[10px] rounded-full border ${
                           !hasOverride
                             ? 'bg-primary text-primary-foreground border-primary'
