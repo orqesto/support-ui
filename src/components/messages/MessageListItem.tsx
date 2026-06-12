@@ -312,7 +312,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
                 aria-label="Assign to"
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
-                className="absolute right-0 top-full mt-1 z-50 w-[220px] rounded-md border border-border bg-popover shadow-lg p-1"
+                className="absolute right-0 top-full mt-1 z-[60] w-[220px] rounded-md border border-border bg-popover shadow-lg p-1"
               >
                 <AssignmentSelect
                   type="thread"
