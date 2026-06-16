@@ -3,7 +3,7 @@
 // lines. Splitting the meta strip out of this header is the natural follow-up
 // refactor (see task #26 area work too).
 /* eslint-disable max-lines */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   RefreshCw,
   X,
@@ -17,6 +17,7 @@ import {
   Clock,
   ChevronDown,
   Maximize2,
+  Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -86,6 +87,14 @@ export function MessageDetailHeader({
   const [checkingContradiction, setCheckingContradiction] = useState(false);
   const [togglingLead, setTogglingLead] = useState(false);
   const [linkedTicketStatus, setLinkedTicketStatus] = useState<string | null>(null);
+  // Async re-analysis kicked off by the tracking-page customer-reply path. The
+  // BE flips metadata.aiReanalysisInFlight to true on enqueue and emits a WS
+  // `conversation:ai_reanalysis` event (state: 'pending' → 'complete'/'failed').
+  // Initial value comes from the fetched message so a page reload mid-job still
+  // shows the badge until the WS event lands.
+  const [aiReanalysisInFlight, setAiReanalysisInFlight] = useState<boolean>(
+    () => !!(message.metadata as Record<string, unknown> | undefined)?.aiReanalysisInFlight
+  );
 
   useEffect(() => {
     categoryService
@@ -121,7 +130,8 @@ export function MessageDetailHeader({
   useEffect(() => {
     setLinkedTicketId(null);
     setLinkedTicketStatus(null);
-    messageService.getLinkedTicket(message.id)
+    messageService
+      .getLinkedTicket(message.id)
       .then((res) => {
         if (res?.data) {
           setLinkedTicketId(res.data.id);
@@ -141,6 +151,52 @@ export function MessageDetailHeader({
     return () => unsubscribeFromEvent('ticket:updated', handler);
   }, [linkedTicketId]);
 
+  // Sync the in-flight badge from the message prop ONLY on conv change. We used
+  // to also depend on `message.metadata` so navigating away+back would re-read
+  // the latest value, but that introduced a race: WS 'pending' sets local
+  // state=true; parent re-renders (new metadata object reference, same content
+  // because the BE flag hadn't surfaced yet); effect overwrites local state
+  // back to false. Now we only re-init on actual conv switch — the WS event
+  // owns the local state otherwise.
+  useEffect(() => {
+    setAiReanalysisInFlight(
+      !!(message.metadata as Record<string, unknown> | undefined)?.aiReanalysisInFlight
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id]);
+
+  // Stash onRefresh in a ref so the WS subscription effect doesn't re-register
+  // every time the parent passes a fresh callback identity (common when the
+  // parent doesn't useCallback).
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  // Subscribe to the org-scoped `conversation:ai_reanalysis` WS event so the
+  // badge flips live during the worker's run. Emitted by both the trigger
+  // (`state: 'pending'`) and the processor (`state: 'complete' | 'failed'`).
+  // On terminal states, refresh the message so the new metadata.analysis lands.
+  useEffect(() => {
+    const handler = (data: unknown) => {
+      const ev = data as {
+        conversationId?: number;
+        state?: 'pending' | 'complete' | 'failed';
+      };
+      if (ev.conversationId !== message.id) return;
+      if (ev.state === 'pending') {
+        setAiReanalysisInFlight(true);
+        return;
+      }
+      if (ev.state === 'complete' || ev.state === 'failed') {
+        setAiReanalysisInFlight(false);
+        onRefreshRef.current?.();
+      }
+    };
+    subscribeToEvent('conversation:ai_reanalysis', handler);
+    return () => unsubscribeFromEvent('conversation:ai_reanalysis', handler);
+  }, [message.id]);
+
   // ── Computed ──────────────────────────────────────────────────────────────
 
   const spamCheck = getSpamCheck(message);
@@ -149,10 +205,7 @@ export function MessageDetailHeader({
     !isFiltered &&
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
   const isActive =
-    message.status !== 'resolved' &&
-    !isFiltered &&
-    !isSuspicious &&
-    message.status !== 'closed';
+    message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
   // System-set statuses have no dropdown entry — map to nearest user-facing equivalent for display
   const STATUS_NORMALIZE: Record<string, ThreadStatus> = {
     awaiting_response: 'in_progress',
@@ -231,6 +284,17 @@ export function MessageDetailHeader({
         label: 'RESOLVED',
         icon: <CheckCircle className="w-2.5 h-2.5" />,
         cls: 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800',
+      };
+    // Customer just followed up via the tracking page and the BE is re-running
+    // analysis on the fresh thread. Shows until the processor emits 'complete'
+    // (≤ a few seconds under the 10/min limiter) so agents see why suggestions
+    // are about to shift instead of having stale ones briefly contradict the
+    // new reply.
+    if (aiReanalysisInFlight)
+      return {
+        label: 'RE-ANALYZING',
+        icon: <Sparkles className="w-2.5 h-2.5 animate-pulse" />,
+        cls: 'text-violet-700 border-violet-200 bg-violet-50 dark:text-violet-400 dark:bg-violet-950/30 dark:border-violet-800',
       };
     if (message.lastReplyFromClient === false)
       return {
@@ -463,28 +527,35 @@ export function MessageDetailHeader({
       label: 'Close (no KB)',
       icon: <X className="w-3 h-3" />,
       action: () => {
-        void messageService.close(message.id).then(() => { onRefresh?.(); });
+        void messageService.close(message.id).then(() => {
+          onRefresh?.();
+        });
         setMoreOpen(false);
       },
     },
-    isActive && message.isLead && {
-      label: 'Not a Lead — Close',
-      icon: <X className="w-3 h-3" />,
-      action: () => {
-        void messageService.markAsLead(message.id, false)
-          .then(() => messageService.close(message.id))
-          .then(() => { onRefresh?.(); });
-        setMoreOpen(false);
+    isActive &&
+      message.isLead && {
+        label: 'Not a Lead — Close',
+        icon: <X className="w-3 h-3" />,
+        action: () => {
+          void messageService
+            .markAsLead(message.id, false)
+            .then(() => messageService.close(message.id))
+            .then(() => {
+              onRefresh?.();
+            });
+          setMoreOpen(false);
+        },
       },
-    },
-    isActive && onClassify && {
-      label: 'Mark as Suspicious',
-      icon: <ShieldAlert className="w-3 h-3" />,
-      action: () => {
-        void onClassify('mark_suspicious');
-        setMoreOpen(false);
+    isActive &&
+      onClassify && {
+        label: 'Mark as Suspicious',
+        icon: <ShieldAlert className="w-3 h-3" />,
+        action: () => {
+          void onClassify('mark_suspicious');
+          setMoreOpen(false);
+        },
       },
-    },
     onDelete && {
       label: 'Delete Message',
       icon: <Trash2 className="w-3 h-3" />,
@@ -596,9 +667,7 @@ export function MessageDetailHeader({
         message.status !== 'closed' && (
           <div className="px-4 pb-2">
             <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-blue-200 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-950/20">
-              <span className="text-[11px] text-blue-900 dark:text-blue-300">
-                🔀 Also matched:
-              </span>
+              <span className="text-[11px] text-blue-900 dark:text-blue-300">🔀 Also matched:</span>
               {message.nearMissDepts!.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
                 if (!dept) return null;
