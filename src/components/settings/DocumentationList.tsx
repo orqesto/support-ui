@@ -184,21 +184,19 @@ export const DocumentationList = ({
                   )}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className="flex gap-2 items-center mb-1">
+                  <div className="flex flex-wrap gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
-                    <DepartmentBadge departmentId={doc.departmentId} size="sm" />
-                    {doc.visibility === 'organization' ? (
+                    {doc.departmentIds.length === 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         <Globe className="w-3 h-3" />
-                        Shared
+                        All departments
                       </span>
                     ) : (
-                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full dark:bg-gray-800 dark:text-gray-300">
-                        <Lock className="w-3 h-3" />
-                        Private
-                      </span>
+                      doc.departmentIds.map((deptId) => (
+                        <DepartmentBadge key={deptId} departmentId={deptId} size="sm" />
+                      ))
                     )}
                     {getStatusBadge(doc.status)}
                   </div>
