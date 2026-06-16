@@ -19,15 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useCustomProviderModels } from '@/hooks/useCustomProviderModels';
-import type { Integration } from '@/services/integrations.service';
-
-type CustomConfig = {
-  /** Display label admins use to recognise this endpoint. */
-  displayName: string;
-  baseUrl: string;
-  apiKey?: string;
-  defaultChatModel: string;
-};
+import type { CustomConfig, Integration } from '@/services/integrations.service';
 
 type Props = {
   integrations: Integration[];
@@ -103,7 +95,8 @@ export const CustomProviderCard = ({
     handleReset();
   };
 
-  const canSave = config.displayName.trim() && config.baseUrl.trim() && config.defaultChatModel.trim();
+  const canSave =
+    config.displayName.trim() && config.baseUrl.trim() && config.defaultChatModel.trim();
 
   return (
     <Card>
@@ -125,7 +118,8 @@ export const CustomProviderCard = ({
           </Button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          LiteLLM, vLLM, LM Studio, OpenRouter, Together AI, Groq, Cerebras — anything that exposes <code>/v1/chat/completions</code>.
+          LiteLLM, vLLM, LM Studio, OpenRouter, Together AI, Groq, Cerebras — anything that exposes{' '}
+          <code>/v1/chat/completions</code>.
         </p>
       </CardHeader>
 
@@ -159,7 +153,11 @@ export const CustomProviderCard = ({
                       />
                       <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
                     </label>
-                    <Button variant="ghost" size="sm" onClick={() => onToggleModels(integration.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onToggleModels(integration.id)}
+                    >
                       {showModels[integration.id] ? (
                         <ChevronUp className="w-4 h-4" />
                       ) : (
@@ -193,9 +191,14 @@ export const CustomProviderCard = ({
                 </div>
                 {showModels[integration.id] && (
                   <div className="p-3 border-t bg-muted/30 text-xs space-y-1">
-                    <p><span className="text-muted-foreground">Default model:</span> {(integration.config as CustomConfig).defaultChatModel}</p>
+                    <p>
+                      <span className="text-muted-foreground">Default model:</span>{' '}
+                      {(integration.config as CustomConfig).defaultChatModel}
+                    </p>
                     {liveModels && liveModels.length > 0 && (
-                      <p className="text-muted-foreground">{liveModels.length} models discovered live</p>
+                      <p className="text-muted-foreground">
+                        {liveModels.length} models discovered live
+                      </p>
                     )}
                   </div>
                 )}
@@ -211,7 +214,9 @@ export const CustomProviderCard = ({
             </h4>
 
             <div>
-              <label htmlFor="custom-name" className="text-sm font-medium">Display Name *</label>
+              <label htmlFor="custom-name" className="text-sm font-medium">
+                Display Name *
+              </label>
               <input
                 id="custom-name"
                 type="text"
@@ -223,7 +228,9 @@ export const CustomProviderCard = ({
             </div>
 
             <div>
-              <label htmlFor="custom-baseurl" className="text-sm font-medium">Base URL *</label>
+              <label htmlFor="custom-baseurl" className="text-sm font-medium">
+                Base URL *
+              </label>
               <input
                 id="custom-baseurl"
                 type="url"
@@ -233,12 +240,15 @@ export const CustomProviderCard = ({
                 placeholder="https://openrouter.ai/api/v1"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Must be a publicly reachable HTTPS URL. Private IPs (localhost, 10.x, 192.168.x) are blocked.
+                Must be a publicly reachable HTTPS URL. Private IPs (localhost, 10.x, 192.168.x) are
+                blocked.
               </p>
             </div>
 
             <div>
-              <label htmlFor="custom-apikey" className="text-sm font-medium">API Key (optional)</label>
+              <label htmlFor="custom-apikey" className="text-sm font-medium">
+                API Key (optional)
+              </label>
               <input
                 id="custom-apikey"
                 type="password"
@@ -251,7 +261,9 @@ export const CustomProviderCard = ({
             </div>
 
             <div>
-              <label htmlFor="custom-model" className="text-sm font-medium">Default Chat Model *</label>
+              <label htmlFor="custom-model" className="text-sm font-medium">
+                Default Chat Model *
+              </label>
               {liveModels && liveModels.length > 0 ? (
                 <ReactSelect
                   value={config.defaultChatModel}
@@ -265,7 +277,9 @@ export const CustomProviderCard = ({
                   id="custom-model"
                   type="text"
                   value={config.defaultChatModel}
-                  onChange={(event) => setConfig({ ...config, defaultChatModel: event.target.value })}
+                  onChange={(event) =>
+                    setConfig({ ...config, defaultChatModel: event.target.value })
+                  }
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-xs"
                   placeholder="anthropic/claude-3.5-sonnet, mistralai/Mixtral-8x7B-Instruct-v0.1, etc."
                 />
@@ -274,11 +288,7 @@ export const CustomProviderCard = ({
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button
-                onClick={handleSave}
-                isLoading={saving === 'custom'}
-                disabled={!canSave}
-              >
+              <Button onClick={handleSave} isLoading={saving === 'custom'} disabled={!canSave}>
                 <Save className="mr-1 w-4 h-4" /> Save
               </Button>
               <Button variant="outline" onClick={handleReset}>

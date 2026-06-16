@@ -16,18 +16,10 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useBedrockModels } from '@/hooks/useBedrockModels';
-import type { Integration } from '@/services/integrations.service';
+import type { BedrockConfig, Integration } from '@/services/integrations.service';
 import type { AIModel } from '@/types/aiProviders';
 import { BEDROCK_MODELS, BEDROCK_REGIONS } from '@/types/aiProviders';
 import { apiClient } from '@/lib/api-client';
-
-type BedrockConfig = {
-  region: string;
-  roleArn: string;
-  externalId: string;
-  defaultModel: string;
-  inferenceProfileArn?: string;
-};
 
 type BedrockTestResult = {
   assumeRole: 'ok' | 'error' | 'skipped';
@@ -162,15 +154,16 @@ export const BedrockProviderCard = ({
   // discovery returns nothing (no role config yet, IAM denial, AWS hiccup).
   const discovery = useBedrockModels(showForm ? config.region : undefined);
   const liveModels = discovery.data?.models ?? null;
-  const modelOptions: AIModel[] = liveModels && liveModels.length > 0
-    ? liveModels.map((model) => ({
-        id: model.id,
-        name: model.name,
-        type: model.type,
-        contextWindow: 0, // not surfaced by Bedrock list API; harmless for the dropdown
-        description: model.description,
-      }))
-    : BEDROCK_MODELS;
+  const modelOptions: AIModel[] =
+    liveModels && liveModels.length > 0
+      ? liveModels.map((model) => ({
+          id: model.id,
+          name: model.name,
+          type: model.type,
+          contextWindow: 0, // not surfaced by Bedrock list API; harmless for the dropdown
+          description: model.description,
+        }))
+      : BEDROCK_MODELS;
   const modelSourceLabel = discovery.isLoading
     ? 'Loading…'
     : liveModels && liveModels.length > 0
