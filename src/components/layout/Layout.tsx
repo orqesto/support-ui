@@ -38,6 +38,8 @@ import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
+import { LearningNotificationBell } from './LearningNotificationBell';
+import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
 import { MessageProcessingProgress } from '../messages/MessageProcessingProgress';
@@ -220,6 +222,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { hasPermission, orgRole } = usePermissions();
   const { hasModule } = useModules();
   const slaNotifications = useSLANotifications();
+  const learningNotifications = useLearningNotifications();
 
   // For admins: use selectedOrganizationId to filter widgets by current org context.
   // WS-H-04: fall back to user.organizationId so the WS room is joined on first login
@@ -555,6 +558,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   </div>
                 </div>
                 <div className="flex flex-shrink-0 gap-1 items-center">
+                  <LearningNotificationBell {...learningNotifications} />
                   <SLANotificationBell {...slaNotifications} />
                   <ThemeToggle />
                 </div>
@@ -608,6 +612,7 @@ export const Layout = ({ children }: LayoutProps) => {
               </h2>
             </div>
             <div className="flex gap-1 items-center">
+              <LearningNotificationBell {...learningNotifications} />
               <SLANotificationBell {...slaNotifications} />
               <ThemeToggle />
             </div>
