@@ -2,11 +2,13 @@ import { apiClient } from '@/lib/api-client';
 
 export type DocumentType = 'technical' | 'nda' | 'legal' | 'policy' | 'template' | 'general';
 
+// Dept scoping is junction-driven:
+//   departmentIds: []        → org-wide (every dept can see/search this doc)
+//   departmentIds: [a, b, …] → scoped to those depts only
 export type Documentation = {
   id: number;
   organizationId: number;
-  departmentId: number | null;
-  visibility: 'department' | 'organization';
+  departmentIds: number[];
   documentType: DocumentType;
   chunkingStrategy: string | null;
   allowQuoting: boolean;
@@ -68,7 +70,8 @@ const uploadDocumentation = async (
   file: File,
   title: string,
   description?: string,
-  visibility?: 'department' | 'organization',
+  // [] = org-wide (visible everywhere). [a, b, …] = scoped to those depts.
+  departmentIds: number[] = [],
   documentType?: DocumentType,
   onUploadProgress?: (progressEvent: { loaded: number; total?: number; progress?: number }) => void
 ): Promise<Documentation> => {
@@ -78,9 +81,9 @@ const uploadDocumentation = async (
   if (description) {
     formData.append('description', description);
   }
-  if (visibility) {
-    formData.append('visibility', visibility);
-  }
+  // departmentIds is JSON-encoded because multipart doesn't preserve array shape.
+  // BE decodes before Zod validation.
+  formData.append('departmentIds', JSON.stringify(departmentIds));
   if (documentType) {
     formData.append('documentType', documentType);
   }
@@ -121,6 +124,10 @@ const toggleEnabled = async (id: number, enabled: boolean): Promise<Documentatio
   return response.data;
 };
 
+const setDepartments = async (id: number, departmentIds: number[]): Promise<void> => {
+  await apiClient.put(`/api/documentation/${id}/departments`, { departmentIds });
+};
+
 const searchDocumentation = async (query: string, limit?: number): Promise<SearchResult[]> => {
   const response = await apiClient.post<SearchResult[]>('/api/documentation/search', {
     query,
@@ -154,6 +161,7 @@ export const documentationService = {
   getProgress,
   deleteDocumentation,
   toggleEnabled,
+  setDepartments,
   searchDocumentation,
   getStats,
 };

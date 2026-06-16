@@ -5,12 +5,12 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-  Lock,
   Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useDepartments } from '@/hooks/useDepartments';
 import type { DocumentType } from '@/services/documentation.service';
 
 type FileUploadProgress = {
@@ -21,7 +21,8 @@ type FileUploadProgress = {
 
 type DocumentationUploadFormProps = {
   selectedFiles: File[];
-  visibility: 'department' | 'organization';
+  // [] = shared with all depts. [a, b, …] = scoped to those depts.
+  selectedDeptIds: number[];
   documentType: DocumentType;
   isDragging: boolean;
   uploading: boolean;
@@ -31,7 +32,7 @@ type DocumentationUploadFormProps = {
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onRemoveFile: (index: number) => void;
-  onVisibilityChange: (value: 'department' | 'organization') => void;
+  onSelectedDeptIdsChange: (ids: number[]) => void;
   onDocumentTypeChange: (value: DocumentType) => void;
   onUpload: () => void;
 };
@@ -44,7 +45,7 @@ const formatFileSize = (bytes: number): string => {
 
 export const DocumentationUploadForm = ({
   selectedFiles,
-  visibility,
+  selectedDeptIds,
   documentType,
   isDragging,
   uploading,
@@ -54,10 +55,21 @@ export const DocumentationUploadForm = ({
   onDragLeave,
   onDrop,
   onRemoveFile,
-  onVisibilityChange,
+  onSelectedDeptIdsChange,
   onDocumentTypeChange,
   onUpload,
-}: DocumentationUploadFormProps) => (
+}: DocumentationUploadFormProps) => {
+  const { data: departments = [] } = useDepartments();
+  const isOrgWide = selectedDeptIds.length === 0;
+  const toggleDept = (id: number) => {
+    if (selectedDeptIds.includes(id)) {
+      onSelectedDeptIdsChange(selectedDeptIds.filter((deptId) => deptId !== id));
+    } else {
+      onSelectedDeptIdsChange([...selectedDeptIds, id]);
+    }
+  };
+
+  return (
     <Card className="p-6">
       <h3 className="mb-4 text-lg font-semibold">Upload New Documentation</h3>
 
@@ -223,37 +235,53 @@ export const DocumentationUploadForm = ({
         </div>
 
         <div>
-          <div className="block mb-2 text-sm font-medium">Visibility</div>
-          <div className="flex gap-3">
+          <div className="block mb-2 text-sm font-medium">Department scope</div>
+          <div className="space-y-2">
             <label className="flex gap-2 items-center cursor-pointer">
               <input
-                type="radio"
-                name="visibility"
-                value="department"
-                checked={visibility === 'department'}
-                onChange={(event) => onVisibilityChange(event.target.value as 'department')}
-                className="w-4 h-4"
-              />
-              <Lock className="w-4 h-4" />
-              <span className="text-sm">Department only</span>
-            </label>
-            <label className="flex gap-2 items-center cursor-pointer">
-              <input
-                type="radio"
-                name="visibility"
-                value="organization"
-                checked={visibility === 'organization'}
-                onChange={(event) => onVisibilityChange(event.target.value as 'organization')}
+                type="checkbox"
+                checked={isOrgWide}
+                onChange={() => onSelectedDeptIdsChange([])}
                 className="w-4 h-4"
               />
               <Globe className="w-4 h-4" />
               <span className="text-sm">Shared with all departments</span>
             </label>
+            {!isOrgWide && (
+              <div className="pl-6 space-y-1">
+                {departments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No departments available.</p>
+                ) : (
+                  departments.map((dept) => (
+                    <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedDeptIds.includes(dept.id)}
+                        onChange={() => toggleDept(dept.id)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">{dept.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            )}
+            {!isOrgWide && departments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onSelectedDeptIdsChange(departments.map((dept) => dept.id))}
+                className="pl-6 text-xs text-primary hover:underline"
+              >
+                Select all departments
+              </button>
+            )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {visibility === 'department'
-              ? 'Only your department can see and use this documentation'
-              : 'All departments can see and use this documentation'}
+            {isOrgWide
+              ? 'All departments can see and use this documentation.'
+              : selectedDeptIds.length === 0
+                ? 'Pick at least one department, or check "Shared with all departments".'
+                : `Visible to ${selectedDeptIds.length} department(s).`}
           </p>
         </div>
 
@@ -283,7 +311,14 @@ export const DocumentationUploadForm = ({
           </p>
         </div>
 
-        <Button onClick={onUpload} disabled={selectedFiles.length === 0 || uploading}>
+        <Button
+          onClick={onUpload}
+          disabled={
+            selectedFiles.length === 0 ||
+            uploading ||
+            (!isOrgWide && selectedDeptIds.length === 0)
+          }
+        >
           <Upload className="mr-2 w-4 h-4" />
           {uploading
             ? `Uploading ${selectedFiles.length} file(s)...`
@@ -292,3 +327,4 @@ export const DocumentationUploadForm = ({
       </div>
     </Card>
   );
+};
