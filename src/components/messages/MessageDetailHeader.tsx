@@ -3,7 +3,7 @@
 // lines. Splitting the meta strip out of this header is the natural follow-up
 // refactor (see task #26 area work too).
 /* eslint-disable max-lines */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   RefreshCw,
   X,
@@ -151,14 +151,27 @@ export function MessageDetailHeader({
     return () => unsubscribeFromEvent('ticket:updated', handler);
   }, [linkedTicketId]);
 
-  // Sync the in-flight badge from the message prop on conv change. Without this
-  // the local state stays sticky to the previously-rendered conv after the user
-  // navigates between threads.
+  // Sync the in-flight badge from the message prop ONLY on conv change. We used
+  // to also depend on `message.metadata` so navigating away+back would re-read
+  // the latest value, but that introduced a race: WS 'pending' sets local
+  // state=true; parent re-renders (new metadata object reference, same content
+  // because the BE flag hadn't surfaced yet); effect overwrites local state
+  // back to false. Now we only re-init on actual conv switch — the WS event
+  // owns the local state otherwise.
   useEffect(() => {
     setAiReanalysisInFlight(
       !!(message.metadata as Record<string, unknown> | undefined)?.aiReanalysisInFlight
     );
-  }, [message.id, message.metadata]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id]);
+
+  // Stash onRefresh in a ref so the WS subscription effect doesn't re-register
+  // every time the parent passes a fresh callback identity (common when the
+  // parent doesn't useCallback).
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
   // Subscribe to the org-scoped `conversation:ai_reanalysis` WS event so the
   // badge flips live during the worker's run. Emitted by both the trigger
@@ -177,12 +190,12 @@ export function MessageDetailHeader({
       }
       if (ev.state === 'complete' || ev.state === 'failed') {
         setAiReanalysisInFlight(false);
-        onRefresh?.();
+        onRefreshRef.current?.();
       }
     };
     subscribeToEvent('conversation:ai_reanalysis', handler);
     return () => unsubscribeFromEvent('conversation:ai_reanalysis', handler);
-  }, [message.id, onRefresh]);
+  }, [message.id]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
