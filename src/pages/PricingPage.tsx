@@ -88,7 +88,22 @@ export const PricingPage = () => {
     setUpgrading(selectedPlan);
     setAlertDialog({ ...alertDialog, open: false });
     try {
-      await apiClient.post('/api/subscriptions/upgrade', { planName: selectedPlan });
+      // BE may respond with `requiresCheckout` for paid plans on Stripe-
+      // configured installs — in that case we hand off to Stripe Checkout
+      // and the webhook closes the loop on success.
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { requiresCheckout?: boolean; checkoutUrl?: string };
+      }>('/api/subscriptions/upgrade', { planName: selectedPlan });
+
+      const payload = response.data?.data;
+      if (payload?.requiresCheckout && payload.checkoutUrl) {
+        // Full-page nav — Stripe Checkout is a hosted page on a different
+        // origin. `success_url` brings the customer back to /subscription.
+        window.location.href = payload.checkoutUrl;
+        return;
+      }
+
       setCurrentPlanName(selectedPlan);
       setAlertDialog({ open: true, title: 'Success!', description: `Successfully upgraded to ${selectedPlan} plan! Redirecting...`, variant: 'success', confirmAction: false });
       setTimeout(() => { navigate('/subscription'); }, 1500);
