@@ -1,11 +1,24 @@
-export type AIProvider =
-  | 'openai'
-  | 'anthropic'
-  | 'deepseek'
-  | 'perplexity'
-  | 'qwen'
-  | 'ollama'
-  | 'bedrock';
+// Runtime-iterable list of AI provider type strings. `AIProvider` derives
+// from this so adding a provider here extends the type automatically — and
+// FE branches like "is this an AI provider?" can use the same source of
+// truth instead of restating the list inline (which drifts; saw `'custom'`
+// missing from AIProvidersSettings auto-disable logic on 2026-06-15).
+// Mirrors BE be/src/types/aiProviders.ts.
+export const AI_PROVIDER_TYPES = [
+  'openai',
+  'anthropic',
+  'deepseek',
+  'perplexity',
+  'qwen',
+  'ollama',
+  'bedrock',
+  'custom',
+] as const;
+
+export type AIProvider = (typeof AI_PROVIDER_TYPES)[number];
+
+export const isAIProviderType = (value: string): value is AIProvider =>
+  (AI_PROVIDER_TYPES as readonly string[]).includes(value);
 
 export type AIModelType = 'chat' | 'embedding';
 
