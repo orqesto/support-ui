@@ -30,7 +30,8 @@ export const DocumentationSettings = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [visibility, setVisibility] = useState<'department' | 'organization'>('department');
+  // Empty = org-wide (visible to every dept). Non-empty = scoped to those depts.
+  const [selectedDeptIds, setSelectedDeptIds] = useState<number[]>([]);
   const [documentType, setDocumentType] = useState<DocumentType>('general');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<
@@ -217,7 +218,7 @@ export const DocumentationSettings = () => {
             file,
             title,
             '',
-            visibility,
+            selectedDeptIds,
             documentType,
             (progressEvent) => {
               setUploadProgress((prev) => ({
@@ -259,7 +260,7 @@ export const DocumentationSettings = () => {
       setTimeout(() => {
         setSelectedFiles([]);
         setUploadProgress({});
-        setVisibility('department');
+        setSelectedDeptIds([]);
         setDocumentType('general');
       }, 2000);
 
@@ -405,7 +406,7 @@ export const DocumentationSettings = () => {
 
       <DocumentationUploadForm
         selectedFiles={selectedFiles}
-        visibility={visibility}
+        selectedDeptIds={selectedDeptIds}
         documentType={documentType}
         isDragging={isDragging}
         uploading={uploading}
@@ -415,7 +416,7 @@ export const DocumentationSettings = () => {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onRemoveFile={handleRemoveFile}
-        onVisibilityChange={setVisibility}
+        onSelectedDeptIdsChange={setSelectedDeptIds}
         onDocumentTypeChange={setDocumentType}
         onUpload={handleUpload}
       />
