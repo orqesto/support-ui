@@ -64,6 +64,21 @@ export type LocalEmbeddingsConfig = {
   quantized: boolean;
 };
 
+export type BedrockConfig = {
+  region: string;
+  roleArn: string;
+  externalId: string;
+  defaultModel: string;
+  inferenceProfileArn?: string;
+};
+
+export type CustomConfig = {
+  displayName: string;
+  baseUrl: string;
+  apiKey?: string;
+  defaultChatModel: string;
+};
+
 // Base integration type
 export type BaseIntegration = {
   id: number;
@@ -81,6 +96,8 @@ export type BaseIntegration = {
     | 'perplexity'
     | 'qwen'
     | 'ollama'
+    | 'bedrock'
+    | 'custom'
     | 'local_embeddings';
   enabled: boolean;
   departmentId?: number | null;
@@ -169,6 +186,16 @@ export type OllamaIntegration = BaseIntegration & {
   config: OllamaConfig;
 };
 
+export type BedrockIntegration = BaseIntegration & {
+  type: 'bedrock';
+  config: BedrockConfig;
+};
+
+export type CustomIntegration = BaseIntegration & {
+  type: 'custom';
+  config: CustomConfig;
+};
+
 export type Integration =
   | EmailIntegration
   | GmailIntegration
@@ -181,7 +208,9 @@ export type Integration =
   | PerplexityIntegration
   | LocalEmbeddingsIntegration
   | QwenIntegration
-  | OllamaIntegration;
+  | OllamaIntegration
+  | BedrockIntegration
+  | CustomIntegration;
 
 export type SourceDepartmentLink = {
   id: number;
@@ -316,9 +345,7 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
-  getSourceDepartments: async (
-    id: number
-  ): Promise<ApiResponse<SourceDepartmentLink[]>> => {
+  getSourceDepartments: async (id: number): Promise<ApiResponse<SourceDepartmentLink[]>> => {
     const response = await apiClient.get<{
       success: boolean;
       data: SourceDepartmentLink[];

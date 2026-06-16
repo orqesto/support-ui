@@ -54,20 +54,17 @@ export const AIProvidersSettings = () => {
     });
   }, []);
 
-  const handleProviderDisabled = useCallback(
-    (data: unknown) => {
-      const event = data as { name?: string; provider?: string; reason?: string };
-      const label = event.name ?? event.provider ?? 'An AI provider';
-      fetchIntegrations().catch((err) => logger.error('Failed to refresh integrations:', err));
-      setAlertDialog({
-        open: true,
-        title: 'AI Provider Disabled',
-        description: `${label} was automatically disabled due to a health check failure${event.reason ? `: ${event.reason}` : '.'} Please review and re-enable it once the issue is resolved.`,
-        variant: 'warning',
-      });
-    },
-    []
-  );
+  const handleProviderDisabled = useCallback((data: unknown) => {
+    const event = data as { name?: string; provider?: string; reason?: string };
+    const label = event.name ?? event.provider ?? 'An AI provider';
+    fetchIntegrations().catch((err) => logger.error('Failed to refresh integrations:', err));
+    setAlertDialog({
+      open: true,
+      title: 'AI Provider Disabled',
+      description: `${label} was automatically disabled due to a health check failure${event.reason ? `: ${event.reason}` : '.'} Please review and re-enable it once the issue is resolved.`,
+      variant: 'warning',
+    });
+  }, []);
 
   useEffect(() => {
     subscribeToEvent('provider_disabled', handleProviderDisabled);
@@ -80,15 +77,7 @@ export const AIProvidersSettings = () => {
       if (response.success && response.data) {
         setIntegrations(
           response.data.filter(
-            (integ) =>
-              integ.type === 'openai' ||
-              integ.type === 'anthropic' ||
-              integ.type === 'deepseek' ||
-              integ.type === 'perplexity' ||
-              integ.type === 'qwen' ||
-              integ.type === 'ollama' ||
-              integ.type === 'bedrock' ||
-              integ.type === 'local_embeddings'
+            (integ) => isAIProviderType(integ.type) || integ.type === 'local_embeddings'
           )
         );
       }
@@ -200,12 +189,7 @@ export const AIProvidersSettings = () => {
     setDeleteConfirm(null);
   };
 
-  const toggleEnabled = async (
-    id: number,
-    currentEnabled: boolean,
-    name: string,
-    type: string
-  ) => {
+  const toggleEnabled = async (id: number, currentEnabled: boolean, name: string, type: string) => {
     setToggling(id);
     const isEnabling = !currentEnabled;
 
@@ -363,12 +347,10 @@ export const AIProvidersSettings = () => {
       <div className="px-4 py-3 text-xs rounded-md border bg-muted/30 text-muted-foreground">
         <p className="leading-relaxed">
           <strong className="text-foreground">Two kinds of auto-reply</strong> can fire on an
-          inbound message:{' '}
-          <strong>Acknowledgment auto-reply</strong> (configured below, per email source) sends a
-          prepared "we got your message" note with a public tracking link — always, on the first
-          inbound.{' '}
-          <strong>AI Auto-Reply</strong> drafts a real answer when the AI has high confidence in
-          the documentation; configure it under{' '}
+          inbound message: <strong>Acknowledgment auto-reply</strong> (configured below, per email
+          source) sends a prepared "we got your message" note with a public tracking link — always,
+          on the first inbound. <strong>AI Auto-Reply</strong> drafts a real answer when the AI has
+          high confidence in the documentation; configure it under{' '}
           <a href="#ai" className="font-medium underline text-foreground">
             AI → Auto-Reply
           </a>
