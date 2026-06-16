@@ -14,7 +14,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { aiService } from '@/services/ai.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
-import type { AIModel, AIProvider } from '@/types/aiProviders';
+import { isAIProviderType, type AIModel, type AIProvider } from '@/types/aiProviders';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 
@@ -214,10 +214,7 @@ export const AIProvidersSettings = () => {
         if (integration.id === id) {
           return { ...integration, enabled: isEnabling };
         }
-        const isAIProvider = ['openai', 'anthropic', 'deepseek', 'perplexity', 'qwen', 'ollama', 'bedrock'].includes(
-          integration.type
-        );
-        if (isEnabling && isAIProvider) {
+        if (isEnabling && isAIProviderType(integration.type)) {
           return { ...integration, enabled: false };
         }
         return integration;
