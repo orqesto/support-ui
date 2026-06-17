@@ -28,7 +28,7 @@ import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import { hashNameToLabelColor } from './inboxCardHelpers';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
-import { formatConvId, getSpamCheck } from '@/lib/messageHelpers';
+import { formatConvId, getConvUrlId, getSpamCheck } from '@/lib/messageHelpers';
 import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
@@ -441,7 +441,7 @@ export function MessageDetailHeader({
   );
 
   const handleCopyLink = useCallback(() => {
-    const url = `${window.location.origin}/messages?id=${message.id}`;
+    const url = `${window.location.origin}/messages?id=${getConvUrlId(message)}`;
     navigator.clipboard
       .writeText(url)
       .then(() => {
@@ -449,7 +449,7 @@ export function MessageDetailHeader({
         setTimeout(() => setLinkCopied(false), 2000);
       })
       .catch((err) => logger.error('Failed to copy link:', err));
-  }, [message.id]);
+  }, [message]);
 
   const handleCheckContradiction = useCallback(async () => {
     try {

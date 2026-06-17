@@ -25,6 +25,7 @@ import {
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
+import { getConvUrlId } from '@/lib/messageHelpers';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
@@ -125,7 +126,10 @@ export const MessagesPage = () => {
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
 
   const urlSyncedRef = useRef(false);
-  const fetchedMessageIdRef = useRef<number | null>(null);
+  // Holds the URL form of the last-fetched conv id (either the numeric id as a
+  // string or a publicId like 'SUP-42') — see useMessagesUrlSync for the dedup
+  // contract. Stays in sync with what's written to the URL via getConvUrlId.
+  const fetchedMessageIdRef = useRef<string | null>(null);
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
 
   const {
@@ -208,13 +212,13 @@ export const MessagesPage = () => {
         const res = await messageService.getById(preferredId);
         if (res.success && res.data) {
           const messageToShow = res.data;
-          fetchedMessageIdRef.current = messageToShow.id;
+          fetchedMessageIdRef.current = getConvUrlId(messageToShow);
           setSelectedMessage({
             ...messageToShow,
             lastReplyFromClient: messageToShow.lastReplyFromClient ?? thread.lastReplyFromClient,
           });
           const params = new URLSearchParams(searchParams);
-          params.set('id', messageToShow.id.toString());
+          params.set('id', getConvUrlId(messageToShow));
           setSearchParams(params);
           return;
         }
@@ -223,10 +227,10 @@ export const MessagesPage = () => {
       }
       const fallback = thread.latestIncomingMessage ?? thread.latestMessage;
       if (fallback) {
-        fetchedMessageIdRef.current = fallback.id;
+        fetchedMessageIdRef.current = getConvUrlId(fallback);
         setSelectedMessage(fallback);
         const params = new URLSearchParams(searchParams);
-        params.set('id', fallback.id.toString());
+        params.set('id', getConvUrlId(fallback));
         setSearchParams(params);
       }
     },
@@ -269,7 +273,7 @@ export const MessagesPage = () => {
         setSelectedMessage(response.data);
 
         const params = new URLSearchParams(searchParams);
-        params.set('id', reopenedMessageId.toString());
+        params.set('id', getConvUrlId(response.data));
         setSearchParams(params);
       }
     } catch (error: unknown) {
@@ -595,7 +599,7 @@ export const MessagesPage = () => {
                   onOpenMessage={(msg) => {
                     setSelectedMessage(msg);
                     const params = new URLSearchParams(searchParams);
-                    params.set('id', msg.id.toString());
+                    params.set('id', getConvUrlId(msg));
                     setSearchParams(params);
                   }}
                 />
