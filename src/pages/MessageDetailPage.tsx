@@ -15,9 +15,12 @@ export const MessageDetailPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const numId = id ? parseInt(id, 10) : NaN;
-    if (id && !isNaN(numId)) {
-      void fetchMessage(numId, true);
+    // `id` may be either a numeric conv id ('16952') or a publicId ('SUP-42').
+    // Pass the raw string straight through — the BE's resolveConvIdFromParam
+    // dual-resolves both shapes. Previously this used parseInt and silently
+    // dropped any non-numeric (i.e. publicId-shaped) URL.
+    if (id) {
+      void fetchMessage(id, true);
     }
   }, [id]);
 
@@ -25,7 +28,7 @@ export const MessageDetailPage = () => {
     if (message) navigate(`/tickets/create?messageId=${message.id}`);
   }, [message, navigate]);
 
-  const fetchMessage = async (messageId: number, fullLoad = false) => {
+  const fetchMessage = async (messageId: number | string, fullLoad = false) => {
     try {
       if (fullLoad) setLoading(true);
       const response = await messageService.getById(messageId);

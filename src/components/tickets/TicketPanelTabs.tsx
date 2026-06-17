@@ -6,6 +6,7 @@ import { TicketComments } from './TicketComments';
 import { TicketAttachments } from './TicketAttachments';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
+import { getConvUrlId } from '@/lib/messageHelpers';
 
 type Tab = 'comments' | 'attachments' | 'messages';
 
@@ -107,7 +108,7 @@ export function TicketPanelTabs({
                 return (
                   <Link
                     key={root.id}
-                    to={`/messages?id=${root.id}`}
+                    to={`/messages?id=${getConvUrlId(root)}`}
                     className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
                   >
                     <div className="p-2 rounded bg-blue-500/10 flex-shrink-0">

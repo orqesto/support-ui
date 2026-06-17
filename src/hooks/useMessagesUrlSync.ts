@@ -40,7 +40,11 @@ const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
 
 interface UseMessagesUrlSyncProps {
   urlSyncedRef: MutableRefObject<boolean>;
-  fetchedMessageIdRef: MutableRefObject<number | null>;
+  // Holds the URL form of the last-fetched conv id (either the numeric id as a
+  // string or a publicId like 'SUP-42'). Stored as string so the dedup compare
+  // against `searchParams.get('id')` is a single equality check that works
+  // identically for both URL forms.
+  fetchedMessageIdRef: MutableRefObject<string | null>;
   fetchMessages: (page?: number, force?: boolean) => Promise<void>;
   selectedMessage: Message | null;
   setSelectedMessage: (msg: Message | null) => void;
@@ -181,13 +185,15 @@ export const useMessagesUrlSync = ({
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
-  // Auto-open message from ?id= param
+  // Auto-open message from ?id= param. The param can be a numeric conv id
+  // (legacy / unstamped) OR a publicId like 'SUP-42' (current). Pass the raw
+  // string straight to messageService.getById — the BE's resolveConvIdFromParam
+  // dual-resolves both forms. Avoids the prior `parseInt` path that turned
+  // 'SUP-42' into NaN and silently dropped the open.
   useEffect(() => {
-    const messageIdParam = searchParams.get('id');
-    const parsed = messageIdParam ? parseInt(messageIdParam, 10) : null;
-    const paramId = parsed !== null && !isNaN(parsed) ? parsed : null;
+    const paramId = searchParams.get('id');
 
-    if (paramId !== null) {
+    if (paramId !== null && paramId !== '') {
       if (paramId === fetchedMessageIdRef.current) return;
       fetchedMessageIdRef.current = paramId;
 

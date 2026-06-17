@@ -150,7 +150,10 @@ export const messageService = {
     return response.data;
   },
 
-  getById: async (id: number) => {
+  // Accepts numeric `id` OR publicId (`SUP-42`). The BE's resolveConvIdFromParam
+  // does the dual-resolve; the FE just passes whatever the URL has so shared
+  // links of either shape work without a parse-and-narrow at the call site.
+  getById: async (id: number | string) => {
     const response = await apiClient.get<ApiResponse<Message>>(`/api/messages/${id}`);
     return response.data;
   },

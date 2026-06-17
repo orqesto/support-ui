@@ -37,6 +37,20 @@ export const hasMessageAttachments = (message: { attachmentCount?: number }) =>
 export const formatConvId = (msg: { id: number; publicId?: string | null }): string =>
   msg.publicId ?? `#${msg.id}`;
 
+/**
+ * Conversation identifier for URL building. Prefers publicId ('SUP-42',
+ * URL-safe alphanumeric + hyphen) over the numeric id. Used by every
+ * `?id=` writer and the copy-link button so shared URLs survive across
+ * orgs with different ID counters.
+ *
+ * The BE's `resolveConvIdFromParam` (messageController.ts) accepts both
+ * formats — this is purely cosmetic / shareability. Backward-compatible:
+ * shared URLs in `?id=16952` shape keep working until those convs get
+ * a publicId via the orchestrator stamp or the backfill script.
+ */
+export const getConvUrlId = (msg: { id: number; publicId?: string | null }): string =>
+  msg.publicId ?? msg.id.toString();
+
 // Spam Check helpers
 type SpamCheckData = {
   isSpam?: boolean;
