@@ -25,6 +25,7 @@ import {
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
+import { getConvUrlId } from '@/lib/messageHelpers';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
@@ -214,7 +215,7 @@ export const MessagesPage = () => {
             lastReplyFromClient: messageToShow.lastReplyFromClient ?? thread.lastReplyFromClient,
           });
           const params = new URLSearchParams(searchParams);
-          params.set('id', messageToShow.id.toString());
+          params.set('id', getConvUrlId(messageToShow));
           setSearchParams(params);
           return;
         }
@@ -226,7 +227,7 @@ export const MessagesPage = () => {
         fetchedMessageIdRef.current = fallback.id;
         setSelectedMessage(fallback);
         const params = new URLSearchParams(searchParams);
-        params.set('id', fallback.id.toString());
+        params.set('id', getConvUrlId(fallback));
         setSearchParams(params);
       }
     },
@@ -269,7 +270,7 @@ export const MessagesPage = () => {
         setSelectedMessage(response.data);
 
         const params = new URLSearchParams(searchParams);
-        params.set('id', reopenedMessageId.toString());
+        params.set('id', getConvUrlId(response.data));
         setSearchParams(params);
       }
     } catch (error: unknown) {
@@ -595,7 +596,7 @@ export const MessagesPage = () => {
                   onOpenMessage={(msg) => {
                     setSelectedMessage(msg);
                     const params = new URLSearchParams(searchParams);
-                    params.set('id', msg.id.toString());
+                    params.set('id', getConvUrlId(msg));
                     setSearchParams(params);
                   }}
                 />
