@@ -8,7 +8,22 @@ import type { Attachment } from './MessageAttachments';
 
 type Props = {
   msg: MessageEvent;
-  mainMessageId: number;
+  /**
+   * @deprecated Kept for back-compat with the parent's prop wiring. The
+   * previous `msg.id === mainMessageId` ring-highlight compared a
+   * `messageEvents.id` to a `conversations.id` (different ID spaces) — it
+   * fired only by numeric coincidence. Not used anymore; will be removed
+   * once the parent stops passing it.
+   */
+  mainMessageId?: number;
+  /**
+   * @deprecated Removed 2026-06-17. Clicking a customer bubble used to call
+   * this with `msg.id` (a `messageEvents.id`), which `messageController`'s
+   * fallback resolution silently turned into "fetch conversation with that
+   * numeric id" — collisions caused a silent conv-swap. Parent's wiring will
+   * be cleaned up next; prop kept for now to avoid a breaking call-site
+   * change.
+   */
   onMessageNavigate?: (id: number) => void;
   attachments?: Attachment[];
   onOpenAttachment?: (id: number) => void;
@@ -16,8 +31,6 @@ type Props = {
 
 export function ThreadMessageItem({
   msg,
-  mainMessageId,
-  onMessageNavigate,
   attachments = [],
   onOpenAttachment,
 }: Props) {
@@ -96,50 +109,32 @@ export function ThreadMessageItem({
           <span>{msg.authorEmail ?? 'Customer'}</span>
           <span>{relativeTime(msgTime)}</span>
         </div>
-        {msg.id === mainMessageId ? (
-          <div className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground ring-1 ring-ring/40">
-            <div className="flex items-start gap-1.5">
-              <div className="flex-1 min-w-0 break-words">
-                <ThreadBubble content={translatedContent ?? msg.content} isAgent={false} />
-              </div>
-              <div className="flex-shrink-0 mt-0.5">
-                <TranslateButton
-                  messageId={msg.id}
-                  onTranslated={(content) => setTranslatedContent(content)}
-                  onCleared={() => setTranslatedContent(null)}
-                />
-              </div>
+        {/* 2026-06-17: customer bubbles are no longer clickable. The previous
+            implementation called `onMessageNavigate(msg.id)` with a
+            `messageEvents.id`, and the BE's getMessageById falls back from
+            conv_id → event_id resolution — so any event_id that numerically
+            collided with another conversation_id silently swapped the
+            displayed conversation, wiping composer state on the
+            `key={message.id}` remount in MessagesPage / MessageDetailPage.
+            Reproduced by the 2026-06-17 routing audit (reply intended for
+            conv_4 landed on conv_5). The same-conversation "focus an older
+            message" intent (suggestedAnswer for that specific message) was
+            never wired up beyond the URL navigation, so removing the click
+            is non-regressive. */}
+        <div className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground">
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0 break-words">
+              <ThreadBubble content={translatedContent ?? msg.content} isAgent={false} />
+            </div>
+            <div className="flex-shrink-0 mt-0.5">
+              <TranslateButton
+                messageId={msg.id}
+                onTranslated={(content) => setTranslatedContent(content)}
+                onCleared={() => setTranslatedContent(null)}
+              />
             </div>
           </div>
-        ) : (
-          <div
-            className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground"
-            role="button"
-            tabIndex={0}
-            onClick={() => onMessageNavigate?.(msg.id)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') onMessageNavigate?.(msg.id);
-            }}
-          >
-            <div className="flex items-start gap-1.5">
-              <div className="flex-1 min-w-0 break-words">
-                <ThreadBubble content={translatedContent ?? msg.content} isAgent={false} />
-              </div>
-              <div
-                className="flex-shrink-0 mt-0.5"
-                onClick={(ev) => ev.stopPropagation()}
-                onKeyDown={(ev) => ev.stopPropagation()}
-                role="none"
-              >
-                <TranslateButton
-                  messageId={msg.id}
-                  onTranslated={(content) => setTranslatedContent(content)}
-                  onCleared={() => setTranslatedContent(null)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {attachments.map((att) => (
