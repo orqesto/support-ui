@@ -403,6 +403,20 @@ export const MessagesPage = () => {
     return () => unsubscribeFromEvent('conversation:routed', handleConversationRouted);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
+  // Refresh on server-side conv status transitions (resurface on customer
+  // follow-up to resolved/closed conv, awaiting_response → client_replied on
+  // inbound). Without this the row stays in the wrong column until manual
+  // refresh. Same shape as the conversation:routed handler above.
+  useEffect(() => {
+    const handleStatusChanged = () => {
+      clearCache();
+      void fetchMessages(messagesPagination.page, true);
+      bumpKanban();
+    };
+    subscribeToEvent('conv:status_changed', handleStatusChanged);
+    return () => unsubscribeFromEvent('conv:status_changed', handleStatusChanged);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+
   // Refresh when a conversation's tab membership changes: approve/mark_suspicious/
   // move_to_spam (immediate, from the agent's own click) and bot_reply (deferred,
   // when auto-reply completes asynchronously after AI analysis on a previously-
