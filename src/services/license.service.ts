@@ -15,11 +15,12 @@ export type LicenseStatus = {
 
 const getLicenseStatus = async (): Promise<LicenseStatus | null> => {
   const response = await apiClient.get<LicenseStatus>('/api/admin/license-status', {
-    // BE returns 204 when enforcement is off — axios would treat as success
-    // but no payload. We surface that as null so the banner stays hidden.
-    validateStatus: (status) => status === 200 || status === 204,
+    // 200 → payload. 204 → enforcement off (dev / SMOKE_TEST). 404 → BE doesn't
+    // have the endpoint yet (FE deployed ahead of BE). All map to null so the
+    // banner stays hidden — never surface a console error for a missing banner.
+    validateStatus: (status) => status === 200 || status === 204 || status === 404,
   });
-  if (response.status === 204) return null;
+  if (response.status !== 200) return null;
   return response.data;
 };
 
