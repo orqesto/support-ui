@@ -39,6 +39,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { SLANotificationBell } from './SLANotificationBell';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
 import { LearningNotificationBell } from './LearningNotificationBell';
+import { LicenseExpiryBanner } from './LicenseExpiryBanner';
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
@@ -618,6 +619,7 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
           </header>
           <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
+            <LicenseExpiryBanner />
             {children}
           </main>
         </div>
