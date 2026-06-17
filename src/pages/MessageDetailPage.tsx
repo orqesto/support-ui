@@ -86,6 +86,7 @@ export const MessageDetailPage = () => {
         <div className="flex overflow-hidden flex-1 justify-center min-h-0">
           <div className="flex flex-col w-full max-w-7xl h-full border-x border-border">
             <MessageDetail
+              key={message.id}
               message={message}
               onRefresh={() => fetchMessage(message.id)}
               onApprove={handleApprove}

@@ -657,6 +657,7 @@ export const MessagesPage = () => {
               style={{ top: 'var(--mobile-header-h, 0px)' }}
             >
               <MessageDetail
+                key={selectedMessage.id}
                 message={selectedMessage}
                 onClose={() => {
                   const params = new URLSearchParams(searchParams);
