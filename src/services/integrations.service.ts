@@ -280,9 +280,12 @@ export const integrationsService = {
     return { success: response.data.success };
   },
 
-  test: async (id: number): Promise<ApiResponse<{ success: boolean; message: string }>> => {
+  test: async (
+    id: number,
+    type: string
+  ): Promise<ApiResponse<{ success: boolean; message: string }>> => {
     const response = await apiClient.post<{ success: boolean; message: string }>(
-      `/api/integrations/${id}/test`
+      `/api/integrations/${id}/test?type=${encodeURIComponent(type)}`
     );
     return { success: response.data.success, data: response.data };
   },

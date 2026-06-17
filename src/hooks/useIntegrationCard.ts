@@ -92,7 +92,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
     async (id: number, name: string) => {
       setTesting(id);
       try {
-        const response = await integrationsService.test(id);
+        const response = await integrationsService.test(id, integrationType);
         if (response.success) {
           onShowAlert({
             open: true,
@@ -120,7 +120,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         setTesting(null);
       }
     },
-    [onShowAlert]
+    [integrationType, onShowAlert]
   );
 
   const deleteIntegration = useCallback(
