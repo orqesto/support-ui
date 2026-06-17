@@ -10,6 +10,7 @@ import {
   Plug,
   MessageSquare,
   Zap,
+  Settings,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -18,9 +19,11 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
+import { subscriptionService } from '@/services/subscription.service';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, Permission } from '@/types/roles';
-import { logger } from '@/lib/logger';
 
 type UsageItem = {
   current: number;
@@ -87,6 +90,23 @@ export const SubscriptionPage = () => {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const handleOpenPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const url = await subscriptionService.openCustomerPortal();
+      // Full-page nav — Stripe Portal lives on stripe.com and returns to
+      // /subscription?status=portal_return per BE's return_url.
+      window.location.href = url;
+    } catch (err) {
+      logger.error('Failed to open customer portal:', err);
+      // BE returns 400 when org has no Stripe customer yet (haven't completed
+      // checkout) — surface that wording, not a generic error.
+      toast.failure('open the billing portal', err);
+      setPortalLoading(false);
+    }
+  };
 
   const canManage = user
     ? hasPermission(
@@ -384,7 +404,7 @@ export const SubscriptionPage = () => {
         </Card>
 
         {/* Quick Links */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card
             className="transition-shadow cursor-pointer hover:shadow-md"
             onClick={() => navigate('/settings/usage')}
@@ -406,6 +426,26 @@ export const SubscriptionPage = () => {
                 <h3 className="mb-1 font-semibold">Manage Plan</h3>
                 <p className="text-sm text-foreground/70">
                   Upgrade, downgrade, or cancel your subscription
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {canManage && (
+            <Card
+              className={`transition-shadow ${portalLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:shadow-md'}`}
+              onClick={() => {
+                if (portalLoading) return;
+                void handleOpenPortal();
+              }}
+            >
+              <CardContent className="p-6">
+                <Settings className="mb-3 w-8 h-8 text-purple-600" />
+                <h3 className="mb-1 font-semibold">
+                  {portalLoading ? 'Opening Billing Portal…' : 'Billing & Invoices'}
+                </h3>
+                <p className="text-sm text-foreground/70">
+                  Manage payment methods, view invoices, cancel subscription
                 </p>
               </CardContent>
             </Card>
