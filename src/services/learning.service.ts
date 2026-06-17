@@ -1,8 +1,14 @@
 import { apiClient } from '@/lib/api-client';
 
+// Keep in sync with `src/shared/learning/learningService.ts` on the BE.
+// Missing entries here cause silent type widening at the API boundary:
+// the BE accepts `'detection'` / `'contradiction'` as valid filters, but
+// FE callers passing those would have been rejected at compile time.
 export type LearningDomain =
   | 'routing'
   | 'spam'
+  | 'detection'
+  | 'contradiction'
   | 'category'
   | 'suggested_reply'
   | 'auto_reply'
