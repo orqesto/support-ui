@@ -99,7 +99,7 @@ type MessageFiltersProps = {
   /** Full count without kanban-mode exclusions — gates the "Clear All" enabled state */
   clearableFilterCount?: number;
   pagination: { page: number; limit: number; total: number };
-  onFilterChange: (key: string, value: string) => void;
+  onFilterChange: (key: string, value: string | boolean) => void;
   onSearch: () => void;
   onSearchBlur: () => void;
   onClearFilters: () => void;
