@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/Button';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useModules } from '@/hooks/useModules';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
@@ -69,6 +70,7 @@ const allNavigation: Array<{
   adminOnly?: boolean;
   moduleRequired?: string;
   showBadge?: boolean;
+  hideOnSelfHosted?: boolean;
 }> = [
   // ─── Work — daily inbox / triage ────────────────────────────────────────────
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -124,6 +126,7 @@ const allNavigation: Array<{
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
     moduleRequired: 'billing-intelligence',
+    hideOnSelfHosted: true,
   },
 
   // ─── Admin — configuration & rare-use ───────────────────────────────────────
@@ -142,6 +145,7 @@ const allNavigation: Array<{
     href: '/subscription',
     icon: CreditCard,
     permission: Permission.VIEW_SUBSCRIPTION,
+    hideOnSelfHosted: true,
   },
   {
     group: 'admin',
@@ -413,12 +417,21 @@ export const Layout = ({ children }: LayoutProps) => {
     return filtered;
   }, [sessions, closedSessions]);
 
+  const { data: backendVersion } = useBackendVersion();
+  const isSelfHosted = backendVersion?.selfHosted ?? false;
+
   // Filter navigation based on permissions
   const navigation = useMemo(
     () =>
       allNavigation.filter((item) => {
         // Check if admin-only and user is global admin
         if (item.adminOnly && user?.role !== 'admin') {
+          return false;
+        }
+        // Customer-facing billing UI hidden on self-hosted deployments. Admin
+        // Plans & Modules / Organization Usage live on AdminDashboardPage and
+        // are unaffected — those are still needed to assign the admin plan.
+        if (item.hideOnSelfHosted && isSelfHosted) {
           return false;
         }
         // Check module gate (item hidden if module not enabled for the org)
@@ -439,7 +452,7 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasModule, user?.role, hasTickets]
+    [hasPermission, hasModule, user?.role, hasTickets, hasRoutingItems, isSelfHosted]
   );
 
   const handleLogout = () => {
