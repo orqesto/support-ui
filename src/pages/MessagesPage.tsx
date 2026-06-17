@@ -126,7 +126,10 @@ export const MessagesPage = () => {
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
 
   const urlSyncedRef = useRef(false);
-  const fetchedMessageIdRef = useRef<number | null>(null);
+  // Holds the URL form of the last-fetched conv id (either the numeric id as a
+  // string or a publicId like 'SUP-42') — see useMessagesUrlSync for the dedup
+  // contract. Stays in sync with what's written to the URL via getConvUrlId.
+  const fetchedMessageIdRef = useRef<string | null>(null);
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
 
   const {
@@ -209,7 +212,7 @@ export const MessagesPage = () => {
         const res = await messageService.getById(preferredId);
         if (res.success && res.data) {
           const messageToShow = res.data;
-          fetchedMessageIdRef.current = messageToShow.id;
+          fetchedMessageIdRef.current = getConvUrlId(messageToShow);
           setSelectedMessage({
             ...messageToShow,
             lastReplyFromClient: messageToShow.lastReplyFromClient ?? thread.lastReplyFromClient,
@@ -224,7 +227,7 @@ export const MessagesPage = () => {
       }
       const fallback = thread.latestIncomingMessage ?? thread.latestMessage;
       if (fallback) {
-        fetchedMessageIdRef.current = fallback.id;
+        fetchedMessageIdRef.current = getConvUrlId(fallback);
         setSelectedMessage(fallback);
         const params = new URLSearchParams(searchParams);
         params.set('id', getConvUrlId(fallback));
