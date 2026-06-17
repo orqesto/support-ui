@@ -252,7 +252,7 @@ export const GmailIntegrationCard = ({
 
   const testConnection = async (id: number, name: string) => {
     try {
-      const response = await integrationsService.test(id);
+      const response = await integrationsService.test(id, 'gmail');
       if (response.success) {
         onShowAlert({
           open: true,

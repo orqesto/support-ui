@@ -17,7 +17,7 @@ type OpenAIProviderCardProps = {
   editingId: number | null;
   onToggleModels: (id: number) => void;
   onEdit: (integration: Integration) => void;
-  onTest: (id: number, name: string) => void;
+  onTest: (id: number, name: string, type: string) => void;
   onDelete: (id: number, name: string, type: string) => void;
   onToggleEnabled: (id: number, currentEnabled: boolean, name: string, type: string) => void;
   onSave: (config: OpenAIConfig) => void;
@@ -178,7 +178,7 @@ export const OpenAIProviderCard = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onTest(integration.id, integration.name)}
+                      onClick={() => onTest(integration.id, integration.name, integration.type)}
                       isLoading={testing === integration.id}
                       disabled={!integration.hasCredentials}
                     >

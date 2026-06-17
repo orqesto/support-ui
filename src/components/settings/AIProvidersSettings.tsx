@@ -261,10 +261,10 @@ export const AIProvidersSettings = () => {
     }
   };
 
-  const testConnection = async (id: number, name: string) => {
+  const testConnection = async (id: number, name: string, type: string) => {
     setTesting(id);
     try {
-      const response = await integrationsService.test(id);
+      const response = await integrationsService.test(id, type);
       if (response.success) {
         setAlertDialog({
           open: true,

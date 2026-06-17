@@ -245,7 +245,7 @@ export const EmailIntegrationCard = ({
   const testConnection = async (id: number, name: string) => {
     setTesting(id);
     try {
-      const response = await integrationsService.test(id);
+      const response = await integrationsService.test(id, 'email');
       if (response.success) {
         onShowAlert({
           open: true,
