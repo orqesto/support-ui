@@ -120,7 +120,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         setTesting(null);
       }
     },
-    [onShowAlert]
+    [integrationType, onShowAlert]
   );
 
   const deleteIntegration = useCallback(
