@@ -128,8 +128,9 @@ export function MessageActionStrip({
     );
   }
 
-  // Unreviewed — status='open' (unprocessed) or status='new' (just arrived)
-  if ((message.status === 'open' || message.status === 'new') && !isSuspicious && onReopen) {
+  // Unreviewed — status='open' (unprocessed). The DB-side 'new' status is mapped
+  // to ThreadStatus='open' on the API boundary, so this only checks 'open'.
+  if (message.status === 'open' && !isSuspicious && onReopen) {
     return (
       <div className={strip}>
         <p className={statusLabel}>Unreviewed — close without sending a reply</p>
