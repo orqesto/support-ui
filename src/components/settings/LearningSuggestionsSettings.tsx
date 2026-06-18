@@ -296,14 +296,14 @@ export const LearningSuggestionsSettings = () => {
                         <div className="flex justify-between gap-3 items-start p-3">
                           <div className="flex-1 min-w-0">
                             <button
-                              className="flex items-center gap-1 text-left w-full group"
+                              className="flex items-start gap-1 text-left w-full min-w-0 group"
                               onClick={() => setExpandedId((prev) => prev === suggestion.id ? null : suggestion.id)}
                             >
                               {expandedId === suggestion.id
-                                ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                                : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                                ? <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                                : <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                               }
-                              <p className="text-sm font-medium group-hover:underline">
+                              <p className="min-w-0 break-words text-sm font-medium group-hover:underline">
                                 {summarizeSuggestion(suggestion, deptNameById)}
                               </p>
                             </button>
