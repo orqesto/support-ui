@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
 import type { ProcessingSession } from '@/hooks/useEmailProcessing';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
@@ -131,8 +132,13 @@ export const MessageProcessingProgress = ({
   // conv IDs, prefer that count over the queue-derived `analyzed`. Surfaces
   // cap-throttled backfills that drained the queue but left N convs without
   // metadata.analysis. See .planning/processing-progress-db-truth.md.
+  const { aiConfigured } = useAiConfigured();
   const hasGapInfo = typeof missingAnalysis === 'number';
-  const isGap = hasGapInfo && missingAnalysis > 0;
+  // When AI is unconfigured, every message trivially has no analysis —
+  // surfacing "Missing AI: N" reads as a bug. Suppress the gap UI in that
+  // mode (badge, partial-progress label) so AI-off looks like "Complete"
+  // instead of "Partial".
+  const isGap = hasGapInfo && missingAnalysis > 0 && aiConfigured;
   const truthCount = analyzedInDb ?? analyzed ?? successful ?? 0;
 
   // When in KB-processing mode, use KB-specific totals for the main progress display
@@ -159,7 +165,9 @@ export const MessageProcessingProgress = ({
     : session.stage === 'finalizing'
       ? 'Finalizing'
       : session.stage === 'finalizing-with-gaps'
-        ? `Partial — ${truthCount} of ${total} analyzed`
+        ? aiConfigured
+          ? `Partial — ${truthCount} of ${total} analyzed`
+          : 'Processed (AI disabled)'
         : session.stage === 'analyzing' || isKBMode
           ? 'Analyzing'
           : 'Processing';
