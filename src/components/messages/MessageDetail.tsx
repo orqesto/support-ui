@@ -371,6 +371,12 @@ export function MessageDetail({
         })
       );
       setComposerMode('reply');
+      // Expand the (initially collapsed) reply editor + focus it so the agent
+      // sees the populated suggested answer immediately, instead of having to
+      // click the editor's expand button first. Deferred so it fires AFTER
+      // React mounts the reply editor — if the user was in 'note' mode, the
+      // reply ref is null until the conditional render swap settles.
+      setTimeout(() => richEditorRef.current?.focus(), 0);
     },
     []
   );
