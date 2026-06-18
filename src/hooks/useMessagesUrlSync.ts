@@ -192,13 +192,17 @@ export const useMessagesUrlSync = ({
   // 'SUP-42' into NaN and silently dropped the open.
   useEffect(() => {
     const paramId = searchParams.get('id');
+    const paramKind = searchParams.get('kind');
+    // Cache key includes kind so a link with kind=event doesn't get blocked by
+    // a prior non-kind fetch for the same id (would silently mis-resolve).
+    const cacheKey = paramKind ? `${paramId}::${paramKind}` : paramId;
 
     if (paramId !== null && paramId !== '') {
-      if (paramId === fetchedMessageIdRef.current) return;
-      fetchedMessageIdRef.current = paramId;
+      if (cacheKey === fetchedMessageIdRef.current) return;
+      fetchedMessageIdRef.current = cacheKey;
 
       messageService
-        .getById(paramId)
+        .getById(paramId, paramKind === 'event' ? 'event' : undefined)
         .then((response) => {
           if (response.success && response.data) {
             setSelectedMessage(response.data);
