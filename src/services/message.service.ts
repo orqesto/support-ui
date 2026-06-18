@@ -153,8 +153,16 @@ export const messageService = {
   // Accepts numeric `id` OR publicId (`SUP-42`). The BE's resolveConvIdFromParam
   // does the dual-resolve; the FE just passes whatever the URL has so shared
   // links of either shape work without a parse-and-narrow at the call site.
-  getById: async (id: number | string) => {
-    const response = await apiClient.get<ApiResponse<Message>>(`/api/messages/${id}`);
+  //
+  // `kind` is an optional disambiguator for the numeric-id case. KB-detail links
+  // generate URLs from `messageEvents.id` (typeData.questionMessageId etc.); the
+  // BE's getById resolves "conv first, fall back to event", so an event id that
+  // numerically matches a different conv silently routes to the wrong conv —
+  // same family as FE PR #28's bug. Pass `kind: 'event'` to skip the conv
+  // lookup and resolve directly via message_events.
+  getById: async (id: number | string, kind?: 'event') => {
+    const query = kind ? `?kind=${kind}` : '';
+    const response = await apiClient.get<ApiResponse<Message>>(`/api/messages/${id}${query}`);
     return response.data;
   },
 
