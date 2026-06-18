@@ -200,9 +200,10 @@ export const KBEntryDetail = ({
                     <div className="flex flex-wrap gap-2 mt-1">
                       {hasQuestionAnswer && (
                         <>
-                          {/* Question Message */}
+                          {/* Question Message — id is a message_events.id, so include
+                              kind=event so getById skips its conv-first fallback. */}
                           <a
-                            href={`/messages?id=${typeData.questionMessageId}`}
+                            href={`/messages?id=${typeData.questionMessageId}&kind=event`}
                             className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400"
                             title="Question Message"
                           >
@@ -211,7 +212,7 @@ export const KBEntryDetail = ({
 
                           {/* Answer Message - always show even if same as question */}
                           <a
-                            href={`/messages?id=${typeData.answerMessageId}`}
+                            href={`/messages?id=${typeData.answerMessageId}&kind=event`}
                             className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 rounded hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
                             title="Answer Message"
                           >
@@ -236,7 +237,7 @@ export const KBEntryDetail = ({
                           return (
                             <a
                               key={msgId}
-                              href={`/messages?id=${msgId}`}
+                              href={`/messages?id=${msgId}&kind=event`}
                               className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400"
                               title="Other Thread Message"
                             >
