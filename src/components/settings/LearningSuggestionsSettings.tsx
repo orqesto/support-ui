@@ -152,7 +152,7 @@ const ConflictDetail = ({
         {rows.map(({ label, value }) => (
           <div key={label} className="flex gap-2">
             <dt className="shrink-0 w-24 text-muted-foreground">{label}</dt>
-            <dd className="text-foreground break-words">{value}</dd>
+            <dd className="min-w-0 flex-1 text-foreground break-words">{value}</dd>
           </div>
         ))}
       </dl>
