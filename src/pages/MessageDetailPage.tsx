@@ -97,9 +97,6 @@ export const MessageDetailPage = () => {
               onReopen={() => fetchMessage(message.id)}
               onDelete={handleBack}
               onResolve={() => fetchMessage(message.id)}
-              onMessageNavigate={(messageId) => {
-                void fetchMessage(messageId);
-              }}
             />
           </div>
         </div>

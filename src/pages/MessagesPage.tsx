@@ -705,19 +705,6 @@ export const MessagesPage = () => {
                   await fetchMessages(messagesPagination.page, true);
                   setSelectedMessage(null);
                 }}
-                onMessageNavigate={async (messageId: number) => {
-                  try {
-                    const response = await messageService.getById(messageId);
-                    if (response.success && response.data) {
-                      setSelectedMessage(response.data);
-                      const params = new URLSearchParams(searchParams);
-                      params.set('id', messageId.toString());
-                      setSearchParams(params);
-                    }
-                  } catch (error) {
-                    logger.error('Failed to navigate to message:', error);
-                  }
-                }}
               />
             </div>
           </>

@@ -8,23 +8,6 @@ import type { Attachment } from './MessageAttachments';
 
 type Props = {
   msg: MessageEvent;
-  /**
-   * @deprecated Kept for back-compat with the parent's prop wiring. The
-   * previous `msg.id === mainMessageId` ring-highlight compared a
-   * `messageEvents.id` to a `conversations.id` (different ID spaces) — it
-   * fired only by numeric coincidence. Not used anymore; will be removed
-   * once the parent stops passing it.
-   */
-  mainMessageId?: number;
-  /**
-   * @deprecated Removed 2026-06-17. Clicking a customer bubble used to call
-   * this with `msg.id` (a `messageEvents.id`), which `messageController`'s
-   * fallback resolution silently turned into "fetch conversation with that
-   * numeric id" — collisions caused a silent conv-swap. Parent's wiring will
-   * be cleaned up next; prop kept for now to avoid a breaking call-site
-   * change.
-   */
-  onMessageNavigate?: (id: number) => void;
   attachments?: Attachment[];
   onOpenAttachment?: (id: number) => void;
 };
