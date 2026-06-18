@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Check, X, RefreshCw, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Sparkles, Check, X, RefreshCw, AlertCircle, ChevronDown, ChevronRight, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
-import { learningService, type LearningSuggestion } from '@/services/learning.service';
+import {
+  learningService,
+  type LearningSuggestion,
+  type SuggestionEvidenceItem,
+} from '@/services/learning.service';
 import { logger } from '@/lib/logger';
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -101,6 +106,106 @@ const summarizeSuggestion = (
   return suggestion.suggestionType.replace(/_/g, ' ');
 };
 
+// Evidence section — lazy-fetched on first expand. Shows the actual messages
+// behind the conflict with per-rule match badges and a deep-link to the
+// conversation, so admins can judge whether the conflict is real on
+// user-visible traffic before clicking Accept/Decline.
+const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<SuggestionEvidenceItem[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    // Lazy-load: only fetch on first expand. Subsequent toggles use cache.
+    if (next && items === null && !loading) {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await learningService.getSuggestionEvidence(suggestionId);
+        setItems(response.evidence);
+      } catch (err) {
+        logger.error('Failed to load suggestion evidence:', err);
+        setError('Failed to load evidence');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/40">
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+      >
+        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        <Eye className="w-3 h-3" />
+        Evidence messages
+      </button>
+      {open && (
+        <div className="mt-2">
+          {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
+          {error && (
+            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          )}
+          {!loading && !error && items !== null && items.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">
+              No evidence messages available for this suggestion.
+            </p>
+          )}
+          {!loading && !error && items !== null && items.length > 0 && (
+            <ul className="space-y-2">
+              {items.map((item) => (
+                <li
+                  key={item.messageId}
+                  className="rounded-md border border-border/60 bg-background/40 p-2"
+                >
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                    <Link
+                      to={`/messages/${item.conversationId}`}
+                      className="text-xs font-medium text-primary hover:underline truncate max-w-[280px]"
+                      title={item.subject ?? '(no subject)'}
+                    >
+                      {item.subject && item.subject.length > 0
+                        ? item.subject
+                        : '(no subject)'}
+                    </Link>
+                    {item.ruleAMatched && (
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                        A
+                      </span>
+                    )}
+                    {item.ruleBMatched && (
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                        B
+                      </span>
+                    )}
+                    {item.ruleAMatched && item.ruleBMatched && (
+                      <span
+                        className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-red-500/15 text-red-700 dark:text-red-300"
+                        title="This message matches both rules — the conflict is real here"
+                      >
+                        Overlap
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {item.contentExcerpt}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ConflictDetail = ({
   suggestion,
   deptNameById,
@@ -146,6 +251,12 @@ const ConflictDetail = ({
 
   if (cosine !== null) rows.push({ label: 'Similarity', value: `${(cosine * 100).toFixed(1)}%` });
 
+  // Only routing conflicts have ruleAId/ruleBId in payload → evidence endpoint
+  // returns useful data. Skip the Evidence affordance for non-routing shapes
+  // (category_mismatch, etc.) to keep the UI honest.
+  const hasRulePair =
+    typeof payload.ruleAId === 'number' && typeof payload.ruleBId === 'number';
+
   return (
     <div className="px-3 pb-3 ml-5">
       <dl className="mt-1 space-y-1 text-xs">
@@ -160,6 +271,7 @@ const ConflictDetail = ({
         <strong>Accept</strong> = engine resolves it (disables the weaker rule).{' '}
         <strong>Decline</strong> = not a real conflict, stop surfacing it.
       </p>
+      {hasRulePair && <EvidenceSection suggestionId={suggestion.id} />}
     </div>
   );
 };
