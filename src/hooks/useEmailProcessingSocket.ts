@@ -38,6 +38,11 @@ type EmailProcessingEvent = {
     fetchTime?: number;
     processTime?: number;
     totalTime?: number;
+    // DB-truth fields from BE PR #60 (queueProgressTracker) — present only
+    // when BE has verified analysis coverage on the batch's conv IDs. Old BE
+    // clients omit; FE falls back to legacy `analyzed`.
+    analyzedInDb?: number;
+    missingAnalysis?: number;
   };
 };
 
@@ -286,6 +291,12 @@ export const useEmailProcessingSocket = ({
                   emailTotal,
                   ...(event.data?.analyzed !== undefined && { analyzed: event.data.analyzed }),
                   ...(event.data?.skipped !== undefined && { skipped: event.data.skipped }),
+                  ...(event.data?.analyzedInDb !== undefined && {
+                    analyzedInDb: event.data.analyzedInDb,
+                  }),
+                  ...(event.data?.missingAnalysis !== undefined && {
+                    missingAnalysis: event.data.missingAnalysis,
+                  }),
                   progress: clampedProgress,
                   isProcessing: stillProcessing,
                 });

@@ -40,6 +40,13 @@ export type ProcessingSession = {
   kbMessagesFailed?: number;
   kbMessagesSkipped?: number;
   kbTotalFinalized?: boolean; // True when backend knows the definitive total (IMAP batch complete)
+  // DB-truth counters from BE PR #60. When the BE has verified that all batch
+  // messages actually have metadata.analysis written, analyzedInDb reflects the
+  // real count. missingAnalysis > 0 means queues drained but some messages
+  // never got an ai-analysis job (cap-throttle path). Old BE clients omit
+  // these — FE falls back to the legacy `analyzed` counter.
+  analyzedInDb?: number;
+  missingAnalysis?: number;
 };
 
 type EmailProcessingState = {

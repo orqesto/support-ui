@@ -123,7 +123,17 @@ export const MessageProcessingProgress = ({
     kbStandaloneKnowledge,
     kbDocuments,
     kbMessagesTotal,
+    analyzedInDb,
+    missingAnalysis,
   } = session;
+
+  // DB-truth: when BE has verified actual analysis coverage on the batch's
+  // conv IDs, prefer that count over the queue-derived `analyzed`. Surfaces
+  // cap-throttled backfills that drained the queue but left N convs without
+  // metadata.analysis. See .planning/processing-progress-db-truth.md.
+  const hasGapInfo = typeof missingAnalysis === 'number';
+  const isGap = hasGapInfo && missingAnalysis > 0;
+  const truthCount = analyzedInDb ?? analyzed ?? successful ?? 0;
 
   // When in KB-processing mode, use KB-specific totals for the main progress display
   const isKBMode = session.stage === 'kb-processing' && (kbMessagesTotal ?? 0) > 0;
@@ -148,9 +158,11 @@ export const MessageProcessingProgress = ({
     ? 'Fetching'
     : session.stage === 'finalizing'
       ? 'Finalizing'
-      : session.stage === 'analyzing' || isKBMode
-        ? 'Analyzing'
-        : 'Processing';
+      : session.stage === 'finalizing-with-gaps'
+        ? `Partial — ${truthCount} of ${total} analyzed`
+        : session.stage === 'analyzing' || isKBMode
+          ? 'Analyzing'
+          : 'Processing';
 
   // Save position to localStorage with session-specific key
   useEffect(() => {
@@ -238,8 +250,11 @@ export const MessageProcessingProgress = ({
   // Calculate if there are messages still being processed
   const messagesInProgress = Math.max(0, current - (successful ?? 0) - (skipped ?? 0) - failed);
 
-  // If all messages are accounted for, consider it complete even if backend hasn't sent 'complete' event yet
-  const allMessagesProcessed = current > 0 && current === total && messagesInProgress === 0;
+  // If all messages are accounted for, consider it complete even if backend hasn't sent 'complete' event yet.
+  // When BE has gap info, DON'T auto-complete on a gap — keep the widget open
+  // so the agent sees the "Partial — X of Y" state before any auto-close timer.
+  const allMessagesProcessed =
+    current > 0 && current === total && messagesInProgress === 0 && !isGap;
 
   // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
@@ -420,13 +435,24 @@ export const MessageProcessingProgress = ({
                 <p className="text-[10px] text-muted-foreground">Processed</p>
               </div>
             )}
-            <div>
+            <div title={hasGapInfo ? `${truthCount} convs have AI analysis written to DB` : undefined}>
               <div className="flex gap-1 justify-center items-center">
                 <CheckCircle className="w-3 h-3 text-green-500" />
-                <span className="text-lg font-bold">{analyzed ?? successful ?? 0}</span>
+                <span className="text-lg font-bold">{truthCount}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Analyzed</p>
             </div>
+            {isGap && (
+              <div
+                title={`${missingAnalysis} message${missingAnalysis === 1 ? '' : 's'} saved without AI analysis (likely cap-throttled by BACKFILL_AI_JOBS_LIMIT). Re-trigger the backfill with a higher cap to fill the gap.`}
+              >
+                <div className="flex gap-1 justify-center items-center">
+                  <XCircle className="w-3 h-3 text-amber-500" />
+                  <span className="text-lg font-bold text-amber-500">{missingAnalysis}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Missing AI</p>
+              </div>
+            )}
             {sourceType === 'email' && (linkedReplies ?? 0) > 0 && (
               <div>
                 <div className="flex gap-1 justify-center items-center">
