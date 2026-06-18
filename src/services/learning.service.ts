@@ -66,6 +66,22 @@ export type LearningNotification = {
   createdAt: string;
 };
 
+export type SuggestionEvidenceItem = {
+  messageId: number;
+  conversationId: number;
+  conversationPublicId: string | null;
+  subject: string | null;
+  contentExcerpt: string;
+  ruleAMatched: boolean;
+  ruleBMatched: boolean;
+};
+
+export type SuggestionEvidenceResponse = {
+  evidence: SuggestionEvidenceItem[];
+  ruleA: { id: number; type: string; value: string } | null;
+  ruleB: { id: number; type: string; value: string } | null;
+};
+
 export const learningService = {
   async listSuggestions(domain?: LearningDomain): Promise<LearningSuggestion[]> {
     const params: Record<string, string> = {};
@@ -75,6 +91,16 @@ export const learningService = {
       data: { suggestions: LearningSuggestion[] };
     }>('/api/learning/suggestions', { params });
     return response.data.data?.suggestions ?? [];
+  },
+
+  async getSuggestionEvidence(id: number): Promise<SuggestionEvidenceResponse> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: SuggestionEvidenceResponse;
+    }>(`/api/learning/suggestions/${id}/evidence`);
+    return (
+      response.data.data ?? { evidence: [], ruleA: null, ruleB: null }
+    );
   },
 
   async acceptSuggestion(id: number): Promise<void> {
