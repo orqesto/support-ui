@@ -62,7 +62,6 @@ export type MessageDetailProps = {
   onResolve?: () => void;
   onRefresh?: () => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
-  onMessageNavigate?: (messageId: number) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -77,7 +76,6 @@ export function MessageDetail({
   onResolve,
   onRefresh,
   onClassify,
-  onMessageNavigate,
 }: MessageDetailProps) {
   // ── Thread state ───────────────────────────────────────────────────────────
   const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
@@ -544,8 +542,6 @@ export function MessageDetail({
             <ThreadMessageItem
               key={msg.id}
               msg={msg}
-              mainMessageId={message.id}
-              onMessageNavigate={onMessageNavigate}
               attachments={attachmentsByMessageId.get(msg.id) ?? []}
               onOpenAttachment={(id) => {
                 setTab('attachments');
