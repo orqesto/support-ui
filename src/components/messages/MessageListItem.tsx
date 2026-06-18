@@ -126,6 +126,13 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const linkedTicketKey =
     (msg.metadata as { linkedTicketExternalId?: string })?.linkedTicketExternalId ?? null;
   const isResolved = msg.status === 'resolved';
+  // Orphan outbound: a sent message that couldn't be paired with an inbound
+  // parent during Gmail backfill. Marked status='filtered' + this flag so
+  // it stays out of the active inbox; surfacing the badge here so the row
+  // is self-explanatory instead of looking like an unanalyzed inbound.
+  const isOrphanOutgoing = Boolean(
+    (msg.metadata as { orphanOutgoing?: boolean })?.orphanOutgoing,
+  );
 
   // Don't open the conversation if the click was the end of a text selection
   // — agents need to be able to copy IDs, sender emails, subject text.
@@ -243,6 +250,17 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             >
               <span className="inline-flex items-center h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
                 +{overflowLabels.length}
+              </span>
+            </Tooltip>
+          )}
+
+          {isOrphanOutgoing && (
+            <Tooltip
+              content="Outbound echo — a sent message we couldn't pair with an inbound parent. No analysis runs on it because there's nothing to ask."
+              size="sm"
+            >
+              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-slate-500/15 text-slate-700 dark:text-slate-300">
+                Outbound echo
               </span>
             </Tooltip>
           )}
