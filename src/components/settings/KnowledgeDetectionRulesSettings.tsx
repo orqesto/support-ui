@@ -1,10 +1,13 @@
-import { BookOpen } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, Brain } from 'lucide-react';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
 import { Badge } from '@/components/ui/Badge';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { settingsService, type KnowledgeDetectionRule } from '@/services/settings.service';
+
+type RuleFilter = 'all' | 'manual' | 'feedback';
 
 const CATEGORIES = [
   { value: 'pricing', label: 'Pricing', description: 'Costs, fees, payment terms' },
@@ -37,6 +40,7 @@ const initialFormData = (): KbDetectionFormData => ({
 });
 
 export const KnowledgeDetectionRulesSettings = () => {
+  const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
   const ruleManagement = useRuleManagement<KnowledgeDetectionRule, KbDetectionFormData>({
     fetchRules: settingsService.getKnowledgeDetectionRules,
     createRule: settingsService.createKnowledgeDetectionRule,
@@ -68,9 +72,40 @@ export const KnowledgeDetectionRulesSettings = () => {
     ).length,
   }));
 
+  const { rules } = ruleManagement;
+  const feedbackCount = rules.filter((rule) => rule.name.startsWith('feedback_')).length;
+  const filteredRules = rules.filter((rule) => {
+    if (ruleFilter === 'feedback') return rule.name.startsWith('feedback_');
+    if (ruleFilter === 'manual') return !rule.name.startsWith('feedback_');
+    return true;
+  });
+
   return (
     <RuleEditor<KnowledgeDetectionRule, KbDetectionFormData>
       {...ruleManagement}
+      rules={filteredRules}
+      renderFilters={() => (
+        <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
+          {(['all', 'manual', 'feedback'] as RuleFilter[]).map((filter) => {
+            const label =
+              filter === 'all'
+                ? `All (${rules.length})`
+                : filter === 'manual'
+                  ? `Manual (${rules.length - feedbackCount})`
+                  : `Auto-learned (${feedbackCount})`;
+            return (
+              <button
+                key={filter}
+                onClick={() => setRuleFilter(filter)}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {filter === 'feedback' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       renderPattern={prettifyRulePattern}
       title="Knowledge Detection Rules"
       description="Configure semantic rules to detect valuable knowledge during KB ingestion (pricing, policies, specs, etc.)"

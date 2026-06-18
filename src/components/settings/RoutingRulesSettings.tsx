@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { RuleEditor } from '@/components/shared/RuleEditor';
@@ -29,6 +30,11 @@ type RoutingRuleView = RoutingRule & {
   active: boolean;
   departmentName: string;
 };
+
+type RuleFilter = 'all' | 'manual' | 'learned';
+
+const isLearnedRule = (rule: RoutingRuleView): boolean =>
+  rule.provisional === true || rule.metadata?.provenance === 'promoted';
 
 const RULE_TYPE_OPTIONS = ROUTING_RULE_TYPES.map((type) => ({
   value: type,
@@ -123,6 +129,7 @@ const prettifyPattern = (type: RoutingRuleType, value: string): string => {
 export const RoutingRulesSettings = () => {
   const [allDepts, setAllDepts] = useState<Department[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
 
   const deptNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -235,9 +242,40 @@ export const RoutingRulesSettings = () => {
     [allDepts]
   );
 
+  const { rules } = ruleManagement;
+  const learnedCount = rules.filter(isLearnedRule).length;
+  const filteredRules = rules.filter((rule) => {
+    if (ruleFilter === 'learned') return isLearnedRule(rule);
+    if (ruleFilter === 'manual') return !isLearnedRule(rule);
+    return true;
+  });
+
   return (
     <RuleEditor<RoutingRuleView, FormData>
       {...ruleManagement}
+      rules={filteredRules}
+      renderFilters={() => (
+        <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
+          {(['all', 'manual', 'learned'] as RuleFilter[]).map((filter) => {
+            const label =
+              filter === 'all'
+                ? `All (${rules.length})`
+                : filter === 'manual'
+                  ? `Manual (${rules.length - learnedCount})`
+                  : `Auto-learned (${learnedCount})`;
+            return (
+              <button
+                key={filter}
+                onClick={() => setRuleFilter(filter)}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {filter === 'learned' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       title="Routing Rules"
       description="Department-scoped rules that decide which department incoming messages route to. Rules apply to all channels serving the department. Highest score wins; if nothing matches, the source default is used."
       dialogTitle="Routing Rule"

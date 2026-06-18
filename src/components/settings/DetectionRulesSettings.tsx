@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Brain } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
 import { RuleEditor } from '@/components/shared/RuleEditor';
@@ -10,6 +12,8 @@ import {
   type DetectionRule,
   type DetectionRuleCategory,
 } from '@/services/detectionRule.service';
+
+type RuleFilter = 'all' | 'manual' | 'feedback';
 
 const CATEGORY_OPTIONS = [
   { value: 'issue', label: 'Issue' },
@@ -31,6 +35,7 @@ type DetectionRuleFormData = {
 };
 
 export const DetectionRulesSettings = () => {
+  const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
   const ruleManagement = useRuleManagement<DetectionRule, DetectionRuleFormData>({
     fetchRules: async () => {
       const response = await detectionRuleService.getAll();
@@ -78,9 +83,40 @@ export const DetectionRulesSettings = () => {
     }
   };
 
+  const { rules } = ruleManagement;
+  const feedbackCount = rules.filter((rule) => rule.name.startsWith('feedback_')).length;
+  const filteredRules = rules.filter((rule) => {
+    if (ruleFilter === 'feedback') return rule.name.startsWith('feedback_');
+    if (ruleFilter === 'manual') return !rule.name.startsWith('feedback_');
+    return true;
+  });
+
   return (
     <RuleEditor<DetectionRule, DetectionRuleFormData>
       {...ruleManagement}
+      rules={filteredRules}
+      renderFilters={() => (
+        <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
+          {(['all', 'manual', 'feedback'] as RuleFilter[]).map((filter) => {
+            const label =
+              filter === 'all'
+                ? `All (${rules.length})`
+                : filter === 'manual'
+                  ? `Manual (${rules.length - feedbackCount})`
+                  : `Auto-learned (${feedbackCount})`;
+            return (
+              <button
+                key={filter}
+                onClick={() => setRuleFilter(filter)}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {filter === 'feedback' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       renderPattern={prettifyRulePattern}
       title="Detection Rules"
       description="Configure patterns to identify legitimate support requests"
