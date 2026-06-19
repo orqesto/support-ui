@@ -212,23 +212,26 @@ export const NeedsRoutingPage = () => {
                 </thead>
                 <tbody className="divide-y bg-background divide-border">
                   {messages.map((msg) => (
-                    <tr key={msg.id} className="hover:bg-muted/50">
+                    // Whole-row click opens the full conversation thread.
+                    // Action cells (dept select, Route, Spam) stop propagation so they
+                    // don't accidentally navigate when the agent is triaging in place.
+                    <tr
+                      key={msg.id}
+                      className="hover:bg-muted/50 cursor-pointer"
+                      onClick={() => navigate(`/messages/${msg.id}`)}
+                    >
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium truncate max-w-[200px]">{msg.sender}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/messages/${msg.id}`)}
-                          className="text-sm text-left truncate max-w-[300px] hover:underline text-foreground"
-                        >
+                        <span className="text-sm text-left truncate max-w-[300px] hover:underline text-foreground">
                           {msg.subject ?? '(no subject)'}
-                        </button>
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                         {formatDate(msg.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
                         <select
                           value={selectedDept[msg.id] ?? ''}
                           onChange={(ev) =>
@@ -247,7 +250,10 @@ export const NeedsRoutingPage = () => {
                           ))}
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td
+                        className="px-4 py-3 text-right whitespace-nowrap"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
                         <div className="flex gap-2 justify-end">
                           <Button
                             size="sm"
@@ -286,22 +292,21 @@ export const NeedsRoutingPage = () => {
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {messages.map((msg) => (
-                <Card key={msg.id}>
+                <Card key={msg.id} className="cursor-pointer" onClick={() => navigate(`/messages/${msg.id}`)}>
                   <CardContent className="p-4 space-y-3">
                     <div>
                       <p className="text-sm font-medium">{msg.sender}</p>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/messages/${msg.id}`)}
-                        className="text-sm text-left text-muted-foreground hover:underline truncate w-full"
-                      >
+                      <p className="text-sm text-left text-muted-foreground hover:underline truncate w-full">
                         {msg.subject ?? '(no subject)'}
-                      </button>
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{formatDate(msg.createdAt)}</p>
                     </div>
+                    {/* Action row — each control stops propagation individually so triaging
+                        in place doesn't bubble up to the Card's open-thread handler. */}
                     <div className="flex gap-2 items-end">
                       <select
                         value={selectedDept[msg.id] ?? ''}
+                        onClick={(ev) => ev.stopPropagation()}
                         onChange={(ev) =>
                           setSelectedDept((prev) => ({
                             ...prev,
@@ -319,7 +324,10 @@ export const NeedsRoutingPage = () => {
                       </select>
                       <Button
                         size="sm"
-                        onClick={() => void handleRoute(msg.id)}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          void handleRoute(msg.id);
+                        }}
                         disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
                       >
                         {routingId === msg.id ? '…' : <ArrowRight className="w-4 h-4" />}
@@ -327,7 +335,10 @@ export const NeedsRoutingPage = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => void handleMarkSpam(msg.id)}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          void handleMarkSpam(msg.id);
+                        }}
                         disabled={spamId === msg.id || routingId === msg.id}
                         title="Mark as spam"
                       >
