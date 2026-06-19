@@ -7,8 +7,12 @@ import {
   type LeadQualificationFieldConfig,
   type LeadCategoryConfig,
 } from '@/services/organization.service';
+import { useDepartments } from '@/hooks/useDepartments';
 
-const ALL_DEPARTMENTS = ['sales', 'support', 'billing', 'info', 'hr'] as const;
+// Dept list now derives from useDepartments() so any default dept (incl. Marketing
+// added 2026-06-19) and any org-custom dept the admin created surfaces here without
+// a code change. Previously hardcoded `['sales','support','billing','info','hr']` —
+// blocked Marketing lead-qualification opt-in.
 const ALL_CONTACT_FIELDS = ['name', 'email', 'phone', 'company'] as const;
 const PRIORITY_OPTIONS = ['high', 'medium', 'low'] as const;
 
@@ -25,6 +29,15 @@ const DEFAULT_CONFIG: OrgLeadConfig = {
 };
 
 export const LeadQualificationSettings = () => {
+  const { data: depts } = useDepartments();
+  const deptSlugs = (depts ?? [])
+    .filter((dept) => dept.active)
+    .map((dept) => dept.slug)
+    .sort();
+  const deptLabels = new Map(
+    (depts ?? []).map((dept) => [dept.slug, dept.name] as const)
+  );
+
   const [config, setConfig] = useState<OrgLeadConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -208,17 +221,21 @@ export const LeadQualificationSettings = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {ALL_DEPARTMENTS.map((dept) => (
-            <label key={dept} className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={config.departments.includes(dept)}
-                onChange={() => toggleDept(dept)}
-                className="rounded"
-              />
-              <span className="text-sm capitalize">{dept}</span>
-            </label>
-          ))}
+          {deptSlugs.length === 0 ? (
+            <span className="text-xs text-muted-foreground italic">No active departments.</span>
+          ) : (
+            deptSlugs.map((dept) => (
+              <label key={dept} className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={config.departments.includes(dept)}
+                  onChange={() => toggleDept(dept)}
+                  className="rounded"
+                />
+                <span className="text-sm">{deptLabels.get(dept) ?? dept}</span>
+              </label>
+            ))
+          )}
         </div>
       </div>
 
