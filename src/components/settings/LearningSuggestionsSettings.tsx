@@ -29,6 +29,39 @@ const DOMAIN_LABELS: Record<string, string> = {
   resolution_quality: 'Resolution Quality',
 };
 
+// Severity pill — only meaningful for resolve_conflict rows. cross_dept_overlap
+// is the hard conflict (centroid cosine >= 0.92 detected at cron time);
+// cross_dept_warn_overlap is the borderline overlap (0.85-0.92 detected at
+// materialize time, emitted by L2). Amber vs red signals the disposition gap:
+// hard conflicts need real action (one rule is wrong); soft overlaps are an
+// invitation to consolidate. Other suggestion types render no pill.
+const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
+  if (suggestion.suggestionType !== 'resolve_conflict') return null;
+  const payload = suggestion.payload ?? {};
+  const conflictType = typeof payload.conflictType === 'string' ? payload.conflictType : '';
+  if (conflictType === 'cross_dept_warn_overlap') {
+    return (
+      <span
+        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 text-amber-700 dark:text-amber-300"
+        title="Borderline cross-dept overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
+      >
+        Soft
+      </span>
+    );
+  }
+  if (conflictType === 'cross_dept_overlap' || conflictType === 'category_mismatch') {
+    return (
+      <span
+        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/15 text-red-700 dark:text-red-300"
+        title="Hard conflict — two rules disagree at high similarity. Admin action needed."
+      >
+        Hard
+      </span>
+    );
+  }
+  return null;
+};
+
 // Best-effort one-liner summary of a suggestion. The payload shape varies by
 // (domain, suggestionType) — fall back to a generic line if we don't recognize.
 // Reference payload shapes (BE source of truth):
@@ -100,6 +133,21 @@ const summarizeSuggestion = (
       const valB = typeof evidence.ruleBValue === 'string' ? evidence.ruleBValue : null;
       if (deptA && deptB && valA && valB) return `Resolve conflict: "${valA}" (${deptA}) ↔ "${valB}" (${deptB})`;
       if (deptA && deptB) return `Resolve conflict: ${deptA} ↔ ${deptB}`;
+    }
+    // routing cross_dept_warn_overlap (L2 warn-band): emitted at materialize
+    // time so the payload shape differs from cron-time conflicts — only
+    // ruleAId/ruleBId, deptIdA/deptIdB, similarity, and attemptedSubject are
+    // populated. No ruleAValue/ruleBValue. Surface dept names + similarity
+    // pct as the headline; the trigger subject lands in the detail panel.
+    if (conflictType === 'cross_dept_warn_overlap') {
+      const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
+      const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
+      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `dept #${deptIdA}`) : null;
+      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `dept #${deptIdB}`) : null;
+      const similarity = typeof evidence.similarity === 'number' ? evidence.similarity : null;
+      const simClause = similarity !== null ? ` (${(similarity * 100).toFixed(0)}% similar)` : '';
+      if (deptA && deptB) return `Soft overlap: ${deptA} ↔ ${deptB}${simClause}`;
+      return `Soft overlap${simClause}`;
     }
     return conflictType ? `Resolve conflict (${conflictType.replace(/_/g, ' ')})` : 'Resolve conflict';
   }
@@ -219,12 +267,17 @@ const ConflictDetail = ({
       ? (payload.evidence as Record<string, unknown>)
       : {};
   const conflictType = typeof payload.conflictType === 'string' ? payload.conflictType : '';
+  // Block-band conflicts (cron) carry `centroidCosine`; warn-band (L2 at
+  // materialize) carries `similarity`; older shapes used `cosine`. Treat all
+  // three as the same admin-facing number.
   const cosine =
     typeof evidence.centroidCosine === 'number'
       ? evidence.centroidCosine
       : typeof evidence.cosine === 'number'
         ? evidence.cosine
-        : null;
+        : typeof evidence.similarity === 'number'
+          ? evidence.similarity
+          : null;
 
   const rows: { label: string; value: string }[] = [];
 
@@ -242,6 +295,25 @@ const ConflictDetail = ({
     if (typeof evidence.ruleBValue === 'string') rows.push({ label: 'Rule B', value: `"${evidence.ruleBValue}" (${typeof evidence.ruleBType === 'string' ? evidence.ruleBType : 'rule'})` });
     if (deptIdB !== null) rows.push({ label: 'Dept B', value: deptNameById(deptIdB) ?? `#${deptIdB}` });
     rows.push({ label: 'Problem', value: 'Two routing rules in different departments match very similar messages. Accepting merges or removes the weaker one.' });
+  } else if (conflictType === 'cross_dept_warn_overlap') {
+    // Warn-band payload (emitted by L2 at materialize) doesn't include rule
+    // values or types — only the pair ids, dept ids, similarity, and the
+    // subject that triggered it. Show what we have, surface the trigger
+    // subject so admins can sanity-check whether the overlap is meaningful.
+    const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
+    const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
+    if (typeof payload.ruleAId === 'number') rows.push({ label: 'Rule A', value: `#${payload.ruleAId}` });
+    if (deptIdA !== null) rows.push({ label: 'Dept A', value: deptNameById(deptIdA) ?? `#${deptIdA}` });
+    if (typeof payload.ruleBId === 'number') rows.push({ label: 'Rule B', value: `#${payload.ruleBId}` });
+    if (deptIdB !== null) rows.push({ label: 'Dept B', value: deptNameById(deptIdB) ?? `#${deptIdB}` });
+    if (typeof evidence.attemptedSubject === 'string' && evidence.attemptedSubject.length > 0) {
+      rows.push({ label: 'Trigger', value: `"${evidence.attemptedSubject}"` });
+    }
+    rows.push({
+      label: 'Problem',
+      value:
+        'Borderline cross-dept overlap (similarity 85–92%). Not a hard conflict — both rules can coexist — but they may converge over time. Accepting consolidates them; declining records that they should stay distinct.',
+    });
   } else {
     const idA = typeof payload.ruleAId === 'number' ? String(payload.ruleAId) : '—';
     const idB = typeof payload.ruleBId === 'number' ? String(payload.ruleBId) : '—';
@@ -416,6 +488,7 @@ export const LearningSuggestionsSettings = () => {
                                 : <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                               }
                               <p className="min-w-0 break-words text-sm font-medium group-hover:underline">
+                                <span className="mr-1.5 inline-flex align-middle"><SeverityBadge suggestion={suggestion} /></span>
                                 {summarizeSuggestion(suggestion, deptNameById)}
                               </p>
                             </button>
