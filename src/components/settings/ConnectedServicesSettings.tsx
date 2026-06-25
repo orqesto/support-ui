@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plug } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AIProvidersSettings } from './AIProvidersSettings';
@@ -8,15 +8,6 @@ import { TicketAutomationSettings } from './TicketAutomationSettings';
 
 type ServiceSection = 'message-sources' | 'ticket-automation' | 'ai-providers' | 'chat-widgets';
 
-const KNOWN_SERVICE_SECTIONS: ServiceSection[] = [
-  'message-sources',
-  'ticket-automation',
-  'ai-providers',
-  'chat-widgets',
-];
-const isServiceSection = (value: string): value is ServiceSection =>
-  (KNOWN_SERVICE_SECTIONS as string[]).includes(value);
-
 type Props = {
   isGlobalAdmin: boolean;
   /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
@@ -25,12 +16,32 @@ type Props = {
 
 export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => {
   const navigate = useNavigate();
-  const initial = section && isServiceSection(section) ? section : 'message-sources';
+
+  // `ai-providers` and `chat-widgets` are admin-only — fold the filter into
+  // the visible section list so deep-links to those for a non-admin fall back
+  // to the default rather than selecting a tab that renders blank.
+  const visibleIds = useMemo<ServiceSection[]>(
+    () => [
+      'message-sources',
+      'ticket-automation',
+      ...(isGlobalAdmin
+        ? (['ai-providers', 'chat-widgets'] as ServiceSection[])
+        : []),
+    ],
+    [isGlobalAdmin]
+  );
+  const initial =
+    section && (visibleIds as string[]).includes(section)
+      ? (section as ServiceSection)
+      : 'message-sources';
   const [active, setActive] = useState<ServiceSection>(initial);
 
   useEffect(() => {
-    if (section && isServiceSection(section)) setActive(section);
-  }, [section]);
+    if (!section) return;
+    if ((visibleIds as string[]).includes(section)) {
+      setActive(section as ServiceSection);
+    }
+  }, [section, visibleIds]);
 
   const goToSection = (next: ServiceSection) => {
     setActive(next);

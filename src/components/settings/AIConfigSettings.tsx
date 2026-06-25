@@ -32,22 +32,14 @@ const ALL_SECTIONS: SectionDef[] = [
 ];
 
 type AIConfigSettingsProps = {
-  /** Sub-section id parsed from the parent's hash. When matches a known
-   *  AISection, that becomes the initial tab — closes the deep-link loop
+  /** Sub-section id parsed from the parent's hash (already query-stripped by
+   *  SettingsPage). When matches a section the current user is allowed to see,
+   *  it becomes the initial tab — closes the deep-link loop
    *  (e.g. `/settings#ai/learning` opens straight on Engine Activity). */
   section?: string;
 };
 
 const DEFAULT_AI_SECTION: AISection = 'prompts';
-const KNOWN_AI_SECTIONS: AISection[] = [
-  'prompts',
-  'auto-reply',
-  'lead-qualification',
-  'learning',
-  'learning-trust',
-];
-const isAISection = (value: string): value is AISection =>
-  (KNOWN_AI_SECTIONS as string[]).includes(value);
 
 export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   const { isOrgAdmin } = usePermissions();
@@ -55,11 +47,14 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
     () => ALL_SECTIONS.filter((sect) => !sect.adminOnly || isOrgAdmin),
     [isOrgAdmin]
   );
-  // Initial section follows the URL when valid; otherwise the default.
-  // Strip any `?query` from the section (the URL hash can carry a focus param).
+  // Section is valid only when it's in the VISIBLE list (after the adminOnly
+  // filter). Without that check, a non-admin deep-linking to `#ai/learning`
+  // would render the admin-only suggestions panel (BE returns empty, so no
+  // real data leak — just a confusing UI state).
+  const visibleIds = useMemo(() => sections.map((sect) => sect.id), [sections]);
   const initialSection =
-    section && isAISection(section.split('?')[0])
-      ? (section.split('?')[0] as AISection)
+    section && (visibleIds as string[]).includes(section)
+      ? (section as AISection)
       : DEFAULT_AI_SECTION;
   const [active, setActive] = useState<AISection>(initialSection);
   const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
@@ -81,12 +76,16 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   }, []);
 
   // Sync local state when the URL changes externally (browser back/forward,
-  // an in-app link landing on `/settings#ai/learning`, etc).
+  // an in-app link landing on `/settings#ai/learning`, etc). Visibility filter
+  // inline so the effect closes over stable values (visibleIds is stable for
+  // a given isOrgAdmin) and doesn't re-fire each render.
   useEffect(() => {
-    if (section && isAISection(section.split('?')[0])) {
-      setActive(section.split('?')[0] as AISection);
+    if (!section) return;
+    if ((visibleIds as string[]).includes(section)) {
+      setActive(section as AISection);
     }
-  }, [section]);
+    // visibleIds is derived from sections (memoized on isOrgAdmin) — safe dep.
+  }, [section, visibleIds]);
 
   const goToSection = (next: AISection) => {
     setActive(next);

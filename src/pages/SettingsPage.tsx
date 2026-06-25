@@ -101,11 +101,14 @@ export const SettingsPage = () => {
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
 
-  // Hash format: `#<tab>` or `#<tab>/<section>` — split on the first `/` so a
-  // future sub-section can carry an additional path segment (e.g.
-  // `#ai/learning?focus=42` once the route eats the query string too).
+  // Hash format: `#<tab>` or `#<tab>/<section>`. Strip any `?<query>` tail
+  // FIRST so children get a clean section id regardless of whether a
+  // deep-link copy/paste embedded a focus param inside the hash (browsers
+  // treat everything after `#` as opaque — react-router's location.search
+  // is empty in that case). Split on the first `/` for the section.
   const rawHash = location.hash.replace('#', '');
-  const [hashTab, ...hashRest] = rawHash.split('/');
+  const hashWithoutQuery = rawHash.split('?')[0];
+  const [hashTab, ...hashRest] = hashWithoutQuery.split('/');
   const hashSection = hashRest.join('/');
 
   const ctx: SettingsTabContext = { isGlobalAdmin, section: hashSection };
