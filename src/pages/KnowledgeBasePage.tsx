@@ -34,7 +34,7 @@ const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documen
 export const KnowledgeBasePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   // Get active tab from URL hash, default to 'all'
   const hashTab = location.hash.replace('#', '') as FilterType;
@@ -131,7 +131,8 @@ export const KnowledgeBasePage = () => {
         });
         const params = new URLSearchParams(searchParams);
         params.delete('id');
-        setSearchParams(params, { replace: true });
+        // setSearchParams strips location.hash — go through navigate to keep the tab hash.
+        navigate({ search: params.toString(), hash: location.hash }, { replace: true });
       });
   }, [searchParams]);
 
@@ -221,7 +222,8 @@ export const KnowledgeBasePage = () => {
     setSelectedEntry(entry);
     const params = new URLSearchParams(searchParams);
     params.set('id', entry.id.toString());
-    setSearchParams(params, { replace: true });
+    // setSearchParams strips location.hash — go through navigate to keep the tab hash.
+    navigate({ search: params.toString(), hash: location.hash }, { replace: true });
   };
 
   // Handle closing entry - remove ID from URL
@@ -229,7 +231,8 @@ export const KnowledgeBasePage = () => {
     setSelectedEntry(null);
     const params = new URLSearchParams(searchParams);
     params.delete('id');
-    setSearchParams(params);
+    // setSearchParams strips location.hash — go through navigate to keep the tab hash.
+    navigate({ search: params.toString(), hash: location.hash });
   };
 
   const handleDeleteClick = (entry: KBEntry) => {
