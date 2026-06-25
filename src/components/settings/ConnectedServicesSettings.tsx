@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plug } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AIProvidersSettings } from './AIProvidersSettings';
 import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
@@ -7,10 +8,45 @@ import { TicketAutomationSettings } from './TicketAutomationSettings';
 
 type ServiceSection = 'message-sources' | 'ticket-automation' | 'ai-providers' | 'chat-widgets';
 
-type Props = { isGlobalAdmin: boolean };
+type Props = {
+  isGlobalAdmin: boolean;
+  /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
+  section?: string;
+};
 
-export const ConnectedServicesSettings = ({ isGlobalAdmin }: Props) => {
-  const [active, setActive] = useState<ServiceSection>('message-sources');
+export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => {
+  const navigate = useNavigate();
+
+  // `ai-providers` and `chat-widgets` are admin-only — fold the filter into
+  // the visible section list so deep-links to those for a non-admin fall back
+  // to the default rather than selecting a tab that renders blank.
+  const visibleIds = useMemo<ServiceSection[]>(
+    () => [
+      'message-sources',
+      'ticket-automation',
+      ...(isGlobalAdmin
+        ? (['ai-providers', 'chat-widgets'] as ServiceSection[])
+        : []),
+    ],
+    [isGlobalAdmin]
+  );
+  const initial =
+    section && (visibleIds as string[]).includes(section)
+      ? (section as ServiceSection)
+      : 'message-sources';
+  const [active, setActive] = useState<ServiceSection>(initial);
+
+  useEffect(() => {
+    if (!section) return;
+    if ((visibleIds as string[]).includes(section)) {
+      setActive(section as ServiceSection);
+    }
+  }, [section, visibleIds]);
+
+  const goToSection = (next: ServiceSection) => {
+    setActive(next);
+    navigate(`#integrations/${next}`, { replace: true });
+  };
 
   const sections = [
     { id: 'message-sources' as ServiceSection, label: 'Message Sources', description: 'Configure Email, Gmail, Telegram, Slack inboxes' },
@@ -39,7 +75,7 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin }: Props) => {
         {sections.map((sect) => (
           <button
             key={sect.id}
-            onClick={() => setActive(sect.id)}
+            onClick={() => goToSection(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               active === sect.id
                 ? 'bg-background text-foreground shadow-sm'

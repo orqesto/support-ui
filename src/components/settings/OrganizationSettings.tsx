@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Layers } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
@@ -16,8 +17,29 @@ const sections = [
   { id: 'security' as OrgSection, label: 'Security', description: 'Password policy and 2FA requirements' },
 ];
 
-export const OrganizationSettings = () => {
-  const [active, setActive] = useState<OrgSection>('categories');
+const KNOWN_ORG_SECTIONS = sections.map((sect) => sect.id);
+const isOrgSection = (value: string): value is OrgSection =>
+  (KNOWN_ORG_SECTIONS as string[]).includes(value);
+
+type OrganizationSettingsProps = {
+  /** Sub-section id from the parent's URL hash. Initializes the active tab
+   *  and lets `/settings#organization/security` deep-link straight to Security. */
+  section?: string;
+};
+
+export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}) => {
+  const navigate = useNavigate();
+  const initial = section && isOrgSection(section) ? section : 'categories';
+  const [active, setActive] = useState<OrgSection>(initial);
+
+  useEffect(() => {
+    if (section && isOrgSection(section)) setActive(section);
+  }, [section]);
+
+  const goToSection = (next: OrgSection) => {
+    setActive(next);
+    navigate(`#organization/${next}`, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -35,7 +57,7 @@ export const OrganizationSettings = () => {
         {sections.map((sect) => (
           <button
             key={sect.id}
-            onClick={() => setActive(sect.id)}
+            onClick={() => goToSection(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               active === sect.id
                 ? 'bg-background text-foreground shadow-sm'

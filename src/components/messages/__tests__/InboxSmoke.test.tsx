@@ -12,6 +12,11 @@ vi.mock('@/lib/messageHelpers', () => ({
   getSpamCheck: vi.fn().mockReturnValue(null),
   getFilteredCategoryLabel: vi.fn().mockReturnValue(null),
   humanizeSignalFlag: vi.fn().mockReturnValue(''),
+  // Added by ffb9f3c (URL writers prefer publicId) — mock returns the raw id.
+  formatConvId: (msg: { id: number; publicId?: string | null }) =>
+    msg.publicId ?? `#${msg.id}`,
+  getConvUrlId: (msg: { id: number; publicId?: string | null }) =>
+    msg.publicId ?? msg.id.toString(),
 }));
 
 vi.mock('@/lib/utils', () => ({
