@@ -61,13 +61,15 @@ export const LearningNotificationBell = ({
   // empty for them anyway, no point taking up header real estate.
   if (!isOrgAdmin) return null;
 
-  // Navigate to Settings → AI tab (where LearningSuggestionsSettings lives) and
-  // close the panel. Optional `focusSuggestionId` becomes a `?focus=<id>` search
-  // param so a future LearningSuggestionsSettings can scroll the matching row
-  // into view; today the param is harmless if unread.
+  // Navigate to Settings → AI → Engine Activity (where pending suggestions +
+  // auto-actions render). Closes the panel. Deep-link goes via the hash
+  // `#ai/learning` so the AIConfigSettings child picks the right sub-tab
+  // without a click-through (see SettingsPage hash parser). Optional
+  // `focusSuggestionId` becomes a `?focus=<id>` search param so a future
+  // LearningSuggestionsSettings can scroll the row into view; harmless if unread.
   const goToAiSettings = (focusSuggestionId?: number) => {
     const search = focusSuggestionId ? `?focus=${focusSuggestionId}` : '';
-    navigate(`/settings${search}#ai`);
+    navigate(`/settings${search}#ai/learning`);
     setOpen(false);
   };
 

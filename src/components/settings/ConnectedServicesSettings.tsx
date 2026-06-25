@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plug } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AIProvidersSettings } from './AIProvidersSettings';
 import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
@@ -7,10 +8,34 @@ import { TicketAutomationSettings } from './TicketAutomationSettings';
 
 type ServiceSection = 'message-sources' | 'ticket-automation' | 'ai-providers' | 'chat-widgets';
 
-type Props = { isGlobalAdmin: boolean };
+const KNOWN_SERVICE_SECTIONS: ServiceSection[] = [
+  'message-sources',
+  'ticket-automation',
+  'ai-providers',
+  'chat-widgets',
+];
+const isServiceSection = (value: string): value is ServiceSection =>
+  (KNOWN_SERVICE_SECTIONS as string[]).includes(value);
 
-export const ConnectedServicesSettings = ({ isGlobalAdmin }: Props) => {
-  const [active, setActive] = useState<ServiceSection>('message-sources');
+type Props = {
+  isGlobalAdmin: boolean;
+  /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
+  section?: string;
+};
+
+export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => {
+  const navigate = useNavigate();
+  const initial = section && isServiceSection(section) ? section : 'message-sources';
+  const [active, setActive] = useState<ServiceSection>(initial);
+
+  useEffect(() => {
+    if (section && isServiceSection(section)) setActive(section);
+  }, [section]);
+
+  const goToSection = (next: ServiceSection) => {
+    setActive(next);
+    navigate(`#integrations/${next}`, { replace: true });
+  };
 
   const sections = [
     { id: 'message-sources' as ServiceSection, label: 'Message Sources', description: 'Configure Email, Gmail, Telegram, Slack inboxes' },
@@ -39,7 +64,7 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin }: Props) => {
         {sections.map((sect) => (
           <button
             key={sect.id}
-            onClick={() => setActive(sect.id)}
+            onClick={() => goToSection(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               active === sect.id
                 ? 'bg-background text-foreground shadow-sm'

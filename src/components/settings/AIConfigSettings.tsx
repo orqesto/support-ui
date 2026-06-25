@@ -31,13 +31,37 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
 ];
 
-export const AIConfigSettings = () => {
+type AIConfigSettingsProps = {
+  /** Sub-section id parsed from the parent's hash. When matches a known
+   *  AISection, that becomes the initial tab — closes the deep-link loop
+   *  (e.g. `/settings#ai/learning` opens straight on Engine Activity). */
+  section?: string;
+};
+
+const DEFAULT_AI_SECTION: AISection = 'prompts';
+const KNOWN_AI_SECTIONS: AISection[] = [
+  'prompts',
+  'auto-reply',
+  'lead-qualification',
+  'learning',
+  'learning-trust',
+];
+const isAISection = (value: string): value is AISection =>
+  (KNOWN_AI_SECTIONS as string[]).includes(value);
+
+export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   const { isOrgAdmin } = usePermissions();
   const sections = useMemo(
     () => ALL_SECTIONS.filter((sect) => !sect.adminOnly || isOrgAdmin),
     [isOrgAdmin]
   );
-  const [active, setActive] = useState<AISection>('prompts');
+  // Initial section follows the URL when valid; otherwise the default.
+  // Strip any `?query` from the section (the URL hash can carry a focus param).
+  const initialSection =
+    section && isAISection(section.split('?')[0])
+      ? (section.split('?')[0] as AISection)
+      : DEFAULT_AI_SECTION;
+  const [active, setActive] = useState<AISection>(initialSection);
   const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -56,6 +80,19 @@ export const AIConfigSettings = () => {
       .catch(() => setHasLeadQualification(false));
   }, []);
 
+  // Sync local state when the URL changes externally (browser back/forward,
+  // an in-app link landing on `/settings#ai/learning`, etc).
+  useEffect(() => {
+    if (section && isAISection(section.split('?')[0])) {
+      setActive(section.split('?')[0] as AISection);
+    }
+  }, [section]);
+
+  const goToSection = (next: AISection) => {
+    setActive(next);
+    navigate(`#ai/${next}`, { replace: true });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -72,7 +109,7 @@ export const AIConfigSettings = () => {
         {sections.map((sect) => (
           <button
             key={sect.id}
-            onClick={() => setActive(sect.id)}
+            onClick={() => goToSection(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               active === sect.id
                 ? 'bg-background text-foreground shadow-sm'

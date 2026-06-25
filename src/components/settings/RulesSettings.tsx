@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { DetectionRulesSettings } from './DetectionRulesSettings';
 import { KnowledgeDetectionRulesSettings } from './KnowledgeDetectionRulesSettings';
 import { RoutingRulesSettings } from './RoutingRulesSettings';
@@ -7,8 +8,29 @@ import { SpamRulesSettings } from './SpamRulesSettings';
 
 type RuleType = 'spam' | 'detection' | 'knowledge' | 'routing';
 
-export const RulesSettings = () => {
-  const [activeRuleType, setActiveRuleType] = useState<RuleType>('spam');
+const KNOWN_RULE_TYPES: RuleType[] = ['spam', 'detection', 'knowledge', 'routing'];
+const isRuleType = (value: string): value is RuleType =>
+  (KNOWN_RULE_TYPES as string[]).includes(value);
+
+type RulesSettingsProps = {
+  /** Sub-section id from the parent hash. Drives deep-link
+   *  (e.g. `/settings#rules/routing`). */
+  section?: string;
+};
+
+export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
+  const navigate = useNavigate();
+  const initial = section && isRuleType(section) ? section : 'spam';
+  const [activeRuleType, setActiveRuleType] = useState<RuleType>(initial);
+
+  useEffect(() => {
+    if (section && isRuleType(section)) setActiveRuleType(section);
+  }, [section]);
+
+  const goToRuleType = (next: RuleType) => {
+    setActiveRuleType(next);
+    navigate(`#rules/${next}`, { replace: true });
+  };
 
   const ruleTypes = [
     {
@@ -53,7 +75,7 @@ export const RulesSettings = () => {
         {ruleTypes.map((type) => (
           <button
             key={type.id}
-            onClick={() => setActiveRuleType(type.id)}
+            onClick={() => goToRuleType(type.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               activeRuleType === type.id
                 ? 'bg-background text-foreground shadow-sm'

@@ -21,8 +21,13 @@ import { RulesSettings } from '@/components/settings/RulesSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
 import { useAuthStore } from '@/stores/authStore';
 
-type SettingsTabContext = {
+export type SettingsTabContext = {
   isGlobalAdmin: boolean;
+  /** Sub-section parsed from the URL hash (the part after `<tab>/`). Empty when
+   *  no sub-section is in the URL — child components fall back to their own
+   *  default. Drives deep-linking (e.g. `/settings#ai/learning`,
+   *  `/settings#rules/spam`). */
+  section: string;
 };
 
 type SettingsTabDef = {
@@ -53,28 +58,30 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     label: 'Organization',
     icon: Layers,
     description: 'Manage categories and labels',
-    render: () => <OrganizationSettings />,
+    render: (ctx) => <OrganizationSettings section={ctx.section} />,
   },
   {
     id: 'ai',
     label: 'AI',
     icon: BrainCog,
     description: 'Configure AI prompts and lead qualification',
-    render: () => <AIConfigSettings />,
+    render: (ctx) => <AIConfigSettings section={ctx.section} />,
   },
   {
     id: 'integrations',
     label: 'Integrations',
     icon: Plug,
     description: 'Connect channels, ticket systems, and AI providers',
-    render: (ctx) => <ConnectedServicesSettings isGlobalAdmin={ctx.isGlobalAdmin} />,
+    render: (ctx) => (
+      <ConnectedServicesSettings isGlobalAdmin={ctx.isGlobalAdmin} section={ctx.section} />
+    ),
   },
   {
     id: 'rules',
     label: 'Rules',
     icon: ShieldAlert,
     description: 'Configure spam, detection, and KB extraction rules',
-    render: () => <RulesSettings />,
+    render: (ctx) => <RulesSettings section={ctx.section} />,
   },
   {
     id: 'system',
@@ -93,15 +100,24 @@ export const SettingsPage = () => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
-  const ctx: SettingsTabContext = { isGlobalAdmin };
+
+  // Hash format: `#<tab>` or `#<tab>/<section>` — split on the first `/` so a
+  // future sub-section can carry an additional path segment (e.g.
+  // `#ai/learning?focus=42` once the route eats the query string too).
+  const rawHash = location.hash.replace('#', '');
+  const [hashTab, ...hashRest] = rawHash.split('/');
+  const hashSection = hashRest.join('/');
+
+  const ctx: SettingsTabContext = { isGlobalAdmin, section: hashSection };
 
   const visibleTabs = SETTINGS_TABS.filter((tab) => (tab.visible ? tab.visible(ctx) : true));
   const validIds = visibleTabs.map((tab) => tab.id);
 
-  const hashTab = location.hash.replace('#', '');
   const activeTabId = validIds.includes(hashTab) ? hashTab : DEFAULT_TAB_ID;
 
   const handleTabChange = (tabId: string) => {
+    // Drop any sub-section when switching top tabs — the new tab's child will
+    // pick its own default. Sub-section navigation happens inside the child.
     navigate('#' + tabId, { replace: true });
   };
 
