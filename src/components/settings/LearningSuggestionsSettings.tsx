@@ -161,6 +161,10 @@ const summarizeSuggestion = (
 const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SuggestionEvidenceItem[] | null>(null);
+  // Track the BE's scannedCount alongside items so the empty-state copy can
+  // distinguish "no traffic yet" (scannedCount === 0) from "scanned N, none
+  // co-matched" (scannedCount > 0 — often a false-positive conflict).
+  const [scannedCount, setScannedCount] = useState<number | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -174,6 +178,7 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
       try {
         const response = await learningService.getSuggestionEvidence(suggestionId);
         setItems(response.evidence);
+        setScannedCount(response.scannedCount);
       } catch (err) {
         logger.error('Failed to load suggestion evidence:', err);
         setError('Failed to load evidence');
@@ -202,7 +207,11 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
           )}
           {!loading && !error && items !== null && items.length === 0 && (
             <p className="text-xs text-muted-foreground italic">
-              No evidence messages available for this suggestion.
+              {scannedCount === 0
+                ? 'No messages in the last 30 days yet. Evidence will appear as traffic arrives.'
+                : typeof scannedCount === 'number' && scannedCount > 0
+                  ? `Scanned ${scannedCount.toLocaleString()} recent messages; none matched both rules. This conflict may be a false positive — consider declining if you don't expect these rules to ever co-fire.`
+                  : 'No evidence messages available for this suggestion.'}
             </p>
           )}
           {!loading && !error && items !== null && items.length > 0 && (
