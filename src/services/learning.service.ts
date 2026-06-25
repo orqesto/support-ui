@@ -80,6 +80,14 @@ export type SuggestionEvidenceResponse = {
   evidence: SuggestionEvidenceItem[];
   ruleA: { id: number; type: string; value: string } | null;
   ruleB: { id: number; type: string; value: string } | null;
+  /**
+   * Number of recent message_events the fallback scan walked when the
+   * suggestion's stored evidenceEventIds was empty. null when stored ids were
+   * used (no fallback scan ran). Lets the UI differentiate "no traffic yet"
+   * (scannedCount === 0) from "scanned N messages, none co-matched"
+   * (scannedCount > 0; often signals a false-positive conflict).
+   */
+  scannedCount?: number | null;
 };
 
 export const learningService = {
@@ -99,7 +107,7 @@ export const learningService = {
       data: SuggestionEvidenceResponse;
     }>(`/api/learning/suggestions/${id}/evidence`);
     return (
-      response.data.data ?? { evidence: [], ruleA: null, ruleB: null }
+      response.data.data ?? { evidence: [], ruleA: null, ruleB: null, scannedCount: null }
     );
   },
 

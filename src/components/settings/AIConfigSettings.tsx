@@ -31,13 +31,32 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
 ];
 
-export const AIConfigSettings = () => {
+type AIConfigSettingsProps = {
+  /** Sub-section id parsed from the parent's hash (already query-stripped by
+   *  SettingsPage). When matches a section the current user is allowed to see,
+   *  it becomes the initial tab — closes the deep-link loop
+   *  (e.g. `/settings#ai/learning` opens straight on Engine Activity). */
+  section?: string;
+};
+
+const DEFAULT_AI_SECTION: AISection = 'prompts';
+
+export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   const { isOrgAdmin } = usePermissions();
   const sections = useMemo(
     () => ALL_SECTIONS.filter((sect) => !sect.adminOnly || isOrgAdmin),
     [isOrgAdmin]
   );
-  const [active, setActive] = useState<AISection>('prompts');
+  // Section is valid only when it's in the VISIBLE list (after the adminOnly
+  // filter). Without that check, a non-admin deep-linking to `#ai/learning`
+  // would render the admin-only suggestions panel (BE returns empty, so no
+  // real data leak — just a confusing UI state).
+  const visibleIds = useMemo(() => sections.map((sect) => sect.id), [sections]);
+  const initialSection =
+    section && (visibleIds as string[]).includes(section)
+      ? (section as AISection)
+      : DEFAULT_AI_SECTION;
+  const [active, setActive] = useState<AISection>(initialSection);
   const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -56,6 +75,23 @@ export const AIConfigSettings = () => {
       .catch(() => setHasLeadQualification(false));
   }, []);
 
+  // Sync local state when the URL changes externally (browser back/forward,
+  // an in-app link landing on `/settings#ai/learning`, etc). Visibility filter
+  // inline so the effect closes over stable values (visibleIds is stable for
+  // a given isOrgAdmin) and doesn't re-fire each render.
+  useEffect(() => {
+    if (!section) return;
+    if ((visibleIds as string[]).includes(section)) {
+      setActive(section as AISection);
+    }
+    // visibleIds is derived from sections (memoized on isOrgAdmin) — safe dep.
+  }, [section, visibleIds]);
+
+  const goToSection = (next: AISection) => {
+    setActive(next);
+    navigate(`#ai/${next}`, { replace: true });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -72,7 +108,7 @@ export const AIConfigSettings = () => {
         {sections.map((sect) => (
           <button
             key={sect.id}
-            onClick={() => setActive(sect.id)}
+            onClick={() => goToSection(sect.id)}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
               active === sect.id
                 ? 'bg-background text-foreground shadow-sm'

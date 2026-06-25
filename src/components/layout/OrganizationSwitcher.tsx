@@ -122,7 +122,7 @@ export const OrganizationSwitcher = () => {
             />
 
             {/* Dropdown */}
-            <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-64 rounded-md border shadow-lg bg-card border-border">
+            <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-80 rounded-md border shadow-lg bg-card border-border">
               <div className="p-2">
                 {loading ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>

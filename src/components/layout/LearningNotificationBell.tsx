@@ -61,6 +61,18 @@ export const LearningNotificationBell = ({
   // empty for them anyway, no point taking up header real estate.
   if (!isOrgAdmin) return null;
 
+  // Navigate to Settings → AI → Engine Activity (where pending suggestions +
+  // auto-actions render). Closes the panel. Deep-link goes via the hash
+  // `#ai/learning` so the AIConfigSettings child picks the right sub-tab
+  // without a click-through (see SettingsPage hash parser). Optional
+  // `focusSuggestionId` becomes a `?focus=<id>` search param so a future
+  // LearningSuggestionsSettings can scroll the row into view; harmless if unread.
+  const goToAiSettings = (focusSuggestionId?: number) => {
+    const search = focusSuggestionId ? `?focus=${focusSuggestionId}` : '';
+    navigate(`/settings${search}#ai/learning`);
+    setOpen(false);
+  };
+
   const handleOpen = () => {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -144,9 +156,11 @@ export const LearningNotificationBell = ({
                       Auto-actions ({notifications.length})
                     </p>
                     {notifications.slice(0, PANEL_PEEK_LIMIT).map((notif) => (
-                      <div
+                      <button
                         key={notif.id}
-                        className="flex gap-2 items-start p-2 text-sm rounded border bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900"
+                        type="button"
+                        onClick={() => goToAiSettings()}
+                        className="flex gap-2 items-start p-2 w-full text-sm text-left rounded border bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900 hover:bg-violet-100 dark:hover:bg-violet-950/50 transition-colors cursor-pointer"
                       >
                         <Wand2 className="mt-0.5 w-3.5 h-3.5 shrink-0 text-violet-500" />
                         <div className="flex-1 min-w-0">
@@ -156,12 +170,16 @@ export const LearningNotificationBell = ({
                             {formatRelativeTime(notif.createdAt)}
                           </p>
                         </div>
-                      </div>
+                      </button>
                     ))}
                     {notifications.length > PANEL_PEEK_LIMIT && (
-                      <p className="px-1 text-[11px] text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => goToAiSettings()}
+                        className="px-1 text-[11px] text-left text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      >
                         +{notifications.length - PANEL_PEEK_LIMIT} more — View all
-                      </p>
+                      </button>
                     )}
                   </div>
                 )}
@@ -179,9 +197,11 @@ export const LearningNotificationBell = ({
                             ? sug.payload.summary
                             : `${sug.suggestionType} (${sug.evidenceCount} signals)`;
                       return (
-                        <div
+                        <button
                           key={sug.id}
-                          className="flex gap-2 items-start p-2 text-sm rounded border bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900"
+                          type="button"
+                          onClick={() => goToAiSettings(sug.id)}
+                          className="flex gap-2 items-start p-2 w-full text-sm text-left rounded border bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
                         >
                           <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-amber-500" />
                           <div className="flex-1 min-w-0">
@@ -190,13 +210,17 @@ export const LearningNotificationBell = ({
                               {sug.domain} · {formatRelativeTime(sug.createdAt)}
                             </p>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                     {suggestions.length > PANEL_PEEK_LIMIT && (
-                      <p className="px-1 text-[11px] text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => goToAiSettings()}
+                        className="px-1 text-[11px] text-left text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      >
                         +{suggestions.length - PANEL_PEEK_LIMIT} more — View all
-                      </p>
+                      </button>
                     )}
                   </div>
                 )}

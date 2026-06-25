@@ -16,11 +16,9 @@ export const DepartmentSwitcher = () => {
 
   // User's accessible dept IDs (from auth store); global admins see all
   const accessibleDeptIds: number[] =
-    user?.role === 'admin'
-      ? allDepts.map(dept => dept.id)
-      : (user?.departmentIds ?? []);
+    user?.role === 'admin' ? allDepts.map((dept) => dept.id) : (user?.departmentIds ?? []);
 
-  const accessibleDepts = allDepts.filter(dept => accessibleDeptIds.includes(dept.id));
+  const accessibleDepts = allDepts.filter((dept) => accessibleDeptIds.includes(dept.id));
 
   // Reconcile stored selection against current accessible list on every org/user change.
   //
@@ -33,20 +31,20 @@ export const DepartmentSwitcher = () => {
     if (accessibleDeptIds.length === 0) return;
     const stored = getSelectedDeptIds();
     if (stored.length === 0) return;
-    const valid = stored.filter(id => accessibleDeptIds.includes(id));
+    const valid = stored.filter((id) => accessibleDeptIds.includes(id));
     if (valid.length !== stored.length) {
       if (valid.length === 0) clear();
       else setSelected(valid);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrganizationId, user?.id, isLoading, accessibleDeptIds.join(',')]);
 
-  const selectedIds = getSelectedDeptIds().filter(id => accessibleDeptIds.includes(id));
+  const selectedIds = getSelectedDeptIds().filter((id) => accessibleDeptIds.includes(id));
 
   const toggleDept = useCallback(
     (id: number) => {
       const next = selectedIds.includes(id)
-        ? selectedIds.filter(sid => sid !== id)
+        ? selectedIds.filter((sid) => sid !== id)
         : [...selectedIds, id];
       if (next.length === 0 || next.length === accessibleDepts.length) {
         clear(); // "All" state
@@ -70,13 +68,13 @@ export const DepartmentSwitcher = () => {
   const label = isAll
     ? 'All departments'
     : selectedIds.length === 1
-      ? (allDepts.find(dept => dept.id === selectedIds[0])?.name ?? '1 dept')
+      ? (allDepts.find((dept) => dept.id === selectedIds[0])?.name ?? '1 dept')
       : `${selectedIds.length} departments`;
 
   return (
     <div className="relative mb-3">
       <Button
-        onClick={() => setIsOpen(prev => !prev)}
+        onClick={() => setIsOpen((prev) => !prev)}
         className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium rounded-md border text-foreground bg-card border-border hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
       >
         <div className="flex flex-1 gap-2 items-center min-w-0">
@@ -106,7 +104,7 @@ export const DepartmentSwitcher = () => {
           />
 
           {/* Dropdown */}
-          <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-64 rounded-md border shadow-lg bg-card border-border">
+          <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-80 rounded-md border shadow-lg bg-card border-border">
             <div className="p-2">
               <p className="px-2 mb-1 text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
                 Filter by department
@@ -123,7 +121,7 @@ export const DepartmentSwitcher = () => {
               </button>
 
               {/* Individual dept rows */}
-              {accessibleDepts.map(dept => {
+              {accessibleDepts.map((dept) => {
                 const checked = selectedIds.includes(dept.id);
                 return (
                   <button
@@ -136,13 +134,15 @@ export const DepartmentSwitcher = () => {
                     {/* Checkbox visual */}
                     <span
                       className={`flex-shrink-0 w-4 h-4 rounded border transition-colors ${
-                        checked
-                          ? 'bg-primary border-primary'
-                          : 'border-border'
+                        checked ? 'bg-primary border-primary' : 'border-border'
                       }`}
                     >
                       {checked && (
-                        <svg viewBox="0 0 16 16" fill="none" className="w-full h-full text-primary-foreground">
+                        <svg
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          className="w-full h-full text-primary-foreground"
+                        >
                           <path
                             d="M3 8l3.5 3.5L13 4.5"
                             stroke="currentColor"
