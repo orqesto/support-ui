@@ -53,7 +53,9 @@ vi.mock('@/components/ui/Tabs', () => ({
   ),
 }));
 
-// Mock all settings sub-components
+// Mock all settings sub-components. Mocks for the deep-link-aware components
+// expose the `section` prop on the rendered test id so we can assert that
+// `SettingsPage` parses the hash correctly and passes the section down.
 vi.mock('@/components/settings/ProfileSettings', () => ({
   ProfileSettings: () => <div data-testid="profile-settings">Profile Settings</div>,
 }));
@@ -65,23 +67,35 @@ vi.mock('@/components/settings/NotificationPreferencesSettings', () => ({
 }));
 
 vi.mock('@/components/settings/OrganizationSettings', () => ({
-  OrganizationSettings: () => (
-    <div data-testid="organization-settings">Organization Settings</div>
+  OrganizationSettings: ({ section }: { section?: string }) => (
+    <div data-testid="organization-settings" data-section={section ?? ''}>
+      Organization Settings
+    </div>
   ),
 }));
 
 vi.mock('@/components/settings/AIConfigSettings', () => ({
-  AIConfigSettings: () => <div data-testid="ai-settings">AI Settings</div>,
+  AIConfigSettings: ({ section }: { section?: string }) => (
+    <div data-testid="ai-settings" data-section={section ?? ''}>
+      AI Settings
+    </div>
+  ),
 }));
 
 vi.mock('@/components/settings/ConnectedServicesSettings', () => ({
-  ConnectedServicesSettings: () => (
-    <div data-testid="integrations-settings">Connected Services</div>
+  ConnectedServicesSettings: ({ section }: { section?: string }) => (
+    <div data-testid="integrations-settings" data-section={section ?? ''}>
+      Connected Services
+    </div>
   ),
 }));
 
 vi.mock('@/components/settings/RulesSettings', () => ({
-  RulesSettings: () => <div data-testid="rules-settings">Rules Settings</div>,
+  RulesSettings: ({ section }: { section?: string }) => (
+    <div data-testid="rules-settings" data-section={section ?? ''}>
+      Rules Settings
+    </div>
+  ),
 }));
 
 vi.mock('@/components/settings/SystemManagementSettings', () => ({
@@ -159,5 +173,49 @@ describe('SettingsSmoke', () => {
       </MemoryRouter>
     );
     expect(screen.queryByTestId('tab-system')).toBeNull();
+  });
+
+  // Deep-link parsing — added 2026-06-25 with the `#<tab>/<section>` rollout.
+
+  it('deep-links to a sub-section via #<tab>/<section>', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings#ai/learning']}>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+    const aiSettings = screen.getByTestId('ai-settings');
+    expect(aiSettings.getAttribute('data-section')).toBe('learning');
+  });
+
+  it('passes empty section when hash has no sub-section', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings#rules']}>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+    const rulesSettings = screen.getByTestId('rules-settings');
+    expect(rulesSettings.getAttribute('data-section')).toBe('');
+  });
+
+  it('strips ?query inside the hash before passing section down', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings#ai/learning?focus=42']}>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+    const aiSettings = screen.getByTestId('ai-settings');
+    expect(aiSettings.getAttribute('data-section')).toBe('learning');
+  });
+
+  it('falls back to the default tab when the top-level id is unknown', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings#bogus/whatever']}>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+    // Unknown tab id → DEFAULT_TAB_ID (profile). Profile has no sub-section
+    // routing, so no data-section assertion — just verify the profile content
+    // renders rather than a sub-tabbed page.
+    expect(screen.getByTestId('profile-settings')).toBeTruthy();
   });
 });
