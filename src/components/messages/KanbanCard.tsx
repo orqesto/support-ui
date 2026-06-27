@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Check,
+  Copy,
   MessagesSquare,
   Paperclip,
   Plus,
@@ -45,6 +47,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
+  const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   // Optimistic shadow of server assignee state — updated synchronously after
   // a successful AssignmentSelect pick so the card reflects the new assignee
@@ -181,16 +184,24 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
         )}
         <button
           type="button"
-          className="font-mono shrink-0 cursor-pointer hover:underline"
-          title="Copy link to this conversation"
+          className="font-mono shrink-0 inline-flex items-center gap-1 cursor-pointer hover:text-foreground"
+          title={copied ? 'Copied!' : 'Copy link to this conversation'}
           onClick={(event) => {
             event.stopPropagation();
-            void navigator.clipboard.writeText(
-              `${window.location.origin}/messages?id=${getConvUrlId(msg)}`
-            );
+            void navigator.clipboard
+              .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg)}`)
+              .then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              });
           }}
         >
           {formatConvId(msg, orgCode)}
+          {copied ? (
+            <Check className="w-3 h-3 text-green-600" />
+          ) : (
+            <Copy className="w-3 h-3 opacity-50" />
+          )}
         </button>
         <span className="flex-1" />
         {direction && (
