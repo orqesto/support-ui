@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import {
   learningService,
@@ -115,6 +116,7 @@ export const LearningNotificationsInbox = () => {
   const [undoingId, setUndoingId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const selectedDeptKey = useDepartmentContextKey();
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,9 +131,11 @@ export const LearningNotificationsInbox = () => {
     } finally {
       setLoading(false);
     }
-    // selectedDeptKey is a refresh-signal; re-fetch when the dept context changes.
+    // selectedDeptKey and selectedOrganizationId are refresh-signals; re-fetch when
+    // the dept context or the active organization changes (global admins switching
+    // orgs must not keep seeing the previous org's notifications).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeptKey]);
+  }, [selectedDeptKey, selectedOrganizationId]);
 
   useEffect(() => {
     void load();

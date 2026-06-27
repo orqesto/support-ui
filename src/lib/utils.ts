@@ -46,3 +46,39 @@ export const getInitials = (name: string) =>
     .join('')
     .toUpperCase()
     .slice(0, 2);
+
+// Deterministic avatar background color from any stable key (email/name).
+const AVATAR_PALETTE = [
+  '#2563eb',
+  '#7c3aed',
+  '#0891b2',
+  '#059669',
+  '#d97706',
+  '#dc2626',
+  '#db2777',
+  '#4f46e5',
+  '#0d9488',
+  '#9333ea',
+];
+
+export const avatarColor = (key: string): string => {
+  let sum = 0;
+  for (const ch of String(key)) sum += ch.charCodeAt(0);
+  return AVATAR_PALETTE[sum % AVATAR_PALETTE.length];
+};
+
+// Initials that fall back to the email handle when there's no display name
+// (the contacts list only carries an email, so getInitials' space-split is not
+// enough — "maria@x.com" → "MA", not "M").
+export const contactInitials = (name: string | null | undefined, email: string): string => {
+  if (name?.trim()) {
+    const parts = name
+      .replace(/[^\p{L}\s.]/gu, '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (parts[0]) return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (email || '?').replace(/^@/, '').slice(0, 2).toUpperCase();
+};

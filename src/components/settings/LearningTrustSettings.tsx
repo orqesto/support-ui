@@ -10,6 +10,7 @@ import {
   type TrustMode,
   type TrustState,
 } from '@/services/learning.service';
+import { useAuthStore } from '@/stores/authStore';
 
 type ModeDef = {
   id: TrustMode;
@@ -128,6 +129,7 @@ const EngineRunReport = ({ summary }: { summary: EngineRunSummary }) => {
 
 export const LearningTrustSettings = () => {
   const { isOrgAdmin } = usePermissions();
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [state, setState] = useState<TrustState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,7 +149,10 @@ export const LearningTrustSettings = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+    // Re-fetch when the active organization changes so global admins switching orgs
+    // don't keep seeing the previous org's trust state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrganizationId]);
 
   useEffect(() => {
     void load();
