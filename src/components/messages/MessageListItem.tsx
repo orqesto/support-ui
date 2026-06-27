@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, Check, MessagesSquare, Paperclip, Plus, Ticket } from 'lucide-react';
+import { BookOpen, Check, Copy, MessagesSquare, Paperclip, Plus, Ticket } from 'lucide-react';
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -8,7 +8,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
-import { getChannelIcon, formatConvId } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
 import { stripHtml } from '@/lib/stripHtml';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -34,6 +34,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
+  const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   // Optimistic shadow of server assignee state — keeps the card responsive
   // without a list refetch. See KanbanCard for the same pattern + rationale.
@@ -174,7 +175,27 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             </div>
           )}
           <span className="text-muted-foreground shrink-0">{getChannelIcon(msg.channel)}</span>
-          <span className="font-mono shrink-0">{formatConvId(msg, orgCode)}</span>
+          <button
+            type="button"
+            className="font-mono shrink-0 inline-flex items-center gap-1 cursor-pointer hover:text-foreground"
+            title={copied ? 'Copied!' : 'Copy link to this conversation'}
+            onClick={(event) => {
+              event.stopPropagation();
+              void navigator.clipboard
+                .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg)}`)
+                .then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+            }}
+          >
+            {formatConvId(msg, orgCode)}
+            {copied ? (
+              <Check className="w-3 h-3 text-green-600" />
+            ) : (
+              <Copy className="w-3 h-3 opacity-50" />
+            )}
+          </button>
           <span className="flex-1" />
           {direction && (
             <span
