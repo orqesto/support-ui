@@ -61,6 +61,12 @@ vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [] }),
 }));
 
+// useCurrentOrgCode uses react-query; mock it (no QueryClientProvider in this
+// smoke). undefined → formatConvId renders the bare publicId.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({
+  useCurrentOrgCode: () => undefined,
+}));
+
 // authStore is consumed for the Claim button — return a logged-in user.
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: { user: { id: number; firstName: string; lastName: string; email: string } | null }) => unknown) =>

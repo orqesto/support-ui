@@ -33,9 +33,20 @@ export const hasMessageAttachments = (message: { attachmentCount?: number }) =>
  * ('SUP-42') and falls back to '#16798' for unstamped legacy rows / rows
  * that bypassed the orchestrator stamping. See
  * planning/public-id-design.md for the lifecycle.
+ *
+ * When `orgCode` is supplied (from useCurrentOrgCode), the stored dept-scoped
+ * id is rendered with the org prefix — `ACM-SUP-42` — so the visible id reads
+ * org-dept-number and can't be confused across orgs. The org code is a display
+ * prefix only: the stored publicId and the email-subject token stay `SUP-42`.
+ * The numeric fallback (`#16798`) is never org-prefixed.
  */
-export const formatConvId = (msg: { id: number; publicId?: string | null }): string =>
-  msg.publicId ?? `#${msg.id}`;
+export const formatConvId = (
+  msg: { id: number; publicId?: string | null },
+  orgCode?: string | null
+): string => {
+  if (!msg.publicId) return `#${msg.id}`;
+  return orgCode ? `${orgCode}-${msg.publicId}` : msg.publicId;
+};
 
 /**
  * Conversation identifier for URL building. Prefers publicId ('SUP-42',
