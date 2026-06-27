@@ -15,7 +15,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
-import { getChannelIcon, formatConvId } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
@@ -179,7 +179,19 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             )}
           </div>
         )}
-        <span className="font-mono shrink-0">{formatConvId(msg, orgCode)}</span>
+        <button
+          type="button"
+          className="font-mono shrink-0 cursor-pointer hover:underline"
+          title="Copy link to this conversation"
+          onClick={(event) => {
+            event.stopPropagation();
+            void navigator.clipboard.writeText(
+              `${window.location.origin}/messages?id=${getConvUrlId(msg)}`
+            );
+          }}
+        >
+          {formatConvId(msg, orgCode)}
+        </button>
         <span className="flex-1" />
         {direction && (
           <Tooltip

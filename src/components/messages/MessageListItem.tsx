@@ -8,7 +8,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
-import { getChannelIcon, formatConvId } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
 import { stripHtml } from '@/lib/stripHtml';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -174,7 +174,19 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             </div>
           )}
           <span className="text-muted-foreground shrink-0">{getChannelIcon(msg.channel)}</span>
-          <span className="font-mono shrink-0">{formatConvId(msg, orgCode)}</span>
+          <button
+            type="button"
+            className="font-mono shrink-0 cursor-pointer hover:underline"
+            title="Copy link to this conversation"
+            onClick={(event) => {
+              event.stopPropagation();
+              void navigator.clipboard.writeText(
+                `${window.location.origin}/messages?id=${getConvUrlId(msg)}`
+              );
+            }}
+          >
+            {formatConvId(msg, orgCode)}
+          </button>
           <span className="flex-1" />
           {direction && (
             <span
