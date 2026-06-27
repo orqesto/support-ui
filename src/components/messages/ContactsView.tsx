@@ -1,23 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
-import {
-  ArrowLeft,
-  ChevronDown,
-  ChevronRight,
-  Mail,
-  MessageSquare,
-  Ticket,
-  Target,
-  Clock,
-  User,
-} from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { ArrowLeft, ArrowRight, ChevronDown, Mail, MessageSquare, Ticket, Target } from 'lucide-react';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
+import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useSearchParams } from 'react-router-dom';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
-import { formatDate } from '@/lib/utils';
+import { formatAge, formatDate } from '@/lib/utils';
 import {
   messageService,
   type MessageContact,
@@ -38,58 +28,61 @@ type SubjectState = {
   data: MessageContactSubject[] | null;
 };
 
+type SortKey = 'recent' | 'messages' | 'name' | 'unread';
+
+const SORTS: Record<string, { label: string; fn: (lhs: MessageContact, rhs: MessageContact) => number }> = {
+  recent: {
+    label: 'Recent',
+    fn: (lhs, rhs) => new Date(rhs.lastMessageAt).getTime() - new Date(lhs.lastMessageAt).getTime(),
+  },
+  messages: { label: 'Most messages', fn: (lhs, rhs) => rhs.messageCount - lhs.messageCount },
+  name: { label: 'Name', fn: (lhs, rhs) => lhs.sender.localeCompare(rhs.sender) },
+  unread: {
+    label: 'Unread first',
+    fn: (lhs, rhs) =>
+      Number(rhs.hasUnread) - Number(lhs.hasUnread) ||
+      new Date(rhs.lastMessageAt).getTime() - new Date(lhs.lastMessageAt).getTime(),
+  },
+};
+
 function ContactRow({
   contact,
   apiFilters,
-  initialExpanded,
+  active,
   onOpenMessage,
   onViewProfile,
 }: {
   contact: MessageContact;
   apiFilters: Record<string, string>;
-  initialExpanded?: boolean;
+  active: boolean;
   onOpenMessage: (message: Message) => void;
   onViewProfile: (email: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(initialExpanded ?? false);
+  const [expanded, setExpanded] = useState(false);
   const [subjectState, setSubjectState] = useState<SubjectState>({ loading: false, data: null });
   const [openingId, setOpeningId] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (initialExpanded && subjectState.data === null) {
-      setSubjectState({ loading: true, data: null });
-      void messageService
-        .getContactSubjects(contact.sender, apiFilters)
-        .then((response) => {
-          setSubjectState({ loading: false, data: response.data ?? [] });
-        })
-        .catch(() => {
-          setSubjectState({ loading: false, data: [] });
-        });
+  const loadSubjects = useCallback(async () => {
+    setSubjectState({ loading: true, data: null });
+    try {
+      const response = await messageService.getContactSubjects(contact.sender, apiFilters);
+      setSubjectState({ loading: false, data: response.data ?? [] });
+    } catch {
+      setSubjectState({ loading: false, data: [] });
     }
-  }, []);
+  }, [contact.sender, apiFilters]);
 
-  const handleExpand = useCallback(async () => {
-    if (!expanded && subjectState.data === null) {
-      setSubjectState({ loading: true, data: null });
-      try {
-        const response = await messageService.getContactSubjects(contact.sender, apiFilters);
-        setSubjectState({ loading: false, data: response.data ?? [] });
-      } catch {
-        setSubjectState({ loading: false, data: [] });
-      }
-    }
+  const handleToggle = useCallback(async () => {
+    if (!expanded && subjectState.data === null) await loadSubjects();
     setExpanded((val) => !val);
-  }, [expanded, subjectState.data, contact.sender, apiFilters]);
+  }, [expanded, subjectState.data, loadSubjects]);
 
   const handleSubjectClick = useCallback(
     async (subject: MessageContactSubject) => {
       setOpeningId(subject.latestMessageId);
       try {
         const response = await messageService.getById(subject.latestMessageId);
-        if (response.success && response.data) {
-          onOpenMessage(response.data);
-        }
+        if (response.success && response.data) onOpenMessage(response.data);
       } catch {
         // silently fail
       } finally {
@@ -100,126 +93,144 @@ function ContactRow({
   );
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-0">
-        {/* Contact header row */}
+    <div
+      className={`group transition-colors ${
+        active ? 'bg-primary/5' : 'hover:bg-muted/50'
+      }`}
+    >
+      <div className="flex items-stretch">
+        {/* Full-height expand column — separate hit target from the row's open action */}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleToggle();
+          }}
+          title={expanded ? 'Collapse topics' : `Show ${contact.subjectCount} topics`}
+          className={`flex justify-center items-center self-stretch w-9 shrink-0 border-r transition-colors ${
+            expanded
+              ? 'bg-muted/70 border-border'
+              : 'border-transparent hover:bg-muted'
+          }`}
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`}
+          />
+        </button>
+
+        {/* Identity / signals — click opens the profile */}
         <div
           role="button"
           tabIndex={0}
-          className="flex gap-3 items-center px-4 py-3 w-full text-left transition-colors hover:bg-muted/50 cursor-pointer"
-          onClick={() => void handleExpand()}
+          onClick={() => onViewProfile(contact.sender)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              void handleExpand();
+              onViewProfile(contact.sender);
             }
           }}
+          className="flex flex-1 gap-3 items-center py-2 pr-3 pl-2.5 min-w-0 cursor-pointer"
         >
-          <span className="text-muted-foreground">
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </span>
-          <div className="flex flex-1 gap-2 items-center min-w-0">
-            <Mail className="w-4 h-4 shrink-0 text-muted-foreground" />
-            <span className="font-medium truncate">{contact.sender}</span>
+          <ContactAvatar email={contact.sender} size={30} />
+
+          <div className="flex-1 min-w-0">
+            <div className="flex gap-2 items-center min-w-0">
+              <span
+                className={`truncate text-sm ${contact.hasUnread ? 'font-bold' : 'font-semibold'} text-foreground`}
+              >
+                {contact.sender}
+              </span>
+              {contact.isLead && (
+                <span className="inline-flex gap-1 items-center px-1.5 h-[19px] rounded-md text-[10.5px] font-bold tracking-wide bg-primary/10 text-primary shrink-0">
+                  <Target className="w-3 h-3" /> LEAD
+                </span>
+              )}
+              {contact.hasUnread && (
+                <span
+                  className="w-[7px] h-[7px] rounded-full bg-warning shrink-0"
+                  title="Unread messages"
+                />
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end items-center shrink-0">
-            {contact.isLead && (
-              <Badge variant="default" className="flex gap-1 items-center text-xs">
-                <Target className="w-3 h-3" />
-                Lead
-              </Badge>
-            )}
+
+          {/* Tier-2 reference signals */}
+          <div className="hidden sm:flex gap-3 items-center text-muted-foreground shrink-0">
             {contact.hasTicket && (
-              <Badge variant="secondary" className="flex gap-1 items-center text-xs">
-                <Ticket className="w-3 h-3" />
-                Has Ticket
-              </Badge>
+              <span title="Has open ticket">
+                <Ticket className="w-3.5 h-3.5" />
+              </span>
             )}
-            {contact.hasUnread && (
-              <Badge variant="warning" className="flex gap-1 items-center text-xs">
-                Unread
-              </Badge>
-            )}
-            <span className="flex gap-1 items-center text-xs text-muted-foreground">
-              <MessageSquare className="w-3 h-3" />
+            <span
+              className="inline-flex gap-1 items-center text-xs tabular-nums"
+              title={`${contact.messageCount} messages`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
               {contact.messageCount}
             </span>
-            <span className="text-xs whitespace-nowrap text-muted-foreground">
+            <span
+              className="text-xs tabular-nums whitespace-nowrap w-12 text-right"
+              title={`${contact.subjectCount} topics`}
+            >
               {contact.subjectCount} {contact.subjectCount === 1 ? 'topic' : 'topics'}
             </span>
-            <span className="flex gap-1 items-center text-xs whitespace-nowrap text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              {formatDate(contact.lastMessageAt)}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex gap-1 items-center h-7 shrink-0"
-              onClick={(event) => {
-                event.stopPropagation();
-                onViewProfile(contact.sender);
-              }}
-            >
-              <User className="w-3 h-3" />
-              Profile
-            </Button>
           </div>
-        </div>
 
-        {/* Expanded subjects */}
-        {expanded && (
-          <div className="border-t divide-y">
+          <div className="hidden sm:block w-px h-6 bg-border" />
+
+          <span
+            className="text-xs text-muted-foreground w-9 text-right tabular-nums shrink-0"
+            title={formatDate(contact.lastMessageAt)}
+          >
+            {formatAge(contact.lastMessageAt)}
+          </span>
+
+          <ArrowRight className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        </div>
+      </div>
+
+      {/* Expanded topics — nested under the contact */}
+      {expanded && (
+        <div className="pb-1.5 pl-[34px] pr-3">
+          <div className="pl-3 border-l border-border">
             {subjectState.loading && (
-              <div className="px-10 py-3 space-y-2">
+              <div className="py-2 space-y-2">
                 {(['s1', 's2'] as const).map((key) => (
                   <div key={key} className="h-4 rounded animate-pulse bg-muted" />
                 ))}
               </div>
             )}
             {!subjectState.loading && subjectState.data?.length === 0 && (
-              <p className="px-10 py-3 text-sm text-muted-foreground">No conversations found.</p>
+              <p className="px-2 py-2.5 text-xs text-muted-foreground">No conversations found.</p>
             )}
             {!subjectState.loading &&
               subjectState.data?.map((subject) => (
                 <button
                   key={subject.normalizedSubject}
-                  className="flex w-full items-center gap-3 px-10 py-2.5 text-left hover:bg-muted/40 transition-colors disabled:opacity-60"
+                  type="button"
                   disabled={openingId === subject.latestMessageId}
                   onClick={() => void handleSubjectClick(subject)}
+                  className="group/topic flex items-center gap-3 w-full px-2 py-1.5 rounded-md text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{subject.displaySubject}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 justify-end items-center shrink-0">
-                    {subject.isLead && (
-                      <Badge variant="default" className="flex gap-1 items-center text-xs">
-                        <Target className="w-3 h-3" />
-                        Lead
-                      </Badge>
-                    )}
-                    {subject.hasTicket && (
-                      <Badge variant="secondary" className="flex gap-1 items-center text-xs">
-                        <Ticket className="w-3 h-3" />
-                        Ticket
-                      </Badge>
-                    )}
-                    <span className="flex gap-1 items-center text-xs text-muted-foreground">
-                      <MessageSquare className="w-3 h-3" />
-                      {subject.messageCount}
-                    </span>
-                    <span className="text-xs whitespace-nowrap text-muted-foreground">
-                      {formatDate(subject.lastMessageAt)}
-                    </span>
-                    {openingId === subject.latestMessageId && (
-                      <span className="text-xs text-muted-foreground">Opening…</span>
-                    )}
-                  </div>
+                  <span className="w-1 h-1 rounded-full bg-muted-foreground/40 shrink-0" />
+                  <span className="flex-1 text-[12.5px] truncate text-muted-foreground group-hover/topic:text-foreground">
+                    {subject.displaySubject || '(no subject)'}
+                  </span>
+                  {subject.isLead && <Target className="w-3 h-3 text-primary shrink-0" />}
+                  {subject.hasTicket && <Ticket className="w-3 h-3 text-muted-foreground shrink-0" />}
+                  <span className="inline-flex gap-1 items-center text-[11px] text-muted-foreground tabular-nums">
+                    <MessageSquare className="w-3 h-3" />
+                    {subject.messageCount}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground w-9 text-right tabular-nums">
+                    {openingId === subject.latestMessageId ? '…' : formatAge(subject.lastMessageAt)}
+                  </span>
                 </button>
               ))}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -324,6 +335,7 @@ export function ContactsView({
   const [, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<MessageContact[]>([]);
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>('recent');
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
     limit: 50,
@@ -362,6 +374,10 @@ export function ContactsView({
     void fetchContacts(1);
   }, [fetchContacts]);
 
+  // Sort reorders the loaded page; org-wide search/filter is handled server-side
+  // by MessagesPage's filter bar (so we don't duplicate a search input here).
+  const visible = useMemo(() => [...contacts].sort(SORTS[sort].fn), [contacts, sort]);
+
   if (focusSender) {
     return (
       <SenderFocusView
@@ -382,57 +398,78 @@ export function ContactsView({
     );
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        {(['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'] as const).map((key, idx) => (
-          <Card key={key}>
-            <CardContent className="p-4">
-              <div
-                className="h-4 rounded animate-pulse bg-muted"
-                style={{ width: `${40 + (idx % 3) * 15}%` }}
-              />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (contacts.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-          <h3 className="mb-2 text-lg font-semibold">No contacts found</h3>
-          <p className="text-muted-foreground">No senders match your current filters.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-2">
-      {contacts.map((contact) => (
-        <ContactRow
-          key={contact.sender}
-          contact={contact}
-          apiFilters={apiFilters}
-          initialExpanded={focusSender ? contact.sender === focusSender : undefined}
-          onOpenMessage={onOpenMessage}
-          onViewProfile={setProfileEmail}
-        />
-      ))}
+    <div className="flex flex-col overflow-hidden rounded-xl border bg-card border-border">
+      {/* Toolbar */}
+      <div className="flex flex-shrink-0 gap-2 justify-between items-center px-4 py-3 border-b border-border">
+        <div className="flex gap-2 items-baseline">
+          <h2 className="text-base font-bold tracking-tight text-foreground">Contacts</h2>
+          <span className="text-xs text-muted-foreground tabular-nums">{pagination.total}</span>
+        </div>
+        <div className="flex gap-1 items-center px-1 h-8 rounded-lg bg-muted">
+          <span className="pl-2 pr-0.5 text-[11px] text-muted-foreground">Sort</span>
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortKey)}
+            className="h-7 pr-1 text-xs font-medium bg-transparent outline-none cursor-pointer text-foreground"
+          >
+            {Object.entries(SORTS).map(([key, sortDef]) => (
+              <option key={key} value={key}>
+                {sortDef.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div className="divide-y divide-border">
+        {loading &&
+          (['c1', 'c2', 'c3', 'c4', 'c5', 'c6'] as const).map((key, idx) => (
+            <div key={key} className="flex gap-3 items-center px-4 py-2.5">
+              <div className="w-[30px] h-[30px] rounded-full animate-pulse bg-muted shrink-0" />
+              <div
+                className="h-3.5 rounded animate-pulse bg-muted"
+                style={{ width: `${35 + (idx % 3) * 15}%` }}
+              />
+            </div>
+          ))}
+
+        {!loading &&
+          visible.map((contact) => (
+            <ContactRow
+              key={contact.sender}
+              contact={contact}
+              apiFilters={apiFilters}
+              active={profileEmail === contact.sender}
+              onOpenMessage={onOpenMessage}
+              onViewProfile={setProfileEmail}
+            />
+          ))}
+
+        {!loading && visible.length === 0 && (
+          <div className="grid place-items-center py-16 text-center">
+            <div>
+              <Mail className="mx-auto mb-3 w-7 h-7 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">No senders match your current filters.</p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {pagination.totalPages > 1 && (
-        <Pagination
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages}
-          total={pagination.total}
-          limit={pagination.limit}
-          onPageChange={(page) => void fetchContacts(page)}
-          loading={loading}
-        />
+        <div className="px-4 py-3 border-t border-border">
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            limit={pagination.limit}
+            onPageChange={(page) => void fetchContacts(page)}
+            loading={loading}
+          />
+        </div>
       )}
+
       {profileEmail && (
         <ContactProfilePanel email={profileEmail} onClose={() => setProfileEmail(null)} />
       )}

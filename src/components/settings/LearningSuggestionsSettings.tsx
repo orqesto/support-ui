@@ -11,6 +11,7 @@ import {
   type SuggestionEvidenceItem,
 } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/authStore';
 
 const DOMAIN_LABELS: Record<string, string> = {
   routing: 'Routing',
@@ -359,6 +360,7 @@ const ConflictDetail = ({
 
 export const LearningSuggestionsSettings = () => {
   const { isOrgAdmin } = usePermissions();
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [suggestions, setSuggestions] = useState<LearningSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -384,9 +386,15 @@ export const LearningSuggestionsSettings = () => {
     }
   }, []);
 
+  // Refetch when the active organization changes. The api-client attaches the
+  // current org as X-Organization-Context on every request, but this panel fetches
+  // imperatively — without keying the effect on selectedOrganizationId it would keep
+  // showing whichever org was active at mount (cross-org stale data). Clear first so
+  // the previous org's rows don't flash while the refetch is in flight.
   useEffect(() => {
+    setSuggestions([]);
     void load();
-  }, [load]);
+  }, [load, selectedOrganizationId]);
 
   const handleAccept = async (id: number) => {
     setActingId(id);
