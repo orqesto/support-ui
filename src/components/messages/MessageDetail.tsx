@@ -503,9 +503,11 @@ export function MessageDetail({
         leadFieldDefs={leadFieldDefs}
         onGhostClick={handleGhostClick}
         onOptionsLoaded={(total: number) => setAlternativeCount(total)}
-        onAutoSuggest={(answer: string, label: string, type: 'lead' | 'documentation' | 'similar') =>
-          setGhostOption({ answer, label, type })
-        }
+        onAutoSuggest={(
+          answer: string,
+          label: string,
+          type: 'lead' | 'documentation' | 'similar'
+        ) => setGhostOption({ answer, label, type })}
         onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
         setComposerMode={setComposerMode}
         noteEditorRef={noteEditorRef}
@@ -570,25 +572,6 @@ export function MessageDetail({
         </div>
       </div>
 
-      {/* Action strip */}
-      <MessageActionStrip
-        message={message}
-        isFiltered={isFiltered}
-        isSuspicious={isSuspicious}
-        isActive={isActive}
-        resolving={resolving}
-        hasLinkedTicket={false}
-        onApprove={onApprove}
-        onReopen={handleReopen}
-        onDelete={handleDelete}
-        onClassify={handleClassify}
-        onResolveWithoutReply={handleResolveWithoutReply}
-        onClose={handleClose}
-        setRejectDialogOpen={setRejectDialogOpen}
-        setReopenDialogOpen={setReopenDialogOpen}
-        onRefresh={handleRefresh}
-      />
-
       {/* Send failure alert — shown when BE confirms delivery failed */}
       {sendFailedError && (
         <div className="mx-4 p-3 text-sm rounded-md text-destructive bg-destructive/10 flex justify-between items-start gap-2">
@@ -621,6 +604,24 @@ export function MessageDetail({
         />
       )}
 
+      {/* Action strip */}
+      <MessageActionStrip
+        message={message}
+        isFiltered={isFiltered}
+        isSuspicious={isSuspicious}
+        isActive={isActive}
+        resolving={resolving}
+        hasLinkedTicket={false}
+        onApprove={onApprove}
+        onReopen={handleReopen}
+        onDelete={handleDelete}
+        onClassify={handleClassify}
+        onResolveWithoutReply={handleResolveWithoutReply}
+        onClose={handleClose}
+        setRejectDialogOpen={setRejectDialogOpen}
+        setReopenDialogOpen={setReopenDialogOpen}
+        onRefresh={handleRefresh}
+      />
       {/* Confirm dialogs */}
       <MessageDetailConfirmDialogs
         message={message}
