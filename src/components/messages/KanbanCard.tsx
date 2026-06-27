@@ -13,6 +13,7 @@ import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
 import { getChannelIcon, formatConvId } from '@/lib/messageHelpers';
 import { formatAge, safeCssColor } from '@/lib/utils';
@@ -43,6 +44,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
+  const orgCode = useCurrentOrgCode();
   const [pickerOpen, setPickerOpen] = useState(false);
   // Optimistic shadow of server assignee state — updated synchronously after
   // a successful AssignmentSelect pick so the card reflects the new assignee
@@ -177,7 +179,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
             )}
           </div>
         )}
-        <span className="font-mono shrink-0">{formatConvId(msg)}</span>
+        <span className="font-mono shrink-0">{formatConvId(msg, orgCode)}</span>
         <span className="flex-1" />
         {direction && (
           <Tooltip

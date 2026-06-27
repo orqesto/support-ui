@@ -12,6 +12,12 @@ export type Organization = {
   id: number;
   name: string;
   slug: string;
+  /**
+   * Short uppercase org code (e.g. 'ACM') rendered in front of the dept-scoped
+   * public id for display: `ACM-SUP-42`. Null until backfilled — callers fall
+   * back to the bare publicId. Derived from name on the BE.
+   */
+  code?: string | null;
   description: string | null;
   settings: Record<string, unknown> | null;
   active: boolean;

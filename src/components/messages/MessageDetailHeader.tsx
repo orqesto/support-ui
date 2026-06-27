@@ -29,6 +29,7 @@ import { labelService, type Label } from '@/services/settings.service';
 import { hashNameToLabelColor } from './inboxCardHelpers';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { formatConvId, getConvUrlId, getSpamCheck } from '@/lib/messageHelpers';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
@@ -71,6 +72,7 @@ export function MessageDetailHeader({
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
+  const orgCode = useCurrentOrgCode();
   const { data: allDepts = [] } = useDepartments();
 
   const [moreOpen, setMoreOpen] = useState(false);
@@ -578,7 +580,7 @@ export function MessageDetailHeader({
     <div className="flex-shrink-0 border-b border-border bg-background">
       {/* Top strip */}
       <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-        <span className="font-mono text-[10px] text-muted-foreground">{formatConvId(message)}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">{formatConvId(message, orgCode)}</span>
         <span className="text-[10px] text-muted-foreground" title={message.channel}>
           {CHANNEL_ICONS[message.channel] ?? '◌'}
         </span>
