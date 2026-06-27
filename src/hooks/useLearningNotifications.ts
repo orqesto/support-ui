@@ -72,7 +72,7 @@ export const useLearningNotifications = () => {
       inFlightRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOrgAdmin, selectedDeptKey]);
+  }, [isOrgAdmin, selectedDeptKey, orgId]);
 
   useEffect(() => {
     if (!isOrgAdmin) return;
