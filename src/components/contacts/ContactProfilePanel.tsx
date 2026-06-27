@@ -1,24 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AtSign, Hash, Link, Mail, MessageSquare, Phone, Plus, Save, Target, Ticket, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Settings2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Drawer } from '@/components/ui/Drawer';
 import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
+import { ContactAvatar } from '@/components/contacts/ContactAvatar';
+import { ContactProfileActivity, type ActivityItem } from '@/components/contacts/ContactProfileActivity';
+import {
+  ContactProfileDetails,
+  type OrgLabel,
+  type OrgUser,
+} from '@/components/contacts/ContactProfileDetails';
 import { apiClient } from '@/lib/api-client';
-import { formatAge, formatDate, safeCssColor } from '@/lib/utils';
+import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
+import { labelService } from '@/services/settings.service';
+import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 import type { ApiResponse } from '@/types';
 import { type ContactProfile, type ContactProfileType, contactService } from '@/services/contact.service';
-
-type OrgUser = { id: number; firstName: string; lastName: string | null; email: string };
-type OrgLabel = { id: number; name: string; color: string };
 
 type ContactProfilePanelProps = {
   email: string;
   onClose: () => void;
 };
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex-1 min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="mt-0.5 text-[13px] font-semibold truncate text-foreground">{children}</div>
+    </div>
+  );
+}
 
 export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps) {
   const navigate = useNavigate();
@@ -26,6 +37,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [orgLabels, setOrgLabels] = useState<OrgLabel[]>([]);
+  const [tab, setTab] = useState<'activity' | 'details'>('activity');
 
   // Edit state
   const [editingName, setEditingName] = useState(false);
@@ -41,8 +53,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const [profileLabelInput, setProfileLabelInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
-
-  const nameRef = useRef<HTMLInputElement>(null);
+  const [creatingLabel, setCreatingLabel] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,14 +74,25 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     }
   }, [email]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Escape closes the panel.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const handleSaveName = async () => {
     if (!contact) return;
     setSavingName(true);
     try {
       await contactService.update(contact.id, { displayName: nameInput.trim() || null });
-      setContact((contact) => contact ? { ...contact, displayName: nameInput.trim() || null } : contact);
+      setContact((prev) => (prev ? { ...prev, displayName: nameInput.trim() || null } : prev));
       setEditingName(false);
     } finally {
       setSavingName(false);
@@ -81,14 +103,16 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     if (!contact) return;
     await contactService.update(contact.id, { assignedUserId: userId });
     const user = users.find((usr) => usr.id === userId) ?? null;
-    setContact((contact) =>
-      contact ? {
-        ...contact,
-        assignedUserId: userId,
-        assignedUserFirstName: user?.firstName ?? null,
-        assignedUserLastName: user?.lastName ?? null,
-        assignedUserEmail: user?.email ?? null,
-      } : contact
+    setContact((prev) =>
+      prev
+        ? {
+            ...prev,
+            assignedUserId: userId,
+            assignedUserFirstName: user?.firstName ?? null,
+            assignedUserLastName: user?.lastName ?? null,
+            assignedUserEmail: user?.email ?? null,
+          }
+        : prev
     );
   };
 
@@ -97,7 +121,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     setAddingNote(true);
     try {
       const note = await contactService.addNote(contact.id, noteInput.trim());
-      setContact((contact) => contact ? { ...contact, notes: [note, ...contact.notes] } : contact);
+      setContact((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
       setNoteInput('');
     } finally {
       setAddingNote(false);
@@ -107,7 +131,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleDeleteNote = async (noteId: number) => {
     if (!contact) return;
     await contactService.deleteNote(contact.id, noteId);
-    setContact((contact) => contact ? { ...contact, notes: contact.notes.filter((note) => note.id !== noteId) } : contact);
+    setContact((prev) => (prev ? { ...prev, notes: prev.notes.filter((note) => note.id !== noteId) } : prev));
   };
 
   const handleAddLabel = async (labelId: number) => {
@@ -115,19 +139,43 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     await contactService.addLabel(contact.id, labelId);
     const label = orgLabels.find((lbl) => lbl.id === labelId);
     if (label) {
-      setContact((contact) =>
-        contact && !contact.labels.some((lbl) => lbl.id === labelId)
-          ? { ...contact, labels: [...contact.labels, label] }
-          : contact
+      setContact((prev) =>
+        prev && !prev.labels.some((lbl) => lbl.id === labelId)
+          ? { ...prev, labels: [...prev.labels, label] }
+          : prev
       );
     }
     setShowLabelPicker(false);
   };
 
+  const handleCreateLabel = async (name: string) => {
+    // Guard against a double-click creating two identical org-wide labels.
+    if (!contact || !name.trim() || creatingLabel) return;
+    setCreatingLabel(true);
+    try {
+      const created = await labelService.createLabel({
+        name: name.trim(),
+        color: hashNameToLabelColor(name.trim()),
+      });
+      setOrgLabels((prev) => (prev.some((lbl) => lbl.id === created.id) ? prev : [created, ...prev]));
+      await contactService.addLabel(contact.id, created.id);
+      setContact((prev) =>
+        prev && !prev.labels.some((lbl) => lbl.id === created.id)
+          ? { ...prev, labels: [...prev.labels, created] }
+          : prev
+      );
+      setShowLabelPicker(false);
+    } catch {
+      // leave the picker open so the user can retry
+    } finally {
+      setCreatingLabel(false);
+    }
+  };
+
   const handleRemoveLabel = async (labelId: number) => {
     if (!contact) return;
     await contactService.removeLabel(contact.id, labelId);
-    setContact((contact) => contact ? { ...contact, labels: contact.labels.filter((lbl) => lbl.id !== labelId) } : contact);
+    setContact((prev) => (prev ? { ...prev, labels: prev.labels.filter((lbl) => lbl.id !== labelId) } : prev));
   };
 
   const handleAddProfile = async () => {
@@ -139,10 +187,10 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
         value: profileValueInput.trim(),
         label: profileLabelInput.trim() || undefined,
       });
-      setContact((contact) =>
-        contact && !contact.profiles.some((prof) => prof.id === profile.id)
-          ? { ...contact, profiles: [...contact.profiles, profile] }
-          : contact
+      setContact((prev) =>
+        prev && !prev.profiles.some((prof) => prof.id === profile.id)
+          ? { ...prev, profiles: [...prev.profiles, profile] }
+          : prev
       );
       setProfileValueInput('');
       setProfileLabelInput('');
@@ -155,7 +203,9 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleDeleteProfile = async (profileId: number) => {
     if (!contact) return;
     await contactService.deleteProfile(contact.id, profileId);
-    setContact((contact) => contact ? { ...contact, profiles: contact.profiles.filter((prof) => prof.id !== profileId) } : contact);
+    setContact((prev) =>
+      prev ? { ...prev, profiles: prev.profiles.filter((prof) => prof.id !== profileId) } : prev
+    );
   };
 
   const handleLinkEmail = async () => {
@@ -165,16 +215,16 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
       const linked = await contactService.getByEmail(linkEmailInput.trim().toLowerCase());
       if (linked.id === contact.id) return;
       await contactService.linkContact(contact.id, linked.id);
-      setContact((contact) =>
-        contact && !contact.linkedContacts.some((lc) => lc.id === linked.id)
+      setContact((prev) =>
+        prev && !prev.linkedContacts.some((existing) => existing.id === linked.id)
           ? {
-              ...contact,
+              ...prev,
               linkedContacts: [
-                ...contact.linkedContacts,
+                ...prev.linkedContacts,
                 { id: linked.id, primaryEmail: linked.primaryEmail, displayName: linked.displayName },
               ],
             }
-          : contact
+          : prev
       );
       setLinkEmailInput('');
     } finally {
@@ -185,399 +235,263 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
   const handleUnlink = async (linkedId: number) => {
     if (!contact) return;
     await contactService.unlinkContact(contact.id, linkedId);
-    setContact((contact) => contact ? { ...contact, linkedContacts: contact.linkedContacts.filter((lc) => lc.id !== linkedId) } : contact);
+    setContact((prev) =>
+      prev ? { ...prev, linkedContacts: prev.linkedContacts.filter((lnk) => lnk.id !== linkedId) } : prev
+    );
   };
 
-  const availableLabels = orgLabels.filter(
-    (lbl) => !contact?.labels.some((cl) => cl.id === lbl.id)
+  const availableLabels = orgLabels.filter((lbl) => !contact?.labels.some((current) => current.id === lbl.id));
+
+  const assigneeName = contact?.assignedUserFirstName
+    ? `${contact.assignedUserFirstName} ${contact.assignedUserLastName ?? ''}`.trim()
+    : null;
+
+  const openTickets = useMemo(
+    () =>
+      (contact?.recentTickets ?? []).filter((tkt) => tkt.status !== 'resolved' && tkt.status !== 'closed')
+        .length,
+    [contact]
   );
 
+  // Merge messages + tickets + notes into one reverse-chronological activity feed.
+  const activity = useMemo<ActivityItem[]>(() => {
+    if (!contact) return [];
+    const items: ActivityItem[] = [];
+    for (const msg of contact.recentMessages ?? []) {
+      items.push({
+        key: `m${msg.id}`,
+        kind: 'message',
+        at: msg.createdAt,
+        title: msg.subject?.trim() ? msg.subject : '(no subject)',
+        meta: msg.channel?.trim() ? msg.channel : 'email',
+        status: msg.status,
+        onClick: () => {
+          onClose();
+          navigate(`/messages?id=${msg.id}`);
+        },
+      });
+    }
+    for (const tkt of contact.recentTickets ?? []) {
+      items.push({
+        key: `t${tkt.id}`,
+        kind: 'ticket',
+        at: tkt.createdAt,
+        title: tkt.title,
+        meta: `#${tkt.id}`,
+        status: tkt.status,
+        onClick: () => {
+          onClose();
+          navigate(`/tickets?id=${tkt.id}`);
+        },
+      });
+    }
+    for (const note of contact.notes ?? []) {
+      items.push({
+        key: `n${note.id}`,
+        kind: 'note',
+        at: note.createdAt,
+        title: `${note.authorFirstName ?? 'Someone'} added a note`,
+        meta: note.content,
+      });
+    }
+    return items.sort((lhs, rhs) => new Date(rhs.at).getTime() - new Date(lhs.at).getTime());
+  }, [contact, navigate, onClose]);
+
   return (
-    <Drawer open onClose={onClose} title={email} size="md">
-      {loading ? (
-        <div className="space-y-3">
-          {(['a', 'b', 'c'] as const).map((key) => (
-            <div key={key} className="h-16 rounded animate-pulse bg-muted" />
-          ))}
-        </div>
-      ) : !contact ? (
-        <div className="flex items-center justify-center h-32 text-muted-foreground">
-          Failed to load contact.
-        </div>
-      ) : (
-        <div className="space-y-6">
-
-          {/* Display name */}
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Display Name</p>
-            {editingName ? (
-              <div className="flex gap-2 items-center">
-                <Input
-                  ref={nameRef}
-                  size="sm"
-                  value={nameInput}
-                  onChange={(event) => setNameInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void handleSaveName();
-                    if (event.key === 'Escape') setEditingName(false);
-                  }}
-                  autoFocus
-                  placeholder="Display name"
-                />
-                <Button size="sm" variant="ghost" onClick={() => void handleSaveName()} disabled={savingName}>
-                  <Save className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ) : (
-              <button
-                className="text-left w-full"
-                onClick={() => { setEditingName(true); setNameInput(contact.displayName ?? ''); }}
-              >
-                {contact.displayName ? (
-                  <p className="text-sm font-semibold">{contact.displayName}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic hover:text-foreground transition-colors">
-                    Click to add display name…
-                  </p>
-                )}
-              </button>
-            )}
+    <>
+      <div className="fixed inset-0 z-[75] bg-black/40" onClick={onClose} aria-hidden="true" />
+      <div className="flex fixed top-0 right-0 bottom-0 z-[80] flex-col w-[440px] max-w-[92vw] border-l shadow-2xl bg-card border-border">
+        {loading ? (
+          <div className="p-6 space-y-3">
+            {(['a', 'b', 'c'] as const).map((key) => (
+              <div key={key} className="h-16 rounded animate-pulse bg-muted" />
+            ))}
           </div>
-
-          {/* Stats */}
-          <div className="flex gap-3 flex-wrap text-sm text-muted-foreground">
-            <span className="flex gap-1 items-center">
-              <MessageSquare className="w-3.5 h-3.5" />
-              {contact.stats?.messageCount ?? 0} messages
-            </span>
-            {contact.stats?.lastMessageAt && (
-              <span title={formatDate(contact.stats.lastMessageAt)}>
-                Last: {formatAge(contact.stats.lastMessageAt)}
-              </span>
-            )}
-            {contact.stats?.isLead && (
-              <Badge variant="default" className="flex gap-1 items-center text-xs">
-                <Target className="w-3 h-3" />
-                Lead
-              </Badge>
-            )}
+        ) : !contact ? (
+          <div className="flex flex-col gap-3 justify-center items-center h-full text-muted-foreground">
+            Failed to load contact.
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
           </div>
-
-          {/* Assigned manager */}
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned Manager</p>
-            <select
-              className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              value={contact.assignedUserId ?? ''}
-              onChange={(event) => void handleAssign(event.target.value ? parseInt(event.target.value) : null)}
-            >
-              <option value="">Unassigned</option>
-              {users.map((usr) => (
-                <option key={usr.id} value={usr.id}>
-                  {usr.firstName} {usr.lastName ?? ''} ({usr.email})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Labels */}
-          <div>
-            <div className="flex gap-2 items-center mb-1.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Labels</p>
-              {availableLabels.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-5 px-1.5 text-xs"
-                  onClick={() => setShowLabelPicker((val) => !val)}
-                >
-                  <Plus className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {contact.labels.map((label) => (
-                <span
-                  key={label.id}
-                  className="inline-flex gap-1 items-center px-2 py-0.5 text-xs font-medium rounded-full text-white"
-                  style={{ backgroundColor: safeCssColor(label.color) }}
-                >
-                  {label.name}
-                  <button onClick={() => void handleRemoveLabel(label.id)}>
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </span>
-              ))}
-              {contact.labels.length === 0 && (
-                <span className="text-sm text-muted-foreground">No labels</span>
-              )}
-            </div>
-            {showLabelPicker && (
-              <Card className="mt-2">
-                <CardContent className="p-1">
-                  {availableLabels.map((label) => (
-                    <button
-                      key={label.id}
-                      className="flex gap-2 items-center px-2 py-1.5 w-full text-left text-sm rounded hover:bg-muted"
-                      onClick={() => void handleAddLabel(label.id)}
-                    >
-                      <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: safeCssColor(label.color) }}
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex-shrink-0 p-4 border-b border-border">
+              <div className="flex gap-3 items-start">
+                <ContactAvatar email={contact.primaryEmail} name={contact.displayName} size={48} />
+                <div className="flex-1 min-w-0">
+                  {editingName ? (
+                    <div className="flex gap-1.5 items-center">
+                      <Input
+                        size="sm"
+                        value={nameInput}
+                        onChange={(event) => setNameInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') void handleSaveName();
+                          if (event.key === 'Escape') setEditingName(false);
+                        }}
+                        autoFocus
+                        placeholder="Display name"
                       />
-                      {label.name}
-                    </button>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Notes */}
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes</p>
-            <div className="space-y-2 mb-2">
-              {contact.notes.map((note) => (
-                <div key={note.id} className="flex gap-2 group">
-                  <div className="flex-1 p-2.5 text-sm rounded-md bg-muted/60">
-                    <div className="flex gap-2 justify-between items-center mb-0.5">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {note.authorFirstName ?? 'Unknown'} {note.authorLastName ?? ''}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void handleSaveName()}
+                        disabled={savingName}
+                      >
+                        Save
+                      </Button>
                     </div>
-                    <p className="whitespace-pre-wrap">{note.content}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 shrink-0 mt-1 text-destructive"
-                    onClick={() => void handleDeleteNote(note.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ))}
-              {contact.notes.length === 0 && (
-                <p className="text-sm text-muted-foreground">No notes yet.</p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Textarea
-                className="flex-1 resize-none"
-                rows={2}
-                placeholder="Add a note… (Ctrl+Enter to save)"
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void handleAddNote();
-                }}
-              />
-              <Button
-                size="sm"
-                variant="secondary"
-                className="self-end"
-                onClick={() => void handleAddNote()}
-                disabled={addingNote || !noteInput.trim()}
-              >
-                Add
-              </Button>
-            </div>
-          </div>
-
-          {/* Recent messages */}
-          {contact.recentMessages && contact.recentMessages.length > 0 && (
-            <div>
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent Messages</p>
-              <div className="space-y-1">
-                {contact.recentMessages.map((msg) => (
-                  <button
-                    key={msg.id}
-                    className="flex gap-2 items-start w-full text-left rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors"
-                    onClick={() => { onClose(); navigate(`/messages?id=${msg.id}`); }}
-                  >
-                    <Mail className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{msg.subject ?? '(no subject)'}</p>
-                      <p className="text-xs text-muted-foreground truncate">{msg.content}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                      {formatAge(msg.createdAt)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent tickets */}
-          {contact.recentTickets && contact.recentTickets.length > 0 && (
-            <div>
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent Tickets</p>
-              <div className="space-y-1">
-                {contact.recentTickets.map((tick) => (
-                  <button
-                    key={tick.id}
-                    className="flex gap-2 items-center w-full text-left rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors"
-                    onClick={() => { onClose(); navigate(`/tickets?id=${tick.id}`); }}
-                  >
-                    <Ticket className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 text-sm truncate">{tick.title}</span>
-                    <Badge
-                      variant={tick.status === 'resolved' ? 'success' : tick.status === 'in_progress' ? 'warning' : 'secondary'}
-                      className="text-xs shrink-0"
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex gap-1.5 items-center text-left group/name"
+                      onClick={() => {
+                        setEditingName(true);
+                        setNameInput(contact.displayName ?? '');
+                      }}
                     >
-                      {tick.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                      {formatAge(tick.createdAt)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Channel profiles */}
-          <div>
-            <div className="flex gap-2 items-center mb-1.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Channel Profiles</p>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-5 px-1.5 text-xs"
-                onClick={() => setShowProfileForm((val) => !val)}
-              >
-                <Plus className="w-3 h-3" />
-              </Button>
-            </div>
-            <div className="space-y-1 mb-2">
-              {contact.profiles.map((prof) => (
-                <div key={prof.id} className="flex gap-2 justify-between items-center group">
-                  <div className="flex gap-2 items-center min-w-0">
-                    {prof.type === 'email' && <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-                    {prof.type === 'telegram_username' && <Hash className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
-                    {prof.type === 'telegram_phone' && <Phone className="w-3.5 h-3.5 shrink-0 text-blue-500" />}
-                    {prof.type === 'slack' && <MessageSquare className="w-3.5 h-3.5 shrink-0 text-purple-500" />}
-                    <span className="text-sm truncate">{prof.value}</span>
-                    {prof.label && (
-                      <span className="text-xs text-muted-foreground shrink-0">({prof.label})</span>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 shrink-0 text-destructive"
-                    onClick={() => void handleDeleteProfile(prof.id)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
+                      <h2 className="text-base font-bold tracking-tight truncate text-foreground">
+                        {contact.displayName?.trim() ? contact.displayName : contact.primaryEmail}
+                      </h2>
+                      <Settings2 className="w-3 h-3 opacity-0 text-muted-foreground group-hover/name:opacity-100" />
+                    </button>
+                  )}
+                  <p className="text-xs font-mono truncate text-muted-foreground mt-0.5">
+                    {contact.primaryEmail}
+                  </p>
+                  {contact.labels.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {contact.labels.map((label) => (
+                        <span
+                          key={label.id}
+                          className="inline-flex gap-1 items-center pl-1.5 pr-2 h-[18px] rounded-full text-[10.5px] font-medium"
+                          style={{
+                            background: `${safeCssColor(label.color)}1f`,
+                            color: safeCssColor(label.color),
+                          }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ background: safeCssColor(label.color) }}
+                          />
+                          {label.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-              {contact.profiles.length === 0 && !showProfileForm && (
-                <p className="text-sm text-muted-foreground">No channel profiles.</p>
-              )}
-            </div>
-            {showProfileForm && (
-              <div className="space-y-2">
-                <select
-                  className="w-full px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={profileTypeInput}
-                  onChange={(event) => setProfileTypeInput(event.target.value as ContactProfileType)}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="grid place-items-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
+                  title="Close"
                 >
-                  <option value="email">Email</option>
-                  <option value="telegram_username">Telegram Username</option>
-                  <option value="telegram_phone">Telegram Phone</option>
-                  <option value="slack">Slack</option>
-                </select>
-                <Input
-                  size="sm"
-                  placeholder={
-                    profileTypeInput === 'email' ? 'alias@example.com' :
-                    profileTypeInput === 'telegram_username' ? '@username' :
-                    profileTypeInput === 'telegram_phone' ? '+1234567890' :
-                    'U12345678 or workspace/user'
-                  }
-                  value={profileValueInput}
-                  onChange={(event) => setProfileValueInput(event.target.value)}
-                  onKeyDown={(event) => { if (event.key === 'Enter') void handleAddProfile(); }}
-                  autoFocus
-                />
-                <Input
-                  size="sm"
-                  placeholder="Label (optional)"
-                  value={profileLabelInput}
-                  onChange={(event) => setProfileLabelInput(event.target.value)}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => void handleAddProfile()}
-                    disabled={addingProfile || !profileValueInput.trim()}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => { setShowProfileForm(false); setProfileValueInput(''); setProfileLabelInput(''); }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            )}
-          </div>
 
-          {/* Linked contacts */}
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked Contacts</p>
-            <div className="space-y-1 mb-2">
-              {contact.linkedContacts.map((lc) => (
-                <div key={lc.id} className="flex gap-2 justify-between items-center group">
-                  <span className="text-sm truncate">
-                    {lc.displayName ? `${lc.displayName} (${lc.primaryEmail})` : lc.primaryEmail}
+            </div>
+
+            {/* Key facts */}
+            <div className="grid flex-shrink-0 grid-cols-2 gap-y-3 gap-x-4 px-4 py-3 border-b border-border bg-muted/40">
+              <Fact label="Assigned to">
+                {assigneeName ? (
+                  <span className="inline-flex gap-1.5 items-center">
+                    <span
+                      className="grid place-items-center w-5 h-5 rounded-full text-[9px] font-semibold text-white"
+                      style={{ background: avatarColor(assigneeName) }}
+                    >
+                      {getInitials(assigneeName)}
+                    </span>
+                    {assigneeName}
                   </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 shrink-0 text-destructive"
-                    onClick={() => void handleUnlink(lc.id)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
+                ) : (
+                  <span className="font-normal text-muted-foreground">Unassigned</span>
+                )}
+              </Fact>
+              <Fact label="Messages">
+                {contact.stats?.messageCount ?? 0}
+                {openTickets > 0 && (
+                  <span className="font-normal text-muted-foreground">
+                    {' '}
+                    · {openTickets} open ticket{openTickets === 1 ? '' : 's'}
+                  </span>
+                )}
+              </Fact>
+              <Fact label="Customer since">{formatAge(contact.createdAt)} ago</Fact>
+              <Fact label="Last active">
+                {contact.stats?.lastMessageAt ? `${formatAge(contact.stats.lastMessageAt)} ago` : '—'}
+              </Fact>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex flex-shrink-0 gap-1 px-3 pt-2 border-b border-border">
+              {(
+                [
+                  { id: 'activity', label: 'Activity' },
+                  { id: 'details', label: 'Details' },
+                ] as const
+              ).map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => setTab(entry.id)}
+                  className={`px-3 py-2 text-[12.5px] font-semibold border-b-2 -mb-px transition-colors ${
+                    tab === entry.id
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {entry.label}
+                </button>
               ))}
-              {contact.linkedContacts.length === 0 && (
-                <p className="text-sm text-muted-foreground">No linked contacts.</p>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-4">
+              {tab === 'activity' ? (
+                <ContactProfileActivity activity={activity} />
+              ) : (
+                <ContactProfileDetails
+                  contact={contact}
+                  users={users}
+                  availableLabels={availableLabels}
+                  showLabelPicker={showLabelPicker}
+                  setShowLabelPicker={setShowLabelPicker}
+                  onAssign={handleAssign}
+                  onAddLabel={handleAddLabel}
+                  onRemoveLabel={handleRemoveLabel}
+                  onCreateLabel={handleCreateLabel}
+                  creatingLabel={creatingLabel}
+                  noteInput={noteInput}
+                  setNoteInput={setNoteInput}
+                  addingNote={addingNote}
+                  onAddNote={handleAddNote}
+                  onDeleteNote={handleDeleteNote}
+                  profileTypeInput={profileTypeInput}
+                  setProfileTypeInput={setProfileTypeInput}
+                  profileValueInput={profileValueInput}
+                  setProfileValueInput={setProfileValueInput}
+                  profileLabelInput={profileLabelInput}
+                  setProfileLabelInput={setProfileLabelInput}
+                  showProfileForm={showProfileForm}
+                  setShowProfileForm={setShowProfileForm}
+                  addingProfile={addingProfile}
+                  onAddProfile={handleAddProfile}
+                  onDeleteProfile={handleDeleteProfile}
+                  linkEmailInput={linkEmailInput}
+                  setLinkEmailInput={setLinkEmailInput}
+                  linkingEmail={linkingEmail}
+                  onLinkEmail={handleLinkEmail}
+                  onUnlink={handleUnlink}
+                />
               )}
             </div>
-            <div className="flex gap-2">
-              <Input
-                size="sm"
-                placeholder="Link by email…"
-                value={linkEmailInput}
-                onChange={(event) => setLinkEmailInput(event.target.value)}
-                onKeyDown={(event) => { if (event.key === 'Enter') void handleLinkEmail(); }}
-              />
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => void handleLinkEmail()}
-                disabled={linkingEmail || !linkEmailInput.trim()}
-              >
-                <Link className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-
-        </div>
-      )}
-    </Drawer>
+          </>
+        )}
+      </div>
+    </>
   );
 }

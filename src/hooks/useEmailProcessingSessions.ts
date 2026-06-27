@@ -72,62 +72,27 @@ export const useEmailProcessingSessions = ({
   filterByOrganization,
   setState,
 }: UseEmailProcessingSessionsParams) => {
-  // Track multiple processing sessions by sessionKey (integrationId)
-  // Restore sessions from localStorage on mount
-  const [sessions, setSessions] = useState<Map<string, ProcessingSession>>(() => {
-    try {
-      const saved = localStorage.getItem('emailProcessing_sessions');
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved);
-        if (!Array.isArray(parsed)) return new Map();
-        const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-        const filtered = (parsed as Array<unknown>).filter((entry): entry is [string, ProcessingSession] => {
-          if (!Array.isArray(entry) || entry.length !== 2) return false;
-          const [key, session] = entry as [unknown, unknown];
-          if (typeof key !== 'string') return false;
-          if (!session || typeof session !== 'object') return false;
-          const sess = session as Record<string, unknown>;
-          if (typeof sess['status'] !== 'string') return false;
-          const timestamp = typeof sess['timestamp'] === 'number' ? sess['timestamp'] : Date.now();
-          if (sess['status'] === 'complete' || sess['status'] === 'error') return false;
-          if (timestamp <= thirtyMinutesAgo) return false;
-          // Drop stale sessions using old integrationId-departmentSlug key format
-          if (/^\d+-\w+$/.test(key)) return false;
-          return true;
-        });
-        return new Map(filtered);
-      }
-    } catch (error) {
-      logger.error('[useEmailProcessing] Failed to restore sessions:', error);
-    }
-    return new Map();
-  });
+  // Sessions are derived entirely from the backend — the single source of truth.
+  // On every (re)connect the server replays all active sessions for the org (see
+  // websocketManager.getActiveSessionsForOrg, which even re-sends `complete` for
+  // runs finished in the last 30s so reconnecting clients can't get stuck widgets).
+  //
+  // We intentionally do NOT restore processing state from localStorage. Persisting
+  // live state and trusting it on reload created "zombie" sessions (total: 0, stale
+  // timestamp) that rendered as permanently "stuck" and drove a reset render loop.
+  // Start empty and let the server rehydrate.
+  const [sessions, setSessions] = useState<Map<string, ProcessingSession>>(() => new Map());
 
-  // Persist minimal session state to localStorage — omit counts/metadata to limit
-  // operational data exposure on shared machines (only restore UI state on refresh).
+  // We no longer persist live session state to localStorage (the backend replays
+  // active sessions on reconnect). Clean up any blob written by older builds so a
+  // previously-persisted zombie session can't linger.
   useEffect(() => {
-    if (sessions.size > 0) {
-      try {
-        const sessionArray = Array.from(sessions.entries()).map(([key, session]) => [
-          key,
-          {
-            sessionKey: session.sessionKey,
-            integrationId: session.integrationId,
-            integrationName: session.integrationName,
-            status: session.status,
-            timestamp: session.timestamp,
-            isProcessing: session.isProcessing,
-          },
-        ]);
-        localStorage.setItem('emailProcessing_sessions', JSON.stringify(sessionArray));
-      } catch (error) {
-        logger.error('[useEmailProcessing] Failed to save sessions:', error);
-      }
-    } else {
-      // Clear stale data when all sessions are removed
+    try {
       localStorage.removeItem('emailProcessing_sessions');
+    } catch {
+      /* ignore */
     }
-  }, [sessions]);
+  }, []);
 
   // Auto-timeout stuck sessions after 20 minutes (increased for throttled processing with large datasets)
   useEffect(() => {
