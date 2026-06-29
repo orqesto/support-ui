@@ -142,6 +142,12 @@ export function MessageDetail({
         setSendFailedError(
           `Reply could not be delivered via ${event.channel}. The message was saved but not sent — please try again.`
         );
+        // The BE reverts the conv's status and marks the reply event undelivered on
+        // failure. Refetch so the thread reflects the real state (no longer shown as
+        // resolved/replied, and the outgoing bubble can render as undelivered) instead
+        // of the optimistic state from the earlier message:replied event.
+        setThreadRefreshKey((key) => key + 1);
+        onRefreshRef.current?.();
       }
     };
     const handleReplied = (data: unknown) => {
