@@ -1,3 +1,7 @@
+// Over the 650-line cap — same as the sibling message components. The
+// no-AI-provider note + failure toast tipped it over; splitting the source-card
+// renderer out is the natural follow-up refactor.
+/* eslint-disable max-lines */
 import { useState, useEffect } from 'react';
 import {
   Search,
@@ -34,6 +38,8 @@ import { messageService } from '@/services/message.service';
 import { useSupportedLanguages } from '@/hooks/useTranslation';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
+import { toast } from '@/lib/toast';
+import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import {
   type SimilarMessage,
@@ -64,6 +70,8 @@ export const SimilarMessagesDialog = ({
   const [expandedQuotes, setExpandedQuotes] = useState<Set<number>>(new Set());
   const [showEnglish, setShowEnglish] = useState<Record<number, boolean>>({});
   const [aiMode, setAiMode] = useState<'ai-generated' | 'search-results' | null>(null);
+  // null = unknown (preloaded sources / not yet fetched); false = org has no provider.
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
   const [useAiResponse, setUseAiResponse] = useState(false);
@@ -92,6 +100,7 @@ export const SimilarMessagesDialog = ({
 
           // Set AI mode and response
           setAiMode(response.data?.mode ?? null);
+          setAiConfigured(response.data?.aiConfigured ?? true);
           setAiResponse(response.data?.aiResponse?.text ?? null);
           setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
           // Convert sources to similar messages format for backward compatibility
@@ -117,6 +126,7 @@ export const SimilarMessagesDialog = ({
           logger.error('Failed to fetch suggested answer:', error);
           setSimilarMessages([]);
           setAiMode(null);
+          setAiConfigured(null);
           setAiResponse(null);
         } finally {
           setLoading(false);
@@ -193,6 +203,13 @@ export const SimilarMessagesDialog = ({
       }
     } catch (error) {
       logger.error('Translation failed:', error);
+      toast.error(
+        isAiNotConfiguredError(error)
+          ? AI_NOT_CONFIGURED_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : 'Translation failed'
+      );
     } finally {
       setIsTranslating(false);
     }
@@ -219,6 +236,18 @@ export const SimilarMessagesDialog = ({
         </DialogHeader>
 
         <div className="overflow-y-auto flex-1">
+          {/* No AI provider — the endpoint still returned similar matches, so be
+              explicit that this is the fallback rather than an AI-generated reply. */}
+          {!loading && aiConfigured === false && (
+            <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+              <Sparkles className="flex-shrink-0 mt-0.5 w-4 h-4" />
+              <span>
+                AI suggestions need a provider — showing similar messages instead. Connect an AI
+                provider in Settings to get suggested replies.
+              </span>
+            </div>
+          )}
+
           {/* AI-Generated Response Section */}
           {!loading && aiMode === 'ai-generated' && aiResponse && (
             <div className="mb-4">

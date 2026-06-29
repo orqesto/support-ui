@@ -21,8 +21,10 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
@@ -33,6 +35,8 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
+import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import {
   MONO,
   CHIP_BASE,
@@ -72,6 +76,7 @@ export function MessageDetailHeader({
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
+  const { aiConfigured } = useAiConfigured();
   const orgCode = useCurrentOrgCode();
   const { data: allDepts = [] } = useDepartments();
 
@@ -458,8 +463,15 @@ export function MessageDetailHeader({
       setCheckingContradiction(true);
       await messageService.checkContradiction(message.id);
       onRefresh?.();
-    } catch {
-      /* silently ignore */
+    } catch (err) {
+      logger.error('Failed to check contradiction:', err);
+      toast.error(
+        isAiNotConfiguredError(err)
+          ? AI_NOT_CONFIGURED_MESSAGE
+          : err instanceof Error
+            ? err.message
+            : 'Failed to check for contradictions.'
+      );
     } finally {
       setCheckingContradiction(false);
     }
@@ -512,6 +524,10 @@ export function MessageDetailHeader({
     message.externalThreadId && {
       label: checkingContradiction ? 'Checking…' : 'Check Contradiction',
       icon: <AlertTriangle className="w-3 h-3" />,
+      disabled: !aiConfigured,
+      tooltip: aiConfigured
+        ? undefined
+        : 'Contradiction check needs an AI provider — configure one in Settings.',
       action: () => {
         void handleCheckContradiction();
         setMoreOpen(false);
@@ -572,6 +588,8 @@ export function MessageDetailHeader({
     icon: React.ReactNode;
     action: () => void;
     danger?: boolean;
+    disabled?: boolean;
+    tooltip?: string;
   }[];
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -757,16 +775,26 @@ export function MessageDetailHeader({
                 onClick={() => setMoreOpen(false)}
               />
               <div className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[180px]">
-                {moreMenuItems.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={item.action}
-                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30' : 'text-foreground hover:bg-accent'}`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </button>
-                ))}
+                {moreMenuItems.map((item) => {
+                  const btn = (
+                    <button
+                      key={item.label}
+                      onClick={item.action}
+                      disabled={item.disabled}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </button>
+                  );
+                  return item.tooltip ? (
+                    <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
+                      <span className="block w-full">{btn}</span>
+                    </Tooltip>
+                  ) : (
+                    btn
+                  );
+                })}
               </div>
             </>
           )}
