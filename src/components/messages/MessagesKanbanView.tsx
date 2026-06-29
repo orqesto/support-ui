@@ -29,6 +29,7 @@ import { messageService, type MessageThread } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 import { KanbanCard } from './KanbanCard';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 type KanbanColumnDef = {
@@ -522,6 +523,9 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         }
       } catch (err) {
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
+        // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
+        // move is about to roll back, so without this the card silently snaps back.
+        toast.failure(action === 'reopen' ? 'reopen message' : 'move message', err);
         // Rollback: restore card at its original position
         setColStates((prev) => {
           const restored = [...prev[fromColId].threads];
