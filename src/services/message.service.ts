@@ -325,6 +325,9 @@ export const messageService = {
           tickets: boolean;
           messages: boolean;
         };
+        // false when the org has no AI/LLM provider — the endpoint still returns
+        // 200 with search-results so the FE can show the similar-message fallback.
+        aiConfigured?: boolean;
       }>
     >(`/api/messages/${id}/suggested-answer`);
     return response.data;
