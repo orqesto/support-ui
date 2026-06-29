@@ -32,6 +32,7 @@ import type { Attachment } from './MessageAttachments';
 import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import {
   toGhostOption,
@@ -394,6 +395,9 @@ export function MessageDetail({
       onReopen?.();
     } catch (err) {
       logger.error('Failed to reopen:', err);
+      // Surface the server reason (e.g. a 409 from a non-reopenable state) instead of
+      // failing silently — formatError pulls the BE `error` string out of the response.
+      toast.failure('reopen message', err);
     }
   }, [message.id, onReopen]);
 
