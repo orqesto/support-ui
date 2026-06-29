@@ -8,6 +8,7 @@ import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/con
 import { messageService } from '@/services/message.service';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { logger } from '@/lib/logger';
 
 type Analysis = {
@@ -150,6 +151,7 @@ export function AiTabPanel({
   const analysis = message.metadata?.analysis as Analysis | undefined;
   const suggestedAnswer = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
+  const { aiConfigured } = useAiConfigured();
 
   const [similarResults, setSimilarResults] = useState<SimilarResult[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
@@ -332,6 +334,13 @@ export function AiTabPanel({
               </button>
             )}
           </div>
+
+          {!aiConfigured && (
+            <p className="text-[10px] leading-snug text-amber-600 dark:text-amber-400 mb-1.5">
+              Connect an AI provider in Settings to get suggested replies — showing similar messages
+              instead.
+            </p>
+          )}
 
           {loadingSimilar && options.length === 0 && (
             <div className="flex items-center gap-1.5 py-1">

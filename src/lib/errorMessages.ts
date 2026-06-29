@@ -26,6 +26,35 @@ type AxiosLike = {
 };
 
 /**
+ * Shared user-facing copy for the "no AI/LLM provider configured" state.
+ * Kept here so every AI trigger surfaces identical wording.
+ */
+export const AI_NOT_CONFIGURED_MESSAGE =
+  'AI not configured — connect a provider in Settings.';
+
+type AiErrorLike = {
+  // Shape thrown by api-client's response interceptor (it masks 5xx messages
+  // but preserves `data`, so we detect the contract via the code, not the text).
+  data?: { code?: string };
+  // Raw axios error shape, in case a call site bypasses the interceptor.
+  response?: { data?: { code?: string } };
+};
+
+/**
+ * True when an error matches the BE's no-provider contract: an AI feature that
+ * can't degrade returns HTTP 503 with body `{ code: 'AI_NOT_CONFIGURED', ... }`.
+ * Reuse this in catch blocks so each AI trigger can show the same message.
+ */
+export const isAiNotConfiguredError = (err: unknown): boolean => {
+  if (typeof err !== 'object' || err === null) return false;
+  const axiosErr = err as AiErrorLike;
+  return (
+    axiosErr.data?.code === 'AI_NOT_CONFIGURED' ||
+    axiosErr.response?.data?.code === 'AI_NOT_CONFIGURED'
+  );
+};
+
+/**
  * Best-effort extraction of a useful message from an unknown error.
  * Order: BE-supplied error string → status mapping → error.message → fallback.
  *
