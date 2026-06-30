@@ -358,11 +358,11 @@ export const RoutingRulesSettings = () => {
             }}
             options={deptOptionsForDialog}
             placeholder={allDepts.length === 0 ? 'No departments' : 'Select a department'}
-            isDisabled={ruleManagement.editingRule !== null || allDepts.length === 0}
+            isDisabled={allDepts.length === 0}
           />
           {ruleManagement.editingRule !== null && (
             <p className="text-xs text-muted-foreground">
-              Department can&apos;t change after a rule is created. Delete and re-add to move.
+              Changing the department moves this rule to another team.
             </p>
           )}
           <ReactSelect
