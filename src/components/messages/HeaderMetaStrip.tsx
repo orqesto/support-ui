@@ -84,7 +84,11 @@ export function HeaderMetaStrip({
 
   const handleDeptChange = async (value: string) => {
     const nextId = Number(value);
-    if (!Number.isFinite(nextId) || nextId === message.departmentId) {
+    // For a needs_routing message the departmentId is just the first-active
+    // PLACEHOLDER (the column is NOT NULL), so routing it to that same dept is a
+    // real triage action — not a no-op — and must fire. Only an active-conv
+    // re-route to its current dept is a genuine no-op worth skipping.
+    if (!Number.isFinite(nextId) || (!needsRouting && nextId === message.departmentId)) {
       setEditingDept(false);
       return;
     }
@@ -122,7 +126,10 @@ export function HeaderMetaStrip({
         <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Department</span>
         {editingDept && canRoute ? (
           <ReactSelect
-            value={message.departmentId ? String(message.departmentId) : ''}
+            // needs_routing carries a placeholder departmentId; leave the picker
+            // UNSET so choosing any dept (incl. the placeholder) is a real change
+            // that fires onChange. Active convs keep their current dept selected.
+            value={needsRouting ? '' : message.departmentId ? String(message.departmentId) : ''}
             onChange={(value) => void handleDeptChange(value)}
             options={activeDeptOptions}
             isDisabled={savingDept}
