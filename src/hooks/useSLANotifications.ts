@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
+import { classifyBreach } from './slaBreachDisposition';
 import {
   getSocket,
   subscribeToEvent,
@@ -66,7 +67,14 @@ export const useSLANotifications = () => {
   const [total, setTotal] = useState(0);
   const [onlyAssignedToMe, setOnlyAssignedToMeState] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const seenIds = useRef<Set<number>>(new Set());
+  // Tracks the highest severity surfaced per notification id. The BE
+  // deliberately re-delivers a warning→critical escalation reusing the SAME
+  // notifications.id; deduping on id alone dropped it (bell stayed "warning",
+  // unreadCount never bumped). Storing severity lets us detect the escalation.
+  const seenSeverity = useRef<Map<number, 'warning' | 'critical'>>(new Map());
+  // Synchronous mirror of `notifications` so the socket handler can read a
+  // notification's current read-state without nesting setState calls.
+  const notificationsRef = useRef<SLABreachNotification[]>([]);
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
   // BE `notificationsController` honours X-Department-Context. Force callback
   // identity to change on dept toggle so consumer effects re-fetch in scope.
@@ -91,7 +99,8 @@ export const useSLANotifications = () => {
           receivedAt: Date.now(),
           isRead: row.isRead ?? false,
         }));
-        seenIds.current = new Set(loaded.map((notif) => notif.id));
+        seenSeverity.current = new Map(loaded.map((notif) => [notif.id, notif.severity]));
+        notificationsRef.current = loaded;
         setNotifications(loaded);
         setTotal(totalCount);
         setUnreadCount(loaded.filter((notif) => !notif.isRead).length);
@@ -132,6 +141,11 @@ export const useSLANotifications = () => {
       .catch(() => {});
   }, []);
 
+  // Keep the ref mirror in sync for the socket handler's read-state lookups.
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
   // Load persisted notifications on mount
   useEffect(() => {
     fetchNotifications();
@@ -145,12 +159,34 @@ export const useSLANotifications = () => {
 
     const handleBreach = (data: unknown) => {
       const breach = data as Omit<SLABreachNotification, 'receivedAt'>;
-      if (seenIds.current.has(breach.id)) return;
       if (!matchesPrefs(breach, prefsRef.current)) return;
-      seenIds.current.add(breach.id);
-      if (seenIds.current.size > 500) {
-        const oldest = seenIds.current.values().next().value as number;
-        seenIds.current.delete(oldest);
+
+      const disposition = classifyBreach(seenSeverity.current.get(breach.id), breach.severity);
+      if (disposition === 'duplicate') return;
+      if (disposition === 'escalation') {
+        seenSeverity.current.set(breach.id, breach.severity);
+
+        // Re-surface: update severity/breachAmount in place, mark unread, move
+        // to top. Bump unreadCount only if it was previously read (or has since
+        // been evicted from the list) so an already-unread item isn't counted twice.
+        const existing = notificationsRef.current.find((notif) => notif.id === breach.id);
+        if (!existing || existing.isRead) {
+          setUnreadCount((prev) => prev + 1);
+        }
+        setNotifications((prev) => {
+          const rest = prev.filter((notif) => notif.id !== breach.id);
+          const updated: SLABreachNotification = existing
+            ? { ...existing, severity: breach.severity, breachAmount: breach.breachAmount, receivedAt: Date.now(), isRead: false }
+            : { ...breach, receivedAt: Date.now(), isRead: false };
+          return [updated, ...rest];
+        });
+        return;
+      }
+
+      seenSeverity.current.set(breach.id, breach.severity);
+      if (seenSeverity.current.size > 500) {
+        const oldest = seenSeverity.current.keys().next().value as number;
+        seenSeverity.current.delete(oldest);
       }
       const notification: SLABreachNotification = { ...breach, receivedAt: Date.now(), isRead: false };
       setNotifications((prev) => [notification, ...prev]);
@@ -192,12 +228,12 @@ export const useSLANotifications = () => {
       setTotal((prev) => Math.max(0, prev - 1));
       return prev.filter((notif) => notif.id !== id);
     });
-    // Keep id in seenIds so a re-broadcast doesn't re-add it
+    // Keep id in seenSeverity so a re-broadcast doesn't re-add it
   }, []);
 
   const clearAll = useCallback(() => {
     apiClient.patch('/api/notifications/dismiss-all').catch(() => {});
-    // Don't clear seenIds — dismissed IDs must stay tracked so re-broadcast
+    // Don't clear seenSeverity — dismissed IDs must stay tracked so re-broadcast
     // socket events don't re-add them immediately after dismiss-all.
     setNotifications([]);
     setTotal(0);
