@@ -1,18 +1,9 @@
 import { apiClient } from '@/lib/api-client';
+// Unified attachment shape (generated backend contract). Re-exported for the
+// existing call sites (TicketAttachments, etc.) that import it from here.
+import type { Attachment } from '@/types/ai';
 
-export type Attachment = {
-  id: number;
-  ticketId: number | null;
-  commentId: number | null;
-  filename: string;
-  originalFilename: string;
-  mimeType: string;
-  size: number;
-  url: string;
-  externalId: string | null;
-  createdAt: string;
-  metadata: Record<string, unknown> | null;
-};
+export type { Attachment };
 
 export type Comment = {
   id: number;

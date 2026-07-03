@@ -102,6 +102,15 @@ export type MessageEvent = {
   assigneeName?: string | null;
 };
 
+// NOTE: This is the app's tolerant "ticket in state" type — the loose superset
+// that BOTH GET /api/tickets (TicketListItem) and GET /api/tickets/:id
+// (TicketDetail) satisfy. Fields absent on one endpoint are optional here:
+//   - `sender`: returned by BOTH endpoints (detail returns the full ticket row),
+//     so it is required.
+//   - `assigneeName`: computed only on the LIST endpoint, so optional here.
+//   - `categoryName`/`assigneeName`/`metadata`: the BE sends `null`, not absent.
+// For endpoint-precise shapes use `TicketListItem`/`TicketDetail` from '@/types/api'
+// (generated from the backend zod contract).
 export type Ticket = {
   id: number;
   title: string;
@@ -110,15 +119,15 @@ export type Ticket = {
   status: TicketStatus;
   priority: TicketPriority;
   categoryId: number | null;
-  categoryName?: string;
+  categoryName?: string | null;
   assigneeId: number | null;
-  assigneeName?: string;
+  assigneeName?: string | null;
   departmentId?: number | null;
   externalId: string | null;
   externalUrl: string | null;
   createdAt: string;
   updatedAt: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | null;
   labels?: { id: number; name: string; color: string }[];
 };
 
