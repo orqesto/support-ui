@@ -9,8 +9,9 @@ export type IconButtonProps = Omit<ButtonProps, 'children' | 'isLoading'> & {
 };
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ className, variant, icon, ...props }, ref) => (
-    <button ref={ref} className={cn(getButtonClasses(variant, 'icon'), className)} {...props}>
+  ({ className, variant, icon, type = 'button', ...props }, ref) => (
+    // Default type="button" so an IconButton inside a <form> never submits by accident.
+    <button ref={ref} type={type} className={cn(getButtonClasses(variant, 'icon'), className)} {...props}>
       {icon}
     </button>
   )

@@ -1,6 +1,7 @@
 /**
  * AI Feature Types for Frontend
  */
+import type { Attachment as ApiAttachment } from '@/types/api';
 
 // Contradiction Detection Types
 export type ContradictionCheckResult = {
@@ -77,16 +78,8 @@ export type MessageMetadata = {
   [key: string]: unknown;
 };
 
-// Attachment Type with Metadata
-export type Attachment = {
-  id: number;
-  messageId: number;
-  filename: string;
-  originalFilename: string;
-  mimeType: string;
-  size: number;
-  url: string;
-  extractedText?: string | null;
-  createdAt: string;
-  metadata?: AttachmentMetadata;
-};
+// Canonical FE attachment shape (single source of truth, imported by the
+// services + components that used to each declare their own). It is the generated
+// backend contract (18 fields, no phantom `messageId`/`isOutgoing`) with `metadata`
+// narrowed to the richer AttachmentMetadata the UI renders.
+export type Attachment = Omit<ApiAttachment, 'metadata'> & { metadata?: AttachmentMetadata | null };

@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Timer } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-
-type SLAEntry = {
-  type: 'ticket' | 'message';
-  key: string;
-  firstResponseMinutes: number;
-  resolutionHours: number | null;
-  isCustom: boolean;
-};
+// Centralised SLA config shape (generated backend contract) — was a component-local
+// duplicate.
+import type { SlaConfigEntry as SLAEntry } from '@/types/api';
 
 type EditState = {
   firstResponseMinutes: string;

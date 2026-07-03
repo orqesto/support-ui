@@ -211,7 +211,10 @@ export const MessagesPage = () => {
       try {
         const res = await messageService.getById(preferredId);
         if (res.success && res.data) {
-          const messageToShow = res.data;
+          // Widen to the tolerant app Message type: `lastReplyFromClient` is not
+          // returned by getById, so it is optional here and falls back to the
+          // thread's value below.
+          const messageToShow: Message = res.data;
           fetchedMessageIdRef.current = getConvUrlId(messageToShow);
           setSelectedMessage({
             ...messageToShow,
@@ -304,10 +307,10 @@ export const MessagesPage = () => {
       const response = await messageService.getById(selectedMessage.id);
       if (abortController.signal.aborted) return;
       if (response.success && response.data) {
+        const data: Message = response.data;
         setSelectedMessage({
-          ...response.data,
-          lastReplyFromClient:
-            response.data.lastReplyFromClient ?? selectedMessage.lastReplyFromClient,
+          ...data,
+          lastReplyFromClient: data.lastReplyFromClient ?? selectedMessage.lastReplyFromClient,
         });
       }
       if (!abortController.signal.aborted) {

@@ -105,7 +105,10 @@ export const CreateTicketPage = () => {
 
       const response = messageResult.value;
       if (response.success && response.data) {
-        const data = response.data;
+        // Widen to the tolerant app Message type: `content` is not returned by the
+        // message endpoint (lives in message_events), so it is optional/undefined
+        // here — the description prefill below no-ops until the BE exposes it.
+        const data: Message = response.data;
         setMessage(data);
 
         // Extract AI analysis from metadata

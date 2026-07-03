@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Ticket, CreateTicketRequest, UpdateTicketRequest, ApiResponse } from '@/types';
+import type { TicketListItem, TicketDetail } from '@/types/api';
 
 export type PaginationMeta = {
   page: number;
@@ -64,14 +65,14 @@ export const ticketService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<Ticket[]>>(
+    const response = await apiClient.get<PaginatedResponse<TicketListItem[]>>(
       `/api/tickets?${params.toString()}`
     );
     return response.data;
   },
 
   getById: async (id: number) => {
-    const response = await apiClient.get<ApiResponse<Ticket>>(`/api/tickets/${id}`);
+    const response = await apiClient.get<ApiResponse<TicketDetail>>(`/api/tickets/${id}`);
     return response.data;
   },
 

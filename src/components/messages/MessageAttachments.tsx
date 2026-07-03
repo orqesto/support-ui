@@ -1,24 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
+import { ArrowDownLeft, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL } from '@/lib/config';
-import type { AttachmentMetadata } from '@/types/ai';
+import type { Attachment } from '@/types/ai';
 import type { Message, MessageEvent } from '@/types';
 import { logger } from '@/lib/logger';
 
-export type Attachment = {
-  id: number;
-  messageEventId: number | null;
-  filename: string;
-  originalFilename: string;
-  mimeType: string;
-  size: number;
-  url: string;
-  isOutgoing: boolean | null;
-  createdAt: string;
-  metadata?: AttachmentMetadata;
-};
+export type { Attachment };
 
 type MessageAttachmentsProps = {
   message: Message;
@@ -152,15 +141,13 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
             <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
               {formatFileSize(att.size)}
               <span className="text-border">·</span>
-              {att.isOutgoing ? (
-                <span className="inline-flex items-center gap-0.5 text-blue-500 dark:text-blue-400">
-                  <ArrowUpRight className="w-2.5 h-2.5" />Sent
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400">
-                  <ArrowDownLeft className="w-2.5 h-2.5" />Received
-                </span>
-              )}
+              {/* The attachments endpoint does not return direction (the old
+                  `isOutgoing` field was never populated → this always rendered
+                  "Received"). Preserved as-is; deriving true direction from the
+                  owning message event is a follow-up (Bucket-B). */}
+              <span className="inline-flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400">
+                <ArrowDownLeft className="w-2.5 h-2.5" />Received
+              </span>
             </p>
           </div>
 

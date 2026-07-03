@@ -1,5 +1,8 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
+// Rule shape generated from the backend contract (adds `tier`, present only on the
+// dept-filtered projection; metadata narrowed to the fields the FE consumes).
+import type { RoutingRule } from '@/types/api';
 
 export const ROUTING_RULE_TYPES = [
   'subject_contains',
@@ -19,29 +22,7 @@ export type RoutingRuleProvenance =
   | 'consolidated_from'
   | 'fast_path';
 
-export type RoutingRule = {
-  id: number;
-  departmentId: number;
-  type: RoutingRuleType;
-  value: string;
-  exampleText: string | null;
-  weight: number;
-  enabled: boolean;
-  lastMatchedAt: string | null;
-  matchCount: number;
-  createdAt: string;
-  /** True when the rule was auto-materialized by the learning engine. */
-  provisional?: boolean;
-  /** Learning engine metadata (provenance, ledger, etc.). Null on legacy rows. */
-  metadata?: {
-    provenance?: RoutingRuleProvenance;
-    outcomeLedger?: {
-      corroborations: number;
-      contradictions: number;
-      distinctConvsCount: number;
-    };
-  } | null;
-};
+export type { RoutingRule };
 
 export type CreateRoutingRuleInput = {
   departmentId: number;

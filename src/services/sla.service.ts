@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import type { SlaBreach } from '@/types/api';
 
 export type SLASummary = {
   messages: {
@@ -72,19 +73,9 @@ export type SLAStatistics = {
   };
 };
 
-export type SLABreach = {
-  id: number;
-  type: 'message' | 'ticket_first_response' | 'ticket_resolution';
-  channel?: string;
-  priority?: string;
-  sender: string;
-  subject?: string;
-  title?: string;
-  targetMinutes?: number;
-  actualMinutes?: number;
-  breachAmount: number;
-  createdAt: string;
-};
+// Breach shape generated from the backend contract (adds targetHours/actualHours
+// for resolution breaches, which the old FE type omitted).
+export type SLABreach = SlaBreach;
 
 export type SLABreachesResponse = {
   total: number;

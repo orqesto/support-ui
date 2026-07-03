@@ -1,0 +1,50 @@
+name: PR Checks (type-check + lint)
+
+# Runs type-check and lint on PRs. Type-check is the guard for the generated
+# API-contract types (src/types/generated/api.ts, produced by `npm run gen:types`
+# from ../BE-service/openapi.json): if a service/component consumes a field the
+# contract does not provide, this fails.
+#
+# NOTE: this cannot REGENERATE the types in CI — `gen:types` reads the sibling
+# BE-service repo's openapi.json, which isn't checked out here. When a backend
+# contract changes, regenerate locally (`npm run gen:types`) and commit the updated
+# generated file alongside; the BE repo's jest-checks workflow guards openapi.json
+# freshness on its side.
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - "eslint.config.js"
+      - ".github/workflows/pr-checks.yml"
+
+concurrency:
+  group: fe-pr-checks-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: type-check + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint

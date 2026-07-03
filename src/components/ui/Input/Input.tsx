@@ -7,6 +7,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, label, error, success, size, variant, id, ...props }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
+    const errorId = `${inputId}-error`;
 
     // Auto-set variant based on error/success
     const finalVariant = error ? 'error' : success ? 'success' : variant;
@@ -21,11 +22,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           id={inputId}
           type={type}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           className={cn(getInputClasses(size, finalVariant), className)}
           ref={ref}
           {...props}
         />
-        {error && <p className={getInputErrorClasses(size)}>{error}</p>}
+        {error && (
+          <p id={errorId} className={getInputErrorClasses(size)}>
+            {error}
+          </p>
+        )}
         {success && !error && (
           <p className={cn(getInputErrorClasses(size), 'text-green-600 dark:text-green-400')}>
             {success}
