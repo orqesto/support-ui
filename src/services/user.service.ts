@@ -38,7 +38,10 @@ export const userService = {
     return response.data.data as User;
   },
 
-  // Get current user
+  // Get current user. The /me shape is locked by the CurrentUser BE contract test;
+  // FE keeps the tolerant `User` type here (it uses narrower union types than the
+  // wire contract — OrganizationRole/Permission[] vs string — so direct consumption
+  // is deferred).
   getCurrentUser: async (): Promise<User> => {
     const response: AxiosResponse<ApiResponse<User>> = await apiClient.get('/api/users/me');
     return response.data.data as User;

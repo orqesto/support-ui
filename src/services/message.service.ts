@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Message, MessageEvent, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
+import type { MessageListItem, MessageDetail } from '@/types/api';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
 const cleanFilters = (filters?: Record<string, string>): Record<string, string> =>
@@ -144,7 +145,7 @@ export const messageService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<Message[]>>(
+    const response = await apiClient.get<PaginatedResponse<MessageListItem[]>>(
       `/api/messages?${params.toString()}`
     );
     return response.data;
@@ -162,7 +163,7 @@ export const messageService = {
   // lookup and resolve directly via message_events.
   getById: async (id: number | string, kind?: 'event') => {
     const query = kind ? `?kind=${kind}` : '';
-    const response = await apiClient.get<ApiResponse<Message>>(`/api/messages/${id}${query}`);
+    const response = await apiClient.get<ApiResponse<MessageDetail>>(`/api/messages/${id}${query}`);
     return response.data;
   },
 
