@@ -35,6 +35,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
 import { logger } from '@/lib/logger';
+import { allowedStatusOptions } from '@/lib/ticketStatus';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -54,6 +55,14 @@ const statusColors: Record<
   in_progress: 'default',
   resolved: 'success',
   closed: 'secondary',
+};
+
+const STATUS_LABELS: Record<TicketStatus, string> = {
+  pending: 'Pending',
+  open: 'Open',
+  in_progress: 'In Progress',
+  resolved: 'Resolved',
+  closed: 'Closed',
 };
 
 const priorityColors: Record<TicketPriority, 'default' | 'success' | 'warning' | 'danger'> = {
@@ -236,13 +245,13 @@ export const TicketDetail = ({
                 <ReactSelect
                   value={localStatus}
                   onChange={(val) => { setLocalStatus(val as TicketStatus); void handleFieldUpdate('status', val); }}
-                  options={[
-                    { value: 'pending', label: 'Pending' },
-                    { value: 'open', label: 'Open' },
-                    { value: 'in_progress', label: 'In Progress' },
-                    { value: 'resolved', label: 'Resolved' },
-                    { value: 'closed', label: 'Closed' },
-                  ]}
+                  // Only offer transitions the backend allows from the current status
+                  // (mirrored via @/lib/ticketStatus) so the dropdown can't surface a move
+                  // that 422s (audit HIGH, Wave1:134).
+                  options={allowedStatusOptions(localStatus).map((status) => ({
+                    value: status,
+                    label: STATUS_LABELS[status],
+                  }))}
                   className="min-w-[130px]"
                 />
               ) : (
