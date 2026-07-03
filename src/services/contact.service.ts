@@ -1,94 +1,32 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
+// Domain shapes are generated from the backend zod contract (../BE-service/openapi.json).
+// Imported for local use (ContactListResponse) and re-exported for existing call sites.
+import type {
+  ContactNote,
+  ContactLabel,
+  LinkedContact,
+  ContactProfileEntry,
+  ContactStats,
+  RecentMessage,
+  RecentTicket,
+  ContactProfile,
+  ContactListItem,
+} from '@/types/api';
 
-export type ContactNote = {
-  id: number;
-  contactId: number;
-  userId: number | null;
-  content: string;
-  createdAt: string;
-  authorFirstName: string | null;
-  authorLastName: string | null;
-};
-
-export type ContactLabel = {
-  id: number;
-  name: string;
-  color: string;
-};
-
-export type LinkedContact = {
-  id: number;
-  primaryEmail: string;
-  displayName: string | null;
+export type {
+  ContactNote,
+  ContactLabel,
+  LinkedContact,
+  ContactProfileEntry,
+  ContactStats,
+  RecentMessage,
+  RecentTicket,
+  ContactProfile,
+  ContactListItem,
 };
 
 export type ContactProfileType = 'email' | 'telegram_username' | 'telegram_phone' | 'slack';
-
-export type ContactProfileEntry = {
-  id: number;
-  type: ContactProfileType;
-  value: string;
-  label: string | null;
-  createdAt: string;
-};
-
-export type ContactStats = {
-  messageCount: number;
-  lastMessageAt: string | null;
-  isLead: boolean;
-};
-
-export type RecentMessage = {
-  id: number;
-  subject: string | null;
-  content: string;
-  status: string;
-  channel: string;
-  createdAt: string;
-  ticketId: number | null;
-};
-
-export type RecentTicket = {
-  id: number;
-  title: string;
-  status: string;
-  priority: string;
-  createdAt: string;
-};
-
-export type ContactProfile = {
-  id: number;
-  organizationId: number;
-  primaryEmail: string;
-  displayName: string | null;
-  assignedUserId: number | null;
-  assignedUserFirstName: string | null;
-  assignedUserLastName: string | null;
-  assignedUserEmail: string | null;
-  createdAt: string;
-  updatedAt: string;
-  notes: ContactNote[];
-  labels: ContactLabel[];
-  linkedContacts: LinkedContact[];
-  profiles: ContactProfileEntry[];
-  stats: ContactStats;
-  recentMessages: RecentMessage[];
-  recentTickets: RecentTicket[];
-};
-
-export type ContactListItem = {
-  id: number;
-  primaryEmail: string;
-  displayName: string | null;
-  assignedUserId: number | null;
-  assignedUserFirstName: string | null;
-  assignedUserLastName: string | null;
-  messageCount: number;
-  lastMessageAt: string | null;
-  isLead: boolean;
-  createdAt: string;
-};
 
 export type ContactListResponse = {
   data: ContactListItem[];

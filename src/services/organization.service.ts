@@ -1,6 +1,10 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse, PaginationMeta } from '@/types';
 
+// Core org + member shapes are generated from the backend zod contract
+// (../BE-service/openapi.json). See src/types/api.ts.
+import type { Organization as ApiOrganization, OrganizationMember } from '@/types/api';
+
 export type TenantDbInfo = {
   deploymentType: 'shared' | 'dedicated' | 'external';
   dbSecretRef: string | null;
@@ -8,35 +12,15 @@ export type TenantDbInfo = {
   status: 'provisioning' | 'active' | 'degraded' | 'suspended';
 };
 
-export type Organization = {
-  id: number;
-  name: string;
-  slug: string;
-  /**
-   * Short uppercase org code (e.g. 'ACM') rendered in front of the dept-scoped
-   * public id for display: `ACM-SUP-42`. Null until backfilled — callers fall
-   * back to the bare publicId. Derived from name on the BE.
-   */
-  code?: string | null;
-  description: string | null;
-  settings: Record<string, unknown> | null;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  tenantDb?: TenantDbInfo | null;
-};
+/**
+ * The generated org contract (id/name/slug/code/description/email/settings/
+ * billingCustomerId/fallbackDepartmentId/active/isSystem/createdAt/updatedAt) plus
+ * `tenantDb`, which only the global-admin list endpoint attaches (not yet modelled
+ * in the contract — tracked as a follow-up).
+ */
+export type Organization = ApiOrganization & { tenantDb?: TenantDbInfo | null };
 
-export type OrganizationMember = {
-  id: number;
-  userId: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  position: string | null;
-  userRole: string;
-  organizationRole: string;
-  joinedAt: string;
-};
+export type { OrganizationMember };
 
 export type LeadQualificationFieldConfig = {
   key: string;

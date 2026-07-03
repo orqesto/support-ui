@@ -7,6 +7,7 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import { apiClient } from '@/lib/api-client';
+import type { Notification } from '@/types/api';
 
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
@@ -18,7 +19,8 @@ export type SLABreachNotification = {
   details: {
     channel?: string;
     priority?: string;
-    sender: string;
+    // Optional: message breaches omit sender (the BE only sends it for ticket breaches).
+    sender?: string;
     subject?: string;
     title?: string;
     targetMinutes?: number;
@@ -53,17 +55,8 @@ const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: 
   return true;
 };
 
-type NotificationRow = {
-  id: number;
-  entityId: number;
-  entityType: string;
-  organizationId: number;
-  severity: string;
-  breachAmount: number;
-  details: SLABreachNotification['details'];
-  createdAt: string;
-  isRead?: boolean;
-};
+// The REST row is the generated backend Notification contract.
+type NotificationRow = Notification;
 
 export type UseSLANotificationsResult = ReturnType<typeof useSLANotifications>;
 
@@ -89,9 +82,9 @@ export const useSLANotifications = () => {
         const loaded: SLABreachNotification[] = rows.map((row) => ({
           id: row.id,
           entityId: row.entityId,
-          type: row.entityType as SLABreachNotification['type'],
+          type: row.entityType,
           organizationId: row.organizationId,
-          severity: row.severity as 'warning' | 'critical',
+          severity: row.severity,
           breachAmount: row.breachAmount,
           details: row.details,
           createdAt: row.createdAt,
