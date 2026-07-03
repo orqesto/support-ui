@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -101,14 +101,10 @@ const AppRoutes = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
-  const [isRestoringProfile, setIsRestoringProfile] = useState(false);
-
   // After page reload the persisted user has no role/organizationRole (intentionally not stored).
   // Re-fetch the profile from the server to restore those fields so ProtectedRoute works correctly.
-  // Show a loading state until the role is available to prevent fail-open redirects.
   useEffect(() => {
     if (isAuthenticated && user && !user.role) {
-      setIsRestoringProfile(true);
       userService
         .getCurrentUser()
         .then((freshUser) => {
@@ -116,14 +112,17 @@ const AppRoutes = () => {
         })
         .catch(() => {
           logout();
-        })
-        .finally(() => {
-          setIsRestoringProfile(false);
         });
     }
   }, [isAuthenticated, logout, setUser, user]);
 
-  if (isAuthenticated && user && !user.role && isRestoringProfile) {
+  // Gate route evaluation while an authenticated user is still missing its role — the
+  // reload window before the profile refetch lands. This MUST NOT depend on an effect-set
+  // flag: effects run after the first commit, but a role-gated <Navigate> renders DURING
+  // that first commit and would bounce the URL before the gate ever engaged (audit HIGH,
+  // Wave2:49). Keying purely on `!user.role` blocks on the very first render and clears
+  // automatically once the refetch populates role.
+  if (isAuthenticated && user && !user.role) {
     return <LoadingFallback />;
   }
 
