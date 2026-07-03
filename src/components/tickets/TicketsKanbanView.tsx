@@ -28,6 +28,7 @@ import { ticketService } from '@/services/ticket.service';
 import { Badge } from '@/components/ui/Badge';
 import { formatAge } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { canTransition } from '@/lib/ticketStatus';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 
 type KanbanColumnDef = {
@@ -94,15 +95,6 @@ const PRIORITY_VARIANT = {
   medium: 'secondary',
   low: 'default',
 } as const;
-
-// Allowed drag transitions — prevents logically invalid moves (e.g. closed → open)
-const VALID_TRANSITIONS: Record<string, Set<string>> = {
-  open: new Set(['in_progress', 'pending', 'closed']),
-  in_progress: new Set(['open', 'pending', 'resolved', 'closed']),
-  pending: new Set(['open', 'in_progress']),
-  resolved: new Set(['closed']),
-  closed: new Set([]),
-};
 
 const PAGE_SIZE = 20;
 
@@ -421,8 +413,9 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
 
     if (fromColId === toColId) return;
 
-    // Validate transition is allowed before doing anything
-    if (!VALID_TRANSITIONS[fromColId]?.has(toColId)) {
+    // Validate transition is allowed before doing anything — shared with the status
+    // dropdown and mirrored from the backend contract (see @/lib/ticketStatus).
+    if (!canTransition(fromColId as TicketStatus, toColId as TicketStatus)) {
       logger.warn(`Invalid ticket transition: ${fromColId} → ${toColId}`);
       return;
     }
