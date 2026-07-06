@@ -20,6 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -79,6 +80,7 @@ export function MessageDetailHeader({
   const { aiConfigured } = useAiConfigured();
   const orgCode = useCurrentOrgCode();
   const { data: allDepts = [] } = useDepartments();
+  const queryClient = useQueryClient();
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [routingTo, setRoutingTo] = useState<number | null>(null);
@@ -482,6 +484,8 @@ export function MessageDetailHeader({
       try {
         setRoutingTo(deptId);
         await messageService.manualRoute(message.id, deptId);
+        // Left the needs_routing queue — refresh the sidebar badge immediately.
+        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
         onRefresh?.();
       } catch (err) {
         logger.error('Failed to manually route:', err);
@@ -489,7 +493,7 @@ export function MessageDetailHeader({
         setRoutingTo(null);
       }
     },
-    [message.id, onRefresh]
+    [message.id, onRefresh, queryClient]
   );
 
   const handleReanalyze = useCallback(async () => {
