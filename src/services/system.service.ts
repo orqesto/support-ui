@@ -38,7 +38,7 @@ const systemService = {
    * Delete all messages for current organization (optionally filtered by department)
    */
   deleteAllMessages: async (departmentSlug?: string) => {
-    const params = departmentSlug ? { departmentRole: departmentSlug } : {};
+    const params = departmentSlug ? { departmentSlug } : {};
     const response = await apiClient.delete<ApiResponse<null>>('/api/system/messages', { params });
     return response.data;
   },
@@ -47,7 +47,7 @@ const systemService = {
    * Delete all tickets for current organization (optionally filtered by department)
    */
   deleteAllTickets: async (departmentSlug?: string) => {
-    const params = departmentSlug ? { departmentRole: departmentSlug } : {};
+    const params = departmentSlug ? { departmentSlug } : {};
     const response = await apiClient.delete<ApiResponse<null>>('/api/system/tickets', { params });
     return response.data;
   },
@@ -56,7 +56,7 @@ const systemService = {
    * Delete all KB entries for current organization (optionally filtered by department)
    */
   deleteAllKB: async (departmentSlug?: string) => {
-    const params = departmentSlug ? { departmentRole: departmentSlug } : {};
+    const params = departmentSlug ? { departmentSlug } : {};
     const response = await apiClient.delete<ApiResponse<null>>('/api/system/knowledge-base', {
       params,
     });

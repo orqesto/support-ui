@@ -97,7 +97,7 @@ const getAll = async (
   }
 
   if (filters.departmentSlug) {
-    params.append('departmentRole', filters.departmentSlug);
+    params.append('departmentSlug', filters.departmentSlug);
   }
 
   if (filters.messageSourceId) {
