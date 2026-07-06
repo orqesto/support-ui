@@ -450,7 +450,7 @@ export function MessageDetailHeader({
   );
 
   const handleCopyLink = useCallback(() => {
-    const url = `${window.location.origin}/messages?id=${getConvUrlId(message)}`;
+    const url = `${window.location.origin}/messages?id=${getConvUrlId(message, orgCode)}`;
     navigator.clipboard
       .writeText(url)
       .then(() => {
@@ -458,7 +458,7 @@ export function MessageDetailHeader({
         setTimeout(() => setLinkCopied(false), 2000);
       })
       .catch((err) => logger.error('Failed to copy link:', err));
-  }, [message]);
+  }, [message, orgCode]);
 
   const handleCheckContradiction = useCallback(async () => {
     try {

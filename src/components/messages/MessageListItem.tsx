@@ -182,7 +182,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             onClick={(event) => {
               event.stopPropagation();
               void navigator.clipboard
-                .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg)}`)
+                .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
                 .then(() => {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
