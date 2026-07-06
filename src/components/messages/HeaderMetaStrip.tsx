@@ -1,5 +1,6 @@
 import { safeCssColor } from '@/lib/utils';
 import { useRef, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
@@ -82,6 +83,8 @@ export function HeaderMetaStrip({
     .filter((dept) => dept.active && (canRouteAnyDept || userDeptIds.has(dept.id)))
     .map((dept) => ({ value: String(dept.id), label: dept.name }));
 
+  const queryClient = useQueryClient();
+
   const handleDeptChange = async (value: string) => {
     const nextId = Number(value);
     // For a needs_routing message the departmentId is just the first-active
@@ -95,6 +98,9 @@ export function HeaderMetaStrip({
     setSavingDept(true);
     try {
       await messageService.manualRoute(message.id, nextId);
+      // Routing a needs_routing message removes it from the queue — refresh the
+      // sidebar badge immediately instead of waiting for the 60s poll.
+      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       onDepartmentChange?.();
     } catch (err) {
       logger.error('Failed to change department:', err);

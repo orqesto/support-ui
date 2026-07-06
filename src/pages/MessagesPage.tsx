@@ -405,10 +405,13 @@ export const MessagesPage = () => {
       clearCache();
       void fetchMessages(messagesPagination.page, true);
       bumpKanban();
+      // The routed conv left the needs_routing queue — refresh the sidebar badge
+      // too (this handler's contract, but it was previously only refreshing list+kanban).
+      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
     };
     subscribeToEvent('conversation:routed', handleConversationRouted);
     return () => unsubscribeFromEvent('conversation:routed', handleConversationRouted);
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban, queryClient]);
 
   // Refresh on server-side conv status transitions (resurface on customer
   // follow-up to resolved/closed conv, awaiting_response → client_replied on
