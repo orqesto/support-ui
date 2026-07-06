@@ -7,6 +7,9 @@ export type Department = {
   description: string | null;
   color: string | null;
   active: boolean;
+  // Org-level fallback department: where messages land when no source/rule resolves one.
+  // Exactly one per organization.
+  isDefault: boolean;
 };
 
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
