@@ -54,13 +54,24 @@ export const formatConvId = (
  * `?id=` writer and the copy-link button so shared URLs survive across
  * orgs with different ID counters.
  *
- * The BE's `resolveConvIdFromParam` (messageController.ts) accepts both
- * formats — this is purely cosmetic / shareability. Backward-compatible:
- * shared URLs in `?id=16952` shape keep working until those convs get
- * a publicId via the orchestrator stamp or the backfill script.
+ * The BE's `resolveConvIdFromParam` (messageController.ts) accepts the bare
+ * `SUP-42`, the numeric `16952`, AND the org-prefixed `ADM-SUP-42` forms —
+ * backward-compatible.
+ *
+ * When `orgCode` is supplied (copy-link / shareable-URL writers), the id is
+ * org-prefixed — `ADM-SUP-42` — so the copied link matches the visible chip
+ * (`formatConvId`). `resolveConvIdFromParam` strips a *matching* `{orgCode}-`
+ * and 404s a non-matching one (a shared link can't resolve another org's conv).
+ * Internal nav / URL-sync writers omit `orgCode` and keep the bare dept-scoped
+ * form. The numeric fallback is never org-prefixed.
  */
-export const getConvUrlId = (msg: { id: number; publicId?: string | null }): string =>
-  msg.publicId ?? msg.id.toString();
+export const getConvUrlId = (
+  msg: { id: number; publicId?: string | null },
+  orgCode?: string | null
+): string => {
+  if (!msg.publicId) return msg.id.toString();
+  return orgCode ? `${orgCode}-${msg.publicId}` : msg.publicId;
+};
 
 // Spam Check helpers
 type SpamCheckData = {

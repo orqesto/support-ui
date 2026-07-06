@@ -189,7 +189,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           onClick={(event) => {
             event.stopPropagation();
             void navigator.clipboard
-              .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg)}`)
+              .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
               .then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
