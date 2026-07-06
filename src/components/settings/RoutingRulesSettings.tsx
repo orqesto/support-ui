@@ -130,6 +130,7 @@ export const RoutingRulesSettings = () => {
   const [allDepts, setAllDepts] = useState<Department[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
+  const [savingDefault, setSavingDefault] = useState(false);
 
   const deptNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -137,12 +138,36 @@ export const RoutingRulesSettings = () => {
     return map;
   }, [allDepts]);
 
-  useEffect(() => {
-    void departmentService
-      .getAll()
-      .then(setAllDepts)
-      .catch((err: unknown) => logger.error('Failed to load departments:', err));
+  const loadDepts = useCallback(async () => {
+    try {
+      setAllDepts(await departmentService.getAll());
+    } catch (err: unknown) {
+      logger.error('Failed to load departments:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadDepts();
+  }, [loadDepts]);
+
+  const defaultDept = useMemo(() => allDepts.find((dept) => dept.isDefault) ?? null, [allDepts]);
+
+  const handleSetDefault = useCallback(
+    async (value: string) => {
+      const id = parseInt(value, 10);
+      if (!id || id === defaultDept?.id) return;
+      setSavingDefault(true);
+      try {
+        await departmentService.setDefault(id);
+        await loadDepts();
+      } catch (err: unknown) {
+        logger.error('Failed to set default department:', err);
+      } finally {
+        setSavingDefault(false);
+      }
+    },
+    [defaultDept, loadDepts]
+  );
 
   const adaptRule = useCallback(
     (rule: RoutingRule): RoutingRuleView => ({
@@ -251,9 +276,26 @@ export const RoutingRulesSettings = () => {
   });
 
   return (
-    <RuleEditor<RoutingRuleView, FormData>
-      {...ruleManagement}
-      rules={filteredRules}
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h3 className="text-sm font-semibold text-foreground">Default department</h3>
+        <p className="mt-1 mb-3 text-xs text-muted-foreground">
+          The fallback department for incoming messages when no source binding or routing rule
+          resolves one. Exactly one per organization.
+        </p>
+        <div className="max-w-xs">
+          <ReactSelect
+            value={defaultDept ? String(defaultDept.id) : ''}
+            onChange={handleSetDefault}
+            options={allDepts.map((dept) => ({ value: String(dept.id), label: dept.name }))}
+            placeholder={allDepts.length === 0 ? 'No departments' : 'Select default department'}
+            isDisabled={allDepts.length === 0 || savingDefault}
+          />
+        </div>
+      </div>
+      <RuleEditor<RoutingRuleView, FormData>
+        {...ruleManagement}
+        rules={filteredRules}
       renderFilters={() => (
         <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
           {(['all', 'manual', 'learned'] as RuleFilter[]).map((filter) => {
@@ -449,7 +491,8 @@ export const RoutingRulesSettings = () => {
       isSaveDisabled={(formData) =>
         !formData.value.trim() || (ruleManagement.isCreating && formData.departmentId === null)
       }
-      onToggleActive={toggleActive}
-    />
+        onToggleActive={toggleActive}
+      />
+    </div>
   );
 };
