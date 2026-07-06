@@ -67,6 +67,13 @@ export function MessageActionStrip({
   const statusLabel = 'font-mono text-[9px] tracking-wide uppercase text-muted-foreground mb-1.5';
   const strip = 'flex-shrink-0 px-4 pt-2 pb-2.5 border-t border-border';
 
+  // A customer reply makes this an ACTIVE conversation even while the status is
+  // still 'open'/'new' (the status→client_replied transition doesn't fire on every
+  // ingest path). Such a conv shows the "CLIENT REPLIED" badge, so it must offer the
+  // same actions as awaiting_response (Create Ticket / Resolve & Save to KB / Close),
+  // not be treated as an unreviewed message that can only be closed.
+  const clientReplied = message.lastReplyFromClient === true;
+
   // Filtered: category-aware label and actions
   if (isFiltered && onClassify) {
     const spamCheck = getSpamCheck(message);
@@ -128,9 +135,11 @@ export function MessageActionStrip({
     );
   }
 
-  // Unreviewed — status='open' (unprocessed). The DB-side 'new' status is mapped
-  // to ThreadStatus='open' on the API boundary, so this only checks 'open'.
-  if (message.status === 'open' && !isSuspicious && onReopen) {
+  // Unreviewed — status='open' (unprocessed) AND the customer hasn't replied yet.
+  // The DB-side 'new' status is mapped to ThreadStatus='open' on the API boundary,
+  // so this only checks 'open'. Once the client has replied, fall through to the
+  // active-conversation branch below (full action set).
+  if (message.status === 'open' && !clientReplied && !isSuspicious && onReopen) {
     return (
       <div className={strip}>
         <p className={statusLabel}>Unreviewed — close without sending a reply</p>
@@ -147,9 +156,11 @@ export function MessageActionStrip({
     );
   }
 
-  // Processed, no ticket, not resolved/closed
+  // Active — processed, no ticket, not resolved/closed. Includes an 'open' conv the
+  // customer has replied to (clientReplied), which the unreviewed branch above now
+  // skips so it lands here with the full action set.
   if (
-    message.status !== 'open' &&
+    (message.status !== 'open' || clientReplied) &&
     message.status !== 'resolved' &&
     message.status !== 'closed' &&
     !hasLinkedTicket &&
