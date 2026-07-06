@@ -32,10 +32,10 @@ jobs:
         id: env
         run: |
           if [ "${{ env.TARGET_ENV }}" = "staging" ]; then
-            echo "VITE_API_URL=https://staging.app.odly.ai" >> $GITHUB_OUTPUT
-            echo "VITE_APP_URL=https://staging.app.odly.ai" >> $GITHUB_OUTPUT
+            echo "VITE_API_URL=https://staging.odly.ai" >> $GITHUB_OUTPUT
+            echo "VITE_APP_URL=https://staging.odly.ai" >> $GITHUB_OUTPUT
             echo "DEPLOY_PATH=/var/www/frontend-staging" >> $GITHUB_OUTPUT
-            echo "NGINX_CONF=staging.app.odly.ai" >> $GITHUB_OUTPUT
+            echo "NGINX_CONF=staging.odly.ai" >> $GITHUB_OUTPUT
             echo "ENV_LABEL=STAGING" >> $GITHUB_OUTPUT
           else
             echo "VITE_API_URL=https://app.odly.ai" >> $GITHUB_OUTPUT
