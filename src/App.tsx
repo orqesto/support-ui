@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -101,13 +101,16 @@ const AppRoutes = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
+  const [restoreFailed, setRestoreFailed] = useState(false);
   // After page reload the persisted user has no role/organizationRole (intentionally not stored).
   // Re-fetch the profile from the server to restore those fields so ProtectedRoute works correctly.
   useEffect(() => {
     if (!(isAuthenticated && user && !user.role)) return;
     let cancelled = false;
     let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const MAX_RETRIES = 4;
+    setRestoreFailed(false);
     const run = () => {
       userService
         .getCurrentUser()
@@ -124,13 +127,18 @@ const AppRoutes = () => {
             logout();
           } else if (attempt < MAX_RETRIES) {
             attempt += 1;
-            setTimeout(run, 1000 * attempt);
+            timer = setTimeout(run, 1000 * attempt);
+          } else {
+            // Sustained non-auth failure (e.g. backend outage): don't spin forever AND don't
+            // drop the session — surface a recoverable error so the user can retry.
+            setRestoreFailed(true);
           }
         });
     };
     run();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [isAuthenticated, logout, setUser, user]);
 
@@ -141,6 +149,27 @@ const AppRoutes = () => {
   // Wave2:49). Keying purely on `!user.role` blocks on the very first render and clears
   // automatically once the refetch populates role.
   if (isAuthenticated && user && !user.role) {
+    if (restoreFailed) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            gap: 12,
+            padding: 24,
+            textAlign: 'center',
+          }}
+        >
+          <p>Couldn&apos;t load your profile. Check your connection and try again.</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      );
+    }
     return <LoadingFallback />;
   }
 
