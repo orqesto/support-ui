@@ -85,9 +85,9 @@ describe('MessageActionStrip — action set per status', () => {
     expect(screen.queryByText('Create Ticket')).toBeNull();
   });
 
-  it('closed shows Unprocess & Reopen', () => {
+  it('closed shows Reopen', () => {
     renderStrip(makeMessage({ status: 'closed' }));
-    expect(screen.getByText('Unprocess & Reopen')).toBeInTheDocument();
+    expect(screen.getByText('Reopen')).toBeInTheDocument();
     expect(screen.queryByText('Create Ticket')).toBeNull();
   });
 });

@@ -128,6 +128,8 @@ export function MessageDetail({
   const [resolving, setResolving] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [sendFailedError, setSendFailedError] = useState<string | null>(null);
   const richEditorRef = useRef<RichTextEditorHandle>(null);
@@ -626,8 +628,8 @@ export function MessageDetail({
         onReopen={handleReopen}
         onDelete={handleDelete}
         onClassify={handleClassify}
-        onResolveWithoutReply={handleResolveWithoutReply}
-        onClose={handleClose}
+        onResolveWithoutReply={() => setResolveConfirmOpen(true)}
+        onClose={() => setCloseConfirmOpen(true)}
         setRejectDialogOpen={setRejectDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
         onRefresh={handleRefresh}
@@ -639,8 +641,14 @@ export function MessageDetail({
         setRejectDialogOpen={setRejectDialogOpen}
         reopenDialogOpen={reopenDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
+        resolveConfirmOpen={resolveConfirmOpen}
+        setResolveConfirmOpen={setResolveConfirmOpen}
+        closeConfirmOpen={closeConfirmOpen}
+        setCloseConfirmOpen={setCloseConfirmOpen}
         onReject={handleReject}
         onReopen={handleReopen}
+        onResolveToKB={handleResolveWithoutReply}
+        onCloseThread={handleClose}
       />
 
       {/* Similar messages dialog */}
