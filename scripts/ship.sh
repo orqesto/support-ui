@@ -93,7 +93,9 @@ case "$TARGET" in
     npm version "$LEVEL" --no-git-tag-version >/dev/null
     ver="$(node -p "require('./package.json').version")"
     git add package.json package-lock.json
-    git commit -m "chore: release candidate v$ver"
+    # NOTE: must NOT start with "chore: release " — that prefix is the deploy workflow's
+    # build-skip signal for release-tag commits, and would skip the RC's staging build.
+    git commit -m "chore(rc): release candidate v$ver"
     git push origin staging
     echo "✅ RC v$ver → deploys to https://staging.odly.ai. QA it, then: npm run ship:prod"
     ;;
