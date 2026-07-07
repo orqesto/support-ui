@@ -234,7 +234,7 @@ export function MessageActionStrip({
             className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Unprocess & Reopen
+            Reopen
           </button>
         </div>
       </div>

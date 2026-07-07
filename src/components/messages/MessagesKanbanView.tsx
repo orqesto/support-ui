@@ -103,12 +103,12 @@ const COLUMNS: KanbanColumnDef[] = [
   },
   {
     id: 'resolved',
-    label: 'Resolved',
+    label: 'Resolved / Closed',
     icon: CheckCircle2,
-    fixedFilters: { view: 'resolved' },
+    fixedFilters: { view: 'resolved' }, // view='resolved' returns both resolved + closed (see messageFilters.ts)
     accentColor: '#9ca3af',
     iconClass: 'text-gray-400',
-    emptyText: 'No resolved messages',
+    emptyText: 'No resolved or closed messages',
   },
 ];
 
