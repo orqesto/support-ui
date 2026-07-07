@@ -104,16 +104,34 @@ const AppRoutes = () => {
   // After page reload the persisted user has no role/organizationRole (intentionally not stored).
   // Re-fetch the profile from the server to restore those fields so ProtectedRoute works correctly.
   useEffect(() => {
-    if (isAuthenticated && user && !user.role) {
+    if (!(isAuthenticated && user && !user.role)) return;
+    let cancelled = false;
+    let attempt = 0;
+    const MAX_RETRIES = 4;
+    const run = () => {
       userService
         .getCurrentUser()
         .then((freshUser) => {
-          setUser(freshUser);
+          if (!cancelled) setUser(freshUser);
         })
-        .catch(() => {
-          logout();
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          // Only a genuine auth failure (401/403) should end the session. A transient
+          // network error or 5xx during profile restore must NOT log the user out
+          // (W2-M28) — retry with backoff instead of dropping the session on a blip.
+          const status = (err as { response?: { status?: number } } | null)?.response?.status;
+          if (status === 401 || status === 403) {
+            logout();
+          } else if (attempt < MAX_RETRIES) {
+            attempt += 1;
+            setTimeout(run, 1000 * attempt);
+          }
         });
-    }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated, logout, setUser, user]);
 
   // Gate route evaluation while an authenticated user is still missing its role — the
