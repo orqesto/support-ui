@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 #
-# Unified deploy helper — the three workflows.
+# Unified deploy helper — release-candidate flow.
 #
-#   ship.sh staging            push `staging` → auto-deploys staging.odly.ai (QA)
-#   ship.sh prod  [level]      promote: merge staging→main, bump version, deploy prod
-#   ship.sh hotfix [level]     release straight from main, then merge back into staging
+#   ship.sh staging            push current work to staging (QA) — NO version bump
+#   ship.sh rc     [level]     cut a release candidate: bump version, deploy to staging
+#   ship.sh prod               release the CURRENT (RC) version to prod — NO bump
+#   ship.sh hotfix [level]     bump + release straight from main, merge back to staging
 #
 # level = patch (default) | minor | major
 #
-# Prod deploy per repo (both call ./scripts/release.sh, which differs):
-#   - FE: release.sh pushes `main`  → push-to-main auto-deploys app.odly.ai
-#   - BE: release.sh tags `vX.Y.Z`  → the tag deploys app.odly.ai
+# Version lifecycle (RC model): `ship:rc` bumps the version ONCE and deploys it to
+# staging.odly.ai. Iterate with `ship:staging` (re-test the SAME version, no bump). When
+# QA passes, `ship:prod` merges staging→main and ships that EXACT version to prod
+# (FE: push main · BE: tag vX.Y.Z → :X.Y.Z + :latest). So what you test on staging is
+# what you release. Prod deploy per repo differs; both go through ./scripts/release-*.sh.
 #
-# prod/hotfix then BLOCK on verify_prod() until app.odly.ai actually serves the
-# new build (BE: /api/health/version version · FE: release git sha in the bundle),
-# so a cancelled/failed deploy surfaces instead of passing silently.
+# prod/hotfix BLOCK on verify_prod() until app.odly.ai actually serves the new build.
 #
 set -euo pipefail
 
-# Re-exec from a stable /tmp copy so a `git checkout` mid-run can never pull
-# this script file out from under the running shell (it may not exist on every
-# branch yet). The copy holds the whole script in a fixed location.
+# Re-exec from a stable /tmp copy so a `git checkout` mid-run can never pull this script
+# file out from under the running shell (it may not exist on every branch yet).
 if [ -z "${SHIP_REEXEC:-}" ]; then
   _tmp="$(mktemp)"; cp "$0" "$_tmp"
   SHIP_REEXEC=1 exec bash "$_tmp" "$@"
@@ -33,8 +33,8 @@ LEVEL="${2:-patch}"
 PROD_URL="https://app.odly.ai"
 
 die(){ echo "❌ $*" >&2; exit 1; }
-# Only block on uncommitted changes to *tracked* files; untracked files
-# (e.g. local .planning/ notes) are intentionally not committed and are fine.
+# Only block on uncommitted changes to *tracked* files; untracked files (e.g. local
+# .planning/ notes) are intentionally not committed and are fine.
 require_clean(){ [ -z "$(git status --porcelain --untracked-files=no)" ] || die "Uncommitted changes to tracked files — commit or stash first."; }
 confirm(){ read -r -p "$1 [y/N] " a; [ "$a" = "y" ] || [ "$a" = "Y" ] || die "Aborted."; }
 
@@ -80,28 +80,43 @@ case "$TARGET" in
       git merge --no-edit "$br"
     fi
     git push origin staging
-    echo "✅ staging updated → auto-deploys to https://staging.odly.ai (~3–12 min)"
+    echo "✅ staging updated (no version bump) → auto-deploys to https://staging.odly.ai (~3–12 min)"
+    ;;
+
+  rc)
+    require_clean
+    confirm "Cut a $LEVEL release candidate and deploy it to staging?"
+    br="$(git branch --show-current)"
+    git checkout staging
+    git pull --ff-only origin staging 2>/dev/null || true
+    if [ "$br" != "staging" ]; then git merge --no-edit "$br"; fi
+    npm version "$LEVEL" --no-git-tag-version >/dev/null
+    ver="$(node -p "require('./package.json').version")"
+    git add package.json package-lock.json
+    git commit -m "chore: release candidate v$ver"
+    git push origin staging
+    echo "✅ RC v$ver → deploys to https://staging.odly.ai. QA it, then: npm run ship:prod"
     ;;
 
   prod)
     require_clean
-    confirm "Promote staging → main and RELEASE TO PRODUCTION ($LEVEL)?"
     git checkout staging && git pull --ff-only origin staging
-    git checkout main    && git pull --ff-only origin main
+    ver="$(node -p "require('./package.json').version")"
+    confirm "Promote staging → main and RELEASE v$ver TO PRODUCTION (no bump)?"
+    git checkout main && git pull --ff-only origin main
     git merge --no-edit staging
-    ./scripts/release.sh "$LEVEL"     # FE: pushes main (deploy) · BE: tags vX.Y.Z (deploy)
-    rel_ver="$(node -p "require('./package.json').version")"
     rel_sha="$(git rev-parse HEAD)"
+    ./scripts/release-current.sh      # FE: push main (deploy) · BE: tag v$ver (deploy). NO bump.
     git checkout staging && git merge --ff-only main && git push origin staging
-    echo "🚀 Released v$rel_ver to production."
-    verify_prod "$rel_ver" "$rel_sha"
+    echo "🚀 Released v$ver to production."
+    verify_prod "$ver" "$rel_sha"
     ;;
 
   hotfix)
     require_clean
-    confirm "HOTFIX: release current main straight to PRODUCTION ($LEVEL)?"
+    confirm "HOTFIX: bump $LEVEL and release straight from main to PRODUCTION?"
     git checkout main && git pull --ff-only origin main
-    ./scripts/release.sh "$LEVEL"
+    ./scripts/release.sh "$LEVEL"     # bumps + releases (hotfix skips the RC/staging step)
     rel_ver="$(node -p "require('./package.json').version")"
     rel_sha="$(git rev-parse HEAD)"
     git checkout staging && git pull --ff-only origin staging && git merge --no-edit main && git push origin staging
@@ -110,6 +125,6 @@ case "$TARGET" in
     ;;
 
   *)
-    die "Usage: ship.sh <staging|prod|hotfix> [patch|minor|major]"
+    die "Usage: ship.sh <staging|rc|prod|hotfix> [patch|minor|major]"
     ;;
 esac
