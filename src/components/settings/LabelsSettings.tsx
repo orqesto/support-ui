@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { labelService, type Label } from '@/services/settings.service';
+import { useDepartments } from '@/hooks/useDepartments';
 import { logger } from '@/lib/logger';
 
 const PRESET_COLORS = [
@@ -26,8 +27,28 @@ export const LabelsSettings = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState<Label | null>(null);
-  const [formData, setFormData] = useState({ name: '', color: '#6366f1' });
+  const [formData, setFormData] = useState<{ name: string; color: string; departmentIds: number[] }>(
+    { name: '', color: '#6366f1', departmentIds: [] }
+  );
   const [saving, setSaving] = useState(false);
+  const { data: allDepts = [] } = useDepartments();
+  const activeDepts = allDepts.filter((dept) => dept.active);
+
+  const toggleDept = (deptId: number) =>
+    setFormData((prev) => ({
+      ...prev,
+      departmentIds: prev.departmentIds.includes(deptId)
+        ? prev.departmentIds.filter((id) => id !== deptId)
+        : [...prev.departmentIds, deptId],
+    }));
+
+  const deptScopeLabel = (ids?: number[]): string => {
+    if (!ids || ids.length === 0) return 'All departments';
+    return activeDepts
+      .filter((dept) => ids.includes(dept.id))
+      .map((dept) => dept.name)
+      .join(', ') || `${ids.length} department(s)`;
+  };
 
   const fetchLabels = async () => {
     try {
@@ -46,12 +67,12 @@ export const LabelsSettings = () => {
 
   const handleEdit = (label: Label) => {
     setEditingLabel(label);
-    setFormData({ name: label.name, color: label.color });
+    setFormData({ name: label.name, color: label.color, departmentIds: label.departmentIds ?? [] });
   };
 
   const handleCreate = () => {
     setIsCreating(true);
-    setFormData({ name: '', color: '#6366f1' });
+    setFormData({ name: '', color: '#6366f1', departmentIds: [] });
   };
 
   const handleSave = async () => {
@@ -76,7 +97,7 @@ export const LabelsSettings = () => {
   const handleCancel = () => {
     setEditingLabel(null);
     setIsCreating(false);
-    setFormData({ name: '', color: '#6366f1' });
+    setFormData({ name: '', color: '#6366f1', departmentIds: [] });
   };
 
   const handleDeleteConfirm = async () => {
@@ -154,6 +175,34 @@ export const LabelsSettings = () => {
               />
             </div>
           </div>
+          {/* Department scope */}
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">Departments</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {activeDepts.map((dept) => {
+                const selected = formData.departmentIds.includes(dept.id);
+                return (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    onClick={() => toggleDept(dept.id)}
+                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                      selected
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
+                    }`}
+                  >
+                    {dept.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {formData.departmentIds.length === 0
+                ? 'No departments selected — this label applies to all departments (org-wide).'
+                : 'The label can be applied only to messages in the selected department(s).'}
+            </p>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} isLoading={saving} disabled={!formData.name.trim()}>
               Save
@@ -177,12 +226,15 @@ export const LabelsSettings = () => {
               key={label.id}
               className="flex items-center justify-between p-3 rounded-lg border"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
                   className="w-4 h-4 rounded-full flex-shrink-0"
                   style={{ backgroundColor: safeCssColor(label.color) }}
                 />
-                <span className="text-sm font-medium">{label.name}</span>
+                <span className="text-sm font-medium truncate">{label.name}</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {deptScopeLabel(label.departmentIds)}
+                </span>
               </div>
               <div className="flex gap-1">
                 <Button

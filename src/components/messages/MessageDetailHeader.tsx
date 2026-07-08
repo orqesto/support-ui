@@ -426,9 +426,13 @@ export function MessageDetailHeader({
   const handleCreateLabel = useCallback(
     async (name: string) => {
       try {
+        // Scope the new label to THIS message's department so it's immediately
+        // applicable (and so non-admins, who can't create org-wide labels, succeed).
+        // Broader multi-department scoping is done from Label settings.
         const created = await labelService.createLabel({
           name,
           color: hashNameToLabelColor(name),
+          departmentIds: typeof message.departmentId === 'number' ? [message.departmentId] : [],
         });
         setAllLabels((prev) => [created, ...prev]);
         // Auto-assign the newly-created label so the user doesn't need to click it
@@ -446,7 +450,7 @@ export function MessageDetailHeader({
         logger.error('Failed to create label:', err);
       }
     },
-    [message.id]
+    [message.id, message.departmentId]
   );
 
   const handleCopyLink = useCallback(() => {
