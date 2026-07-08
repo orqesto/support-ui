@@ -301,21 +301,31 @@ export type Label = {
   id: number;
   name: string;
   color: string;
+  // Departments this label applies to. Empty array = org-wide (every department).
+  // Present on list/create/update responses; the applied-label reads (ticket/message)
+  // may omit it, so treat as optional at the consumer.
+  departmentIds?: number[];
   createdAt: string;
   updatedAt: string;
 };
+
+// Payload for create/update. `departmentIds`: a set of departments (empty array =
+// org-wide, admin-only). Omit on update to leave the current departments unchanged.
+type LabelWritePayload = { name?: string; color?: string; departmentIds?: number[] };
 
 const getLabels = async (): Promise<Label[]> => {
   const response: AxiosResponse<ApiResponse<Label[]>> = await apiClient.get('/api/labels');
   return response.data.data as Label[];
 };
 
-const createLabel = async (data: { name: string; color: string }): Promise<Label> => {
+const createLabel = async (
+  data: { name: string; color: string; departmentIds?: number[] }
+): Promise<Label> => {
   const response: AxiosResponse<ApiResponse<Label>> = await apiClient.post('/api/labels', data);
   return response.data.data as Label;
 };
 
-const updateLabel = async (id: number, data: { name?: string; color?: string }): Promise<Label> => {
+const updateLabel = async (id: number, data: LabelWritePayload): Promise<Label> => {
   const response: AxiosResponse<ApiResponse<Label>> = await apiClient.put(`/api/labels/${id}`, data);
   return response.data.data as Label;
 };
