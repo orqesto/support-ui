@@ -7,6 +7,10 @@ export type AssignableUser = {
   lastName: string;
   email: string;
   role: string;
+  // False when the user isn't a member of the scoped department (and isn't an
+  // org-admin). The picker shows them disabled rather than hiding them. Optional
+  // for backward-compat with responses predating the flag.
+  eligible?: boolean;
 };
 
 export const assignmentService = {

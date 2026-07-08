@@ -10,6 +10,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
+import { integrationsService } from '@/services/integrations.service';
 import { settingsService } from '@/services/settings.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
@@ -37,6 +38,9 @@ export const CreateTicketPage = () => {
   }>({});
   const [suggestedNewCategory, setSuggestedNewCategory] = useState<string | null>(null);
   const [creatingCategory, setCreatingCategory] = useState(false);
+  // Only offer "Sync to Jira" when the org actually has a Jira integration
+  // connected — otherwise the toggle is a dead end.
+  const [hasJira, setHasJira] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -73,6 +77,9 @@ export const CreateTicketPage = () => {
     fetchUsers().catch((error) => {
       logger.error('Failed to fetch users:', error);
     });
+    fetchJiraStatus().catch((error) => {
+      logger.error('Failed to check Jira integration:', error);
+    });
   }, [messageId]);
 
   // Match AI-suggested category once both suggestion and category list are ready
@@ -99,8 +106,15 @@ export const CreateTicketPage = () => {
         return;
       }
 
-      if (threadResult.status === 'fulfilled' && threadResult.value.success && threadResult.value.data && threadResult.value.data.length > 1) {
-        setThreadMessageIds(threadResult.value.data.map((msg) => msg.id));
+      // Thread events carry the actual message BODY — it lives in message_events,
+      // not on the conversation row that getById returns. Use them to prefill the
+      // description; also collect ids for the AI-enhance call.
+      const threadEvents =
+        threadResult.status === 'fulfilled' && threadResult.value.success
+          ? (threadResult.value.data ?? [])
+          : [];
+      if (threadEvents.length > 1) {
+        setThreadMessageIds(threadEvents.map((msg) => msg.id));
       }
 
       const response = messageResult.value;
@@ -136,11 +150,20 @@ export const CreateTicketPage = () => {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
 
-        const htmlDescription = (data.content ?? '')
-          .split('\n')
-          .filter((line) => line.trim()) // Remove empty lines
-          .map((line) => `<p>${escapeHtml(line)}</p>`)
-          .join('');
+        // Prefer the original inbound (client) message body; fall back to the
+        // first event, then to any body the message endpoint happened to carry.
+        const inboundBody = threadEvents.find((event) => event.type === 'inbound')?.content;
+        const rawBody = inboundBody ?? threadEvents[0]?.content ?? data.content ?? '';
+
+        // Email bodies may already be HTML; only escape+wrap when it's plain text.
+        const looksLikeHtml = /<[a-z][\s\S]*>/i.test(rawBody);
+        const htmlDescription = looksLikeHtml
+          ? rawBody
+          : rawBody
+              .split('\n')
+              .filter((line) => line.trim()) // Remove empty lines
+              .map((line) => `<p>${escapeHtml(line)}</p>`)
+              .join('');
 
         setFormData((prev) => ({
           ...prev,
@@ -181,6 +204,16 @@ export const CreateTicketPage = () => {
       }
     } catch (error) {
       logger.error('Failed to fetch categories:', error);
+    }
+  };
+
+  const fetchJiraStatus = async () => {
+    try {
+      const response = await integrationsService.getAll();
+      setHasJira((response.data ?? []).some((integration) => integration.type === 'jira' && integration.enabled));
+    } catch (error) {
+      logger.error('Failed to check Jira integration:', error);
+      setHasJira(false);
     }
   };
 
@@ -357,6 +390,9 @@ export const CreateTicketPage = () => {
                   }
                   placeholder="Enter ticket description..."
                   minHeight="200px"
+                  // Always show the full editor here — no collapse toggle. The
+                  // description is the ticket's core field, not an optional add-on.
+                  initiallyHidden={false}
                 />
               </div>
 
@@ -487,25 +523,27 @@ export const CreateTicketPage = () => {
                 />
               </div>
 
-              <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
-                <input
-                  type="checkbox"
-                  id="syncToJira"
-                  checked={formData.syncToJira}
-                  onChange={(event) =>
-                    setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
-                  }
-                  className="mt-0.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary focus:ring-2"
-                />
-                <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
-                  <span className="font-medium">Sync to Jira</span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Automatically create a Jira ticket when this ticket is created. Ticket will only
-                    sync if it has meaningful title/description and a category (or high/critical
-                    priority).
-                  </p>
-                </label>
-              </div>
+              {hasJira && (
+                <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
+                  <input
+                    type="checkbox"
+                    id="syncToJira"
+                    checked={formData.syncToJira}
+                    onChange={(event) =>
+                      setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
+                    }
+                    className="mt-0.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary focus:ring-2"
+                  />
+                  <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
+                    <span className="font-medium">Sync to Jira</span>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Automatically create a Jira ticket when this ticket is created. Ticket will only
+                      sync if it has meaningful title/description and a category (or high/critical
+                      priority).
+                    </p>
+                  </label>
+                </div>
+              )}
 
               <div className="flex gap-2 justify-between items-center pt-4">
                 <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">

@@ -148,9 +148,12 @@ export function HeaderMetaStrip({
     }
   }, [showLabelPicker]);
 
-  const threadItemId = message.subject
-    ? `subj::${message.subject.replace(/^((re(\[\d+\])?|fwd|fw)\s*:\s*)*/gi, '').trim().toLowerCase()}::${message.sender}`
-    : message.id;
+  // Assign the conversation directly via the `conv_<id>` form — the same key the
+  // message list and Kanban cards emit and that the backend fully supports.
+  // The old `subj::<subject>::<sender>` key produced only 3 segments, but the
+  // assignment API's subj:: parser expects the 4-segment participant form and
+  // 500s on anything else (assignmentService.assignThreadToUser).
+  const threadItemId = `conv_${message.id}`;
 
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-2 pb-3 border-t border-border/40">
@@ -240,7 +243,7 @@ export function HeaderMetaStrip({
       <div className="flex items-center gap-2 min-w-0">
         <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Assigned</span>
         <AssignmentSelect
-          type={message.subject ? 'thread' : 'message'}
+          type="thread"
           itemId={threadItemId}
           currentAssigneeId={message.assigneeId}
           departmentId={message.departmentId ?? null}
