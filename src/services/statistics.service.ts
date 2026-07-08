@@ -65,7 +65,9 @@ export type UserStatEntry = {
   userId: number;
   firstName: string;
   lastName: string | null;
-  email: string;
+  // W1-M40: the BE deliberately omits email from team stats (userStatsController), so this
+  // is never populated — optional to reflect the real contract; not rendered.
+  email?: string;
   orgRole: string;
   departmentSlugs: string[];
   stats: {

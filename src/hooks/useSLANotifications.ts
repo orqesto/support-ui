@@ -191,17 +191,34 @@ export const useSLANotifications = () => {
       const notification: SLABreachNotification = { ...breach, receivedAt: Date.now(), isRead: false };
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
+      // W2-M26: a genuinely-new breach is a new persisted notification row, so the
+      // total count must grow alongside unreadCount (dismiss/clearAll already adjust
+      // total). The escalation branch reuses an existing id → total is unchanged there.
+      setTotal((prev) => prev + 1);
     };
 
-    // Sync read state from another device/tab for the same user
+    // Sync read state from another device/tab for the same user.
+    // W1-L41: the BE emits notification:read to the WHOLE user room, INCLUDING the tab
+    // that just made the /read request (which already decremented optimistically in
+    // markRead). Decrement here only if the item was still unread in our state, so the
+    // self-echo (and any duplicate echo) can't double-count. Mirrors dismiss()'s pattern.
     const handleNotificationRead = (data: unknown) => {
       const { notificationId } = data as { notificationId: number };
-      setNotifications((prev) =>
-        prev.map((notif) =>
+      setNotifications((prev) => {
+        const target = prev.find((notif) => notif.id === notificationId);
+        if (target && !target.isRead) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return prev.map((notif) =>
           notif.id === notificationId ? { ...notif, isRead: true } : notif
-        )
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+        );
+      });
+    };
+
+    // Mark-all-read from another device/tab for the same user — zero out locally too.
+    const handleNotificationReadAll = () => {
+      setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
+      setUnreadCount(0);
     };
 
     // Re-fetch on reconnect to recover notifications missed during the disconnection gap
@@ -209,10 +226,12 @@ export const useSLANotifications = () => {
 
     subscribeToEvent('sla_breach', handleBreach);
     subscribeToEvent('notification:read', handleNotificationRead);
+    subscribeToEvent('notification:read-all', handleNotificationReadAll);
     subscribeToEvent('connect', handleReconnect);
     return () => {
       unsubscribeFromEvent('sla_breach', handleBreach);
       unsubscribeFromEvent('notification:read', handleNotificationRead);
+      unsubscribeFromEvent('notification:read-all', handleNotificationReadAll);
       unsubscribeFromEvent('connect', handleReconnect);
       releaseSocket();
     };
@@ -249,8 +268,15 @@ export const useSLANotifications = () => {
   }, []);
 
   const markAllRead = useCallback(() => {
+    // W1-M43/L43: persist to the BE (was state-only, so a refresh resurrected the badge).
+    // Optimistic update with rollback — don't swallow the failure and leave the UI lying.
+    const snapshot = notificationsRef.current;
     setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
     setUnreadCount(0);
+    apiClient.patch('/api/notifications/read-all').catch(() => {
+      setNotifications(snapshot);
+      setUnreadCount(snapshot.filter((notif) => !notif.isRead).length);
+    });
   }, []);
 
   return { notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markRead, markAllRead };

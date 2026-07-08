@@ -85,7 +85,7 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays, 
                       const topLang = Object.entries(entry.stats.languageBreakdown ?? {}).sort(([, itemA], [, itemB]) => itemB - itemA)[0]?.[0] ?? '—';
                       return (
                         <tr key={entry.userId} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3"><div className="font-medium text-foreground">{fullName(entry)}</div><div className="text-xs text-muted-foreground">{entry.email}</div></td>
+                          <td className="px-4 py-3"><div className="font-medium text-foreground">{fullName(entry)}</div></td>
                           <td className="px-4 py-3 whitespace-nowrap"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground capitalize">{entry.orgRole.replaceAll('_', ' ')}</span></td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesAssigned}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesProcessed}</td>
