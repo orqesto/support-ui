@@ -221,17 +221,37 @@ export const useSLANotifications = () => {
       setUnreadCount(0);
     };
 
+    // A conversation was deleted → the BE dropped its SLA notification. Remove it from the
+    // bell in realtime (previously it lingered until a reload/reconnect refetch).
+    const handleNotificationRemoved = (data: unknown) => {
+      const { conversationIds } = data as { conversationIds: number[] };
+      if (!conversationIds?.length) return;
+      const removedSet = new Set(conversationIds);
+      const matches = (notif: SLABreachNotification) =>
+        notif.type === 'message' && removedSet.has(notif.entityId);
+      setNotifications((prev) => {
+        const gone = prev.filter(matches);
+        if (gone.length === 0) return prev;
+        const unreadGone = gone.filter((notif) => !notif.isRead).length;
+        if (unreadGone > 0) setUnreadCount((count) => Math.max(0, count - unreadGone));
+        setTotal((count) => Math.max(0, count - gone.length));
+        return prev.filter((notif) => !matches(notif));
+      });
+    };
+
     // Re-fetch on reconnect to recover notifications missed during the disconnection gap
     const handleReconnect = () => { fetchNotifications(); };
 
     subscribeToEvent('sla_breach', handleBreach);
     subscribeToEvent('notification:read', handleNotificationRead);
     subscribeToEvent('notification:read-all', handleNotificationReadAll);
+    subscribeToEvent('notification:removed', handleNotificationRemoved);
     subscribeToEvent('connect', handleReconnect);
     return () => {
       unsubscribeFromEvent('sla_breach', handleBreach);
       unsubscribeFromEvent('notification:read', handleNotificationRead);
       unsubscribeFromEvent('notification:read-all', handleNotificationReadAll);
+      unsubscribeFromEvent('notification:removed', handleNotificationRemoved);
       unsubscribeFromEvent('connect', handleReconnect);
       releaseSocket();
     };
