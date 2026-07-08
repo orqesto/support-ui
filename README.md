@@ -1,6 +1,24 @@
-# Support Ticket System - Frontend
+# Odly — Frontend (`support-ticket-ui`)
 
-Modern React + TypeScript frontend for the AI-driven support ticket system with multi-channel ingestion.
+Modern React + TypeScript frontend for **Odly**, the AI-driven intelligent requests
+hub with multi-channel ingestion (email, Telegram, Slack, embedded chat widget).
+
+> Current version: **v1.1.39**. Backend: `BE-service` (`odly-request-service` v1.1.106).
+
+## Releasing
+
+Ship a change through **staging → production** with three commands (see
+[`RELEASING.md`](./RELEASING.md) for the full flow):
+
+```bash
+npm run ship:rc        # new version → deploys to staging.odly.ai (test here)
+npm run ship:staging   # re-deploy staging, SAME version (iterate on fixes)
+npm run ship:prod      # release that exact version to production (app.odly.ai)
+```
+
+For a coupled FE + BE change (shared API contract), release **FE to prod before BE**.
+Host details, rollback, and staging internals live in `../BE-service/DEPLOY.md` and
+`../BE-service/STAGING.md`.
 
 ## Tech Stack
 
