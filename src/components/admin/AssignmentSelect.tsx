@@ -80,10 +80,17 @@ export const AssignmentSelect = ({
 
   const options = [
     { value: '', label: 'Unassigned' },
-    ...users.map((user) => ({
-      value: String(user.id),
-      label: `${user.firstName} ${user.lastName} (${user.role})`,
-    })),
+    ...users.map((user) => {
+      // Ineligible = not a member of this item's department (BE also rejects the
+      // assign). Show them disabled with a reason rather than hiding them.
+      const ineligible = user.eligible === false;
+      const base = `${user.firstName} ${user.lastName} (${user.role})`;
+      return {
+        value: String(user.id),
+        label: ineligible ? `${base} — not in this department` : base,
+        isDisabled: ineligible,
+      };
+    }),
   ];
 
   return (
