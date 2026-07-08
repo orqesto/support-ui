@@ -188,22 +188,24 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       content,
       resolve,
       usedSuggestedAnswer,
       ...(suggestedAnswerSource && { suggestedAnswerSource }),
+      ...(idempotencyKey && { idempotencyKey }),
     });
     return response.data;
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string) => {
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string) => {
     const formData = new FormData();
     formData.append('content', content);
     formData.append('resolve', String(resolve));
     formData.append('usedSuggestedAnswer', String(usedSuggestedAnswer));
     if (suggestedAnswerSource) formData.append('suggestedAnswerSource', suggestedAnswerSource);
+    if (idempotencyKey) formData.append('idempotencyKey', idempotencyKey);
 
     files.forEach((file) => {
       formData.append('attachments', file);

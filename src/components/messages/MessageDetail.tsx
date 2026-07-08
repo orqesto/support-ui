@@ -134,6 +134,9 @@ export function MessageDetail({
   const [sendFailedError, setSendFailedError] = useState<string | null>(null);
   const richEditorRef = useRef<RichTextEditorHandle>(null);
   const noteEditorRef = useRef<RichTextEditorHandle>(null);
+  // M06: idempotency token for the in-flight reply. Minted per logical send, REUSED on a
+  // retry after failure (so the BE dedups a duplicate), cleared on success.
+  const sendIdempotencyKeyRef = useRef<string | null>(null);
 
   // ── Real-time reply events ─────────────────────────────────────────────────
   useEffect(() => {
@@ -309,19 +312,35 @@ export function MessageDetail({
     if (!composer || composer === '<p></p>') return;
     setSubmitting(true);
     setSendFailedError(null);
+    // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
+    // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
+    if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
+      sendIdempotencyKeyRef.current = crypto.randomUUID();
+    }
+    const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
     try {
       if (composerMode === 'note') {
         await messageService.addNote(message.id, composer);
       } else if (selectedFiles.length > 0) {
-        await messageService.replyWithAttachments(message.id, composer, selectedFiles, false);
+        await messageService.replyWithAttachments(
+          message.id,
+          composer,
+          selectedFiles,
+          false,
+          false,
+          undefined,
+          idempotencyKey
+        );
       } else {
-        await messageService.reply(message.id, composer, false);
+        await messageService.reply(message.id, composer, false, false, undefined, idempotencyKey);
       }
+      sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
       setComposer('');
       setSelectedFiles([]);
       setThreadRefreshKey((key) => key + 1);
       onRefresh?.();
     } catch (err) {
+      // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
       logger.error('Failed to send:', err);
       setSendFailedError('Failed to send. Please try again.');
     } finally {
