@@ -331,6 +331,24 @@ const ConflictDetail = ({
     rows.push({ label: 'Rule B ID', value: idB });
   }
 
+  // Which rule Accept keeps vs disables (resolved by the BE from the same
+  // strength ranking Accept uses). Shown for any conflict whose pair is still
+  // live; dept suffix only when the payload carries dept ids (routing).
+  const winnerRuleId = typeof evidence.winnerRuleId === 'number' ? evidence.winnerRuleId : null;
+  const loserRuleId = typeof evidence.loserRuleId === 'number' ? evidence.loserRuleId : null;
+  if (winnerRuleId !== null && loserRuleId !== null) {
+    const ruleAId = typeof payload.ruleAId === 'number' ? payload.ruleAId : null;
+    const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
+    const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
+    const deptSuffix = (ruleId: number): string => {
+      if (ruleAId === null || deptIdA === null || deptIdB === null) return '';
+      const deptId = ruleId === ruleAId ? deptIdA : deptIdB;
+      return ` (${deptNameById(deptId) ?? `#${deptId}`})`;
+    };
+    rows.push({ label: 'Keeps', value: `rule #${winnerRuleId}${deptSuffix(winnerRuleId)}` });
+    rows.push({ label: 'Disables', value: `rule #${loserRuleId}${deptSuffix(loserRuleId)}` });
+  }
+
   if (cosine !== null) rows.push({ label: 'Similarity', value: `${(cosine * 100).toFixed(1)}%` });
 
   // Only routing conflicts have ruleAId/ruleBId in payload → evidence endpoint
@@ -350,7 +368,7 @@ const ConflictDetail = ({
         ))}
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
-        <strong>Accept</strong> = engine resolves it (disables the weaker rule).{' '}
+        <strong>Accept</strong> = engine resolves it (disables the weaker rule — see Keeps/Disables above).{' '}
         <strong>Decline</strong> = not a real conflict, stop surfacing it.
       </p>
       {hasRulePair && <EvidenceSection suggestionId={suggestion.id} />}
