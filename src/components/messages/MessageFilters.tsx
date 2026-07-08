@@ -359,9 +359,9 @@ export const MessageFilters = ({
               )}
             </div>
 
-            {/* SLA toggle pills — not shown in kanban (per-card SLA badges already visible) */}
-            {!isKanban && (
-              <div className="flex gap-2 items-center pt-1">
+            {/* SLA toggle pills — shown in both list and kanban; they map to the
+                same slaBreached/slaAtRisk params every kanban column already sends. */}
+            <div className="flex gap-2 items-center pt-1">
                 <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
                 <button
                   type="button"
@@ -387,8 +387,7 @@ export const MessageFilters = ({
                   <AlertCircle className="w-3 h-3" />
                   SLA At Risk
                 </button>
-              </div>
-            )}
+            </div>
           </FilterSection>
 
           {/* ── Tags ──────────────────────────────────────────────── */}

@@ -29,6 +29,7 @@ import {
   getDirectionText,
   getInitials,
   getSpine,
+  getStatusBadge,
   hasAttachments,
 } from './inboxCardHelpers';
 
@@ -100,6 +101,7 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
+  const statusBadge = getStatusBadge(msg.status);
   const direction = getDirectionText(thread);
 
   // Optimistic state wins when it diverges from server state; clears when
@@ -251,6 +253,14 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           right-pinned assign. */}
       <div className="flex flex-wrap items-center gap-1.5 pt-2 mt-1 border-t border-border/60">
         <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
+
+        {statusBadge && (
+          <span
+            className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${statusBadge.className}`}
+          >
+            {statusBadge.label}
+          </span>
+        )}
 
         {aiState && (
           <Tooltip content={aiState.tooltip} size="sm">

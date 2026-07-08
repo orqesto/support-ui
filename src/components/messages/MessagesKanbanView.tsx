@@ -165,6 +165,9 @@ function buildSharedFilters(filters: FilterState): Record<string, string> {
   else if (filters.aiState === 'lead') api.isLead = 'true';
   else if (filters.aiState === 'contradiction') api.hasContradiction = 'true';
   if (filters.labelId && filters.labelId !== 'all') api.labelId = filters.labelId;
+  // SLA toggles — same params the list view sends; every column spreads these.
+  if (filters.slaBreached) api.slaBreached = 'true';
+  if (filters.slaAtRisk) api.slaAtRisk = 'true';
   if (filters.linked === 'has_ticket') api.hasTicket = 'true';
   else if (filters.linked === 'has_jira') api.hasJiraTicket = 'true';
   if (filters.threadStatus && filters.threadStatus !== 'all')
