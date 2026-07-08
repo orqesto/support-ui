@@ -26,7 +26,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { messageService, type MessageThread } from '@/services/message.service';
-import type { FilterState } from '@/stores/messagesStore';
+import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import { KanbanCard } from './KanbanCard';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
@@ -363,8 +363,13 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
   const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
 
+  const sorting = useMessagesStore((state) => state.sorting);
+
   const sharedFilters = useMemo(() => buildSharedFilters(filters), [filters]);
-  const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
+  const filterKey = useMemo(
+    () => JSON.stringify({ sharedFilters, sortBy: sorting.sortBy, sortOrder: sorting.sortOrder }),
+    [sharedFilters, sorting.sortBy, sorting.sortOrder]
+  );
 
   const selectedDeptKey = useDepartmentContextKey();
 
@@ -372,6 +377,8 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   colStatesRef.current = colStates;
   const sharedFiltersRef = useRef(sharedFilters);
   sharedFiltersRef.current = sharedFilters;
+  const sortingRef = useRef(sorting);
+  sortingRef.current = sorting;
 
   // Fetch all columns in parallel when filters change
   useEffect(() => {
@@ -385,7 +392,8 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
             { ...sharedFiltersRef.current, ...col.fixedFilters },
             1,
             PAGE_SIZE,
-            'desc'
+            sortingRef.current.sortOrder,
+            sortingRef.current.sortBy
           );
           if (cancelled || !res.success) return;
           setColStates((prev) => ({
@@ -420,7 +428,13 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
     void (async () => {
       try {
-        const res = await messageService.getThreads(filterSnapshot, nextPage, PAGE_SIZE, 'desc');
+        const res = await messageService.getThreads(
+          filterSnapshot,
+          nextPage,
+          PAGE_SIZE,
+          sortingRef.current.sortOrder,
+          sortingRef.current.sortBy
+        );
         if (!res.success) return;
         setColStates((prev) => ({
           ...prev,

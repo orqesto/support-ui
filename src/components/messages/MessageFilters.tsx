@@ -103,7 +103,7 @@ type MessageFiltersProps = {
   onSearch: () => void;
   onSearchBlur: () => void;
   onClearFilters: () => void;
-  onSortingChange: (sortOrder: 'asc' | 'desc') => void;
+  onSortingChange: (sorting: SortingState) => void;
   setPendingSearch: (value: string) => void;
   isKanban?: boolean;
 };
@@ -457,13 +457,33 @@ export const MessageFilters = ({
             <div className="flex gap-2 items-center">
               <span className="text-xs font-medium text-muted-foreground shrink-0">Sort:</span>
               <ReactSelect
-                value={sorting.sortOrder}
-                onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
+                value={
+                  sorting.sortBy === 'priority'
+                    ? 'priority'
+                    : sorting.sortBy === 'sla'
+                      ? 'sla'
+                      : sorting.sortOrder === 'asc'
+                        ? 'oldest'
+                        : 'newest'
+                }
+                onChange={(value) => {
+                  const next: SortingState =
+                    value === 'priority'
+                      ? { sortBy: 'priority', sortOrder: 'desc' }
+                      : value === 'sla'
+                        ? { sortBy: 'sla', sortOrder: 'asc' }
+                        : value === 'oldest'
+                          ? { sortBy: 'time', sortOrder: 'asc' }
+                          : { sortBy: 'time', sortOrder: 'desc' };
+                  onSortingChange(next);
+                }}
                 options={[
-                  { value: 'desc', label: 'Newest First' },
-                  { value: 'asc', label: 'Oldest First' },
+                  { value: 'newest', label: 'Newest First' },
+                  { value: 'oldest', label: 'Oldest First' },
+                  { value: 'priority', label: 'Highest Priority' },
+                  { value: 'sla', label: 'SLA: Most Urgent' },
                 ]}
-                className="w-36"
+                className="w-44"
               />
             </div>
             <Button

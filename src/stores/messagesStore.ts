@@ -56,6 +56,7 @@ export type FilterState = {
 };
 
 export type SortingState = {
+  sortBy: 'time' | 'priority' | 'sla';
   sortOrder: 'asc' | 'desc';
 };
 
@@ -109,7 +110,7 @@ export const useMessagesStore = create<MessagesState>()(
     (set, get) => ({
       cache: {},
       filters: defaultFilters,
-      sorting: { sortOrder: 'desc' },
+      sorting: { sortBy: 'time', sortOrder: 'desc' },
       currentPage: 1,
 
       getCached: (page: number) => {

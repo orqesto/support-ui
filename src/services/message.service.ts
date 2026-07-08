@@ -111,7 +111,8 @@ export const messageService = {
     filters?: Record<string, string>,
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
-    sortOrder?: 'asc' | 'desc'
+    sortOrder?: 'asc' | 'desc',
+    sortBy: 'time' | 'priority' | 'sla' = 'time'
   ) => {
     const params = new URLSearchParams({
       ...cleanFilters(filters),
@@ -121,6 +122,10 @@ export const messageService = {
 
     if (sortOrder) {
       params.append('sortOrder', sortOrder);
+    }
+
+    if (sortBy !== 'time') {
+      params.append('sortBy', sortBy);
     }
 
     const response = await apiClient.get<PaginatedResponse<MessageThread[]>>(
