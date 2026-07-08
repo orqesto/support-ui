@@ -530,7 +530,7 @@ export const MessagesPage = () => {
                   onSearch={handleSearch}
                   onSearchBlur={handleSearchBlur}
                   onClearFilters={clearFilters}
-                  onSortingChange={(sortOrder) => setSorting({ sortOrder })}
+                  onSortingChange={(nextSorting) => setSorting(nextSorting)}
                   setPendingSearch={setPendingSearch}
                   isKanban={isKanban}
                 />

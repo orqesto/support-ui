@@ -194,7 +194,8 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
           page,
           DEFAULT_LIMIT,
-          currentSorting.sortOrder
+          currentSorting.sortOrder,
+          currentSorting.sortBy
         );
 
         if (response.success && response.data) {
@@ -244,6 +245,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.slaBreached,
     filters.slaAtRisk,
     filters.excludeAwaitingResponse,
+    sorting.sortBy,
     sorting.sortOrder,
     selectedDeptKey,
   ]);
