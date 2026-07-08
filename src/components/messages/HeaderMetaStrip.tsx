@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Toggle } from '@/components/ui/Toggle';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
 import { messageService } from '@/services/message.service';
@@ -70,6 +71,13 @@ export function HeaderMetaStrip({
   const canRoute = hasPermission(Permission.MANAGE_MESSAGES);
   const [editingDept, setEditingDept] = useState(false);
   const [savingDept, setSavingDept] = useState(false);
+  // Opt-in to teach the router from this route. Default OFF — a manual route is a one-off
+  // correction unless the agent ticks this, in which case the BE materializes a rule.
+  const [trainOnRoute, setTrainOnRoute] = useState(false);
+  // Reset the opt-in each time the editor opens so training is never sticky across routes.
+  useEffect(() => {
+    if (!editingDept) setTrainOnRoute(false);
+  }, [editingDept]);
 
   // Only offer depts the user can actually route to. The BE bypass-list mirrors
   // here so the picker matches what'd actually be accepted:
@@ -97,7 +105,7 @@ export function HeaderMetaStrip({
     }
     setSavingDept(true);
     try {
-      await messageService.manualRoute(message.id, nextId);
+      await messageService.manualRoute(message.id, nextId, trainOnRoute);
       // Routing a needs_routing message removes it from the queue — refresh the
       // sidebar badge immediately instead of waiting for the 60s poll.
       void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
@@ -131,18 +139,35 @@ export function HeaderMetaStrip({
       <div className="flex items-center gap-2 min-w-0">
         <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Department</span>
         {editingDept && canRoute ? (
-          <ReactSelect
-            // needs_routing carries a placeholder departmentId; leave the picker
-            // UNSET so choosing any dept (incl. the placeholder) is a real change
-            // that fires onChange. Active convs keep their current dept selected.
-            value={needsRouting ? '' : message.departmentId ? String(message.departmentId) : ''}
-            onChange={(value) => void handleDeptChange(value)}
-            options={activeDeptOptions}
-            isDisabled={savingDept}
-            autoFocus
-            onBlur={() => setEditingDept(false)}
-            className="min-w-[140px]"
-          />
+          <div className="flex items-center gap-2">
+            <ReactSelect
+              // needs_routing carries a placeholder departmentId; leave the picker
+              // UNSET so choosing any dept (incl. the placeholder) is a real change
+              // that fires onChange. Active convs keep their current dept selected.
+              value={needsRouting ? '' : message.departmentId ? String(message.departmentId) : ''}
+              onChange={(value) => void handleDeptChange(value)}
+              options={activeDeptOptions}
+              isDisabled={savingDept}
+              autoFocus
+              onBlur={() => setEditingDept(false)}
+              className="min-w-[140px]"
+            />
+            {/* Opt-in: teach the router from this route. Off by default. onMouseDown
+                preventDefault keeps the picker focused so toggling doesn't close the editor.
+                The wrapper is focus-management only — the Toggle inside is the control. */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+            <span
+              title="Also create a routing rule so similar messages route here automatically"
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              <Toggle
+                checked={trainOnRoute}
+                onChange={setTrainOnRoute}
+                disabled={savingDept}
+                label="Create rule"
+              />
+            </span>
+          </div>
         ) : (
           <button
             type="button"

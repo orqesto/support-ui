@@ -517,7 +517,9 @@ export const messageService = {
     return response.data.count;
   },
 
-  manualRoute: async (id: number, departmentId: number) => {
-    await apiClient.patch(`/api/messages/${id}/manual-route`, { departmentId });
+  // `learn` defaults to false: a manual route is a one-off correction and does NOT train
+  // the router unless the agent explicitly opts in (BE gates learning/rule-creation on it).
+  manualRoute: async (id: number, departmentId: number, learn = false) => {
+    await apiClient.patch(`/api/messages/${id}/manual-route`, { departmentId, learn });
   },
 };
