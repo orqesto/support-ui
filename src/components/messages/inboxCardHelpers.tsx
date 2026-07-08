@@ -45,6 +45,30 @@ export const SPINE_BG: Record<SpineColor, string> = {
 };
 
 /**
+ * Conversation lifecycle status chip for the inbox cards. Returns null for
+ * statuses already surfaced elsewhere so we don't double-badge:
+ *   - resolved      → its own emerald "Resolved" chip (list) / Kanban column
+ *   - needs_routing → the "Needs Routing" department badge
+ *   - filtered      → hidden from the inbox entirely
+ */
+export const getStatusBadge = (
+  status: Message['status']
+): { label: string; className: string } | null => {
+  switch (status) {
+    case 'open':
+      return { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
+    case 'in_progress':
+      return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+    case 'pending':
+      return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
+    case 'closed':
+      return { label: 'Closed', className: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400' };
+    default:
+      return null;
+  }
+};
+
+/**
  * SLA status with the elapsed/remaining number. Returns null when there's
  * nothing to show (resolved, no target, or healthy).
  */

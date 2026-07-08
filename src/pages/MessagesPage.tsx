@@ -457,8 +457,8 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
-    (!isKanban && filters.slaBreached ? 1 : 0) +
-    (!isKanban && filters.slaAtRisk ? 1 : 0);
+    (filters.slaBreached ? 1 : 0) +
+    (filters.slaAtRisk ? 1 : 0);
   // Full count (no isKanban gate) — used for "Clear All" disabled state so that
   // list-mode filters set before switching to kanban can still be cleared.
   const clearableFilterCount =

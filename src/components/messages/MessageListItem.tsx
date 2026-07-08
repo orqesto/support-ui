@@ -21,6 +21,7 @@ import {
   getDirectionText,
   getInitials,
   getSpine,
+  getStatusBadge,
   hasAttachments,
 } from './inboxCardHelpers';
 
@@ -85,6 +86,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
+  const statusBadge = getStatusBadge(msg.status);
   const direction = getDirectionText(thread);
 
   const effectiveAssigneeId =
@@ -230,6 +232,14 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             and the metadata block (chips + reference footer). */}
         <div className="flex flex-wrap gap-1.5 items-center pt-2 mt-1 border-t border-border/60">
           <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
+
+          {statusBadge && (
+            <span
+              className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${statusBadge.className}`}
+            >
+              {statusBadge.label}
+            </span>
+          )}
 
           {aiState && (
             <Tooltip content={aiState.tooltip} size="sm">
