@@ -12,17 +12,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  Inbox,
-  Hourglass,
-  MessageCircle,
-  CheckCircle2,
-  RotateCcw,
-  ShieldAlert,
-  HelpCircle,
-  GripVertical,
-  Ban,
-} from 'lucide-react';
+import { RotateCcw, GripVertical, ArrowRightCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -33,114 +23,16 @@ import { KanbanCard } from './KanbanCard';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-
-type KanbanColumnDef = {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  fixedFilters: Record<string, string>;
-  accentColor: string;
-  iconClass: string;
-  emptyText: string;
-};
-
-const COLUMNS: KanbanColumnDef[] = [
-  {
-    id: 'active',
-    label: 'Active',
-    icon: Inbox,
-    fixedFilters: { view: 'inbox', excludeNotAnalysed: 'true' },
-    accentColor: '#3b82f6',
-    iconClass: 'text-blue-500',
-    emptyText: 'No active messages',
-  },
-  {
-    id: 'not_analysed',
-    label: 'Not Analysed',
-    icon: HelpCircle,
-    fixedFilters: { view: 'not_analysed' },
-    accentColor: '#6b7280',
-    iconClass: 'text-gray-500',
-    emptyText: 'No unanalysed messages',
-  },
-  {
-    id: 'suspicious',
-    label: 'Suspicious',
-    icon: ShieldAlert,
-    fixedFilters: { view: 'suspicious' },
-    accentColor: '#a855f7',
-    iconClass: 'text-purple-500',
-    emptyText: 'No suspicious messages',
-  },
-  {
-    id: 'awaiting',
-    label: 'Awaiting',
-    icon: Hourglass,
-    fixedFilters: {
-      view: 'awaiting_response',
-      excludeSuspicious: 'true',
-      excludeNotAnalysed: 'true',
-    },
-    accentColor: '#f97316',
-    iconClass: 'text-orange-500',
-    emptyText: 'No awaiting messages',
-  },
-  {
-    id: 'replied',
-    label: 'Replied',
-    icon: MessageCircle,
-    fixedFilters: { view: 'client_replied', excludeSuspicious: 'true', excludeNotAnalysed: 'true' },
-    accentColor: '#22c55e',
-    iconClass: 'text-green-500',
-    emptyText: 'No replied messages',
-  },
-  {
-    id: 'spam',
-    label: 'Spam',
-    icon: Ban,
-    fixedFilters: { showSpam: 'true' },
-    accentColor: '#ef4444',
-    iconClass: 'text-red-500',
-    emptyText: 'No spam messages',
-  },
-  {
-    id: 'resolved',
-    label: 'Resolved / Closed',
-    icon: CheckCircle2,
-    fixedFilters: { view: 'resolved' }, // view='resolved' returns both resolved + closed (see messageFilters.ts)
-    accentColor: '#9ca3af',
-    iconClass: 'text-gray-400',
-    emptyText: 'No resolved or closed messages',
-  },
-];
-
-// Columns that participate in drag-and-drop
-const DND_COLS = new Set(['active', 'not_analysed', 'suspicious', 'spam', 'resolved']);
-
-// Valid drop targets per source column.
-// not_analysed → active: approve + queues AI analysis (BE handles this automatically).
-// not_analysed → suspicious: blocked by BE (filtered messages can't be marked suspicious directly).
-// suspicious → spam: move_to_spam.
-// spam → active: approve + queues AI analysis.
-// resolved → active: reopen.
-const VALID_TARGETS: Record<string, Set<string>> = {
-  not_analysed: new Set(['active']),
-  suspicious: new Set(['active', 'spam']),
-  active: new Set(['suspicious', 'spam']),
-  spam: new Set(['active']),
-  resolved: new Set(['active']),
-};
-
-type DndAction = 'approve' | 'mark_suspicious' | 'move_to_spam' | 'reopen';
-
-function getDndAction(from: string, to: string): DndAction | null {
-  if ((from === 'not_analysed' || from === 'suspicious' || from === 'spam') && to === 'active')
-    return 'approve';
-  if (from === 'active' && to === 'suspicious') return 'mark_suspicious';
-  if ((from === 'suspicious' || from === 'active') && to === 'spam') return 'move_to_spam';
-  if (from === 'resolved' && to === 'active') return 'reopen';
-  return null;
-}
+import {
+  COLUMNS,
+  APPROVE_TARGET,
+  DRAGGABLE_COLS,
+  DROPPABLE_COLS,
+  VALID_TARGETS,
+  getDndAction,
+  type ColumnAxis,
+  type KanbanColumnDef,
+} from './kanbanColumns';
 
 const PAGE_SIZE = 20;
 
@@ -228,7 +120,8 @@ function DraggableMessageCard({
 type KanbanColumnProps = {
   col: KanbanColumnDef;
   state: ColumnState;
-  isDndEnabled: boolean;
+  isDraggable: boolean;
+  isDroppable: boolean;
   activeDragColId: string | null;
   activeThreadId: string | null;
   sort: SortingState;
@@ -240,7 +133,8 @@ type KanbanColumnProps = {
 const KanbanColumn = ({
   col,
   state,
-  isDndEnabled,
+  isDraggable,
+  isDroppable,
   activeDragColId,
   activeThreadId,
   sort,
@@ -248,21 +142,21 @@ const KanbanColumn = ({
   onLoadMore,
   onOpen,
 }: KanbanColumnProps) => {
-  // Always call useDroppable — only attach ref when this column participates in DnD.
+  // Always call useDroppable — only attach ref when this column can receive a drop.
   // Without setNodeRef, the droppable has no bounding rect so collision detection ignores it.
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   const Icon = col.icon;
 
   // Only highlight when this column is a valid target for the currently dragged card.
   const isValidTarget =
-    isDndEnabled &&
+    isDroppable &&
     activeDragColId !== null &&
     activeDragColId !== col.id &&
     (VALID_TARGETS[activeDragColId]?.has(col.id) ?? false);
 
   return (
     <div
-      ref={isDndEnabled ? setNodeRef : undefined}
+      ref={isDroppable ? setNodeRef : undefined}
       className={cn(
         // md:h-full: the column fills the flex-bounded board height (set by the
         // page → kanban-root → column-row chain), so every column is uniform full
@@ -312,7 +206,7 @@ const KanbanColumn = ({
         ) : (
           <>
             {state.threads.map((thread) =>
-              isDndEnabled && !thread.threadId.startsWith('spamlog_') ? (
+              isDraggable && !thread.threadId.startsWith('spamlog_') ? (
                 <div key={thread.threadId} className="min-w-[260px] md:min-w-0 shrink-0 md:shrink">
                   <DraggableMessageCard
                     thread={thread}
@@ -339,7 +233,7 @@ const KanbanColumn = ({
                 </div>
               )
             )}
-            {isDndEnabled && activeThreadId !== null && <div className="min-h-[60px] shrink-0" />}
+            {isDroppable && activeThreadId !== null && <div className="min-h-[60px] shrink-0" />}
             {state.hasMore && (
               <button
                 type="button"
@@ -364,8 +258,6 @@ type MessagesKanbanViewProps = {
   refreshKey?: number;
 };
 
-const SWITCHABLE_COLUMNS = new Set(['not_analysed', 'spam', 'resolved', 'suspicious']);
-
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
     COLUMNS.map((col) => [
@@ -374,11 +266,35 @@ const initialColStates = (): Record<string, ColumnState> =>
     ])
   );
 
+// Triage-tab approve bar: drop a triaged card here to approve it (classify='approve').
+// The item then leaves triage and re-enters the lifecycle at "Open". Rendered only
+// while a triaged card that CAN be approved is being dragged, so it's non-intrusive.
+const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: APPROVE_TARGET });
+  const canApprove =
+    activeDragColId !== null && (VALID_TARGETS[activeDragColId]?.has(APPROVE_TARGET) ?? false);
+  if (!canApprove) return null;
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex items-center justify-center gap-2 rounded-lg border-2 border-dashed py-3 text-sm font-medium transition-colors',
+        isOver
+          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+          : 'border-border text-muted-foreground'
+      )}
+    >
+      <ArrowRightCircle className="w-4 h-4" />
+      Drop here to approve → moves to Open
+    </div>
+  );
+};
+
 export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanbanViewProps) => {
   const queryClient = useQueryClient();
-  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
-    new Set(['not_analysed', 'spam', 'resolved', 'suspicious'])
-  );
+  // Which axis's columns are shown. Lifecycle = the work board; Triage = the
+  // pre-lifecycle classification queues. (Option A: separate tabs.)
+  const [activeTab, setActiveTab] = useState<ColumnAxis>('lifecycle');
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
   const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
   const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
@@ -517,15 +433,6 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     })();
   }, []);
 
-  const toggleColumn = (id: string) => {
-    setHiddenColumns((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
@@ -575,20 +482,27 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         (thr) => thr.threadId === threadId
       );
 
-      // Optimistic move
-      setColStates((prev) => ({
-        ...prev,
-        [fromColId]: {
-          ...prev[fromColId],
-          threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
-          total: Math.max(0, prev[fromColId].total - 1),
-        },
-        [toColId]: {
-          ...prev[toColId],
-          threads: [thread, ...prev[toColId].threads],
-          total: prev[toColId].total + 1,
-        },
-      }));
+      // Optimistic move. "Approve" has no destination column (the item leaves triage
+      // and enters the lifecycle at "Open" on the other tab), so only add to a real,
+      // currently-loaded destination column.
+      setColStates((prev) => {
+        const next: Record<string, ColumnState> = {
+          ...prev,
+          [fromColId]: {
+            ...prev[fromColId],
+            threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
+            total: Math.max(0, prev[fromColId].total - 1),
+          },
+        };
+        if (toColId !== APPROVE_TARGET && prev[toColId]) {
+          next[toColId] = {
+            ...prev[toColId],
+            threads: [thread, ...prev[toColId].threads],
+            total: prev[toColId].total + 1,
+          };
+        }
+        return next;
+      });
 
       try {
         if (action === 'reopen') {
@@ -608,27 +522,35 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         setColStates((prev) => {
           const restored = [...prev[fromColId].threads];
           restored.splice(Math.min(originalIndex, restored.length), 0, thread);
-          return {
+          const next: Record<string, ColumnState> = {
             ...prev,
             [fromColId]: {
               ...prev[fromColId],
               threads: restored,
               total: prev[fromColId].total + 1,
             },
-            [toColId]: {
+          };
+          if (toColId !== APPROVE_TARGET && prev[toColId]) {
+            next[toColId] = {
               ...prev[toColId],
               threads: prev[toColId].threads.filter((thr) => thr.threadId !== threadId),
               total: Math.max(0, prev[toColId].total - 1),
-            },
-          };
+            };
+          }
+          return next;
         });
       }
     },
     [queryClient]
   );
 
-  const visibleColumns = COLUMNS.filter((col) => !hiddenColumns.has(col.id));
-  const switchableColumns = COLUMNS.filter((col) => SWITCHABLE_COLUMNS.has(col.id));
+  const visibleColumns = COLUMNS.filter((col) => col.axis === activeTab);
+  // Triage-tab count badge: total across all triage queues (loaded even while the
+  // lifecycle board is showing, so the badge is always live).
+  const triageCount = COLUMNS.filter((col) => col.axis === 'triage').reduce(
+    (sum, col) => sum + (colStates[col.id]?.total ?? 0),
+    0
+  );
 
   return (
     <DndContext
@@ -638,34 +560,42 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <div className="space-y-3 md:flex md:flex-col md:flex-1 md:min-h-0">
-        {/* Column visibility toggles */}
-        <div className="flex gap-2 items-center">
-          <span className="text-xs text-muted-foreground">Show:</span>
-          {switchableColumns.map((col) => {
-            const Icon = col.icon;
-            const visible = !hiddenColumns.has(col.id);
+        {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification). */}
+        <div className="flex gap-1 items-center">
+          {(['lifecycle', 'triage'] as const).map((axis) => {
+            const isActive = activeTab === axis;
             return (
               <button
-                key={col.id}
+                key={axis}
                 type="button"
-                onClick={() => toggleColumn(col.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                  visible
-                    ? 'border-transparent bg-muted text-foreground'
-                    : 'border-border text-muted-foreground hover:text-foreground'
-                }`}
+                onClick={() => setActiveTab(axis)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
               >
-                <Icon
-                  className={cn(
-                    'w-3 h-3',
-                    visible && col.accentColor ? `text-${col.accentColor}` : ''
-                  )}
-                />
-                {col.label}
+                {axis === 'lifecycle' ? 'Board' : 'Triage'}
+                {axis === 'triage' && triageCount > 0 && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
+                      isActive
+                        ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    )}
+                  >
+                    {triageCount}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+
+        {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
+        {activeTab === 'triage' && <ApproveDropZone activeDragColId={activeDragColId} />}
 
         <div className="flex flex-col gap-4 md:flex-row md:flex-1 md:min-h-0 md:overflow-x-auto md:gap-3 md:pb-4">
           {visibleColumns.map((col) => (
@@ -681,7 +611,8 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
                   page: 1,
                 }
               }
-              isDndEnabled={DND_COLS.has(col.id)}
+              isDraggable={DRAGGABLE_COLS.has(col.id)}
+              isDroppable={DROPPABLE_COLS.has(col.id)}
               activeDragColId={activeDragColId}
               activeThreadId={activeThread?.threadId ?? null}
               sort={getColSort(col.id)}
