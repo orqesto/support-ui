@@ -86,9 +86,25 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
 
-        // THREAD STATUS (lifecycle: open / in_progress / closed)
+        // LIFECYCLE + QUEUE (new LIST-view dropdowns) — additive params. The BE
+        // handles them independently of view/processed; they're mutually exclusive
+        // in the FE (picking one resets the other to 'all'). When either is active
+        // it fully defines the row set, so we suppress the legacy status→view and
+        // threadStatus→processed derivation below (those two dropdowns are replaced
+        // by Status+Queue in the list, and their store fields stay at 'all' there).
+        const lifecycle = currentFilters.lifecycle ?? 'all';
+        if (lifecycle !== 'all') {
+          apiFilters.lifecycle = lifecycle;
+        }
+        const queue = currentFilters.queue ?? 'all';
+        if (queue !== 'all') {
+          apiFilters.queue = queue;
+        }
+        const lifecycleOrQueueActive = lifecycle !== 'all' || queue !== 'all';
+
+        // THREAD STATUS (kanban lifecycle: open / in_progress / closed)
         const threadStatus = currentFilters.threadStatus ?? 'all';
-        if (threadStatus !== 'all') {
+        if (threadStatus !== 'all' && !lifecycleOrQueueActive) {
           apiFilters.processed = threadStatus;
         }
 
@@ -100,9 +116,13 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
 
         // STATUS → view param
         // When threadStatus is active, use view=active (not work_queue) so the status
-        // restriction from work_queue doesn't block closed threads
+        // restriction from work_queue doesn't block closed threads.
+        // Skipped entirely when a lifecycle/queue filter is driving the list.
         const status = currentFilters.status ?? 'all';
-        if (status === 'all') {
+        if (lifecycleOrQueueActive) {
+          // lifecycle/queue define the set; leave view/showSpam unset so the BE's
+          // base (org/dept) scope + the new params are the only status constraints.
+        } else if (status === 'all') {
           apiFilters.view = threadStatus !== 'all' ? 'active' : 'work_queue';
         } else if (status === 'active') {
           apiFilters.view = 'active';
@@ -235,6 +255,8 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.departmentId,
     filters.status,
     filters.threadStatus,
+    filters.lifecycle,
+    filters.queue,
     filters.priority,
     filters.assigneeId,
     filters.aiState,

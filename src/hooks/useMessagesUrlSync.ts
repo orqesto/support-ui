@@ -17,6 +17,17 @@ const VALID_STATUSES = [
   'resolved',
 ] as const;
 const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
+const VALID_LIFECYCLES = [
+  'all',
+  'unreviewed',
+  'in_progress',
+  'awaiting',
+  'replied',
+  'pending',
+  'resolved',
+  'closed',
+] as const;
+const VALID_QUEUES = ['all', 'not_analysed', 'suspicious', 'spam', 'needs_routing'] as const;
 const VALID_AI_STATES = [
   'all',
   'needs_review',
@@ -81,6 +92,16 @@ export const useMessagesUrlSync = ({
         (VALID_THREAD_STATUSES as readonly string[]).includes(urlThreadStatus)
       ) {
         urlFilters.threadStatus = urlThreadStatus as FilterState['threadStatus'];
+      }
+
+      const urlLifecycle = searchParams.get('lifecycle');
+      if (urlLifecycle && (VALID_LIFECYCLES as readonly string[]).includes(urlLifecycle)) {
+        urlFilters.lifecycle = urlLifecycle as FilterState['lifecycle'];
+      }
+
+      const urlQueue = searchParams.get('queue');
+      if (urlQueue && (VALID_QUEUES as readonly string[]).includes(urlQueue)) {
+        urlFilters.queue = urlQueue as FilterState['queue'];
       }
 
       const urlAiState = searchParams.get('aiState');
@@ -159,6 +180,9 @@ export const useMessagesUrlSync = ({
     if (filters.status && filters.status !== 'all') params.set('status', filters.status);
     if (filters.threadStatus && filters.threadStatus !== 'all')
       params.set('threadStatus', filters.threadStatus);
+    if (filters.lifecycle && filters.lifecycle !== 'all')
+      params.set('lifecycle', filters.lifecycle);
+    if (filters.queue && filters.queue !== 'all') params.set('queue', filters.queue);
     if (filters.aiState && filters.aiState !== 'all') params.set('aiState', filters.aiState);
     if (filters.linked && filters.linked !== 'all') params.set('linked', filters.linked);
     if (

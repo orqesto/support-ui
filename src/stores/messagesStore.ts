@@ -20,6 +20,22 @@ export type ThreadStatusFilter =
   | 'pending'
   | 'closed';
 
+// LIST-view single lifecycle dropdown (replaces the old status/threadStatus pair
+// in list mode). Mutually exclusive with `queue` in the FE.
+export type LifecycleFilter =
+  | 'all'
+  | 'unreviewed'
+  | 'in_progress'
+  | 'awaiting'
+  | 'replied'
+  | 'pending'
+  | 'resolved'
+  | 'closed';
+
+// LIST-view non-lifecycle classification dropdown. Mutually exclusive with
+// `lifecycle` in the FE.
+export type QueueFilter = 'all' | 'not_analysed' | 'suspicious' | 'spam' | 'needs_routing';
+
 export type AiStateFilter =
   | 'all'
   | 'needs_review'
@@ -37,6 +53,10 @@ export type FilterState = {
   departmentId?: string;
   status?: MessageViewStatus;
   threadStatus?: ThreadStatusFilter;
+  /** LIST-view single lifecycle filter. Kanban keeps using status/threadStatus. */
+  lifecycle?: LifecycleFilter;
+  /** LIST-view non-lifecycle classification filter. Mutually exclusive with lifecycle. */
+  queue?: QueueFilter;
   priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
   assigneeId?: string;
   aiState?: AiStateFilter;
@@ -86,6 +106,8 @@ export const defaultFilters: FilterState = {
   departmentId: 'all',
   status: 'all',
   threadStatus: 'all',
+  lifecycle: 'all',
+  queue: 'all',
   priority: 'all',
   assigneeId: 'all',
   aiState: 'all',

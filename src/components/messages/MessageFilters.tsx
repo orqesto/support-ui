@@ -34,28 +34,28 @@ const SOURCE_GROUPS: { key: string; label: string; types: string[]; icon: React.
   { key: 'webform', label: 'Web Form', types: ['webform'], icon: <FileText className="w-3 h-3" /> },
 ];
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All (work queue)' },
-  { value: 'active', label: 'Active' },
-  { value: 'awaiting_response', label: 'Awaiting Response' },
-  { value: 'client_replied', label: 'Client Replied' },
-  { value: '__sep__', label: '─────────────', isDisabled: true },
-  { value: 'suspicious', label: 'Suspicious' },
-  { value: 'not_analysed', label: 'Not Analysed' },
-  { value: 'spam', label: 'Spam' },
+// LIST-view single lifecycle dropdown. Maps 1:1 to the BE `lifecycle` param
+// (helpers/messageFilters.ts). Mutually exclusive with QUEUE_OPTIONS in the FE.
+const LIFECYCLE_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'unreviewed', label: 'Unreviewed' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'awaiting', label: 'Awaiting Response' },
+  { value: 'replied', label: 'Client Replied' },
+  { value: 'pending', label: 'Pending' },
   { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
 ] as const;
 
-// Labels chosen to match the user's mental model of the workflow, not the raw
-// `conversations.status` enum (which is mapped to grouped sets server-side in
-// helpers/messageFilters.ts so e.g. 'In Progress' includes awaiting_response +
-// client_replied, not just status='open' literally).
-const THREAD_STATUS_OPTIONS = [
+// LIST-view non-lifecycle classification dropdown. Maps 1:1 to the BE `queue`
+// param. Mutually exclusive with LIFECYCLE_OPTIONS in the FE (picking a non-'all'
+// value in one resets the other to 'all').
+const QUEUE_OPTIONS = [
   { value: 'all', label: 'All' },
-  { value: 'open', label: 'Unreviewed' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'closed', label: 'Closed' },
+  { value: 'not_analysed', label: 'Not Analysed' },
+  { value: 'suspicious', label: 'Suspicious' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'needs_routing', label: 'Needs Routing' },
 ] as const;
 
 const PRIORITY_OPTIONS = [
@@ -273,22 +273,32 @@ export const MessageFilters = ({
               {!isKanban && (
                 <FilterCell label="Status">
                   <ReactSelect
-                    value={filters.status ?? 'active'}
-                    onChange={(value) => onFilterChange('status', value)}
-                    options={STATUS_OPTIONS as unknown as { value: string; label: string }[]}
+                    value={filters.lifecycle ?? 'all'}
+                    onChange={(value) => {
+                      onFilterChange('lifecycle', value);
+                      // Status and Queue filter disjoint sets — enforce mutual
+                      // exclusivity so we never build an empty/contradictory combo.
+                      if (value !== 'all') onFilterChange('queue', 'all');
+                    }}
+                    options={LIFECYCLE_OPTIONS as unknown as { value: string; label: string }[]}
                     className="w-full"
                   />
                 </FilterCell>
               )}
 
-              <FilterCell label="Thread Status">
-                <ReactSelect
-                  value={filters.threadStatus ?? 'all'}
-                  onChange={(value) => onFilterChange('threadStatus', value)}
-                  options={THREAD_STATUS_OPTIONS as unknown as { value: string; label: string }[]}
-                  className="w-full"
-                />
-              </FilterCell>
+              {!isKanban && (
+                <FilterCell label="Queue">
+                  <ReactSelect
+                    value={filters.queue ?? 'all'}
+                    onChange={(value) => {
+                      onFilterChange('queue', value);
+                      if (value !== 'all') onFilterChange('lifecycle', 'all');
+                    }}
+                    options={QUEUE_OPTIONS as unknown as { value: string; label: string }[]}
+                    className="w-full"
+                  />
+                </FilterCell>
+              )}
 
               <FilterCell label="Priority">
                 <ReactSelect
