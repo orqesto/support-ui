@@ -6,6 +6,7 @@ export interface ChatWidget {
   organizationId: number;
   name: string;
   departmentId: number | null;
+  departmentIds: number[];
   enabled: boolean;
   welcomeMessage: string | null;
   placeholder: string | null;
@@ -24,6 +25,7 @@ export interface ChatWidget {
 export interface CreateChatWidgetRequest {
   name: string;
   departmentId?: number | null;
+  departmentIds?: number[];
   welcomeMessage?: string;
   placeholder?: string;
   primaryColor?: string;
@@ -36,6 +38,7 @@ export interface CreateChatWidgetRequest {
 export interface UpdateChatWidgetRequest {
   name?: string;
   departmentId?: number | null;
+  departmentIds?: number[];
   welcomeMessage?: string;
   placeholder?: string;
   primaryColor?: string;
