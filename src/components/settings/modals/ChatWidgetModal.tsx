@@ -212,7 +212,7 @@ export const ChatWidgetModal = ({
             <p className="text-[11px] text-muted-foreground">
               {(formData.departmentIds ?? []).length === 0
                 ? 'No departments selected — the widget serves the whole organization.'
-                : 'The AI answers from the selected department(s); routing is scoped to this set.'}
+                : 'The widget is scoped to the selected department(s).'}
             </p>
           </div>
 
