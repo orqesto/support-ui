@@ -169,7 +169,7 @@ export const PricingPage = () => {
 
   return (
     <Layout>
-      <div className="p-6 mx-auto space-y-12 max-w-7xl">
+      <div className="p-6 mx-auto space-y-12">
         <Button variant="ghost" size="sm" onClick={() => navigate('/subscription')}><ArrowLeft className="mr-2 w-4 h-4" />Back</Button>
         <div className="text-center">
           <h1 className="mb-3 text-4xl font-bold">Choose Your Plan</h1>

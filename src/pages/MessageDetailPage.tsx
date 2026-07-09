@@ -76,7 +76,7 @@ export const MessageDetailPage = () => {
       <div className="flex overflow-hidden flex-col flex-1 min-h-0">
         {/* Back bar */}
         <div className="flex-shrink-0 border-b border-border">
-          <div className="flex gap-2 items-center px-4 py-2 mx-auto w-full max-w-7xl">
+          <div className="flex gap-2 items-center px-4 py-2 mx-auto w-full">
             <Button onClick={handleBack} variant="outline" size="sm">
               <ArrowLeft className="mr-2 w-4 h-4" />
               Back
@@ -87,7 +87,7 @@ export const MessageDetailPage = () => {
 
         {/* 3-zone panel */}
         <div className="flex overflow-hidden flex-1 justify-center min-h-0">
-          <div className="flex flex-col w-full max-w-7xl h-full border-x border-border">
+          <div className="flex flex-col w-full h-full border-x border-border">
             <MessageDetail
               key={message.id}
               message={message}
