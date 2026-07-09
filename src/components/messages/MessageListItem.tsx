@@ -87,7 +87,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
-  const statusBadge = getStatusBadge(msg.status);
+  const statusBadge = getStatusBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
   const direction = getDirectionText(thread);
 

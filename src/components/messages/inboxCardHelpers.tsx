@@ -52,19 +52,25 @@ export const SPINE_BG: Record<SpineColor, string> = {
  *   - filtered      → hidden from the inbox entirely
  */
 export const getStatusBadge = (
-  status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied'
+  message: Pick<Message, 'assigneeId'> & {
+    status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+  }
 ): { label: string; className: string } | null => {
-  switch (status) {
+  const inProgress = { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+  switch (message.status) {
     case 'new':
     case 'open':
-      return { label: 'Unreviewed', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
-    // awaiting_response + client_replied roll up into "In Progress" (matches the
-    // Thread Status filter grouping). The awaiting-vs-replied distinction is
-    // carried by the SLA badge — shown only when we owe a reply — not here.
+      // The single lifecycle, derived: an assigned/engaged active thread is
+      // already "In Progress"; an untouched one is "Unreviewed". (Awaiting +
+      // Client-replied below also imply In Progress — we show the coarse stage;
+      // the SLA badge carries the awaiting-vs-replied nuance.)
+      return message.assigneeId
+        ? inProgress
+        : { label: 'Unreviewed', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
     case 'in_progress':
     case 'awaiting_response':
     case 'client_replied':
-      return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+      return inProgress;
     case 'pending':
       return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
     case 'closed':
