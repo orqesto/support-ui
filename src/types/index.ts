@@ -71,6 +71,11 @@ export type Message = {
   priority?: TicketPriority | null;
   categoryId?: number | null;
   closedAt?: string | null;
+  // "Parked" overlay (Pending). Nullable timestamp that coexists with the flow
+  // state (awaiting/replied) — set when parked, cleared on client reply or any
+  // other status change. When present, the FE shows the Pending badge regardless
+  // of status. Parking does not pause SLA.
+  parkedAt?: string | null;
   attachmentCount?: number;
   slaResponseMinutes?: number | null;
   slaResponseBreached?: boolean | null;
