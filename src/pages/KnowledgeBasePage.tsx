@@ -272,7 +272,7 @@ export const KnowledgeBasePage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="mb-6">
           <PageHeader

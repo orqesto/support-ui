@@ -231,7 +231,7 @@ export const SubscriptionPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-6 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-6 w-full">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>

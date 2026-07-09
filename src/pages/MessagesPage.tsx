@@ -500,10 +500,9 @@ export const MessagesPage = () => {
         >
           <div
             className={`px-4 mx-auto space-y-4 w-full ${
-              // Kanban uses the FULL page width so the lifecycle columns aren't
-              // crammed into the readability cap; the list view stays capped
-              // (long full-width rows hurt scannability).
-              isKanban ? 'md:flex md:flex-col md:flex-1 md:min-h-0' : 'max-w-7xl'
+              // Full page width (app-wide convention — every page is full width now;
+              // the kanban also needs the flex-column chain for its bounded height).
+              isKanban ? 'md:flex md:flex-col md:flex-1 md:min-h-0' : ''
             }`}
           >
             {/* Header */}

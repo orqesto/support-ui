@@ -34,7 +34,7 @@ export const AdminDashboardPage = () => {
           </div>
         }
       >
-      <div className="px-6 py-6 mx-auto space-y-6 w-full max-w-7xl">
+      <div className="px-6 py-6 mx-auto space-y-6 w-full">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold">System Administration</h1>

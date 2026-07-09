@@ -144,7 +144,7 @@ export const StatisticsPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+        <div className="px-4 mx-auto space-y-4 w-full">
           <div className="animate-pulse">
             <div className="mb-4 w-1/4 h-8 rounded bg-muted" />
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
@@ -162,7 +162,7 @@ export const StatisticsPage = () => {
   if (!stats) {
     return (
       <Layout>
-        <div className="px-4 py-12 mx-auto w-full max-w-7xl text-center">
+        <div className="px-4 py-12 mx-auto w-full text-center">
           <p className="text-muted-foreground">No statistics available</p>
         </div>
       </Layout>
@@ -178,7 +178,7 @@ export const StatisticsPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-6 w-full max-w-7xl pb-10">
+      <div className="px-4 mx-auto space-y-6 w-full pb-10">
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
