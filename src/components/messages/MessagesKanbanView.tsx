@@ -26,7 +26,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { messageService, type MessageThread } from '@/services/message.service';
-import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
+import { type FilterState, type SortingState } from '@/stores/messagesStore';
+import { ReactSelect } from '@/components/ui/ReactSelect';
+import { SORT_PRESET_OPTIONS, sortingToPreset, presetToSorting } from './sortPresets';
 import { KanbanCard } from './KanbanCard';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
@@ -229,6 +231,8 @@ type KanbanColumnProps = {
   isDndEnabled: boolean;
   activeDragColId: string | null;
   activeThreadId: string | null;
+  sort: SortingState;
+  onSortChange: (sorting: SortingState) => void;
   onLoadMore: () => void;
   onOpen: (thread: MessageThread) => void;
 };
@@ -239,6 +243,8 @@ const KanbanColumn = ({
   isDndEnabled,
   activeDragColId,
   activeThreadId,
+  sort,
+  onSortChange,
   onLoadMore,
   onOpen,
 }: KanbanColumnProps) => {
@@ -270,12 +276,23 @@ const KanbanColumn = ({
       {/* Column header */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-background">
         <Icon className={`w-4 h-4 shrink-0 ${col.iconClass}`} />
-        <span className="flex-1 text-sm font-semibold">{col.label}</span>
+        <span className="flex-1 min-w-0 text-sm font-semibold truncate">{col.label}</span>
         {!state.loading && (
-          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
             {state.total}
           </span>
         )}
+        {/* Per-column sort — each column sorts independently. Compact chip select
+            keeps the header tight; icon-only trigger avoids crowding the label. */}
+        <ReactSelect
+          variant="chip"
+          value={sortingToPreset(sort)}
+          onChange={(value) => onSortChange(presetToSorting(value))}
+          options={SORT_PRESET_OPTIONS}
+          isSearchable={false}
+          aria-label={`Sort ${col.label} column`}
+          className="shrink-0"
+        />
       </div>
 
       {/* Cards */}
@@ -366,13 +383,24 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
   const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
 
-  const sorting = useMessagesStore((state) => state.sorting);
+  // Per-column sort — each column sorts independently (kanban no longer reads the
+  // global store `sorting`, which the list view still owns). Falls back to
+  // newest-first for any column the user hasn't touched.
+  const DEFAULT_COL_SORT: SortingState = { sortBy: 'time', sortOrder: 'desc' };
+  const [colSort, setColSort] = useState<Record<string, SortingState>>({});
+  const getColSort = useCallback(
+    (colId: string): SortingState => colSort[colId] ?? DEFAULT_COL_SORT,
+    // DEFAULT_COL_SORT is a stable literal; only colSort drives changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [colSort]
+  );
 
   const sharedFilters = useMemo(() => buildSharedFilters(filters), [filters]);
-  const filterKey = useMemo(
-    () => JSON.stringify({ sharedFilters, sortBy: sorting.sortBy, sortOrder: sorting.sortOrder }),
-    [sharedFilters, sorting.sortBy, sorting.sortOrder]
-  );
+  // Shared-filter key drives a full reload of every column (filters apply to all).
+  const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
+  // Serialize per-column sort so a single column's sort change reloads just that
+  // column (see the colSort effect below), keyed off the previous snapshot.
+  const colSortKey = useMemo(() => JSON.stringify(colSort), [colSort]);
 
   const selectedDeptKey = useDepartmentContextKey();
 
@@ -380,48 +408,77 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   colStatesRef.current = colStates;
   const sharedFiltersRef = useRef(sharedFilters);
   sharedFiltersRef.current = sharedFilters;
-  const sortingRef = useRef(sorting);
-  sortingRef.current = sorting;
+  const colSortRef = useRef(colSort);
+  colSortRef.current = colSort;
 
-  // Fetch all columns in parallel when filters change
-  useEffect(() => {
+  // Load (reset to page 1) a single column with ITS current sort. Reads sort +
+  // filters from refs so the identity stays stable and effects can call it freely.
+  const loadColumn = useCallback((colId: string) => {
+    const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
+    if (!col) return () => {};
     let cancelled = false;
-    setColStates(initialColStates);
-
-    COLUMNS.forEach((col) => {
-      void (async () => {
-        try {
-          const res = await messageService.getThreads(
-            { ...sharedFiltersRef.current, ...col.fixedFilters },
-            1,
-            PAGE_SIZE,
-            sortingRef.current.sortOrder,
-            sortingRef.current.sortBy
-          );
-          if (cancelled || !res.success) return;
-          setColStates((prev) => ({
-            ...prev,
-            [col.id]: {
-              threads: res.data.filter((thread) => thread.latestMessage !== null),
-              total: res.pagination.total,
-              loading: false,
-              hasMore: res.pagination.page < res.pagination.totalPages,
-              page: res.pagination.page,
-            },
-          }));
-        } catch (err) {
-          if (!cancelled) {
-            logger.error(`Failed to fetch kanban column ${col.id}:`, err);
-            setColStates((prev) => ({ ...prev, [col.id]: { ...prev[col.id], loading: false } }));
-          }
+    setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
+    const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
+    void (async () => {
+      try {
+        const res = await messageService.getThreads(
+          { ...sharedFiltersRef.current, ...col.fixedFilters },
+          1,
+          PAGE_SIZE,
+          sort.sortOrder,
+          sort.sortBy
+        );
+        if (cancelled || !res.success) return;
+        setColStates((prev) => ({
+          ...prev,
+          [colId]: {
+            threads: res.data.filter((thread) => thread.latestMessage !== null),
+            total: res.pagination.total,
+            loading: false,
+            hasMore: res.pagination.page < res.pagination.totalPages,
+            page: res.pagination.page,
+          },
+        }));
+      } catch (err) {
+        if (!cancelled) {
+          logger.error(`Failed to fetch kanban column ${colId}:`, err);
+          setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
         }
-      })();
-    });
-
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [filterKey, refreshKey, selectedDeptKey]);
+  }, []);
+
+  // Fetch all columns in parallel when shared filters / refresh / dept change.
+  useEffect(() => {
+    setColStates(initialColStates);
+    const cancels = COLUMNS.map((col) => loadColumn(col.id));
+    return () => cancels.forEach((cancel) => cancel());
+  }, [filterKey, refreshKey, selectedDeptKey, loadColumn]);
+
+  // When ONE column's sort changes, reload only that column (diff vs the previous
+  // snapshot). Avoids refetching all seven columns on a single per-column change.
+  const prevColSortRef = useRef<Record<string, SortingState>>({});
+  useEffect(() => {
+    const prev = prevColSortRef.current;
+    const cancels: Array<() => void> = [];
+    for (const col of COLUMNS) {
+      const before = prev[col.id];
+      const after = colSort[col.id];
+      if (
+        after &&
+        (before?.sortBy !== after.sortBy || before?.sortOrder !== after.sortOrder)
+      ) {
+        cancels.push(loadColumn(col.id));
+      }
+    }
+    prevColSortRef.current = colSort;
+    return () => cancels.forEach((cancel) => cancel());
+    // colSortKey is a stable string proxy for colSort's contents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colSortKey, loadColumn]);
 
   const loadMore = useCallback((colId: string) => {
     const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
@@ -429,14 +486,15 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
     const nextPage = colStatesRef.current[colId].page + 1;
     const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
+    const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
     void (async () => {
       try {
         const res = await messageService.getThreads(
           filterSnapshot,
           nextPage,
           PAGE_SIZE,
-          sortingRef.current.sortOrder,
-          sortingRef.current.sortBy
+          sort.sortOrder,
+          sort.sortBy
         );
         if (!res.success) return;
         setColStates((prev) => ({
@@ -626,6 +684,10 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
               isDndEnabled={DND_COLS.has(col.id)}
               activeDragColId={activeDragColId}
               activeThreadId={activeThread?.threadId ?? null}
+              sort={getColSort(col.id)}
+              onSortChange={(nextSort) =>
+                setColSort((prev) => ({ ...prev, [col.id]: nextSort }))
+              }
               onLoadMore={() => loadMore(col.id)}
               onOpen={onOpen}
             />

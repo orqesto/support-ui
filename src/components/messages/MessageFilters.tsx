@@ -23,7 +23,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { labelService, type Label } from '@/services/settings.service';
-import type { FilterState, SortingState } from '@/stores/messagesStore';
+import type { FilterState } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
 import { safeCssColor } from '@/lib/utils';
 
@@ -93,7 +93,6 @@ const LINKED_TICKET_STATUS_OPTIONS = [
 
 type MessageFiltersProps = {
   filters: FilterState;
-  sorting: SortingState;
   pendingSearch: string;
   activeFilterCount: number;
   /** Full count without kanban-mode exclusions — gates the "Clear All" enabled state */
@@ -103,14 +102,12 @@ type MessageFiltersProps = {
   onSearch: () => void;
   onSearchBlur: () => void;
   onClearFilters: () => void;
-  onSortingChange: (sorting: SortingState) => void;
   setPendingSearch: (value: string) => void;
   isKanban?: boolean;
 };
 
 export const MessageFilters = ({
   filters,
-  sorting,
   pendingSearch,
   activeFilterCount,
   clearableFilterCount = activeFilterCount,
@@ -119,7 +116,6 @@ export const MessageFilters = ({
   onSearch,
   onSearchBlur,
   onClearFilters,
-  onSortingChange,
   setPendingSearch,
   isKanban = false,
 }: MessageFiltersProps) => {
@@ -463,39 +459,7 @@ export const MessageFilters = ({
           </FilterSection>
 
           {/* ── Footer ────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-2 pt-3 pb-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-2 items-center">
-              <span className="text-xs font-medium text-muted-foreground shrink-0">Sort:</span>
-              <ReactSelect
-                value={
-                  sorting.sortBy === 'priority'
-                    ? 'priority'
-                    : sorting.sortBy === 'sla'
-                      ? 'sla'
-                      : sorting.sortOrder === 'asc'
-                        ? 'oldest'
-                        : 'newest'
-                }
-                onChange={(value) => {
-                  const next: SortingState =
-                    value === 'priority'
-                      ? { sortBy: 'priority', sortOrder: 'desc' }
-                      : value === 'sla'
-                        ? { sortBy: 'sla', sortOrder: 'asc' }
-                        : value === 'oldest'
-                          ? { sortBy: 'time', sortOrder: 'asc' }
-                          : { sortBy: 'time', sortOrder: 'desc' };
-                  onSortingChange(next);
-                }}
-                options={[
-                  { value: 'newest', label: 'Newest First' },
-                  { value: 'oldest', label: 'Oldest First' },
-                  { value: 'priority', label: 'Highest Priority' },
-                  { value: 'sla', label: 'SLA: Most Urgent' },
-                ]}
-                className="w-44"
-              />
-            </div>
+          <div className="flex flex-col gap-2 pt-3 pb-1 sm:flex-row sm:items-center sm:justify-end">
             <Button
               variant="ghost"
               size="sm"
