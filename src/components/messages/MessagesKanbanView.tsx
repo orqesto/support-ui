@@ -266,6 +266,26 @@ const initialColStates = (): Record<string, ColumnState> =>
     ])
   );
 
+// Lifecycle columns the agent can hide to focus on live work. Open/In Progress/
+// Pending are always shown; On-hold (paused) and Resolved (done) are reference
+// columns, so they're toggleable. Preference persists per browser.
+const HIDEABLE_COLS = new Set(['on_hold', 'resolved']);
+const HIDDEN_COLS_KEY = 'kanban_hidden_cols';
+
+const loadHiddenCols = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(HIDDEN_COLS_KEY);
+    // Default (no saved preference): On-hold + Resolved hidden, so the board opens
+    // focused on live work (Open / In Progress / Pending). Once the agent toggles,
+    // their choice is saved and wins.
+    return raw
+      ? new Set((JSON.parse(raw) as string[]).filter((id) => HIDEABLE_COLS.has(id)))
+      : new Set(HIDEABLE_COLS);
+  } catch {
+    return new Set(HIDEABLE_COLS);
+  }
+};
+
 // Triage-tab approve bar: drop a triaged card here to approve it (classify='approve').
 // The item then leaves triage and re-enters the lifecycle at "Open". Rendered only
 // while a triaged card that CAN be approved is being dragged, so it's non-intrusive.
@@ -295,6 +315,21 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
   // Which axis's columns are shown. Lifecycle = the work board; Triage = the
   // pre-lifecycle classification queues. (Option A: separate tabs.)
   const [activeTab, setActiveTab] = useState<ColumnAxis>('lifecycle');
+  // Hidden (collapsed) lifecycle columns — only On-hold/Resolved are hideable.
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(loadHiddenCols);
+  const toggleCol = useCallback((id: string) => {
+    setHiddenCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...next]));
+      } catch {
+        /* ignore quota/availability errors */
+      }
+      return next;
+    });
+  }, []);
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
   const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
   const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
@@ -544,7 +579,9 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     [queryClient]
   );
 
-  const visibleColumns = COLUMNS.filter((col) => col.axis === activeTab);
+  const visibleColumns = COLUMNS.filter(
+    (col) => col.axis === activeTab && !hiddenCols.has(col.id)
+  );
   // Triage-tab count badge: total across all triage queues (loaded even while the
   // lifecycle board is showing, so the badge is always live).
   const triageCount = COLUMNS.filter((col) => col.axis === 'triage').reduce(
@@ -560,38 +597,69 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <div className="space-y-3 md:flex md:flex-col md:flex-1 md:min-h-0">
-        {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification). */}
-        <div className="flex gap-1 items-center">
-          {(['lifecycle', 'triage'] as const).map((axis) => {
-            const isActive = activeTab === axis;
-            return (
-              <button
-                key={axis}
-                type="button"
-                onClick={() => setActiveTab(axis)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {axis === 'lifecycle' ? 'Board' : 'Triage'}
-                {axis === 'triage' && triageCount > 0 && (
-                  <span
+        {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
+            On the Board, chips on the right show/hide the reference columns
+            (On-hold, Resolved) so agents can focus on Open/In Progress/Pending. */}
+        <div className="flex flex-wrap gap-2 justify-between items-center">
+          <div className="flex gap-1 items-center">
+            {(['lifecycle', 'triage'] as const).map((axis) => {
+              const isActive = activeTab === axis;
+              return (
+                <button
+                  key={axis}
+                  type="button"
+                  onClick={() => setActiveTab(axis)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {axis === 'lifecycle' ? 'Board' : 'Triage'}
+                  {axis === 'triage' && triageCount > 0 && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
+                        isActive
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      )}
+                    >
+                      {triageCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeTab === 'lifecycle' && (
+            <div className="flex gap-1.5 items-center text-xs">
+              <span className="text-muted-foreground">Show:</span>
+              {COLUMNS.filter((col) => HIDEABLE_COLS.has(col.id)).map((col) => {
+                const shown = !hiddenCols.has(col.id);
+                const Icon = col.icon;
+                return (
+                  <button
+                    key={col.id}
+                    type="button"
+                    onClick={() => toggleCol(col.id)}
+                    aria-pressed={shown}
                     className={cn(
-                      'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
-                      isActive
-                        ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      'flex items-center gap-1 px-2 py-0.5 rounded border font-medium transition-colors',
+                      shown
+                        ? 'border-transparent bg-muted text-foreground'
+                        : 'border-border text-muted-foreground hover:text-foreground'
                     )}
                   >
-                    {triageCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    <Icon className="w-3 h-3" />
+                    {col.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
