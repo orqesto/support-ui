@@ -158,10 +158,10 @@ const KanbanColumn = ({
     <div
       ref={isDroppable ? setNodeRef : undefined}
       className={cn(
-        // md:h-full: the column fills the flex-bounded board height (set by the
+        // lg:h-full: the column fills the flex-bounded board height (set by the
         // page → kanban-root → column-row chain), so every column is uniform full
         // height; the cards body below flex-fills + scrolls inside it. No page scroll.
-        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:flex-1 md:h-full transition-colors',
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden lg:min-w-[260px] lg:flex-1 lg:h-full transition-colors',
         isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
       )}
       style={{ borderTopColor: col.accentColor }}
@@ -190,24 +190,24 @@ const KanbanColumn = ({
       </div>
 
       {/* Cards */}
-      <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:min-h-0">
+      <div className="flex flex-row overflow-x-auto gap-2 p-2 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:flex-1 lg:min-h-0">
         {state.loading && state.threads.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
             <div
               key={idx}
-              className="min-w-[260px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+              className="min-w-[260px] lg:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
             >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
           ))
         ) : state.threads.length === 0 ? (
-          <p className="px-3 py-4 text-xs text-muted-foreground md:text-center">{col.emptyText}</p>
+          <p className="px-3 py-4 text-xs text-muted-foreground lg:text-center">{col.emptyText}</p>
         ) : (
           <>
             {state.threads.map((thread) =>
               isDraggable && !thread.threadId.startsWith('spamlog_') ? (
-                <div key={thread.threadId} className="min-w-[260px] md:min-w-0 shrink-0 md:shrink">
+                <div key={thread.threadId} className="min-w-[260px] lg:min-w-0 shrink-0 lg:shrink">
                   <DraggableMessageCard
                     thread={thread}
                     colId={col.id}
@@ -218,7 +218,7 @@ const KanbanColumn = ({
               ) : (
                 <div
                   key={thread.threadId}
-                  className="min-w-[260px] md:min-w-0 shrink-0 md:shrink"
+                  className="min-w-[260px] lg:min-w-0 shrink-0 lg:shrink"
                   title={
                     thread.threadId.startsWith('spamlog_')
                       ? 'Rule-blocked — cannot be moved'
@@ -239,7 +239,7 @@ const KanbanColumn = ({
                 type="button"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center px-3 py-2 text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 md:w-full"
+                className="flex gap-1 justify-center items-center px-3 py-2 text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 lg:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
@@ -596,7 +596,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       onDragStart={handleDragStart}
       onDragEnd={(event) => void handleDragEnd(event)}
     >
-      <div className="space-y-3 md:flex md:flex-col md:flex-1 md:min-h-0">
+      <div className="space-y-3 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
         {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
             On the Board, chips on the right show/hide the reference columns
             (On-hold, Resolved) so agents can focus on Open/In Progress/Pending. */}
@@ -665,7 +665,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
         {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
         {activeTab === 'triage' && <ApproveDropZone activeDragColId={activeDragColId} />}
 
-        <div className="flex flex-col gap-4 md:flex-row md:flex-1 md:min-h-0 md:overflow-x-auto md:gap-3 md:pb-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-x-auto lg:gap-3 lg:pb-4">
           {visibleColumns.map((col) => (
             <KanbanColumn
               key={col.id}
