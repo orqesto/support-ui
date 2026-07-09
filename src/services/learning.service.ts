@@ -119,6 +119,12 @@ export const learningService = {
     await apiClient.post(`/api/learning/suggestions/${id}/decline`, reason ? { reason } : {});
   },
 
+  // Tighten one rule of a routing conflict in place (the "Refine" action) —
+  // resolves the conflict without disabling either rule.
+  async editRule(id: number, target: 'A' | 'B', value: string): Promise<void> {
+    await apiClient.post(`/api/learning/suggestions/${id}/edit-rule`, { target, value });
+  },
+
   async getTrustState(): Promise<TrustState> {
     const response = await apiClient.get<{ success: boolean; data: TrustState }>(
       '/api/learning/trust'
