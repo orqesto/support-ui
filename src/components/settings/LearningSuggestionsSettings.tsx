@@ -264,6 +264,44 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
   );
 };
 
+type Refinement = {
+  target: 'A' | 'B';
+  targetRuleId: number;
+  token: string;
+  oldValue: string;
+  proposedValue: string;
+  rationale: string;
+};
+
+// Read the BE-computed refinement (proposed tightened pattern for the weaker /
+// over-reaching rule) off a conflict suggestion's evidence, if present.
+const readRefinement = (suggestion: LearningSuggestion): Refinement | null => {
+  const payload = suggestion.payload ?? {};
+  const evidence =
+    typeof payload.evidence === 'object' && payload.evidence !== null
+      ? (payload.evidence as Record<string, unknown>)
+      : {};
+  const raw = evidence.refinement;
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  if (
+    (obj.target !== 'A' && obj.target !== 'B') ||
+    typeof obj.targetRuleId !== 'number' ||
+    typeof obj.oldValue !== 'string' ||
+    typeof obj.proposedValue !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    target: obj.target,
+    targetRuleId: obj.targetRuleId,
+    token: typeof obj.token === 'string' ? obj.token : '',
+    oldValue: obj.oldValue,
+    proposedValue: obj.proposedValue,
+    rationale: typeof obj.rationale === 'string' ? obj.rationale : '',
+  };
+};
+
 const ConflictDetail = ({
   suggestion,
   deptNameById,
@@ -368,7 +406,12 @@ const ConflictDetail = ({
         ))}
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
-        <strong>Accept</strong> = engine resolves it (disables the weaker rule — see Keeps/Disables above).{' '}
+        {readRefinement(suggestion) && (
+          <>
+            <strong>Refine</strong> = tighten the over-reaching rule so both survive (preferred).{' '}
+          </>
+        )}
+        <strong>Accept</strong> = disables the weaker rule (see Keeps/Disables above).{' '}
         <strong>Decline</strong> = not a real conflict, stop surfacing it.
       </p>
       {hasRulePair && <EvidenceSection suggestionId={suggestion.id} />}
@@ -435,6 +478,24 @@ export const LearningSuggestionsSettings = () => {
     } catch (err) {
       logger.error('Failed to decline suggestion:', err);
       setError('Failed to decline the suggestion. Please try again.');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  // Refine = tighten the over-reaching rule in place (edit-rule) instead of
+  // disabling it, so both rules survive. Applies the proposed pattern the BE
+  // baked into the suggestion's evidence.
+  const handleRefine = async (suggestion: LearningSuggestion) => {
+    const refinement = readRefinement(suggestion);
+    if (!refinement) return;
+    setActingId(suggestion.id);
+    try {
+      await learningService.editRule(suggestion.id, refinement.target, refinement.proposedValue);
+      setSuggestions((prev) => prev.filter((row) => row.id !== suggestion.id));
+    } catch (err) {
+      logger.error('Failed to refine rule:', err);
+      setError('Failed to refine the rule. Please try again.');
     } finally {
       setActingId(null);
     }
@@ -549,14 +610,49 @@ export const LearningSuggestionsSettings = () => {
                               size="sm"
                               onClick={() => void handleAccept(suggestion.id)}
                               disabled={isActing}
-                              title="Accept"
+                              title="Accept — disables the weaker rule"
                             >
                               <Check className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
                         {expandedId === suggestion.id && (
-                          <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
+                          <>
+                            <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
+                            {(() => {
+                              const refinement = readRefinement(suggestion);
+                              if (!refinement) return null;
+                              return (
+                                <div className="px-3 pb-3 ml-5">
+                                  <div className="rounded-md border border-border bg-emerald-500/5 p-2.5 space-y-1.5 text-xs">
+                                    <div className="font-medium text-foreground">
+                                      Refine — tighten the over-reaching rule, keep both live
+                                    </div>
+                                    {refinement.rationale && (
+                                      <p className="text-muted-foreground">{refinement.rationale}</p>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <span className="text-muted-foreground">Rule #{refinement.targetRuleId}:</span>
+                                      <code className="px-1 py-0.5 rounded bg-red-500/10 text-red-700 dark:text-red-300 line-through break-all">
+                                        {refinement.oldValue}
+                                      </code>
+                                      <span className="text-muted-foreground">→</span>
+                                      <code className="px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 break-all">
+                                        {refinement.proposedValue}
+                                      </code>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => void handleRefine(suggestion)}
+                                      disabled={isActing}
+                                    >
+                                      Refine rule #{refinement.targetRuleId}
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </>
                         )}
                       </div>
                     );
