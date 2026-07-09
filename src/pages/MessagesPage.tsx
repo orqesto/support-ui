@@ -495,14 +495,14 @@ export const MessagesPage = () => {
             internally); list view and mobile keep the normal page scroll. */}
         <div
           className={`flex-1 min-w-0 ${
-            isKanban ? 'overflow-y-auto md:overflow-hidden md:flex md:flex-col' : 'overflow-y-auto'
+            isKanban ? 'overflow-y-auto lg:overflow-hidden lg:flex lg:flex-col' : 'overflow-y-auto'
           }`}
         >
           <div
             className={`px-4 mx-auto space-y-4 w-full ${
               // Full page width (app-wide convention — every page is full width now;
               // the kanban also needs the flex-column chain for its bounded height).
-              isKanban ? 'md:flex md:flex-col md:flex-1 md:min-h-0' : ''
+              isKanban ? 'lg:flex lg:flex-col lg:flex-1 lg:min-h-0' : ''
             }`}
           >
             {/* Header */}
