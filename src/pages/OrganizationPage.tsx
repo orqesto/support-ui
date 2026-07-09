@@ -241,7 +241,7 @@ export const OrganizationPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="px-4 mx-auto w-full max-w-7xl flex items-center justify-center min-h-[60vh]">
+        <div className="px-4 mx-auto w-full flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
             <p className="text-muted-foreground">Loading organization...</p>
@@ -254,7 +254,7 @@ export const OrganizationPage = () => {
   if (!organization) {
     return (
       <Layout>
-        <div className="px-4 mx-auto w-full max-w-7xl flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="px-4 mx-auto w-full flex flex-col items-center justify-center min-h-[60vh]">
           <Building2 className="mb-4 w-16 h-16 text-gray-400" />
           <h2 className="mb-2 text-2xl font-bold text-gray-900">No Organization</h2>
           <p className="max-w-md text-center text-gray-600">
@@ -267,7 +267,7 @@ export const OrganizationPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>

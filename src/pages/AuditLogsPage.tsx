@@ -198,7 +198,7 @@ export const AuditLogsPage = () => {
   return (
     <Layout>
       <PermissionGuard permission={Permission.VIEW_AUDIT_LOGS}>
-        <div className="px-4 mx-auto w-full max-w-7xl flex flex-col gap-6 h-full">
+        <div className="px-4 mx-auto w-full flex flex-col gap-6 h-full">
           {/* Header */}
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
             <div>

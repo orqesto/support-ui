@@ -14,7 +14,7 @@ const SkeletonBox = ({ className }: SkeletonBoxProps) => (
  * eventual page than a centered spinner does.
  */
 export const PageSkeleton = ({ label }: { label?: string }) => (
-  <div className="flex flex-col flex-1 p-6 mx-auto space-y-6 w-full max-w-7xl">
+  <div className="flex flex-col flex-1 p-6 mx-auto space-y-6 w-full">
     <div className="space-y-2">
       <SkeletonBox className="h-7 w-48" />
       <SkeletonBox className="h-4 w-72" />
@@ -30,7 +30,7 @@ export const PageSkeleton = ({ label }: { label?: string }) => (
 
 /** Skeleton for list/table-style pages (Messages, Tickets, Needs Routing). */
 export const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
-  <div className="flex flex-col flex-1 p-6 mx-auto space-y-4 w-full max-w-7xl">
+  <div className="flex flex-col flex-1 p-6 mx-auto space-y-4 w-full">
     <div className="space-y-2">
       <SkeletonBox className="h-7 w-48" />
       <SkeletonBox className="h-4 w-72" />

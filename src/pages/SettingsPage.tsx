@@ -135,7 +135,7 @@ export const SettingsPage = () => {
 
   return (
     <Layout>
-      <div className="px-2 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-2 mx-auto space-y-4 w-full">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
             <div className="p-2 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">

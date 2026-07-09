@@ -110,7 +110,7 @@ export const TicketDetailPage = () => {
     <>
       <ScrollButtons bottomTarget="[data-ticket-actions]" />
       <Layout>
-        <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+        <div className="px-4 mx-auto space-y-4 w-full">
           <div className="flex gap-2 items-center">
             <Button onClick={handleBack} variant="outline" size="sm">
               <ArrowLeft className="mr-2 w-4 h-4" />

@@ -7,7 +7,7 @@ import { Layout } from '@/components/layout/Layout';
 
 export const SLADashboardPage = () => (
   <Layout>
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">SLA Performance</h1>
         <p className="mt-2 text-sm text-muted-foreground">
