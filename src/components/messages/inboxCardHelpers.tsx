@@ -57,13 +57,14 @@ export const getStatusBadge = (
   switch (status) {
     case 'new':
     case 'open':
-      return { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
+      return { label: 'Unreviewed', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
+    // awaiting_response + client_replied roll up into "In Progress" (matches the
+    // Thread Status filter grouping). The awaiting-vs-replied distinction is
+    // carried by the SLA badge — shown only when we owe a reply — not here.
     case 'in_progress':
-      return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
     case 'awaiting_response':
-      return { label: 'Awaiting', className: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400' };
     case 'client_replied':
-      return { label: 'Replied', className: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300' };
+      return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
     case 'pending':
       return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
     case 'closed':
@@ -73,10 +74,7 @@ export const getStatusBadge = (
   }
 };
 
-/**
- * Priority chip for the inbox cards. Only high/critical are badged — low/medium
- * are the common default and would just add noise. Returns null otherwise.
- */
+/** Priority chip for the inbox cards — all four levels. */
 export const getPriorityBadge = (
   priority: Message['priority']
 ): { label: string; className: string } | null => {
@@ -85,6 +83,10 @@ export const getPriorityBadge = (
       return { label: 'Critical', className: 'bg-red-500/15 text-red-700 dark:text-red-300' };
     case 'high':
       return { label: 'High', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' };
+    case 'medium':
+      return { label: 'Medium', className: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400' };
+    case 'low':
+      return { label: 'Low', className: 'bg-slate-500/10 text-slate-500 dark:text-slate-400' };
     default:
       return null;
   }
