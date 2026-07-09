@@ -34,7 +34,7 @@ export const ChatWidgetModal = ({
 }: ChatWidgetModalProps) => {
   const [formData, setFormData] = useState<CreateChatWidgetRequest>({
     name: '',
-    departmentId: null,
+    departmentIds: [],
     welcomeMessage: 'Hi! How can I help you today?',
     placeholder: 'Type your message...',
     primaryColor: '#0070F3',
@@ -62,7 +62,7 @@ export const ChatWidgetModal = ({
     if (widget) {
       setFormData({
         name: widget.name,
-        departmentId: widget.departmentId,
+        departmentIds: widget.departmentIds ?? [],
         welcomeMessage: widget.welcomeMessage ?? '',
         placeholder: widget.placeholder ?? '',
         primaryColor: widget.primaryColor,
@@ -81,7 +81,7 @@ export const ChatWidgetModal = ({
     } else {
       setFormData({
         name: '',
-        departmentId: null,
+        departmentIds: [],
         welcomeMessage: 'Hi! How can I help you today?',
         placeholder: 'Type your message...',
         primaryColor: '#0070F3',
@@ -98,6 +98,17 @@ export const ChatWidgetModal = ({
       });
     }
   }, [widget, open]);
+
+  const toggleDept = (deptId: number) =>
+    setFormData((prev) => {
+      const current = prev.departmentIds ?? [];
+      return {
+        ...prev,
+        departmentIds: current.includes(deptId)
+          ? current.filter((id) => id !== deptId)
+          : [...current, deptId],
+      };
+    });
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -173,20 +184,36 @@ export const ChatWidgetModal = ({
             />
           </div>
 
-          <div>
-            <ReactSelect
-              label="Department"
-              id="department"
-              value={formData.departmentId !== null && formData.departmentId !== undefined ? String(formData.departmentId) : ''}
-              onChange={(value) =>
-                setFormData({
-                  ...formData,
-                  departmentId: value ? Number(value) : null,
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Departments</p>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {departments.length === 0 ? (
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              ) : (
+                departments.map((dept) => {
+                  const selected = (formData.departmentIds ?? []).includes(dept.id);
+                  return (
+                    <button
+                      key={dept.id}
+                      type="button"
+                      onClick={() => toggleDept(dept.id)}
+                      className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                        selected
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
+                      }`}
+                    >
+                      {dept.name}
+                    </button>
+                  );
                 })
-              }
-              options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
-              placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
-            />
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {(formData.departmentIds ?? []).length === 0
+                ? 'No departments selected — the widget serves the whole organization.'
+                : 'The AI answers from the selected department(s); routing is scoped to this set.'}
+            </p>
           </div>
 
           <div>
