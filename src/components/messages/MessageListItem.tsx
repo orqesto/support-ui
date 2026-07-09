@@ -20,6 +20,7 @@ import {
   getAvatarColor,
   getDirectionText,
   getInitials,
+  getPriorityBadge,
   getSpine,
   getStatusBadge,
   hasAttachments,
@@ -87,6 +88,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
   const statusBadge = getStatusBadge(msg.status);
+  const priorityBadge = getPriorityBadge(msg.priority);
   const direction = getDirectionText(thread);
 
   const effectiveAssigneeId =
@@ -238,6 +240,14 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
               className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${statusBadge.className}`}
             >
               {statusBadge.label}
+            </span>
+          )}
+
+          {priorityBadge && (
+            <span
+              className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${priorityBadge.className}`}
+            >
+              {priorityBadge.label}
             </span>
           )}
 

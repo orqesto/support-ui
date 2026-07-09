@@ -52,17 +52,39 @@ export const SPINE_BG: Record<SpineColor, string> = {
  *   - filtered      → hidden from the inbox entirely
  */
 export const getStatusBadge = (
-  status: Message['status']
+  status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied'
 ): { label: string; className: string } | null => {
   switch (status) {
+    case 'new':
     case 'open':
       return { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
     case 'in_progress':
       return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+    case 'awaiting_response':
+      return { label: 'Awaiting', className: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400' };
+    case 'client_replied':
+      return { label: 'Replied', className: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300' };
     case 'pending':
       return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
     case 'closed':
       return { label: 'Closed', className: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400' };
+    default:
+      return null;
+  }
+};
+
+/**
+ * Priority chip for the inbox cards. Only high/critical are badged — low/medium
+ * are the common default and would just add noise. Returns null otherwise.
+ */
+export const getPriorityBadge = (
+  priority: Message['priority']
+): { label: string; className: string } | null => {
+  switch (priority) {
+    case 'critical':
+      return { label: 'Critical', className: 'bg-red-500/15 text-red-700 dark:text-red-300' };
+    case 'high':
+      return { label: 'High', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' };
     default:
       return null;
   }
@@ -76,6 +98,10 @@ type SlaCard = { variant: 'breach' | 'risk'; label: string; detail: string };
 
 export const getSlaCardText = (message: Message): SlaCard | null => {
   if (message.status === 'resolved' || !message.slaResponseMinutes) return null;
+  // We replied last → the ball is in the customer's court, so there's no SLA
+  // clock on us (awaiting-response cards). Covers seed rows that never stamped
+  // firstResponseAt/lastReplyAt but carry lastReplyFromClient=false.
+  if (message.lastReplyFromClient === false) return null;
   const target = message.slaResponseMinutes;
 
   // Follow-up SLA (we already replied once; customer replied again)
@@ -102,7 +128,6 @@ export const getSlaCardText = (message: Message): SlaCard | null => {
 
   // First-response SLA (we haven't replied yet)
   if (!message.firstResponseAt) {
-    if (message.lastReplyFromClient === false && message.lastReplyAt) return null;
     const slaStart =
       typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
         ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
