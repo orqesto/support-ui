@@ -258,7 +258,10 @@ const KanbanColumn = ({
     <div
       ref={isDndEnabled ? setNodeRef : undefined}
       className={cn(
-        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:flex-1 transition-colors',
+        // md:h-[calc(...)] gives every column a uniform full-height that fills the
+        // viewport (minus the header/filters/toggle chrome) so the board reads as
+        // equal-height columns; the cards body below flex-fills + scrolls inside it.
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:flex-1 md:h-[calc(100vh-230px)] transition-colors',
         isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
       )}
       style={{ borderTopColor: col.accentColor }}
@@ -276,7 +279,7 @@ const KanbanColumn = ({
       </div>
 
       {/* Cards */}
-      <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]">
+      <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:min-h-0">
         {state.loading && state.threads.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
             <div
