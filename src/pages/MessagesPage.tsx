@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Pagination } from '@/components/ui/Pagination';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
@@ -35,6 +36,11 @@ import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ContactsView } from '@/components/messages/ContactsView';
 import { MessagesKanbanView } from '@/components/messages/MessagesKanbanView';
+import {
+  SORT_PRESET_OPTIONS,
+  sortingToPreset,
+  presetToSorting,
+} from '@/components/messages/sortPresets';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
@@ -537,7 +543,6 @@ export const MessagesPage = () => {
               <div className="mb-6">
                 <MessageFilters
                   filters={filters}
-                  sorting={sorting}
                   pendingSearch={pendingSearch}
                   activeFilterCount={activeFilterCount}
                   clearableFilterCount={clearableFilterCount}
@@ -546,7 +551,6 @@ export const MessagesPage = () => {
                   onSearch={handleSearch}
                   onSearchBlur={handleSearchBlur}
                   onClearFilters={clearFilters}
-                  onSortingChange={(nextSorting) => setSorting(nextSorting)}
                   setPendingSearch={setPendingSearch}
                   isKanban={isKanban}
                 />
@@ -555,17 +559,36 @@ export const MessagesPage = () => {
               {/* Display mode toggle + inbox-level quick filter */}
               <div className="flex justify-between items-center gap-3 flex-wrap">
                 <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
-                {displayMode === 'threads' && (
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={filters.excludeAwaitingResponse ?? false}
-                      onChange={(ev) => updateFilter('excludeAwaitingResponse', ev.target.checked)}
-                      className="rounded border-border accent-primary"
-                    />
-                    Hide awaiting response
-                  </label>
-                )}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {displayMode === 'threads' && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={filters.excludeAwaitingResponse ?? false}
+                        onChange={(ev) =>
+                          updateFilter('excludeAwaitingResponse', ev.target.checked)
+                        }
+                        className="rounded border-border accent-primary"
+                      />
+                      Hide awaiting response
+                    </label>
+                  )}
+                  {/* Standalone Sort — list view only (kanban sorts per-column,
+                      contacts has no sort). Drives store `sorting` directly. */}
+                  {displayMode === 'threads' && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground shrink-0">
+                        Sort:
+                      </span>
+                      <ReactSelect
+                        value={sortingToPreset(sorting)}
+                        onChange={(value) => setSorting(presetToSorting(value))}
+                        options={SORT_PRESET_OPTIONS}
+                        className="w-44"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {displayMode === 'kanban' ? (
