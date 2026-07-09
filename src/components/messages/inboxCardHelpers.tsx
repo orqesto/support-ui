@@ -52,7 +52,7 @@ export const SPINE_BG: Record<SpineColor, string> = {
  *   - filtered      → hidden from the inbox entirely
  */
 export const getStatusBadge = (
-  message: Pick<Message, 'assigneeId' | 'parkedAt'> & {
+  message: Pick<Message, 'parkedAt'> & {
     status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
   }
 ): { label: string; className: string } | null => {
@@ -65,13 +65,10 @@ export const getStatusBadge = (
   switch (message.status) {
     case 'new':
     case 'open':
-      // The single lifecycle, derived: an assigned/engaged active thread is
-      // already "In Progress"; an untouched one is "Unreviewed". (Awaiting +
-      // Client-replied below also imply In Progress — we show the coarse stage;
-      // the SLA badge carries the awaiting-vs-replied nuance.)
-      return message.assigneeId
-        ? inProgress
-        : { label: 'Unreviewed', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
+      // Untouched / just-opened → "Unreviewed" (matches the detail-view status
+      // control and the Thread Status filter). We do NOT derive "In Progress"
+      // from assignment — the badge mirrors the real, settable status.
+      return { label: 'Unreviewed', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
     case 'in_progress':
     case 'awaiting_response':
     case 'client_replied':
