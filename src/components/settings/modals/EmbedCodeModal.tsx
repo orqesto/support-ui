@@ -29,8 +29,14 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-lg bg-background p-6 shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-lg bg-background p-6 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Embed Code</h2>
           <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
