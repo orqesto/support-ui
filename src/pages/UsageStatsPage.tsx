@@ -146,7 +146,7 @@ export const UsageStatsPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex gap-4 items-center sm:gap-0">

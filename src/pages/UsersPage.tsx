@@ -261,7 +261,7 @@ export const UsersPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>

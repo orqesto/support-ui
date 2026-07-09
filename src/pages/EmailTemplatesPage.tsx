@@ -112,7 +112,7 @@ export const EmailTemplatesPage = () => {
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-6 w-full max-w-7xl">
+      <div className="px-4 mx-auto space-y-6 w-full">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="flex gap-2 items-center text-2xl font-bold">
