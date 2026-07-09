@@ -449,8 +449,12 @@ export const MessagesPage = () => {
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
     (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
-    (!isKanban && filters.status && filters.status !== 'all' ? 1 : 0) +
-    (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
+    // List-view Status(lifecycle)+Queue dropdowns are hidden in kanban (it drives
+    // its own columns), so they only count toward the visible badge in list mode.
+    (!isKanban && filters.lifecycle && filters.lifecycle !== 'all' ? 1 : 0) +
+    (!isKanban && filters.queue && filters.queue !== 'all' ? 1 : 0) +
+    // Kanban's own lifecycle selector (threadStatus) still counts in kanban mode.
+    (isKanban && filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
     (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
@@ -466,6 +470,8 @@ export const MessagesPage = () => {
     (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
     (filters.status && filters.status !== 'all' ? 1 : 0) +
     (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
+    (filters.lifecycle && filters.lifecycle !== 'all' ? 1 : 0) +
+    (filters.queue && filters.queue !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
     (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
