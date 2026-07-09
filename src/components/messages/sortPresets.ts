@@ -32,6 +32,8 @@ export const presetToSorting = (value: string): SortingState => {
       return { sortBy: 'sla', sortOrder: 'asc' };
     case 'sla_low':
       return { sortBy: 'sla', sortOrder: 'desc' };
+    case 'priority_sla':
+      return { sortBy: 'priority_sla', sortOrder: 'desc' };
     case 'oldest':
       return { sortBy: 'time', sortOrder: 'asc' };
     default:
