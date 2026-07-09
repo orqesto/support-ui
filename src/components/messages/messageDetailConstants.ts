@@ -11,7 +11,7 @@ export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded bor
 
 export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; chip: string }> = {
   open: {
-    label: 'OPEN',
+    label: 'UNREVIEWED',
     dot: 'bg-sky-500',
     chip: 'text-sky-700    border-sky-200    bg-sky-50    dark:text-sky-400    dark:bg-sky-950/30    dark:border-sky-800',
   },
@@ -50,7 +50,7 @@ export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; 
 export const SETTABLE_STATUSES: ThreadStatus[] = ['open', 'in_progress', 'pending', 'closed'];
 
 export const STATUS_MENU_LABELS: Record<ThreadStatus, string> = {
-  open: 'Open',
+  open: 'Unreviewed',
   in_progress: 'In Progress',
   pending: 'Pending',
   resolved: 'Resolved',
