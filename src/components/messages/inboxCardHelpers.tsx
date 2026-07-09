@@ -56,27 +56,31 @@ export const getStatusBadge = (
     status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
   }
 ): { label: string; className: string } | null => {
-  const inProgress = { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
-  // "Pending" is now a parked overlay: a thread can be awaiting/replied AND parked
-  // at once. Parked takes precedence over the flow-state badge.
+  // Status model (see .planning/status-model-rework-2026-07-09.md):
+  //   On-hold (parked overlay) → Open → In Progress → Pending (awaiting customer) → Resolved.
+  // "On-hold" (parked) takes precedence over the flow-state badge.
   if (message.parkedAt) {
-    return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
+    return { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
   }
   switch (message.status) {
     case 'new':
     case 'open':
-      // Untouched / just-opened → "Unreviewed" (matches the detail-view status
-      // control and the Thread Status filter). We do NOT derive "In Progress"
-      // from assignment — the badge mirrors the real, settable status.
-      return { label: 'Unreviewed', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
-    case 'in_progress':
-    case 'awaiting_response':
     case 'client_replied':
-      return inProgress;
+      // "Open" = needs our action — untouched OR the customer replied and it's back
+      // in our court. Client-replied folds into Open (not a separate badge).
+      return { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
+    case 'in_progress':
+      return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+    case 'awaiting_response':
+      // Waiting on the customer to respond.
+      return { label: 'Pending', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' };
     case 'pending':
-      return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
+      // Legacy 'pending' status = a held state; mirror the parked "On-hold" label.
+      return { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
+    case 'resolved':
     case 'closed':
-      return { label: 'Closed', className: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400' };
+      // Single terminal state — Closed is merged into Resolved (both reopenable).
+      return { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' };
     default:
       return null;
   }

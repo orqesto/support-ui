@@ -34,17 +34,20 @@ const SOURCE_GROUPS: { key: string; label: string; types: string[]; icon: React.
   { key: 'webform', label: 'Web Form', types: ['webform'], icon: <FileText className="w-3 h-3" /> },
 ];
 
-// LIST-view single lifecycle dropdown. Maps 1:1 to the BE `lifecycle` param
+// LIST-view single lifecycle dropdown. Maps to the BE `lifecycle` param
 // (helpers/messageFilters.ts). Mutually exclusive with QUEUE_OPTIONS in the FE.
+// NOTE: the `value`s are the stable BE param keys; only the LABELS follow the new
+// status model — unreviewed+replied fold into "Open" (BE `lifecycle=open`),
+// `awaiting` shows as "Pending" (awaiting customer), and the parked overlay
+// `pending` shows as "On-hold". See .planning/status-model-rework-2026-07-09.md.
 const LIFECYCLE_OPTIONS = [
   { value: 'all', label: 'All' },
-  { value: 'unreviewed', label: 'Unreviewed' },
+  { value: 'open', label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'awaiting', label: 'Awaiting Response' },
-  { value: 'replied', label: 'Client Replied' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'awaiting', label: 'Pending' },
+  { value: 'pending', label: 'On-hold' },
+  // Single terminal state — `resolved` returns resolved+closed (both reopenable).
   { value: 'resolved', label: 'Resolved' },
-  { value: 'closed', label: 'Closed' },
 ] as const;
 
 // LIST-view non-lifecycle classification dropdown. Maps 1:1 to the BE `queue`
