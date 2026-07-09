@@ -52,11 +52,16 @@ export const SPINE_BG: Record<SpineColor, string> = {
  *   - filtered      → hidden from the inbox entirely
  */
 export const getStatusBadge = (
-  message: Pick<Message, 'assigneeId'> & {
+  message: Pick<Message, 'assigneeId' | 'parkedAt'> & {
     status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
   }
 ): { label: string; className: string } | null => {
   const inProgress = { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+  // "Pending" is now a parked overlay: a thread can be awaiting/replied AND parked
+  // at once. Parked takes precedence over the flow-state badge.
+  if (message.parkedAt) {
+    return { label: 'Pending', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
+  }
   switch (message.status) {
     case 'new':
     case 'open':
