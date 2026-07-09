@@ -258,10 +258,10 @@ const KanbanColumn = ({
     <div
       ref={isDndEnabled ? setNodeRef : undefined}
       className={cn(
-        // md:h-[calc(...)] gives every column a uniform full-height that fills the
-        // viewport (minus the header/filters/toggle chrome) so the board reads as
-        // equal-height columns; the cards body below flex-fills + scrolls inside it.
-        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:flex-1 md:h-[calc(100vh-230px)] transition-colors',
+        // md:h-full: the column fills the flex-bounded board height (set by the
+        // page → kanban-root → column-row chain), so every column is uniform full
+        // height; the cards body below flex-fills + scrolls inside it. No page scroll.
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[260px] md:flex-1 md:h-full transition-colors',
         isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
       )}
       style={{ borderTopColor: col.accentColor }}
@@ -579,7 +579,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       onDragStart={handleDragStart}
       onDragEnd={(event) => void handleDragEnd(event)}
     >
-      <div className="space-y-3">
+      <div className="space-y-3 md:flex md:flex-col md:flex-1 md:min-h-0">
         {/* Column visibility toggles */}
         <div className="flex gap-2 items-center">
           <span className="text-xs text-muted-foreground">Show:</span>
@@ -609,7 +609,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
           })}
         </div>
 
-        <div className="flex flex-col gap-4 md:flex-row md:overflow-x-auto md:gap-3 md:pb-4">
+        <div className="flex flex-col gap-4 md:flex-row md:flex-1 md:min-h-0 md:overflow-x-auto md:gap-3 md:pb-4">
           {visibleColumns.map((col) => (
             <KanbanColumn
               key={col.id}
