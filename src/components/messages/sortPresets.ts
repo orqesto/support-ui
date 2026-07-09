@@ -11,9 +11,12 @@ export const SORT_PRESET_OPTIONS = [
   { value: 'priority_low', label: 'Lowest Priority' },
   { value: 'sla', label: 'SLA: Most Urgent' },
   { value: 'sla_low', label: 'SLA: Least Urgent' },
+  // Combined triage sort: highest priority first, ties broken by most-urgent SLA.
+  { value: 'priority_sla', label: 'Priority, then SLA' },
 ];
 
 export const sortingToPreset = (sorting: SortingState): string => {
+  if (sorting.sortBy === 'priority_sla') return 'priority_sla';
   if (sorting.sortBy === 'priority') return sorting.sortOrder === 'asc' ? 'priority_low' : 'priority';
   if (sorting.sortBy === 'sla') return sorting.sortOrder === 'desc' ? 'sla_low' : 'sla';
   return sorting.sortOrder === 'asc' ? 'oldest' : 'newest';

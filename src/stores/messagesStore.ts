@@ -76,7 +76,7 @@ export type FilterState = {
 };
 
 export type SortingState = {
-  sortBy: 'time' | 'priority' | 'sla';
+  sortBy: 'time' | 'priority' | 'sla' | 'priority_sla';
   sortOrder: 'asc' | 'desc';
 };
 
