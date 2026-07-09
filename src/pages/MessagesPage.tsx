@@ -485,8 +485,18 @@ export const MessagesPage = () => {
     <Layout>
       <div className="flex overflow-hidden flex-1 min-h-0">
         {/* ── List panel ─────────────────────────────────── */}
-        <div className="overflow-y-auto flex-1 min-w-0">
-          <div className="px-4 mx-auto space-y-4 w-full max-w-7xl">
+        {/* Kanban fills the viewport on md+ (no page scroll; columns scroll
+            internally); list view and mobile keep the normal page scroll. */}
+        <div
+          className={`flex-1 min-w-0 ${
+            isKanban ? 'overflow-y-auto md:overflow-hidden md:flex md:flex-col' : 'overflow-y-auto'
+          }`}
+        >
+          <div
+            className={`px-4 mx-auto space-y-4 w-full max-w-7xl ${
+              isKanban ? 'md:flex md:flex-col md:flex-1 md:min-h-0' : ''
+            }`}
+          >
             {/* Header */}
             <div className="mb-6">
               <PageHeader
