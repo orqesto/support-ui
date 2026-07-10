@@ -18,6 +18,7 @@ import {
   GitBranch,
   ShieldAlert,
   MailOpen,
+  MailWarning,
   ScrollText,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -173,6 +174,13 @@ const allNavigation: Array<{
     name: 'Deleted Messages',
     href: '/deleted-messages',
     icon: Trash2,
+    adminOnly: true,
+  },
+  {
+    group: 'admin',
+    name: 'Orphaned Outbound',
+    href: '/orphaned-outbound',
+    icon: MailWarning,
     adminOnly: true,
   },
 ];

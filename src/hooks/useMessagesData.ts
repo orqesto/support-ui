@@ -134,6 +134,8 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.view = 'suspicious';
         } else if (status === 'not_analysed') {
           apiFilters.view = 'not_analysed';
+        } else if (status === 'archived') {
+          apiFilters.view = 'archived';
         } else if (status === 'spam') {
           apiFilters.showSpam = 'true';
         } else if (status === 'resolved') {

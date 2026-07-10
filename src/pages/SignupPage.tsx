@@ -9,7 +9,12 @@ import { authService } from '@/services/auth.service';
 import { logger } from '@/lib/logger';
 
 export const SignupPage = () => {
-  const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
+  // Read the invitation token from the query string first (new links — survives
+  // email-client redirect wrappers that strip URL #fragments), falling back to the
+  // hash for any older #token= links already sitting in inboxes.
+  const token =
+    new URLSearchParams(window.location.search).get('token') ??
+    new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
@@ -69,8 +74,9 @@ export const SignupPage = () => {
         setOrganizationName(data.data.invitation.organizationName || 'the organization');
         setInvitationRole(data.data.invitation.role);
 
-        // Remove the token from the URL hash so it isn't exposed in browser history or referrer headers
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        // Remove the token from the URL (both query and hash) so it isn't exposed
+        // in browser history or referrer headers once we've captured it.
+        window.history.replaceState(null, '', window.location.pathname);
       } catch {
         setError('Failed to validate invitation. Please try again.');
       } finally {
