@@ -21,7 +21,8 @@
   var messages = [];
   var isOpen = false;
   var isLoading = false;
-  var userInfoCollected = false;
+  // No upfront name/email form — visitors chat immediately and the assistant asks
+  // for contact details conversationally if/when it needs them.
   var userName = '';
   var userEmail = '';
 
@@ -73,21 +74,16 @@
     '#odly-send:disabled{opacity:.4;cursor:default}',
     '#odly-send svg{width:18px;height:18px;fill:#fff}',
 
-    /* User info form */
-    '#odly-user-form{padding:20px;display:flex;flex-direction:column;gap:12px;background:#fff;flex:1;justify-content:center}',
-    '#odly-user-form label{font-size:13px;color:#6b7280;font-weight:500}',
-    '#odly-user-form input{border:1px solid #d1d5db;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;width:100%}',
-    '#odly-user-form input:focus{border-color:var(--odly-primary,#0070F3);box-shadow:0 0 0 2px rgba(0,112,243,.15)}',
-    '#odly-user-form button{border:none;color:#fff;border-radius:8px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}',
-    '#odly-user-form .odly-skip{background:none;color:#6b7280;font-size:13px;padding:4px;font-weight:400;text-decoration:underline}',
-
     /* Powered by */
     '#odly-footer{text-align:center;padding:6px;font-size:11px;color:#9ca3af;background:#fff;border-top:1px solid #f3f4f6}',
     '#odly-footer a{color:#9ca3af;text-decoration:none}',
     '#odly-footer a:hover{color:#6b7280}',
 
-    /* Mobile responsive */
-    '@media(max-width:440px){#odly-chat{width:calc(100vw - 20px);height:calc(100vh - 100px);bottom:66px;right:-10px}#odly-widget-root.odly-left #odly-chat{right:auto;left:-10px}}'
+    /* Mobile: go fullscreen so the panel can never clip off-screen (the old
+       calc(100vw-20px) + right:-10px math overflowed the right edge, cutting off
+       the input + send button on narrow viewports). position:fixed inset:0
+       detaches it from the toggle's offset entirely. */
+    '@media(max-width:440px){#odly-chat{position:fixed;top:0;left:0;right:0;bottom:0;width:auto;max-width:none;height:auto;max-height:none;border-radius:0}#odly-widget-root.odly-left #odly-chat{left:0;right:0}}'
   ].join('\n');
   document.head.appendChild(STYLES);
 
@@ -135,8 +131,6 @@
       root.classList.add('odly-left');
     }
 
-    var showForm = c.collectUserInfo && !userInfoCollected && !sessionKey;
-
     chat.innerHTML = '';
 
     // Header
@@ -146,12 +140,9 @@
     header.innerHTML = '<h3>' + escapeHtml(c.name || 'Chat') + '</h3><button id="odly-close">&times;</button>';
     chat.appendChild(header);
 
-    if (showForm) {
-      renderUserForm(color);
-    } else {
-      renderMessages();
-      renderInput(color);
-    }
+    // Straight into the conversation — no pre-chat form.
+    renderMessages();
+    renderInput(color);
 
     // Footer
     var footer = document.createElement('div');
@@ -161,34 +152,6 @@
 
     // Bind close
     document.getElementById('odly-close').onclick = function () { toggleChat(); };
-  }
-
-  function renderUserForm(color) {
-    var form = document.createElement('div');
-    form.id = 'odly-user-form';
-    form.innerHTML =
-      '<div style="text-align:center;margin-bottom:8px"><strong style="font-size:15px;color:#1f2937">Before we start</strong><p style="font-size:13px;color:#6b7280;margin-top:4px">Tell us a bit about yourself</p></div>' +
-      '<div><label>Name</label><input type="text" id="odly-name" placeholder="Your name"></div>' +
-      '<div><label>Email</label><input type="email" id="odly-email" placeholder="your@email.com"></div>' +
-      '<button id="odly-start-btn" style="background:' + color + '">Start Chat</button>' +
-      '<button class="odly-skip" id="odly-skip-btn">Skip</button>';
-    chat.appendChild(form);
-
-    // Bind
-    setTimeout(function () {
-      var startBtn = document.getElementById('odly-start-btn');
-      var skipBtn = document.getElementById('odly-skip-btn');
-      if (startBtn) startBtn.onclick = function () {
-        userName = (document.getElementById('odly-name') || {}).value || '';
-        userEmail = (document.getElementById('odly-email') || {}).value || '';
-        userInfoCollected = true;
-        renderChat();
-      };
-      if (skipBtn) skipBtn.onclick = function () {
-        userInfoCollected = true;
-        renderChat();
-      };
-    }, 0);
   }
 
   function renderMessages() {
