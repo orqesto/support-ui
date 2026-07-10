@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Toggle } from '@/components/ui/Toggle';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
 import { messageService } from '@/services/message.service';
@@ -74,12 +75,10 @@ export function HeaderMetaStrip({
   // WITHOUT training; this explicitly mints a rule for the conv's CURRENT department. Kept
   // separate because react-select won't re-fire onChange for the already-selected dept, so
   // a toggle-then-reselect flow can't work — an explicit button always can.
-  const [creatingRule, setCreatingRule] = useState(false);
-  const [ruleCreated, setRuleCreated] = useState(false);
-  // Clear the "rule created" confirmation when the editor is reopened.
-  useEffect(() => {
-    if (!editingDept) setRuleCreated(false);
-  }, [editingDept]);
+  // When on, routing (picking a department) ALSO mints a content→dept rule so
+  // similar messages route automatically next time. Off by default. Shown next to
+  // the dept picker while it's open — including for needs_routing conversations.
+  const [createRule, setCreateRule] = useState(false);
 
   // Only offer depts the user can actually route to. The BE bypass-list mirrors
   // here so the picker matches what'd actually be accepted:
@@ -99,16 +98,19 @@ export function HeaderMetaStrip({
     const nextId = Number(value);
     // For a needs_routing message the departmentId is just the first-active
     // PLACEHOLDER (the column is NOT NULL), so routing it to that same dept is a
-    // real triage action — not a no-op — and must fire. Only an active-conv
-    // re-route to its current dept is a genuine no-op worth skipping.
-    if (!Number.isFinite(nextId) || (!needsRouting && nextId === message.departmentId)) {
+    // real triage action — not a no-op — and must fire. An active-conv re-route to
+    // its current dept is normally a no-op — UNLESS "Create rule" is on, in which
+    // case picking the same dept is a deliberate "train a rule for this dept".
+    const sameDeptNoop = !needsRouting && nextId === message.departmentId && !createRule;
+    if (!Number.isFinite(nextId) || sameDeptNoop) {
       setEditingDept(false);
       return;
     }
     setSavingDept(true);
     try {
-      // Routing alone never trains the router (learn defaults to false).
-      await messageService.manualRoute(message.id, nextId);
+      // Pass the "Create rule" toggle through as `learn`: on → the BE also mints a
+      // content→department rule; off → a one-off route with no training.
+      await messageService.manualRoute(message.id, nextId, createRule);
       // Routing a needs_routing message removes it from the queue — refresh the
       // sidebar badge immediately instead of waiting for the 60s poll.
       void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
@@ -118,23 +120,6 @@ export function HeaderMetaStrip({
     } finally {
       setSavingDept(false);
       setEditingDept(false);
-    }
-  };
-
-  // Explicitly create a routing rule for the conv's CURRENT department (learn=true).
-  // Handles the "I routed but forgot to create a rule" recovery: same-dept route → the BE
-  // mints a content→dept rule. No dept change happens.
-  const handleCreateRule = async () => {
-    if (typeof message.departmentId !== 'number') return;
-    setCreatingRule(true);
-    try {
-      await messageService.manualRoute(message.id, message.departmentId, true);
-      setRuleCreated(true);
-      onDepartmentChange?.();
-    } catch (err) {
-      logger.error('Failed to create routing rule:', err);
-    } finally {
-      setCreatingRule(false);
     }
   };
 
@@ -175,22 +160,18 @@ export function HeaderMetaStrip({
               onBlur={() => setEditingDept(false)}
               className="min-w-[140px]"
             />
-            {/* Create a routing rule for the CURRENT department (distinct from routing).
-                Only for already-routed convs — a needs_routing conv has a placeholder dept.
-                onMouseDown preventDefault keeps the picker focused so the click doesn't
+            {/* "Create rule" toggle — appears with the dept picker (incl. needs_routing).
+                When on, picking a department also mints a content→dept routing rule.
+                onMouseDown preventDefault keeps the picker focused so toggling doesn't
                 trip the select's onBlur and close the editor first. */}
-            {!needsRouting && typeof message.departmentId === 'number' && (
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => void handleCreateRule()}
-                disabled={creatingRule || ruleCreated}
-                title={`Create a routing rule so similar messages route to ${primaryDept?.name ?? 'this department'} automatically`}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground disabled:opacity-60 whitespace-nowrap"
-              >
-                {ruleCreated ? '✓ Rule created' : creatingRule ? 'Creating…' : 'Create rule'}
-              </button>
-            )}
+            <span onMouseDown={(event) => event.preventDefault()}>
+              <Toggle
+                checked={createRule}
+                onChange={setCreateRule}
+                disabled={savingDept}
+                label="Create rule"
+              />
+            </span>
           </div>
         ) : (
           <button
