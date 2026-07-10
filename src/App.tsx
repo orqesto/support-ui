@@ -77,6 +77,9 @@ const DeletedMessagesPage = lazy(() =>
 const NeedsRoutingPage = lazy(() =>
   import('./pages/NeedsRoutingPage').then((mod) => ({ default: mod.NeedsRoutingPage }))
 );
+const OrphanedOutboundPage = lazy(() =>
+  import('./pages/OrphanedOutboundPage').then((mod) => ({ default: mod.OrphanedOutboundPage }))
+);
 const SLADashboardPage = lazy(() =>
   import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
 );
@@ -436,6 +439,18 @@ const AppRoutes = () => {
             <Suspense fallback={<LoadingFallback />}>
               <NeedsRoutingPage />
             </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/orphaned-outbound"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredRole="admin">
+              <Suspense fallback={<LoadingFallback />}>
+                <OrphanedOutboundPage />
+              </Suspense>
+            </ProtectedRoute>
           </PrivateRoute>
         }
       />

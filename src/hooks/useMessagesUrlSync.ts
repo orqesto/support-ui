@@ -13,6 +13,7 @@ const VALID_STATUSES = [
   'client_replied',
   'suspicious',
   'not_analysed',
+  'archived',
   'spam',
   'resolved',
 ] as const;
@@ -27,7 +28,7 @@ const VALID_LIFECYCLES = [
   'resolved',
   'closed',
 ] as const;
-const VALID_QUEUES = ['all', 'not_analysed', 'suspicious', 'spam', 'needs_routing'] as const;
+const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
 const VALID_AI_STATES = [
   'all',
   'needs_review',

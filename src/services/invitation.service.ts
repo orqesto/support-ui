@@ -13,12 +13,21 @@ export type Invitation = {
 };
 
 export const invitationService = {
-  invite: async (email: string, role: OrganizationRole, departmentId: number, organizationId: number) => {
+  invite: async (
+    email: string,
+    role: OrganizationRole,
+    departmentIds: number[],
+    organizationId: number,
+    senderIntegrationId?: number
+  ) => {
     const response = await apiClient.post<ApiResponse<null>>('/api/invitations', {
       email,
       role,
-      departmentId,
+      // Send the full set; also include departmentId (primary) for backward compat.
+      departmentIds,
+      departmentId: departmentIds[0],
       organizationId,
+      ...(senderIntegrationId ? { senderIntegrationId } : {}),
     });
     return response.data;
   },

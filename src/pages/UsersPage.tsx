@@ -134,10 +134,17 @@ export const UsersPage = () => {
   const handleInviteUser = async (
     email: string,
     role: OrganizationRole,
-    departmentId: number,
-    organizationId: number
+    departmentIds: number[],
+    organizationId: number,
+    senderIntegrationId?: number
   ) => {
-    await invitationService.invite(email, role, departmentId, organizationId);
+    await invitationService.invite(
+      email,
+      role,
+      departmentIds,
+      organizationId,
+      senderIntegrationId
+    );
     // Optionally refresh users list or show a success message
   };
 

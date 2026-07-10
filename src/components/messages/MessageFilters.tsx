@@ -56,9 +56,12 @@ const LIFECYCLE_OPTIONS = [
 const QUEUE_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'not_analysed', label: 'Not Analysed' },
+  { value: 'archived', label: 'Archived' },
   { value: 'suspicious', label: 'Suspicious' },
   { value: 'spam', label: 'Spam' },
-  { value: 'needs_routing', label: 'Needs Routing' },
+  // Needs Routing intentionally NOT a Queue option — it has its own dedicated
+  // full-page view (NeedsRoutingPage) + sidebar badge. The BE `queue=needs_routing`
+  // filter is kept for that page; it's just not offered in this dropdown.
 ] as const;
 
 const PRIORITY_OPTIONS = [

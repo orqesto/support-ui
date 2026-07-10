@@ -34,7 +34,7 @@ export type LifecycleFilter =
 
 // LIST-view non-lifecycle classification dropdown. Mutually exclusive with
 // `lifecycle` in the FE.
-export type QueueFilter = 'all' | 'not_analysed' | 'suspicious' | 'spam' | 'needs_routing';
+export type QueueFilter = 'all' | 'not_analysed' | 'archived' | 'suspicious' | 'spam' | 'needs_routing';
 
 export type AiStateFilter =
   | 'all'

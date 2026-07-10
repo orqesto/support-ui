@@ -6,8 +6,8 @@ import {
   CheckCircle2,
   ShieldAlert,
   HelpCircle,
-  Split,
   Ban,
+  Archive,
 } from 'lucide-react';
 
 // Two orthogonal axes (see .planning/status-model-rework-2026-07-09.md):
@@ -96,16 +96,10 @@ export const COLUMNS: KanbanColumnDef[] = [
     iconClass: 'text-gray-500',
     emptyText: 'No unanalysed messages',
   },
-  {
-    id: 'needs_routing',
-    axis: 'triage',
-    label: 'Needs Routing',
-    icon: Split,
-    fixedFilters: { view: 'needs_routing' },
-    accentColor: '#0ea5e9',
-    iconClass: 'text-sky-500',
-    emptyText: 'Nothing needs routing',
-  },
+  // Needs Routing intentionally NOT a Triage column — it has its own dedicated
+  // full-page view (NeedsRoutingPage) + sidebar badge, and stays available as a
+  // list-view Queue filter. Keeping it off the board declutters Triage to the
+  // spam/analysis classifications that actually belong on the kanban.
   {
     id: 'suspicious',
     axis: 'triage',
@@ -115,6 +109,19 @@ export const COLUMNS: KanbanColumnDef[] = [
     accentColor: '#a855f7',
     iconClass: 'text-purple-500',
     emptyText: 'No suspicious messages',
+  },
+  {
+    id: 'archived',
+    axis: 'triage',
+    label: 'Archived',
+    icon: Archive,
+    // Transactional notification noise (Google alerts, delivery receipts, reports)
+    // that not_analysed hides. Visible here so a mis-classified real inbound request
+    // can be found & rescued. Orphan-outgoing (own sent mail) is NOT here — see BE.
+    fixedFilters: { view: 'archived' },
+    accentColor: '#64748b',
+    iconClass: 'text-slate-500',
+    emptyText: 'Nothing archived',
   },
   {
     id: 'spam',
@@ -133,7 +140,7 @@ export const COLUMNS: KanbanColumnDef[] = [
 export const APPROVE_TARGET = 'approve_inbox';
 
 // Cards that can be dragged (drag sources).
-export const DRAGGABLE_COLS = new Set(['resolved', 'not_analysed', 'needs_routing', 'suspicious', 'spam']);
+export const DRAGGABLE_COLS = new Set(['resolved', 'not_analysed', 'suspicious', 'spam', 'archived']);
 // Columns that can receive a drop (drop targets). APPROVE_TARGET is handled separately.
 export const DROPPABLE_COLS = new Set(['open', 'spam']);
 
@@ -143,9 +150,9 @@ export const DROPPABLE_COLS = new Set(['open', 'spam']);
 export const VALID_TARGETS: Record<string, Set<string>> = {
   resolved: new Set(['open']), // reopen
   not_analysed: new Set(['spam', APPROVE_TARGET]),
-  needs_routing: new Set(['spam', APPROVE_TARGET]),
   suspicious: new Set(['spam', APPROVE_TARGET]),
   spam: new Set([APPROVE_TARGET]), // approve = "not spam"
+  archived: new Set(['spam', APPROVE_TARGET]), // rescue a mis-archived real request, or hard-classify as spam
 };
 
 export type DndAction = 'approve' | 'move_to_spam' | 'reopen';
@@ -154,12 +161,12 @@ export function getDndAction(from: string, to: string): DndAction | null {
   if (from === 'resolved' && to === 'open') return 'reopen';
   if (
     to === APPROVE_TARGET &&
-    (from === 'not_analysed' || from === 'needs_routing' || from === 'suspicious' || from === 'spam')
+    (from === 'not_analysed' || from === 'suspicious' || from === 'spam' || from === 'archived')
   )
     return 'approve';
   if (
     to === 'spam' &&
-    (from === 'not_analysed' || from === 'needs_routing' || from === 'suspicious')
+    (from === 'not_analysed' || from === 'suspicious' || from === 'archived')
   )
     return 'move_to_spam';
   return null;

@@ -7,8 +7,11 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { OrganizationRole } from '@/types/roles';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { departmentService, type Department } from '@/services/department.service';
+import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+
+type EmailIntegrationOption = { id: number; name: string };
 
 type InviteUserModalProps = {
   isOpen: boolean;
@@ -16,8 +19,9 @@ type InviteUserModalProps = {
   onInvite: (
     email: string,
     role: OrganizationRole,
-    departmentId: number,
-    organizationId: number
+    departmentIds: number[],
+    organizationId: number,
+    senderIntegrationId?: number
   ) => Promise<void>;
   prefilledEmail?: string;
   prefilledOrganizationId?: number;
@@ -34,10 +38,12 @@ export const InviteUserModal = ({
   const user = useAuthStore((state) => state.user);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<OrganizationRole>('associate');
-  const [departmentId, setDepartmentId] = useState<number | null>(null);
+  const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [organizationId, setOrganizationId] = useState<number | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [emailIntegrations, setEmailIntegrations] = useState<EmailIntegrationOption[]>([]);
+  const [senderIntegrationId, setSenderIntegrationId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,23 +51,18 @@ export const InviteUserModal = ({
     const loadOrganizations = async () => {
       try {
         if (isAdmin) {
-          // Global admin can select from all organizations
           const result = await organizationService.getAll();
           const orgs = result.data || [];
           setOrganizations(orgs);
-          // Preselect organization: prefilled > current organizationId > first org
           if (prefilledOrganizationId) {
             setOrganizationId(prefilledOrganizationId);
           } else if (orgs.length > 0 && !organizationId) {
             setOrganizationId(orgs[0].id);
           }
-        } else {
-          // Org admin can only invite to their own organization
-          if (user?.organizationId) {
-            const currentOrg = await organizationService.getCurrent();
-            setOrganizations([currentOrg]);
-            setOrganizationId(currentOrg.id);
-          }
+        } else if (user?.organizationId) {
+          const currentOrg = await organizationService.getCurrent();
+          setOrganizations([currentOrg]);
+          setOrganizationId(currentOrg.id);
         }
       } catch (err) {
         logger.error('Failed to load organizations:', err);
@@ -72,19 +73,34 @@ export const InviteUserModal = ({
       if (prefilledEmail) {
         setEmail(prefilledEmail);
       }
-      loadOrganizations().catch((error) => {
-        logger.error('Failed to load organizations:', error);
-      });
+      loadOrganizations().catch((err) => logger.error('Failed to load organizations:', err));
+
       departmentService
         .getAll()
         .then((depts) => {
           setDepartments(depts);
-          // Default to first active department if none selected yet
+          // Preselect the first department so the form is valid by default.
           if (depts.length > 0) {
-            setDepartmentId((prev) => prev ?? depts[0].id);
+            setDepartmentIds((prev) => (prev.length > 0 ? prev : [depts[0].id]));
           }
         })
         .catch(() => setDepartments([]));
+
+      // Email integrations the invite can be sent from (Gmail / IMAP).
+      integrationsService
+        .getAll()
+        .then((res) => {
+          const emailish = (res.data ?? []).filter(
+            (integration) =>
+              integration.enabled &&
+              (integration.type === 'email' || integration.type === 'gmail')
+          );
+          setEmailIntegrations(
+            emailish.map((integration) => ({ id: integration.id, name: integration.name }))
+          );
+          setSenderIntegrationId((prev) => prev ?? emailish[0]?.id ?? null);
+        })
+        .catch(() => setEmailIntegrations([]));
     }
   }, [
     isOpen,
@@ -95,6 +111,12 @@ export const InviteUserModal = ({
     prefilledOrganizationId,
   ]);
 
+  const toggleDepartment = (id: number) => {
+    setDepartmentIds((prev) =>
+      prev.includes(id) ? prev.filter((deptId) => deptId !== id) : [...prev, id]
+    );
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -103,32 +125,30 @@ export const InviteUserModal = ({
       setError('Please select an organization');
       return;
     }
-    if (!departmentId) {
-      setError('Please select a department');
+    if (departmentIds.length === 0) {
+      setError('Please select at least one department');
       return;
     }
 
     setIsLoading(true);
-
     try {
-      await onInvite(email, role, departmentId, organizationId);
+      await onInvite(
+        email,
+        role,
+        departmentIds,
+        organizationId,
+        // Only meaningful when there's a choice; BE defaults to the org's first otherwise.
+        emailIntegrations.length > 1 ? senderIntegrationId ?? undefined : undefined
+      );
       setEmail('');
       setRole('associate');
-      setDepartmentId(departments[0]?.id ?? null);
-      // Keep organization selected (for org_admin it's their org, for admin keep first)
-      if (!isAdmin) {
-        // For org_admin, keep their organization
-      } else {
-        // For global admin, reset to first org
+      setDepartmentIds(departments[0] ? [departments[0].id] : []);
+      if (isAdmin) {
         setOrganizationId(organizations[0]?.id || null);
       }
       onClose();
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to send invitation');
-      }
+      setError(err instanceof Error ? err.message : 'Failed to send invitation');
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +178,7 @@ export const InviteUserModal = ({
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-lg shadow-xl bg-card"
+        className="w-full max-w-md rounded-lg shadow-xl bg-card max-h-[90vh] overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
@@ -234,17 +254,55 @@ export const InviteUserModal = ({
               : 'Org admins cannot invite other org admins'}
           </p>
 
-          <ReactSelect
-            label="Department"
-            value={String(departmentId ?? '')}
-            onChange={(value) => setDepartmentId(value ? Number(value) : null)}
-            options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
-            placeholder={departments.length === 0 ? 'Loading...' : 'Select department'}
-            required
-          />
-          <p className="-mt-2 text-sm text-muted-foreground">
-            Department determines which message sources, categories, and docs the user sees
-          </p>
+          {/* Departments — multi-select. org_admin invites see every dept regardless, so
+              the picker is most useful for support/moderator/associate roles. */}
+          <div>
+            <span className="block mb-2 text-sm font-medium text-foreground">
+              Departments <span className="text-destructive">*</span>
+            </span>
+            {departments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Loading departments…</p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                {departments.map((dept) => (
+                  <label
+                    key={dept.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded border-border"
+                      checked={departmentIds.includes(dept.id)}
+                      onChange={() => toggleDepartment(dept.id)}
+                    />
+                    <span>{dept.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 text-sm text-muted-foreground">
+              Select one or more. Determines which message sources, categories, and docs the
+              user sees. {role === 'org_admin' && 'Org admins are added to every department.'}
+            </p>
+          </div>
+
+          {/* Send-from picker — only when the org has more than one email integration. */}
+          {emailIntegrations.length > 1 && (
+            <div>
+              <ReactSelect
+                label="Send invitation from"
+                value={String(senderIntegrationId ?? '')}
+                onChange={(value) => setSenderIntegrationId(value ? Number(value) : null)}
+                options={emailIntegrations.map((integration) => ({
+                  value: String(integration.id),
+                  label: integration.name,
+                }))}
+              />
+              <p className="mt-1 text-sm text-muted-foreground">
+                The mailbox the invitation email is sent from
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
