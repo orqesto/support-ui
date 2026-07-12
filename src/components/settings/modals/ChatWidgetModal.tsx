@@ -297,9 +297,13 @@ export const ChatWidgetModal = ({
               className="h-4 w-4 rounded border-gray-300"
             />
             <Label htmlFor="collectUserInfo" className="!mb-0">
-              Collect user name and email before chat
+              Ask visitors for name &amp; email in the chat
             </Label>
           </div>
+          <p className="-mt-2 ml-6 text-xs text-muted-foreground">
+            When on, the assistant asks for the visitor&apos;s name then email as the first
+            chat messages (they can type &quot;skip&quot;). Off = straight to chat.
+          </p>
 
           <details className="rounded-md border border-input">
             <summary className="cursor-pointer px-4 py-3">

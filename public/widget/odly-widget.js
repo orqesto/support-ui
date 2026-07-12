@@ -21,10 +21,12 @@
   var messages = [];
   var isOpen = false;
   var isLoading = false;
-  // No upfront name/email form — visitors chat immediately and the assistant asks
-  // for contact details conversationally if/when it needs them.
+  // Contact details are collected conversationally (as chat bubbles), NOT via a
+  // blocking pre-chat form — gated on the widget's `collectUserInfo` setting.
+  // infoStep: null = not yet decided · 'name'/'email' = collecting · 'done' = chatting.
   var userName = '';
   var userEmail = '';
+  var infoStep = null;
 
   // ─── Styles ──────────────────────────────────────────────────────────
   var STYLES = document.createElement('style');
@@ -52,10 +54,10 @@
     '#odly-header button:hover{opacity:1}',
 
     /* Messages area */
-    '#odly-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f9fafb}',
+    '#odly-messages{flex:1;overflow-y:auto;padding:20px 18px;display:flex;flex-direction:column;gap:12px;background:#f9fafb}',
 
     /* Message bubbles */
-    '.odly-msg{max-width:85%;padding:10px 14px;border-radius:var(--odly-radius,16px);font-size:14px;line-height:1.5;word-wrap:break-word;white-space:pre-wrap}',
+    '.odly-msg{max-width:85%;padding:12px 16px;border-radius:var(--odly-radius,16px);font-size:14px;line-height:1.55;word-wrap:break-word;white-space:pre-wrap;box-shadow:0 1px 2px rgba(0,0,0,.06)}',
     '.odly-msg-user{align-self:flex-end;background:var(--odly-primary,#0070F3);color:#fff;border-bottom-right-radius:4px}',
     '.odly-msg-assistant{align-self:flex-start;background:var(--odly-bot-bubble,#fff);color:var(--odly-bot-text,#1f2937);border:1px solid #e5e7eb;border-bottom-left-radius:4px}',
 
@@ -67,7 +69,7 @@
     '@keyframes odly-bounce{to{opacity:.3;transform:translateY(-4px)}}',
 
     /* Input area */
-    '#odly-input-area{padding:12px 16px;border-top:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;background:#fff;flex-shrink:0}',
+    '#odly-input-area{padding:14px 16px;border-top:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;background:#fff;flex-shrink:0}',
     '#odly-input{flex:1;border:1px solid #d1d5db;border-radius:24px;padding:10px 16px;font-size:14px;outline:none;resize:none;max-height:80px;line-height:1.4}',
     '#odly-input:focus{border-color:var(--odly-primary,#0070F3);box-shadow:0 0 0 2px rgba(0,112,243,.15)}',
     '#odly-send{width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}',
@@ -131,6 +133,9 @@
       root.classList.add('odly-left');
     }
 
+    // Kick off in-chat contact collection once the config is known.
+    startInfoCollectionIfNeeded();
+
     chat.innerHTML = '';
 
     // Header
@@ -140,7 +145,6 @@
     header.innerHTML = '<h3>' + escapeHtml(c.name || 'Chat') + '</h3><button id="odly-close">&times;</button>';
     chat.appendChild(header);
 
-    // Straight into the conversation — no pre-chat form.
     renderMessages();
     renderInput(color);
 
@@ -192,7 +196,7 @@
     wrapper.id = 'odly-input-area';
     wrapper.innerHTML =
       '<textarea id="odly-input" rows="1" placeholder="' + escapeHtml((widgetConfig && widgetConfig.placeholder) || 'Type a message...') + '"></textarea>' +
-      '<button id="odly-send" style="background:' + color + '" ' + (isLoading ? 'disabled' : '') + '>' +
+      '<button id="odly-send" ' + (isLoading ? 'disabled' : '') + '>' +
       '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>';
     chat.appendChild(wrapper);
 
@@ -200,6 +204,9 @@
       var input = document.getElementById('odly-input');
       var sendBtn = document.getElementById('odly-send');
       if (!input || !sendBtn) return;
+      // Set the accent via DOM (never string-interpolate config into HTML — avoids
+      // attribute-injection if primaryColor is ever a hostile value).
+      sendBtn.style.background = color;
 
       // Auto-grow textarea
       input.addEventListener('input', function () {
@@ -234,6 +241,9 @@
           if (widgetConfig.position === 'bottom-left') {
             root.classList.add('odly-left');
           }
+          // If the visitor already opened the chat before config arrived, re-render
+          // so the welcome + contact-collection flow appears.
+          if (isOpen) renderChat();
         }
       })
       .catch(function (err) {
@@ -241,11 +251,63 @@
       });
   }
 
+  function isValidEmail(str) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+  }
+
+  // Decide (once, after config loads) whether to collect name/email in-chat. Seeds
+  // the first assistant bubble with the welcome + the name question when enabled.
+  function startInfoCollectionIfNeeded() {
+    if (infoStep !== null || !widgetConfig) return; // wait until config is loaded
+    if (widgetConfig.collectUserInfo && !sessionKey && messages.length === 0) {
+      infoStep = 'name';
+      messages.push({
+        role: 'assistant',
+        content: widgetConfig.welcomeMessage || 'Hi! How can I help you today?',
+      });
+      messages.push({ role: 'assistant', content: 'To get started, may I have your name?' });
+    } else {
+      infoStep = 'done';
+    }
+  }
+
   function sendMessage() {
     var input = document.getElementById('odly-input');
     if (!input) return;
     var text = input.value.trim();
     if (!text || isLoading) return;
+
+    // ── In-chat contact collection (handled locally, no API call) ──
+    if (infoStep === 'name') {
+      messages.push({ role: 'user', content: text });
+      if (text.toLowerCase() !== 'skip') userName = text;
+      messages.push({
+        role: 'assistant',
+        content: (userName ? 'Thanks, ' + userName + '! ' : '') + 'What’s your email? (or type "skip")',
+      });
+      infoStep = 'email';
+      renderChat();
+      return;
+    }
+    if (infoStep === 'email') {
+      messages.push({ role: 'user', content: text });
+      if (text.toLowerCase() === 'skip') {
+        infoStep = 'done';
+        messages.push({ role: 'assistant', content: 'No problem — how can I help you today?' });
+      } else if (isValidEmail(text)) {
+        userEmail = text;
+        infoStep = 'done';
+        messages.push({ role: 'assistant', content: 'Thanks! How can I help you today?' });
+      } else {
+        messages.push({
+          role: 'assistant',
+          content: 'Hmm, that doesn’t look like a valid email — mind re-entering it? (or type "skip")',
+        });
+        // stay on the 'email' step
+      }
+      renderChat();
+      return;
+    }
 
     // Add user message
     messages.push({ role: 'user', content: text });
