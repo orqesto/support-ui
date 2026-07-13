@@ -611,7 +611,6 @@ export const MessagesPage = () => {
                     else if (status === 'client_replied') filterObj.customerResponded = 'true';
                     else if (status === 'suspicious') filterObj.view = 'suspicious';
                     else if (status === 'not_analysed') filterObj.view = 'not_analysed';
-                    else if (status === 'archived') filterObj.view = 'archived';
                     else if (status === 'resolved') filterObj.view = 'resolved';
                     if (filters.threadStatus && filters.threadStatus !== 'all')
                       filterObj.processed = filters.threadStatus as string;
