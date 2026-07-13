@@ -84,6 +84,9 @@ export function MessageDetailHeader({
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [routingTo, setRoutingTo] = useState<number | null>(null);
+  // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
+  // so only the clicked button shows its busy label while both are disabled.
+  const [routingLearn, setRoutingLearn] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
@@ -484,10 +487,13 @@ export function MessageDetailHeader({
   }, [message.id, onRefresh]);
 
   const handleManualRoute = useCallback(
-    async (deptId: number) => {
+    // learn=true also mints a routing rule (via the guarded materializer) so
+    // similar future emails auto-route here; default false = one-off move.
+    async (deptId: number, learn = false) => {
       try {
         setRoutingTo(deptId);
-        await messageService.manualRoute(message.id, deptId);
+        setRoutingLearn(learn);
+        await messageService.manualRoute(message.id, deptId, learn);
         // Left the needs_routing queue — refresh the sidebar badge immediately.
         void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
         onRefresh?.();
@@ -495,6 +501,7 @@ export function MessageDetailHeader({
         logger.error('Failed to manually route:', err);
       } finally {
         setRoutingTo(null);
+        setRoutingLearn(false);
       }
     },
     [message.id, onRefresh, queryClient]
@@ -701,16 +708,26 @@ export function MessageDetailHeader({
                 if (!dept) return null;
                 const busy = routingTo === deptId;
                 return (
-                  <button
-                    key={deptId}
-                    type="button"
-                    onClick={() => void handleManualRoute(deptId)}
-                    disabled={busy}
-                    title={`Move this conversation to ${dept.name}`}
-                    className="text-[11px] px-1.5 py-0.5 rounded font-medium bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
-                  >
-                    {busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                  </button>
+                  <span key={deptId} className="inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => void handleManualRoute(deptId, false)}
+                      disabled={busy}
+                      title={`Move this conversation to ${dept.name} (one-off, no rule)`}
+                      className="text-[11px] px-1.5 py-0.5 rounded-l font-medium bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
+                    >
+                      {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleManualRoute(deptId, true)}
+                      disabled={busy}
+                      title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
+                      className="text-[11px] px-1.5 py-0.5 rounded-r font-medium border-l border-blue-300 bg-blue-200 text-blue-900 hover:bg-blue-300 dark:border-blue-700 dark:bg-blue-900/60 dark:text-blue-200 dark:hover:bg-blue-900/80 disabled:opacity-50"
+                    >
+                      {busy && routingLearn ? 'Adding rule…' : '+ rule'}
+                    </button>
+                  </span>
                 );
               })}
             </div>
