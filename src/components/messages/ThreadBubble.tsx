@@ -10,9 +10,12 @@ export function ThreadBubble({ content, isAgent }: { content: string; isAgent: b
   const isHtml = /<[a-z][\s\S]*>/i.test(content);
   const { main, quote } = useMemo(() => splitAtQuote(content, isHtml), [content, isHtml]);
 
-  const prose = isAgent
-    ? 'prose prose-sm prose-invert dark:prose-invert max-w-none [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0'
-    : 'prose prose-sm max-w-none [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0';
+  // `[overflow-wrap:anywhere]` so a long unbroken token (e.g. a 200-char tracking
+  // URL) wraps instead of overflowing the bubble — overflow-wrap isn't inherited,
+  // so the wrapper's break-words doesn't reach this nested prose div. Without it
+  // the narrow side-panel preview clips the real content off-screen.
+  const base = 'prose prose-sm max-w-none break-words [overflow-wrap:anywhere] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0';
+  const prose = isAgent ? `${base} prose-invert dark:prose-invert` : base;
 
   const renderHtml = (html: string) => (
     <div
