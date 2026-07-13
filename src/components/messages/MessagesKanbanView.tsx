@@ -588,6 +588,12 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     (sum, col) => sum + (colStates[col.id]?.total ?? 0),
     0
   );
+  // Board-tab count badge: active work across the non-reference lifecycle columns
+  // (Open / In Progress / Pending). Excludes the hideable reference columns
+  // (On-hold, Resolved) so the badge tracks live work, not the resolved archive.
+  const boardCount = COLUMNS.filter(
+    (col) => col.axis === 'lifecycle' && !HIDEABLE_COLS.has(col.id)
+  ).reduce((sum, col) => sum + (colStates[col.id]?.total ?? 0), 0);
 
   return (
     <DndContext
@@ -604,6 +610,7 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
           <div className="flex gap-1 items-center">
             {(['lifecycle', 'triage'] as const).map((axis) => {
               const isActive = activeTab === axis;
+              const count = axis === 'lifecycle' ? boardCount : triageCount;
               return (
                 <button
                   key={axis}
@@ -617,16 +624,20 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
                   )}
                 >
                   {axis === 'lifecycle' ? 'Board' : 'Triage'}
-                  {axis === 'triage' && triageCount > 0 && (
+                  {count > 0 && (
                     <span
                       className={cn(
                         'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
-                        isActive
-                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                        axis === 'triage'
+                          ? isActive
+                            ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          : isActive
+                            ? 'bg-foreground/15 text-foreground'
+                            : 'bg-muted-foreground/15 text-muted-foreground'
                       )}
                     >
-                      {triageCount}
+                      {count}
                     </span>
                   )}
                 </button>
