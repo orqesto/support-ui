@@ -185,7 +185,7 @@ export const MessageFilters = ({
                 {activeFilterCount}
               </Badge>
             )}
-            {pagination.total > 0 && (
+            {!isKanban && pagination.total > 0 && (
               <span className="hidden text-xs whitespace-nowrap text-muted-foreground sm:inline">
                 {start}–{end} of {pagination.total}
               </span>
@@ -197,7 +197,7 @@ export const MessageFilters = ({
 
           {/* Right: count on mobile + Clear All */}
           <div className="flex gap-2 items-center shrink-0">
-            {pagination.total > 0 && (
+            {!isKanban && pagination.total > 0 && (
               <span className="text-xs whitespace-nowrap text-muted-foreground sm:hidden">
                 {start}–{end} of {pagination.total}
               </span>
