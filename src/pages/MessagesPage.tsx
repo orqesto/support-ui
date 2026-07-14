@@ -784,6 +784,7 @@ export const MessagesPage = () => {
                   setSelectedMessage(null);
                 }}
                 onReplied={() => moveSelectedCard('awaiting')}
+                onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
                 onApprove={() => handleApprove(selectedMessage)}
                 onReject={async () => {
                   await handleReject(selectedMessage);

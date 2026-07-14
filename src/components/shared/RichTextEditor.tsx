@@ -29,6 +29,33 @@ type RichTextEditorProps = {
   minHeight?: string;
   maxHeight?: string;
   initiallyHidden?: boolean;
+  /**
+   * Called with image files the user pastes (Ctrl+V screenshots) or drags &
+   * drops into the editor. When provided, image paste/drop is intercepted and
+   * handed off (e.g. attached to the message) instead of being inserted inline.
+   */
+  onImageFiles?: (files: File[]) => void;
+};
+
+// Pull image files out of a clipboard/drag DataTransfer. Covers both dropped/
+// pasted File objects and clipboard `items` (how screenshots arrive on paste).
+export const extractImageFiles = (dt: DataTransfer | null): File[] => {
+  if (!dt) return [];
+  const out: File[] = [];
+  if (dt.files && dt.files.length) {
+    for (const file of Array.from(dt.files)) {
+      if (file.type.startsWith('image/')) out.push(file);
+    }
+  }
+  if (!out.length && dt.items) {
+    for (const item of Array.from(dt.items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) out.push(file);
+      }
+    }
+  }
+  return out;
 };
 
 export type RichTextEditorHandle = {
@@ -60,6 +87,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       minHeight = '150px',
       maxHeight,
       initiallyHidden = true,
+      onImageFiles,
     },
     ref
   ) => {
@@ -70,6 +98,10 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     useEffect(() => {
       onSubmitRef.current = onSubmit;
     }, [onSubmit]);
+    const onImageFilesRef = useRef(onImageFiles);
+    useEffect(() => {
+      onImageFilesRef.current = onImageFiles;
+    }, [onImageFiles]);
 
     const editor = useEditor({
       extensions: [
@@ -105,6 +137,24 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             return true;
           }
           return false;
+        },
+        // Intercept pasted screenshots — hand image files to the parent (attach)
+        // instead of letting tiptap drop them. Non-image pastes fall through.
+        handlePaste: (_view, event) => {
+          if (!onImageFilesRef.current) return false;
+          const images = extractImageFiles(event.clipboardData);
+          if (!images.length) return false;
+          onImageFilesRef.current(images);
+          return true;
+        },
+        // Same for dragged-in image files.
+        handleDrop: (_view, event) => {
+          if (!onImageFilesRef.current) return false;
+          const images = extractImageFiles(event.dataTransfer);
+          if (!images.length) return false;
+          event.preventDefault();
+          onImageFilesRef.current(images);
+          return true;
         },
       },
     });

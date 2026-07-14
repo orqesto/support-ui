@@ -1,7 +1,8 @@
 import type React from 'react';
+import { useState } from 'react';
 import { Send, Paperclip, BookOpen, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import type { Message } from '@/types';
 import { MONO } from './messageDetailConstants';
@@ -39,23 +40,56 @@ export function MessageComposer({
   onFilesChange,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) onFilesChange(Array.from(event.target.files));
+    if (event.target.files) onFilesChange([...selectedFiles, ...Array.from(event.target.files)]);
   };
 
   const handleRemoveFile = (index: number) => {
     onFilesChange(selectedFiles.filter((_, idx) => idx !== index));
   };
 
+  // Append image files pasted (Ctrl+V) or dropped into the composer.
+  const addImageFiles = (files: File[]) => {
+    if (files.length) onFilesChange([...selectedFiles, ...files]);
+  };
+
   void message;
 
   return (
-    <div className="flex-shrink-0 px-4 pt-2 pb-3 border-t border-border">
+    <div
+      className="flex-shrink-0 px-4 pt-2 pb-3 border-t border-border"
+      onDragOver={(event) => {
+        if (submitting) return;
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(event) => {
+        // Ignore leaves into child elements; only clear when leaving the composer.
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        setIsDragging(false);
+      }}
+      onDrop={(event) => {
+        setIsDragging(false);
+        if (submitting) return;
+        const images = extractImageFiles(event.dataTransfer);
+        if (images.length) {
+          event.preventDefault();
+          addImageFiles(images);
+        }
+      }}
+    >
 
       {/* Input frame */}
       <div
-        className={`rounded border ${composerMode === 'note' ? 'border-l-2 border-l-amber-400 border-border dark:border-amber-700 dark:bg-amber-900/10' : 'border-border bg-card'}`}
+        className={`rounded border transition-colors ${
+          isDragging
+            ? 'border-primary border-dashed ring-2 ring-primary/30'
+            : composerMode === 'note'
+              ? 'border-l-2 border-l-amber-400 border-border dark:border-amber-700 dark:bg-amber-900/10'
+              : 'border-border bg-card'
+        }`}
       >
         {composerMode === 'reply' ? (
           <RichTextEditor
@@ -63,6 +97,7 @@ export function MessageComposer({
             content={composer}
             onChange={setComposer}
             onSubmit={onSend}
+            onImageFiles={addImageFiles}
             placeholder={`Reply as ${user?.firstName ?? 'you'}…`}
             minHeight="52px"
             maxHeight="180px"
@@ -74,6 +109,7 @@ export function MessageComposer({
             content={composer}
             onChange={setComposer}
             onSubmit={onSend}
+            onImageFiles={addImageFiles}
             placeholder="Internal note — only visible to the team…"
             minHeight="52px"
             maxHeight="180px"
@@ -131,10 +167,10 @@ export function MessageComposer({
         <div className="mt-1 space-y-0.5">
           {selectedFiles.map((file, idx) => (
             <div
-              key={file.name}
-              className="flex items-center gap-2 text-[11px] text-muted-foreground"
+              key={`${file.name}-${file.size}-${idx}`}
+              className="flex items-center gap-2 text-[11px] text-foreground"
             >
-              <Paperclip className="w-2.5 h-2.5 flex-shrink-0" />
+              <Paperclip className="w-2.5 h-2.5 flex-shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate">{file.name}</span>
               <button
                 onClick={() => handleRemoveFile(idx)}
