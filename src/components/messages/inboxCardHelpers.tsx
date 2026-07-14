@@ -45,45 +45,57 @@ export const SPINE_BG: Record<SpineColor, string> = {
 };
 
 /**
- * Conversation lifecycle status chip for the inbox cards. Returns null for
- * statuses already surfaced elsewhere so we don't double-badge:
- *   - resolved      → its own emerald "Resolved" chip (list) / Kanban column
- *   - needs_routing → the "Needs Routing" department badge
- *   - filtered      → hidden from the inbox entirely
+ * The five canonical WORK statuses (locked with the user 2026-07-13). Mirrors the
+ * BE `WorkflowStatus` in `BE-service/.../services/workflowStatus.ts`. Three are
+ * AUTOMATIC (derived from replies, not settable): open/in_progress/pending; two
+ * are MANUAL agent actions: on_hold (park) and resolved.
+ */
+export type WorkflowStatus = 'open' | 'in_progress' | 'pending' | 'on_hold' | 'resolved';
+
+/** Whether a work status is set automatically (derived) vs a manual agent action. */
+export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = ['open', 'in_progress', 'pending'];
+
+/** Single source of the label + chip colors per work status (badge, header, select all read this). */
+export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; className: string }> = {
+  open: { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' },
+  in_progress: { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
+  pending: { label: 'Pending', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
+  on_hold: { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+};
+
+/**
+ * CANONICAL work-status derivation — MUST mirror the BE `deriveWorkflowStatus`.
+ * Derived from ONE signal, `lastReplyFromClient` (null→Open, true→In Progress,
+ * false→Pending), plus the parked overlay (On-hold) and terminal (Resolved). It
+ * ignores the redundant raw `status` sub-values so it can never contradict the
+ * flags. Returns null for the Queue axis (filtered/needs_routing) — no work status.
+ */
+export const deriveWorkflowStatus = (
+  message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> & {
+    status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+  }
+): WorkflowStatus | null => {
+  const { status } = message;
+  if (status === 'resolved' || status === 'closed') return 'resolved';
+  if (status === 'filtered' || status === 'needs_routing') return null; // Queue axis
+  if (message.parkedAt) return 'on_hold';
+  if (message.lastReplyFromClient === false) return 'pending';
+  if (message.lastReplyFromClient === true) return 'in_progress';
+  return 'open';
+};
+
+/**
+ * Conversation status chip for the inbox cards / kanban / detail header. Same
+ * derivation everywhere, so the badge always matches the column and filter.
  */
 export const getStatusBadge = (
-  message: Pick<Message, 'parkedAt'> & {
+  message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> & {
     status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
   }
 ): { label: string; className: string } | null => {
-  // Status model (see .planning/status-model-rework-2026-07-09.md):
-  //   On-hold (parked overlay) → Open → In Progress → Pending (awaiting customer) → Resolved.
-  // "On-hold" (parked) takes precedence over the flow-state badge.
-  if (message.parkedAt) {
-    return { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
-  }
-  switch (message.status) {
-    case 'new':
-    case 'open':
-    case 'client_replied':
-      // "Open" = needs our action — untouched OR the customer replied and it's back
-      // in our court. Client-replied folds into Open (not a separate badge).
-      return { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' };
-    case 'in_progress':
-      return { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
-    case 'awaiting_response':
-      // Waiting on the customer to respond.
-      return { label: 'Pending', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' };
-    case 'pending':
-      // Legacy 'pending' status = a held state; mirror the parked "On-hold" label.
-      return { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' };
-    case 'resolved':
-    case 'closed':
-      // Single terminal state — Closed is merged into Resolved (both reopenable).
-      return { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' };
-    default:
-      return null;
-  }
+  const wf = deriveWorkflowStatus(message);
+  return wf ? WORKFLOW_STATUS_META[wf] : null;
 };
 
 /** Priority chip for the inbox cards — all four levels. */

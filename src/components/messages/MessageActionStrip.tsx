@@ -3,11 +3,9 @@ import {
   CheckCircle,
   RefreshCw,
   RotateCcw,
-  MessageSquare,
   ShieldCheck,
   ShieldAlert,
   Trash2,
-  X,
 } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import type { Message } from '@/types';
@@ -21,7 +19,6 @@ export type MessageActionStripProps = {
   isActive: boolean;
   resolving: boolean;
   hasLinkedTicket?: boolean;
-  onApprove?: () => void;
   onReopen?: () => void;
   onDelete?: () => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
@@ -40,7 +37,6 @@ export function MessageActionStrip({
   isSuspicious,
   resolving,
   hasLinkedTicket,
-  onApprove,
   onReopen,
   onClassify,
   onResolveWithoutReply,
@@ -142,14 +138,14 @@ export function MessageActionStrip({
   if (message.status === 'open' && !clientReplied && !isSuspicious && onReopen) {
     return (
       <div className={strip}>
-        <p className={statusLabel}>Unreviewed — close without sending a reply</p>
+        <p className={statusLabel}>Open — resolve without sending a reply</p>
         <div className="flex gap-2">
           <button
             onClick={() => setRejectDialogOpen(true)}
             className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
-            Close (no ticket)
+            Resolve (no KB)
           </button>
         </div>
       </div>
@@ -169,19 +165,10 @@ export function MessageActionStrip({
     return (
       <div className={strip}>
         <div className="flex gap-2">
-          {onApprove && (
-            <button
-              onClick={onApprove}
-              className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              {message.isLead ? 'Create Lead Ticket' : 'Create Ticket'}
-            </button>
-          )}
           <button
             onClick={onResolveWithoutReply}
             disabled={resolving}
-            className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
+            className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
           >
             {resolving ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -196,8 +183,8 @@ export function MessageActionStrip({
               disabled={resolving}
               className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
             >
-              <X className="w-3.5 h-3.5" />
-              Close
+              <CheckCircle className="w-3.5 h-3.5" />
+              Resolve (no KB)
             </button>
           )}
         </div>

@@ -135,6 +135,20 @@ export const COLUMNS: KanbanColumnDef[] = [
   },
 ];
 
+// Badge shown on a kanban card = its COLUMN's lifecycle state, not the raw DB
+// status. The columns are derived lifecycle buckets that legitimately cross raw
+// statuses (e.g. an `in_progress` thread we replied to lands in Pending), so a
+// raw-status badge contradicts the column it sits in. Keyed by column id; only
+// lifecycle columns have one — triage columns (not_analysed/suspicious/archived/
+// spam) show their signal badges instead, so they map to nothing here.
+export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: string }> = {
+  open: { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' },
+  in_progress: { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
+  awaiting: { label: 'Pending', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
+  on_hold: { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+};
+
 // Special drop target on the Triage tab: approve a triaged message → it leaves triage
 // and enters the lifecycle at "Open". Not a column (the lifecycle board is another tab).
 export const APPROVE_TARGET = 'approve_inbox';

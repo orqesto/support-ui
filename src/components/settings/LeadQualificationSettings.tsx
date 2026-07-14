@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Target, Info, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Target, Info, ArrowRight, Zap, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
   organizationService,
@@ -39,6 +39,9 @@ export const LeadQualificationSettings = () => {
   );
 
   const [config, setConfig] = useState<OrgLeadConfig>(DEFAULT_CONFIG);
+  // Digest recipients are edited as a raw comma-separated string; parsed to an
+  // array only at save time so typing commas/spaces doesn't fight the state.
+  const [recipientsInput, setRecipientsInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -64,7 +67,10 @@ export const LeadQualificationSettings = () => {
   useEffect(() => {
     organizationService
       .getLeadConfig()
-      .then(setConfig)
+      .then((cfg) => {
+        setConfig(cfg);
+        setRecipientsInput((cfg.digestRecipients ?? []).join(', '));
+      })
       .catch(() => setError('Failed to load lead qualification settings'))
       .finally(() => setLoading(false));
   }, []);
@@ -73,11 +79,16 @@ export const LeadQualificationSettings = () => {
     try {
       setSaving(true);
       setError(null);
-      await organizationService.updateLeadConfig(config);
+      const digestRecipients = recipientsInput
+        .split(',')
+        .map((addr) => addr.trim())
+        .filter((addr) => addr.length > 0);
+      await organizationService.updateLeadConfig({ ...config, digestRecipients });
+      setConfig((cfg) => ({ ...cfg, digestRecipients }));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
-      setError('Failed to save settings');
+      setError('Failed to save settings — check that any digest recipients are valid emails.');
     } finally {
       setSaving(false);
     }
@@ -566,6 +577,101 @@ export const LeadQualificationSettings = () => {
           <p className="text-xs text-muted-foreground italic">
             No categories configured — the AI prompt template assigns categories freely.
           </p>
+        )}
+      </div>
+
+      {/* Speed-to-Lead report */}
+      <div className="p-4 space-y-4 rounded-lg border">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+          <div>
+            <h3 className="text-sm font-semibold">Speed-to-Lead Report</h3>
+            <p className="text-xs text-muted-foreground">
+              Powers the <span className="font-medium">Statistics → Speed to Lead</span> tab and the
+              weekly digest. A lead&apos;s response clock is separate from your support SLA.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Slow-lead threshold (minutes)</label>
+            <input
+              type="number"
+              min={1}
+              value={config.slowLeadThresholdMinutes ?? ''}
+              onChange={(event) =>
+                setConfig((cfg) => ({
+                  ...cfg,
+                  slowLeadThresholdMinutes:
+                    event.target.value === '' ? undefined : Math.max(1, Number(event.target.value)),
+                }))
+              }
+              className={inputCls}
+              placeholder="120 (default — 2h)"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              A lead that waits longer than this for a first reply counts as &ldquo;slow.&rdquo;
+            </p>
+          </div>
+          <div>
+            <label className={labelCls}>Average lead value</label>
+            <input
+              type="number"
+              min={0}
+              value={config.avgLeadValue ?? ''}
+              onChange={(event) =>
+                setConfig((cfg) => ({
+                  ...cfg,
+                  avgLeadValue:
+                    event.target.value === '' ? undefined : Math.max(0, Number(event.target.value)),
+                }))
+              }
+              className={inputCls}
+              placeholder="e.g. 2000"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Used for the &ldquo;revenue at risk&rdquo; headline (slow leads × value). Leave blank to
+              show time metrics only.
+            </p>
+          </div>
+        </div>
+
+        <label className="flex items-start gap-2 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            checked={config.weeklyDigestEnabled ?? false}
+            onChange={(event) =>
+              setConfig((cfg) => ({ ...cfg, weeklyDigestEnabled: event.target.checked }))
+            }
+            className="rounded mt-0.5"
+          />
+          <div>
+            <span className="text-sm">Send a weekly email digest</span>
+            <p className="text-xs text-muted-foreground">
+              Monday mornings — slow-lead count, revenue at risk, and median response for the prior 7
+              days. Only sent when there are leads to report.
+            </p>
+          </div>
+        </label>
+
+        {config.weeklyDigestEnabled && (
+          <div>
+            <label className={labelCls}>
+              <Mail className="inline w-3 h-3 mr-1 -mt-0.5" />
+              Digest recipients
+            </label>
+            <input
+              type="text"
+              value={recipientsInput}
+              onChange={(event) => setRecipientsInput(event.target.value)}
+              className={inputCls}
+              placeholder="Comma-separated emails — leave blank to send to org admins"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leave blank to send to all organization admins.
+            </p>
+          </div>
         )}
       </div>
 
