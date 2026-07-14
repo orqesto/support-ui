@@ -27,6 +27,13 @@
   var userName = '';
   var userEmail = '';
   var infoStep = null;
+  // Human-handoff state. `escalated` hides the "Connect with our team" button
+  // once the session has been handed to a human (via the button OR the bot's
+  // own escalate tool). `escalateAfterInfo` marks that the current email step
+  // was opened by the Connect button, so once we have (or skip) the email we
+  // escalate instead of returning to normal chat.
+  var escalated = false;
+  var escalateAfterInfo = false;
 
   // ─── Styles ──────────────────────────────────────────────────────────
   var STYLES = document.createElement('style');
@@ -63,6 +70,12 @@
     '#odly-widget-root .odly-msg{max-width:85%;padding:12px 18px;border-radius:var(--odly-radius,16px);font-size:14px;line-height:1.55;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap;box-shadow:0 1px 2px rgba(0,0,0,.06)}',
     '.odly-msg-user{align-self:flex-end;background:var(--odly-primary,#0070F3);color:#fff;border-bottom-right-radius:4px}',
     '.odly-msg-assistant{align-self:flex-start;background:var(--odly-bot-bubble,#fff);color:var(--odly-bot-text,#1f2937);border:1px solid #e5e7eb;border-bottom-left-radius:4px}',
+    '#odly-widget-root .odly-msg a{color:inherit;text-decoration:underline;font-weight:500}',
+
+    /* Quick-action buttons (Skip / Connect with our team) */
+    '#odly-widget-root .odly-actions{display:flex;flex-wrap:wrap;gap:8px;align-self:flex-start;margin-top:-2px}',
+    '#odly-widget-root .odly-action-btn{cursor:pointer;border:1px solid var(--odly-primary,#0070F3);background:#fff;color:var(--odly-primary,#0070F3);border-radius:20px;padding:7px 14px;font-size:13px;font-weight:500;line-height:1;transition:background .15s,color .15s}',
+    '#odly-widget-root .odly-action-btn:hover{background:var(--odly-primary,#0070F3);color:#fff}',
 
     /* Typing indicator */
     '#odly-widget-root .odly-typing{align-self:flex-start;background:var(--odly-bot-bubble,#fff);border:1px solid #e5e7eb;padding:12px 18px;border-radius:16px;border-bottom-left-radius:4px;display:flex;gap:4px}',
@@ -169,16 +182,32 @@
     if (widgetConfig && widgetConfig.welcomeMessage && messages.length === 0) {
       var welcome = document.createElement('div');
       welcome.className = 'odly-msg odly-msg-assistant';
-      welcome.textContent = widgetConfig.welcomeMessage;
+      welcome.innerHTML = linkify(widgetConfig.welcomeMessage);
       area.appendChild(welcome);
     }
 
     messages.forEach(function (msg) {
       var el = document.createElement('div');
       el.className = 'odly-msg odly-msg-' + msg.role;
-      el.textContent = msg.content;
+      el.innerHTML = linkify(msg.content);
       area.appendChild(el);
     });
+
+    // Quick-action buttons for the current state (Skip during contact
+    // collection; Connect with our team during normal chat).
+    var actions = currentActions();
+    if (actions.length) {
+      var actRow = document.createElement('div');
+      actRow.className = 'odly-actions';
+      actions.forEach(function (a) {
+        var b = document.createElement('button');
+        b.className = 'odly-action-btn';
+        b.textContent = a.label;
+        b.onclick = function () { handleAction(a.id); };
+        actRow.appendChild(b);
+      });
+      area.appendChild(actRow);
+    }
 
     // Typing indicator
     if (isLoading) {
@@ -295,34 +324,13 @@
     if (!text || isLoading) return;
 
     // ── In-chat contact collection (handled locally, no API call) ──
+    // Typing "skip" is still honored alongside the Skip button (empty = skip).
     if (infoStep === 'name') {
-      messages.push({ role: 'user', content: text });
-      if (text.toLowerCase() !== 'skip') userName = text;
-      messages.push({
-        role: 'assistant',
-        content: (userName ? 'Thanks, ' + userName + '! ' : '') + 'What’s your email? (or type "skip")',
-      });
-      infoStep = 'email';
-      renderChat();
+      submitName(text.toLowerCase() === 'skip' ? '' : text);
       return;
     }
     if (infoStep === 'email') {
-      messages.push({ role: 'user', content: text });
-      if (text.toLowerCase() === 'skip') {
-        infoStep = 'done';
-        messages.push({ role: 'assistant', content: 'No problem — how can I help you today?' });
-      } else if (isValidEmail(text)) {
-        userEmail = text;
-        infoStep = 'done';
-        messages.push({ role: 'assistant', content: 'Thanks! How can I help you today?' });
-      } else {
-        messages.push({
-          role: 'assistant',
-          content: 'Hmm, that doesn’t look like a valid email — mind re-entering it? (or type "skip")',
-        });
-        // stay on the 'email' step
-      }
-      renderChat();
+      submitEmail(text.toLowerCase() === 'skip' ? '' : text);
       return;
     }
 
@@ -347,6 +355,9 @@
         isLoading = false;
         if (data.success) {
           messages.push({ role: 'assistant', content: data.reply });
+          // The bot may hand off to a human on its own (escalate_to_human tool);
+          // hide the Connect button when it does.
+          if (data.escalated) escalated = true;
           if (data.sessionKey) {
             sessionKey = data.sessionKey;
             localStorage.setItem('odly_session_' + WIDGET_KEY, sessionKey);
@@ -370,6 +381,149 @@
       });
   }
 
+  // ─── Contact collection + human handoff ──────────────────────────────
+  // Which quick-action buttons to show for the current state. Org-agnostic:
+  // the Connect label defaults to a generic phrase (any org's widget uses it),
+  // overridable via widgetConfig.humanHandoffLabel if the backend supplies one.
+  function currentActions() {
+    if (isLoading) return [];
+    if (infoStep === 'name' || infoStep === 'email') return [{ id: 'skip', label: 'Skip' }];
+    // Connect needs a live session (created on the first real message) and only
+    // shows until the conversation is handed off.
+    if (infoStep === 'done' && sessionKey && !escalated) {
+      var label = (widgetConfig && widgetConfig.humanHandoffLabel) || 'Connect with our team';
+      return [{ id: 'connect', label: label }];
+    }
+    return [];
+  }
+
+  function handleAction(id) {
+    if (id === 'skip') {
+      if (infoStep === 'name') submitName('');
+      else if (infoStep === 'email') submitEmail('');
+    } else if (id === 'connect') {
+      requestConnect();
+    }
+  }
+
+  // Empty text = skipped.
+  function submitName(text) {
+    messages.push({ role: 'user', content: text || 'Skip' });
+    if (text) userName = text;
+    messages.push({
+      role: 'assistant',
+      content: (userName ? 'Thanks, ' + userName + '! ' : '') + 'What’s your email? (or tap Skip)',
+    });
+    infoStep = 'email';
+    renderChat();
+  }
+
+  // Empty text = skipped; a non-empty invalid value re-prompts on the email step.
+  function submitEmail(text) {
+    if (text === '') {
+      messages.push({ role: 'user', content: 'Skip' });
+      userEmail = '';
+      finishInfo();
+      return;
+    }
+    messages.push({ role: 'user', content: text });
+    if (isValidEmail(text)) {
+      userEmail = text;
+      finishInfo();
+    } else {
+      messages.push({
+        role: 'assistant',
+        content: 'Hmm, that doesn’t look like a valid email — mind re-entering it? (or tap Skip)',
+      });
+      renderChat(); // stay on the 'email' step
+    }
+  }
+
+  // Wrap up contact collection. If the email step was opened by the Connect
+  // button, hand off now; otherwise fall back into normal chat.
+  function finishInfo() {
+    infoStep = 'done';
+    if (escalateAfterInfo) {
+      escalateAfterInfo = false;
+      if (userEmail) {
+        renderChat();
+        doEscalate();
+      } else {
+        // No email → don't create a thread the team has no way to reply to.
+        // Cancel the handoff and keep chatting; the Connect button stays visible.
+        messages.push({
+          role: 'assistant',
+          content:
+            'No problem — I can keep helping here. If you’d like a teammate to follow up, just share your email anytime.',
+        });
+        renderChat();
+      }
+    } else {
+      messages.push({
+        role: 'assistant',
+        content: userEmail ? 'Thanks! How can I help you today?' : 'No problem — how can I help you today?',
+      });
+      renderChat();
+    }
+  }
+
+  // "Connect with our team": escalate straight away when we already have an
+  // email, otherwise collect one first (Skip allowed) then escalate.
+  function requestConnect() {
+    if (!sessionKey || escalated || isLoading) return;
+    if (userEmail) {
+      doEscalate();
+    } else {
+      escalateAfterInfo = true;
+      infoStep = 'email';
+      messages.push({
+        role: 'assistant',
+        content: 'Sure — what’s the best email for our team to reach you? (or tap Skip)',
+      });
+      renderChat();
+    }
+  }
+
+  // Deterministic handoff via the public escalate endpoint. Idempotent server-side.
+  function doEscalate() {
+    if (!sessionKey || escalated) return;
+    isLoading = true;
+    renderChat();
+    var body = { sessionKey: sessionKey };
+    if (userEmail) body.userEmail = userEmail;
+    fetch(API_URL + '/api/public/chat/' + WIDGET_KEY + '/escalate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        isLoading = false;
+        if (data.success) {
+          escalated = true;
+          var msg = 'You’re connected — a member of our team will follow up by email.';
+          // The URL renders as a friendly "Track your request" link (see linkify).
+          if (data.trackingUrl) msg += '\n' + data.trackingUrl;
+          messages.push({ role: 'assistant', content: msg });
+        } else {
+          messages.push({
+            role: 'assistant',
+            content: data.error || 'Sorry, I couldn’t connect you right now. Please try again.',
+          });
+        }
+        renderChat();
+      })
+      .catch(function (err) {
+        isLoading = false;
+        messages.push({
+          role: 'assistant',
+          content: 'Sorry, I couldn’t reach the server to connect you. Please try again later.',
+        });
+        renderChat();
+        console.error('[Odly Widget] Escalate error:', err);
+      });
+  }
+
   // ─── Toggle ──────────────────────────────────────────────────────────
   function toggleChat() {
     isOpen = !isOpen;
@@ -388,8 +542,31 @@
   // ─── Helpers ─────────────────────────────────────────────────────────
   function escapeHtml(str) {
     var div = document.createElement('div');
-    div.textContent = str;
+    div.textContent = str == null ? '' : str;
     return div.innerHTML;
+  }
+
+  // Escape text, then turn bare http(s) URLs into clickable links. XSS-safe:
+  // everything is escaped first and only http/https schemes are wrapped, so no
+  // javascript: URLs and no attribute break-out (quotes are escaped in href).
+  function linkify(str) {
+    var text = String(str == null ? '' : str);
+    var urlRe = /(https?:\/\/[^\s<]+[^\s<.,:;!?)\]}'"])/g;
+    var out = '';
+    var last = 0;
+    var m;
+    while ((m = urlRe.exec(text)) !== null) {
+      out += escapeHtml(text.slice(last, m.index));
+      var url = m[0];
+      var safe = escapeHtml(url);
+      // Customer tracking links (…/track/…) carry an opaque token — show a
+      // friendly label instead of the raw URL. Any other link keeps its URL.
+      var label = url.indexOf('/track/') !== -1 ? 'Track your request' : safe;
+      out += '<a href="' + safe + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+      last = m.index + url.length;
+    }
+    out += escapeHtml(text.slice(last));
+    return out;
   }
 
   // ─── Init ────────────────────────────────────────────────────────────

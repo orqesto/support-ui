@@ -32,6 +32,10 @@ type TrackingPayload = {
     id: number;
     direction: 'customer' | 'agent';
     isAutomated: boolean;
+    // Per-event channel. 'chat' marks a conversational reply replayed from an
+    // escalated widget transcript (labelled "Assistant"); other channels mark
+    // the one-off acknowledgment auto-reply email (labelled "Acknowledgment").
+    channel: string | null;
     content: string;
     sentAt: string;
   }>;
@@ -214,6 +218,7 @@ const buildPreviewData = (): TrackingPayload => {
         id: 1,
         direction: 'customer',
         isAutomated: false,
+        channel: 'email',
         content:
           "Hi, I placed order #12345 yesterday but haven't received a shipping confirmation. Can you check on it?",
         sentAt: new Date(now - 4 * hour).toISOString(),
@@ -222,6 +227,7 @@ const buildPreviewData = (): TrackingPayload => {
         id: 2,
         direction: 'agent',
         isAutomated: true,
+        channel: 'email',
         content:
           "Thanks for reaching out — we've received your message and an agent will get back to you shortly. You can track this request on this page.",
         sentAt: new Date(now - 4 * hour + 5000).toISOString(),
@@ -230,6 +236,7 @@ const buildPreviewData = (): TrackingPayload => {
         id: 3,
         direction: 'agent',
         isAutomated: false,
+        channel: 'email',
         content:
           "Hi! I checked your order — it's currently being prepared for shipping today. You should receive a tracking number within 24 hours. Let me know if anything else comes up.",
         sentAt: new Date(now - 0.5 * hour).toISOString(),
@@ -736,35 +743,47 @@ export const TrackingPage = () => {
                 ) : (
                   events.map((event) => {
                     const isCustomer = event.direction === 'customer';
+                    // An automated agent event is an "Assistant" reply when it
+                    // came through the chat channel (an escalated widget
+                    // transcript); otherwise it's the one-off acknowledgment
+                    // auto-reply email. Both are stored as bot_reply, so we lean
+                    // on the per-event channel to tell them apart.
+                    const isAssistant = event.isAutomated && event.channel === 'chat';
                     const time = fmtRelative(event.sentAt) ?? fmtTime(event.sentAt);
                     const senderLabel = isCustomer
                       ? 'You'
-                      : event.isAutomated
-                        ? 'Acknowledgment'
-                        : 'Support';
+                      : isAssistant
+                        ? 'Assistant'
+                        : event.isAutomated
+                          ? 'Acknowledgment'
+                          : 'Support';
+                    // Conventional chat layout: the viewer ("You") sits on the
+                    // right in a filled bubble; support/assistant sits on the
+                    // left in a neutral bubble.
+                    const avatarInitial = isCustomer ? 'You' : isAssistant ? 'A' : event.isAutomated ? 'A' : 'S';
                     return (
                       <div
                         key={event.id}
-                        className={`flex gap-3 ${isCustomer ? '' : 'flex-row-reverse'}`}
+                        className={`flex gap-3 ${isCustomer ? 'flex-row-reverse' : ''}`}
                       >
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
                             isCustomer
-                              ? 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] text-[hsl(215.4,16.3%,46.9%)]'
-                              : 'bg-blue-600 text-white'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] text-[hsl(215.4,16.3%,46.9%)]'
                           }`}
                           aria-hidden="true"
                         >
-                          {isCustomer ? 'You' : event.isAutomated ? 'A' : 'S'}
+                          {avatarInitial}
                         </div>
                         <div
                           className={`flex-1 min-w-0 flex flex-col ${
-                            isCustomer ? '' : 'items-end'
+                            isCustomer ? 'items-end' : ''
                           }`}
                         >
                           <div
                             className={`flex items-baseline gap-2 mb-1 ${
-                              isCustomer ? '' : 'flex-row-reverse'
+                              isCustomer ? 'flex-row-reverse' : ''
                             }`}
                           >
                             <span className="text-sm font-medium">{senderLabel}</span>
@@ -778,8 +797,8 @@ export const TrackingPage = () => {
                           <div
                             className={`text-[15px] leading-relaxed px-3.5 py-2.5 rounded-lg max-w-[92%] prose prose-sm prose-a:underline ${
                               isCustomer
-                                ? 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] rounded-tl-sm prose-a:text-blue-700'
-                                : 'bg-blue-600 text-white rounded-tr-sm prose-invert prose-a:text-white'
+                                ? 'bg-blue-600 text-white rounded-tr-sm prose-invert prose-a:text-white'
+                                : 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] rounded-tl-sm prose-a:text-blue-700'
                             }`}
                             dangerouslySetInnerHTML={{ __html: linkifyHtml(event.content) }}
                           />
