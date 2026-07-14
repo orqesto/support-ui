@@ -75,6 +75,16 @@ export type MessageDetailHeaderProps = {
   onOptimisticMove?: (columnId: string) => void;
 };
 
+// Manual BE status → kanban column id, so the acting agent's card moves instantly
+// on a header status change. Module-scoped (stable identity) so it needn't be a
+// hook dependency. Mirrors kanbanColumns.ts (park→on_hold, terminal→resolved).
+const BE_STATUS_TO_COLUMN: Partial<Record<ThreadStatus, string>> = {
+  pending: 'on_hold', // park
+  resolved: 'resolved',
+  closed: 'resolved',
+  open: 'open', // reopen / un-hold
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MessageDetailHeader({
@@ -369,21 +379,13 @@ export function MessageDetailHeader({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  // Manual BE status → kanban column, so the acting agent's card moves instantly.
-  const beStatusToColumn: Partial<Record<ThreadStatus, string>> = {
-    pending: 'on_hold', // park
-    resolved: 'resolved',
-    closed: 'resolved',
-    open: 'open', // reopen / un-hold
-  };
-
   const handleSetStatus = useCallback(
     async (status: ThreadStatus) => {
       try {
         setUpdatingStatus(true);
         await messageService.setStatus(message.id, status);
         // Move the board card optimistically before the heavier onRefresh reconcile.
-        const column = beStatusToColumn[status];
+        const column = BE_STATUS_TO_COLUMN[status];
         if (column) onOptimisticMove?.(column);
         onRefresh?.();
       } catch (err) {
@@ -392,7 +394,6 @@ export function MessageDetailHeader({
         setUpdatingStatus(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [message.id, onRefresh, onOptimisticMove]
   );
 

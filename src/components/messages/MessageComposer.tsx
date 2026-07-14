@@ -44,6 +44,8 @@ export function MessageComposer({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) onFilesChange([...selectedFiles, ...Array.from(event.target.files)]);
+    // Reset so selecting the SAME file again still fires onChange.
+    event.target.value = '';
   };
 
   const handleRemoveFile = (index: number) => {
@@ -72,12 +74,16 @@ export function MessageComposer({
       }}
       onDrop={(event) => {
         setIsDragging(false);
+        // Always prevent the browser from opening/navigating to a dropped file.
+        event.preventDefault();
         if (submitting) return;
+        // Drops that land on the editor are handled by the editor's own drop
+        // handler — skip here so the image isn't attached twice (the native drop
+        // event bubbles up to this container too).
+        const target = event.target as HTMLElement | null;
+        if (target?.closest?.('[contenteditable="true"]')) return;
         const images = extractImageFiles(event.dataTransfer);
-        if (images.length) {
-          event.preventDefault();
-          addImageFiles(images);
-        }
+        if (images.length) addImageFiles(images);
       }}
     >
 
