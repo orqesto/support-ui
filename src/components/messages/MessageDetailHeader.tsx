@@ -66,6 +66,13 @@ export type MessageDetailHeaderProps = {
   onDelete?: () => void;
   onApprove?: () => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
+  /**
+   * Optimistically move the board card to a kanban column right after a manual
+   * status change (park / resolve / reopen), so the acting agent sees it move
+   * instantly instead of waiting for the onRefresh refetch. No-op on the
+   * standalone detail page (no board).
+   */
+  onOptimisticMove?: (columnId: string) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -80,6 +87,7 @@ export function MessageDetailHeader({
   onDelete,
   onApprove,
   onClassify: onClassify,
+  onOptimisticMove,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
@@ -361,11 +369,22 @@ export function MessageDetailHeader({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  // Manual BE status → kanban column, so the acting agent's card moves instantly.
+  const beStatusToColumn: Partial<Record<ThreadStatus, string>> = {
+    pending: 'on_hold', // park
+    resolved: 'resolved',
+    closed: 'resolved',
+    open: 'open', // reopen / un-hold
+  };
+
   const handleSetStatus = useCallback(
     async (status: ThreadStatus) => {
       try {
         setUpdatingStatus(true);
         await messageService.setStatus(message.id, status);
+        // Move the board card optimistically before the heavier onRefresh reconcile.
+        const column = beStatusToColumn[status];
+        if (column) onOptimisticMove?.(column);
         onRefresh?.();
       } catch (err) {
         logger.error('Failed to set status:', err);
@@ -373,7 +392,8 @@ export function MessageDetailHeader({
         setUpdatingStatus(false);
       }
     },
-    [message.id, onRefresh]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [message.id, onRefresh, onOptimisticMove]
   );
 
   const handleSetPriority = useCallback(

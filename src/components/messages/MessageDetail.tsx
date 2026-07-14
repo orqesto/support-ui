@@ -65,6 +65,9 @@ export type MessageDetailProps = {
   /** Fired after a customer reply is sent (not notes) — the conversation flips to
    *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
   onReplied?: () => void;
+  /** Optimistically move the board card to a column after a manual status change
+   *  (park / resolve / reopen) from the detail header. */
+  onOptimisticMove?: (columnId: string) => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
 };
 
@@ -80,6 +83,7 @@ export function MessageDetail({
   onResolve,
   onRefresh,
   onReplied,
+  onOptimisticMove,
   onClassify,
 }: MessageDetailProps) {
   // ── Thread state ───────────────────────────────────────────────────────────
@@ -511,6 +515,7 @@ export function MessageDetail({
         onDelete={handleDelete}
         onApprove={onApprove}
         onClassify={onClassify}
+        onOptimisticMove={onOptimisticMove}
       />
 
       {/* History banner */}

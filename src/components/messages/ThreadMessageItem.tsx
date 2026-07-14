@@ -66,7 +66,7 @@ export function ThreadMessageItem({
                   key={att.id}
                   type="button"
                   onClick={() => onOpenAttachment?.(att.id)}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-primary-foreground/10 text-primary-foreground/70 border border-primary-foreground/20 hover:bg-primary-foreground/20 transition-colors"
+                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25 transition-colors"
                 >
                   <Paperclip className="w-2.5 h-2.5" />
                   {att.originalFilename}
