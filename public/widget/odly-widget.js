@@ -21,19 +21,15 @@
   var messages = [];
   var isOpen = false;
   var isLoading = false;
-  // Contact details are collected conversationally (as chat bubbles), NOT via a
-  // blocking pre-chat form — gated on the widget's `collectUserInfo` setting.
-  // infoStep: null = not yet decided · 'name'/'email' = collecting · 'done' = chatting.
-  var userName = '';
-  var userEmail = '';
-  var infoStep = null;
-  // Human-handoff state. `escalated` hides the "Connect with our team" button
-  // once the session has been handed to a human (via the button OR the bot's
-  // own escalate tool). `escalateAfterInfo` marks that the current email step
-  // was opened by the Connect button, so once we have (or skip) the email we
-  // escalate instead of returning to normal chat.
+  // Contact details (name/email) are collected by the AI conversationally — in the
+  // visitor's own language — NOT via hardcoded widget prompts. The server persists
+  // them and reports `hasEmail` back so we know whether the Connect button can
+  // escalate directly.
+  var sessionStarted = false; // set once we've reset any stale session on open
+  var hasEmail = false;
+  // `escalated` hides the "Connect with our team" button once the session has been
+  // handed to a human (via the button OR the bot's own escalate tool).
   var escalated = false;
-  var escalateAfterInfo = false;
 
   // ─── Styles ──────────────────────────────────────────────────────────
   var STYLES = document.createElement('style');
@@ -149,8 +145,8 @@
       root.classList.add('odly-left');
     }
 
-    // Kick off in-chat contact collection once the config is known.
-    startInfoCollectionIfNeeded();
+    // On first open, reset any stale session so the AI collects contact info fresh.
+    resetSessionIfCollecting();
 
     chat.innerHTML = '';
 
@@ -283,37 +279,22 @@
       });
   }
 
-  function isValidEmail(str) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
-  }
-
-  // Decide (once, after config loads) whether to collect name/email in-chat. Seeds
-  // the first assistant bubble with the welcome + the name question when enabled.
-  function startInfoCollectionIfNeeded() {
-    if (infoStep !== null || !widgetConfig) return; // wait until config is loaded
-    // Collect name/email at the start of EVERY new conversation (a fresh chat with
-    // no messages yet), not just once per visitor. Any persisted session is from a
-    // previous conversation, so drop it: the collected details then attach to a
-    // brand-new session created by the first message, rather than reopening the old one.
-    if (widgetConfig.collectUserInfo && messages.length === 0) {
-      if (sessionKey) {
-        sessionKey = '';
-        try {
-          localStorage.removeItem('odly_session_' + WIDGET_KEY);
-        } catch (e) {
-          /* localStorage unavailable — non-fatal */
-        }
+  // On a fresh open, if this widget collects contact info, start a brand-new
+  // session so the AI gathers name/email for THIS conversation (any persisted
+  // session belongs to a previous chat). No hardcoded prompts — the AI asks, in
+  // the visitor's own language, on its first reply. The welcome bubble is shown
+  // by renderMessages while the message list is empty.
+  function resetSessionIfCollecting() {
+    if (sessionStarted || !widgetConfig) return; // wait until config is loaded
+    sessionStarted = true;
+    if (widgetConfig.collectUserInfo && messages.length === 0 && sessionKey) {
+      sessionKey = '';
+      hasEmail = false;
+      try {
+        localStorage.removeItem('odly_session_' + WIDGET_KEY);
+      } catch (e) {
+        /* localStorage unavailable — non-fatal */
       }
-      userName = '';
-      userEmail = '';
-      infoStep = 'name';
-      messages.push({
-        role: 'assistant',
-        content: widgetConfig.welcomeMessage || 'Hi! How can I help you today?',
-      });
-      messages.push({ role: 'assistant', content: 'To get started, may I have your name?' });
-    } else {
-      infoStep = 'done';
     }
   }
 
@@ -323,27 +304,15 @@
     var text = input.value.trim();
     if (!text || isLoading) return;
 
-    // ── In-chat contact collection (handled locally, no API call) ──
-    // Typing "skip" is still honored alongside the Skip button (empty = skip).
-    if (infoStep === 'name') {
-      submitName(text.toLowerCase() === 'skip' ? '' : text);
-      return;
-    }
-    if (infoStep === 'email') {
-      submitEmail(text.toLowerCase() === 'skip' ? '' : text);
-      return;
-    }
-
     // Add user message
     messages.push({ role: 'user', content: text });
     isLoading = true;
     renderChat();
 
-    // Build request body
+    // Build request body. Name/email are collected + persisted server-side by the
+    // AI (capture_contact), so the widget no longer sends them.
     var body = { message: text };
     if (sessionKey) body.sessionKey = sessionKey;
-    if (userName) body.userName = userName;
-    if (userEmail) body.userEmail = userEmail;
 
     fetch(API_URL + '/api/public/chat/' + WIDGET_KEY, {
       method: 'POST',
@@ -355,6 +324,8 @@
         isLoading = false;
         if (data.success) {
           messages.push({ role: 'assistant', content: data.reply });
+          // The server reports contact + handoff state back to us.
+          if (typeof data.hasEmail === 'boolean') hasEmail = data.hasEmail;
           // The bot may hand off to a human on its own (escalate_to_human tool);
           // hide the Connect button when it does.
           if (data.escalated) escalated = true;
@@ -381,120 +352,75 @@
       });
   }
 
-  // ─── Contact collection + human handoff ──────────────────────────────
-  // Which quick-action buttons to show for the current state. Org-agnostic:
-  // the Connect label defaults to a generic phrase (any org's widget uses it),
-  // overridable via widgetConfig.humanHandoffLabel if the backend supplies one.
+  // ─── Human handoff ───────────────────────────────────────────────────
+  // The only quick action is "Connect with our team" (org-agnostic label;
+  // overridable via widgetConfig.humanHandoffLabel). It needs a live session
+  // (created on the first message) and hides once handed off.
   function currentActions() {
-    if (isLoading) return [];
-    if (infoStep === 'name' || infoStep === 'email') return [{ id: 'skip', label: 'Skip' }];
-    // Connect needs a live session (created on the first real message) and only
-    // shows until the conversation is handed off.
-    if (infoStep === 'done' && sessionKey && !escalated) {
-      var label = (widgetConfig && widgetConfig.humanHandoffLabel) || 'Connect with our team';
-      return [{ id: 'connect', label: label }];
-    }
-    return [];
+    if (isLoading || escalated || !sessionKey) return [];
+    var label = (widgetConfig && widgetConfig.humanHandoffLabel) || 'Connect with our team';
+    return [{ id: 'connect', label: label }];
   }
 
   function handleAction(id) {
-    if (id === 'skip') {
-      if (infoStep === 'name') submitName('');
-      else if (infoStep === 'email') submitEmail('');
-    } else if (id === 'connect') {
-      requestConnect();
-    }
+    if (id === 'connect') requestConnect();
   }
 
-  // Empty text = skipped.
-  function submitName(text) {
-    messages.push({ role: 'user', content: text || 'Skip' });
-    if (text) userName = text;
-    messages.push({
-      role: 'assistant',
-      content: (userName ? 'Thanks, ' + userName + '! ' : '') + 'What’s your email? (or tap Skip)',
-    });
-    infoStep = 'email';
-    renderChat();
-  }
-
-  // Empty text = skipped; a non-empty invalid value re-prompts on the email step.
-  function submitEmail(text) {
-    if (text === '') {
-      messages.push({ role: 'user', content: 'Skip' });
-      userEmail = '';
-      finishInfo();
-      return;
-    }
-    messages.push({ role: 'user', content: text });
-    if (isValidEmail(text)) {
-      userEmail = text;
-      finishInfo();
-    } else {
-      messages.push({
-        role: 'assistant',
-        content: 'Hmm, that doesn’t look like a valid email — mind re-entering it? (or tap Skip)',
-      });
-      renderChat(); // stay on the 'email' step
-    }
-  }
-
-  // Wrap up contact collection. If the email step was opened by the Connect
-  // button, hand off now; otherwise fall back into normal chat.
-  function finishInfo() {
-    infoStep = 'done';
-    if (escalateAfterInfo) {
-      escalateAfterInfo = false;
-      if (userEmail) {
-        renderChat();
-        doEscalate();
-      } else {
-        // No email → don't create a thread the team has no way to reply to.
-        // Cancel the handoff and keep chatting; the Connect button stays visible.
-        messages.push({
-          role: 'assistant',
-          content:
-            'No problem — I can keep helping here. If you’d like a teammate to follow up, just share your email anytime.',
-        });
-        renderChat();
-      }
-    } else {
-      messages.push({
-        role: 'assistant',
-        content: userEmail ? 'Thanks! How can I help you today?' : 'No problem — how can I help you today?',
-      });
-      renderChat();
-    }
-  }
-
-  // "Connect with our team": escalate straight away when we already have an
-  // email, otherwise collect one first (Skip allowed) then escalate.
+  // Hybrid handoff. If the server has already captured an email, escalate
+  // directly (deterministic, instant). Otherwise let the AI run the handoff so
+  // it asks for the email in the visitor's language, then escalates.
   function requestConnect() {
     if (!sessionKey || escalated || isLoading) return;
-    if (userEmail) {
-      doEscalate();
-    } else {
-      escalateAfterInfo = true;
-      infoStep = 'email';
-      messages.push({
-        role: 'assistant',
-        content: 'Sure — what’s the best email for our team to reach you? (or tap Skip)',
-      });
-      renderChat();
-    }
+    if (hasEmail) doEscalate();
+    else sendConnectRequest();
   }
 
-  // Deterministic handoff via the public escalate endpoint. Idempotent server-side.
+  // No email yet → ask the AI to handle the connect request (in-language). Sends
+  // an intent flag with no user message; the reply typically asks for the email.
+  function sendConnectRequest() {
+    isLoading = true;
+    renderChat();
+    fetch(API_URL + '/api/public/chat/' + WIDGET_KEY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionKey: sessionKey, wantsHuman: true }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        isLoading = false;
+        if (data.success) {
+          messages.push({ role: 'assistant', content: data.reply });
+          if (typeof data.hasEmail === 'boolean') hasEmail = data.hasEmail;
+          if (data.escalated) escalated = true;
+        } else {
+          messages.push({
+            role: 'assistant',
+            content: data.error || 'Sorry, I couldn’t connect you right now. Please try again.',
+          });
+        }
+        renderChat();
+      })
+      .catch(function (err) {
+        isLoading = false;
+        messages.push({
+          role: 'assistant',
+          content: 'Sorry, I couldn’t reach the server to connect you. Please try again later.',
+        });
+        renderChat();
+        console.error('[Odly Widget] Connect error:', err);
+      });
+  }
+
+  // Deterministic handoff via the public escalate endpoint (email already on
+  // file). Idempotent server-side.
   function doEscalate() {
     if (!sessionKey || escalated) return;
     isLoading = true;
     renderChat();
-    var body = { sessionKey: sessionKey };
-    if (userEmail) body.userEmail = userEmail;
     fetch(API_URL + '/api/public/chat/' + WIDGET_KEY + '/escalate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ sessionKey: sessionKey }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
