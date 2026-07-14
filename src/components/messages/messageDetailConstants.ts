@@ -9,19 +9,25 @@ export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded bor
 
 // ─── Status display ───────────────────────────────────────────────────────────
 
+// NOTE: this map is the MANUAL status-action control (the detail-header dropdown),
+// not the display badge — the badge is owned by getStatusBadge (canonical). Under
+// the derived model the only coherent manual actions are: Open (un-hold), On-hold
+// (park — the 'pending' enum value stamps parked_at), Resolved, Closed. Open/In
+// Progress/Pending-as-flow are DERIVED from lastReplyFromClient and not settable.
 export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; chip: string }> = {
   open: {
-    label: 'UNREVIEWED',
+    label: 'OPEN',
     dot: 'bg-sky-500',
     chip: 'text-sky-700    border-sky-200    bg-sky-50    dark:text-sky-400    dark:bg-sky-950/30    dark:border-sky-800',
   },
   in_progress: {
     label: 'IN PROGRESS',
-    dot: 'bg-violet-500',
-    chip: 'text-violet-700  border-violet-200  bg-violet-50  dark:text-violet-400  dark:bg-violet-950/30  dark:border-violet-800',
+    dot: 'bg-blue-500',
+    chip: 'text-blue-700  border-blue-200  bg-blue-50  dark:text-blue-400  dark:bg-blue-950/30  dark:border-blue-800',
   },
   pending: {
-    label: 'PENDING',
+    // The 'pending' enum value = the On-hold (park) action.
+    label: 'ON-HOLD',
     dot: 'bg-amber-400',
     chip: 'text-amber-700  border-amber-200  bg-amber-50  dark:text-amber-400  dark:bg-amber-950/30  dark:border-amber-800',
   },
@@ -47,12 +53,14 @@ export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; 
   },
 };
 
-export const SETTABLE_STATUSES: ThreadStatus[] = ['open', 'in_progress', 'pending', 'closed'];
+// 'in_progress' removed — it's derived (customer reply), not manually settable
+// (the BE rejects it too). 'pending' = the On-hold (park) action.
+export const SETTABLE_STATUSES: ThreadStatus[] = ['open', 'pending', 'closed'];
 
 export const STATUS_MENU_LABELS: Record<ThreadStatus, string> = {
-  open: 'Unreviewed',
+  open: 'Open',
   in_progress: 'In Progress',
-  pending: 'Pending',
+  pending: 'On-hold',
   resolved: 'Resolved',
   closed: 'Closed',
   filtered: 'Filtered',

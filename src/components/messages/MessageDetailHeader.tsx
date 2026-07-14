@@ -9,15 +9,14 @@ import {
   X,
   Trash2,
   LinkIcon,
-  CheckCircle,
   AlertTriangle,
-  Reply,
   Target,
   ShieldAlert,
   Clock,
   ChevronDown,
   Maximize2,
   Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -29,7 +28,13 @@ import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
-import { hashNameToLabelColor } from './inboxCardHelpers';
+import {
+  getStatusBadge,
+  deriveWorkflowStatus,
+  WORKFLOW_STATUS_META,
+  hashNameToLabelColor,
+  type WorkflowStatus,
+} from './inboxCardHelpers';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { formatConvId, getConvUrlId, getSpamCheck } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
@@ -41,7 +46,6 @@ import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMe
 import {
   MONO,
   CHIP_BASE,
-  STATUS_OPTIONS,
   PRIORITY_OPTIONS,
   CHANNEL_ICONS,
   getInitials,
@@ -60,6 +64,7 @@ export type MessageDetailHeaderProps = {
   threadCount: number;
   onRefresh?: () => void;
   onDelete?: () => void;
+  onApprove?: () => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
 };
 
@@ -73,6 +78,7 @@ export function MessageDetailHeader({
   threadCount,
   onRefresh,
   onDelete,
+  onApprove,
   onClassify: onClassify,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
@@ -219,16 +225,8 @@ export function MessageDetailHeader({
   const isActive =
     message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
   // System-set statuses have no dropdown entry — map to nearest user-facing equivalent for display
-  const STATUS_NORMALIZE: Record<string, ThreadStatus> = {
-    awaiting_response: 'in_progress',
-    client_replied: 'in_progress',
-    resolved: 'closed',
-    new: 'open',
-  };
-  const currentStatus: ThreadStatus =
-    (STATUS_NORMALIZE[message.status ?? ''] as ThreadStatus | undefined) ??
-    message.status ??
-    'open';
+  // The current work status is DERIVED (canonical), not the raw enum.
+  const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
 
   const slaInfo = useMemo(() => {
     if (!message.slaResponseMinutes) return null;
@@ -291,12 +289,6 @@ export function MessageDetailHeader({
         icon: <AlertTriangle className="w-2.5 h-2.5" />,
         cls: 'text-amber-900 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-800',
       };
-    if (message.status === 'resolved')
-      return {
-        label: 'RESOLVED',
-        icon: <CheckCircle className="w-2.5 h-2.5" />,
-        cls: 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800',
-      };
     // Customer just followed up via the tracking page and the BE is re-running
     // analysis on the fresh thread. Shows until the processor emits 'complete'
     // (≤ a few seconds under the 10/min limiter) so agents see why suggestions
@@ -308,46 +300,64 @@ export function MessageDetailHeader({
         icon: <Sparkles className="w-2.5 h-2.5 animate-pulse" />,
         cls: 'text-violet-700 border-violet-200 bg-violet-50 dark:text-violet-400 dark:bg-violet-950/30 dark:border-violet-800',
       };
-    if (message.lastReplyFromClient === false)
-      return {
-        label: 'AWAITING',
-        icon: <Clock className="w-2.5 h-2.5" />,
-        cls: 'text-orange-700 border-orange-200 bg-orange-50 dark:text-orange-400 dark:bg-orange-950/30 dark:border-orange-800',
-      };
-    if (message.lastReplyFromClient === true)
-      return {
-        label: 'CLIENT REPLIED',
-        icon: <Reply className="w-2.5 h-2.5" />,
-        cls: 'text-green-700 border-green-200 bg-green-50 dark:text-green-400 dark:bg-green-950/30 dark:border-green-800',
-      };
-    if (message.status === 'open') {
-      // "NOT ANALYSED" really means "status=open AND no AI analysis ran yet."
-      // Reanalyse intentionally sets status='open' on success, so we'd
-      // otherwise re-light this badge despite analysis being present —
-      // gate on metadata.analysis to tell the two apart.
-      const hasAnalysis = !!(message.metadata as Record<string, unknown> | undefined)?.analysis;
-      return hasAnalysis
-        ? {
-            label: 'ACTIVE',
-            icon: null,
-            cls: 'text-sky-700 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
-          }
-        : {
-            label: 'NOT ANALYSED',
-            icon: null,
-            cls: 'text-muted-foreground border-border bg-muted/60',
-          };
-    }
-    if (isActive)
-      return {
-        label: 'ACTIVE',
-        icon: null,
-        cls: 'text-sky-700 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
-      };
-    return null;
+    // The WORK status (Open/In Progress/Pending/On-hold/Resolved) is shown by the
+    // status SELECT next to this badge — don't duplicate it here. This badge only
+    // surfaces Queue-axis overlays the select doesn't: spam/suspicious/re-analyzing
+    // (above) and "Not Analysed" (a brand-new inbound with no AI analysis yet).
+    const wf = getStatusBadge(message);
+    if (!wf) return null; // filtered/needs_routing — Queue axis
+    const hasAnalysis = !!(message.metadata as Record<string, unknown> | undefined)?.analysis;
+    if (wf.label === 'Open' && !hasAnalysis)
+      return { label: 'NOT ANALYSED', icon: null, cls: 'text-muted-foreground border-border bg-muted/60' };
+    return null; // plain work status → shown by the select, not duplicated here
   })();
 
-  const statusDisplayOptions = STATUS_OPTIONS;
+  // Header status control: shows the current (possibly automatic) work status and
+  // offers only the MANUAL actions. Automatic statuses (open/in_progress/pending)
+  // appear disabled — they're derived from replies, not settable. 'On-hold' and
+  // 'Resolved' are always selectable; 'Open' is selectable only to return a parked
+  // or resolved conversation to the live flow (reopen / un-hold).
+  // Only the actionable transitions from the current state (keeps the menu clean —
+  // the automatic statuses aren't shown as greyed dead options). The current status
+  // is included once, disabled, so the chip displays it.
+  const actionableStatuses: WorkflowStatus[] =
+    currentWorkflowStatus === 'resolved'
+      ? ['open'] // reopen
+      : currentWorkflowStatus === 'on_hold'
+        ? ['open', 'resolved'] // take off hold · resolve
+        : ['on_hold', 'resolved']; // active (open/in_progress/pending): park · resolve
+  const menuLabelFor = (ws: WorkflowStatus): string =>
+    ws === 'open'
+      ? currentWorkflowStatus === 'resolved'
+        ? 'Reopen'
+        : 'Take off hold'
+      : WORKFLOW_STATUS_META[ws].label;
+  const statusDisplayOptions = [
+    {
+      value: currentWorkflowStatus,
+      label: WORKFLOW_STATUS_META[currentWorkflowStatus].label,
+      menuLabel: WORKFLOW_STATUS_META[currentWorkflowStatus].label,
+      chipClassName: WORKFLOW_STATUS_META[currentWorkflowStatus].className,
+      isDisabled: true,
+    },
+    ...actionableStatuses
+      .filter((ws) => ws !== currentWorkflowStatus)
+      .map((ws) => ({
+        value: ws,
+        label: WORKFLOW_STATUS_META[ws].label,
+        menuLabel: menuLabelFor(ws),
+        chipClassName: WORKFLOW_STATUS_META[ws].className,
+        isDisabled: false,
+      })),
+  ];
+
+  // Map a chosen work status → the BE manual-status action. Automatic statuses
+  // are disabled in the select, so only these three ever fire.
+  const workflowToBeStatus: Partial<Record<WorkflowStatus, ThreadStatus>> = {
+    on_hold: 'pending', // park
+    resolved: 'resolved',
+    open: 'open', // reopen / un-hold
+  };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -520,6 +530,15 @@ export function MessageDetailHeader({
   }, [message.id, onRefresh]);
 
   const moreMenuItems = [
+    isActive &&
+      onApprove && {
+        label: message.isLead ? 'Create Lead Ticket' : 'Create Ticket',
+        icon: <MessageSquare className="w-3 h-3" />,
+        action: () => {
+          onApprove();
+          setMoreOpen(false);
+        },
+      },
     {
       label: linkCopied ? 'Link Copied!' : 'Copy Link',
       icon: <LinkIcon className="w-3 h-3" />,
@@ -553,16 +572,6 @@ export function MessageDetailHeader({
       icon: <Target className="w-3 h-3" />,
       action: () => {
         void handleToggleLead();
-        setMoreOpen(false);
-      },
-    },
-    isActive && {
-      label: 'Close (no KB)',
-      icon: <X className="w-3 h-3" />,
-      action: () => {
-        void messageService.close(message.id).then(() => {
-          onRefresh?.();
-        });
         setMoreOpen(false);
       },
     },
@@ -738,9 +747,12 @@ export function MessageDetailHeader({
       <div className="flex items-center gap-1.5 flex-nowrap px-4 pb-3 overflow-visible">
         <ReactSelect
           variant="chip"
-          value={currentStatus}
+          value={currentWorkflowStatus}
           options={statusDisplayOptions}
-          onChange={(val) => void handleSetStatus(val as ThreadStatus)}
+          onChange={(val) => {
+            const beStatus = workflowToBeStatus[val as WorkflowStatus];
+            if (beStatus) void handleSetStatus(beStatus);
+          }}
           isDisabled={updatingStatus}
         />
         {slaInfo && (

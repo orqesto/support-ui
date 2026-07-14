@@ -1,4 +1,17 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+// Over the 650-line cap: this file owns the whole kanban board — inline Draggable/
+// Column subcomponents, the DnD move logic, per-column fetch/sort, and now the
+// optimistic single-card move. Extracting the card/column subcomponents is the
+// natural follow-up refactor; until then, disable the cap here (same as MessageDetailHeader).
+/* eslint-disable max-lines */
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -112,7 +125,7 @@ function DraggableMessageCard({
       >
         <GripVertical className="w-3.5 h-3.5" />
       </button>
-      <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} />
+      <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} colId={colId} />
     </div>
   );
 }
@@ -229,6 +242,7 @@ const KanbanColumn = ({
                     thread={thread}
                     onOpen={onOpen}
                     weRepliedLast={col.id === 'awaiting'}
+                    colId={col.id}
                   />
                 </div>
               )
@@ -256,6 +270,27 @@ type MessagesKanbanViewProps = {
   filters: FilterState;
   onOpen: (thread: MessageThread) => void;
   refreshKey?: number;
+};
+
+export type MessagesKanbanHandle = {
+  /**
+   * Optimistically move a single card to its new lifecycle column WITHOUT
+   * refetching the whole board — the instant-feedback path for the acting agent's
+   * own reply / resolve / close. `targetColId` null just removes the card (it left
+   * the lifecycle board, e.g. classified to a triage queue). A no-op if the card
+   * isn't currently on the board. The card's column-derived badge + spine follow
+   * the destination column, so no server round-trip is needed to render correctly.
+   */
+  optimisticMove: (threadId: string, targetColId: string | null) => void;
+};
+
+// Column-implied conversation state, so a moved card's spine/direction (which read
+// the thread's own lastReplyFromClient) match the destination column immediately.
+const COL_STATE_PATCH: Record<string, Partial<MessageThread>> = {
+  open: { lastReplyFromClient: null },
+  in_progress: { lastReplyFromClient: true },
+  awaiting: { lastReplyFromClient: false },
+  resolved: { isResolved: true },
 };
 
 const initialColStates = (): Record<string, ColumnState> =>
@@ -310,7 +345,8 @@ const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }
   );
 };
 
-export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanbanViewProps) => {
+export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanbanViewProps>(
+  ({ filters, onOpen, refreshKey }, ref) => {
   const queryClient = useQueryClient();
   // Which axis's columns are shown. Lifecycle = the work board; Triage = the
   // pre-lifecycle classification queues. (Option A: separate tabs.)
@@ -370,10 +406,11 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     let cancelled = false;
     setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
     const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
+    const requestFilters = { ...sharedFiltersRef.current, ...col.fixedFilters };
     void (async () => {
       try {
         const res = await messageService.getThreads(
-          { ...sharedFiltersRef.current, ...col.fixedFilters },
+          requestFilters,
           1,
           PAGE_SIZE,
           sort.sortOrder,
@@ -402,9 +439,57 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
     };
   }, []);
 
+  // Optimistic single-card move — pull the card out of whichever column currently
+  // holds it and drop it into the destination column, all in local state. No column
+  // refetch (unlike bumpKanban), so the acting agent sees the card jump the instant
+  // their reply/resolve/close succeeds. The next authoritative reload (if any) simply
+  // confirms the same placement, so there's no visible second jump.
+  const optimisticMove = useCallback((threadId: string, targetColId: string | null) => {
+    setColStates((prev) => {
+      let moved: MessageThread | undefined;
+      const next: Record<string, ColumnState> = {};
+      for (const [colId, state] of Object.entries(prev)) {
+        const idx = state.threads.findIndex((thr) => thr.threadId === threadId);
+        if (idx >= 0) {
+          moved = state.threads[idx];
+          next[colId] = {
+            ...state,
+            threads: state.threads.filter((thr) => thr.threadId !== threadId),
+            total: Math.max(0, state.total - 1),
+          };
+        } else {
+          next[colId] = state;
+        }
+      }
+      // Card isn't on the loaded board (off-page / different filter) — nothing to do.
+      if (!moved) return prev;
+      if (targetColId && next[targetColId]) {
+        const patched: MessageThread = { ...moved, ...COL_STATE_PATCH[targetColId] };
+        next[targetColId] = {
+          ...next[targetColId],
+          threads: [patched, ...next[targetColId].threads],
+          total: next[targetColId].total + 1,
+        };
+      }
+      return next;
+    });
+  }, []);
+
+  useImperativeHandle(ref, () => ({ optimisticMove }), [optimisticMove]);
+
   // Fetch all columns in parallel when shared filters / refresh / dept change.
+  // A filter/dept change invalidates the current rows → wipe to skeletons first. A
+  // plain refreshKey bump (post-action reconcile) reloads IN PLACE: loadColumn keeps
+  // the existing threads visible (loading flag only) until fresh data arrives, so an
+  // optimistically-moved card doesn't flash away and back.
+  const prevFilterKeyRef = useRef(filterKey);
+  const prevDeptKeyRef = useRef(selectedDeptKey);
   useEffect(() => {
-    setColStates(initialColStates);
+    const scopeChanged =
+      prevFilterKeyRef.current !== filterKey || prevDeptKeyRef.current !== selectedDeptKey;
+    prevFilterKeyRef.current = filterKey;
+    prevDeptKeyRef.current = selectedDeptKey;
+    if (scopeChanged) setColStates(initialColStates);
     const cancels = COLUMNS.map((col) => loadColumn(col.id));
     return () => cancels.forEach((cancel) => cancel());
   }, [filterKey, refreshKey, selectedDeptKey, loadColumn]);
@@ -714,4 +799,6 @@ export const MessagesKanbanView = ({ filters, onOpen, refreshKey }: MessagesKanb
       </DragOverlay>
     </DndContext>
   );
-};
+  }
+);
+MessagesKanbanView.displayName = 'MessagesKanbanView';

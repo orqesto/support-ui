@@ -62,6 +62,9 @@ export type MessageDetailProps = {
   onDelete?: () => void;
   onResolve?: () => void;
   onRefresh?: () => void;
+  /** Fired after a customer reply is sent (not notes) — the conversation flips to
+   *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
+  onReplied?: () => void;
   onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
 };
 
@@ -76,6 +79,7 @@ export function MessageDetail({
   onDelete,
   onResolve,
   onRefresh,
+  onReplied,
   onClassify,
 }: MessageDetailProps) {
   // ── Thread state ───────────────────────────────────────────────────────────
@@ -338,6 +342,9 @@ export function MessageDetail({
       setComposer('');
       setSelectedFiles([]);
       setThreadRefreshKey((key) => key + 1);
+      // A sent reply (not an internal note) flips the conversation to Pending —
+      // move the board card optimistically before the heavier onRefresh reconcile.
+      if (composerMode !== 'note') onReplied?.();
       onRefresh?.();
     } catch (err) {
       // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
@@ -346,7 +353,7 @@ export function MessageDetail({
     } finally {
       setSubmitting(false);
     }
-  }, [composer, composerMode, message.id, onRefresh, selectedFiles]);
+  }, [composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
 
   const handleResolveWithoutReply = useCallback(async () => {
     setResolving(true);
@@ -502,6 +509,7 @@ export function MessageDetail({
         threadCount={sortedThread.length}
         onRefresh={handleRefresh}
         onDelete={handleDelete}
+        onApprove={onApprove}
         onClassify={onClassify}
       />
 
@@ -643,7 +651,6 @@ export function MessageDetail({
         isActive={isActive}
         resolving={resolving}
         hasLinkedTicket={false}
-        onApprove={onApprove}
         onReopen={handleReopen}
         onDelete={handleDelete}
         onClassify={handleClassify}

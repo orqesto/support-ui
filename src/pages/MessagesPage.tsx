@@ -35,7 +35,10 @@ import { MessageFilters } from '@/components/messages/MessageFilters';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ContactsView } from '@/components/messages/ContactsView';
-import { MessagesKanbanView } from '@/components/messages/MessagesKanbanView';
+import {
+  MessagesKanbanView,
+  type MessagesKanbanHandle,
+} from '@/components/messages/MessagesKanbanView';
 import {
   SORT_PRESET_OPTIONS,
   sortingToPreset,
@@ -92,6 +95,25 @@ export const MessagesPage = () => {
   }, [displayMode, setSearchParams]);
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
   const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
+  // Imperative handle to the Kanban view for optimistic single-card moves, plus the
+  // threadId of the currently-open conversation (captured on open) so we know which
+  // card to move without a full board refetch.
+  const kanbanRef = useRef<MessagesKanbanHandle>(null);
+  const selectedThreadIdRef = useRef<string | null>(null);
+  // Move the open conversation's card to `targetColId` instantly via the Kanban's
+  // optimistic path; fall back to a full board refetch when we can't target a card
+  // (list mode / opened from a deep-link with no captured threadId). null = remove.
+  const moveSelectedCard = useCallback(
+    (targetColId: string | null) => {
+      const tid = selectedThreadIdRef.current;
+      if (tid && kanbanRef.current) {
+        kanbanRef.current.optimisticMove(tid, targetColId);
+      } else {
+        bumpKanban();
+      }
+    },
+    [bumpKanban]
+  );
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
 
@@ -212,6 +234,8 @@ export const MessagesPage = () => {
       }
       const anchorId = thread.latestMessage?.id;
       if (!anchorId) return;
+      // Remember which card this is so status actions can move it optimistically.
+      selectedThreadIdRef.current = thread.threadId;
       // Preferred starting message: same one the list shows analysis badges for
       const preferredId = thread.latestIncomingMessage?.id ?? anchorId;
       try {
@@ -252,8 +276,10 @@ export const MessagesPage = () => {
 
   const handleResolve = async () => {
     clearCache();
+    // Instant Kanban move to Resolved (falls back to a full refetch in list mode).
+    moveSelectedCard('resolved');
     await fetchMessages(messagesPagination.page, true);
-    bumpKanban();
+    selectedThreadIdRef.current = null;
     setSelectedMessage(null);
   };
 
@@ -261,8 +287,10 @@ export const MessagesPage = () => {
     try {
       await messageService.markAsProcessed(message.id);
       clearCache();
+      // Mark-as-processed closes the conversation → Resolved column.
+      moveSelectedCard('resolved');
+      selectedThreadIdRef.current = null;
       setSelectedMessage(null);
-      bumpKanban();
       await fetchMessages(messagesPagination.page, true);
     } catch (error) {
       logger.error('Failed to mark message as processed:', error);
@@ -321,13 +349,20 @@ export const MessagesPage = () => {
       }
       if (!abortController.signal.aborted) {
         await fetchMessages(messagesPagination.page, true);
+        // A reply or a header status change (park → on-hold, set-status, etc.)
+        // flips the derived workflow status (e.g. → Pending after an agent reply),
+        // which moves the card to a different Kanban column. The list refetch above
+        // covers list mode; the Kanban view reloads its columns only when the
+        // refreshKey bumps, so bump it here too — otherwise the card stays in the
+        // old column until the agent manually changes a filter.
+        bumpKanban();
       }
     } catch (error) {
       if (!abortController.signal.aborted) {
         logger.error('Failed to refresh message:', error);
       }
     }
-  }, [selectedMessage, clearCache, fetchMessages, messagesPagination.page]);
+  }, [selectedMessage, clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
   const handleSyncEmails = async () => {
     // Auth is enforced by the httpOnly `jwt` cookie + BE 401 on the apiClient call.
@@ -448,6 +483,22 @@ export const MessagesPage = () => {
     };
     subscribeToEvent('conversation:updated', handleConversationUpdated);
     return () => unsubscribeFromEvent('conversation:updated', handleConversationUpdated);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+
+  // Refresh when ANY agent replies (org-wide 'message:replied'). An agent reply
+  // flips lastReplyFromClient=false → the conv derives to Pending and leaves the
+  // Open/In-Progress column. The acting agent's own reply is already covered by
+  // handleRefreshMessage, but other agents viewing the same board would otherwise
+  // see the card stuck in its old column until a manual refresh. Same trio as the
+  // handlers above.
+  useEffect(() => {
+    const handleMessageReplied = () => {
+      clearCache();
+      void fetchMessages(messagesPagination.page, true);
+      bumpKanban();
+    };
+    subscribeToEvent('message:replied', handleMessageReplied);
+    return () => unsubscribeFromEvent('message:replied', handleMessageReplied);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
   const isKanban = displayMode === 'kanban';
@@ -595,6 +646,7 @@ export const MessagesPage = () => {
 
               {displayMode === 'kanban' ? (
                 <MessagesKanbanView
+                  ref={kanbanRef}
                   filters={filters}
                   onOpen={handleOpenThread}
                   refreshKey={kanbanRefreshKey}
@@ -728,8 +780,10 @@ export const MessagesPage = () => {
                   const params = new URLSearchParams(searchParams);
                   params.delete('id');
                   setSearchParams(params);
+                  selectedThreadIdRef.current = null;
                   setSelectedMessage(null);
                 }}
+                onReplied={() => moveSelectedCard('awaiting')}
                 onApprove={() => handleApprove(selectedMessage)}
                 onReject={async () => {
                   await handleReject(selectedMessage);

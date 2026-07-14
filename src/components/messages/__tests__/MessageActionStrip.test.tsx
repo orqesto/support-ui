@@ -26,7 +26,6 @@ const renderStrip = (message: Message) =>
       isActive
       resolving={false}
       hasLinkedTicket={false}
-      onApprove={vi.fn()}
       onReopen={vi.fn()}
       onDelete={vi.fn()}
       onClassify={vi.fn()}
@@ -41,53 +40,44 @@ const renderStrip = (message: Message) =>
 // The action set an agent sees is gated by status + lastReplyFromClient. The key
 // case: a customer-replied conversation whose status is still 'open'/'new' (the
 // status→client_replied transition doesn't fire on every ingest path) must get the
-// full active action set, not the "unreviewed → Close only" branch.
+// full active action set, not the unreviewed "resolve only" branch. Note "Create
+// Ticket" now lives in the header ACTIONS dropdown, not this strip.
 describe('MessageActionStrip — action set per status', () => {
-  it('truly-new open (no client reply yet) offers only Close (no ticket)', () => {
+  it('truly-new open (no client reply yet) offers only Resolve (no KB)', () => {
     renderStrip(makeMessage({ status: 'open', lastReplyFromClient: null }));
-    expect(screen.getByText('Close (no ticket)')).toBeInTheDocument();
-    expect(screen.queryByText('Create Ticket')).toBeNull();
+    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
     expect(screen.queryByText('Resolve & Save to KB')).toBeNull();
   });
 
-  it('open + client replied gets the full action set (regression for the CLIENT REPLIED badge case)', () => {
+  it('open + client replied gets the full active action set (regression for the CLIENT REPLIED badge case)', () => {
     renderStrip(makeMessage({ status: 'open', lastReplyFromClient: true }));
-    expect(screen.getByText('Create Ticket')).toBeInTheDocument();
     expect(screen.getByText('Resolve & Save to KB')).toBeInTheDocument();
-    // Full "Close", not the unreviewed "Close (no ticket)".
-    expect(screen.getByText('Close')).toBeInTheDocument();
-    expect(screen.queryByText('Close (no ticket)')).toBeNull();
+    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
   });
 
-  it('client_replied status (BE value not in the FE union) gets the full action set', () => {
+  it('client_replied status (BE value not in the FE union) gets the full active action set', () => {
     renderStrip(
       makeMessage({ status: 'client_replied' as ThreadStatus, lastReplyFromClient: true })
     );
-    expect(screen.getByText('Create Ticket')).toBeInTheDocument();
     expect(screen.getByText('Resolve & Save to KB')).toBeInTheDocument();
-    expect(screen.getByText('Close')).toBeInTheDocument();
+    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
   });
 
-  it('in_progress (active) gets the full action set', () => {
+  it('in_progress (active) gets the full active action set', () => {
     renderStrip(makeMessage({ status: 'in_progress' }));
-    expect(screen.getByText('Create Ticket')).toBeInTheDocument();
     expect(screen.getByText('Resolve & Save to KB')).toBeInTheDocument();
-  });
-
-  it('an open Lead + client reply offers Create Lead Ticket', () => {
-    renderStrip(makeMessage({ status: 'open', lastReplyFromClient: true, isLead: true }));
-    expect(screen.getByText('Create Lead Ticket')).toBeInTheDocument();
+    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
   });
 
   it('resolved shows Unresolve, not the active actions', () => {
     renderStrip(makeMessage({ status: 'resolved' }));
     expect(screen.getByText('Unresolve')).toBeInTheDocument();
-    expect(screen.queryByText('Create Ticket')).toBeNull();
+    expect(screen.queryByText('Resolve & Save to KB')).toBeNull();
   });
 
   it('closed shows Reopen', () => {
     renderStrip(makeMessage({ status: 'closed' }));
     expect(screen.getByText('Reopen')).toBeInTheDocument();
-    expect(screen.queryByText('Create Ticket')).toBeNull();
+    expect(screen.queryByText('Resolve & Save to KB')).toBeNull();
   });
 });

@@ -18,7 +18,6 @@ import {
   SPINE_BG,
   getAiState,
   getAvatarColor,
-  getDirectionText,
   getInitials,
   getPriorityBadge,
   getSpine,
@@ -89,7 +88,6 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const aiState = getAiState(signalMessage, thread);
   const statusBadge = getStatusBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
-  const direction = getDirectionText(thread);
 
   const effectiveAssigneeId =
     optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
@@ -132,7 +130,6 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const isFromKBSource = (msg.metadata as { isFromKBSource?: boolean })?.isFromKBSource;
   const linkedTicketKey =
     (msg.metadata as { linkedTicketExternalId?: string })?.linkedTicketExternalId ?? null;
-  const isResolved = msg.status === 'resolved';
   // Orphan outbound: a sent message that couldn't be paired with an inbound
   // parent during Gmail backfill. Marked status='filtered' + this flag so
   // it stays out of the active inbox; surfacing the badge here so the row
@@ -201,20 +198,6 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             )}
           </button>
           <span className="flex-1" />
-          {direction && (
-            <span
-              className={`text-[11px] font-semibold whitespace-nowrap ${
-                direction.tone === 'pending'
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : direction.tone === 'new'
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-muted-foreground'
-              }`}
-            >
-              {direction.tone === 'pending' ? '←' : direction.tone === 'waiting' ? '→' : '←'}{' '}
-              {direction.text}
-            </span>
-          )}
           <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
         </div>
 
@@ -308,14 +291,8 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             </Tooltip>
           )}
 
-          {isResolved && (
-            <Tooltip content="Resolved" size="sm">
-              <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                <Check className="w-2.5 h-2.5" />
-                Resolved
-              </span>
-            </Tooltip>
-          )}
+          {/* Resolved is shown by the canonical getStatusBadge chip above — no
+              separate chip here (it would double-badge the same card). */}
 
           {isFromKBSource && (
             <Tooltip content="From Knowledge Base source" size="sm">

@@ -57,7 +57,7 @@
     '#odly-messages{flex:1;overflow-y:auto;padding:20px 18px;display:flex;flex-direction:column;gap:12px;background:#f9fafb}',
 
     /* Message bubbles */
-    '.odly-msg{max-width:85%;padding:12px 16px;border-radius:var(--odly-radius,16px);font-size:14px;line-height:1.55;word-wrap:break-word;white-space:pre-wrap;box-shadow:0 1px 2px rgba(0,0,0,.06)}',
+    '.odly-msg{max-width:85%;padding:12px 18px;border-radius:var(--odly-radius,16px);font-size:14px;line-height:1.55;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap;box-shadow:0 1px 2px rgba(0,0,0,.06)}',
     '.odly-msg-user{align-self:flex-end;background:var(--odly-primary,#0070F3);color:#fff;border-bottom-right-radius:4px}',
     '.odly-msg-assistant{align-self:flex-start;background:var(--odly-bot-bubble,#fff);color:var(--odly-bot-text,#1f2937);border:1px solid #e5e7eb;border-bottom-left-radius:4px}',
 
@@ -259,7 +259,21 @@
   // the first assistant bubble with the welcome + the name question when enabled.
   function startInfoCollectionIfNeeded() {
     if (infoStep !== null || !widgetConfig) return; // wait until config is loaded
-    if (widgetConfig.collectUserInfo && !sessionKey && messages.length === 0) {
+    // Collect name/email at the start of EVERY new conversation (a fresh chat with
+    // no messages yet), not just once per visitor. Any persisted session is from a
+    // previous conversation, so drop it: the collected details then attach to a
+    // brand-new session created by the first message, rather than reopening the old one.
+    if (widgetConfig.collectUserInfo && messages.length === 0) {
+      if (sessionKey) {
+        sessionKey = '';
+        try {
+          localStorage.removeItem('odly_session_' + WIDGET_KEY);
+        } catch (e) {
+          /* localStorage unavailable — non-fatal */
+        }
+      }
+      userName = '';
+      userEmail = '';
       infoStep = 'name';
       messages.push({
         role: 'assistant',

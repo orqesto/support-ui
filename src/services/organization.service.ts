@@ -41,6 +41,11 @@ export type OrgLeadConfig = {
   autoMarkNewSenders: boolean;
   qualificationFields: LeadQualificationFieldConfig[];
   categories: LeadCategoryConfig[];
+  // Speed-to-Lead report knobs (optional — undefined = use defaults / off)
+  slowLeadThresholdMinutes?: number;
+  avgLeadValue?: number;
+  weeklyDigestEnabled?: boolean;
+  digestRecipients?: string[];
 };
 
 export const organizationService = {

@@ -124,12 +124,12 @@ export const MessageDetailConfirmDialogs = ({
     <Dialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Close this conversation?</DialogTitle>
+          <DialogTitle>Resolve without saving to KB?</DialogTitle>
           <DialogClose onClose={() => setCloseConfirmOpen(false)} />
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          This closes the conversation without saving it to the knowledge base. It will move to the
-          Resolved / Closed view; you can reopen it later.
+          This resolves the conversation without saving it to the knowledge base. It will move to the
+          Resolved view; you can reopen it later.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={() => setCloseConfirmOpen(false)}>
@@ -141,7 +141,7 @@ export const MessageDetailConfirmDialogs = ({
               onCloseThread?.();
             }}
           >
-            Close Conversation
+            Resolve (no KB)
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -126,6 +126,39 @@ export type AIStatsData = {
   };
 };
 
+export type SpeedToLeadData = {
+  totalLeads: number;
+  respondedLeads: number;
+  pendingLeads: number;
+  slowLeads: number;
+  slowLeadRate: number;
+  avgResponseSeconds: number;
+  medianResponseSeconds: number;
+  p90ResponseSeconds: number;
+  fastestSeconds: number;
+  slowestSeconds: number;
+  buckets: {
+    under5m: number;
+    from5to30m: number;
+    from30mToThreshold: number;
+    overThreshold: number;
+  };
+  aiResponses: number;
+  humanResponses: number;
+  byChannel: Array<{
+    channel: string;
+    totalLeads: number;
+    respondedLeads: number;
+    slowLeads: number;
+    avgResponseSeconds: number;
+  }>;
+  thresholdMinutes: number;
+  estimatedLostValue: number | null;
+  avgLeadValue: number | null;
+  window: { days: number };
+  leadQualConfigured: boolean;
+};
+
 export const statisticsService = {
   getAll: async (): Promise<ApiResponse<StatisticsData>> => {
     const response = await apiClient.get<{ success: boolean; data: StatisticsData }>(
@@ -165,6 +198,13 @@ export const statisticsService = {
   getLabelStats: async (days = 30): Promise<ApiResponse<LabelStatEntry[]>> => {
     const response = await apiClient.get<{ success: boolean; data: LabelStatEntry[] }>(
       `/api/statistics/labels?days=${days}`
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  getSpeedToLead: async (days = 30): Promise<ApiResponse<SpeedToLeadData>> => {
+    const response = await apiClient.get<{ success: boolean; data: SpeedToLeadData }>(
+      `/api/statistics/speed-to-lead?days=${days}`
     );
     return { success: response.data.success, data: response.data.data };
   },

@@ -40,6 +40,16 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
           components={{ DropdownIndicator: ChipDropdownIndicator }}
           styles={{
             menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            // Force the cursor via inline style (beats unstyled-mode class handling):
+            // hand on the chip control + selectable options, not-allowed when disabled.
+            control: (base, state) => ({
+              ...base,
+              cursor: state.isDisabled ? 'not-allowed' : 'pointer',
+            }),
+            option: (base, state) => ({
+              ...base,
+              cursor: state.isDisabled ? 'not-allowed' : 'pointer',
+            }),
           }}
           formatOptionLabel={(data, { context }) => {
             const isSelected = data.value === value;

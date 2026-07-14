@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
-import { BarChart3, Users, MessageSquare, Clock, RefreshCw } from 'lucide-react';
+import { BarChart3, Users, MessageSquare, Clock, RefreshCw, Zap } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
-import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry } from '@/services/statistics.service';
+import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData } from '@/services/statistics.service';
 import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
 import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
 import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
@@ -16,11 +16,12 @@ import { SLABreachList } from '@/components/sla/SLABreachList';
 import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOverviewTab';
 import { StatisticsTeamTab } from '@/components/statistics/StatisticsTeamTab';
 import { StatisticsMessagesTab } from '@/components/statistics/StatisticsMessagesTab';
+import { SpeedToLeadTab } from '@/components/statistics/SpeedToLeadTab';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 
-type TabType = 'overview' | 'team' | 'messages' | 'sla';
-const VALID_TABS: TabType[] = ['overview', 'team', 'messages', 'sla'];
+type TabType = 'overview' | 'speedToLead' | 'team' | 'messages' | 'sla';
+const VALID_TABS: TabType[] = ['overview', 'speedToLead', 'team', 'messages', 'sla'];
 
 export const StatisticsPage = () => {
   const location = useLocation();
@@ -46,7 +47,19 @@ export const StatisticsPage = () => {
   const [teamDays, setTeamDays] = useState(30);
   const [msgDays, setMsgDays] = useState(30);
   const [aiDays, setAiDays] = useState(30);
+  const [speedDays, setSpeedDays] = useState(30);
   const [teamError, setTeamError] = useState<string | null>(null);
+
+  const {
+    data: speedData,
+    loading: speedLoading,
+    refreshing: speedRefreshing,
+    refresh: refreshSpeed,
+  } = useStatisticsFetch<SpeedToLeadData>(
+    statisticsService.getSpeedToLead,
+    speedDays,
+    activeTab === 'speedToLead'
+  );
 
   const {
     data: teamData,
@@ -119,6 +132,9 @@ export const StatisticsPage = () => {
 
   const handleRefresh = async () => {
     switch (activeTab) {
+      case 'speedToLead':
+        refreshSpeed();
+        break;
       case 'team':
         refreshTeam();
         break;
@@ -171,6 +187,7 @@ export const StatisticsPage = () => {
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'speedToLead', label: 'Speed to Lead', icon: <Zap className="w-4 h-4" /> },
     { id: 'team', label: 'Team Performance', icon: <Users className="w-4 h-4" /> },
     { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'sla', label: 'SLA', icon: <Clock className="w-4 h-4" /> },
@@ -189,6 +206,11 @@ export const StatisticsPage = () => {
           </div>
           {activeTab === 'overview' && (
             <Button variant="outline" size="sm" onClick={handleRefresh} isLoading={refreshing}>
+              <RefreshCw className="mr-2 w-4 h-4" />Refresh
+            </Button>
+          )}
+          {activeTab === 'speedToLead' && (
+            <Button variant="outline" size="sm" onClick={refreshSpeed} isLoading={speedRefreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />Refresh
             </Button>
           )}
@@ -251,6 +273,15 @@ export const StatisticsPage = () => {
               onAiDaysChange={setAiDays}
             />
           </div>
+        )}
+
+        {activeTab === 'speedToLead' && (
+          <SpeedToLeadTab
+            speedData={speedData}
+            speedLoading={speedLoading}
+            speedDays={speedDays}
+            onSpeedDaysChange={setSpeedDays}
+          />
         )}
 
         {activeTab === 'team' && (

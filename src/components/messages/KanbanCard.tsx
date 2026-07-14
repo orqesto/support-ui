@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft,
-  ArrowRight,
   BookOpen,
   Check,
   Copy,
@@ -26,13 +24,13 @@ import {
   SPINE_BG,
   getAiState,
   getAvatarColor,
-  getDirectionText,
   getInitials,
   getPriorityBadge,
   getSpine,
   getStatusBadge,
   hasAttachments,
 } from './inboxCardHelpers';
+import { LIFECYCLE_COLUMN_BADGE } from './kanbanColumns';
 
 type KanbanCardProps = {
   thread: MessageThread;
@@ -42,9 +40,15 @@ type KanbanCardProps = {
    * by lastReplyFromClient inside the shared helpers.
    */
   weRepliedLast?: boolean;
+  /**
+   * The kanban column this card is rendered in. When set, the card's status
+   * badge follows the column's lifecycle state (see LIFECYCLE_COLUMN_BADGE)
+   * instead of the raw DB status, so the badge can never contradict the column.
+   */
+  colId?: string;
 };
 
-export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
+export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
@@ -102,9 +106,12 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
-  const statusBadge = getStatusBadge(msg);
+  // Badge follows the COLUMN's lifecycle state on the kanban (see
+  // LIFECYCLE_COLUMN_BADGE). Lifecycle columns → their lifecycle badge; triage
+  // columns → no status badge (their signal badges classify them); no column
+  // context (non-kanban callers) → fall back to the raw-status badge.
+  const statusBadge = colId ? (LIFECYCLE_COLUMN_BADGE[colId] ?? null) : getStatusBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
-  const direction = getDirectionText(thread);
 
   // Optimistic state wins when it diverges from server state; clears when
   // they converge (i.e. a fresh fetch confirmed the assignment).
@@ -208,30 +215,6 @@ export const KanbanCard = ({ thread, onOpen }: KanbanCardProps) => {
           )}
         </button>
         <span className="flex-1" />
-        {direction && (
-          <Tooltip
-            content={
-              direction.tone === 'pending'
-                ? 'Customer replied — awaiting our response'
-                : direction.tone === 'waiting'
-                  ? 'We replied — awaiting customer'
-                  : 'New conversation'
-            }
-            size="sm"
-          >
-            <span
-              className={`shrink-0 ${
-                direction.tone === 'pending' ? 'text-amber-500' : 'text-muted-foreground'
-              }`}
-            >
-              {direction.tone === 'pending' ? (
-                <ArrowLeft className="w-3 h-3" />
-              ) : (
-                <ArrowRight className="w-3 h-3" />
-              )}
-            </span>
-          </Tooltip>
-        )}
         <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
       </div>
 
