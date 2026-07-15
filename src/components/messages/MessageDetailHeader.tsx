@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Target,
   ShieldAlert,
+  Ban,
   Clock,
   ChevronDown,
   Maximize2,
@@ -65,7 +66,10 @@ export type MessageDetailHeaderProps = {
   onRefresh?: () => void;
   onDelete?: () => void;
   onApprove?: () => void;
-  onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
+  onClassify?: (
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    createDetectionRule?: boolean
+  ) => Promise<void>;
   /**
    * Optimistically move the board card to a kanban column right after a manual
    * status change (park / resolve / reopen), so the acting agent sees it move
@@ -618,6 +622,16 @@ export function MessageDetailHeader({
           void onClassify('mark_suspicious');
           setMoreOpen(false);
         },
+      },
+    isActive &&
+      onClassify && {
+        label: 'Move to Spam',
+        icon: <Ban className="w-3 h-3" />,
+        action: () => {
+          void onClassify('move_to_spam');
+          setMoreOpen(false);
+        },
+        danger: true,
       },
     onDelete && {
       label: 'Delete Message',

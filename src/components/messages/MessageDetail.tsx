@@ -68,7 +68,10 @@ export type MessageDetailProps = {
   /** Optimistically move the board card to a column after a manual status change
    *  (park / resolve / reopen) from the detail header. */
   onOptimisticMove?: (columnId: string) => void;
-  onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
+  onClassify?: (
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    createDetectionRule?: boolean
+  ) => Promise<void>;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -440,8 +443,11 @@ export function MessageDetail({
   }, [message.id, onReopen]);
 
   const handleClassify = useCallback(
-    async (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => {
-      if (onClassify) await onClassify(action);
+    async (
+      action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+      createDetectionRule?: boolean
+    ) => {
+      if (onClassify) await onClassify(action, createDetectionRule);
     },
     [onClassify]
   );

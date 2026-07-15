@@ -799,8 +799,8 @@ export const MessagesPage = () => {
                 }}
                 onResolve={handleResolve}
                 onRefresh={handleRefreshMessage}
-                onClassify={async (action) => {
-                  await messageService.classify(selectedMessage.id, action);
+                onClassify={async (action, createDetectionRule) => {
+                  await messageService.classify(selectedMessage.id, action, createDetectionRule);
                   clearCache();
                   bumpKanban();
                   void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });

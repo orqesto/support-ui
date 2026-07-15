@@ -178,7 +178,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
       return {
         statusText: 'Auto-archived · System / transactional email',
         statusClass: 'text-muted-foreground',
-        approveLabel: 'Approve — Move to Active',
+        approveLabel: 'Approve — Move to Open',
         approveClass: 'bg-primary text-primary-foreground hover:bg-primary/90',
         showMoveToSpam: false,
       };
@@ -186,7 +186,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
       return {
         statusText: 'Auto-archived · Out of office reply',
         statusClass: 'text-muted-foreground',
-        approveLabel: 'Approve — Move to Active',
+        approveLabel: 'Approve — Move to Open',
         approveClass: 'bg-primary text-primary-foreground hover:bg-primary/90',
         showMoveToSpam: false,
       };
@@ -194,7 +194,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
       return {
         statusText: 'Filtered — excluded from active inbox',
         statusClass: 'text-muted-foreground',
-        approveLabel: 'Approve — Move to Active',
+        approveLabel: 'Approve — Move to Open',
         approveClass: 'bg-primary text-primary-foreground hover:bg-primary/90',
         showMoveToSpam: false,
       };
