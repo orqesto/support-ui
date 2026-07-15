@@ -21,6 +21,7 @@ export type ChannelStats = {
 export type StatisticsData = {
   overview: {
     totalMessages: number;
+    actionableMessages: number;
     totalTickets: number;
     totalSpam: number;
     totalNeedsInfo: number;
@@ -52,6 +53,14 @@ export type StatisticsData = {
     analysisModels: Array<{ model: string; count: number; percentage: number }>;
     embeddingProviders: Array<{ provider: string; count: number; percentage: number }>;
     embeddingModels: Array<{ model: string; count: number; percentage: number }>;
+  };
+  meta?: {
+    truncated: boolean;
+    conversationsTruncated: boolean;
+    conversationsTotal: number | null;
+    eventsTruncated: boolean;
+    cached: boolean;
+    windowDays: number;
   };
 };
 
