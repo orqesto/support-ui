@@ -124,6 +124,8 @@ export type MessagePanelTabsProps = {
   setComposerMode: React.Dispatch<React.SetStateAction<'reply' | 'note'>>;
   noteEditorRef: React.RefObject<RichTextEditorHandle>;
   onCheckContradiction?: () => Promise<void>;
+  /** Refetch the list/thread after a contact change that shows on cards (labels). */
+  onRefresh?: () => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -155,6 +157,7 @@ export function MessagePanelTabs({
   setComposerMode,
   noteEditorRef,
   onCheckContradiction,
+  onRefresh,
 }: MessagePanelTabsProps) {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editNoteContent, setEditNoteContent] = useState('');
@@ -168,7 +171,10 @@ export function MessagePanelTabs({
   // requester's email; sender may be "Name <email>". Loaded lazily on tab open.
   const contactEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
   const contactEnabled = tab === 'customer' && contactEmail.includes('@');
-  const contactProfile = useContactProfile(contactEmail, { enabled: contactEnabled });
+  const contactProfile = useContactProfile(contactEmail, {
+    enabled: contactEnabled,
+    onChanged: onRefresh,
+  });
 
   const handleCheckContradiction = useCallback(async () => {
     if (!onCheckContradiction) return;

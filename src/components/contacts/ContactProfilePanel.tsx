@@ -12,6 +12,8 @@ import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 type ContactProfilePanelProps = {
   email: string;
   onClose: () => void;
+  /** Called after a change that also shows on inbox/kanban cards (e.g. labels). */
+  onChanged?: () => void;
 };
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -23,7 +25,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps) {
+export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfilePanelProps) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<'activity' | 'details'>('activity');
 
@@ -66,7 +68,7 @@ export function ContactProfilePanel({ email, onClose }: ContactProfilePanelProps
     linkingEmail,
     handleLinkEmail,
     handleUnlink,
-  } = useContactProfile(email);
+  } = useContactProfile(email, { onChanged });
 
   // Escape closes the panel.
   useEffect(() => {

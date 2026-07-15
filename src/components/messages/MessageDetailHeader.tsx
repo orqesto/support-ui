@@ -78,6 +78,15 @@ export type MessageDetailHeaderProps = {
    * standalone detail page (no board).
    */
   onOptimisticMove?: (columnId: string) => void;
+  /**
+   * Bumped by the parent whenever a contact label changes (from the CUSTOMER
+   * tab or this header's own contact drawer). The message-label list is a
+   * UNION that includes inherited contact labels, so it must refetch when they
+   * change — message.id alone doesn't change on a label edit.
+   */
+  labelsRefreshKey?: number;
+  /** Called after a contact change that also shows on cards + this header (labels). */
+  onContactChanged?: () => void;
 };
 
 // Manual BE status → kanban column id, so the acting agent's card moves instantly
@@ -99,6 +108,8 @@ export function MessageDetailHeader({
   isFullPage,
   threadCount,
   onRefresh,
+  labelsRefreshKey,
+  onContactChanged,
   onDelete,
   onApprove,
   onClassify: onClassify,
@@ -157,7 +168,7 @@ export function MessageDetailHeader({
         setAllLabels(al);
       })
       .catch(() => {});
-  }, [message.id]);
+  }, [message.id, labelsRefreshKey]);
 
   useEffect(() => {
     if (!showLabelPicker) return;
@@ -908,7 +919,11 @@ export function MessageDetailHeader({
       />
 
       {profileEmail && (
-        <ContactProfilePanel email={profileEmail} onClose={() => setProfileEmail(null)} />
+        <ContactProfilePanel
+          email={profileEmail}
+          onClose={() => setProfileEmail(null)}
+          onChanged={onContactChanged ?? onRefresh}
+        />
       )}
     </div>
   );

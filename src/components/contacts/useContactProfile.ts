@@ -18,8 +18,15 @@ import {
  * be rendered both in the standalone drawer and inline in the message-detail
  * CUSTOMER tab. `enabled` lets a caller (the tab) defer loading until visible.
  */
-export function useContactProfile(email: string, options?: { enabled?: boolean }) {
+export function useContactProfile(
+  email: string,
+  options?: { enabled?: boolean; onChanged?: () => void }
+) {
   const enabled = options?.enabled ?? true;
+  // Fired after a mutation that also surfaces on the inbox/kanban cards or the
+  // open thread — e.g. labels, which are rendered on cards as source:'contact'
+  // via message.labels. Lets the caller refetch that list/thread so it re-renders.
+  const onChanged = options?.onChanged;
 
   const [contact, setContact] = useState<ContactProfile | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -126,6 +133,7 @@ export function useContactProfile(email: string, options?: { enabled?: boolean }
       );
     }
     setShowLabelPicker(false);
+    onChanged?.();
   };
 
   const handleCreateLabel = async (name: string) => {
@@ -145,6 +153,7 @@ export function useContactProfile(email: string, options?: { enabled?: boolean }
           : prev
       );
       setShowLabelPicker(false);
+      onChanged?.();
     } catch {
       // leave the picker open so the user can retry
     } finally {
@@ -156,6 +165,7 @@ export function useContactProfile(email: string, options?: { enabled?: boolean }
     if (!contact) return;
     await contactService.removeLabel(contact.id, labelId);
     setContact((prev) => (prev ? { ...prev, labels: prev.labels.filter((lbl) => lbl.id !== labelId) } : prev));
+    onChanged?.();
   };
 
   const handleAddProfile = async () => {

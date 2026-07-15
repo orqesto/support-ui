@@ -462,6 +462,16 @@ export function MessageDetail({
     onRefresh?.();
   }, [onRefresh]);
 
+  // Contact label edits (from the CUSTOMER tab or the header's contact drawer)
+  // change the message's inherited labels but not message.id, so the header's
+  // label list won't refetch on its own. Bump a key it depends on, and run the
+  // normal refresh so the list/kanban cards pick up the change too.
+  const [labelsRefreshKey, setLabelsRefreshKey] = useState(0);
+  const handleContactChanged = useCallback(() => {
+    setLabelsRefreshKey((key) => key + 1);
+    handleRefresh();
+  }, [handleRefresh]);
+
   const handleNoteUpdated = useCallback(
     (noteId: number, content: string) => {
       setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, content } : note)));
@@ -518,6 +528,8 @@ export function MessageDetail({
         isFullPage={!onClose}
         threadCount={sortedThread.length}
         onRefresh={handleRefresh}
+        labelsRefreshKey={labelsRefreshKey}
+        onContactChanged={handleContactChanged}
         onDelete={handleDelete}
         onApprove={onApprove}
         onClassify={onClassify}
@@ -562,6 +574,7 @@ export function MessageDetail({
         setComposerMode={setComposerMode}
         noteEditorRef={noteEditorRef}
         onCheckContradiction={handleCheckContradiction}
+        onRefresh={handleContactChanged}
       />
 
       {/* Thread view — visible when no panel tab is open */}
