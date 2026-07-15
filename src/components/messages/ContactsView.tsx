@@ -471,7 +471,11 @@ export function ContactsView({
       )}
 
       {profileEmail && (
-        <ContactProfilePanel email={profileEmail} onClose={() => setProfileEmail(null)} />
+        <ContactProfilePanel
+          email={profileEmail}
+          onClose={() => setProfileEmail(null)}
+          onChanged={() => void fetchContacts(pagination.page)}
+        />
       )}
     </div>
   );
