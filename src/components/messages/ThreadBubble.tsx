@@ -5,10 +5,13 @@ import { THREAD_SANITIZE, addNoopenerHook, renderMarkdown, splitAtQuote } from '
 
 addNoopenerHook(DOMPurify);
 
-export function ThreadBubble({ content, isAgent }: { content: string; isAgent: boolean }) {
+export function ThreadBubble({ content, isAgent }: { content: string | null | undefined; isAgent: boolean }) {
   const [showQuote, setShowQuote] = useState(false);
-  const isHtml = /<[a-z][\s\S]*>/i.test(content);
-  const { main, quote } = useMemo(() => splitAtQuote(content, isHtml), [content, isHtml]);
+  // Content can be null (e.g. an attachment-only message or a body that failed to
+  // extract) — coerce to '' so the regex/split helpers below don't throw.
+  const safeContent = content ?? '';
+  const isHtml = /<[a-z][\s\S]*>/i.test(safeContent);
+  const { main, quote } = useMemo(() => splitAtQuote(safeContent, isHtml), [safeContent, isHtml]);
 
   // `[overflow-wrap:anywhere]` so a long unbroken token (e.g. a 200-char tracking
   // URL) wraps instead of overflowing the bubble — overflow-wrap isn't inherited,
