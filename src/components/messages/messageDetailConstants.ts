@@ -241,9 +241,10 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
 }
 
 export function splitAtQuote(
-  content: string,
+  content: string | null | undefined,
   isHtml: boolean
 ): { main: string; quote: string | null } {
+  if (!content) return { main: '', quote: null };
   if (isHtml) {
     for (const pattern of [
       /<hr\s*[^>]*\/?>/i,
