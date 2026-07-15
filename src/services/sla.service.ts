@@ -4,7 +4,7 @@ import type { SlaBreach } from '@/types/api';
 export type SLASummary = {
   messages: {
     avgResponseTime: number | null;
-    avgResponsePeriodDays: number | null; // which window had data (1/7/30/365), null if none
+    avgResponsePeriodDays: number | null; // = selected window when it has data, null otherwise
     breaches24h: number;
     complianceRate: number | null; // null when no replied messages exist yet
   };
@@ -128,8 +128,8 @@ export type SLABreachEvent = {
 };
 
 // SLA endpoints return the resource directly (no { success, data } envelope)
-const getSummary = async (): Promise<SLASummary> => {
-  const response = await apiClient.get<SLASummary>('/api/sla/summary');
+const getSummary = async (params?: { days?: number }): Promise<SLASummary> => {
+  const response = await apiClient.get<SLASummary>('/api/sla/summary', { params });
   return response.data;
 };
 
@@ -145,6 +145,7 @@ const getStatistics = async (params?: {
 const getBreaches = async (params?: {
   limit?: number;
   type?: 'message' | 'ticket';
+  days?: number;
 }): Promise<SLABreachesResponse> => {
   const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', { params });
   return response.data;
