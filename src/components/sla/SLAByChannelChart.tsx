@@ -13,11 +13,16 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
+import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
 
-export const SLAByChannelChart = () => {
+type SLAByChannelChartProps = {
+  days?: number;
+};
+
+export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChartProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-statistics', { days: 30 }],
-    queryFn: () => slaService.getStatistics({ days: 30 }),
+    queryKey: ['sla-statistics', { days }],
+    queryFn: () => slaService.getStatistics({ days }),
   });
 
   if (isLoading) {

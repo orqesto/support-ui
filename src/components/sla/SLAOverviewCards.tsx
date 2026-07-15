@@ -3,11 +3,16 @@ import { Clock, AlertCircle, CheckCircle2, TrendingUp, Loader2, RefreshCw } from
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
+import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
 
-export const SLAOverviewCards = () => {
+type SLAOverviewCardsProps = {
+  days?: number;
+};
+
+export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-summary'],
-    queryFn: slaService.getSummary,
+    queryKey: ['sla-summary', { days }],
+    queryFn: () => slaService.getSummary({ days }),
     refetchInterval: 60000,
     refetchIntervalInBackground: false,
   });

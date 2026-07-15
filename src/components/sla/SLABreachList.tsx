@@ -7,12 +7,19 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { SLABreach } from '@/services/sla.service';
 import { slaService } from '@/services/sla.service';
+import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
 
-export const SLABreachList = () => {
+type SLABreachListProps = {
+  days?: number;
+};
+
+const windowLabel = (days: number) => (days === 1 ? 'last 24 hours' : `last ${days} days`);
+
+export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) => {
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-breaches'],
-    queryFn: () => slaService.getBreaches({ limit: 20 }),
+    queryKey: ['sla-breaches', { days }],
+    queryFn: () => slaService.getBreaches({ limit: 20, days }),
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
@@ -67,7 +74,7 @@ export const SLABreachList = () => {
               No active SLA breaches
             </p>
             <p className="text-sm text-green-600 dark:text-green-500">
-              No SLA breaches in the last 24 hours
+              No SLA breaches in the {windowLabel(days)}
             </p>
           </div>
         </CardContent>
