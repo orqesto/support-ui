@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   StickyNote,
   Pencil,
@@ -10,6 +10,8 @@ import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
 import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
+import { contactService, type ContactProfile } from '@/services/contact.service';
+import { ContactNotesPanel } from '@/components/contacts/ContactNotesPanel';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
 
@@ -159,6 +161,65 @@ export function MessagePanelTabs({
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [checkingContradiction, setCheckingContradiction] = useState(false);
   const [kbResultCount, setKbResultCount] = useState<number | null>(null);
+
+  // Contact-level notes shown in the CUSTOMER tab. These are the contact's notes
+  // (contact_notes, keyed by the requester), NOT the per-conversation NOTES tab
+  // (comments). Reuses the same ContactNotesPanel as the standalone Contact
+  // profile. Resolved by the requester's email; sender may be "Name <email>".
+  const [contact, setContact] = useState<ContactProfile | null>(null);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactNoteInput, setContactNoteInput] = useState('');
+  const [addingContactNote, setAddingContactNote] = useState(false);
+  const contactEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
+
+  useEffect(() => {
+    if (tab !== 'customer' || !contactEmail.includes('@')) return;
+    let cancelled = false;
+    setContactLoading(true);
+    contactService
+      .getByEmail(contactEmail)
+      .then((loaded) => {
+        if (!cancelled) setContact(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setContact(null);
+      })
+      .finally(() => {
+        if (!cancelled) setContactLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, contactEmail]);
+
+  const handleAddContactNote = useCallback(async () => {
+    if (!contact || !contactNoteInput.trim()) return;
+    setAddingContactNote(true);
+    try {
+      const note = await contactService.addNote(contact.id, contactNoteInput.trim());
+      setContact((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
+      setContactNoteInput('');
+    } catch (err) {
+      logger.error('Failed to add contact note:', err);
+    } finally {
+      setAddingContactNote(false);
+    }
+  }, [contact, contactNoteInput]);
+
+  const handleDeleteContactNote = useCallback(
+    async (noteId: number) => {
+      if (!contact) return;
+      try {
+        await contactService.deleteNote(contact.id, noteId);
+        setContact((prev) =>
+          prev ? { ...prev, notes: prev.notes.filter((note) => note.id !== noteId) } : prev
+        );
+      } catch (err) {
+        logger.error('Failed to delete contact note:', err);
+      }
+    },
+    [contact]
+  );
 
   const handleCheckContradiction = useCallback(async () => {
     if (!onCheckContradiction) return;
@@ -330,6 +391,30 @@ export function MessagePanelTabs({
                 ))}
               </div>
 
+              {/* Contact notes — the requester's contact-level notes (shared with
+                  the Contact profile). Distinct from the conversation NOTES tab. */}
+              <div className="pt-1">
+                <div className="flex gap-2 items-center mb-2">
+                  <span className={`${MONO} text-muted-foreground`}>NOTES</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                {contactLoading ? (
+                  <p className="text-[11px] text-muted-foreground">Loading…</p>
+                ) : contact ? (
+                  <ContactNotesPanel
+                    notes={contact.notes}
+                    noteInput={contactNoteInput}
+                    setNoteInput={setContactNoteInput}
+                    addingNote={addingContactNote}
+                    onAddNote={handleAddContactNote}
+                    onDeleteNote={handleDeleteContactNote}
+                  />
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    No contact record for this sender.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
