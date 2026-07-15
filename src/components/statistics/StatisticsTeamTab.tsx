@@ -1,14 +1,6 @@
 import { Users, MessageSquare, Clock, Ticket, StickyNote, Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { UserStatEntry } from '@/services/statistics.service';
-import { cn } from '@/lib/utils';
-
-const DAYS_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: '365 days', value: 365 },
-];
 
 function fullName(entry: UserStatEntry): string {
   return entry.lastName ? `${entry.firstName} ${entry.lastName}` : entry.firstName;
@@ -25,22 +17,12 @@ interface Props {
   teamLoading: boolean;
   teamError: string | null;
   teamDays: number;
-  onTeamDaysChange: (days: number) => void;
 }
 
-export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays, onTeamDaysChange }: Props) {
+export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }: Props) {
   return (
     <div id="panel-team" role="tabpanel">
       <div className="space-y-6 pb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Period:</span>
-          <div className="flex rounded-md border border-border overflow-hidden">
-            {DAYS_OPTIONS.map((opt) => (
-              <button key={opt.value} type="button" onClick={() => onTeamDaysChange(opt.value)} className={cn('px-3 py-1.5 text-sm font-medium transition-colors', teamDays === opt.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted')}>{opt.label}</button>
-            ))}
-          </div>
-        </div>
-
         {teamError && <Card><CardContent className="py-4 text-sm text-destructive">{teamError}</CardContent></Card>}
 
         <Card>

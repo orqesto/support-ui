@@ -25,6 +25,13 @@ import { logger } from '@/lib/logger';
 type TabType = 'overview' | 'speedToLead' | 'team' | 'messages' | 'sla' | 'diagnostics';
 const VALID_TABS: TabType[] = ['overview', 'speedToLead', 'team', 'messages', 'sla', 'diagnostics'];
 
+const DAYS_OPTIONS = [
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+  { label: '90 days', value: 90 },
+  { label: '365 days', value: 365 },
+];
+
 export const StatisticsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -36,7 +43,7 @@ export const StatisticsPage = () => {
     VALID_TABS.includes(hashTab) && (hashTab !== 'diagnostics' || isOrgAdmin) ? hashTab : 'overview';
 
   const handleTabChange = (tabId: TabType) => {
-    navigate(`/statistics#${tabId}`, { replace: true });
+    navigate({ pathname: '/statistics', search: location.search, hash: tabId }, { replace: true });
   };
 
   const [stats, setStats] = useState<StatisticsData | null>(null);
@@ -49,10 +56,16 @@ export const StatisticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [teamDays, setTeamDays] = useState(30);
-  const [msgDays, setMsgDays] = useState(30);
-  const [aiDays, setAiDays] = useState(30);
-  const [speedDays, setSpeedDays] = useState(30);
+  // Phase A: one shared date window for every tab, synced to the URL (?days=)
+  // so it survives tab switches and is shareable. Replaces the old per-tab selectors.
+  const [days, setDaysState] = useState<number>(() => {
+    const parsed = Number(new URLSearchParams(location.search).get('days'));
+    return parsed > 0 ? parsed : 30;
+  });
+  const setDays = (next: number) => {
+    setDaysState(next);
+    navigate({ pathname: '/statistics', search: `?days=${next}`, hash: activeTab }, { replace: true });
+  };
   const [teamError, setTeamError] = useState<string | null>(null);
 
   const {
@@ -62,7 +75,7 @@ export const StatisticsPage = () => {
     refresh: refreshSpeed,
   } = useStatisticsFetch<SpeedToLeadData>(
     statisticsService.getSpeedToLead,
-    speedDays,
+    days,
     activeTab === 'speedToLead'
   );
 
@@ -73,7 +86,7 @@ export const StatisticsPage = () => {
     refresh: refreshTeam,
   } = useStatisticsFetch<UserStatEntry[]>(
     statisticsService.getTeamStats,
-    teamDays,
+    days,
     activeTab === 'team',
     setTeamError
   );
@@ -85,7 +98,7 @@ export const StatisticsPage = () => {
     refresh: refreshMsg,
   } = useStatisticsFetch<MessageStatsData>(
     statisticsService.getMessageStats,
-    msgDays,
+    days,
     activeTab === 'messages'
   );
 
@@ -95,7 +108,7 @@ export const StatisticsPage = () => {
     refresh: refreshAI,
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
-    aiDays,
+    days,
     activeTab === 'overview'
   );
 
@@ -105,7 +118,7 @@ export const StatisticsPage = () => {
     refresh: refreshLabels,
   } = useStatisticsFetch<LabelStatEntry[]>(
     statisticsService.getLabelStats,
-    msgDays,
+    days,
     activeTab === 'messages'
   );
 
@@ -245,6 +258,29 @@ export const StatisticsPage = () => {
           )}
         </div>
 
+        {/* Shared filter bar — one date window drives every tab (department is
+            controlled globally via the X-Department-Context selector). */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Period:</span>
+          <div className="flex rounded-md border border-border overflow-hidden">
+            {DAYS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setDays(opt.value)}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium transition-colors',
+                  days === opt.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="border-b overflow-x-auto">
           <div className="flex gap-1 min-w-max" role="tablist" aria-label="Statistics sections">
@@ -278,8 +314,6 @@ export const StatisticsPage = () => {
               kbEntries={kbEntries}
               aiStats={aiStats}
               aiLoading={aiLoading}
-              aiDays={aiDays}
-              onAiDaysChange={setAiDays}
             />
           </div>
         )}
@@ -288,8 +322,7 @@ export const StatisticsPage = () => {
           <SpeedToLeadTab
             speedData={speedData}
             speedLoading={speedLoading}
-            speedDays={speedDays}
-            onSpeedDaysChange={setSpeedDays}
+            speedDays={days}
           />
         )}
 
@@ -299,8 +332,7 @@ export const StatisticsPage = () => {
               teamData={teamData}
               teamLoading={teamLoading}
               teamError={teamError}
-              teamDays={teamDays}
-              onTeamDaysChange={setTeamDays}
+              teamDays={days}
             />
           </div>
         )}
@@ -312,8 +344,7 @@ export const StatisticsPage = () => {
               msgLoading={msgLoading}
               labelStats={labelStats}
               labelLoading={labelLoading}
-              msgDays={msgDays}
-              onMsgDaysChange={setMsgDays}
+              msgDays={days}
             />
           </div>
         )}
@@ -321,13 +352,13 @@ export const StatisticsPage = () => {
         {activeTab === 'sla' && (
           <div id="panel-sla" role="tabpanel">
             <div className="space-y-6 pb-6">
-              <SLAOverviewCards />
+              <SLAOverviewCards days={days} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SLAByChannelChart />
-                <SLAByPriorityTable />
+                <SLAByChannelChart days={days} />
+                <SLAByPriorityTable days={days} />
               </div>
-              <SLATrendChart />
-              <SLABreachList />
+              <SLATrendChart days={days} />
+              <SLABreachList days={days} />
             </div>
           </div>
         )}

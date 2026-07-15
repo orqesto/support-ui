@@ -1,14 +1,6 @@
 import { BarChart3, TrendingUp, Activity, CheckCircle, Globe, GitBranch, Tag, Timer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { MessageStatsData, LabelStatEntry } from '@/services/statistics.service';
-import { cn } from '@/lib/utils';
-
-const DAYS_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: '365 days', value: 365 },
-];
 
 function formatAvgReply(hours: number | null): string {
   if (hours === null) return '—';
@@ -22,22 +14,12 @@ interface Props {
   labelStats: LabelStatEntry[] | null;
   labelLoading: boolean;
   msgDays: number;
-  onMsgDaysChange: (days: number) => void;
 }
 
-export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelLoading, msgDays, onMsgDaysChange }: Props) {
+export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelLoading }: Props) {
   return (
     <div id="panel-messages" role="tabpanel">
       <div className="space-y-6 pb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Period:</span>
-          <div className="flex rounded-md border border-border overflow-hidden">
-            {DAYS_OPTIONS.map((opt) => (
-              <button key={opt.value} type="button" onClick={() => onMsgDaysChange(opt.value)} className={cn('px-3 py-1.5 text-sm font-medium transition-colors', msgDays === opt.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted')}>{opt.label}</button>
-            ))}
-          </div>
-        </div>
-
         {msgLoading ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {Array.from({ length: 3 }).map((_, idx) => (

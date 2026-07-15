@@ -13,13 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { SpeedToLeadData } from '@/services/statistics.service';
 import { cn } from '@/lib/utils';
 
-const DAYS_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: '365 days', value: 365 },
-];
-
 /** seconds → "40s" / "3m 15s" / "5h 12m" */
 function formatSeconds(seconds: number): string {
   if (!seconds || seconds < 0) return '0s';
@@ -61,10 +54,9 @@ interface Props {
   speedData: SpeedToLeadData | null;
   speedLoading: boolean;
   speedDays: number;
-  onSpeedDaysChange: (days: number) => void;
 }
 
-export function SpeedToLeadTab({ speedData, speedLoading, speedDays, onSpeedDaysChange }: Props) {
+export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
   const thresholdLabel = speedData ? formatMinutes(speedData.thresholdMinutes) : '2h';
 
   const bucketData = speedData
@@ -80,27 +72,6 @@ export function SpeedToLeadTab({ speedData, speedLoading, speedDays, onSpeedDays
   return (
     <div id="panel-speedToLead" role="tabpanel">
       <div className="space-y-6 pb-6">
-        {/* Period selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Period:</span>
-          <div className="flex rounded-md border border-border overflow-hidden">
-            {DAYS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onSpeedDaysChange(opt.value)}
-                className={cn(
-                  'px-3 py-1.5 text-sm font-medium transition-colors',
-                  speedDays === opt.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {speedLoading ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
