@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
-import { BarChart3, Users, MessageSquare, Clock, RefreshCw, Zap } from 'lucide-react';
+import { BarChart3, Users, MessageSquare, Clock, RefreshCw, Zap, Cpu } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
@@ -17,18 +18,22 @@ import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOvervie
 import { StatisticsTeamTab } from '@/components/statistics/StatisticsTeamTab';
 import { StatisticsMessagesTab } from '@/components/statistics/StatisticsMessagesTab';
 import { SpeedToLeadTab } from '@/components/statistics/SpeedToLeadTab';
+import { DiagnosticsTab } from '@/components/statistics/DiagnosticsTab';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 
-type TabType = 'overview' | 'speedToLead' | 'team' | 'messages' | 'sla';
-const VALID_TABS: TabType[] = ['overview', 'speedToLead', 'team', 'messages', 'sla'];
+type TabType = 'overview' | 'speedToLead' | 'team' | 'messages' | 'sla' | 'diagnostics';
+const VALID_TABS: TabType[] = ['overview', 'speedToLead', 'team', 'messages', 'sla', 'diagnostics'];
 
 export const StatisticsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isOrgAdmin } = usePermissions();
   const hashTab = location.hash.replace('#', '') as TabType;
-  const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'overview';
+  // Diagnostics is admin-only — a non-admin landing on #diagnostics falls back to Overview.
+  const activeTab: TabType =
+    VALID_TABS.includes(hashTab) && (hashTab !== 'diagnostics' || isOrgAdmin) ? hashTab : 'overview';
 
   const handleTabChange = (tabId: TabType) => {
     navigate(`/statistics#${tabId}`, { replace: true });
@@ -191,6 +196,10 @@ export const StatisticsPage = () => {
     { id: 'team', label: 'Team Performance', icon: <Users className="w-4 h-4" /> },
     { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'sla', label: 'SLA', icon: <Clock className="w-4 h-4" /> },
+    // Admin-only: AI/model internals split out of the customer-facing Overview.
+    ...(isOrgAdmin
+      ? [{ id: 'diagnostics' as const, label: 'Diagnostics', icon: <Cpu className="w-4 h-4" /> }]
+      : []),
   ];
 
   return (
@@ -204,7 +213,7 @@ export const StatisticsPage = () => {
               Comprehensive insights across channels, categories, and SLA performance
             </p>
           </div>
-          {activeTab === 'overview' && (
+          {(activeTab === 'overview' || activeTab === 'diagnostics') && (
             <Button variant="outline" size="sm" onClick={handleRefresh} isLoading={refreshing}>
               <RefreshCw className="mr-2 w-4 h-4" />Refresh
             </Button>
@@ -321,6 +330,10 @@ export const StatisticsPage = () => {
               <SLABreachList />
             </div>
           </div>
+        )}
+
+        {activeTab === 'diagnostics' && isOrgAdmin && (
+          <DiagnosticsTab stats={stats} />
         )}
       </div>
     </Layout>
