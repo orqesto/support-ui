@@ -302,9 +302,10 @@ const initialColStates = (): Record<string, ColumnState> =>
   );
 
 // Lifecycle columns the agent can hide to focus on live work. Open/In Progress/
-// Pending are always shown; On-hold (paused) and Resolved (done) are reference
-// columns, so they're toggleable. Preference persists per browser.
-const HIDEABLE_COLS = new Set(['on_hold', 'resolved']);
+// Pending are always shown; On-hold (paused), Resolved (done) and Suspicious
+// (pending triage) are reference columns, so they're toggleable + hidden by default.
+// Preference persists per browser.
+const HIDEABLE_COLS = new Set(['on_hold', 'resolved', 'suspicious']);
 const HIDDEN_COLS_KEY = 'kanban_hidden_cols';
 
 const loadHiddenCols = (): Set<string> => {
@@ -736,6 +737,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               {COLUMNS.filter((col) => HIDEABLE_COLS.has(col.id)).map((col) => {
                 const shown = !hiddenCols.has(col.id);
                 const Icon = col.icon;
+                const count = colStates[col.id]?.total ?? 0;
                 return (
                   <button
                     key={col.id}
@@ -751,6 +753,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                   >
                     <Icon className="w-3 h-3" />
                     {col.label}
+                    <span className="ml-0.5 tabular-nums opacity-70">{count}</span>
                   </button>
                 );
               })}
