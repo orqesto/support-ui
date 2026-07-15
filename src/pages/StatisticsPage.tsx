@@ -1,37 +1,51 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
-import { BarChart3, Users, MessageSquare, Clock, RefreshCw, Zap } from 'lucide-react';
+import { BarChart3, Users, Activity, RefreshCw, Cpu } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { documentationService } from '@/services/documentation.service';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData } from '@/services/statistics.service';
-import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
-import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
-import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
-import { SLATrendChart } from '@/components/sla/SLATrendChart';
-import { SLABreachList } from '@/components/sla/SLABreachList';
 import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOverviewTab';
 import { StatisticsTeamTab } from '@/components/statistics/StatisticsTeamTab';
-import { StatisticsMessagesTab } from '@/components/statistics/StatisticsMessagesTab';
-import { SpeedToLeadTab } from '@/components/statistics/SpeedToLeadTab';
+import { PerformanceTab } from '@/components/statistics/PerformanceTab';
+import { DiagnosticsTab } from '@/components/statistics/DiagnosticsTab';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 
-type TabType = 'overview' | 'speedToLead' | 'team' | 'messages' | 'sla';
-const VALID_TABS: TabType[] = ['overview', 'speedToLead', 'team', 'messages', 'sla'];
+type TabType = 'overview' | 'performance' | 'team' | 'diagnostics';
+const VALID_TABS: TabType[] = ['overview', 'performance', 'team', 'diagnostics'];
+
+// Old per-source hashes now live inside the merged Performance tab.
+const LEGACY_TAB_REDIRECTS: Record<string, TabType> = {
+  sla: 'performance',
+  messages: 'performance',
+  speedToLead: 'performance',
+};
+
+const DAYS_OPTIONS = [
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+  { label: '90 days', value: 90 },
+  { label: '365 days', value: 365 },
+];
 
 export const StatisticsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const hashTab = location.hash.replace('#', '') as TabType;
-  const activeTab: TabType = VALID_TABS.includes(hashTab) ? hashTab : 'overview';
+  const { isOrgAdmin } = usePermissions();
+  const rawHash = location.hash.replace('#', '');
+  const hashTab: TabType = LEGACY_TAB_REDIRECTS[rawHash] ?? (rawHash as TabType);
+  // Diagnostics is admin-only — a non-admin landing on #diagnostics falls back to Overview.
+  const activeTab: TabType =
+    VALID_TABS.includes(hashTab) && (hashTab !== 'diagnostics' || isOrgAdmin) ? hashTab : 'overview';
 
   const handleTabChange = (tabId: TabType) => {
-    navigate(`/statistics#${tabId}`, { replace: true });
+    navigate({ pathname: '/statistics', search: location.search, hash: tabId }, { replace: true });
   };
 
   const [stats, setStats] = useState<StatisticsData | null>(null);
@@ -44,10 +58,16 @@ export const StatisticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [teamDays, setTeamDays] = useState(30);
-  const [msgDays, setMsgDays] = useState(30);
-  const [aiDays, setAiDays] = useState(30);
-  const [speedDays, setSpeedDays] = useState(30);
+  // Phase A: one shared date window for every tab, synced to the URL (?days=)
+  // so it survives tab switches and is shareable. Replaces the old per-tab selectors.
+  const [days, setDaysState] = useState<number>(() => {
+    const parsed = Number(new URLSearchParams(location.search).get('days'));
+    return parsed > 0 ? parsed : 30;
+  });
+  const setDays = (next: number) => {
+    setDaysState(next);
+    navigate({ pathname: '/statistics', search: `?days=${next}`, hash: activeTab }, { replace: true });
+  };
   const [teamError, setTeamError] = useState<string | null>(null);
 
   const {
@@ -57,8 +77,8 @@ export const StatisticsPage = () => {
     refresh: refreshSpeed,
   } = useStatisticsFetch<SpeedToLeadData>(
     statisticsService.getSpeedToLead,
-    speedDays,
-    activeTab === 'speedToLead'
+    days,
+    activeTab === 'performance'
   );
 
   const {
@@ -68,7 +88,7 @@ export const StatisticsPage = () => {
     refresh: refreshTeam,
   } = useStatisticsFetch<UserStatEntry[]>(
     statisticsService.getTeamStats,
-    teamDays,
+    days,
     activeTab === 'team',
     setTeamError
   );
@@ -80,8 +100,8 @@ export const StatisticsPage = () => {
     refresh: refreshMsg,
   } = useStatisticsFetch<MessageStatsData>(
     statisticsService.getMessageStats,
-    msgDays,
-    activeTab === 'messages'
+    days,
+    activeTab === 'performance'
   );
 
   const {
@@ -90,7 +110,7 @@ export const StatisticsPage = () => {
     refresh: refreshAI,
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
-    aiDays,
+    days,
     activeTab === 'overview'
   );
 
@@ -100,8 +120,8 @@ export const StatisticsPage = () => {
     refresh: refreshLabels,
   } = useStatisticsFetch<LabelStatEntry[]>(
     statisticsService.getLabelStats,
-    msgDays,
-    activeTab === 'messages'
+    days,
+    activeTab === 'performance'
   );
 
   const fetchStatistics = useCallback(async () => {
@@ -132,17 +152,14 @@ export const StatisticsPage = () => {
 
   const handleRefresh = async () => {
     switch (activeTab) {
-      case 'speedToLead':
-        refreshSpeed();
-        break;
       case 'team':
         refreshTeam();
         break;
-      case 'messages':
+      case 'performance':
+        // Merged tab: refresh Messages + Speed-to-Lead data and the SLA queries.
         refreshMsg();
         refreshLabels();
-        break;
-      case 'sla':
+        refreshSpeed();
         void queryClient.invalidateQueries({ queryKey: ['sla-summary'] });
         void queryClient.invalidateQueries({ queryKey: ['sla-breaches'] });
         void queryClient.invalidateQueries({ queryKey: ['sla-trends'] });
@@ -187,10 +204,12 @@ export const StatisticsPage = () => {
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'speedToLead', label: 'Speed to Lead', icon: <Zap className="w-4 h-4" /> },
+    { id: 'performance', label: 'Performance', icon: <Activity className="w-4 h-4" /> },
     { id: 'team', label: 'Team Performance', icon: <Users className="w-4 h-4" /> },
-    { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'sla', label: 'SLA', icon: <Clock className="w-4 h-4" /> },
+    // Admin-only: AI/model internals split out of the customer-facing Overview.
+    ...(isOrgAdmin
+      ? [{ id: 'diagnostics' as const, label: 'Diagnostics', icon: <Cpu className="w-4 h-4" /> }]
+      : []),
   ];
 
   return (
@@ -204,36 +223,37 @@ export const StatisticsPage = () => {
               Comprehensive insights across channels, categories, and SLA performance
             </p>
           </div>
-          {activeTab === 'overview' && (
-            <Button variant="outline" size="sm" onClick={handleRefresh} isLoading={refreshing}>
-              <RefreshCw className="mr-2 w-4 h-4" />Refresh
-            </Button>
-          )}
-          {activeTab === 'speedToLead' && (
-            <Button variant="outline" size="sm" onClick={refreshSpeed} isLoading={speedRefreshing}>
-              <RefreshCw className="mr-2 w-4 h-4" />Refresh
-            </Button>
-          )}
-          {activeTab === 'team' && (
-            <Button variant="outline" size="sm" onClick={refreshTeam} isLoading={teamRefreshing}>
-              <RefreshCw className="mr-2 w-4 h-4" />Refresh
-            </Button>
-          )}
-          {activeTab === 'messages' && (
-            <Button variant="outline" size="sm" onClick={() => { refreshMsg(); refreshLabels(); }} isLoading={msgRefreshing}>
-              <RefreshCw className="mr-2 w-4 h-4" />Refresh
-            </Button>
-          )}
-          {activeTab === 'sla' && (
-            <Button variant="outline" size="sm" onClick={() => {
-              void queryClient.invalidateQueries({ queryKey: ['sla-summary'] });
-              void queryClient.invalidateQueries({ queryKey: ['sla-breaches'] });
-              void queryClient.invalidateQueries({ queryKey: ['sla-trends'] });
-              void queryClient.invalidateQueries({ queryKey: ['sla-statistics'] });
-            }}>
-              <RefreshCw className="mr-2 w-4 h-4" />Refresh
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            isLoading={refreshing || teamRefreshing || speedRefreshing || msgRefreshing}
+          >
+            <RefreshCw className="mr-2 w-4 h-4" />Refresh
+          </Button>
+        </div>
+
+        {/* Shared filter bar — one date window drives every tab (department is
+            controlled globally via the X-Department-Context selector). */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Period:</span>
+          <div className="flex rounded-md border border-border overflow-hidden">
+            {DAYS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setDays(opt.value)}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium transition-colors',
+                  days === opt.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -269,18 +289,20 @@ export const StatisticsPage = () => {
               kbEntries={kbEntries}
               aiStats={aiStats}
               aiLoading={aiLoading}
-              aiDays={aiDays}
-              onAiDaysChange={setAiDays}
             />
           </div>
         )}
 
-        {activeTab === 'speedToLead' && (
-          <SpeedToLeadTab
+        {activeTab === 'performance' && (
+          <PerformanceTab
+            days={days}
+            msgStats={msgStats}
+            msgLoading={msgLoading}
+            labelStats={labelStats}
+            labelLoading={labelLoading}
             speedData={speedData}
             speedLoading={speedLoading}
-            speedDays={speedDays}
-            onSpeedDaysChange={setSpeedDays}
+            speedDays={days}
           />
         )}
 
@@ -290,37 +312,13 @@ export const StatisticsPage = () => {
               teamData={teamData}
               teamLoading={teamLoading}
               teamError={teamError}
-              teamDays={teamDays}
-              onTeamDaysChange={setTeamDays}
+              teamDays={days}
             />
           </div>
         )}
 
-        {activeTab === 'messages' && (
-          <div id="panel-messages" role="tabpanel">
-            <StatisticsMessagesTab
-              msgStats={msgStats}
-              msgLoading={msgLoading}
-              labelStats={labelStats}
-              labelLoading={labelLoading}
-              msgDays={msgDays}
-              onMsgDaysChange={setMsgDays}
-            />
-          </div>
-        )}
-
-        {activeTab === 'sla' && (
-          <div id="panel-sla" role="tabpanel">
-            <div className="space-y-6 pb-6">
-              <SLAOverviewCards />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SLAByChannelChart />
-                <SLAByPriorityTable />
-              </div>
-              <SLATrendChart />
-              <SLABreachList />
-            </div>
-          </div>
+        {activeTab === 'diagnostics' && isOrgAdmin && (
+          <DiagnosticsTab stats={stats} />
         )}
       </div>
     </Layout>
