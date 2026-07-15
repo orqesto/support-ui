@@ -7,11 +7,9 @@ import {
   Inbox,
   ShieldAlert,
   Brain,
-  Cpu,
   BookOpen,
   FileText,
   CheckCircle,
-  Activity,
   Users,
   Ticket,
   Bot,
@@ -23,13 +21,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { StatisticsData, AIStatsData } from '@/services/statistics.service';
 import type { KBEntry } from '@/services/kb.service';
-import { cn } from '@/lib/utils';
-
-const DAYS_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-];
 
 interface Props {
   stats: StatisticsData;
@@ -37,8 +28,6 @@ interface Props {
   kbEntries: KBEntry[];
   aiStats: AIStatsData | null;
   aiLoading: boolean;
-  aiDays: number;
-  onAiDaysChange: (days: number) => void;
 }
 
 function isSpamOrScam(categoryName: string): boolean {
@@ -58,12 +47,12 @@ function getChannelIcon(channel: string) {
   }
 }
 
-export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLoading, aiDays, onAiDaysChange }: Props) {
+export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLoading }: Props) {
   return (
     <div id="panel-overview" role="tabpanel" className="space-y-8 pt-4">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
-        <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Total Messages</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalMessages}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">All Conversations</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalMessages}</p><p className="mt-1 text-xs text-muted-foreground">Actionable: {stats.overview.actionableMessages}{stats.meta?.truncated && stats.meta.conversationsTotal ? ` · showing 50k of ${stats.meta.conversationsTotal.toLocaleString()}` : ''}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Total Tickets</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalTickets}</p></div><Ticket className="w-10 h-10 text-green-400" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Spam Detected</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalSpam}</p></div><AlertTriangle className="w-10 h-10 text-red-400" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Needs Info</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalNeedsInfo}</p></div><HelpCircle className="w-10 h-10 text-amber-400" /></div></CardContent></Card>
@@ -99,7 +88,7 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
               <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {stats.overview.totalMessages > 0
-                  ? `${((value / stats.overview.totalMessages) * 100).toFixed(0)}% of total`
+                  ? `${((value / stats.overview.totalMessages) * 100).toFixed(0)}% of all`
                   : '—'}
               </p>
             </CardContent>
@@ -242,98 +231,12 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
         })}
       </div>
 
-      {/* AI Models Usage */}
-      {stats.aiModels && (stats.aiModels.totalAnalyzed > 0 || stats.aiModels.totalEmbedded > 0) && (
-        <Card>
-          <CardHeader><CardTitle className="flex justify-between items-center"><span className="flex gap-2 items-center"><Brain className="w-5 h-5" />AI Models Usage</span><span className="text-xs font-normal text-muted-foreground">All time</span></CardTitle></CardHeader>
-          <CardContent>
-            <div className="p-4 mb-6 rounded-lg bg-muted/50">
-              <h3 className="mb-3 text-sm font-semibold">Message Processing Breakdown</h3>
-              <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-                <div><div className="text-2xl font-bold">{stats.aiModels.totalMessages}</div><div className="text-xs text-muted-foreground">Total Messages</div></div>
-                <div><div className="text-2xl font-bold text-red-600">{stats.aiModels.totalSpam}</div><div className="text-xs text-muted-foreground">Spam Filtered ({stats.aiModels.totalMessages > 0 ? Math.round((stats.aiModels.totalSpam / stats.aiModels.totalMessages) * 100) : 0}%)</div></div>
-                <div><div className="text-2xl font-bold text-orange-600">{stats.aiModels.totalUnprocessed}</div><div className="text-xs text-muted-foreground">Unprocessed ({stats.aiModels.totalMessages > 0 ? Math.round((stats.aiModels.totalUnprocessed / stats.aiModels.totalMessages) * 100) : 0}%)</div></div>
-                <div><div className="text-2xl font-bold text-green-600">{stats.aiModels.totalAnalyzed}</div><div className="text-xs text-muted-foreground">AI Analyzed ({stats.aiModels.totalMessages > 0 ? Math.round((stats.aiModels.totalAnalyzed / stats.aiModels.totalMessages) * 100) : 0}%)</div></div>
-              </div>
-              <div className="mt-3 text-xs text-muted-foreground"><Lightbulb className="inline h-4 w-4 text-muted-foreground mr-1" />Only messages that pass spam filtering and are marked as processed go through AI analysis</div>
-            </div>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {stats.aiModels.analysisProviders.length > 0 && (
-                <div>
-                  <div className="flex gap-2 items-center mb-3"><Cpu className="w-4 h-4 text-purple-600" /><h3 className="text-sm font-semibold">Analysis Providers</h3><span className="text-xs text-muted-foreground">({stats.aiModels.totalAnalyzed} messages)</span></div>
-                  <div className="space-y-2">{stats.aiModels.analysisProviders.map((item) => (<div key={item.provider} className="flex justify-between items-center"><span className="text-sm capitalize">{item.provider}</span><div className="flex gap-2 items-center"><span className="text-sm font-medium">{item.count}</span><span className="text-xs text-muted-foreground">({item.percentage}%)</span></div></div>))}</div>
-                </div>
-              )}
-              {stats.aiModels.embeddingProviders.length > 0 && (
-                <div>
-                  <div className="flex gap-2 items-center mb-3"><Cpu className="w-4 h-4 text-blue-600" /><h3 className="text-sm font-semibold">Embedding Providers</h3><span className="text-xs text-muted-foreground">({stats.aiModels.totalEmbedded} messages)</span></div>
-                  <div className="space-y-2">{stats.aiModels.embeddingProviders.map((item) => (<div key={item.provider} className="flex justify-between items-center"><span className="text-sm capitalize">{item.provider}</span><div className="flex gap-2 items-center"><span className="text-sm font-medium">{item.count}</span><span className="text-xs text-muted-foreground">({item.percentage}%)</span></div></div>))}</div>
-                </div>
-              )}
-              {stats.aiModels.analysisModels.length > 0 && (
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Analysis Models</h3>
-                  <div className="space-y-2">{stats.aiModels.analysisModels.map((item) => (<div key={item.model} className="flex justify-between items-center text-xs"><span className="font-mono">{item.model}</span><div className="flex gap-2 items-center"><span className="font-medium">{item.count}</span><span className="text-muted-foreground">({item.percentage}%)</span></div></div>))}</div>
-                </div>
-              )}
-              {stats.aiModels.embeddingModels.length > 0 && (
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Embedding Models</h3>
-                  <div className="space-y-2">{stats.aiModels.embeddingModels.map((item) => (<div key={item.model} className="flex justify-between items-center text-xs"><span className="font-mono">{item.model}</span><div className="flex gap-2 items-center"><span className="font-medium">{item.count}</span><span className="text-muted-foreground">({item.percentage}%)</span></div></div>))}</div>
-                </div>
-              )}
-            </div>
-            {stats.aiAccuracy && stats.aiAccuracy.length > 0 && (() => {
-              const totalPredictions = stats.aiAccuracy.reduce((sum, item) => sum + item.count, 0);
-              const correctPredictions = stats.aiAccuracy.filter((item) => item.suggestedCategoryName === item.actualCategoryName).reduce((sum, item) => sum + item.count, 0);
-              const accuracyRate = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
-              return (
-                <div className="pt-6 mt-6 border-t">
-                  <div className="flex gap-2 items-center mb-4"><BarChart3 className="w-4 h-4 text-purple-600" /><h3 className="text-sm font-semibold">Category Prediction Accuracy</h3><span className="px-3 py-1 ml-auto text-sm font-semibold text-purple-600 rounded-full bg-purple-500/10 dark:text-purple-400">{accuracyRate}% Match Rate</span></div>
-                  <div className="p-3 mb-4 rounded-lg bg-muted/50"><div className="grid grid-cols-3 gap-4 text-center"><div><div className="text-lg font-bold">{totalPredictions}</div><div className="text-xs text-muted-foreground">Total Predictions</div></div><div><div className="text-lg font-bold text-green-600">{correctPredictions}</div><div className="text-xs text-muted-foreground">Correct</div></div><div><div className="text-lg font-bold text-orange-600">{totalPredictions - correctPredictions}</div><div className="text-xs text-muted-foreground">Human Adjusted</div></div></div></div>
-                  <div className="overflow-y-auto space-y-2 max-h-64">
-                    {stats.aiAccuracy.sort((itemA, itemB) => itemB.count - itemA.count).slice(0, 15).map((item, index) => {
-                      const isMatch = item.suggestedCategoryName === item.actualCategoryName;
-                      return (
-                        <div
-                          // eslint-disable-next-line react/no-array-index-key
-                          key={`${item.suggestedCategoryName}-${item.actualCategoryName}-${index}`}
-                          className="flex justify-between items-center p-2 text-xs rounded transition-colors hover:bg-muted/50"
-                        >
-                          <div className="flex flex-1 gap-2 items-center min-w-0">
-                            {isMatch ? (
-                              <div className="flex gap-1 items-center min-w-0"><span className="flex flex-shrink-0 justify-center items-center w-4 h-4 text-green-600 rounded-full bg-green-500/10 dark:text-green-400">✓</span><span className="font-medium text-green-600 truncate dark:text-green-400">{item.suggestedCategoryName}</span></div>
-                            ) : (
-                              <div className="flex gap-1 items-center min-w-0"><span className="flex flex-shrink-0 justify-center items-center w-4 h-4 text-orange-600 rounded-full bg-orange-500/10 dark:text-orange-400">✎</span><span className="truncate text-muted-foreground">{item.suggestedCategoryName}</span><span className="flex-shrink-0 text-muted-foreground">→</span><span className="font-medium truncate">{item.actualCategoryName}</span></div>
-                            )}
-                          </div>
-                          <span className="flex-shrink-0 ml-2 font-medium text-muted-foreground">{item.count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Usage Section */}
+      {/* AI Usage Section (customer-facing: how much AI vs human handled). Model/provider
+          internals + prediction accuracy live in the admin-only Diagnostics tab. */}
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" />AI Usage</CardTitle></CardHeader>
         <CardContent>
           <div className="pt-2">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Period:</span>
-                <div className="flex rounded-md border border-border overflow-hidden">
-                  {DAYS_OPTIONS.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => onAiDaysChange(opt.value)} className={cn('px-3 py-1.5 text-sm font-medium transition-colors', aiDays === opt.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted')}>{opt.label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
             {aiLoading ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {Array.from({ length: 3 }).map((_, idx) => (
@@ -348,7 +251,7 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Human Responded</p><p className="mt-2 text-3xl font-bold text-green-600">{aiStats.summary.humanResponded}</p><p className="mt-1 text-xs text-muted-foreground">{(aiStats.summary.aiResponded + aiStats.summary.humanResponded) > 0 ? Math.round((aiStats.summary.humanResponded / (aiStats.summary.aiResponded + aiStats.summary.humanResponded)) * 100) : 0}% of responded</p></div><Users className="w-10 h-10 text-green-400" /></div></CardContent></Card>
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">No Response</p><p className="mt-2 text-3xl font-bold text-gray-500">{aiStats.summary.noResponse}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
+                <div className="grid grid-cols-1 gap-4 mt-4">
                   <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2"><Bot className="w-5 h-5" />AI Reply Count Distribution</CardTitle></CardHeader>
                     <CardContent className="space-y-3">
@@ -358,20 +261,6 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
                           <div key={bucket} className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">{bucket} AI {bucket === '1' ? 'reply' : 'replies'}</span>
                             <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-blue-500" style={{ width: total > 0 ? `${Math.round((cnt / total) * 100)}%` : '0%' }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span></div>
-                          </div>
-                        ));
-                      })()}
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="w-5 h-5" />First Response By</CardTitle></CardHeader>
-                    <CardContent className="space-y-3">
-                      {(() => {
-                        const total = aiStats.respondedBy.reduce((sum, row) => sum + row.count, 0);
-                        return aiStats.respondedBy.map((item) => (
-                          <div key={item.respondedBy} className="flex justify-between items-center">
-                            <span className="text-sm capitalize">{item.respondedBy === 'none' ? 'Not responded' : item.respondedBy}</span>
-                            <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-primary" style={{ width: total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%' }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span></div>
                           </div>
                         ));
                       })()}
@@ -391,22 +280,6 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
                         ))}
                       </CardContent>
                     </Card>
-                  </div>
-                )}
-                {(aiStats.analysisModels.length > 0 || aiStats.embeddingModels.length > 0) && (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
-                    {aiStats.analysisModels.length > 0 && (
-                      <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" />Analysis Models</CardTitle></CardHeader>
-                        <CardContent className="space-y-2">{aiStats.analysisModels.map((item) => (<div key={item.model} className="flex justify-between items-center text-sm"><span className="font-mono text-xs">{item.model}</span><div className="flex items-center gap-2"><span className="font-medium">{item.count}</span><span className="text-muted-foreground text-xs">({item.percentage}%)</span></div></div>))}</CardContent>
-                      </Card>
-                    )}
-                    {aiStats.embeddingModels.length > 0 && (
-                      <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2"><Brain className="w-5 h-5" />Embedding Models</CardTitle></CardHeader>
-                        <CardContent className="space-y-2">{aiStats.embeddingModels.map((item) => (<div key={item.model} className="flex justify-between items-center text-sm"><span className="font-mono text-xs">{item.model}</span><div className="flex items-center gap-2"><span className="font-medium">{item.count}</span><span className="text-muted-foreground text-xs">({item.percentage}%)</span></div></div>))}</CardContent>
-                      </Card>
-                    )}
                   </div>
                 )}
               </>
