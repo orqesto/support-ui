@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { AtSign, Hash, Link as LinkIcon, MessageSquare, Phone, Plus, Trash2, X } from 'lucide-react';
+import { AtSign, Hash, Link as LinkIcon, MessageSquare, Phone, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
-import { formatDate, safeCssColor } from '@/lib/utils';
+import { ContactNotesPanel } from '@/components/contacts/ContactNotesPanel';
+import { safeCssColor } from '@/lib/utils';
 import type { ContactProfile, ContactProfileType } from '@/services/contact.service';
 
 export type OrgUser = { id: number; firstName: string; lastName: string | null; email: string };
@@ -347,53 +347,14 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
       {/* Notes */}
       <div>
         <SectionLabel>Notes</SectionLabel>
-        <div className="space-y-2">
-          {contact.notes.map((note) => (
-            <div
-              key={note.id}
-              className="p-2.5 rounded-lg border group bg-amber-50/60 dark:bg-amber-500/5 border-amber-100 dark:border-amber-500/15"
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[11px] font-semibold text-foreground">
-                  {note.authorFirstName ?? 'Unknown'} {note.authorLastName ?? ''}
-                </span>
-                <div className="flex gap-2 items-center">
-                  <span className="text-[10.5px] text-muted-foreground">{formatDate(note.createdAt)}</span>
-                  <button
-                    type="button"
-                    className="opacity-0 group-hover:opacity-100 text-destructive"
-                    onClick={() => props.onDeleteNote(note.id)}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-              <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground">{note.content}</p>
-            </div>
-          ))}
-          {contact.notes.length === 0 && <p className="text-sm text-muted-foreground">No notes yet.</p>}
-          <div className="flex gap-2 items-start">
-            <Textarea
-              className="flex-1 resize-none"
-              rows={2}
-              placeholder="Add a note… (Ctrl+Enter to save)"
-              value={props.noteInput}
-              onChange={(event) => props.setNoteInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) props.onAddNote();
-              }}
-            />
-            <Button
-              size="sm"
-              variant="secondary"
-              className="self-end"
-              onClick={props.onAddNote}
-              disabled={props.addingNote || !props.noteInput.trim()}
-            >
-              Add
-            </Button>
-          </div>
-        </div>
+        <ContactNotesPanel
+          notes={contact.notes}
+          noteInput={props.noteInput}
+          setNoteInput={props.setNoteInput}
+          addingNote={props.addingNote}
+          onAddNote={props.onAddNote}
+          onDeleteNote={props.onDeleteNote}
+        />
       </div>
     </div>
   );
