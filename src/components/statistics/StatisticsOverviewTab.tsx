@@ -21,13 +21,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { StatisticsData, AIStatsData } from '@/services/statistics.service';
 import type { KBEntry } from '@/services/kb.service';
-import { cn } from '@/lib/utils';
-
-const DAYS_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-];
 
 interface Props {
   stats: StatisticsData;
@@ -35,8 +28,6 @@ interface Props {
   kbEntries: KBEntry[];
   aiStats: AIStatsData | null;
   aiLoading: boolean;
-  aiDays: number;
-  onAiDaysChange: (days: number) => void;
 }
 
 function isSpamOrScam(categoryName: string): boolean {
@@ -56,7 +47,7 @@ function getChannelIcon(channel: string) {
   }
 }
 
-export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLoading, aiDays, onAiDaysChange }: Props) {
+export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLoading }: Props) {
   return (
     <div id="panel-overview" role="tabpanel" className="space-y-8 pt-4">
       {/* Overview Cards */}
@@ -246,16 +237,6 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
         <CardHeader><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" />AI Usage</CardTitle></CardHeader>
         <CardContent>
           <div className="pt-2">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Period:</span>
-                <div className="flex rounded-md border border-border overflow-hidden">
-                  {DAYS_OPTIONS.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => onAiDaysChange(opt.value)} className={cn('px-3 py-1.5 text-sm font-medium transition-colors', aiDays === opt.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted')}>{opt.label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
             {aiLoading ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {Array.from({ length: 3 }).map((_, idx) => (
