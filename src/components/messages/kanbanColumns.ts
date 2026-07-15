@@ -85,6 +85,21 @@ export const COLUMNS: KanbanColumnDef[] = [
     iconClass: 'text-emerald-500',
     emptyText: 'No resolved messages',
   },
+  {
+    // Suspicious lives on the work board as a collapsed-by-default column (like
+    // On-hold/Resolved) for at-a-glance visibility. It's Queue-axis by data
+    // (category='suspicious', excluded from Open/In Progress/Pending), so it never
+    // overlaps the active columns. Triage actions (approve / mark spam) are done by
+    // opening the card — the drag approve-zone stays on the Triage tab.
+    id: 'suspicious',
+    axis: 'lifecycle',
+    label: 'Suspicious',
+    icon: ShieldAlert,
+    fixedFilters: { view: 'suspicious' },
+    accentColor: '#a855f7',
+    iconClass: 'text-purple-500',
+    emptyText: 'No suspicious messages',
+  },
   // --- Triage axis (pre-lifecycle classification) ---
   {
     id: 'not_analysed',
@@ -100,16 +115,7 @@ export const COLUMNS: KanbanColumnDef[] = [
   // full-page view (NeedsRoutingPage) + sidebar badge, and stays available as a
   // list-view Queue filter. Keeping it off the board declutters Triage to the
   // spam/analysis classifications that actually belong on the kanban.
-  {
-    id: 'suspicious',
-    axis: 'triage',
-    label: 'Suspicious',
-    icon: ShieldAlert,
-    fixedFilters: { view: 'suspicious' },
-    accentColor: '#a855f7',
-    iconClass: 'text-purple-500',
-    emptyText: 'No suspicious messages',
-  },
+  // (Suspicious moved to the lifecycle board above — collapsed by default.)
   {
     id: 'archived',
     axis: 'triage',
