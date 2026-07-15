@@ -23,6 +23,7 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
@@ -111,6 +112,10 @@ export function MessageDetailHeader({
   const queryClient = useQueryClient();
 
   const [moreOpen, setMoreOpen] = useState(false);
+  // Sender name → opens the contact profile drawer (same overlay as the
+  // Contacts page). Resolved by the requester's email; sender may be "Name <email>".
+  const [profileEmail, setProfileEmail] = useState<string | null>(null);
+  const senderEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
   const [routingTo, setRoutingTo] = useState<number | null>(null);
   // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
   // so only the clicked button shows its busy label while both are disabled.
@@ -702,7 +707,18 @@ export function MessageDetailHeader({
           <div className="w-[18px] h-[18px] rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground flex-shrink-0">
             {getInitials(message.sender)}
           </div>
-          <span className="text-xs truncate text-foreground">{message.sender}</span>
+          {senderEmail.includes('@') ? (
+            <button
+              type="button"
+              onClick={() => setProfileEmail(senderEmail)}
+              className="text-xs truncate text-foreground hover:text-primary hover:underline"
+              title="View contact profile"
+            >
+              {message.sender}
+            </button>
+          ) : (
+            <span className="text-xs truncate text-foreground">{message.sender}</span>
+          )}
           <Link
             to={`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`}
             className="ml-auto text-[10px] text-muted-foreground hover:text-foreground flex-shrink-0"
@@ -890,6 +906,10 @@ export function MessageDetailHeader({
         onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
         onDepartmentChange={onRefresh}
       />
+
+      {profileEmail && (
+        <ContactProfilePanel email={profileEmail} onClose={() => setProfileEmail(null)} />
+      )}
     </div>
   );
 }
