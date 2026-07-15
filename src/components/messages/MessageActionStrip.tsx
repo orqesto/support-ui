@@ -8,6 +8,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
+import { Toggle } from '@/components/ui/Toggle';
 import type { Message } from '@/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -21,7 +22,10 @@ export type MessageActionStripProps = {
   hasLinkedTicket?: boolean;
   onReopen?: () => void;
   onDelete?: () => void;
-  onClassify?: (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => Promise<void>;
+  onClassify?: (
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    createDetectionRule?: boolean
+  ) => Promise<void>;
   onResolveWithoutReply: () => void;
   onClose?: () => void;
   setRejectDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -45,12 +49,19 @@ export function MessageActionStrip({
   setReopenDialogOpen,
 }: MessageActionStripProps) {
   const [classifying, setClassifying] = useState(false);
+  // When approving a suspicious message, the agent can also mint a green-flag
+  // detection rule so semantically similar future messages aren't flagged.
+  // Mirrors the manual-route "Create rule" toggle. Default off — one-off approve.
+  const [createRule, setCreateRule] = useState(false);
   const handleClassify = useCallback(
-    async (action: 'approve' | 'mark_suspicious' | 'move_to_spam') => {
+    async (
+      action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+      createDetectionRule?: boolean
+    ) => {
       if (!onClassify) return;
       setClassifying(true);
       try {
-        await onClassify(action);
+        await onClassify(action, createDetectionRule);
       } finally {
         setClassifying(false);
       }
@@ -107,9 +118,20 @@ export function MessageActionStrip({
     return (
       <div className={strip}>
         <p className={`${statusLabel} ${isSecurityThreat ? 'text-red-500' : ''}`}>{statusText}</p>
+        <div
+          className="mb-2"
+          title="Also creates a detection rule (green flag) so semantically similar future messages aren't flagged as suspicious."
+        >
+          <Toggle
+            checked={createRule}
+            onChange={setCreateRule}
+            disabled={classifying}
+            label="Also teach the filter (create a detection rule)"
+          />
+        </div>
         <div className="flex gap-2">
           <button
-            onClick={() => void handleClassify('approve')}
+            onClick={() => void handleClassify('approve', createRule)}
             disabled={classifying}
             className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
           >

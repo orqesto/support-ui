@@ -256,9 +256,14 @@ export const messageService = {
     return response.data;
   },
 
-  classify: async (id: number, action: 'approve' | 'mark_suspicious' | 'move_to_spam') => {
+  classify: async (
+    id: number,
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    createDetectionRule?: boolean
+  ) => {
     const response = await apiClient.patch<ApiResponse<void>>(`/api/messages/${id}/classify`, {
       action,
+      ...(createDetectionRule ? { createDetectionRule: true } : {}),
     });
     return response.data;
   },
