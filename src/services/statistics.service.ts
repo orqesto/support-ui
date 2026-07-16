@@ -99,6 +99,12 @@ export type MessageStatsData = {
     p90Hours: number | null;
     totalClosed: number;
   };
+  firstResponseTime: {
+    avgHours: number | null;
+    p50Hours: number | null;
+    p90Hours: number | null;
+    totalResponded: number;
+  };
   threadSizeDistribution: Record<string, number>;
   categoryTrends: Array<{
     categoryId: number | null;
