@@ -32,9 +32,17 @@ type TimelineItem = { label: string; time: string; who: string; dot: string | un
 const ACTION_LABEL: Record<string, string> = {
   'message.reply': 'Reply sent',
   'message.assign': 'Assigned',
+  'message.create': 'Message received',
+  'message.delete': 'Message deleted',
+  'message.compose_new': 'New message composed',
+  'message.manual_route': 'Manually routed',
   'ticket.create': 'Ticket created',
   'ticket.resolve': 'Resolved',
   'ticket.reopen': 'Reopened',
+  'ticket.assign': 'Ticket assigned',
+  'ticket.update': 'Ticket updated',
+  'ticket.delete': 'Ticket deleted',
+  'ticket.dept_moved': 'Moved department',
 };
 
 const ACTION_DOT: Record<string, string> = {
