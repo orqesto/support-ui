@@ -1,4 +1,7 @@
 import { apiClient } from '@/lib/api-client';
+import { slaService, type SLASummary } from './sla.service';
+
+export type { SLASummary } from './sla.service';
 
 export type ChannelStats = {
   channel: string;
@@ -220,5 +223,11 @@ export const statisticsService = {
       `/api/statistics/speed-to-lead?days=${days}`
     );
     return { success: response.data.success, data: response.data.data };
+  },
+  // Adapter so the SLA summary flows through useStatisticsFetch on the Overview
+  // KPI row (getSummary takes {days} and returns raw; the hook needs (days)=>{success,data}).
+  getSlaSummary: async (days = 30): Promise<ApiResponse<SLASummary>> => {
+    const data = await slaService.getSummary({ days });
+    return { success: true, data };
   },
 };

@@ -6,10 +6,6 @@ import {
   AlertTriangle,
   Inbox,
   ShieldAlert,
-  Brain,
-  BookOpen,
-  FileText,
-  CheckCircle,
   Users,
   Ticket,
   Bot,
@@ -20,14 +16,32 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { StatisticsData, AIStatsData } from '@/services/statistics.service';
-import type { KBEntry } from '@/services/kb.service';
+
+type DrillTab = 'overview' | 'performance' | 'team' | 'diagnostics';
 
 interface Props {
   stats: StatisticsData;
-  kbStats: { totalDocs: number; totalChunks: number; totalReferences: number } | null;
-  kbEntries: KBEntry[];
   aiStats: AIStatsData | null;
   aiLoading: boolean;
+  isOrgAdmin: boolean;
+  onDrill: (tab: DrillTab) => void;
+  kpi: {
+    actionable: number;
+    openBacklog: number;
+    aiHandledPct: number | null;
+    medianFirstResponseHours: number | null;
+    leadsAtRiskValue: number | null;
+    slaCompliancePct: number | null;
+  };
+}
+
+function fmtHours(hours: number | null): string {
+  if (hours === null) return '—';
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  return `${hours.toFixed(1)}h`;
+}
+function fmtPct(pct: number | null): string {
+  return pct === null ? '—' : `${Math.round(pct)}%`;
 }
 
 function isSpamOrScam(categoryName: string): boolean {
@@ -47,9 +61,35 @@ function getChannelIcon(channel: string) {
   }
 }
 
-export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLoading }: Props) {
+export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, onDrill, kpi }: Props) {
   return (
     <div id="panel-overview" role="tabpanel" className="space-y-8 pt-4">
+      {/* KPI pulse — headline metrics; clickable ones drill into the detail tab */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        {([
+          { label: 'Actionable inbound', value: String(kpi.actionable), drill: null as DrillTab | null },
+          { label: 'Open backlog', value: String(kpi.openBacklog), drill: 'team' as DrillTab | null },
+          { label: 'SLA compliance', value: fmtPct(kpi.slaCompliancePct), drill: 'performance' as DrillTab | null },
+          { label: 'Median first response', value: fmtHours(kpi.medianFirstResponseHours), drill: 'performance' as DrillTab | null },
+          { label: 'AI-handled', value: fmtPct(kpi.aiHandledPct), drill: (isOrgAdmin ? 'diagnostics' : 'performance') as DrillTab | null },
+          { label: 'Leads at risk', value: kpi.leadsAtRiskValue === null ? '—' : `€${Math.round(kpi.leadsAtRiskValue).toLocaleString()}`, drill: 'performance' as DrillTab | null },
+        ]).map((item) => {
+          const drill = item.drill;
+          const body = (
+            <>
+              <p className="text-xs font-medium text-muted-foreground truncate">{item.label}</p>
+              <p className="mt-1 text-2xl font-bold">{item.value}</p>
+              {drill && <p className="mt-1 text-[10px] text-primary">View →</p>}
+            </>
+          );
+          return drill ? (
+            <button key={item.label} type="button" onClick={() => onDrill(drill)} className="rounded-lg border bg-card p-4 text-left hover:border-primary transition-colors">{body}</button>
+          ) : (
+            <div key={item.label} className="rounded-lg border bg-card p-4">{body}</div>
+          );
+        })}
+      </div>
+
       {/* Overview Cards */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">All Conversations</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalMessages}</p><p className="mt-1 text-xs text-muted-foreground">Actionable: {stats.overview.actionableMessages}{stats.meta?.truncated && stats.meta.conversationsTotal ? ` · showing 50k of ${stats.meta.conversationsTotal.toLocaleString()}` : ''}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
@@ -96,43 +136,7 @@ export function StatisticsOverviewTab({ stats, kbStats, kbEntries, aiStats, aiLo
         ))}
       </div>
 
-      {/* Knowledge Base Statistics */}
-      {kbStats && (
-        <Card>
-          <CardHeader><CardTitle className="flex gap-2 items-center"><Brain className="w-5 h-5" />Knowledge Base</CardTitle></CardHeader>
-          <CardContent className="space-y-8">
-            <div>
-              <p className="mb-3 text-sm font-medium text-muted-foreground">By Type</p>
-              <div className="grid grid-cols-4 gap-6">
-                {[
-                  { label: 'Total Entries', value: kbEntries.length },
-                  { label: 'Q&A Pairs', value: kbEntries.filter((entry) => entry.type === 'qa_pair').length },
-                  { label: 'Documents', value: kbEntries.filter((entry) => entry.type === 'document').length },
-                  { label: 'Business Knowledge', value: kbEntries.filter((entry) => entry.type === 'manual_entry').length },
-                ].map(({ label, value }) => (
-                  <div key={label} className="p-4 rounded-lg border bg-card"><p className="text-2xl font-bold">{value}</p><p className="text-sm text-muted-foreground">{label}</p></div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-3 text-sm font-medium text-muted-foreground">By Status</p>
-              <div className="grid grid-cols-3 gap-6">
-                <div className="p-4 rounded-lg border bg-card"><p className="text-2xl font-bold text-green-600">{kbEntries.filter((entry) => entry.approved).length}</p><p className="text-sm text-muted-foreground">Approved</p></div>
-                <div className="p-4 rounded-lg border bg-card"><p className="text-2xl font-bold text-amber-600">{kbEntries.filter((entry) => !entry.approved && !entry.hidden).length}</p><p className="text-sm text-muted-foreground">Pending Review</p></div>
-                <div className="p-4 rounded-lg border bg-card"><p className="text-2xl font-bold text-gray-600">{kbEntries.filter((entry) => entry.hidden).length}</p><p className="text-sm text-muted-foreground">Hidden</p></div>
-              </div>
-            </div>
-            <div>
-              <p className="mb-3 text-sm font-medium text-muted-foreground">Documentation Uploads</p>
-              <div className="grid grid-cols-3 gap-6">
-                <div className="flex gap-3 items-center p-4 rounded-lg border bg-card"><BookOpen className="w-8 h-8 text-blue-500" /><div><p className="text-2xl font-bold">{kbStats.totalDocs}</p><p className="text-sm text-muted-foreground">Documents</p></div></div>
-                <div className="flex gap-3 items-center p-4 rounded-lg border bg-card"><FileText className="w-8 h-8 text-green-500" /><div><p className="text-2xl font-bold">{kbStats.totalChunks}</p><p className="text-sm text-muted-foreground">Chunks</p></div></div>
-                <div className="flex gap-3 items-center p-4 rounded-lg border bg-card"><CheckCircle className="w-8 h-8 text-purple-500" /><div><p className="text-2xl font-bold">{kbStats.totalReferences}</p><p className="text-sm text-muted-foreground">Times Used</p></div></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Knowledge Base stats moved to the KB page (Phase C). */}
 
       {/* Spam/Scam Alert Section */}
       {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (

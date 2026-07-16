@@ -6,9 +6,7 @@ import { Layout } from '@/components/layout/Layout';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { documentationService } from '@/services/documentation.service';
-import { kbService, type KBEntry } from '@/services/kb.service';
-import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData } from '@/services/statistics.service';
+import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData, type SLASummary } from '@/services/statistics.service';
 import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOverviewTab';
 import { StatisticsTeamTab } from '@/components/statistics/StatisticsTeamTab';
 import { PerformanceTab } from '@/components/statistics/PerformanceTab';
@@ -49,12 +47,6 @@ export const StatisticsPage = () => {
   };
 
   const [stats, setStats] = useState<StatisticsData | null>(null);
-  const [kbStats, setKbStats] = useState<{
-    totalDocs: number;
-    totalChunks: number;
-    totalReferences: number;
-  } | null>(null);
-  const [kbEntries, setKbEntries] = useState<KBEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,7 +70,7 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<SpeedToLeadData>(
     statisticsService.getSpeedToLead,
     days,
-    activeTab === 'performance'
+    activeTab === 'performance' || activeTab === 'overview'
   );
 
   const {
@@ -101,7 +93,13 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<MessageStatsData>(
     statisticsService.getMessageStats,
     days,
-    activeTab === 'performance'
+    activeTab === 'performance' || activeTab === 'overview'
+  );
+
+  const { data: slaSummary } = useStatisticsFetch<SLASummary>(
+    statisticsService.getSlaSummary,
+    days,
+    activeTab === 'overview'
   );
 
   const {
@@ -126,16 +124,10 @@ export const StatisticsPage = () => {
 
   const fetchStatistics = useCallback(async () => {
     try {
-      const [statsResponse, kbStatsData, kbEntriesData] = await Promise.all([
-        statisticsService.getAll(),
-        documentationService.getStats(),
-        kbService.getAll(),
-      ]);
+      const statsResponse = await statisticsService.getAll();
       if (statsResponse.success && statsResponse.data) {
         setStats(statsResponse.data);
       }
-      setKbStats(kbStatsData);
-      setKbEntries(Array.isArray(kbEntriesData?.data?.entries) ? kbEntriesData.data.entries : []);
     } catch (error) {
       logger.error('Failed to fetch statistics:', error);
     } finally {
@@ -285,10 +277,18 @@ export const StatisticsPage = () => {
           <div id="panel-overview" role="tabpanel">
             <StatisticsOverviewTab
               stats={stats}
-              kbStats={kbStats}
-              kbEntries={kbEntries}
               aiStats={aiStats}
               aiLoading={aiLoading}
+              isOrgAdmin={isOrgAdmin}
+              onDrill={handleTabChange}
+              kpi={{
+                actionable: stats.overview.actionableMessages,
+                openBacklog: stats.overview.activeMessages,
+                aiHandledPct: aiStats?.summary.aiPercentage ?? null,
+                medianFirstResponseHours: msgStats?.firstResponseTime.p50Hours ?? null,
+                leadsAtRiskValue: speedData?.estimatedLostValue ?? null,
+                slaCompliancePct: slaSummary?.messages.complianceRate ?? null,
+              }}
             />
           </div>
         )}
