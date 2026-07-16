@@ -88,8 +88,6 @@ export type UserStatEntry = {
     ticketsResolved: number;
     notesAdded: number;
     unresolvedMessages: number;
-    outgoingMessages: number;
-    avgConfidence: number | null;
     languageBreakdown: Record<string, number>;
   };
 };
