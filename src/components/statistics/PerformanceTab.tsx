@@ -48,6 +48,14 @@ export function PerformanceTab({
           <a
             key={id}
             href={`#${id}`}
+            onClick={(event) => {
+              // The URL hash stores the active Statistics TAB (StatisticsPage derives
+              // activeTab from location.hash). A native `#section` jump would overwrite
+              // that hash with a non-tab value and bounce the page back to Overview,
+              // unmounting these sections. So scroll manually and leave the hash alone.
+              event.preventDefault();
+              document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
             className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <Icon className="w-4 h-4" />
