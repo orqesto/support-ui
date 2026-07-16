@@ -43,9 +43,7 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap"><span className="flex items-center justify-end gap-1"><Ticket className="w-3.5 h-3.5" />Tkts Assigned</span></th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Tkts Resolved</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap"><span className="flex items-center justify-end gap-1"><StickyNote className="w-3.5 h-3.5" />Notes</span></th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Unresolved</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Outgoing</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Confidence</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap" title="Current open workload — all-time, not limited to the selected window">Open backlog</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap"><span className="flex items-center justify-end gap-1"><Globe className="w-3.5 h-3.5" />Top Lang</span></th>
                   </tr>
                 </thead>
@@ -54,14 +52,14 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                     Array.from({ length: 5 }).map((_, idx) => (
                       // eslint-disable-next-line react/no-array-index-key
                       <tr key={idx} className="border-b border-border">
-                        {Array.from({ length: 13 }).map((__, jdx) => (
+                        {Array.from({ length: 11 }).map((__, jdx) => (
                           // eslint-disable-next-line react/no-array-index-key
                           <td key={jdx} className="px-4 py-3"><div className="h-4 rounded bg-muted animate-pulse" style={{ width: jdx === 0 ? '120px' : '60px' }} /></td>
                         ))}
                       </tr>
                     ))
                   ) : !teamData || teamData.length === 0 ? (
-                    <tr><td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">No agents found for this organisation.</td></tr>
+                    <tr><td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">No agents found for this organisation.</td></tr>
                   ) : (
                     teamData.map((entry) => {
                       const topLang = Object.entries(entry.stats.languageBreakdown ?? {}).sort(([, itemA], [, itemB]) => itemB - itemA)[0]?.[0] ?? '—';
@@ -77,8 +75,6 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsResolved}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.notesAdded}</td>
                           <td className="px-4 py-3 text-right tabular-nums text-orange-600">{entry.stats.unresolvedMessages}</td>
-                          <td className="px-4 py-3 text-right tabular-nums">{entry.stats.outgoingMessages}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{entry.stats.avgConfidence !== null ? `${Math.min(Math.max(entry.stats.avgConfidence * 100, 0), 100).toFixed(0)}%` : '—'}</td>
                           <td className="px-4 py-3 text-right tabular-nums uppercase text-xs font-mono">{topLang}</td>
                         </tr>
                       );
