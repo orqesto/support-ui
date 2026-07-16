@@ -144,6 +144,11 @@ export const BedrockProviderCard = ({
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [config, setConfig] = useState<BedrockConfig>(EMPTY_CONFIG);
+  // Connection mode. Off = direct: this server's own AWS identity (ECS task
+  // role / EC2 instance profile / IRSA / env creds) invokes Bedrock — the
+  // single-account self-hosted case, region + model only. On = cross-account:
+  // Odly assumes a role in a separate AWS account (SaaS / multi-tenant).
+  const [useAssumeRole, setUseAssumeRole] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [testResult, setTestResult] = useState<BedrockTestResult | null>(null);
   const [testing, setTesting] = useState(false);
@@ -173,7 +178,7 @@ export const BedrockProviderCard = ({
   // Auto-fetch a fresh externalId when opening the form for a NEW integration.
   // For edits the existing externalId is loaded from the integration row.
   useEffect(() => {
-    if (showForm && !editingId && !config.externalId) {
+    if (showForm && useAssumeRole && !editingId && !config.externalId) {
       let cancelled = false;
       setGeneratingId(true);
       apiClient
@@ -195,10 +200,13 @@ export const BedrockProviderCard = ({
       };
     }
     return undefined;
-  }, [showForm, editingId, config.externalId]);
+  }, [showForm, useAssumeRole, editingId, config.externalId]);
 
   const handleEdit = (integration: Integration) => {
-    setConfig({ ...EMPTY_CONFIG, ...(integration.config as BedrockConfig) });
+    const cfg = { ...EMPTY_CONFIG, ...(integration.config as BedrockConfig) };
+    setConfig(cfg);
+    // Infer the mode from the saved row: a roleArn means it was cross-account.
+    setUseAssumeRole(Boolean(cfg.roleArn));
     setShowForm(true);
     setTestResult(null);
     onEdit(integration);
@@ -206,6 +214,7 @@ export const BedrockProviderCard = ({
 
   const handleReset = () => {
     setConfig(EMPTY_CONFIG);
+    setUseAssumeRole(false);
     setShowForm(false);
     setShowSetup(false);
     setTestResult(null);
@@ -213,15 +222,18 @@ export const BedrockProviderCard = ({
   };
 
   const handleSave = () => {
-    if (!config.region || !config.roleArn || !config.externalId || !config.defaultModel) {
+    if (!canSubmit) {
       return;
     }
-    onSave(config);
+    // Direct mode: strip roleArn/externalId so the backend uses the host's own
+    // AWS identity instead of AssumeRole.
+    const payload = useAssumeRole ? config : { ...config, roleArn: '', externalId: '' };
+    onSave(payload);
     handleReset();
   };
 
   const handleTest = async () => {
-    if (!config.region || !config.roleArn || !config.externalId || !config.defaultModel) {
+    if (!canSubmit) {
       return;
     }
     setTesting(true);
@@ -231,9 +243,8 @@ export const BedrockProviderCard = ({
         '/api/integrations/test-bedrock',
         {
           region: config.region,
-          roleArn: config.roleArn,
-          externalId: config.externalId,
           modelId: config.defaultModel,
+          ...(useAssumeRole && { roleArn: config.roleArn, externalId: config.externalId }),
         }
       );
       setTestResult(response.data.data);
@@ -253,7 +264,9 @@ export const BedrockProviderCard = ({
   };
 
   const canSubmit =
-    !!config.region && !!config.roleArn && !!config.externalId && !!config.defaultModel;
+    !!config.region &&
+    !!config.defaultModel &&
+    (!useAssumeRole || (!!config.roleArn && !!config.externalId));
 
   return (
     <Card>
@@ -384,6 +397,22 @@ export const BedrockProviderCard = ({
             </h4>
 
             <div className="space-y-3">
+              <div className="rounded-md border bg-background p-3">
+                <label className="flex gap-2 items-center text-sm font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useAssumeRole}
+                    onChange={(event) => setUseAssumeRole(event.target.checked)}
+                  />
+                  Use a cross-account IAM role (AssumeRole)
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Leave off for a self-hosted deployment — this server's own AWS identity (ECS task
+                  role / EC2 instance profile / IRSA) invokes Bedrock directly, so you only need a
+                  region and a model. Turn on to have Odly assume a role in a separate AWS account.
+                </p>
+              </div>
+
               <ReactSelect
                 label="Region *"
                 value={config.region}
@@ -394,46 +423,50 @@ export const BedrockProviderCard = ({
                 }))}
               />
 
-              <div>
-                <label htmlFor="bedrock-role-arn" className="text-sm font-medium">
-                  IAM Role ARN *
-                </label>
-                <input
-                  id="bedrock-role-arn"
-                  type="text"
-                  value={config.roleArn}
-                  onChange={(event) => setConfig({ ...config, roleArn: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                  placeholder="arn:aws:iam::123456789012:role/OdlyBedrockUser"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Role in your AWS account that Odly will assume via STS.
-                </p>
-              </div>
+              {useAssumeRole && (
+                <>
+                  <div>
+                    <label htmlFor="bedrock-role-arn" className="text-sm font-medium">
+                      IAM Role ARN *
+                    </label>
+                    <input
+                      id="bedrock-role-arn"
+                      type="text"
+                      value={config.roleArn}
+                      onChange={(event) => setConfig({ ...config, roleArn: event.target.value })}
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                      placeholder="arn:aws:iam::123456789012:role/OdlyBedrockUser"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Role in your AWS account that Odly will assume via STS.
+                    </p>
+                  </div>
 
-              <div>
-                <label htmlFor="bedrock-external-id" className="text-sm font-medium">
-                  External ID
-                </label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    id="bedrock-external-id"
-                    type="text"
-                    value={config.externalId}
-                    readOnly
-                    className="px-3 py-2 flex-1 rounded-md border bg-muted text-foreground border-border font-mono text-xs"
-                    placeholder={generatingId ? 'Generating…' : ''}
-                  />
-                  {config.externalId && (
-                    <CopyButton value={config.externalId} label="External ID" />
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Paste this into your IAM role's trust policy
-                  Condition.StringEquals.sts:ExternalId. Generated per-org; required for AssumeRole
-                  to succeed.
-                </p>
-              </div>
+                  <div>
+                    <label htmlFor="bedrock-external-id" className="text-sm font-medium">
+                      External ID
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        id="bedrock-external-id"
+                        type="text"
+                        value={config.externalId}
+                        readOnly
+                        className="px-3 py-2 flex-1 rounded-md border bg-muted text-foreground border-border font-mono text-xs"
+                        placeholder={generatingId ? 'Generating…' : ''}
+                      />
+                      {config.externalId && (
+                        <CopyButton value={config.externalId} label="External ID" />
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Paste this into your IAM role's trust policy
+                      Condition.StringEquals.sts:ExternalId. Generated per-org; required for
+                      AssumeRole to succeed.
+                    </p>
+                  </div>
+                </>
+              )}
 
               <div>
                 <ReactSelect
@@ -467,7 +500,8 @@ export const BedrockProviderCard = ({
                 </p>
               </div>
 
-              {/* IAM setup helper */}
+              {/* IAM setup helper — AssumeRole (cross-account) only */}
+              {useAssumeRole && (
               <div className="rounded-md border bg-background">
                 <button
                   type="button"
@@ -493,6 +527,7 @@ export const BedrockProviderCard = ({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Test button + result */}
               <div className="space-y-2">
