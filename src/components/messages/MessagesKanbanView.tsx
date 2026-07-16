@@ -28,6 +28,7 @@ import {
 import { RotateCcw, GripVertical, ArrowRightCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -141,6 +142,9 @@ type KanbanColumnProps = {
   onSortChange: (sorting: SortingState) => void;
   onLoadMore: () => void;
   onOpen: (thread: MessageThread) => void;
+  // P2: unread auto-arrival count for this column (Suspicious/Spam only) + clear handler.
+  newCount?: number;
+  onClearNew?: () => void;
 };
 
 const KanbanColumn = ({
@@ -154,6 +158,8 @@ const KanbanColumn = ({
   onSortChange,
   onLoadMore,
   onOpen,
+  newCount,
+  onClearNew,
 }: KanbanColumnProps) => {
   // Always call useDroppable — only attach ref when this column can receive a drop.
   // Without setNodeRef, the droppable has no bounding rect so collision detection ignores it.
@@ -184,6 +190,19 @@ const KanbanColumn = ({
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-background">
         <Icon className={`w-4 h-4 shrink-0 ${col.iconClass}`} />
         <span className="flex-1 min-w-0 text-sm font-semibold truncate">{col.label}</span>
+        {/* P2: unread auto-arrival badge (Suspicious/Spam). Click = "reviewed" → clears
+            for this user (PATCH /read-all?kind=). Distinct from the neutral total count. */}
+        {(newCount ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={onClearNew}
+            title={`${newCount} new — click to mark reviewed`}
+            aria-label={`${newCount} new ${col.label.toLowerCase()} — mark reviewed`}
+            className="shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-primary text-primary-foreground hover:opacity-80 transition-opacity"
+          >
+            {newCount > 99 ? '99+' : newCount}
+          </button>
+        )}
         {!state.loading && (
           <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
             {state.total}
@@ -305,6 +324,12 @@ const initialColStates = (): Record<string, ColumnState> =>
 // Pending are always shown; On-hold (paused), Resolved (done) and Suspicious
 // (pending triage) are reference columns, so they're toggleable + hidden by default.
 // Preference persists per browser.
+// P2: map a Kanban column to its auto-arrival notification kind (badge source).
+const ARRIVAL_KIND_BY_COL: Record<string, 'suspicious_arrival' | 'spam_arrival'> = {
+  suspicious: 'suspicious_arrival',
+  spam: 'spam_arrival',
+};
+
 const HIDEABLE_COLS = new Set(['on_hold', 'resolved', 'suspicious']);
 const HIDDEN_COLS_KEY = 'kanban_hidden_cols';
 
@@ -391,6 +416,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   const colSortKey = useMemo(() => JSON.stringify(colSort), [colSort]);
 
   const selectedDeptKey = useDepartmentContextKey();
+  // P2: unread auto-arrival counts for the Suspicious/Spam column badges.
+  const { counts: arrivalCounts, clearKind: clearArrivalKind } = useNotificationCounts();
 
   const colStatesRef = useRef(colStates);
   colStatesRef.current = colStates;
@@ -788,6 +815,16 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               }
               onLoadMore={() => loadMore(col.id)}
               onOpen={onOpen}
+              newCount={
+                ARRIVAL_KIND_BY_COL[col.id]
+                  ? (arrivalCounts[ARRIVAL_KIND_BY_COL[col.id]] ?? 0)
+                  : 0
+              }
+              onClearNew={
+                ARRIVAL_KIND_BY_COL[col.id]
+                  ? () => clearArrivalKind(ARRIVAL_KIND_BY_COL[col.id])
+                  : undefined
+              }
             />
           ))}
         </div>
