@@ -59,6 +59,16 @@ const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: 
 // The REST row is the generated backend Notification contract.
 type NotificationRow = Notification;
 
+// P3 leak-guard: arrival kinds (suspicious/spam) live in the SAME notifications table
+// but are NOT SLA breaches — they belong to the Suspicious/Spam Kanban badges (P2) and
+// the unified Notification Center (P3), not this SLA bell. Both the REST list and the
+// `sla_breach` WS event carry every kind, so without this guard an arrival row renders
+// as an amber "breach" with no breach info. Exclude by kind. Fail-open: a missing/unknown
+// kind still shows, so a real breach can never be hidden by this filter.
+const NON_SLA_BELL_KINDS = new Set(['suspicious_arrival', 'spam_arrival']);
+const isNonSlaBellKind = (kind: unknown): boolean =>
+  typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
+
 export type UseSLANotificationsResult = ReturnType<typeof useSLANotifications>;
 
 export const useSLANotifications = () => {
@@ -85,8 +95,13 @@ export const useSLANotifications = () => {
       .get('/api/notifications')
       .then((res) => {
         const payload = (res.data as { data: { notifications: NotificationRow[]; total: number } }).data;
-        const rows = payload.notifications;
-        const totalCount = payload.total;
+        // Drop arrival kinds — this is the SLA bell, not the unified center (P3 guard).
+        const rows = payload.notifications.filter(
+          (row) => !isNonSlaBellKind((row as { kind?: string }).kind)
+        );
+        // total counts all kinds server-side; subtract the arrivals we filtered off this
+        // page so the bell's count doesn't include them.
+        const totalCount = payload.total - (payload.notifications.length - rows.length);
         const loaded: SLABreachNotification[] = rows.map((row) => ({
           id: row.id,
           entityId: row.entityId,
@@ -158,6 +173,8 @@ export const useSLANotifications = () => {
     getSocket();
 
     const handleBreach = (data: unknown) => {
+      // Arrival kinds also emit `sla_breach` (shared notify path) — ignore them here (P3 guard).
+      if (isNonSlaBellKind((data as { kind?: string }).kind)) return;
       const breach = data as Omit<SLABreachNotification, 'receivedAt'>;
       if (!matchesPrefs(breach, prefsRef.current)) return;
 
