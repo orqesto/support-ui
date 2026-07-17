@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban } from 'lucide-react';
+import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban, Wand2, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   type SLABreachNotification,
   type UseSLANotificationsResult,
 } from '@/hooks/useSLANotifications';
+import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifications';
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 
-// Notification Center (P3): one bell that unifies SLA breaches (itemized) with the
-// Suspicious/Spam arrival queues (aggregate count rows that drill into the inbox). The
-// learning bell + needs-routing badge stay separate until P4. Pure-SLA users see the same
-// bell they had — the Queues section only appears when there are arrivals.
+// Notification Center (P3 + P4): one bell that unifies every notification surface —
+// SLA breaches (itemized), the Suspicious/Spam arrival queues (aggregate drill-in rows),
+// and the learning engine's auto-actions + pending suggestions (admin-only). Replaces the
+// separate SLA and learning bells. needs-routing stays on the sidebar for now (its bus
+// migration needs a backend `needs_routing` kind). Pure-SLA users see essentially the same
+// bell — extra sections/labels only appear when there's content for them.
+
+const PANEL_PEEK_LIMIT = 5;
 
 const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
@@ -30,6 +35,21 @@ const formatBreachAmount = (minutes: number): string => {
   const mins = minutes % 60;
   return mins > 0 ? `${hours}h ${mins}m over` : `${hours}h over`;
 };
+
+const formatRelativeTime = (iso: string): string => {
+  const then = new Date(iso).getTime();
+  const deltaSec = Math.max(0, (Date.now() - then) / 1000);
+  if (deltaSec < 60) return 'just now';
+  if (deltaSec < 3600) return `${Math.floor(deltaSec / 60)}m ago`;
+  if (deltaSec < 86400) return `${Math.floor(deltaSec / 3600)}h ago`;
+  return `${Math.floor(deltaSec / 86400)}d ago`;
+};
+
+const SectionLabel = ({ children }: { children: React.ReactNode }) => (
+  <p className="px-1 pt-1 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
+    {children}
+  </p>
+);
 
 const SLABreachItem = ({
   notification,
@@ -98,7 +118,6 @@ const SLABreachItem = ({
           </span>
         </div>
       </div>
-      {/* Link overlay last in DOM — stacks above non-positioned content, below the dismiss button */}
       <Link
         to={href}
         className="absolute inset-0 z-[1] rounded-lg"
@@ -108,9 +127,7 @@ const SLABreachItem = ({
   );
 };
 
-// Suspicious/Spam arrival queues surfaced as aggregate rows. `queue` is the inbox URL
-// filter value (`/messages?queue=…`); `kind` is the notification kind whose unread count
-// drives the badge and gets cleared on click.
+// Suspicious/Spam arrival queues → aggregate rows that drill into the inbox filter.
 const ARRIVAL_QUEUES: {
   kind: ArrivalKind;
   label: string;
@@ -122,17 +139,12 @@ const ARRIVAL_QUEUES: {
   { kind: 'spam_arrival', label: 'Spam', queue: 'spam', Icon: Ban, iconClass: 'text-red-500' },
 ];
 
-export const NotificationCenter = ({
-  notifications,
-  total,
-  unreadCount,
-  fetchError,
-  onlyAssignedToMe,
-  setOnlyMine,
-  clearAll,
-  dismiss,
-  markAllRead,
-}: UseSLANotificationsResult) => {
+type Props = {
+  sla: UseSLANotificationsResult;
+  learning: UseLearningNotificationsResult;
+};
+
+export const NotificationCenter = ({ sla, learning }: Props) => {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({
     left: 0,
@@ -147,11 +159,20 @@ export const NotificationCenter = ({
     count: arrivalCounts[entry.kind] ?? 0,
   })).filter((entry) => entry.count > 0);
   const arrivalTotal = arrivalRows.reduce((sum, entry) => sum + entry.count, 0);
-  const badgeCount = unreadCount + arrivalTotal;
-  const hasSla = notifications.length > 0;
-  // Section labels only when both kinds of content are present, so a pure-SLA (or
-  // pure-arrival) bell stays as uncluttered as before.
-  const showSectionLabels = arrivalRows.length > 0 && hasSla;
+
+  const showLearning = learning.isOrgAdmin;
+  const learningNotes = showLearning ? learning.notifications : [];
+  const learningSuggestions = showLearning ? learning.suggestions : [];
+  const learningUnread = showLearning ? learning.unreadCount : 0;
+
+  const hasSla = sla.notifications.length > 0;
+  const hasLearning = learningNotes.length > 0 || learningSuggestions.length > 0;
+  const badgeCount = sla.unreadCount + arrivalTotal + learningUnread;
+  // With multiple content types present, label each section; otherwise stay minimal.
+  const sectionCount =
+    (arrivalRows.length > 0 ? 1 : 0) + (hasSla ? 1 : 0) + (hasLearning ? 1 : 0);
+  const showSectionLabels = sectionCount > 1;
+  const isEmpty = arrivalRows.length === 0 && !hasSla && !hasLearning;
 
   // Close when clicking outside
   useEffect(() => {
@@ -170,17 +191,20 @@ export const NotificationCenter = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // Mark SLA breaches read once the panel is visible (existing behaviour). Arrival queues
-  // are NOT auto-cleared — the agent clears a queue by clicking its row (= "reviewed").
+  // Mark SLA breaches + learning items read once the panel is visible. Arrival queues are
+  // NOT auto-cleared — the agent clears a queue by clicking its row (= "reviewed").
   useEffect(() => {
-    if (open && unreadCount > 0) markAllRead();
+    if (!open) return;
+    if (sla.unreadCount > 0) sla.markAllRead();
+    if (showLearning && learning.unreadCount > 0) learning.markAllRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const handleOpen = () => {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const panelWidth = 320; // w-80
-      const panelHeight = 360; // approx max-h-80 + header
+      const panelWidth = 360;
+      const panelHeight = 400;
       const left = Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8));
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
@@ -196,6 +220,11 @@ export const NotificationCenter = ({
   const openQueue = (kind: ArrivalKind, queue: string) => {
     clearKind(kind).catch(() => {}); // per-user "reviewed" clear (fire-and-forget)
     navigate(`/messages?queue=${queue}`);
+    setOpen(false);
+  };
+
+  const goToAiSettings = (focusSuggestionId?: number) => {
+    navigate(`/settings${focusSuggestionId ? `?focus=${focusSuggestionId}` : ''}#ai/learning`);
     setOpen(false);
   };
 
@@ -219,26 +248,28 @@ export const NotificationCenter = ({
         <div
           ref={panelRef}
           style={{ top: panelPos.top, bottom: panelPos.bottom, left: panelPos.left }}
-          className="fixed z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
+          className="fixed z-50 w-[360px] rounded-lg border shadow-lg bg-card border-border"
         >
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold">Notifications</span>
             <div className="flex gap-1 items-center">
               <button
-                onClick={() => setOnlyMine(!onlyAssignedToMe)}
+                onClick={() => sla.setOnlyMine(!sla.onlyAssignedToMe)}
                 className={cn(
                   'px-2 py-0.5 text-xs rounded transition-colors',
-                  onlyAssignedToMe
+                  sla.onlyAssignedToMe
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 )}
-                title={onlyAssignedToMe ? 'Showing only assigned to me' : 'Showing all org alerts'}
+                title={
+                  sla.onlyAssignedToMe ? 'Showing only assigned to me' : 'Showing all org alerts'
+                }
               >
                 Only mine
               </button>
               {hasSla && (
                 <button
-                  onClick={clearAll}
+                  onClick={sla.clearAll}
                   className="px-2 py-0.5 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
                   title="Dismiss all SLA breaches"
                 >
@@ -248,63 +279,130 @@ export const NotificationCenter = ({
               <button
                 onClick={() => setOpen(false)}
                 className="flex justify-center items-center w-6 h-6 rounded transition-colors text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Close"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          <div className="overflow-y-auto p-2 space-y-2 max-h-80">
-            {/* Queues (Suspicious/Spam arrivals) — aggregate rows that drill into the inbox. */}
-            {arrivalRows.length > 0 && (
-              <>
-                {showSectionLabels && (
-                  <p className="px-1 pt-1 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
-                    Queues
-                  </p>
-                )}
-                {arrivalRows.map(({ kind, label, queue, Icon, iconClass, count }) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => openQueue(kind, queue)}
-                    className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
-                  >
-                    <Icon className={cn('w-4 h-4 shrink-0', iconClass)} />
-                    <span className="flex-1 font-medium text-foreground">{label}</span>
-                    <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
-                      {count > 99 ? '99+' : count} new
-                    </span>
-                  </button>
-                ))}
-              </>
-            )}
-
-            {/* SLA breaches — itemized. */}
-            {showSectionLabels && (
-              <p className="px-1 pt-2 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
-                SLA breaches
-              </p>
-            )}
-            {fetchError ? (
-              <p className="py-6 text-sm text-center text-destructive">Failed to load alerts</p>
-            ) : !hasSla ? (
-              arrivalRows.length === 0 && (
-                <p className="py-6 text-sm text-center text-muted-foreground">No notifications</p>
-              )
+          <div className="overflow-y-auto p-2 space-y-2 max-h-96">
+            {isEmpty ? (
+              <p className="py-6 text-sm text-center text-muted-foreground">No notifications</p>
             ) : (
               <>
-                {notifications.map((notif) => (
-                  <SLABreachItem
-                    key={`${notif.type}-${notif.id}-${notif.receivedAt}`}
-                    notification={notif}
-                    onDismiss={dismiss}
-                  />
-                ))}
-                {total > notifications.length && (
-                  <p className="py-2 text-xs text-center text-muted-foreground">
-                    +{total - notifications.length} more — use Clear all to dismiss all alerts
-                  </p>
+                {/* Queues (Suspicious/Spam arrivals) */}
+                {arrivalRows.length > 0 && (
+                  <>
+                    {showSectionLabels && <SectionLabel>Queues</SectionLabel>}
+                    {arrivalRows.map(({ kind, label, queue, Icon, iconClass, count }) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        onClick={() => openQueue(kind, queue)}
+                        className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                      >
+                        <Icon className={cn('w-4 h-4 shrink-0', iconClass)} />
+                        <span className="flex-1 font-medium text-foreground">{label}</span>
+                        <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
+                          {count > 99 ? '99+' : count} new
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {/* SLA breaches */}
+                {sla.fetchError ? (
+                  <p className="py-6 text-sm text-center text-destructive">Failed to load alerts</p>
+                ) : hasSla ? (
+                  <>
+                    {showSectionLabels && <SectionLabel>SLA breaches</SectionLabel>}
+                    {sla.notifications.map((notif) => (
+                      <SLABreachItem
+                        key={`${notif.type}-${notif.id}-${notif.receivedAt}`}
+                        notification={notif}
+                        onDismiss={sla.dismiss}
+                      />
+                    ))}
+                    {sla.total > sla.notifications.length && (
+                      <p className="py-2 text-xs text-center text-muted-foreground">
+                        +{sla.total - sla.notifications.length} more — use Clear all to dismiss all
+                      </p>
+                    )}
+                  </>
+                ) : null}
+
+                {/* Learning — auto-actions (admin only) */}
+                {learningNotes.length > 0 && (
+                  <>
+                    <SectionLabel>Auto-actions ({learningNotes.length})</SectionLabel>
+                    {learningNotes.slice(0, PANEL_PEEK_LIMIT).map((note) => (
+                      <button
+                        key={note.id}
+                        type="button"
+                        onClick={() => goToAiSettings()}
+                        className="flex gap-2 items-start p-2 w-full text-sm text-left rounded border transition-colors bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900 hover:bg-violet-100 dark:hover:bg-violet-950/50"
+                      >
+                        <Wand2 className="mt-0.5 w-3.5 h-3.5 shrink-0 text-violet-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-foreground">{note.summary}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {note.domain} · {note.actionType} · {formatRelativeTime(note.createdAt)}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                    {learningNotes.length > PANEL_PEEK_LIMIT && (
+                      <button
+                        type="button"
+                        onClick={() => goToAiSettings()}
+                        className="px-1 text-[11px] text-left transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        +{learningNotes.length - PANEL_PEEK_LIMIT} more — View all
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Learning — pending suggestions (admin only) */}
+                {learningSuggestions.length > 0 && (
+                  <>
+                    <SectionLabel>Pending suggestions ({learningSuggestions.length})</SectionLabel>
+                    {learningSuggestions.slice(0, PANEL_PEEK_LIMIT).map((sug) => {
+                      const summary =
+                        typeof sug.payload.title === 'string'
+                          ? sug.payload.title
+                          : typeof sug.payload.summary === 'string'
+                            ? sug.payload.summary
+                            : `${sug.suggestionType} (${sug.evidenceCount} signals)`;
+                      return (
+                        <button
+                          key={sug.id}
+                          type="button"
+                          onClick={() => goToAiSettings(sug.id)}
+                          className="flex gap-2 items-start p-2 w-full text-sm text-left rounded border transition-colors bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                        >
+                          <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-amber-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate text-foreground">{summary}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {sug.domain} · {formatRelativeTime(sug.createdAt)}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {learningSuggestions.length > PANEL_PEEK_LIMIT && (
+                      <button
+                        type="button"
+                        onClick={() => goToAiSettings()}
+                        className="px-1 text-[11px] text-left transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        +{learningSuggestions.length - PANEL_PEEK_LIMIT} more — View all
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
