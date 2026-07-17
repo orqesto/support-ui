@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Bell, X, AlertTriangle, Clock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   type SLABreachNotification,
   type UseSLANotificationsResult,
 } from '@/hooks/useSLANotifications';
+import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
+
+// Notification Center (P3): one bell that unifies SLA breaches (itemized) with the
+// Suspicious/Spam arrival queues (aggregate count rows that drill into the inbox). The
+// learning bell + needs-routing badge stay separate until P4. Pure-SLA users see the same
+// bell they had — the Queues section only appears when there are arrivals.
 
 const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
@@ -25,7 +31,7 @@ const formatBreachAmount = (minutes: number): string => {
   return mins > 0 ? `${hours}h ${mins}m over` : `${hours}h over`;
 };
 
-const NotificationItem = ({
+const SLABreachItem = ({
   notification,
   onDismiss,
 }: {
@@ -102,7 +108,21 @@ const NotificationItem = ({
   );
 };
 
-export const SLANotificationBell = ({
+// Suspicious/Spam arrival queues surfaced as aggregate rows. `queue` is the inbox URL
+// filter value (`/messages?queue=…`); `kind` is the notification kind whose unread count
+// drives the badge and gets cleared on click.
+const ARRIVAL_QUEUES: {
+  kind: ArrivalKind;
+  label: string;
+  queue: string;
+  Icon: typeof ShieldAlert;
+  iconClass: string;
+}[] = [
+  { kind: 'suspicious_arrival', label: 'Suspicious', queue: 'suspicious', Icon: ShieldAlert, iconClass: 'text-purple-500' },
+  { kind: 'spam_arrival', label: 'Spam', queue: 'spam', Icon: Ban, iconClass: 'text-red-500' },
+];
+
+export const NotificationCenter = ({
   notifications,
   total,
   unreadCount,
@@ -119,6 +139,19 @@ export const SLANotificationBell = ({
   });
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
+  const { counts: arrivalCounts, clearKind } = useNotificationCounts();
+
+  const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
+    ...entry,
+    count: arrivalCounts[entry.kind] ?? 0,
+  })).filter((entry) => entry.count > 0);
+  const arrivalTotal = arrivalRows.reduce((sum, entry) => sum + entry.count, 0);
+  const badgeCount = unreadCount + arrivalTotal;
+  const hasSla = notifications.length > 0;
+  // Section labels only when both kinds of content are present, so a pure-SLA (or
+  // pure-arrival) bell stays as uncluttered as before.
+  const showSectionLabels = arrivalRows.length > 0 && hasSla;
 
   // Close when clicking outside
   useEffect(() => {
@@ -137,7 +170,8 @@ export const SLANotificationBell = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // Mark all read after the panel becomes visible, not before it renders.
+  // Mark SLA breaches read once the panel is visible (existing behaviour). Arrival queues
+  // are NOT auto-cleared — the agent clears a queue by clicking its row (= "reviewed").
   useEffect(() => {
     if (open && unreadCount > 0) markAllRead();
   }, [open]);
@@ -151,14 +185,18 @@ export const SLANotificationBell = ({
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
       if (spaceBelow >= panelHeight || spaceBelow >= spaceAbove) {
-        // open downward
         setPanelPos({ top: rect.bottom + 8, left });
       } else {
-        // open upward
         setPanelPos({ bottom: window.innerHeight - rect.top + 8, left });
       }
     }
     setOpen((prev) => !prev);
+  };
+
+  const openQueue = (kind: ArrivalKind, queue: string) => {
+    clearKind(kind).catch(() => {}); // per-user "reviewed" clear (fire-and-forget)
+    navigate(`/messages?queue=${queue}`);
+    setOpen(false);
   };
 
   return (
@@ -167,12 +205,12 @@ export const SLANotificationBell = ({
         ref={buttonRef}
         onClick={handleOpen}
         className="flex relative justify-center items-center w-8 h-8 rounded-md transition-colors hover:bg-accent text-foreground/70 hover:text-foreground"
-        title="SLA breach alerts"
+        title="Notifications"
       >
         <Bell className="w-4 h-4" />
-        {unreadCount > 0 && (
+        {badgeCount > 0 && (
           <span className="absolute top-0.5 right-0.5 flex justify-center items-center w-4 h-4 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {badgeCount > 9 ? '9+' : badgeCount}
           </span>
         )}
       </button>
@@ -184,7 +222,7 @@ export const SLANotificationBell = ({
           className="fixed z-50 w-80 rounded-lg border shadow-lg bg-card border-border"
         >
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
-            <span className="text-sm font-semibold">SLA Alerts</span>
+            <span className="text-sm font-semibold">Notifications</span>
             <div className="flex gap-1 items-center">
               <button
                 onClick={() => setOnlyMine(!onlyAssignedToMe)}
@@ -198,10 +236,11 @@ export const SLANotificationBell = ({
               >
                 Only mine
               </button>
-              {notifications.length > 0 && (
+              {hasSla && (
                 <button
                   onClick={clearAll}
                   className="px-2 py-0.5 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+                  title="Dismiss all SLA breaches"
                 >
                   Clear all
                 </button>
@@ -216,14 +255,47 @@ export const SLANotificationBell = ({
           </div>
 
           <div className="overflow-y-auto p-2 space-y-2 max-h-80">
+            {/* Queues (Suspicious/Spam arrivals) — aggregate rows that drill into the inbox. */}
+            {arrivalRows.length > 0 && (
+              <>
+                {showSectionLabels && (
+                  <p className="px-1 pt-1 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
+                    Queues
+                  </p>
+                )}
+                {arrivalRows.map(({ kind, label, queue, Icon, iconClass, count }) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => openQueue(kind, queue)}
+                    className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                  >
+                    <Icon className={cn('w-4 h-4 shrink-0', iconClass)} />
+                    <span className="flex-1 font-medium text-foreground">{label}</span>
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
+                      {count > 99 ? '99+' : count} new
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
+
+            {/* SLA breaches — itemized. */}
+            {showSectionLabels && (
+              <p className="px-1 pt-2 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
+                SLA breaches
+              </p>
+            )}
             {fetchError ? (
               <p className="py-6 text-sm text-center text-destructive">Failed to load alerts</p>
-            ) : notifications.length === 0 ? (
-              <p className="py-6 text-sm text-center text-muted-foreground">No SLA alerts</p>
+            ) : !hasSla ? (
+              arrivalRows.length === 0 && (
+                <p className="py-6 text-sm text-center text-muted-foreground">No notifications</p>
+              )
             ) : (
               <>
                 {notifications.map((notif) => (
-                  <NotificationItem
+                  <SLABreachItem
                     key={`${notif.type}-${notif.id}-${notif.receivedAt}`}
                     notification={notif}
                     onDismiss={dismiss}

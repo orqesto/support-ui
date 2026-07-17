@@ -38,7 +38,7 @@ import { useNeedsRoutingCount } from '@/hooks/useNeedsRoutingCount';
 import { useTicketsCount } from '@/hooks/useTicketsCount';
 import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
-import { SLANotificationBell } from './SLANotificationBell';
+import { NotificationCenter } from './NotificationCenter';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
 import { LearningNotificationBell } from './LearningNotificationBell';
 import { LicenseExpiryBanner } from './LicenseExpiryBanner';
@@ -525,7 +525,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </div>
                 <div className="flex flex-shrink-0 gap-1 items-center">
                   <LearningNotificationBell {...learningNotifications} />
-                  <SLANotificationBell {...slaNotifications} />
+                  <NotificationCenter {...slaNotifications} />
                   <ThemeToggle />
                 </div>
               </div>
@@ -563,7 +563,7 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
             <div className="flex gap-1 items-center">
               <LearningNotificationBell {...learningNotifications} />
-              <SLANotificationBell {...slaNotifications} />
+              <NotificationCenter {...slaNotifications} />
               <ThemeToggle />
             </div>
           </header>
