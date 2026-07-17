@@ -89,6 +89,8 @@ const PERMISSION_POLICY_TEMPLATE = `{
 
 const EMPTY_CONFIG: BedrockConfig = {
   region: 'us-east-1',
+  accessKeyId: '',
+  secretAccessKey: '',
   roleArn: '',
   externalId: '',
   defaultModel: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
@@ -225,9 +227,12 @@ export const BedrockProviderCard = ({
     if (!canSubmit) {
       return;
     }
-    // Direct mode: strip roleArn/externalId so the backend uses the host's own
-    // AWS identity instead of AssumeRole.
-    const payload = useAssumeRole ? config : { ...config, roleArn: '', externalId: '' };
+    // Keep only the credentials for the active mode so the backend picks the
+    // right one: AssumeRole → keep roleArn/externalId, clear static keys;
+    // direct → keep static keys (if any), clear roleArn/externalId.
+    const payload = useAssumeRole
+      ? { ...config, accessKeyId: '', secretAccessKey: '' }
+      : { ...config, roleArn: '', externalId: '' };
     onSave(payload);
     handleReset();
   };
@@ -244,7 +249,11 @@ export const BedrockProviderCard = ({
         {
           region: config.region,
           modelId: config.defaultModel,
-          ...(useAssumeRole && { roleArn: config.roleArn, externalId: config.externalId }),
+          ...(useAssumeRole
+            ? { roleArn: config.roleArn, externalId: config.externalId }
+            : config.accessKeyId && config.secretAccessKey
+              ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
+              : {}),
         }
       );
       setTestResult(response.data.data);
@@ -463,6 +472,46 @@ export const BedrockProviderCard = ({
                       Paste this into your IAM role's trust policy
                       Condition.StringEquals.sts:ExternalId. Generated per-org; required for
                       AssumeRole to succeed.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {!useAssumeRole && (
+                <>
+                  <div>
+                    <label htmlFor="bedrock-access-key" className="text-sm font-medium">
+                      AWS Access Key ID
+                    </label>
+                    <input
+                      id="bedrock-access-key"
+                      type="text"
+                      autoComplete="off"
+                      value={config.accessKeyId ?? ''}
+                      onChange={(event) => setConfig({ ...config, accessKeyId: event.target.value })}
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground font-mono text-xs"
+                      placeholder="AKIA…"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="bedrock-secret-key" className="text-sm font-medium">
+                      AWS Secret Access Key
+                    </label>
+                    <input
+                      id="bedrock-secret-key"
+                      type="password"
+                      autoComplete="off"
+                      value={config.secretAccessKey ?? ''}
+                      onChange={(event) =>
+                        setConfig({ ...config, secretAccessKey: event.target.value })
+                      }
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground font-mono text-xs"
+                      placeholder="••••••••"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Optional. Paste an IAM user's key to use Bedrock without any server-side AWS
+                      setup — stored encrypted, same as other providers' keys. Leave both blank to
+                      use the server's own AWS identity (env vars / instance role).
                     </p>
                   </div>
                 </>

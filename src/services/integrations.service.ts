@@ -66,6 +66,10 @@ export type LocalEmbeddingsConfig = {
 
 export type BedrockConfig = {
   region: string;
+  // Static AWS keys (optional) — pasted in the UI, stored encrypted, same as
+  // the OpenAI/Anthropic apiKey. When set, used directly (no env / no role).
+  accessKeyId?: string;
+  secretAccessKey?: string;
   roleArn: string;
   externalId: string;
   defaultModel: string;
