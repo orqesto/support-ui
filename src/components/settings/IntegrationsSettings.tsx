@@ -5,7 +5,6 @@ import { JiraIntegrationCard } from '@/components/settings/integrations/JiraInte
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
 import { TelegramIntegrationCard } from '@/components/settings/integrations/TelegramIntegrationCard';
 import type { AlertState } from '@/components/settings/integrations/types';
-import { ObjectStorageConfigCard } from '@/components/settings/providers/ObjectStorageConfigCard';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
@@ -102,18 +101,6 @@ export const IntegrationsSettings = () => {
           onShowAlert={setAlertDialog}
           defaultKB={true}
         />
-      </div>
-
-      {/* Object Storage */}
-      <div className="space-y-6">
-        <div className="pt-4 border-t">
-          <h3 className="text-base font-semibold">Object Storage</h3>
-          <p className="text-sm text-muted-foreground">
-            Where attachments and knowledge-base files are stored (your own S3 bucket, or Odly's
-            managed storage by default)
-          </p>
-        </div>
-        <ObjectStorageConfigCard />
       </div>
 
       <AlertDialog
