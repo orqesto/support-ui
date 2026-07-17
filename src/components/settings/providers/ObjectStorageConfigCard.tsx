@@ -42,10 +42,18 @@ const EMPTY_FORM: StorageForm = {
 const inputClass =
   'px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground';
 
+// Accept a bare host (`fsn1.your-objectstorage.com`) and normalize to a full
+// URL so the backend's url() validation passes — most people paste the host.
+const normalizeEndpoint = (raw: string): string | undefined => {
+  const value = raw.trim();
+  if (!value) return undefined;
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+};
+
 // Payload shared by Test and Save — omit blanks so the backend treats missing
 // creds as "ambient identity" and a missing secret as "keep the stored one".
 const toPayload = (form: StorageForm) => ({
-  endpoint: form.endpoint.trim() || undefined,
+  endpoint: normalizeEndpoint(form.endpoint),
   region: form.region.trim(),
   bucket: form.bucket.trim(),
   prefix: form.prefix.trim() || undefined,
