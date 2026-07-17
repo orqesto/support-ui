@@ -40,7 +40,6 @@ import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationCenter } from './NotificationCenter';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
-import { LearningNotificationBell } from './LearningNotificationBell';
 import { LicenseExpiryBanner } from './LicenseExpiryBanner';
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
@@ -524,8 +523,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   </div>
                 </div>
                 <div className="flex flex-shrink-0 gap-1 items-center">
-                  <LearningNotificationBell {...learningNotifications} />
-                  <NotificationCenter {...slaNotifications} />
+                  <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
                   <ThemeToggle />
                 </div>
               </div>
@@ -562,8 +560,7 @@ export const Layout = ({ children }: LayoutProps) => {
               </h2>
             </div>
             <div className="flex gap-1 items-center">
-              <LearningNotificationBell {...learningNotifications} />
-              <NotificationCenter {...slaNotifications} />
+              <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
               <ThemeToggle />
             </div>
           </header>
