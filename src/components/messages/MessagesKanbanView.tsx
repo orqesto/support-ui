@@ -192,7 +192,7 @@ const KanbanColumn = ({
         <span className="flex-1 min-w-0 text-sm font-semibold truncate">{col.label}</span>
         {/* P2: unread auto-arrival badge (Suspicious/Spam). Click = "reviewed" → clears
             for this user (PATCH /read-all?kind=). Distinct from the neutral total count. */}
-        {(newCount ?? 0) > 0 && (
+        {typeof newCount === 'number' && newCount > 0 && (
           <button
             type="button"
             onClick={onClearNew}

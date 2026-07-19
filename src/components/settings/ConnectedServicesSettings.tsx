@@ -4,9 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { AIProvidersSettings } from './AIProvidersSettings';
 import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
+import { ObjectStorageConfigCard } from './providers/ObjectStorageConfigCard';
 import { TicketAutomationSettings } from './TicketAutomationSettings';
 
-type ServiceSection = 'message-sources' | 'ticket-automation' | 'ai-providers' | 'chat-widgets';
+type ServiceSection =
+  | 'message-sources'
+  | 'ticket-automation'
+  | 'ai-providers'
+  | 'chat-widgets'
+  | 'object-storage';
 
 type Props = {
   isGlobalAdmin: boolean;
@@ -25,7 +31,7 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
       'message-sources',
       'ticket-automation',
       ...(isGlobalAdmin
-        ? (['ai-providers', 'chat-widgets'] as ServiceSection[])
+        ? (['ai-providers', 'chat-widgets', 'object-storage'] as ServiceSection[])
         : []),
     ],
     [isGlobalAdmin]
@@ -55,6 +61,7 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
       ? [
           { id: 'ai-providers' as ServiceSection, label: 'AI Providers', description: 'Configure OpenAI, Anthropic and models' },
           { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
+          { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket' },
         ]
       : []),
   ];
@@ -92,6 +99,7 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
       {active === 'ticket-automation' && <TicketAutomationSettings />}
       {isGlobalAdmin && active === 'ai-providers' && <AIProvidersSettings />}
       {isGlobalAdmin && active === 'chat-widgets' && <ChatWidgetSettings />}
+      {isGlobalAdmin && active === 'object-storage' && <ObjectStorageConfigCard />}
     </div>
   );
 };
