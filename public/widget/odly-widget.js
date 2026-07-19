@@ -70,7 +70,7 @@
 
     /* Quick-action buttons (Skip / Connect with our team) */
     '#odly-widget-root .odly-actions{display:flex;flex-wrap:wrap;gap:8px;align-self:flex-start;margin-top:-2px}',
-    '#odly-widget-root .odly-action-btn{cursor:pointer;border:1px solid var(--odly-primary,#0070F3);background:#fff;color:var(--odly-primary,#0070F3);border-radius:20px;padding:7px 14px;font-size:13px;font-weight:500;line-height:1;transition:background .15s,color .15s}',
+    '#odly-widget-root .odly-action-btn{cursor:pointer;touch-action:manipulation;border:1px solid var(--odly-primary,#0070F3);background:#fff;color:var(--odly-primary,#0070F3);border-radius:20px;padding:9px 16px;font-size:13px;font-weight:500;line-height:1;transition:background .15s,color .15s}',
     '#odly-widget-root .odly-action-btn:hover{background:var(--odly-primary,#0070F3);color:#fff}',
 
     /* Typing indicator */
@@ -96,8 +96,15 @@
     /* Mobile: go fullscreen so the panel can never clip off-screen (the old
        calc(100vw-20px) + right:-10px math overflowed the right edge, cutting off
        the input + send button on narrow viewports). position:fixed inset:0
-       detaches it from the toggle's offset entirely. */
-    '@media(max-width:440px){#odly-chat{position:fixed;top:0;left:0;right:0;bottom:0;width:auto;max-width:none;height:auto;max-height:none;border-radius:0}#odly-widget-root.odly-left #odly-chat{left:0;right:0}}'
+       detaches it from the toggle's offset entirely.
+       - height:100dvh tracks the *visible* viewport (dynamic units), so the input
+         row isn't hidden behind the browser chrome. When the on-screen keyboard
+         opens, syncViewport() further pins height/top to window.visualViewport so
+         the input stays above the keyboard (dvh alone doesn't react to keyboards).
+       - Hide the floating toggle while the panel is open: fullscreen, it would
+         otherwise float over the input/send at the bottom-right and swallow taps
+         (the header × already closes the chat). */
+    '@media(max-width:440px){#odly-chat{position:fixed;top:0;left:0;right:0;bottom:0;width:auto;max-width:none;height:100dvh;max-height:none;border-radius:0}#odly-widget-root.odly-left #odly-chat{left:0;right:0}#odly-chat.odly-open ~ #odly-toggle{display:none}}'
   ].join('\n');
   document.head.appendChild(STYLES);
 
@@ -451,15 +458,46 @@
   }
 
   // ─── Toggle ──────────────────────────────────────────────────────────
+  // Keep the fullscreen mobile panel sized to the *visible* viewport. When the
+  // on-screen keyboard opens, the layout viewport doesn't shrink, so a plain
+  // position:fixed;bottom:0 input row slides behind the keyboard ("weird, but not
+  // always" — only when typing). visualViewport reports the real visible area, so
+  // we pin the panel to it. Desktop / wide viewports keep the CSS-driven sizing.
+  function syncViewport() {
+    var vv = window.visualViewport;
+    if (!vv || !isOpen || window.innerWidth > 440) {
+      chat.style.top = '';
+      chat.style.bottom = '';
+      chat.style.height = '';
+      return;
+    }
+    chat.style.top = vv.offsetTop + 'px';
+    chat.style.bottom = 'auto';
+    chat.style.height = vv.height + 'px';
+  }
+
   function toggleChat() {
     isOpen = !isOpen;
     if (isOpen) {
       chat.classList.add('odly-open');
       toggle.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
       renderChat();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncViewport);
+        window.visualViewport.addEventListener('scroll', syncViewport);
+        syncViewport();
+      }
     } else {
       chat.classList.remove('odly-open');
       toggle.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', syncViewport);
+        window.visualViewport.removeEventListener('scroll', syncViewport);
+      }
+      // Drop the inline viewport overrides so the toggle/panel reset cleanly.
+      chat.style.top = '';
+      chat.style.bottom = '';
+      chat.style.height = '';
     }
   }
 
