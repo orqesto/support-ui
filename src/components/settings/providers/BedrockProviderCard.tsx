@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useBedrockModels } from '@/hooks/useBedrockModels';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { TRUST_POLICY_TEMPLATE, PERMISSION_POLICY_TEMPLATE } from './bedrockPolicyTemplates';
 import type { BedrockConfig, Integration } from '@/services/integrations.service';
 import type { AIModel } from '@/types/aiProviders';
 import { BEDROCK_MODELS, BEDROCK_REGIONS } from '@/types/aiProviders';
@@ -27,6 +29,9 @@ type BedrockTestResult = {
   latencyMs: number;
   errorMessage?: string;
   errorStep?: 'assumeRole' | 'invoke';
+  // AWS account the test authenticated as. If this isn't the account whose CLI
+  // works, static env keys are shadowing the instance profile (wrong-account trap).
+  account?: string;
 };
 
 type Props = {
@@ -43,49 +48,6 @@ type Props = {
   onSave: (config: BedrockConfig) => void;
   onCancel: () => void;
 };
-
-const TRUST_POLICY_TEMPLATE = `{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": {
-      "AWS": "arn:aws:iam::<ODLY_AWS_ACCOUNT_ID>:role/odly-bedrock-trust"
-    },
-    "Action": "sts:AssumeRole",
-    "Condition": {
-      "StringEquals": {
-        "sts:ExternalId": "<paste-external-id-here>"
-      }
-    }
-  }]
-}`;
-
-const PERMISSION_POLICY_TEMPLATE = `{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "InvokeModels",
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream"
-      ],
-      "Resource": [
-        "arn:aws:bedrock:*::foundation-model/*",
-        "arn:aws:bedrock:*:*:inference-profile/*"
-      ]
-    },
-    {
-      "Sid": "DiscoverModels",
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:ListFoundationModels",
-        "bedrock:ListInferenceProfiles"
-      ],
-      "Resource": "*"
-    }
-  ]
-}`;
 
 const EMPTY_CONFIG: BedrockConfig = {
   region: 'us-east-1',
@@ -112,7 +74,7 @@ const CopyButton = ({ value, label }: { value: string; label: string }) => {
   return (
     <Button variant="outline" size="sm" onClick={click} aria-label={`Copy ${label}`}>
       {done ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-      <span className="ml-1 hidden sm:inline">{done ? 'Copied' : 'Copy'}</span>
+      <span className="hidden ml-1 sm:inline">{done ? 'Copied' : 'Copy'}</span>
     </Button>
   );
 };
@@ -120,7 +82,7 @@ const CopyButton = ({ value, label }: { value: string; label: string }) => {
 const PolicyBlock = ({ title, body }: { title: string; body: string }) => (
   <div className="space-y-1">
     <div className="flex justify-between items-center">
-      <h6 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+      <h6 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
         {title}
       </h6>
       <CopyButton value={body} label={title} />
@@ -128,6 +90,28 @@ const PolicyBlock = ({ title, body }: { title: string; body: string }) => (
     <pre className="overflow-x-auto p-2 text-xs rounded border bg-muted">{body}</pre>
   </div>
 );
+
+type CredMode = 'keys' | 'assume_role' | 'instance_profile';
+
+// Credential-mode radio options. `instance_profile` is self-hosted only.
+const CRED_MODES: { mode: CredMode; label: string; hint: string; selfHostedOnly?: boolean }[] = [
+  {
+    mode: 'keys',
+    label: 'IAM access keys',
+    hint: "Paste an IAM user's Access Key + Secret — stored encrypted, works with no server-side AWS setup.",
+  },
+  {
+    mode: 'assume_role',
+    label: 'Cross-account IAM role (AssumeRole)',
+    hint: 'Odly assumes a role in a separate AWS account (SaaS / multi-tenant).',
+  },
+  {
+    mode: 'instance_profile',
+    label: 'EC2 instance profile',
+    hint: "Use this server's own EC2 role via IMDS — no keys. Reads only from the instance profile, so stray environment keys can't override it. Requires IMDS hop-limit 2 on Docker.",
+    selfHostedOnly: true,
+  },
+];
 
 // ─── card ─────────────────────────────────────────────────────────────────
 export const BedrockProviderCard = ({
@@ -146,11 +130,13 @@ export const BedrockProviderCard = ({
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [config, setConfig] = useState<BedrockConfig>(EMPTY_CONFIG);
-  // Connection mode. Off = direct: this server's own AWS identity (ECS task
-  // role / EC2 instance profile / IRSA / env creds) invokes Bedrock — the
-  // single-account self-hosted case, region + model only. On = cross-account:
-  // Odly assumes a role in a separate AWS account (SaaS / multi-tenant).
-  const [useAssumeRole, setUseAssumeRole] = useState(false);
+  // Credential mode: keys (paste IAM access keys) · assume_role (cross-account STS) ·
+  // instance_profile (self-hosted EC2 role via IMDS — ignores env keys; the wrong-account fix).
+  const [credMode, setCredMode] = useState<CredMode>('keys');
+  // The instance-profile option is a self-hosted opt-in (BEDROCK_ALLOW_INSTANCE_PROFILE);
+  // hidden on managed so a tenant can't assume Odly's own instance identity.
+  const { data: backendVersion } = useBackendVersion();
+  const allowInstanceProfile = backendVersion?.bedrockInstanceProfile ?? false;
   const [showSetup, setShowSetup] = useState(false);
   const [testResult, setTestResult] = useState<BedrockTestResult | null>(null);
   const [testing, setTesting] = useState(false);
@@ -180,7 +166,7 @@ export const BedrockProviderCard = ({
   // Auto-fetch a fresh externalId when opening the form for a NEW integration.
   // For edits the existing externalId is loaded from the integration row.
   useEffect(() => {
-    if (showForm && useAssumeRole && !editingId && !config.externalId) {
+    if (showForm && credMode === 'assume_role' && !editingId && !config.externalId) {
       let cancelled = false;
       setGeneratingId(true);
       apiClient
@@ -202,13 +188,22 @@ export const BedrockProviderCard = ({
       };
     }
     return undefined;
-  }, [showForm, useAssumeRole, editingId, config.externalId]);
+  }, [showForm, credMode, editingId, config.externalId]);
 
   const handleEdit = (integration: Integration) => {
     const cfg = { ...EMPTY_CONFIG, ...(integration.config as BedrockConfig) };
     setConfig(cfg);
-    // Infer the mode from the saved row: a roleArn means it was cross-account.
-    setUseAssumeRole(Boolean(cfg.roleArn));
+    // Infer the mode from the saved row: instance-profile flag wins (but only if
+    // it's still available on this deployment, else fall back so the radio group
+    // never renders with nothing selected), else a roleArn means cross-account,
+    // else static keys.
+    setCredMode(
+      cfg.useInstanceProfile && allowInstanceProfile
+        ? 'instance_profile'
+        : cfg.roleArn
+          ? 'assume_role'
+          : 'keys'
+    );
     setShowForm(true);
     setTestResult(null);
     onEdit(integration);
@@ -216,7 +211,7 @@ export const BedrockProviderCard = ({
 
   const handleReset = () => {
     setConfig(EMPTY_CONFIG);
-    setUseAssumeRole(false);
+    setCredMode('keys');
     setShowForm(false);
     setShowSetup(false);
     setTestResult(null);
@@ -228,11 +223,20 @@ export const BedrockProviderCard = ({
       return;
     }
     // Keep only the credentials for the active mode so the backend picks the
-    // right one: AssumeRole → keep roleArn/externalId, clear static keys;
-    // direct → keep static keys (if any), clear roleArn/externalId.
-    const payload = useAssumeRole
-      ? { ...config, accessKeyId: '', secretAccessKey: '' }
-      : { ...config, roleArn: '', externalId: '' };
+    // right one and stray fields from another mode can't win the priority order.
+    const payload: BedrockConfig =
+      credMode === 'assume_role'
+        ? { ...config, accessKeyId: '', secretAccessKey: '', useInstanceProfile: false }
+        : credMode === 'instance_profile'
+          ? {
+              ...config,
+              accessKeyId: '',
+              secretAccessKey: '',
+              roleArn: '',
+              externalId: '',
+              useInstanceProfile: true,
+            }
+          : { ...config, roleArn: '', externalId: '', useInstanceProfile: false };
     onSave(payload);
     handleReset();
   };
@@ -249,11 +253,13 @@ export const BedrockProviderCard = ({
         {
           region: config.region,
           modelId: config.defaultModel,
-          ...(useAssumeRole
+          ...(credMode === 'assume_role'
             ? { roleArn: config.roleArn, externalId: config.externalId }
-            : config.accessKeyId && config.secretAccessKey
-              ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
-              : {}),
+            : credMode === 'instance_profile'
+              ? { useInstanceProfile: true }
+              : config.accessKeyId && config.secretAccessKey
+                ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
+                : {}),
         }
       );
       setTestResult(response.data.data);
@@ -275,7 +281,7 @@ export const BedrockProviderCard = ({
   const canSubmit =
     !!config.region &&
     !!config.defaultModel &&
-    (!useAssumeRole || (!!config.roleArn && !!config.externalId));
+    (credMode !== 'assume_role' || (!!config.roleArn && !!config.externalId));
 
   return (
     <Card>
@@ -293,7 +299,7 @@ export const BedrockProviderCard = ({
               setShowForm(!showForm);
             }}
           >
-            <Plus className="mr-1 w-4 h-4 hidden sm:block" />
+            <Plus className="hidden mr-1 w-4 h-4 sm:block" />
             {integrations.length > 0 ? 'Update' : 'Add'} Bedrock
           </Button>
         </div>
@@ -324,7 +330,7 @@ export const BedrockProviderCard = ({
                           {integration.enabled ? 'Enabled' : 'Disabled'}
                         </span>
                         <label
-                          className="relative inline-flex items-center cursor-pointer"
+                          className="inline-flex relative items-center cursor-pointer"
                           aria-label={`Toggle ${integration.name}`}
                         >
                           <input
@@ -406,20 +412,30 @@ export const BedrockProviderCard = ({
             </h4>
 
             <div className="space-y-3">
-              <div className="rounded-md border bg-background p-3">
-                <label className="flex gap-2 items-center text-sm font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useAssumeRole}
-                    onChange={(event) => setUseAssumeRole(event.target.checked)}
-                  />
-                  Use a cross-account IAM role (AssumeRole)
-                </label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Leave off for a self-hosted deployment — this server's own AWS identity (ECS task
-                  role / EC2 instance profile / IRSA) invokes Bedrock directly, so you only need a
-                  region and a model. Turn on to have Odly assume a role in a separate AWS account.
-                </p>
+              <div className="p-3 rounded-md border bg-background">
+                <p className="mb-2 text-sm font-medium">AWS credentials</p>
+                <div className="space-y-2">
+                  {CRED_MODES.filter((opt) => !opt.selfHostedOnly || allowInstanceProfile).map(
+                    (opt) => (
+                      <label
+                        key={opt.mode}
+                        className="flex gap-2 items-start text-sm cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name="bedrock-cred-mode"
+                          className="mt-1"
+                          checked={credMode === opt.mode}
+                          onChange={() => setCredMode(opt.mode)}
+                        />
+                        <span>
+                          <span className="font-medium">{opt.label}</span>
+                          <span className="block text-xs text-muted-foreground">{opt.hint}</span>
+                        </span>
+                      </label>
+                    )
+                  )}
+                </div>
               </div>
 
               <ReactSelect
@@ -432,7 +448,7 @@ export const BedrockProviderCard = ({
                 }))}
               />
 
-              {useAssumeRole && (
+              {credMode === 'assume_role' && (
                 <>
                   <div>
                     <label htmlFor="bedrock-role-arn" className="text-sm font-medium">
@@ -461,7 +477,7 @@ export const BedrockProviderCard = ({
                         type="text"
                         value={config.externalId}
                         readOnly
-                        className="px-3 py-2 flex-1 rounded-md border bg-muted text-foreground border-border font-mono text-xs"
+                        className="flex-1 px-3 py-2 font-mono text-xs rounded-md border bg-muted text-foreground border-border"
                         placeholder={generatingId ? 'Generating…' : ''}
                       />
                       {config.externalId && (
@@ -477,7 +493,7 @@ export const BedrockProviderCard = ({
                 </>
               )}
 
-              {!useAssumeRole && (
+              {credMode === 'keys' && (
                 <>
                   <div>
                     <label htmlFor="bedrock-access-key" className="text-sm font-medium">
@@ -488,8 +504,10 @@ export const BedrockProviderCard = ({
                       type="text"
                       autoComplete="off"
                       value={config.accessKeyId ?? ''}
-                      onChange={(event) => setConfig({ ...config, accessKeyId: event.target.value })}
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground font-mono text-xs"
+                      onChange={(event) =>
+                        setConfig({ ...config, accessKeyId: event.target.value })
+                      }
+                      className="px-3 py-2 w-full font-mono text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                       placeholder="AKIA…"
                     />
                   </div>
@@ -505,16 +523,23 @@ export const BedrockProviderCard = ({
                       onChange={(event) =>
                         setConfig({ ...config, secretAccessKey: event.target.value })
                       }
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground font-mono text-xs"
+                      className="px-3 py-2 w-full font-mono text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                       placeholder="••••••••"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Optional. Paste an IAM user's key to use Bedrock without any server-side AWS
-                      setup — stored encrypted, same as other providers' keys. Leave both blank to
-                      use the server's own AWS identity (env vars / instance role).
+                      Paste an IAM user's key to use Bedrock without any server-side AWS setup —
+                      stored encrypted, same as other providers' keys.
                     </p>
                   </div>
                 </>
+              )}
+
+              {credMode === 'instance_profile' && allowInstanceProfile && (
+                <div className="p-3 text-xs rounded-md border bg-background text-muted-foreground">
+                  Uses this server's EC2 instance profile (IMDS) — no keys needed. Attach an IAM
+                  role with Bedrock access to the instance and, on Docker, set the IMDS hop-limit to
+                  2. Use <strong>Test Connection</strong> to confirm which AWS account resolves.
+                </div>
               )}
 
               <div>
@@ -550,32 +575,33 @@ export const BedrockProviderCard = ({
               </div>
 
               {/* IAM setup helper — AssumeRole (cross-account) only */}
-              {useAssumeRole && (
-              <div className="rounded-md border bg-background">
-                <button
-                  type="button"
-                  className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium text-left"
-                  onClick={() => setShowSetup(!showSetup)}
-                  aria-expanded={showSetup}
-                >
-                  <span>AWS IAM setup instructions</span>
-                  {showSetup ? (
-                    <ChevronUp className="w-4 h-4" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" />
+              {credMode === 'assume_role' && (
+                <div className="rounded-md border bg-background">
+                  <button
+                    type="button"
+                    className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium text-left"
+                    onClick={() => setShowSetup(!showSetup)}
+                    aria-expanded={showSetup}
+                  >
+                    <span>AWS IAM setup instructions</span>
+                    {showSetup ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+                  {showSetup && (
+                    <div className="p-3 space-y-3 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        Create a role in your AWS account with the policies below. Paste the
+                        External ID from above into the trust policy's Condition block before
+                        saving.
+                      </p>
+                      <PolicyBlock title="Trust Policy" body={TRUST_POLICY_TEMPLATE} />
+                      <PolicyBlock title="Permission Policy" body={PERMISSION_POLICY_TEMPLATE} />
+                    </div>
                   )}
-                </button>
-                {showSetup && (
-                  <div className="p-3 space-y-3 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      Create a role in your AWS account with the policies below. Paste the External
-                      ID from above into the trust policy's Condition block before saving.
-                    </p>
-                    <PolicyBlock title="Trust Policy" body={TRUST_POLICY_TEMPLATE} />
-                    <PolicyBlock title="Permission Policy" body={PERMISSION_POLICY_TEMPLATE} />
-                  </div>
-                )}
-              </div>
+                </div>
               )}
 
               {/* Test button + result */}
@@ -592,7 +618,7 @@ export const BedrockProviderCard = ({
                 {testResult && (
                   <div
                     className={`p-3 text-xs rounded border ${
-                      testResult.assumeRole === 'ok' && testResult.invoke === 'ok'
+                      testResult.invoke === 'ok'
                         ? 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300'
                         : 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
                     }`}
@@ -601,6 +627,15 @@ export const BedrockProviderCard = ({
                       AssumeRole: {testResult.assumeRole} · Invoke: {testResult.invoke} ·{' '}
                       {testResult.latencyMs}ms
                     </p>
+                    {testResult.account && (
+                      <p className="mt-1">
+                        Authenticated as AWS account <strong>{testResult.account}</strong>
+                        <span className="opacity-70">
+                          {' '}
+                          — must match the account where you enabled model access.
+                        </span>
+                      </p>
+                    )}
                     {testResult.errorMessage && (
                       <p className="mt-1">
                         Failed at <strong>{testResult.errorStep}</strong>: {testResult.errorMessage}
