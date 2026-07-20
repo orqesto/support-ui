@@ -34,7 +34,7 @@ import { apiClient } from '@/lib/api-client';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
-import { useNeedsRoutingCount } from '@/hooks/useNeedsRoutingCount';
+import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { useTicketsCount } from '@/hooks/useTicketsCount';
 import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
@@ -242,7 +242,10 @@ export const Layout = ({ children }: LayoutProps) => {
       : user?.organizationId;
 
   const { sessions, removeSession } = useEmailProcessing(true, organizationFilter ?? undefined);
-  const { data: needsRoutingCount = 0 } = useNeedsRoutingCount();
+  // needs_routing badge now sources from the unified notification counts (P4) so
+  // the sidebar and the Notification Center bell share one number.
+  const { counts: notificationCounts } = useNotificationCounts();
+  const needsRoutingCount = notificationCounts['needs_routing'] ?? 0;
   // Tickets nav stays hidden until the org has its first ticket. `undefined` =
   // still loading; treat as "show" to avoid a brief flash that hides the link
   // for users who do have tickets.
