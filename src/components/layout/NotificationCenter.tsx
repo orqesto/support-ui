@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban, Wand2, Lightbulb } from 'lucide-react';
+import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban, Wand2, Lightbulb, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   type SLABreachNotification,
@@ -10,11 +10,12 @@ import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifica
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
-// SLA breaches (itemized), the Suspicious/Spam arrival queues (aggregate drill-in rows),
-// and the learning engine's auto-actions + pending suggestions (admin-only). Replaces the
-// separate SLA and learning bells. needs-routing stays on the sidebar for now (its bus
-// migration needs a backend `needs_routing` kind). Pure-SLA users see essentially the same
-// bell — extra sections/labels only appear when there's content for them.
+// SLA breaches (itemized), the Suspicious/Spam arrival queues + needs-routing depth
+// (aggregate drill-in rows), and the learning engine's auto-actions + pending
+// suggestions (admin-only). Replaces the separate SLA and learning bells. needs-routing
+// is a LIVE queue count from the unified `/counts` surface (P4) — read-only here, not a
+// per-user arrival. Pure-SLA users see essentially the same bell — extra sections/labels
+// only appear when there's content for them.
 
 const PANEL_PEEK_LIMIT = 5;
 
@@ -160,6 +161,13 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   })).filter((entry) => entry.count > 0);
   const arrivalTotal = arrivalRows.reduce((sum, entry) => sum + entry.count, 0);
 
+  // needs_routing (P4): a LIVE queue count, not a per-user arrival — so it is
+  // NOT clearable and is deliberately kept OUT of the bell's numeric badge
+  // (otherwise the bell would stay perpetually "unread" while any conv awaits
+  // routing). It surfaces as a read-only drill-in row instead.
+  const needsRoutingCount = arrivalCounts['needs_routing'] ?? 0;
+  const hasQueues = arrivalRows.length > 0 || needsRoutingCount > 0;
+
   const showLearning = learning.isOrgAdmin;
   const learningNotes = showLearning ? learning.notifications : [];
   const learningSuggestions = showLearning ? learning.suggestions : [];
@@ -169,10 +177,9 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasLearning = learningNotes.length > 0 || learningSuggestions.length > 0;
   const badgeCount = sla.unreadCount + arrivalTotal + learningUnread;
   // With multiple content types present, label each section; otherwise stay minimal.
-  const sectionCount =
-    (arrivalRows.length > 0 ? 1 : 0) + (hasSla ? 1 : 0) + (hasLearning ? 1 : 0);
+  const sectionCount = (hasQueues ? 1 : 0) + (hasSla ? 1 : 0) + (hasLearning ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
-  const isEmpty = arrivalRows.length === 0 && !hasSla && !hasLearning;
+  const isEmpty = !hasQueues && !hasSla && !hasLearning;
 
   // Close when clicking outside
   useEffect(() => {
@@ -291,8 +298,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
               <p className="py-6 text-sm text-center text-muted-foreground">No notifications</p>
             ) : (
               <>
-                {/* Queues (Suspicious/Spam arrivals) */}
-                {arrivalRows.length > 0 && (
+                {/* Queues (Suspicious/Spam arrivals + needs-routing depth) */}
+                {hasQueues && (
                   <>
                     {showSectionLabels && <SectionLabel>Queues</SectionLabel>}
                     {arrivalRows.map(({ kind, label, queue, Icon, iconClass, count }) => (
@@ -309,6 +316,22 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         </span>
                       </button>
                     ))}
+                    {needsRoutingCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigate('/needs-routing');
+                          setOpen(false);
+                        }}
+                        className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                      >
+                        <GitBranch className="w-4 h-4 shrink-0 text-amber-500" />
+                        <span className="flex-1 font-medium text-foreground">Needs Routing</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                          {needsRoutingCount > 99 ? '99+' : needsRoutingCount}
+                        </span>
+                      </button>
+                    )}
                   </>
                 )}
 
