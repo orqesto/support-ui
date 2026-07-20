@@ -72,6 +72,9 @@ export type BedrockConfig = {
   secretAccessKey?: string;
   roleArn: string;
   externalId: string;
+  // Self-hosted only: authenticate via the box's EC2 instance profile (IMDS),
+  // ignoring any env/pasted keys. Gated server-side by BEDROCK_ALLOW_INSTANCE_PROFILE.
+  useInstanceProfile?: boolean;
   defaultModel: string;
   inferenceProfileArn?: string;
 };
