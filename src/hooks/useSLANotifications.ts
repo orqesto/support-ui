@@ -8,6 +8,7 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import { apiClient } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 
 export type SLABreachNotification = {
@@ -89,6 +90,13 @@ export const useSLANotifications = () => {
   // BE `notificationsController` honours X-Department-Context. Force callback
   // identity to change on dept toggle so consumer effects re-fetch in scope.
   const selectedDeptKey = useDepartmentContextKey();
+  // Same for ORGANIZATION: the list is org-scoped server-side (X-Organization-Context,
+  // set by apiClient from selectedOrganizationId). Without this trigger a global admin
+  // switching orgs kept seeing the previous org's SLA breaches / arrivals — the react-query
+  // counts hook re-keys on org, but this hook is plain useState and would go stale.
+  const orgKey = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
 
   const fetchNotifications = useCallback(() => {
     apiClient
@@ -124,9 +132,10 @@ export const useSLANotifications = () => {
       .catch(() => {
         setFetchError(true);
       });
-  // selectedDeptKey is a refresh trigger (read via axios interceptor).
+  // selectedDeptKey + orgKey are refresh triggers (both read via the axios
+  // interceptor headers, not as args) — changing either re-fetches in the new scope.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeptKey]);
+  }, [selectedDeptKey, orgKey]);
 
   const setOnlyMine = useCallback((value: boolean) => {
     const previousValue = prefsRef.current.onlyAssignedToMe;
