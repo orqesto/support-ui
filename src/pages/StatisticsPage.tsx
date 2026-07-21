@@ -56,9 +56,26 @@ export const StatisticsPage = () => {
     const parsed = Number(new URLSearchParams(location.search).get('days'));
     return parsed > 0 ? parsed : 30;
   });
+  // Channel filter — shared across tabs, synced to the URL (?channel=). 'all' = no filter.
+  const [channel, setChannelState] = useState<string>(
+    () => new URLSearchParams(location.search).get('channel') ?? 'all'
+  );
+  const syncUrl = (nextDays: number, nextChannel: string) => {
+    const params = new URLSearchParams();
+    params.set('days', String(nextDays));
+    if (nextChannel !== 'all') params.set('channel', nextChannel);
+    navigate(
+      { pathname: '/statistics', search: `?${params.toString()}`, hash: activeTab },
+      { replace: true }
+    );
+  };
   const setDays = (next: number) => {
     setDaysState(next);
-    navigate({ pathname: '/statistics', search: `?days=${next}`, hash: activeTab }, { replace: true });
+    syncUrl(next, channel);
+  };
+  const setChannel = (next: string) => {
+    setChannelState(next);
+    syncUrl(days, next);
   };
   const [teamError, setTeamError] = useState<string | null>(null);
 
@@ -70,6 +87,7 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<SpeedToLeadData>(
     statisticsService.getSpeedToLead,
     days,
+    channel,
     activeTab === 'performance' || activeTab === 'overview'
   );
 
@@ -81,6 +99,7 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<UserStatEntry[]>(
     statisticsService.getTeamStats,
     days,
+    channel,
     activeTab === 'team',
     setTeamError
   );
@@ -93,12 +112,14 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<MessageStatsData>(
     statisticsService.getMessageStats,
     days,
+    channel,
     activeTab === 'performance' || activeTab === 'overview'
   );
 
   const { data: slaSummary } = useStatisticsFetch<SLASummary>(
     statisticsService.getSlaSummary,
     days,
+    channel,
     activeTab === 'overview'
   );
 
@@ -109,6 +130,7 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
     days,
+    channel,
     activeTab === 'overview'
   );
 
@@ -119,6 +141,7 @@ export const StatisticsPage = () => {
   } = useStatisticsFetch<LabelStatEntry[]>(
     statisticsService.getLabelStats,
     days,
+    channel,
     activeTab === 'performance'
   );
 
@@ -225,26 +248,43 @@ export const StatisticsPage = () => {
           </Button>
         </div>
 
-        {/* Shared filter bar — one date window drives every tab (department is
-            controlled globally via the X-Department-Context selector). */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Period:</span>
-          <div className="flex rounded-md border border-border overflow-hidden">
-            {DAYS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setDays(opt.value)}
-                className={cn(
-                  'px-3 py-1.5 text-sm font-medium transition-colors',
-                  days === opt.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+        {/* Shared filter bar — one date window + channel drive every tab
+            (department is controlled globally via the X-Department-Context selector). */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Period:</span>
+            <div className="flex rounded-md border border-border overflow-hidden">
+              {DAYS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDays(opt.value)}
+                  className={cn(
+                    'px-3 py-1.5 text-sm font-medium transition-colors',
+                    days === opt.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Channel:</span>
+            <select
+              value={channel}
+              onChange={(event) => setChannel(event.target.value)}
+              className="px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="all">All Channels</option>
+              <option value="email">Email</option>
+              <option value="telegram">Telegram</option>
+              <option value="slack">Slack</option>
+              <option value="chat">Chat Widget</option>
+              <option value="other">Other</option>
+            </select>
           </div>
         </div>
 

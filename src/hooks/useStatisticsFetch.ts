@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
 
-type FetchFn<T> = (days: number) => Promise<{ success: boolean; data?: T }>;
+type FetchFn<T> = (days: number, channel?: string) => Promise<{ success: boolean; data?: T }>;
 
 type UseStatisticsFetchResult<T> = {
   data: T | null;
@@ -19,6 +19,7 @@ type UseStatisticsFetchResult<T> = {
 export function useStatisticsFetch<T>(
   fetchFn: FetchFn<T>,
   days: number,
+  channel: string,
   active: boolean,
   onError?: (message: string) => void
 ): UseStatisticsFetchResult<T> {
@@ -36,7 +37,7 @@ export function useStatisticsFetch<T>(
       else setLoading(true);
       setError(null);
       try {
-        const response = await fetchFn(days);
+        const response = await fetchFn(days, channel);
         if (response.success && response.data !== undefined) {
           setData(response.data);
         } else if (!response.success) {
@@ -58,7 +59,7 @@ export function useStatisticsFetch<T>(
     // checkbox, callback identity must change so the consumer effect re-runs
     // and the axios interceptor sees the new X-Department-Context header.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [days, fetchFn, onError, selectedDeptKey]
+    [days, channel, fetchFn, onError, selectedDeptKey]
   );
 
   useEffect(() => {

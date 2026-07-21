@@ -175,6 +175,10 @@ export type SpeedToLeadData = {
   leadQualConfigured: boolean;
 };
 
+/** Build the `days` (+ optional `channel`) query string for statistics endpoints. */
+const statsQuery = (days: number, channel?: string): string =>
+  channel && channel !== 'all' ? `days=${days}&channel=${channel}` : `days=${days}`;
+
 export const statisticsService = {
   getAll: async (): Promise<ApiResponse<StatisticsData>> => {
     const response = await apiClient.get<{ success: boolean; data: StatisticsData }>(
@@ -183,9 +187,9 @@ export const statisticsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
-  getTeamStats: async (days = 30): Promise<ApiResponse<UserStatEntry[]>> => {
+  getTeamStats: async (days = 30, channel?: string): Promise<ApiResponse<UserStatEntry[]>> => {
     const response = await apiClient.get<{ success: boolean; data: UserStatEntry[] }>(
-      `/api/statistics/team?days=${days}`
+      `/api/statistics/team?${statsQuery(days, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
@@ -197,36 +201,39 @@ export const statisticsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
-  getMessageStats: async (days = 30): Promise<ApiResponse<MessageStatsData>> => {
+  getMessageStats: async (days = 30, channel?: string): Promise<ApiResponse<MessageStatsData>> => {
     const response = await apiClient.get<{ success: boolean; data: MessageStatsData }>(
-      `/api/statistics/messages?days=${days}`
+      `/api/statistics/messages?${statsQuery(days, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getAIStats: async (days = 30): Promise<ApiResponse<AIStatsData>> => {
+  getAIStats: async (days = 30, channel?: string): Promise<ApiResponse<AIStatsData>> => {
     const response = await apiClient.get<{ success: boolean; data: AIStatsData }>(
-      `/api/statistics/ai?days=${days}`
+      `/api/statistics/ai?${statsQuery(days, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getLabelStats: async (days = 30): Promise<ApiResponse<LabelStatEntry[]>> => {
+  getLabelStats: async (days = 30, channel?: string): Promise<ApiResponse<LabelStatEntry[]>> => {
     const response = await apiClient.get<{ success: boolean; data: LabelStatEntry[] }>(
-      `/api/statistics/labels?days=${days}`
+      `/api/statistics/labels?${statsQuery(days, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getSpeedToLead: async (days = 30): Promise<ApiResponse<SpeedToLeadData>> => {
+  getSpeedToLead: async (days = 30, channel?: string): Promise<ApiResponse<SpeedToLeadData>> => {
     const response = await apiClient.get<{ success: boolean; data: SpeedToLeadData }>(
-      `/api/statistics/speed-to-lead?days=${days}`
+      `/api/statistics/speed-to-lead?${statsQuery(days, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
   // Adapter so the SLA summary flows through useStatisticsFetch on the Overview
   // KPI row (getSummary takes {days} and returns raw; the hook needs (days)=>{success,data}).
-  getSlaSummary: async (days = 30): Promise<ApiResponse<SLASummary>> => {
+  // SLA summary is not channel-filtered on the BE, so `channel` is accepted (for a
+  // uniform fetchFn signature) but ignored.
+  getSlaSummary: async (days = 30, _channel?: string): Promise<ApiResponse<SLASummary>> => {
+    void _channel;
     const data = await slaService.getSummary({ days });
     return { success: true, data };
   },
