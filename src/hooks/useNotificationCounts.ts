@@ -51,17 +51,25 @@ export const useNotificationCounts = () => {
   // our own (dept-scoped) counts. The ping is content-free — the server does the scoping.
   useEffect(() => {
     getSocket();
+    const invalidate = (): void => {
+      void queryClient
+        .invalidateQueries({ queryKey: ['notification-counts', orgId, deptKey] })
+        .catch(() => {});
+    };
     const handleNew = (data: unknown) => {
       const kind = (data as { kind?: string } | null)?.kind;
-      if (kind && ARRIVAL_KINDS.has(kind)) {
-        queryClient
-          .invalidateQueries({ queryKey: ['notification-counts', orgId, deptKey] })
-          .catch(() => {});
-      }
+      if (kind && ARRIVAL_KINDS.has(kind)) invalidate();
     };
+    // A conversation was removed (deleted / routed out of needs_routing / reclassified)
+    // → its live queue counts (needs_routing depth, spam/suspicious arrivals) may drop.
+    // Without this the badge lingered until the 60s poll — the "I removed messages but
+    // the count didn't clear" symptom.
+    const handleRemoved = () => invalidate();
     subscribeToEvent('notification:new', handleNew);
+    subscribeToEvent('notification:removed', handleRemoved);
     return () => {
       unsubscribeFromEvent('notification:new', handleNew);
+      unsubscribeFromEvent('notification:removed', handleRemoved);
       releaseSocket();
     };
   }, [queryClient, orgId, deptKey]);
