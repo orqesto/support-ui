@@ -49,6 +49,12 @@ import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { logger } from '@/lib/logger';
 
+// URL params that are list-view-only filters. Kanban groups by status itself and
+// ignores these, so arriving via a filter-bearing link (dashboard cards, or the
+// Notification Center's Spam/Suspicious queue rows → ?queue=spam) must force the
+// list ("threads") view — otherwise the click looks like a no-op on Kanban.
+const LIST_ONLY_FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAtRisk', 'queue'];
+
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -62,8 +68,7 @@ export const MessagesPage = () => {
     // ?mode= → force list view. Kanban groups by status itself, so any of
     // these URLs in kanban look like a no-op. Bookmarks that explicitly
     // request ?mode=kanban still win above.
-    const FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAtRisk'];
-    if (FILTER_PARAMS.some((key) => searchParams.get(key))) return 'threads';
+    if (LIST_ONLY_FILTER_PARAMS.some((key) => searchParams.get(key))) return 'threads';
     const stored = localStorage.getItem('messages_view_mode');
     if (stored === 'contacts' || stored === 'kanban') return stored;
     return 'threads';
@@ -77,6 +82,10 @@ export const MessagesPage = () => {
     const mode = searchParams.get('mode');
     if (mode === 'contacts') setDisplayMode('contacts');
     else if (mode === 'kanban') setDisplayMode('kanban');
+    // No explicit ?mode= but a list-only filter arrived (e.g. Notification Center
+    // "Spam"/"Suspicious" → ?queue=spam while already on Kanban): switch to the
+    // list view so the queue is actually shown instead of a silent no-op.
+    else if (LIST_ONLY_FILTER_PARAMS.some((key) => searchParams.get(key))) setDisplayMode('threads');
   }, [searchParams]);
   useEffect(() => {
     localStorage.setItem('messages_view_mode', displayMode);
