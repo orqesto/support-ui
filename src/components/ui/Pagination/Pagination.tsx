@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../Button';
 import { getPaginationPageButtonClasses } from './pagination.styles';
@@ -13,6 +14,33 @@ export const Pagination = ({
 }: PaginationProps) => {
   const startItem = (currentPage - 1) * limit + 1;
   const endItem = Math.min(currentPage * limit, total);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Changing page should bring the user back to the top of the list — otherwise
+  // they land mid-list on the new page. Different pages scroll differently: some
+  // use an inner overflow container (e.g. the Messages list panel), others use
+  // window/page scroll. Reset EVERY scrollable ancestor plus the window (not just
+  // the first match), on the next frame so it runs after the new page starts
+  // rendering, using instant scroll so a mid-list content swap can't interrupt it.
+  const scrollListToTop = () => {
+    requestAnimationFrame(() => {
+      let node: HTMLElement | null = rootRef.current?.parentElement ?? null;
+      while (node) {
+        const overflowY = getComputedStyle(node).overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+          node.scrollTop = 0;
+        }
+        node = node.parentElement;
+      }
+      window.scrollTo({ top: 0 });
+      document.scrollingElement?.scrollTo({ top: 0 });
+    });
+  };
+
+  const changePage = (page: number) => {
+    onPageChange(page);
+    scrollListToTop();
+  };
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
@@ -47,7 +75,10 @@ export const Pagination = ({
   };
 
   return (
-    <div className="flex flex-wrap justify-center sm:justify-between items-center gap-2 px-4 py-3 rounded-b-lg border-t border-border bg-card">
+    <div
+      ref={rootRef}
+      className="flex flex-wrap justify-center sm:justify-between items-center gap-2 px-4 py-3 rounded-b-lg border-t border-border bg-card"
+    >
       {/* Information about shown items */}
       <div className="flex flex-wrap justify-center sm:justify-start items-center text-sm text-muted-foreground w-full sm:w-auto">
         Showing <span className="mx-1 font-medium">{startItem}</span> to{' '}
@@ -60,7 +91,7 @@ export const Pagination = ({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onPageChange(currentPage - 1)}
+          onClick={() => changePage(currentPage - 1)}
           disabled={currentPage === 1 || loading}
         >
           <ChevronLeft className="w-4 h-4 mr-1" />
@@ -74,7 +105,7 @@ export const Pagination = ({
                 variant="outline"
                 size="sm"
                 key={page.toString()}
-                onClick={() => onPageChange(page)}
+                onClick={() => changePage(page)}
                 disabled={loading}
                 className={getPaginationPageButtonClasses(page === currentPage)}
               >
@@ -94,7 +125,7 @@ export const Pagination = ({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={() => changePage(currentPage + 1)}
           disabled={currentPage === totalPages || loading}
         >
           Next
