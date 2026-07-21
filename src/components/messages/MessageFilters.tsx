@@ -10,6 +10,7 @@ import {
   Monitor,
   FileText,
   ChevronDown,
+  SlidersHorizontal,
   AlertTriangle,
   AlertCircle,
 } from 'lucide-react';
@@ -174,7 +175,7 @@ export const MessageFilters = ({
         <div className="flex gap-2 justify-between items-center">
           {/* Left: icon + title + badge + count */}
           <button
-            className="flex gap-2 items-center min-w-0 cursor-pointer"
+            className="flex gap-2 items-center min-w-0 cursor-pointer -mx-2 px-2 py-1.5 rounded-md transition-colors hover:bg-accent"
             onClick={() => setExpanded((val) => !val)}
             aria-expanded={expanded}
           >
@@ -506,6 +507,32 @@ export const MessageFilters = ({
           )}
         </div>
         {/* end collapsible body */}
+
+        {/* Footer toggle — a polished pill "handle" centered on a hairline
+            divider. The whole strip is the click target (large hit area, unlike
+            the small header chevron); the pill lifts/brightens on hover. Full-
+            bleed to the card edges (negative margins cancel CardContent's p-4). */}
+        <div className="-mx-4 -mb-4 mt-2">
+          <button
+            type="button"
+            onClick={() => setExpanded((val) => !val)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Hide filters' : 'Show filters'}
+            className="flex relative justify-center items-center w-full h-10 rounded-b-lg cursor-pointer group"
+          >
+            <span className="absolute right-4 left-4 top-0 border-t border-border/60" />
+            <span className="inline-flex relative -mt-px gap-1.5 items-center px-3.5 py-1.5 text-xs font-medium rounded-full border shadow-sm transition-colors border-border bg-card text-muted-foreground group-hover:border-primary/50 group-hover:bg-accent group-hover:text-foreground">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>{expanded ? 'Hide filters' : 'Show filters'}</span>
+              {!expanded && activeFilterCount > 0 && (
+                <span className="font-semibold text-primary">{activeFilterCount}</span>
+              )}
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : 'group-hover:translate-y-0.5'}`}
+              />
+            </span>
+          </button>
+        </div>
       </CardContent>
     </Card>
   );
