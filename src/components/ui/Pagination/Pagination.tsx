@@ -17,20 +17,29 @@ export const Pagination = ({
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Changing page should bring the user back to the top of the list — otherwise
-  // they land mid-list on the new page. Scroll the nearest scrollable ancestor
-  // (inner overflow container or the window) to the top, then defer to the page.
+  // they land mid-list on the new page. Different pages scroll differently: some
+  // use an inner overflow container (e.g. the Messages list panel), others use
+  // window/page scroll. Reset EVERY scrollable ancestor plus the window (not just
+  // the first match), on the next frame so it runs after the new page starts
+  // rendering, using instant scroll so a mid-list content swap can't interrupt it.
+  const scrollListToTop = () => {
+    requestAnimationFrame(() => {
+      let node: HTMLElement | null = rootRef.current?.parentElement ?? null;
+      while (node) {
+        const overflowY = getComputedStyle(node).overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+          node.scrollTop = 0;
+        }
+        node = node.parentElement;
+      }
+      window.scrollTo({ top: 0 });
+      document.scrollingElement?.scrollTo({ top: 0 });
+    });
+  };
+
   const changePage = (page: number) => {
     onPageChange(page);
-    let node = rootRef.current?.parentElement ?? null;
-    while (node) {
-      const overflowY = getComputedStyle(node).overflowY;
-      if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
-        node.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      node = node.parentElement;
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollListToTop();
   };
 
   const getPageNumbers = () => {
