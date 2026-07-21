@@ -174,7 +174,7 @@ export const MessageFilters = ({
         <div className="flex gap-2 justify-between items-center">
           {/* Left: icon + title + badge + count */}
           <button
-            className="flex gap-2 items-center min-w-0 cursor-pointer"
+            className="flex gap-2 items-center min-w-0 cursor-pointer -mx-2 px-2 py-1.5 rounded-md transition-colors hover:bg-accent"
             onClick={() => setExpanded((val) => !val)}
             aria-expanded={expanded}
           >
@@ -506,6 +506,20 @@ export const MessageFilters = ({
           )}
         </div>
         {/* end collapsible body */}
+
+        {/* Full-width bottom toggle bar — a large, obvious open/close target
+            (the header chevron alone is a small hit area). Spans to the card
+            edges (negative margins cancel CardContent's p-4) as a footer. */}
+        <button
+          onClick={() => setExpanded((val) => !val)}
+          aria-expanded={expanded}
+          className="flex gap-1.5 justify-center items-center -mx-4 -mb-4 px-4 py-2.5 text-xs font-medium border-t transition-colors cursor-pointer text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+        >
+          {expanded ? 'Hide filters' : 'Show filters'}
+          <ChevronDown
+            className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
       </CardContent>
     </Card>
   );
