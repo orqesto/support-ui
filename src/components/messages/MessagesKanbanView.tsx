@@ -76,6 +76,7 @@ function buildSharedFilters(filters: FilterState): Record<string, string> {
   // SLA toggles — same params the list view sends; every column spreads these.
   if (filters.slaBreached) api.slaBreached = 'true';
   if (filters.slaAtRisk) api.slaAtRisk = 'true';
+  if (filters.hasAttachments) api.hasAttachments = 'true';
   if (filters.linked === 'has_ticket') api.hasTicket = 'true';
   else if (filters.linked === 'has_jira') api.hasJiraTicket = 'true';
   if (filters.threadStatus && filters.threadStatus !== 'all')
