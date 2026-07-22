@@ -10,12 +10,10 @@ import {
   Monitor,
   FileText,
   ChevronDown,
-  SlidersHorizontal,
   AlertTriangle,
   AlertCircle,
 } from 'lucide-react';
 import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -98,6 +96,16 @@ const LINKED_TICKET_STATUS_OPTIONS = [
   { value: 'closed', label: 'Closed' },
 ] as const;
 
+// Dot color per priority for the active-filter chips.
+const PRIORITY_DOT: Record<string, string> = {
+  low: '#22c55e',
+  medium: '#eab308',
+  high: '#f97316',
+  critical: '#ef4444',
+};
+
+type ActiveChip = { key: string; label: string; dot?: string; onRemove: () => void };
+
 type MessageFiltersProps = {
   filters: FilterState;
   pendingSearch: string;
@@ -168,52 +176,105 @@ export const MessageFilters = ({
   const start = (pagination.page - 1) * pagination.limit + 1;
   const end = Math.min(pagination.page * pagination.limit, pagination.total);
 
+  // Active filters as removable chips — so what's applied is visible (and
+  // droppable) without expanding the panel. Names are resolved from the loaded
+  // sources/departments/labels where the filter value is an id.
+  const optLabel = (opts: readonly { value: string; label: string }[], val?: string) =>
+    opts.find((opt) => opt.value === val)?.label ?? val ?? '';
+  const activeChips: ActiveChip[] = [];
+  if (filters.messageSourceId && filters.messageSourceId !== 'all') {
+    const name = messageSources.find((src) => String(src.id) === filters.messageSourceId)?.name;
+    activeChips.push({ key: 'messageSourceId', label: `Source: ${name ?? '—'}`, onRemove: () => onFilterChange('messageSourceId', 'all') });
+  }
+  if (filters.departmentId && filters.departmentId !== 'all') {
+    const name = activeDepts.find((dept) => String(dept.id) === filters.departmentId)?.name;
+    activeChips.push({ key: 'departmentId', label: `Dept: ${name ?? '—'}`, onRemove: () => onFilterChange('departmentId', 'all') });
+  }
+  if (!isKanban && filters.lifecycle && filters.lifecycle !== 'all') {
+    activeChips.push({ key: 'lifecycle', label: `Status: ${optLabel(LIFECYCLE_OPTIONS, filters.lifecycle)}`, onRemove: () => onFilterChange('lifecycle', 'all') });
+  }
+  if (!isKanban && filters.queue && filters.queue !== 'all') {
+    activeChips.push({ key: 'queue', label: `Queue: ${optLabel(QUEUE_OPTIONS, filters.queue)}`, onRemove: () => onFilterChange('queue', 'all') });
+  }
+  if (isKanban && filters.threadStatus && filters.threadStatus !== 'all') {
+    activeChips.push({ key: 'threadStatus', label: `Status: ${filters.threadStatus}`, onRemove: () => onFilterChange('threadStatus', 'all') });
+  }
+  if (filters.priority && filters.priority !== 'all') {
+    activeChips.push({ key: 'priority', label: `Priority: ${optLabel(PRIORITY_OPTIONS, filters.priority)}`, dot: PRIORITY_DOT[filters.priority], onRemove: () => onFilterChange('priority', 'all') });
+  }
+  if (filters.assigneeId && filters.assigneeId !== 'all') {
+    activeChips.push({ key: 'assigneeId', label: filters.assigneeId === 'me' ? 'Assignee: Me' : 'Assignee', onRemove: () => onFilterChange('assigneeId', 'all') });
+  }
+  if (filters.aiState && filters.aiState !== 'all') {
+    activeChips.push({ key: 'aiState', label: `AI: ${optLabel(AI_STATE_OPTIONS, filters.aiState)}`, onRemove: () => onFilterChange('aiState', 'all') });
+  }
+  if (filters.labelId && filters.labelId !== 'all') {
+    const name = labels.find((lab) => String(lab.id) === filters.labelId)?.name;
+    activeChips.push({ key: 'labelId', label: `Label: ${name ?? '—'}`, onRemove: () => onFilterChange('labelId', 'all') });
+  }
+  if (filters.linked && filters.linked !== 'all') {
+    activeChips.push({ key: 'linked', label: optLabel(LINKED_OPTIONS, filters.linked), onRemove: () => onFilterChange('linked', 'all') });
+  }
+  if (filters.search?.trim()) {
+    activeChips.push({ key: 'search', label: `Search: "${filters.search.trim()}"`, onRemove: () => { onFilterChange('search', ''); setPendingSearch(''); } });
+  }
+  if (filters.slaBreached) {
+    activeChips.push({ key: 'slaBreached', label: 'SLA Breach', dot: '#dc2626', onRemove: () => onFilterChange('slaBreached', false) });
+  }
+  if (filters.slaAtRisk) {
+    activeChips.push({ key: 'slaAtRisk', label: 'SLA At Risk', dot: '#f59e0b', onRemove: () => onFilterChange('slaAtRisk', false) });
+  }
+
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex gap-2 justify-between items-center">
-          {/* Left: icon + title + badge + count */}
+        {/* Header — ONE canonical toggle (the left cluster). Pagination and
+            "Clear all" live OUTSIDE it so clicking a stat can't collapse the
+            panel; the hit target is just icon + Filters + count + chevron. */}
+        <div className="flex gap-3 justify-between items-center">
           <button
-            className="flex gap-2 items-center min-w-0 cursor-pointer -mx-2 px-2 py-1.5 rounded-md transition-colors hover:bg-accent"
+            type="button"
             onClick={() => setExpanded((val) => !val)}
             aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse filters' : 'Expand filters'}
+            className="flex gap-2.5 items-center min-w-0 cursor-pointer -mx-2 px-2 py-1.5 rounded-lg transition-colors group hover:bg-accent"
           >
-            <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="grid place-items-center w-7 h-7 rounded-lg transition-colors shrink-0 bg-accent text-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+              <Filter className="w-3.5 h-3.5" />
+            </span>
             <span className="text-sm font-semibold">Filters</span>
             {activeFilterCount > 0 && (
-              <Badge variant="default" className="text-xs shrink-0">
+              <span className="inline-flex justify-center items-center h-5 rounded-full min-w-5 px-1.5 text-[11px] font-bold tabular-nums bg-primary text-primary-foreground">
                 {activeFilterCount}
-              </Badge>
-            )}
-            {!isKanban && pagination.total > 0 && (
-              <span className="hidden text-xs whitespace-nowrap text-muted-foreground sm:inline">
-                {start}–{end} of {pagination.total}
               </span>
             )}
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
             />
           </button>
 
-          {/* Right: count on mobile + Clear All */}
           <div className="flex gap-2 items-center shrink-0">
             {!isKanban && pagination.total > 0 && (
-              <span className="text-xs whitespace-nowrap text-muted-foreground sm:hidden">
-                {start}–{end} of {pagination.total}
+              <span className="hidden text-xs whitespace-nowrap text-muted-foreground sm:inline tabular-nums">
+                <b className="font-semibold text-foreground/70">
+                  {start}–{end}
+                </b>{' '}
+                of {pagination.total}
               </span>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearFilters}
-              className="h-8"
-              disabled={clearableFilterCount === 0}
-            >
-              <X className="mr-1 w-3 h-3" />
-              <span className="hidden sm:inline">Clear All</span>
-              <span className="sm:hidden">Clear</span>
-            </Button>
+            {clearableFilterCount > 0 && (
+              <>
+                <span className="hidden w-px h-4 bg-border sm:block" />
+                <button
+                  type="button"
+                  onClick={onClearFilters}
+                  className="flex gap-1 items-center px-2.5 h-8 rounded-lg transition-colors text-[13px] font-medium text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Clear all</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -235,10 +296,44 @@ export const MessageFilters = ({
           size="sm"
         />
 
-        {/* Collapsible body */}
+        {/* Active-filter chips (or empty state) — always visible so what's
+            applied is legible and removable without expanding the panel. */}
+        {activeChips.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {activeChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={`Remove ${chip.label}`}
+                className="flex gap-1.5 items-center pr-1.5 pl-2.5 h-7 rounded-full border text-[12px] font-medium transition-colors group border-border bg-accent/40 text-foreground hover:border-rose-400/50 hover:bg-rose-500/10"
+              >
+                {chip.dot && (
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: chip.dot }} />
+                )}
+                <span className="truncate max-w-[220px]">{chip.label}</span>
+                <span className="grid place-items-center w-4 h-4 rounded-full transition-colors text-muted-foreground group-hover:text-rose-500 group-hover:bg-rose-500/15">
+                  <X className="w-2.5 h-2.5" />
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[12.5px] text-muted-foreground">
+            No filters applied — showing all messages.
+          </p>
+        )}
+
+        {/* Collapsible body — animated open/close (single source: `expanded`). */}
         <div
-          className={`${expanded ? 'flex' : 'hidden'} flex-col gap-0 divide-y divide-border/40`}
+          className="overflow-hidden transition-all duration-300 ease-out"
+          style={
+            expanded
+              ? { maxHeight: 2000, opacity: 1 }
+              : { maxHeight: 0, opacity: 0, marginTop: '-1rem' }
+          }
         >
+          <div className="flex flex-col gap-0 pt-1 divide-y divide-border/40">
           {/* ── Channel ───────────────────────────────────────────── */}
           {activeGroups.length > 0 && (
             <FilterSection label="Channel">
@@ -505,34 +600,27 @@ export const MessageFilters = ({
               </ul>
             </div>
           )}
+          </div>
         </div>
         {/* end collapsible body */}
 
-        {/* Footer toggle — a solid full-width bar flush at the card's bottom
-            edge (negative margins cancel CardContent's p-4, rounded-b matches
-            the card). A subtle tinted fill + hairline top divider read it as an
-            interactive footer; it fills the width (no lonely floating control)
-            and the whole bar is the click target. */}
-        <div className="-mx-4 -mb-4 mt-4">
-          <button
-            type="button"
-            onClick={() => setExpanded((val) => !val)}
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Hide filters' : 'Show filters'}
-            className="flex gap-2 justify-center items-center px-4 py-3 w-full text-xs font-medium border-t transition-colors cursor-pointer rounded-b-lg text-muted-foreground bg-accent/30 border-border hover:bg-accent hover:text-foreground"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>{expanded ? 'Hide filters' : 'Show filters'}</span>
-            {!expanded && activeFilterCount > 0 && (
-              <span className="flex justify-center items-center rounded-full bg-primary text-white text-[10px] font-semibold h-4 min-w-4 px-1">
-                {activeFilterCount}
-              </span>
-            )}
-            <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-            />
-          </button>
-        </div>
+        {/* Convenience collapse — ONLY when the panel is open, so there's no
+            competing second toggle when collapsed and no duplicated badge/CTA.
+            The header is the single entry point; this just closes a long panel. */}
+        {expanded && (
+          <div className="-mx-4 -mb-4 mt-3">
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              aria-expanded={true}
+              aria-label="Collapse filters"
+              className="flex gap-1.5 justify-center items-center py-2.5 w-full border-t transition-colors cursor-pointer rounded-b-lg text-[11px] font-semibold tracking-wider uppercase border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+              Collapse
+            </button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
