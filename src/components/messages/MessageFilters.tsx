@@ -603,25 +603,27 @@ export const MessageFilters = ({
           </div>
         </div>
         {/* end collapsible body */}
-
-        {/* Convenience collapse — ONLY when the panel is open, so there's no
-            competing second toggle when collapsed and no duplicated badge/CTA.
-            The header is the single entry point; this just closes a long panel. */}
-        {expanded && (
-          <div className="-mx-4 -mb-4 mt-3">
-            <button
-              type="button"
-              onClick={() => setExpanded(false)}
-              aria-expanded={true}
-              aria-label="Collapse filters"
-              className="flex gap-1.5 justify-center items-center py-2.5 w-full border-t transition-colors cursor-pointer rounded-b-lg text-[11px] font-semibold tracking-wider uppercase border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <ChevronDown className="w-3.5 h-3.5 rotate-180" />
-              Collapse
-            </button>
-          </div>
-        )}
       </CardContent>
+
+      {/* Convenience collapse — sits flush at the CARD's bottom edge. It's
+          OUTSIDE CardContent and the wrapper's -mx-4/-mb-4 cancel the Card's own
+          p-4 (auto-width div full-bleeds correctly where a w-full button would
+          just shift). Only shown when open, so there's no competing second
+          toggle when collapsed — the header is the single entry point. */}
+      {expanded && (
+        <div className="-mx-4 -mb-4">
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            aria-expanded={true}
+            aria-label="Collapse filters"
+            className="flex gap-1.5 justify-center items-center py-2.5 w-full border-t transition-colors cursor-pointer rounded-b-lg text-[11px] font-semibold tracking-wider uppercase border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+            Collapse
+          </button>
+        </div>
+      )}
     </Card>
   );
 };
