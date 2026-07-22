@@ -508,29 +508,29 @@ export const MessageFilters = ({
         </div>
         {/* end collapsible body */}
 
-        {/* Footer toggle — a polished pill "handle" centered on a hairline
-            divider. The whole strip is the click target (large hit area, unlike
-            the small header chevron); the pill lifts/brightens on hover. Full-
-            bleed to the card edges (negative margins cancel CardContent's p-4). */}
-        <div className="-mx-4 -mb-4 mt-2">
+        {/* Footer toggle — a solid full-width bar flush at the card's bottom
+            edge (negative margins cancel CardContent's p-4, rounded-b matches
+            the card). A subtle tinted fill + hairline top divider read it as an
+            interactive footer; it fills the width (no lonely floating control)
+            and the whole bar is the click target. */}
+        <div className="-mx-4 -mb-4 mt-4">
           <button
             type="button"
             onClick={() => setExpanded((val) => !val)}
             aria-expanded={expanded}
             aria-label={expanded ? 'Hide filters' : 'Show filters'}
-            className="flex relative justify-center items-center w-full h-10 rounded-b-lg cursor-pointer group"
+            className="flex gap-2 justify-center items-center px-4 py-3 w-full text-xs font-medium border-t transition-colors cursor-pointer rounded-b-lg text-muted-foreground bg-accent/30 border-border hover:bg-accent hover:text-foreground"
           >
-            <span className="absolute right-4 left-4 top-0 border-t border-border/60" />
-            <span className="inline-flex relative -mt-px gap-1.5 items-center px-3.5 py-1.5 text-xs font-medium rounded-full border shadow-sm transition-colors border-border bg-card text-muted-foreground group-hover:border-primary/50 group-hover:bg-accent group-hover:text-foreground">
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>{expanded ? 'Hide filters' : 'Show filters'}</span>
-              {!expanded && activeFilterCount > 0 && (
-                <span className="font-semibold text-primary">{activeFilterCount}</span>
-              )}
-              <ChevronDown
-                className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : 'group-hover:translate-y-0.5'}`}
-              />
-            </span>
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>{expanded ? 'Hide filters' : 'Show filters'}</span>
+            {!expanded && activeFilterCount > 0 && (
+              <span className="flex justify-center items-center rounded-full bg-primary text-white text-[10px] font-semibold h-4 min-w-4 px-1">
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+            />
           </button>
         </div>
       </CardContent>
