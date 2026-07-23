@@ -4,18 +4,26 @@ import { apiClient } from '@/lib/api-client';
 // Missing entries here cause silent type widening at the API boundary:
 // the BE accepts `'detection'` / `'contradiction'` as valid filters, but
 // FE callers passing those would have been rejected at compile time.
+//
+// Declared is NOT functional. Only the first group is registered in the engine,
+// and even there most are 'planned' scaffolds (routing is the only 'live' loop;
+// spam is 'partial'). The RESERVED group has no producer/consumer at all — the
+// API accepts them for forward-compat, but they never emit a suggestion, so the
+// UI never renders them. Do not present them as active learning.
 export type LearningDomain =
-  | 'routing'
-  | 'spam'
-  | 'detection'
-  | 'contradiction'
+  // Registered in the engine (functional status varies — see BE engine/types.ts):
+  | 'routing' // live
+  | 'spam' // partial
+  | 'detection' // planned
+  | 'contradiction' // planned
+  | 'kb_quality' // planned
+  | 'auto_reply' // planned
+  // RESERVED — no producer/consumer today; never emits a suggestion:
   | 'category'
   | 'suggested_reply'
-  | 'auto_reply'
   | 'auto_reply_block'
   | 'kb_extraction'
   | 'kb_scope'
-  | 'kb_quality'
   | 'sentiment'
   | 'lead'
   | 'multi_topic'
