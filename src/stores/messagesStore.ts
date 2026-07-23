@@ -69,6 +69,9 @@ export type FilterState = {
    * enum so the two pills can light up together. */
   slaBreached?: boolean;
   slaAtRisk?: boolean;
+  /** Quick-filter toggle: show only conversations that have at least one
+   * attachment on any of their messages. Maps to the BE `hasAttachments` param. */
+  hasAttachments?: boolean;
   /** Inbox toolbar checkbox: hide convs that are waiting on the customer so
    * the list shows only items needing agent attention. Session-only (no URL
    * sync, no localStorage). */
@@ -117,6 +120,7 @@ export const defaultFilters: FilterState = {
   search: undefined,
   slaBreached: false,
   slaAtRisk: false,
+  hasAttachments: false,
 };
 
 const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string => {

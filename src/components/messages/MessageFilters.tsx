@@ -12,6 +12,7 @@ import {
   ChevronDown,
   AlertTriangle,
   AlertCircle,
+  Paperclip,
 } from 'lucide-react';
 import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Button } from '@/components/ui/Button';
@@ -223,6 +224,9 @@ export const MessageFilters = ({
   }
   if (filters.slaAtRisk) {
     activeChips.push({ key: 'slaAtRisk', label: 'SLA At Risk', dot: '#f59e0b', onRemove: () => onFilterChange('slaAtRisk', false) });
+  }
+  if (filters.hasAttachments) {
+    activeChips.push({ key: 'hasAttachments', label: 'Has Attachments', onRemove: () => onFilterChange('hasAttachments', false) });
   }
 
   return (
@@ -469,7 +473,7 @@ export const MessageFilters = ({
 
             {/* SLA toggle pills — shown in both list and kanban; they map to the
                 same slaBreached/slaAtRisk params every kanban column already sends. */}
-            <div className="flex gap-2 items-center pt-1">
+            <div className="flex flex-wrap gap-2 items-center pt-1">
                 <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
                 <button
                   type="button"
@@ -494,6 +498,19 @@ export const MessageFilters = ({
                 >
                   <AlertCircle className="w-3 h-3" />
                   SLA At Risk
+                </button>
+                <span className="w-px h-4 bg-border shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => onFilterChange('hasAttachments', !filters.hasAttachments)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    filters.hasAttachments
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <Paperclip className="w-3 h-3" />
+                  Has Attachments
                 </button>
             </div>
           </FilterSection>
