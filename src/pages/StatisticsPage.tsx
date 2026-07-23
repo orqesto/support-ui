@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
-import { BarChart3, Users, Activity, RefreshCw, Cpu } from 'lucide-react';
+import { BarChart3, Users, Activity, RefreshCw, Cpu, Coins } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
@@ -11,11 +11,14 @@ import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOvervie
 import { StatisticsTeamTab } from '@/components/statistics/StatisticsTeamTab';
 import { PerformanceTab } from '@/components/statistics/PerformanceTab';
 import { DiagnosticsTab } from '@/components/statistics/DiagnosticsTab';
+import { TokenUsageTab } from '@/components/statistics/TokenUsageTab';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 
-type TabType = 'overview' | 'performance' | 'team' | 'diagnostics';
-const VALID_TABS: TabType[] = ['overview', 'performance', 'team', 'diagnostics'];
+type TabType = 'overview' | 'performance' | 'team' | 'diagnostics' | 'tokens';
+const VALID_TABS: TabType[] = ['overview', 'performance', 'team', 'diagnostics', 'tokens'];
+// Admin-only tabs (internal AI/model + cost metrics).
+const ADMIN_TABS: TabType[] = ['diagnostics', 'tokens'];
 
 // Old per-source hashes now live inside the merged Performance tab.
 const LEGACY_TAB_REDIRECTS: Record<string, TabType> = {
@@ -40,7 +43,9 @@ export const StatisticsPage = () => {
   const hashTab: TabType = LEGACY_TAB_REDIRECTS[rawHash] ?? (rawHash as TabType);
   // Diagnostics is admin-only — a non-admin landing on #diagnostics falls back to Overview.
   const activeTab: TabType =
-    VALID_TABS.includes(hashTab) && (hashTab !== 'diagnostics' || isOrgAdmin) ? hashTab : 'overview';
+    VALID_TABS.includes(hashTab) && (!ADMIN_TABS.includes(hashTab) || isOrgAdmin)
+      ? hashTab
+      : 'overview';
 
   const handleTabChange = (tabId: TabType) => {
     navigate({ pathname: '/statistics', search: location.search, hash: tabId }, { replace: true });
@@ -223,7 +228,10 @@ export const StatisticsPage = () => {
     { id: 'team', label: 'Team Performance', icon: <Users className="w-4 h-4" /> },
     // Admin-only: AI/model internals split out of the customer-facing Overview.
     ...(isOrgAdmin
-      ? [{ id: 'diagnostics' as const, label: 'Diagnostics', icon: <Cpu className="w-4 h-4" /> }]
+      ? [
+          { id: 'diagnostics' as const, label: 'Diagnostics', icon: <Cpu className="w-4 h-4" /> },
+          { id: 'tokens' as const, label: 'Token Usage', icon: <Coins className="w-4 h-4" /> },
+        ]
       : []),
   ];
 
@@ -359,6 +367,12 @@ export const StatisticsPage = () => {
 
         {activeTab === 'diagnostics' && isOrgAdmin && (
           <DiagnosticsTab stats={stats} />
+        )}
+
+        {activeTab === 'tokens' && isOrgAdmin && (
+          <div id="panel-tokens" role="tabpanel">
+            <TokenUsageTab days={days} />
+          </div>
         )}
       </div>
     </Layout>
