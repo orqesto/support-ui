@@ -175,6 +175,32 @@ export type SpeedToLeadData = {
   leadQualConfigured: boolean;
 };
 
+export type TokenUsageData = {
+  totals: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    requests: number;
+  };
+  byProvider: Array<{
+    provider: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    requests: number;
+    percentage: number;
+  }>;
+  byModel: Array<{ model: string; provider: string; totalTokens: number; requests: number }>;
+  byFeature: Array<{ feature: string; totalTokens: number; requests: number; percentage: number }>;
+  daily: Array<{
+    date: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    requests: number;
+  }>;
+};
+
 /** Build the `days` (+ optional `channel`) query string for statistics endpoints. */
 const statsQuery = (days: number, channel?: string): string =>
   channel && channel !== 'all' ? `days=${days}&channel=${channel}` : `days=${days}`;
@@ -236,5 +262,23 @@ export const statisticsService = {
     void _channel;
     const data = await slaService.getSummary({ days });
     return { success: true, data };
+  },
+
+  // Token usage is not channel-scoped; `channel` is accepted for a uniform
+  // fetchFn signature (useStatisticsFetch) but ignored. Optional feature/provider
+  // filters drill into a single bucket over the same window.
+  getTokenUsage: async (
+    days = 30,
+    _channel?: string,
+    filters?: { feature?: string; provider?: string }
+  ): Promise<ApiResponse<TokenUsageData>> => {
+    void _channel;
+    const params = new URLSearchParams({ days: String(days) });
+    if (filters?.feature) params.set('feature', filters.feature);
+    if (filters?.provider) params.set('provider', filters.provider);
+    const response = await apiClient.get<{ success: boolean; data: TokenUsageData }>(
+      `/api/statistics/token-usage?${params.toString()}`
+    );
+    return { success: response.data.success, data: response.data.data };
   },
 };
