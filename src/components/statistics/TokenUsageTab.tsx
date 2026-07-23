@@ -166,7 +166,7 @@ export const TokenUsageTab = ({ days }: { days: number }) => {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} tickMargin={8} minTickGap={24} />
               <YAxis tickFormatter={compact} tick={{ fontSize: 11 }} width={44} />
               <Tooltip
-                formatter={(value: number) => [fmt(value), 'Tokens']}
+                formatter={(value) => [fmt(typeof value === 'number' ? value : 0), 'Tokens']}
                 labelClassName="text-foreground"
                 contentStyle={{ fontSize: 12 }}
               />
@@ -199,7 +199,7 @@ export const TokenUsageTab = ({ days }: { days: number }) => {
                   tick={{ fontSize: 11 }}
                   interval={0}
                 />
-                <Tooltip formatter={(value: number) => [fmt(value), 'Tokens']} contentStyle={{ fontSize: 12 }} />
+                <Tooltip formatter={(value) => [fmt(typeof value === 'number' ? value : 0), 'Tokens']} contentStyle={{ fontSize: 12 }} />
                 <Bar dataKey="tokens" radius={[0, 4, 4, 0]}>
                   {featureChart.map((entry, idx) => (
                     <Cell key={entry.name} fill={COLORS[idx % COLORS.length]} />
