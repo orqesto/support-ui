@@ -32,6 +32,7 @@ import type { Attachment } from './MessageAttachments';
 import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { logger } from '@/lib/logger';
+import { isBlankRichText } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import {
@@ -320,7 +321,9 @@ export function MessageDetail({
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleSend = useCallback(async () => {
-    if (!composer || composer === '<p></p>') return;
+    // Require real text — blocks Ctrl+Enter attachment-only sends the disabled
+    // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
+    if (isBlankRichText(composer)) return;
     setSubmitting(true);
     setSendFailedError(null);
     // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
