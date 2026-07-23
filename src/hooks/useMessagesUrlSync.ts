@@ -150,6 +150,9 @@ export const useMessagesUrlSync = ({
       if (urlSlaBreached === 'true') urlFilters.slaBreached = true;
       if (urlSlaAtRisk === 'true') urlFilters.slaAtRisk = true;
 
+      const urlHasAttachments = searchParams.get('hasAttachments');
+      if (urlHasAttachments === 'true') urlFilters.hasAttachments = true;
+
       setFilters({ ...defaultFilters, ...urlFilters });
 
       urlSyncedRef.current = true;
@@ -206,6 +209,7 @@ export const useMessagesUrlSync = ({
     if (filters.search) params.set('search', filters.search);
     if (filters.slaBreached) params.set('slaBreached', 'true');
     if (filters.slaAtRisk) params.set('slaAtRisk', 'true');
+    if (filters.hasAttachments) params.set('hasAttachments', 'true');
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);

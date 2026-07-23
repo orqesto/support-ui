@@ -204,6 +204,9 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         if (currentFilters.slaBreached) apiFilters.slaBreached = 'true';
         if (currentFilters.slaAtRisk) apiFilters.slaAtRisk = 'true';
 
+        // ATTACHMENTS — show only convs with at least one attached file.
+        if (currentFilters.hasAttachments) apiFilters.hasAttachments = 'true';
+
         // SEARCH
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
@@ -266,6 +269,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.search,
     filters.slaBreached,
     filters.slaAtRisk,
+    filters.hasAttachments,
     filters.excludeAwaitingResponse,
     sorting.sortBy,
     sorting.sortOrder,
