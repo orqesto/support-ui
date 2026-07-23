@@ -3,7 +3,8 @@
 Modern React + TypeScript frontend for **Odly**, the AI-driven intelligent requests
 hub with multi-channel ingestion (email, Telegram, Slack, embedded chat widget).
 
-> Current version: **v1.1.39**. Backend: `BE-service` (`odly-request-service` v1.1.106).
+> FE and BE ship on independent version series and drift by design — check the live
+> deployed versions at `/api/health/version` rather than trusting a stamp here.
 
 ## Releasing
 
@@ -49,7 +50,7 @@ Host details, rollback, and staging internals live in `../BE-service/DEPLOY.md` 
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22 (LTS)
 - Backend service running on port 3000
 
 ### Installation
@@ -85,7 +86,9 @@ npm run preview
 
 ## Default Credentials
 
-- **Email**: `ecttet@gmail.com`
+Seeded admin (from the backend `npm run seed`) — change on first login:
+
+- **Email**: `admin@odly.ai`
 - **Password**: `password123`
 
 ## Project Structure
