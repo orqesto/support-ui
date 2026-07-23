@@ -15,6 +15,7 @@ import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/R
 import { messageService } from '@/services/message.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
+import { isBlankRichText } from '@/lib/stripHtml';
 
 type Props = {
   open: boolean;
@@ -116,10 +117,10 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       setError('Subject is required');
       return;
     }
-    // RichTextEditor returns '<p></p>' for an empty doc; treat that as empty.
-    const trimmedContent = content.replace(/<p>\s*<\/p>/g, '').trim();
-    if (!trimmedContent) {
-      setError('Body cannot be empty');
+    // Require real text — markup-only bodies (`<p></p>`, `<p><br></p>`, an inline
+    // image with no text) must not be sent even when attachments are attached.
+    if (isBlankRichText(content)) {
+      setError('Add a message — attachments alone can’t be sent');
       return;
     }
 
@@ -129,7 +130,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
         messageSourceId,
         to: to.trim(),
         subject: subject.trim(),
-        content: trimmedContent,
+        content: content.trim(),
         attachments: files.length > 0 ? files : undefined,
       });
 
@@ -281,7 +282,14 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
             </Button>
             <Button
               type="submit"
-              disabled={submitting || emailSources.length === 0 || !messageSourceId}
+              disabled={
+                submitting ||
+                emailSources.length === 0 ||
+                !messageSourceId ||
+                !to.trim() ||
+                !subject.trim() ||
+                isBlankRichText(content)
+              }
               isLoading={submitting}
             >
               <Send className="w-4 h-4 mr-2" />

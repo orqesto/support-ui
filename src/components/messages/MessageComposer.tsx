@@ -4,6 +4,7 @@ import { Send, Paperclip, BookOpen, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import { isBlankRichText } from '@/lib/stripHtml';
 import type { Message } from '@/types';
 import { MONO } from './messageDetailConstants';
 
@@ -155,7 +156,9 @@ export function MessageComposer({
           </span>
           <button
             onClick={onSend}
-            disabled={!composer || composer === '<p></p>' || submitting}
+            // Require text even when files are attached — no attachment-only sends.
+            disabled={isBlankRichText(composer) || submitting}
+            title={isBlankRichText(composer) ? 'Add a message — attachments alone can’t be sent' : undefined}
             className={`ml-auto flex items-center gap-1 px-2.5 py-1 rounded ${MONO} transition-colors disabled:opacity-50 ${
               composerMode === 'note'
                 ? 'bg-amber-800 hover:bg-amber-700 text-primary-foreground'

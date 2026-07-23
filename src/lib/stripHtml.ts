@@ -15,3 +15,11 @@ export const stripHtml = (html: string): string => {
     .replace(/&apos;/g, "'")
     .trim();
 };
+
+/**
+ * True when a rich-text body carries no visible text — empty, whitespace, or
+ * markup-only (`<p></p>`, `<p><br></p>`, an `<img>` with no text). Used to block
+ * text-less sends even when attachments are present. Mirrors the backend
+ * `isBlankHtml` guard so the UI and API agree.
+ */
+export const isBlankRichText = (html: string): boolean => stripHtml(html).length === 0;
