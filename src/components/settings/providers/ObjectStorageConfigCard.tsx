@@ -14,6 +14,8 @@ type StorageForm = {
   prefix: string;
   accessKeyId: string;
   secretAccessKey: string;
+  roleArn: string;
+  externalId: string;
   forcePathStyle: boolean;
 };
 
@@ -24,6 +26,8 @@ type StorageConfigDisplay = {
   prefix: string | null;
   forcePathStyle: boolean;
   accessKeyId: string | null;
+  roleArn: string | null;
+  externalId: string | null;
   hasSecret: boolean;
 };
 
@@ -36,6 +40,8 @@ const EMPTY_FORM: StorageForm = {
   prefix: '',
   accessKeyId: '',
   secretAccessKey: '',
+  roleArn: '',
+  externalId: '',
   forcePathStyle: false,
 };
 
@@ -60,6 +66,8 @@ const toPayload = (form: StorageForm) => ({
   forcePathStyle: form.forcePathStyle,
   accessKeyId: form.accessKeyId.trim() || undefined,
   secretAccessKey: form.secretAccessKey || undefined,
+  roleArn: form.roleArn.trim() || undefined,
+  externalId: form.externalId.trim() || undefined,
 });
 
 export const ObjectStorageConfigCard = () => {
@@ -92,6 +100,8 @@ export const ObjectStorageConfigCard = () => {
           prefix: data.prefix ?? '',
           accessKeyId: data.accessKeyId ?? '',
           secretAccessKey: '',
+          roleArn: data.roleArn ?? '',
+          externalId: data.externalId ?? '',
           forcePathStyle: data.forcePathStyle,
         });
       } else {
@@ -281,6 +291,42 @@ export const ObjectStorageConfigCard = () => {
                 Encrypted at rest, never shown again. Leave blank to keep the stored secret; enter
                 both keys (or leave both blank for ambient identity) to test.
               </p>
+            </div>
+
+            <div>
+              <label htmlFor="storage-role-arn" className="text-sm font-medium">
+                AssumeRole ARN (Optional)
+              </label>
+              <input
+                id="storage-role-arn"
+                type="text"
+                autoComplete="off"
+                value={form.roleArn}
+                onChange={(event) => set({ roleArn: event.target.value })}
+                disabled={!canManage}
+                className={`${inputClass} font-mono text-xs`}
+                placeholder="arn:aws:iam::123456789012:role/OdlyS3 (blank = keys/ambient)"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Assume a cross-account IAM role via STS instead of static keys — same as Bedrock.
+                Leave both keys above blank when using this.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="storage-external-id" className="text-sm font-medium">
+                External ID (Optional)
+              </label>
+              <input
+                id="storage-external-id"
+                type="text"
+                autoComplete="off"
+                value={form.externalId}
+                onChange={(event) => set({ externalId: event.target.value })}
+                disabled={!canManage}
+                className={`${inputClass} font-mono text-xs`}
+                placeholder="confused-deputy guard — must match the role's trust policy"
+              />
             </div>
 
             <div className="rounded-md border bg-background p-3">
