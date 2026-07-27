@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { departmentService, type Department } from '@/services/department.service';
+import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { OrganizationRole } from '@/types/roles';
 
 type CreateUserModalProps = {
@@ -22,6 +23,11 @@ type CreateUserModalProps = {
 };
 
 export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalProps) => {
+  // Global System Administrators may only be created in the system org — hide the
+  // option elsewhere (the backend enforces this too; this is UX/defense-in-depth).
+  const isSystemOrg = useOrganizationsStore(
+    (state) => state.currentOrganization?.isSystem === true
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -127,7 +133,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
 
   const globalRoleOptions = [
     { value: 'user', label: 'User' },
-    { value: 'admin', label: 'Admin (Global)' },
+    ...(isSystemOrg ? [{ value: 'admin', label: 'Admin (Global)' }] : []),
   ];
 
   return (

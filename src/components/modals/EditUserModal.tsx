@@ -16,6 +16,7 @@ import {
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
+import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { User } from '@/types';
 import {
   roleDisplayNames,
@@ -63,6 +64,11 @@ export const EditUserModal = ({
 }: EditUserModalProps) => {
   const { isAdmin, canManageUsers } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
+  // Global System Administrators only exist in the system org — outside it, don't
+  // offer promoting to admin (backend enforces this; this is UX/defense-in-depth).
+  const isSystemOrg = useOrganizationsStore(
+    (state) => state.currentOrganization?.isSystem === true
+  );
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [position, setPosition] = useState('');
@@ -359,10 +365,12 @@ export const EditUserModal = ({
                     onChange={(value) => {
                       setGlobalRole(value as GlobalRole);
                     }}
-                    options={globalRoles.map((role) => ({
-                      value: role,
-                      label: role === 'admin' ? 'System Administrator' : 'User',
-                    }))}
+                    options={globalRoles
+                      .filter((role) => role !== 'admin' || isSystemOrg || globalRole === 'admin')
+                      .map((role) => ({
+                        value: role,
+                        label: role === 'admin' ? 'System Administrator' : 'User',
+                      }))}
                     isDisabled={isLastGlobalAdmin}
                   />
                   {isLastGlobalAdmin ? (
