@@ -14,6 +14,8 @@ type StorageForm = {
   prefix: string;
   accessKeyId: string;
   secretAccessKey: string;
+  roleArn: string;
+  externalId: string;
   forcePathStyle: boolean;
 };
 
@@ -24,6 +26,8 @@ type StorageConfigDisplay = {
   prefix: string | null;
   forcePathStyle: boolean;
   accessKeyId: string | null;
+  roleArn: string | null;
+  externalId: string | null;
   hasSecret: boolean;
 };
 
@@ -36,6 +40,8 @@ const EMPTY_FORM: StorageForm = {
   prefix: '',
   accessKeyId: '',
   secretAccessKey: '',
+  roleArn: '',
+  externalId: '',
   forcePathStyle: false,
 };
 
@@ -54,12 +60,14 @@ const normalizeEndpoint = (raw: string): string | undefined => {
 // creds as "ambient identity" and a missing secret as "keep the stored one".
 const toPayload = (form: StorageForm) => ({
   endpoint: normalizeEndpoint(form.endpoint),
-  region: form.region.trim(),
+  region: form.region.trim() || undefined,
   bucket: form.bucket.trim(),
   prefix: form.prefix.trim() || undefined,
   forcePathStyle: form.forcePathStyle,
   accessKeyId: form.accessKeyId.trim() || undefined,
   secretAccessKey: form.secretAccessKey || undefined,
+  roleArn: form.roleArn.trim() || undefined,
+  externalId: form.externalId.trim() || undefined,
 });
 
 export const ObjectStorageConfigCard = () => {
@@ -92,6 +100,8 @@ export const ObjectStorageConfigCard = () => {
           prefix: data.prefix ?? '',
           accessKeyId: data.accessKeyId ?? '',
           secretAccessKey: '',
+          roleArn: data.roleArn ?? '',
+          externalId: data.externalId ?? '',
           forcePathStyle: data.forcePathStyle,
         });
       } else {
@@ -110,7 +120,13 @@ export const ObjectStorageConfigCard = () => {
     void load();
   }, []);
 
-  const canSubmit = form.region.trim().length > 0 && form.bucket.trim().length > 0;
+  // Region is inferable from the server's ambient identity (IMDS / AWS_REGION)
+  // only on the AWS default endpoint. Custom endpoint (MinIO/Hetzner) or a
+  // static access key => no ambient region source, so require it. AssumeRole
+  // (roleArn) still infers region from the instance, so it doesn't force it.
+  const regionRequired = form.endpoint.trim().length > 0 || form.accessKeyId.trim().length > 0;
+  const canSubmit =
+    form.bucket.trim().length > 0 && (!regionRequired || form.region.trim().length > 0);
   const set = (patch: Partial<StorageForm>) => setForm((prev) => ({ ...prev, ...patch }));
 
   const handleTest = async () => {
@@ -177,7 +193,8 @@ export const ObjectStorageConfigCard = () => {
         <p className="text-sm text-muted-foreground">
           Store attachments and knowledge-base files in your own S3-compatible bucket (AWS S3,
           Hetzner Object Storage, MinIO). Leave the endpoint blank for AWS; leave both keys blank to
-          use the server's ambient identity (EC2 instance profile / ECS task role / IRSA). Without a
+          use the server's ambient identity (EC2 instance profile / ECS task role / IRSA) — on that
+          path you can also leave the region blank and the SDK infers it from the instance. Without a
           config here, files use Odly's managed storage.
         </p>
 
@@ -204,7 +221,7 @@ export const ObjectStorageConfigCard = () => {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="storage-region" className="text-sm font-medium">
-                  Region *
+                  Region {regionRequired ? '*' : '(Optional)'}
                 </label>
                 <input
                   id="storage-region"
@@ -213,7 +230,7 @@ export const ObjectStorageConfigCard = () => {
                   onChange={(event) => set({ region: event.target.value })}
                   disabled={!canManage}
                   className={inputClass}
-                  placeholder="eu-central-1"
+                  placeholder={regionRequired ? 'eu-central-1' : 'eu-central-1 (blank = infer from instance)'}
                 />
               </div>
               <div>
@@ -281,6 +298,42 @@ export const ObjectStorageConfigCard = () => {
                 Encrypted at rest, never shown again. Leave blank to keep the stored secret; enter
                 both keys (or leave both blank for ambient identity) to test.
               </p>
+            </div>
+
+            <div>
+              <label htmlFor="storage-role-arn" className="text-sm font-medium">
+                AssumeRole ARN (Optional)
+              </label>
+              <input
+                id="storage-role-arn"
+                type="text"
+                autoComplete="off"
+                value={form.roleArn}
+                onChange={(event) => set({ roleArn: event.target.value })}
+                disabled={!canManage}
+                className={`${inputClass} font-mono text-xs`}
+                placeholder="arn:aws:iam::123456789012:role/OdlyS3 (blank = keys/ambient)"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Assume a cross-account IAM role via STS instead of static keys — same as Bedrock.
+                Leave both keys above blank when using this.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="storage-external-id" className="text-sm font-medium">
+                External ID (Optional)
+              </label>
+              <input
+                id="storage-external-id"
+                type="text"
+                autoComplete="off"
+                value={form.externalId}
+                onChange={(event) => set({ externalId: event.target.value })}
+                disabled={!canManage}
+                className={`${inputClass} font-mono text-xs`}
+                placeholder="confused-deputy guard — must match the role's trust policy"
+              />
             </div>
 
             <div className="rounded-md border bg-background p-3">
