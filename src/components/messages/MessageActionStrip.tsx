@@ -24,7 +24,8 @@ export type MessageActionStripProps = {
   onDelete?: () => void;
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam',
-    createDetectionRule?: boolean
+    createDetectionRule?: boolean,
+    trainSpamFilter?: boolean
   ) => Promise<void>;
   onResolveWithoutReply: () => void;
   onClose?: () => void;
@@ -53,15 +54,20 @@ export function MessageActionStrip({
   // detection rule so semantically similar future messages aren't flagged.
   // Mirrors the manual-route "Create rule" toggle. Default off — one-off approve.
   const [createRule, setCreateRule] = useState(false);
+  // When moving to spam, the agent can also opt in to train the spam filter (mint
+  // a learned spam rule). Default off — a plain move-to-spam no longer trains, so
+  // one mislabel can't silently create a rule.
+  const [trainSpamFilter, setTrainSpamFilter] = useState(false);
   const handleClassify = useCallback(
     async (
       action: 'approve' | 'mark_suspicious' | 'move_to_spam',
-      createDetectionRule?: boolean
+      createDetectionRule?: boolean,
+      trainFilter?: boolean
     ) => {
       if (!onClassify) return;
       setClassifying(true);
       try {
-        await onClassify(action, createDetectionRule);
+        await onClassify(action, createDetectionRule, trainFilter);
       } finally {
         setClassifying(false);
       }
@@ -129,6 +135,19 @@ export function MessageActionStrip({
             label="Also teach the filter (create a detection rule)"
           />
         </div>
+        {!isSecurityThreat && (
+          <div
+            className="mb-2"
+            title="Also mints a learned spam rule from this message so similar future messages are caught. The rule stays inert until it's corroborated by another spam message, so a one-off won't affect classification."
+          >
+            <Toggle
+              checked={trainSpamFilter}
+              onChange={setTrainSpamFilter}
+              disabled={classifying}
+              label="Also train the spam filter (learn from this message)"
+            />
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             onClick={() => void handleClassify('approve', createRule)}
@@ -140,7 +159,7 @@ export function MessageActionStrip({
           </button>
           {!isSecurityThreat && (
             <button
-              onClick={() => void handleClassify('move_to_spam')}
+              onClick={() => void handleClassify('move_to_spam', undefined, trainSpamFilter)}
               disabled={classifying}
               className={`text-red-600 border border-red-300 ${btnBase} hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
             >

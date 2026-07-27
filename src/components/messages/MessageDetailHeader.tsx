@@ -69,7 +69,8 @@ export type MessageDetailHeaderProps = {
   onApprove?: () => void;
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam',
-    createDetectionRule?: boolean
+    createDetectionRule?: boolean,
+    trainSpamFilter?: boolean
   ) => Promise<void>;
   /**
    * Optimistically move the board card to a kanban column right after a manual

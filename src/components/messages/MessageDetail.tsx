@@ -71,7 +71,8 @@ export type MessageDetailProps = {
   onOptimisticMove?: (columnId: string) => void;
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam',
-    createDetectionRule?: boolean
+    createDetectionRule?: boolean,
+    trainSpamFilter?: boolean
   ) => Promise<void>;
 };
 
@@ -448,9 +449,10 @@ export function MessageDetail({
   const handleClassify = useCallback(
     async (
       action: 'approve' | 'mark_suspicious' | 'move_to_spam',
-      createDetectionRule?: boolean
+      createDetectionRule?: boolean,
+      trainSpamFilter?: boolean
     ) => {
-      if (onClassify) await onClassify(action, createDetectionRule);
+      if (onClassify) await onClassify(action, createDetectionRule, trainSpamFilter);
     },
     [onClassify]
   );

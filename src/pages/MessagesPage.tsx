@@ -810,8 +810,13 @@ export const MessagesPage = () => {
                 }}
                 onResolve={handleResolve}
                 onRefresh={handleRefreshMessage}
-                onClassify={async (action, createDetectionRule) => {
-                  await messageService.classify(selectedMessage.id, action, createDetectionRule);
+                onClassify={async (action, createDetectionRule, trainSpamFilter) => {
+                  await messageService.classify(
+                    selectedMessage.id,
+                    action,
+                    createDetectionRule,
+                    trainSpamFilter
+                  );
                   clearCache();
                   bumpKanban();
                   void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });

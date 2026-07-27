@@ -259,11 +259,14 @@ export const messageService = {
   classify: async (
     id: number,
     action: 'approve' | 'mark_suspicious' | 'move_to_spam',
-    createDetectionRule?: boolean
+    createDetectionRule?: boolean,
+    // move_to_spam only: opt in to mint a learned spam rule from this message.
+    trainSpamFilter?: boolean
   ) => {
     const response = await apiClient.patch<ApiResponse<void>>(`/api/messages/${id}/classify`, {
       action,
       ...(createDetectionRule ? { createDetectionRule: true } : {}),
+      ...(trainSpamFilter ? { trainFilter: true } : {}),
     });
     return response.data;
   },
