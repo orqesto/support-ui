@@ -287,14 +287,12 @@ export const SpamRulesSettings = () => {
           ? 'Security rules can only be disabled by a global admin'
           : undefined
       }
-      isEditDisabled={(rule) =>
-        (rule.category === 'security' && !isAdmin) || rule.name.startsWith('feedback_')
-      }
+      isEditDisabled={(rule) => rule.category === 'security' && !isAdmin}
       editTitle={(rule) =>
         rule.category === 'security' && !isAdmin
           ? 'Security rules can only be edited by a global admin'
           : rule.name.startsWith('feedback_')
-            ? 'Auto-learned rules cannot be edited'
+            ? 'Editing an auto-learned rule regenerates its match and resets its learned confidence'
             : undefined
       }
       isDeleteDisabled={(rule) => rule.category === 'security' && !isAdmin}
