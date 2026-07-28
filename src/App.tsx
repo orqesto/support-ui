@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
+import { SsoCallbackPage } from './pages/SsoCallbackPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { userService } from './services/user.service';
@@ -196,6 +197,9 @@ const AppRoutes = () => {
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPasswordPage />}
       />
       <Route path="/oauth/gmail/callback" element={<OAuthCallbackPage />} />
+      {/* SSO handoff landing — PUBLIC (user is mid-auth; reads JWT from the
+          scrubbed URL fragment). Must NOT sit behind PrivateRoute. */}
+      <Route path="/sso/callback" element={<SsoCallbackPage />} />
       {/* Public conversation tracking (#20). No auth — token in query string. */}
       <Route
         path="/track/:orgSlug/:deptSlug/:conversationId"
