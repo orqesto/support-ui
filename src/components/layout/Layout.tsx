@@ -41,6 +41,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { NotificationCenter } from './NotificationCenter';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
 import { LicenseExpiryBanner } from './LicenseExpiryBanner';
+import { SubscriptionGateOverlay } from '@/components/subscription/SubscriptionGateOverlay';
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
@@ -571,6 +572,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <LicenseExpiryBanner />
             {children}
           </main>
+          <SubscriptionGateOverlay />
         </div>
       </div>
 
