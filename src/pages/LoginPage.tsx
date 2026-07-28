@@ -8,10 +8,19 @@ import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
 import { twoFactorService } from '@/services/twoFactor.service';
+import { resolveOrgByEmail, startSsoUrl } from '@/services/sso.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
-type Step = 'email' | 'password' | 'selectOrg' | 'totp' | 'setup2fa';
+type Step = 'email' | 'password' | 'selectOrg' | 'ssoSlug' | 'totp' | 'setup2fa';
+
+// Friendly copy for the `?ssoError=<code>` codes the BE redirects back with.
+const SSO_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: 'Your account is not permitted to sign in via SSO for this organization.',
+  sso_failed: 'Single sign-on failed. Please try again or use your password.',
+  session_failed: 'We could not complete your sign-in session. Please try again.',
+  handoff: 'The sign-in link was incomplete. Please try signing in again.',
+};
 
 type OrgOption = { id: number; name: string; slug: string };
 
@@ -25,6 +34,9 @@ export const LoginPage = () => {
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
   // org_pending temp token from /login; consumed by /select-organization.
   const [orgPendingToken, setOrgPendingToken] = useState('');
+
+  // SSO: slug entered on the ambiguous-domain path (D-02).
+  const [ssoSlug, setSsoSlug] = useState('');
 
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -52,6 +64,24 @@ export const LoginPage = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location]);
+
+  // Honor SSO query params on mount:
+  //  - `?ssoError=<code>` → surface a friendly error (BE failure redirect).
+  //  - `?org=<slug>` → IdP-initiated / deep-link start: go straight to the fixed
+  //    /api/auth/sso/:slug/start (D-01 fallback path). The slug only ever feeds
+  //    the fixed start URL — never an arbitrary redirect target (T-05-04).
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const ssoError = query.get('ssoError');
+    if (ssoError) {
+      setError(SSO_ERROR_MESSAGES[ssoError] ?? 'Single sign-on failed. Please try again.');
+    }
+    const orgSlug = query.get('org');
+    if (orgSlug) {
+      window.location.assign(startSsoUrl(orgSlug));
+    }
+    // location.search only; runs on mount + when the query string changes.
+  }, [location.search]);
 
   const resetCaptcha = () => {
     turnstileRef.current?.reset();
@@ -119,6 +149,26 @@ export const LoginPage = () => {
     setIsLoading(true);
 
     try {
+      // Email-first SSO resolve (D-01). A single enabled-domain match redirects
+      // straight to the provider; ambiguous prompts for an org slug (D-02); a
+      // "not found" (or ANY resolve error) falls through to the password flow —
+      // resolve failure must NEVER block password login.
+      try {
+        const resolved = await resolveOrgByEmail(email);
+        if ('orgSlug' in resolved) {
+          window.location.assign(startSsoUrl(resolved.orgSlug));
+          return; // leaving the SPA; keep the spinner up
+        }
+        if ('ambiguous' in resolved) {
+          setStep('ssoSlug');
+          setInfo('Multiple organizations use this email domain. Enter your organization slug to continue with SSO.');
+          return;
+        }
+        // `{ found: false }` → no SSO org; continue the password flow below.
+      } catch (resolveErr) {
+        logger.warn('SSO resolve failed; falling back to password login', resolveErr);
+      }
+
       const checkResponse = await authService.checkEmail({
         email,
         captchaToken: captchaToken ?? undefined,
@@ -193,6 +243,20 @@ export const LoginPage = () => {
     }
   };
 
+  const handleSubmitSsoSlug = (event: FormEvent) => {
+    event.preventDefault();
+    const slug = ssoSlug.trim();
+    if (!slug) {
+      setError('Please enter your organization slug.');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    // The slug only feeds the fixed start URL (T-05-04); the BE 404s an unknown
+    // or non-SSO slug, redirecting back to /login?ssoError=.
+    window.location.assign(startSsoUrl(slug));
+  };
+
   const handleTotpVerify = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -238,6 +302,7 @@ export const LoginPage = () => {
     setOrgPendingToken('');
     setOrgOptions([]);
     setSelectedOrgId(null);
+    setSsoSlug('');
   };
 
   const handleBackToPassword = () => {
@@ -253,9 +318,11 @@ export const LoginPage = () => {
         ? handleSubmitPassword
         : step === 'selectOrg'
           ? handleSubmitOrgPick
-          : step === 'totp'
-            ? handleTotpVerify
-            : handleSetup2faVerify;
+          : step === 'ssoSlug'
+            ? handleSubmitSsoSlug
+            : step === 'totp'
+              ? handleTotpVerify
+              : handleSetup2faVerify;
 
   return (
     <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
@@ -332,6 +399,18 @@ export const LoginPage = () => {
               </div>
             )}
 
+            {step === 'ssoSlug' && (
+              <Input
+                label="Organization slug"
+                type="text"
+                autoComplete="off"
+                placeholder="your-org"
+                value={ssoSlug}
+                onChange={(event) => setSsoSlug(event.target.value)}
+                required
+              />
+            )}
+
             {step === 'totp' && (
               <div className="space-y-3">
                 <div className="flex justify-center">
@@ -394,11 +473,11 @@ export const LoginPage = () => {
             )}
 
             <div className="flex gap-2">
-              {(step === 'password' || step === 'selectOrg') && (
+              {(step === 'password' || step === 'selectOrg' || step === 'ssoSlug') && (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={step === 'password' ? handleBackToEmail : handleBackToPassword}
+                  onClick={step === 'selectOrg' ? handleBackToPassword : handleBackToEmail}
                   disabled={isLoading}
                   className="w-24"
                 >
@@ -413,16 +492,20 @@ export const LoginPage = () => {
                       ? 'Signing in...'
                       : step === 'selectOrg'
                         ? 'Loading...'
-                        : 'Verifying...'
+                        : step === 'ssoSlug'
+                          ? 'Redirecting...'
+                          : 'Verifying...'
                   : step === 'email'
                     ? 'Continue'
                     : step === 'password'
                       ? 'Sign in'
                       : step === 'selectOrg'
                         ? 'Continue'
-                        : step === 'totp'
-                          ? 'Verify'
-                          : 'Verify'}
+                        : step === 'ssoSlug'
+                          ? 'Continue with SSO'
+                          : step === 'totp'
+                            ? 'Verify'
+                            : 'Verify'}
               </Button>
             </div>
             <div className="py-2 text-sm text-center text-muted-foreground">
