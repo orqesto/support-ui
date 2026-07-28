@@ -47,10 +47,46 @@ export type ResolveResult =
   | { ambiguous: true }
   | { found: false };
 
-/** GET the redacted SSO config for the current org. `null` when none exists yet. */
-export const getSsoConfig = async (): Promise<SsoConfig | null> => {
+/** GET response: the redacted config (null if none yet) + the authoritative redirect URI. */
+export type SsoConfigResponse = {
+  /** Redacted config, or `null` when the org hasn't configured SSO yet. */
+  config: SsoConfig | null;
+  /**
+   * The exact callback URL the IdP must be configured to post back to — derived
+   * server-side (from BACKEND_URL + org slug) so it can be copied verbatim into the
+   * IdP's app registration. Present even when `config` is null.
+   */
+  redirectUri: string;
+};
+
+/** Result of the pre-save "Test connection" discovery probe. */
+export type SsoTestResult = {
+  ok: boolean;
+  message: string;
+  issuer?: string;
+  authorizationEndpoint?: string;
+  tokenEndpoint?: string;
+  jwksUri?: string;
+};
+
+/** GET the redacted SSO config + redirect URI for the current org. */
+export const getSsoConfig = async (): Promise<SsoConfigResponse> => {
   const result = await apiClient.get('/api/organizations/sso-config');
-  return (result.data as { data: SsoConfig | null }).data;
+  return (result.data as { data: SsoConfigResponse }).data;
+};
+
+/**
+ * Pre-save "Test connection": ask the backend to run SSRF-guarded OIDC discovery
+ * against the entered issuer WITHOUT saving. Returns `{ ok, message }` so the admin
+ * can validate the Issuer URL before committing the config.
+ */
+export const testSsoConfig = async (input: {
+  issuerUrl: string;
+  clientId: string;
+  clientSecret?: string;
+}): Promise<SsoTestResult> => {
+  const result = await apiClient.post('/api/organizations/sso-config/test', input);
+  return (result.data as { data: SsoTestResult }).data;
 };
 
 /** PUT (upsert) the SSO config for the current org. Returns the redacted view. */
