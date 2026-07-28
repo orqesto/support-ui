@@ -417,8 +417,12 @@ export function MessagePanelTabs({
           {tab === 'contradiction' && (() => {
             const crossCheck = message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined;
             const intraCheck = message.metadata?.intraMessageContradictionCheck as ContradictionCheckMetadata | undefined;
-            const hasCrossContradiction = !!crossCheck?.result?.contradictingMessageId;
-            const hasIntraContradiction = !!(intraCheck?.result?.hasContradiction);
+            const hasCrossContradiction =
+              !!crossCheck?.result?.hasContradiction ||
+              !!crossCheck?.result?.contradictions?.length;
+            const hasIntraContradiction =
+              !!intraCheck?.result?.hasContradiction ||
+              !!intraCheck?.result?.contradictions?.length;
             const checkWasRun = !!crossCheck || !!intraCheck;
 
             const confidencePill: Record<string, string> = {
