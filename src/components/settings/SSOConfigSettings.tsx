@@ -47,6 +47,8 @@ export const SSOConfigSettings = () => {
   const [scopes, setScopes] = useState('');
   const [domainsText, setDomainsText] = useState('');
   const [jitProvisioning, setJitProvisioning] = useState(true);
+  // Secure default OFF — linking to an existing member's account is opt-in.
+  const [allowSsoAccountLinking, setAllowSsoAccountLinking] = useState(false);
   // Drives the "•••• (unchanged)" placeholder — the secret itself is never held.
   const [hasClientSecret, setHasClientSecret] = useState(false);
 
@@ -63,6 +65,7 @@ export const SSOConfigSettings = () => {
           setScopes(config.scopes ?? '');
           setDomainsText(config.allowedEmailDomains.join('\n'));
           setJitProvisioning(config.jitProvisioning);
+          setAllowSsoAccountLinking(config.allowSsoAccountLinking);
           setHasClientSecret(config.hasClientSecret);
           // NOTE: config.clientSecret does not exist — the GET response is redacted.
         }
@@ -96,6 +99,7 @@ export const SSOConfigSettings = () => {
         ...(scopes.trim() ? { scopes: scopes.trim() } : {}),
         allowedEmailDomains: parseDomains(domainsText),
         jitProvisioning,
+        allowSsoAccountLinking,
       });
       // Refresh derived state from the redacted response; NEVER re-populate the secret.
       setHasClientSecret(result.hasClientSecret);
@@ -208,6 +212,25 @@ export const SSOConfigSettings = () => {
                 Just-in-time provisioning (create members on first SSO login)
               </span>
             </label>
+
+            <div className="space-y-1">
+              <label className="flex gap-3 items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowSsoAccountLinking}
+                  onChange={(event) => setAllowSsoAccountLinking(event.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-foreground">
+                  Allow linking to existing accounts
+                </span>
+              </label>
+              <p className="pl-7 text-xs text-muted-foreground">
+                When on, a member who already has a password login can sign in through your provider
+                (matched by verified email) and their account is linked on first SSO login. Leave off
+                unless you trust your IdP to authenticate existing accounts.
+              </p>
+            </div>
 
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
