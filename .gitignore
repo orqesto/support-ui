@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# graphify code-graph output (local dev tool, not committed)
+graphify-out/
+
 # Environment variables
 .env
 .env.local
