@@ -4,14 +4,28 @@
 import type { Attachment as ApiAttachment } from '@/types/api';
 
 // Contradiction Detection Types
-export type ContradictionCheckResult = {
-  hasContradiction: boolean;
+
+/** A single detected contradiction. Results may contain up to 5 of these. */
+export type ContradictionItem = {
   contradictingMessageId?: number;
   contradictingMessageDate?: string;
   originalStatement?: string;
   currentStatement?: string;
   confidence: 'high' | 'medium' | 'low';
   explanation?: string;
+};
+
+export type ContradictionCheckResult = {
+  hasContradiction: boolean;
+  // Legacy top-level fields mirror the primary (highest-confidence) item.
+  contradictingMessageId?: number;
+  contradictingMessageDate?: string;
+  originalStatement?: string;
+  currentStatement?: string;
+  confidence: 'high' | 'medium' | 'low';
+  explanation?: string;
+  // Full list of contradictions (up to 5). Absent on legacy stored records.
+  contradictions?: ContradictionItem[];
 };
 
 export type ContradictionCheckMetadata = {
