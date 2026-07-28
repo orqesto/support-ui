@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { getSsoConfig, putSsoConfig, type SsoConfig } from '@/services/sso.service';
+import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
 /**
@@ -27,6 +28,12 @@ const parseDomains = (raw: string): string[] =>
     .filter((entry) => entry.length > 0);
 
 export const SSOConfigSettings = () => {
+  // Defense-in-depth: only org_admin / global-admin may view this card. Uses the same
+  // admin signals SettingsPage keys on (users.role === 'admin' | organizationRole ===
+  // 'org_admin'). The BE `requireOrgAdmin` gate remains the real authority (T-05-03).
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === 'admin' || user?.organizationRole === 'org_admin';
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -44,6 +51,7 @@ export const SSOConfigSettings = () => {
   const [hasClientSecret, setHasClientSecret] = useState(false);
 
   useEffect(() => {
+    if (!isAdmin) return;
     let active = true;
     getSsoConfig()
       .then((config: SsoConfig | null) => {
@@ -70,7 +78,7 @@ export const SSOConfigSettings = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isAdmin]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -100,6 +108,9 @@ export const SSOConfigSettings = () => {
       setSaving(false);
     }
   };
+
+  // Defense-in-depth: hide the entire card from non-admins.
+  if (!isAdmin) return null;
 
   return (
     <Card>
