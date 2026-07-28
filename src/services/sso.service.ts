@@ -24,6 +24,7 @@ export type SsoConfig = {
   scopes: string | null;
   allowedEmailDomains: string[];
   jitProvisioning: boolean;
+  allowSsoAccountLinking: boolean;
   hasClientSecret: boolean;
 };
 
@@ -37,6 +38,7 @@ export type SsoConfigInput = {
   scopes?: string;
   allowedEmailDomains: string[];
   jitProvisioning: boolean;
+  allowSsoAccountLinking: boolean;
 };
 
 /** Discriminated result of the email-first resolve endpoint (D-01/D-02). */
