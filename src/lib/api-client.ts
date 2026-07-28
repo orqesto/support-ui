@@ -3,6 +3,7 @@ import { API_BASE_URL } from './config';
 import { logger } from '@/lib/logger';
 import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
+import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -72,6 +73,17 @@ apiClient.interceptors.response.use(
         sessionStorage.clear();
         window.location.href = '/login';
       }
+    }
+
+    // 402 = subscription inactive/expired (requireActiveSubscription). Surface a
+    // global gate overlay explaining why the app is unavailable + how to renew,
+    // instead of leaving the user with silently-failing blank screens. Global
+    // admins never receive a 402, so this only gates regular users in an expired org.
+    if (isAxiosError(error) && error.response?.status === 402) {
+      const data = error.response.data as { error?: string; message?: string } | undefined;
+      useSubscriptionGateStore
+        .getState()
+        .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.');
     }
 
     // Extract error message from response
