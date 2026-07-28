@@ -1,29 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { userService } from '@/services/user.service';
 import { logger } from '@/lib/logger';
-import type { User } from '@/types';
 
 /**
- * SSO handoff landing page.
+ * SSO handoff landing page (cookie-based contract).
  *
- * The BE 302-redirects here with the session in the URL fragment:
- *   `/sso/callback#token=<urlencoded JWT>&user=<base64url-encoded JSON>`
- * We read the fragment, decode it, call `authStore.login(token, user)`, then
- * IMMEDIATELY scrub the fragment via `history.replaceState` (mirrors
- * OAuthCallbackPage) so the token never lingers in history/Referer (T-05-01).
- * A missing/malformed fragment redirects to `/login?ssoError=handoff`.
+ * The BE SSO callback sets the httpOnly `jwt` cookie (same as password login) and
+ * 302-redirects here as `/sso/callback?sso=1` — with NO token and NO user in the URL.
+ * There is nothing sensitive in the URL, so there is no fragment to parse or scrub.
+ *
+ * On mount we fetch the profile via the SAME endpoint the app uses on reload
+ * (`userService.getCurrentUser()` → `GET /api/users/me`), which authenticates purely
+ * off the cookie (apiClient sends `withCredentials: true`). On success we hydrate the
+ * auth store from the SERVER response — mirroring the password path's `login(null, user)`
+ * (cookie-only, no bearer token) — and derive the selected org from the trusted server
+ * `user.organizationId`, never from a URL value. On failure we bounce to
+ * `/login?ssoError=handoff`.
  */
-
-/** Decode a base64url string to UTF-8 (fragment `user` is base64url per plan 04). */
-const base64UrlDecode = (input: string): string => {
-  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(padded);
-  // Reconstruct UTF-8 bytes so non-ASCII names decode correctly.
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-};
 
 export const SsoCallbackPage = () => {
   const navigate = useNavigate();
@@ -35,35 +30,41 @@ export const SsoCallbackPage = () => {
     if (handledRef.current) return;
     handledRef.current = true;
 
-    // Fragment shape: `#token=<enc>&user=<base64url>`. Use URLSearchParams over
-    // the hash body (minus the leading '#').
-    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const rawToken = params.get('token');
-    const rawUser = params.get('user');
+    let cancelled = false;
 
-    // Scrub the fragment immediately — before any await/navigation — so the JWT
-    // never persists in browser history, the Referer header, or logs (T-05-01).
-    history.replaceState({}, '', '/sso/callback');
-
-    if (!rawToken || !rawUser) {
-      logger.error('SSO callback missing token/user fragment');
-      navigate('/login?ssoError=handoff', { replace: true });
+    // If the BE reported a failure it redirects to /login?ssoError=<code> directly, so a
+    // successful hop here has no error param. We only read ?sso for display/logging — never
+    // for auth. Auth rides entirely on the httpOnly cookie already set by the BE.
+    const query = new URLSearchParams(window.location.search);
+    const ssoError = query.get('ssoError');
+    if (ssoError) {
+      logger.error('SSO callback landed with an error code', ssoError);
+      navigate(`/login?ssoError=${encodeURIComponent(ssoError)}`, { replace: true });
       return;
     }
 
-    try {
-      const token = decodeURIComponent(rawToken);
-      const user = JSON.parse(base64UrlDecode(rawUser)) as User;
-      useAuthStore.getState().login(token, user);
-      if (user.organizationId) {
-        useAuthStore.getState().setSelectedOrganization(user.organizationId);
-      }
-      setMessage('Signed in. Redirecting…');
-      navigate('/dashboard', { replace: true });
-    } catch (err) {
-      logger.error('SSO callback failed to parse handoff fragment', err);
-      navigate('/login?ssoError=handoff', { replace: true });
-    }
+    userService
+      .getCurrentUser()
+      .then((user) => {
+        if (cancelled) return;
+        // Mirror the password-login path: cookie-only session, no bearer token to store.
+        useAuthStore.getState().login(null, user);
+        // Derive the org from the trusted server response, NOT any URL value.
+        if (user.organizationId) {
+          useAuthStore.getState().setSelectedOrganization(user.organizationId);
+        }
+        setMessage('Signed in. Redirecting…');
+        navigate('/dashboard', { replace: true });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        logger.error('SSO callback failed to hydrate session from cookie', err);
+        navigate('/login?ssoError=handoff', { replace: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   return (
