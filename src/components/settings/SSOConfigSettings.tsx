@@ -1,9 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { getSsoConfig, putSsoConfig, type SsoConfig } from '@/services/sso.service';
+import {
+  getSsoConfig,
+  putSsoConfig,
+  testSsoConfig,
+  type SsoTestResult,
+} from '@/services/sso.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
@@ -15,10 +20,62 @@ import { logger } from '@/lib/logger';
  * a "unchanged" placeholder (driven by `hasClientSecret`); saving with the secret
  * field left blank keeps the stored secret (REQ-08, T-05-02). FE role visibility is
  * UX-only — the BE `requireOrgAdmin` gate is the real authority (T-05-03).
+ *
+ * Setup aids (all authoritative / server-checked, never a substitute for the BE):
+ *   - the Redirect URI to register at the IdP is derived server-side and shown here,
+ *   - "Test connection" runs a real (SSRF-guarded) discovery probe before saving,
+ *   - provider presets prefill the Issuer URL template + scopes per provider.
  */
 
 const inputCls =
   'w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground';
+
+/** Provider presets — prefill the Issuer URL template + scopes and show a per-provider hint. */
+const PROVIDERS: { id: string; label: string; issuer: string; scopes: string; hint: string }[] = [
+  { id: 'custom', label: 'Custom / other', issuer: '', scopes: '', hint: '' },
+  {
+    id: 'google',
+    label: 'Google',
+    issuer: 'https://accounts.google.com',
+    scopes: 'openid email profile',
+    hint: 'Create an OAuth 2.0 Client ID (type: Web application) in Google Cloud Console. The issuer is fixed.',
+  },
+  {
+    id: 'entra',
+    label: 'Microsoft Entra ID',
+    issuer: 'https://login.microsoftonline.com/TENANT_ID/v2.0',
+    scopes: 'openid email profile',
+    hint: 'Replace TENANT_ID with your Directory (tenant) ID from the Entra app registration → Endpoints.',
+  },
+  {
+    id: 'okta',
+    label: 'Okta',
+    issuer: 'https://YOUR_DOMAIN.okta.com/oauth2/default',
+    scopes: 'openid email profile',
+    hint: 'Replace YOUR_DOMAIN.okta.com with your Okta domain. Use "default" or your custom authorization-server id.',
+  },
+  {
+    id: 'auth0',
+    label: 'Auth0',
+    issuer: 'https://YOUR_TENANT.auth0.com',
+    scopes: 'openid email profile',
+    hint: 'Replace YOUR_TENANT (include region if applicable, e.g. YOUR_TENANT.eu.auth0.com). Create a Regular Web Application.',
+  },
+];
+
+/** Best-effort match of a stored issuer back to a preset (for display on load). */
+const inferProvider = (issuer: string): string => {
+  if (issuer === 'https://accounts.google.com') return 'google';
+  try {
+    const host = new URL(issuer).host;
+    if (host === 'login.microsoftonline.com') return 'entra';
+    if (host.endsWith('.okta.com') || host.endsWith('.oktapreview.com')) return 'okta';
+    if (host.endsWith('.auth0.com')) return 'auth0';
+  } catch {
+    /* not a full URL yet */
+  }
+  return 'custom';
+};
 
 /** Parse a comma/newline-separated domain list into a normalized array. */
 const parseDomains = (raw: string): string[] =>
@@ -52,12 +109,20 @@ export const SSOConfigSettings = () => {
   // Drives the "•••• (unchanged)" placeholder — the secret itself is never held.
   const [hasClientSecret, setHasClientSecret] = useState(false);
 
+  // Setup aids.
+  const [redirectUri, setRedirectUri] = useState('');
+  const [provider, setProvider] = useState('custom');
+  const [copied, setCopied] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<SsoTestResult | null>(null);
+
   useEffect(() => {
     if (!isAdmin) return;
     let active = true;
     getSsoConfig()
-      .then((config: SsoConfig | null) => {
+      .then(({ config, redirectUri: uri }) => {
         if (!active) return;
+        setRedirectUri(uri);
         if (config) {
           setEnabled(config.enabled);
           setIssuerUrl(config.issuerUrl);
@@ -67,6 +132,7 @@ export const SSOConfigSettings = () => {
           setJitProvisioning(config.jitProvisioning);
           setAllowSsoAccountLinking(config.allowSsoAccountLinking);
           setHasClientSecret(config.hasClientSecret);
+          setProvider(inferProvider(config.issuerUrl));
           // NOTE: config.clientSecret does not exist — the GET response is redacted.
         }
       })
@@ -82,6 +148,47 @@ export const SSOConfigSettings = () => {
       active = false;
     };
   }, [isAdmin]);
+
+  // Selecting a provider prefills the Issuer URL template + scopes. Clears any prior
+  // test result since the target changed.
+  const applyProvider = (id: string) => {
+    setProvider(id);
+    setTestResult(null);
+    const preset = PROVIDERS.find((prov) => prov.id === id);
+    if (!preset || id === 'custom') return;
+    setIssuerUrl(preset.issuer);
+    setScopes(preset.scopes);
+  };
+
+  const copyRedirect = async () => {
+    try {
+      await navigator.clipboard.writeText(redirectUri);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked — the field is selectable as a fallback */
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await testSsoConfig({
+        issuerUrl: issuerUrl.trim(),
+        clientId: clientId.trim(),
+        clientSecret: clientSecret.trim() || undefined,
+      });
+      setTestResult(result);
+    } catch (err: unknown) {
+      setTestResult({
+        ok: false,
+        message: err instanceof Error ? err.message : 'Test failed. Please try again.',
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -116,6 +223,8 @@ export const SSOConfigSettings = () => {
   // Defense-in-depth: hide the entire card from non-admins.
   if (!isAdmin) return null;
 
+  const providerHint = PROVIDERS.find((prov) => prov.id === provider)?.hint;
+
   return (
     <Card>
       <CardHeader>
@@ -143,14 +252,63 @@ export const SSOConfigSettings = () => {
               <span className="text-sm font-medium text-foreground">Enable SSO for this organization</span>
             </label>
 
-            <Input
-              label="Issuer URL"
-              type="url"
-              placeholder="https://idp.example.com"
-              value={issuerUrl}
-              onChange={(event) => setIssuerUrl(event.target.value)}
-              required
-            />
+            {/* Redirect URI to register at the IdP — authoritative (derived server-side). */}
+            <div className="space-y-1">
+              <label htmlFor="sso-redirect" className="text-sm font-medium text-foreground">
+                Redirect / callback URL
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  id="sso-redirect"
+                  readOnly
+                  value={redirectUri}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className={`${inputCls} font-mono text-xs`}
+                />
+                <button
+                  type="button"
+                  onClick={copyRedirect}
+                  title="Copy"
+                  className="flex shrink-0 gap-1 items-center px-3 py-2 text-sm rounded-md border border-border hover:bg-muted"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Register this exact URL as the redirect / callback URI in your identity provider.
+              </p>
+            </div>
+
+            {/* Provider preset — prefills the Issuer URL template + scopes. */}
+            <div className="space-y-1">
+              <label htmlFor="sso-provider" className="text-sm font-medium text-foreground">
+                Identity provider
+              </label>
+              <select
+                id="sso-provider"
+                value={provider}
+                onChange={(event) => applyProvider(event.target.value)}
+                className={inputCls}
+              >
+                {PROVIDERS.map((prov) => (
+                  <option key={prov.id} value={prov.id}>
+                    {prov.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Input
+                label="Issuer URL"
+                type="text"
+                placeholder="https://idp.example.com"
+                value={issuerUrl}
+                onChange={(event) => setIssuerUrl(event.target.value)}
+                required
+              />
+              {providerHint && <p className="text-xs text-muted-foreground">{providerHint}</p>}
+            </div>
 
             <Input
               label="Client ID"
@@ -230,6 +388,34 @@ export const SSOConfigSettings = () => {
                 (matched by verified email) and their account is linked on first SSO login. Leave off
                 unless you trust your IdP to authenticate existing accounts.
               </p>
+            </div>
+
+            {/* Pre-save "Test connection" — real SSRF-guarded discovery probe. */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={testing || !issuerUrl.trim() || !clientId.trim()}
+                className="px-3 py-2 text-sm rounded-md border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {testing ? 'Testing…' : 'Test connection'}
+              </button>
+              {testResult && (
+                <div
+                  className={`p-3 text-sm rounded-md ${
+                    testResult.ok
+                      ? 'text-green-700 bg-green-50'
+                      : 'text-destructive bg-destructive/10'
+                  }`}
+                >
+                  {testResult.message}
+                  {testResult.ok && testResult.issuer && (
+                    <div className="mt-1 font-mono text-xs opacity-80">
+                      issuer: {testResult.issuer}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {error && (
