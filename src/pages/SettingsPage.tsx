@@ -6,6 +6,7 @@ import {
   User,
   Layers,
   Plug,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -19,10 +20,14 @@ import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { NotificationPreferencesSettings } from '@/components/settings/NotificationPreferencesSettings';
 import { RulesSettings } from '@/components/settings/RulesSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
+import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
 import { useAuthStore } from '@/stores/authStore';
 
 export type SettingsTabContext = {
   isGlobalAdmin: boolean;
+  /** True when the current user is an org_admin in the active organization.
+   *  UX gate only — the BE `requireOrgAdmin` is the real authority. */
+  isOrgAdmin: boolean;
   /** Sub-section parsed from the URL hash (the part after `<tab>/`). Empty when
    *  no sub-section is in the URL — child components fall back to their own
    *  default. Drives deep-linking (e.g. `/settings#ai/learning`,
@@ -91,6 +96,14 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     render: () => <SystemManagementSettings />,
     visible: (ctx) => ctx.isGlobalAdmin,
   },
+  {
+    id: 'sso',
+    label: 'SSO',
+    icon: KeyRound,
+    description: 'Configure single sign-on (OIDC) for your organization',
+    render: () => <SSOConfigSettings />,
+    visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
+  },
 ];
 
 const DEFAULT_TAB_ID = 'profile';
@@ -100,6 +113,7 @@ export const SettingsPage = () => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
+  const isOrgAdmin = user?.organizationRole === 'org_admin';
 
   // Hash format: `#<tab>` or `#<tab>/<section>`. Strip any `?<query>` tail
   // FIRST so children get a clean section id regardless of whether a
@@ -111,7 +125,7 @@ export const SettingsPage = () => {
   const [hashTab, ...hashRest] = hashWithoutQuery.split('/');
   const hashSection = hashRest.join('/');
 
-  const ctx: SettingsTabContext = { isGlobalAdmin, section: hashSection };
+  const ctx: SettingsTabContext = { isGlobalAdmin, isOrgAdmin, section: hashSection };
 
   const visibleTabs = SETTINGS_TABS.filter((tab) => (tab.visible ? tab.visible(ctx) : true));
   const validIds = visibleTabs.map((tab) => tab.id);
