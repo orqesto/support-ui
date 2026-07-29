@@ -53,7 +53,7 @@ import { logger } from '@/lib/logger';
 // ignores these, so arriving via a filter-bearing link (dashboard cards, or the
 // Notification Center's Spam/Suspicious queue rows → ?queue=spam) must force the
 // list ("threads") view — otherwise the click looks like a no-op on Kanban.
-const LIST_ONLY_FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAtRisk', 'queue'];
+const LIST_ONLY_FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAtRisk', 'queue', 'read'];
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
