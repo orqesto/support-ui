@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  Lock,
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -424,6 +425,12 @@ export const UsersPage = () => {
                                     {roleDisplayNames[user.organizationRole]}
                                   </Badge>
                                 )}
+                                {user.scimManaged && (
+                                  <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+                                    <Lock className="w-3 h-3" />
+                                    IdP-managed
+                                  </Badge>
+                                )}
                                 {user.departmentIds && user.departmentIds.length > 0 && (
                                   <>
                                     {user.departmentIds.map((deptId) => (
@@ -513,22 +520,27 @@ export const UsersPage = () => {
                               </Badge>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              {user.organizationRole ? (
-                                <Badge variant="secondary">
-                                  {roleDisplayNames[user.organizationRole]}
-                                </Badge>
-                              ) : (
-                                <span className="text-sm text-gray-400">—</span>
-                              )}
+                              <div className="flex flex-wrap gap-1 items-center">
+                                {user.organizationRole ? (
+                                  <Badge variant="secondary">
+                                    {roleDisplayNames[user.organizationRole]}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-sm text-gray-400">—</span>
+                                )}
+                                {user.scimManaged && (
+                                  <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+                                    <Lock className="w-3 h-3" />
+                                    IdP-managed
+                                  </Badge>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-3">
                               {user.departmentIds && user.departmentIds.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {user.departmentIds.map((deptId) => (
-                                    <Badge
-                                      key={deptId}
-                                      className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
-                                    >
+                                    <Badge key={deptId} className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
                                       {deptNameById(deptId)}
                                     </Badge>
                                   ))}
@@ -537,9 +549,7 @@ export const UsersPage = () => {
                                 <span className="text-sm text-gray-400">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
-                              {user.position ?? '—'}
-                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500">{user.position ?? '—'}</td>
                             <td className="px-4 py-3 text-sm text-gray-500">
                               {formatDate(user.createdAt)}
                             </td>
