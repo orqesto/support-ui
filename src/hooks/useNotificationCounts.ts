@@ -13,7 +13,16 @@ import { useAuthStore } from '@/stores/authStore';
 /** Notification kinds that surface as arrival badges (Notification Center P2). */
 export type ArrivalKind = 'suspicious_arrival' | 'spam_arrival';
 
-type CountsMap = Record<string, number>;
+/**
+ * LIVE queue-depth keys the server folds into `/counts` (org-wide `needs_routing`,
+ * dept-scoped `suspicious_queue`). These are NOT per-user arrival ping kinds — they
+ * don't arrive on `notification:new`; they refresh whenever any arrival ping (or the
+ * 60s poll) refetches the whole counts map. Documenting them here keeps the FE↔BE key
+ * contract in one place. (Audit BE-H2.)
+ */
+export type QueueDepthKind = 'needs_routing' | 'suspicious_queue';
+
+type CountsMap = Partial<Record<ArrivalKind | QueueDepthKind, number>> & Record<string, number>;
 
 // Kinds whose creation should live-refresh the badge counts. Other kinds (SLA) are
 // delivered on the same `notification:new` ping but don't move these badges.
