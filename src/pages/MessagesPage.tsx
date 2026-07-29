@@ -746,6 +746,10 @@ export const MessagesPage = () => {
                       key={thread.threadId}
                       thread={thread}
                       onOpen={handleOpenThread}
+                      onReadChanged={() => {
+                        bumpKanban();
+                        void fetchMessages(messagesPagination.page, true);
+                      }}
                     />
                   ))}
                 </div>

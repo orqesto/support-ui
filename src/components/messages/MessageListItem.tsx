@@ -1,14 +1,31 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, Check, Copy, MessagesSquare, Paperclip, Plus, Ticket } from 'lucide-react';
-import type { MessageThread } from '@/services/message.service';
+import {
+  BookOpen,
+  Check,
+  Copy,
+  Mail,
+  MailOpen,
+  MessagesSquare,
+  Paperclip,
+  Plus,
+  Ticket,
+} from 'lucide-react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import { messageService, type MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
-import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
+import {
+  getChannelIcon,
+  formatConvId,
+  getConvUrlId,
+  isTriageMessage,
+} from '@/lib/messageHelpers';
+import { logger } from '@/lib/logger';
 import { stripHtml } from '@/lib/stripHtml';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -28,15 +45,20 @@ import {
 type MessageListItemProps = {
   thread: MessageThread;
   onOpen: (thread: MessageThread) => void;
+  /** Refresh the list after a read/unread toggle so server truth catches up. */
+  onReadChanged?: () => void;
 };
 
-export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
+export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListItemProps) => {
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
   const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Optimistic read/unread shadow (same pattern as optimisticAssignee) so the row
+  // flips instantly; cleared once the server value catches up on the next fetch.
+  const [optimisticRead, setOptimisticRead] = useState<boolean | null>(null);
   // Optimistic shadow of server assignee state — keeps the card responsive
   // without a list refetch. See KanbanCard for the same pattern + rationale.
   const [optimisticAssignee, setOptimisticAssignee] = useState<{
@@ -88,6 +110,32 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
   const aiState = getAiState(signalMessage, thread);
   const statusBadge = getStatusBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
+
+  // Per-user read/unread (triage queues only): unread = dot + bold; read = muted.
+  const isTriage = isTriageMessage(msg);
+  const serverIsRead = thread.isRead ?? false;
+  const effectiveIsRead =
+    optimisticRead !== null && optimisticRead !== serverIsRead ? optimisticRead : serverIsRead;
+  const showUnread = isTriage && !effectiveIsRead;
+  const senderClass = showUnread
+    ? 'font-bold text-foreground'
+    : isTriage && effectiveIsRead
+      ? 'font-semibold text-muted-foreground'
+      : 'font-semibold';
+
+  const handleToggleRead = async (event: ReactMouseEvent) => {
+    event.stopPropagation();
+    const next = !effectiveIsRead;
+    setOptimisticRead(next);
+    try {
+      if (next) await messageService.markRead(msg.id);
+      else await messageService.markUnread(msg.id);
+      onReadChanged?.();
+    } catch (err) {
+      setOptimisticRead(!next);
+      logger.error('Failed to toggle read state:', err);
+    }
+  };
 
   const effectiveAssigneeId =
     optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
@@ -157,7 +205,7 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
           onOpen(thread);
         }
       }}
-      className="relative p-0 overflow-hidden transition-shadow hover:shadow-sm cursor-pointer"
+      className="relative p-0 overflow-hidden transition-shadow hover:shadow-sm cursor-pointer group"
     >
       <span
         aria-hidden="true"
@@ -198,11 +246,35 @@ export const MessageListItem = ({ thread, onOpen }: MessageListItemProps) => {
             )}
           </button>
           <span className="flex-1" />
+          {isTriage && (
+            <Tooltip content={effectiveIsRead ? 'Mark as unread' : 'Mark as read'} size="sm">
+              <button
+                type="button"
+                aria-label={effectiveIsRead ? 'Mark as unread' : 'Mark as read'}
+                onClick={handleToggleRead}
+                className="shrink-0 p-0.5 rounded opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground"
+              >
+                {effectiveIsRead ? (
+                  <MailOpen className="w-3.5 h-3.5" />
+                ) : (
+                  <Mail className="w-3.5 h-3.5 text-primary" />
+                )}
+              </button>
+            </Tooltip>
+          )}
           <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
         </div>
 
-        {/* Sender (bold) */}
-        <p className="text-sm font-semibold truncate">{thread.sender}</p>
+        {/* Sender — unread (triage) shows a dot + bold; read is muted */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          {showUnread && (
+            <span
+              aria-hidden="true"
+              className="w-2 h-2 rounded-full bg-primary shrink-0"
+            />
+          )}
+          <p className={`text-sm truncate ${senderClass}`}>{thread.sender}</p>
+        </div>
 
         {/* Subject (muted) */}
         {msg.subject && <p className="text-xs text-muted-foreground truncate">{msg.subject}</p>}
