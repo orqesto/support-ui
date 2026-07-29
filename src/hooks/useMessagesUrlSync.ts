@@ -76,6 +76,7 @@ export const useMessagesUrlSync = ({
 
   const filters = useMessagesStore((state) => state.filters);
   const setFilters = useMessagesStore((state) => state.setFilters);
+  const updateFilter = useMessagesStore((state) => state.updateFilter);
 
   // On mount: read URL params → store, then trigger initial fetch
   useEffect(() => {
@@ -168,6 +169,25 @@ export const useMessagesUrlSync = ({
       logger.error('Failed to initialize messages page:', error);
     });
   }, []);
+
+  // Re-apply the `queue` filter from the URL on POST-mount navigations. The mount
+  // effect above has [] deps so it runs once; when the Notification Center's
+  // Suspicious/Spam queue rows navigate to ?queue=... while the Messages page is
+  // already mounted, the URL changes but the store filter would otherwise stay
+  // stale (list shows "all messages" until a full reload). Loop-safe: fires only
+  // when the store and URL differ, and the filters→URL effect keeps them converged;
+  // changing filters.queue drives the refetch in useMessagesData.
+  useEffect(() => {
+    if (!urlSyncedRef.current) return; // the mount effect owns the first pass
+    const urlQueue = searchParams.get('queue');
+    const normalized: FilterState['queue'] =
+      urlQueue && (VALID_QUEUES as readonly string[]).includes(urlQueue)
+        ? (urlQueue as FilterState['queue'])
+        : 'all';
+    if ((useMessagesStore.getState().filters.queue ?? 'all') !== normalized) {
+      updateFilter('queue', normalized);
+    }
+  }, [searchParams, updateFilter, urlSyncedRef]);
 
   // Sync filters → URL whenever they change. Read searchParams via ref to avoid a write→read loop.
   useEffect(() => {
