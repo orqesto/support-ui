@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -13,6 +13,9 @@ export const MessageDetailPage = () => {
   const navigate = useNavigate();
   const [message, setMessage] = useState<Message | null>(null);
   const [loading, setLoading] = useState(true);
+  // The open detail registers its prompt-aware close here so the Back button asks
+  // "Mark as read?" for an unread triage thread, matching the slide-over.
+  const requestCloseRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     // `id` may be either a numeric conv id ('16952') or a publicId ('SUP-42').
@@ -42,9 +45,19 @@ export const MessageDetailPage = () => {
     }
   };
 
-  const handleBack = () => {
+  const goBack = useCallback(() => {
     navigate('/messages');
-  };
+  }, [navigate]);
+
+  // Route Back through the detail's prompt-aware close (falls back to a direct
+  // navigate if it hasn't registered yet, e.g. the not-found state).
+  const handleBack = useCallback(() => {
+    if (requestCloseRef.current) {
+      requestCloseRef.current();
+      return;
+    }
+    goBack();
+  }, [goBack]);
 
   if (loading) {
     return (
@@ -91,11 +104,17 @@ export const MessageDetailPage = () => {
             <MessageDetail
               key={message.id}
               message={message}
+              isFullPage
+              onClose={goBack}
+              onRegisterRequestClose={(fn) => {
+                requestCloseRef.current = fn;
+              }}
+              onReadChanged={() => fetchMessage(message.id)}
               onRefresh={() => fetchMessage(message.id)}
               onApprove={handleApprove}
               onReject={() => fetchMessage(message.id)}
               onReopen={() => fetchMessage(message.id)}
-              onDelete={handleBack}
+              onDelete={goBack}
               onResolve={() => fetchMessage(message.id)}
             />
           </div>
