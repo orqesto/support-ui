@@ -100,6 +100,10 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         if (queue !== 'all') {
           apiFilters.queue = queue;
         }
+        const read = currentFilters.read ?? 'all';
+        if (read !== 'all') {
+          apiFilters.read = read;
+        }
         const lifecycleOrQueueActive = lifecycle !== 'all' || queue !== 'all';
 
         // THREAD STATUS (kanban lifecycle: open / in_progress / closed)
@@ -260,6 +264,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.threadStatus,
     filters.lifecycle,
     filters.queue,
+    filters.read,
     filters.priority,
     filters.assigneeId,
     filters.aiState,
