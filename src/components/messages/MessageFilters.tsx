@@ -64,6 +64,14 @@ const QUEUE_OPTIONS = [
   // filter is kept for that page; it's just not offered in this dropdown.
 ] as const;
 
+// Per-user read/unread filter → BE `read` param. Most useful inside the triage
+// queues (suspicious/not_analysed/archived/spam) where read/unread is tracked.
+const READ_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'read', label: 'Read' },
+] as const;
+
 const PRIORITY_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'low', label: 'Low' },
@@ -193,6 +201,9 @@ export const MessageFilters = ({
   }
   if (!isKanban && filters.lifecycle && filters.lifecycle !== 'all') {
     activeChips.push({ key: 'lifecycle', label: `Status: ${optLabel(LIFECYCLE_OPTIONS, filters.lifecycle)}`, onRemove: () => onFilterChange('lifecycle', 'all') });
+  }
+  if (!isKanban && filters.read && filters.read !== 'all') {
+    activeChips.push({ key: 'read', label: `Read: ${optLabel(READ_OPTIONS, filters.read)}`, onRemove: () => onFilterChange('read', 'all') });
   }
   if (!isKanban && filters.queue && filters.queue !== 'all') {
     activeChips.push({ key: 'queue', label: `Queue: ${optLabel(QUEUE_OPTIONS, filters.queue)}`, onRemove: () => onFilterChange('queue', 'all') });
@@ -397,6 +408,17 @@ export const MessageFilters = ({
                       if (value !== 'all') onFilterChange('lifecycle', 'all');
                     }}
                     options={QUEUE_OPTIONS as unknown as { value: string; label: string }[]}
+                    className="w-full"
+                  />
+                </FilterCell>
+              )}
+
+              {!isKanban && (
+                <FilterCell label="Read">
+                  <ReactSelect
+                    value={filters.read ?? 'all'}
+                    onChange={(value) => onFilterChange('read', value)}
+                    options={READ_OPTIONS as unknown as { value: string; label: string }[]}
                     className="w-full"
                   />
                 </FilterCell>

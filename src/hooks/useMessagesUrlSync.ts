@@ -29,6 +29,7 @@ const VALID_LIFECYCLES = [
   'closed',
 ] as const;
 const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
+const VALID_READ = ['all', 'read', 'unread'] as const;
 const VALID_AI_STATES = [
   'all',
   'needs_review',
@@ -104,6 +105,11 @@ export const useMessagesUrlSync = ({
       const urlQueue = searchParams.get('queue');
       if (urlQueue && (VALID_QUEUES as readonly string[]).includes(urlQueue)) {
         urlFilters.queue = urlQueue as FilterState['queue'];
+      }
+
+      const urlRead = searchParams.get('read');
+      if (urlRead && (VALID_READ as readonly string[]).includes(urlRead)) {
+        urlFilters.read = urlRead as FilterState['read'];
       }
 
       const urlAiState = searchParams.get('aiState');
@@ -207,6 +213,7 @@ export const useMessagesUrlSync = ({
     if (filters.lifecycle && filters.lifecycle !== 'all')
       params.set('lifecycle', filters.lifecycle);
     if (filters.queue && filters.queue !== 'all') params.set('queue', filters.queue);
+    if (filters.read && filters.read !== 'all') params.set('read', filters.read);
     if (filters.aiState && filters.aiState !== 'all') params.set('aiState', filters.aiState);
     if (filters.linked && filters.linked !== 'all') params.set('linked', filters.linked);
     if (
