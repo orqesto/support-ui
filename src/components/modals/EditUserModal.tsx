@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Tag, X } from 'lucide-react';
+import { AlertTriangle, Tag, X, Lock } from 'lucide-react';
 import { userService } from '@/services/user.service';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { departmentService, type Department } from '@/services/department.service';
+import { listScimGroupMappings } from '@/services/scim.service';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
@@ -93,6 +94,15 @@ export const EditUserModal = ({
   const [canEditSkills, setCanEditSkillsState] = useState(false);
   const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
 
+  // D2-01: a SCIM-managed member's role/dept is owned by the IdP. Render the ROLE
+  // control read-only always; render the DEPARTMENT control read-only only when the
+  // org has ≥1 group→department mapping (D2-01a — if roles map but departments don't,
+  // depts stay editable). Non-SCIM members are unaffected (D2-01b).
+  const isScimManaged = user?.scimManaged === true;
+  const [orgHasDeptMapping, setOrgHasDeptMapping] = useState(false);
+  const roleReadOnly = isScimManaged;
+  const deptReadOnly = isScimManaged && orgHasDeptMapping;
+
   // Check if user is editing their own profile
   const isEditingSelf = currentUser && user && currentUser.id === user.id;
   const canEditRoles = isAdmin || (canManageUsers && !isEditingSelf);
@@ -133,6 +143,27 @@ export const EditUserModal = ({
       departmentService.getAll().then(setAvailableDepartments).catch(() => setAvailableDepartments([]));
     }
   }, [isOpen]);
+
+  // For a SCIM-managed member, learn whether the org maps any group→department
+  // (D2-01a). Only org_admin/global-admin can read the mapping endpoint; a 403 or
+  // any failure simply leaves departments editable (fail-open for editability).
+  useEffect(() => {
+    if (!isOpen || !isScimManaged) {
+      setOrgHasDeptMapping(false);
+      return;
+    }
+    let active = true;
+    listScimGroupMappings()
+      .then((groups) => {
+        if (active) setOrgHasDeptMapping(groups.some((grp) => grp.mappedDepartmentIds.length > 0));
+      })
+      .catch(() => {
+        if (active) setOrgHasDeptMapping(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isScimManaged]);
 
   useEffect(() => {
     if (user) {
@@ -211,8 +242,10 @@ export const EditUserModal = ({
         slack: slack.trim() ?? undefined,
         phone: phone.trim() ?? undefined,
         role: canEditRoles && isAdmin ? globalRole : undefined,
-        organizationRole: canEditRoles ? organizationRole : undefined,
-        departmentIds: canEditRoles ? selectedDepartmentIds : undefined,
+        // Skip IdP-owned fields for SCIM-managed members (D2-01) so an in-app save
+        // can never fight the IdP's derivation.
+        organizationRole: canEditRoles && !roleReadOnly ? organizationRole : undefined,
+        departmentIds: canEditRoles && !deptReadOnly ? selectedDepartmentIds : undefined,
         permissionOverrides: canEditRoles ? permissionOverrides : undefined,
       });
       onClose();
@@ -249,8 +282,8 @@ export const EditUserModal = ({
         slack: slack.trim() ?? undefined,
         phone: phone.trim() ?? undefined,
         role: canEditRoles && isAdmin ? globalRole : undefined,
-        organizationRole: canEditRoles ? organizationRole : undefined,
-        departmentIds: canEditRoles ? selectedDepartmentIds : undefined,
+        organizationRole: canEditRoles && !roleReadOnly ? organizationRole : undefined,
+        departmentIds: canEditRoles && !deptReadOnly ? selectedDepartmentIds : undefined,
         permissionOverrides: canEditRoles ? permissionOverrides : undefined,
       });
       onClose();
@@ -362,9 +395,7 @@ export const EditUserModal = ({
                     label="Global Role"
                     id="globalRole"
                     value={globalRole}
-                    onChange={(value) => {
-                      setGlobalRole(value as GlobalRole);
-                    }}
+                    onChange={(value) => setGlobalRole(value as GlobalRole)}
                     options={globalRoles
                       .filter((role) => role !== 'admin' || isSystemOrg || globalRole === 'admin')
                       .map((role) => ({
@@ -392,24 +423,25 @@ export const EditUserModal = ({
                     label="Organization Role"
                     id="organizationRole"
                     value={organizationRole}
-                    onChange={(value) => {
-                      setOrganizationRole(value as OrganizationRole);
-                    }}
+                    onChange={(value) => setOrganizationRole(value as OrganizationRole)}
                     options={orgRoles.map((role) => ({
                       value: role,
                       label: roleDisplayNames[role],
                     }))}
-                    isDisabled={!isAdmin && isLastOrgAdmin}
+                    isDisabled={roleReadOnly || (!isAdmin && isLastOrgAdmin)}
                   />
-                  {!isAdmin && isLastOrgAdmin ? (
+                  {roleReadOnly ? (
+                    <p className="flex gap-1 items-center -mt-2 text-xs font-medium text-amber-600">
+                      <Lock className="w-3 h-3" />
+                      Managed by IdP (SCIM) — change this member&apos;s role in your identity provider.
+                    </p>
+                  ) : !isAdmin && isLastOrgAdmin ? (
                     <p className="flex gap-1 items-center -mt-2 text-xs font-medium text-red-600">
                       <AlertTriangle className="w-3 h-3" />
                       Cannot change role - you are the last Organization Administrator
                     </p>
                   ) : (
-                    <p className="-mt-2 text-xs text-muted-foreground">
-                      Permissions within the organization
-                    </p>
+                    <p className="-mt-2 text-xs text-muted-foreground">Permissions within the organization</p>
                   )}
                   {/* Show role permissions info */}
                   <div className="-mt-2">
@@ -431,10 +463,14 @@ export const EditUserModal = ({
                             const isGeneral = dept.slug === 'info' || dept.slug === 'general';
                             const isChecked = selectedDepartmentIds.includes(dept.id);
                             return (
-                              <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
+                              <label
+                                key={dept.id}
+                                className={`flex gap-2 items-center ${deptReadOnly ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                              >
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
+                                  disabled={deptReadOnly}
                                   onChange={(event) => {
                                     if (event.target.checked) {
                                       setSelectedDepartmentIds([...selectedDepartmentIds, dept.id]);
@@ -462,8 +498,11 @@ export const EditUserModal = ({
                             );
                           })}
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          User can access tickets and messages from selected departments
+                        <p className={`flex gap-1 items-center mt-1 text-xs ${deptReadOnly ? 'font-medium text-amber-600' : 'text-muted-foreground'}`}>
+                          {deptReadOnly && <Lock className="w-3 h-3" />}
+                          {deptReadOnly
+                            ? 'Managed by IdP (SCIM) — departments are set by your identity provider group mappings.'
+                            : 'User can access tickets and messages from selected departments'}
                         </p>
                       </>
                     )}

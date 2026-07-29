@@ -43,6 +43,9 @@ export type User = {
   slack?: string | null; // Slack username or user ID
   phone?: string | null; // Phone number
   signature?: string | null; // Personal email signature
+  // SCIM: true when the member's per-org scim_external_id is set — their role/dept
+  // is owned by the IdP, so the in-app editor renders read-only for them (D2-01).
+  scimManaged?: boolean;
   createdAt: string;
   updatedAt?: string;
 };
