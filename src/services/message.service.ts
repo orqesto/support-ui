@@ -86,6 +86,10 @@ export type MessageThread = {
   linkedTicketStatus: string | null;
   isResolved: boolean;
   isLead: boolean;
+  /** Per-user read state for the triage read/unread indicator (true = read).
+   *  Optional for back-compat with list shapes/tests that omit it; the unread
+   *  dot only shows on an explicit `false`. */
+  isRead?: boolean;
   lastReplyFromClient: boolean | null;
   lastMessageAt: Date;
   latestMessage: Message | null;
@@ -456,6 +460,22 @@ export const messageService = {
     const response = await apiClient.post<
       ApiResponse<{ id: number; status: string; closedAt: string }>
     >(`/api/messages/${id}/close`, {});
+    return response.data;
+  },
+
+  // Per-user read/unread state for the triage queues.
+  markRead: async (id: number) => {
+    const response = await apiClient.put<ApiResponse<{ conversationId: number; isRead: boolean }>>(
+      `/api/messages/${id}/read`,
+      {}
+    );
+    return response.data;
+  },
+
+  markUnread: async (id: number) => {
+    const response = await apiClient.delete<
+      ApiResponse<{ conversationId: number; isRead: boolean }>
+    >(`/api/messages/${id}/read`);
     return response.data;
   },
 
