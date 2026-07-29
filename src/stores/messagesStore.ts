@@ -57,6 +57,8 @@ export type FilterState = {
   lifecycle?: LifecycleFilter;
   /** LIST-view non-lifecycle classification filter. Mutually exclusive with lifecycle. */
   queue?: QueueFilter;
+  /** Per-user read/unread filter (triage queues). 'all' = no filter. */
+  read?: 'all' | 'read' | 'unread';
   priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
   assigneeId?: string;
   aiState?: AiStateFilter;
@@ -111,6 +113,7 @@ export const defaultFilters: FilterState = {
   threadStatus: 'all',
   lifecycle: 'all',
   queue: 'all',
+  read: 'all',
   priority: 'all',
   assigneeId: 'all',
   aiState: 'all',
