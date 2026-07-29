@@ -12,9 +12,17 @@ export const SignupPage = () => {
   // Read the invitation token from the query string first (new links — survives
   // email-client redirect wrappers that strip URL #fragments), falling back to the
   // hash for any older #token= links already sitting in inboxes.
-  const token =
-    new URLSearchParams(window.location.search).get('token') ??
-    new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
+  //
+  // Captured ONCE in state (initializer) — NOT recomputed each render. The validate
+  // effect strips the token from the URL (replaceState below) once captured; if `token`
+  // were re-derived from window.location on the next render it would become null, re-fire
+  // this effect, and bounce a VALID invite to /login with "you need an invitation". State
+  // pins the value across that strip.
+  const [token] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get('token') ??
+      new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token')
+  );
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
