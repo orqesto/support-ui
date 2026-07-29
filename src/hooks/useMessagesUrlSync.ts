@@ -185,14 +185,21 @@ export const useMessagesUrlSync = ({
   // changing filters.queue drives the refetch in useMessagesData.
   useEffect(() => {
     if (!urlSyncedRef.current) return; // the mount effect owns the first pass
+    const store = useMessagesStore.getState().filters;
+
     const urlQueue = searchParams.get('queue');
-    const normalized: FilterState['queue'] =
+    const queue: FilterState['queue'] =
       urlQueue && (VALID_QUEUES as readonly string[]).includes(urlQueue)
         ? (urlQueue as FilterState['queue'])
         : 'all';
-    if ((useMessagesStore.getState().filters.queue ?? 'all') !== normalized) {
-      updateFilter('queue', normalized);
-    }
+    if ((store.queue ?? 'all') !== queue) updateFilter('queue', queue);
+
+    const urlRead = searchParams.get('read');
+    const read: FilterState['read'] =
+      urlRead && (VALID_READ as readonly string[]).includes(urlRead)
+        ? (urlRead as FilterState['read'])
+        : 'all';
+    if ((store.read ?? 'all') !== read) updateFilter('read', read);
   }, [searchParams, updateFilter, urlSyncedRef]);
 
   // Sync filters → URL whenever they change. Read searchParams via ref to avoid a write→read loop.
