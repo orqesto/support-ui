@@ -27,10 +27,12 @@ export const SsoCallbackPage = () => {
   const handledRef = useRef(false);
 
   useEffect(() => {
+    // handledRef makes this run exactly once even under StrictMode's double-invoke.
+    // Do NOT add a `cancelled` cleanup flag: StrictMode runs the first mount's cleanup
+    // immediately, which would flip `cancelled` true and make the (single) getCurrentUser
+    // .then/.catch bail — leaving the page stuck forever on "Completing sign-in…".
     if (handledRef.current) return;
     handledRef.current = true;
-
-    let cancelled = false;
 
     // If the BE reported a failure it redirects to /login?ssoError=<code> directly, so a
     // successful hop here has no error param. We only read ?sso for display/logging — never
@@ -46,7 +48,6 @@ export const SsoCallbackPage = () => {
     userService
       .getCurrentUser()
       .then((user) => {
-        if (cancelled) return;
         // Mirror the password-login path: cookie-only session, no bearer token to store.
         useAuthStore.getState().login(null, user);
         // Derive the org from the trusted server response, NOT any URL value.
@@ -57,14 +58,9 @@ export const SsoCallbackPage = () => {
         navigate('/dashboard', { replace: true });
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
         logger.error('SSO callback failed to hydrate session from cookie', err);
         navigate('/login?ssoError=handoff', { replace: true });
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [navigate]);
 
   return (
