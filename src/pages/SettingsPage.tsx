@@ -7,6 +7,7 @@ import {
   Layers,
   Plug,
   KeyRound,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -21,6 +22,7 @@ import { NotificationPreferencesSettings } from '@/components/settings/Notificat
 import { RulesSettings } from '@/components/settings/RulesSettings';
 import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
 import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
+import { SCIMConfigSettings } from '@/components/settings/SCIMConfigSettings';
 import { useAuthStore } from '@/stores/authStore';
 
 export type SettingsTabContext = {
@@ -102,6 +104,14 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: KeyRound,
     description: 'Configure single sign-on (OIDC) for your organization',
     render: () => <SSOConfigSettings />,
+    visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
+  },
+  {
+    id: 'scim',
+    label: 'SCIM',
+    icon: Users,
+    description: 'Provision members and map groups from your identity provider',
+    render: () => <SCIMConfigSettings />,
     visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
   },
 ];
