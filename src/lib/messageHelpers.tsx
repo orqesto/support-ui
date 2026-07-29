@@ -94,6 +94,25 @@ export const getSpamCheck = (message: {
   metadata?: Record<string, unknown> | null;
 }): SpamCheckData | undefined => message.metadata?.spamCheck as SpamCheckData | undefined;
 
+/**
+ * Whether a conversation belongs to one of the triage queues (suspicious,
+ * not_analysed, archived, spam) — the only place the per-user read/unread
+ * indicator applies. Mirrors the BE messageFilters predicates for those views.
+ */
+export const isTriageMessage = (message: {
+  status?: string;
+  metadata?: Record<string, unknown> | null;
+}): boolean => {
+  const spam = getSpamCheck(message);
+  // not_analysed + archived both live under status='filtered'.
+  if (message.status === 'filtered') return true;
+  // suspicious.
+  if (spam?.category === 'suspicious') return true;
+  // spam.
+  if (spam?.isSpam === true || spam?.category === 'spam') return true;
+  return false;
+};
+
 export const getFilteredCategoryLabel = (category?: string): string => {
   if (!category) return 'Filtered';
 

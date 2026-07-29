@@ -18,6 +18,8 @@ import {
   Maximize2,
   Sparkles,
   MessageSquare,
+  Mail,
+  MailOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -88,6 +90,12 @@ export type MessageDetailHeaderProps = {
   labelsRefreshKey?: number;
   /** Called after a contact change that also shows on cards + this header (labels). */
   onContactChanged?: () => void;
+  /** Show the per-user read/unread toggle (triage queues only). */
+  showReadToggle?: boolean;
+  /** Current per-user read state (true = read). */
+  isRead?: boolean;
+  /** Toggle the per-user read/unread state. */
+  onToggleRead?: () => void;
 };
 
 // Manual BE status → kanban column id, so the acting agent's card moves instantly
@@ -115,6 +123,9 @@ export function MessageDetailHeader({
   onApprove,
   onClassify: onClassify,
   onOptimisticMove,
+  showReadToggle,
+  isRead,
+  onToggleRead,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
@@ -690,6 +701,21 @@ export function MessageDetailHeader({
               className="fixed inset-0 z-30 cursor-default"
               onClick={() => setShowLabelPicker(false)}
             />
+          )}
+          {showReadToggle && onToggleRead && (
+            <button
+              type="button"
+              onClick={onToggleRead}
+              className="p-1 rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+              title={isRead ? 'Mark as unread' : 'Mark as read'}
+              aria-label={isRead ? 'Mark as unread' : 'Mark as read'}
+            >
+              {isRead ? (
+                <MailOpen className="w-3.5 h-3.5" />
+              ) : (
+                <Mail className="w-3.5 h-3.5 text-primary" />
+              )}
+            </button>
           )}
           {showFullPageButton && !isFullPage && (
             <Link to={`/messages/${message.id}`} title="Open full page">

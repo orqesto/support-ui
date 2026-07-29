@@ -809,6 +809,12 @@ export const MessagesPage = () => {
                   setSelectedMessage(null);
                 }}
                 onResolve={handleResolve}
+                onReadChanged={() => {
+                  // Refresh the board so the triage unread dot updates, without
+                  // tearing down the open detail panel.
+                  bumpKanban();
+                  void fetchMessages(messagesPagination.page, true);
+                }}
                 onRefresh={handleRefreshMessage}
                 onClassify={async (action, createDetectionRule, trainSpamFilter) => {
                   await messageService.classify(
