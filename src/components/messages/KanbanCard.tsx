@@ -27,10 +27,9 @@ import {
   getInitials,
   getPriorityBadge,
   getSpine,
-  getStatusBadge,
   hasAttachments,
 } from './inboxCardHelpers';
-import { LIFECYCLE_COLUMN_BADGE } from './kanbanColumns';
+import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
 
 type KanbanCardProps = {
   thread: MessageThread;
@@ -41,9 +40,8 @@ type KanbanCardProps = {
    */
   weRepliedLast?: boolean;
   /**
-   * The kanban column this card is rendered in. When set, the card's status
-   * badge follows the column's lifecycle state (see LIFECYCLE_COLUMN_BADGE)
-   * instead of the raw DB status, so the badge can never contradict the column.
+   * The kanban column this card is rendered in. Used to scope the read/unread
+   * indicator to the triage columns (suspicious, not_analysed, archived, spam).
    */
   colId?: string;
 };
@@ -106,12 +104,10 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
-  // Badge follows the COLUMN's lifecycle state on the kanban (see
-  // LIFECYCLE_COLUMN_BADGE). Lifecycle columns → their lifecycle badge; triage
-  // columns → no status badge (their signal badges classify them); no column
-  // context (non-kanban callers) → fall back to the raw-status badge.
-  const statusBadge = colId ? (LIFECYCLE_COLUMN_BADGE[colId] ?? null) : getStatusBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
+  // Per-user read/unread dot — only on the triage queues (suspicious,
+  // not_analysed, archived, spam), where "have I reviewed this?" is the signal.
+  const showUnreadDot = colId ? TRIAGE_READ_COLUMN_IDS.has(colId) && thread.isRead === false : false;
 
   // Optimistic state wins when it diverges from server state; clears when
   // they converge (i.e. a fresh fetch confirmed the assignment).
@@ -220,10 +216,21 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
 
       {/* Sender row — channel icon + bold name */}
       <div className="flex items-center gap-1.5 min-w-0">
+        {showUnreadDot && (
+          <span
+            aria-label="Unread"
+            title="Unread"
+            className="w-2 h-2 rounded-full bg-primary shrink-0"
+          />
+        )}
         <span className="text-xs shrink-0 text-muted-foreground">
           {getChannelIcon(msg.channel)}
         </span>
-        <span className="flex-1 min-w-0 text-sm font-semibold truncate">{customer}</span>
+        <span
+          className={`flex-1 min-w-0 text-sm truncate ${showUnreadDot ? 'font-bold' : 'font-semibold'}`}
+        >
+          {customer}
+        </span>
       </div>
 
       {/* Subject row — muted, separate from sender for breathing room */}
@@ -238,14 +245,6 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           right-pinned assign. */}
       <div className="flex flex-wrap items-center gap-1.5 pt-2 mt-1 border-t border-border/60">
         <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
-
-        {statusBadge && (
-          <span
-            className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${statusBadge.className}`}
-          >
-            {statusBadge.label}
-          </span>
-        )}
 
         {priorityBadge && (
           <span

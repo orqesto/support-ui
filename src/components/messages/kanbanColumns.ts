@@ -155,6 +155,11 @@ export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: 
   resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
 };
 
+// Triage/queue columns where the per-user read/unread indicator applies. The
+// lifecycle columns (open…resolved) already convey "handled" via workflow status,
+// so read/unread is only meaningful for these review piles.
+export const TRIAGE_READ_COLUMN_IDS = new Set(['suspicious', 'not_analysed', 'archived', 'spam']);
+
 // Special drop target on the Triage tab: approve a triaged message → it leaves triage
 // and enters the lifecycle at "Open". Not a column (the lifecycle board is another tab).
 export const APPROVE_TARGET = 'approve_inbox';

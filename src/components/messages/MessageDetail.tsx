@@ -1,3 +1,7 @@
+// Over the 650-line cap — same pattern as MessageDetailHeader. The per-user
+// read/unread toggle + close prompt pushed it over; splitting the confirm-dialog
+// wiring out is the natural follow-up refactor.
+/* eslint-disable max-lines */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import {
@@ -9,7 +13,7 @@ import {
   organizationService,
   type LeadQualificationFieldConfig,
 } from '@/services/organization.service';
-import { getSpamCheck } from '@/lib/messageHelpers';
+import { getSpamCheck, isTriageMessage } from '@/lib/messageHelpers';
 import {
   getSocket,
   releaseSocket,
@@ -63,6 +67,9 @@ export type MessageDetailProps = {
   onDelete?: () => void;
   onResolve?: () => void;
   onRefresh?: () => void;
+  /** Fired after the per-user read/unread state changes, so the board can refresh
+   *  the triage unread indicator without closing the detail. */
+  onReadChanged?: () => void;
   /** Fired after a customer reply is sent (not notes) — the conversation flips to
    *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
   onReplied?: () => void;
@@ -87,6 +94,7 @@ export function MessageDetail({
   onDelete,
   onResolve,
   onRefresh,
+  onReadChanged,
   onReplied,
   onOptimisticMove,
   onClassify,
@@ -143,6 +151,14 @@ export function MessageDetail({
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  // Per-user read/unread state (triage queues only). Optimistically tracked so the
+  // header toggle reflects instantly; synced whenever the message prop changes.
+  const isTriage = isTriageMessage(message);
+  const [readState, setReadState] = useState<boolean>(message.isRead ?? false);
+  const [markReadPromptOpen, setMarkReadPromptOpen] = useState(false);
+  useEffect(() => {
+    setReadState(message.isRead ?? false);
+  }, [message.id, message.isRead]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [sendFailedError, setSendFailedError] = useState<string | null>(null);
   const richEditorRef = useRef<RichTextEditorHandle>(null);
@@ -390,6 +406,38 @@ export function MessageDetail({
     }
   }, [message.id, onResolve]);
 
+  // Per-user read/unread (triage). Optimistic with revert on failure; onReadChanged
+  // lets the board refresh the unread dot without tearing down the detail.
+  const applyRead = useCallback(
+    async (next: boolean) => {
+      setReadState(next);
+      try {
+        if (next) await messageService.markRead(message.id);
+        else await messageService.markUnread(message.id);
+        onReadChanged?.();
+      } catch (err) {
+        setReadState(!next);
+        logger.error('Failed to update read state:', err);
+        toast.error('Could not update read state');
+      }
+    },
+    [message.id, onReadChanged]
+  );
+
+  const handleToggleRead = useCallback(() => {
+    void applyRead(!readState);
+  }, [applyRead, readState]);
+
+  // Closing an unread triage thread prompts "mark as read?" first (per-user review
+  // marker). Read threads, or non-triage threads, close immediately.
+  const handleRequestClose = useCallback(() => {
+    if (isTriage && !readState) {
+      setMarkReadPromptOpen(true);
+    } else {
+      onClose?.();
+    }
+  }, [isTriage, readState, onClose]);
+
   const handleGhostClick = useCallback(
     (answer: string, _source: string, _attachments?: KBAttachment[]) => {
       setComposer(
@@ -528,7 +576,7 @@ export function MessageDetail({
       {/* Header */}
       <MessageDetailHeader
         message={message}
-        onClose={onClose}
+        onClose={onClose ? handleRequestClose : undefined}
         showFullPageButton={!!onClose}
         isFullPage={!onClose}
         threadCount={sortedThread.length}
@@ -539,6 +587,9 @@ export function MessageDetail({
         onApprove={onApprove}
         onClassify={onClassify}
         onOptimisticMove={onOptimisticMove}
+        showReadToggle={isTriage}
+        isRead={readState}
+        onToggleRead={handleToggleRead}
       />
 
       {/* History banner */}
@@ -700,10 +751,17 @@ export function MessageDetail({
         setResolveConfirmOpen={setResolveConfirmOpen}
         closeConfirmOpen={closeConfirmOpen}
         setCloseConfirmOpen={setCloseConfirmOpen}
+        markReadPromptOpen={markReadPromptOpen}
+        setMarkReadPromptOpen={setMarkReadPromptOpen}
         onReject={handleReject}
         onReopen={handleReopen}
         onResolveToKB={handleResolveWithoutReply}
         onCloseThread={handleClose}
+        onMarkReadAndClose={() => {
+          void applyRead(true);
+          onClose?.();
+        }}
+        onKeepUnreadAndClose={() => onClose?.()}
       />
 
       {/* Similar messages dialog */}

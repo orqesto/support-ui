@@ -128,7 +128,12 @@ const SLABreachItem = ({
   );
 };
 
-// Suspicious/Spam arrival queues → aggregate rows that drill into the inbox filter.
+// Spam arrival queue → aggregate row that drills into the inbox filter.
+// NOTE: Suspicious is intentionally NOT here — it is rendered below as a LIVE
+// queue-depth row (like Needs Routing), sourced from the `suspicious_queue`
+// count, so it only clears when the queue empties rather than on a per-user
+// "reviewed" click. The `suspicious_arrival` kind still drives the Kanban
+// header "N new" badge, which is separate from this panel.
 const ARRIVAL_QUEUES: {
   kind: ArrivalKind;
   label: string;
@@ -136,7 +141,6 @@ const ARRIVAL_QUEUES: {
   Icon: typeof ShieldAlert;
   iconClass: string;
 }[] = [
-  { kind: 'suspicious_arrival', label: 'Suspicious', queue: 'suspicious', Icon: ShieldAlert, iconClass: 'text-purple-500' },
   { kind: 'spam_arrival', label: 'Spam', queue: 'spam', Icon: Ban, iconClass: 'text-red-500' },
 ];
 
@@ -166,7 +170,10 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   // (otherwise the bell would stay perpetually "unread" while any conv awaits
   // routing). It surfaces as a read-only drill-in row instead.
   const needsRoutingCount = arrivalCounts['needs_routing'] ?? 0;
-  const hasQueues = arrivalRows.length > 0 || needsRoutingCount > 0;
+  // Suspicious: a LIVE queue-depth count (like needs_routing), NOT clearable and
+  // kept OUT of the bell badge — the queue row disappears only when it empties.
+  const suspiciousQueueCount = arrivalCounts['suspicious_queue'] ?? 0;
+  const hasQueues = arrivalRows.length > 0 || needsRoutingCount > 0 || suspiciousQueueCount > 0;
 
   const showLearning = learning.isOrgAdmin;
   const learningNotes = showLearning ? learning.notifications : [];
@@ -316,6 +323,22 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         </span>
                       </button>
                     ))}
+                    {suspiciousQueueCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigate('/messages?queue=suspicious');
+                          setOpen(false);
+                        }}
+                        className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                      >
+                        <ShieldAlert className="w-4 h-4 shrink-0 text-purple-500" />
+                        <span className="flex-1 font-medium text-foreground">Suspicious</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                          {suspiciousQueueCount > 99 ? '99+' : suspiciousQueueCount}
+                        </span>
+                      </button>
+                    )}
                     {needsRoutingCount > 0 && (
                       <button
                         type="button"

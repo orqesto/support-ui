@@ -89,6 +89,9 @@ export type Message = {
   actualResponseSeconds?: number | null;
   lastReplyAt?: string | null;
   lastReplyFromClient?: boolean | null;
+  // Per-user read state for the triage read/unread indicator (true = read for the
+  // current user). Present on the detail payload; absent on some list shapes.
+  isRead?: boolean;
   // BE returns labels UNIONed from three sources (#16). `source` lets the FE
   // render an "inherited via contact" badge so agents understand why the
   // label is showing without having to look it up. Optional for back-compat

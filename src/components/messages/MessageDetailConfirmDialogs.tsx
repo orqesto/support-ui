@@ -19,10 +19,16 @@ type Props = {
   setResolveConfirmOpen: (open: boolean) => void;
   closeConfirmOpen: boolean;
   setCloseConfirmOpen: (open: boolean) => void;
+  markReadPromptOpen: boolean;
+  setMarkReadPromptOpen: (open: boolean) => void;
   onReject?: () => void;
   onReopen?: () => void;
   onResolveToKB?: () => void;
   onCloseThread?: () => void;
+  /** Mark the conversation read for the current user, then close the detail. */
+  onMarkReadAndClose?: () => void;
+  /** Leave the conversation unread and close the detail. */
+  onKeepUnreadAndClose?: () => void;
 };
 
 export const MessageDetailConfirmDialogs = ({
@@ -35,10 +41,14 @@ export const MessageDetailConfirmDialogs = ({
   setResolveConfirmOpen,
   closeConfirmOpen,
   setCloseConfirmOpen,
+  markReadPromptOpen,
+  setMarkReadPromptOpen,
   onReject,
   onReopen,
   onResolveToKB,
   onCloseThread,
+  onMarkReadAndClose,
+  onKeepUnreadAndClose,
 }: Props) => (
   <>
     <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
@@ -142,6 +152,39 @@ export const MessageDetailConfirmDialogs = ({
             }}
           >
             Resolve (no KB)
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Prompt shown when closing an UNREAD triage thread — "have I reviewed this?" */}
+    <Dialog open={markReadPromptOpen} onOpenChange={setMarkReadPromptOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mark as read?</DialogTitle>
+          <DialogClose onClose={() => setMarkReadPromptOpen(false)} />
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          You&apos;re closing this conversation while it&apos;s still marked unread. Mark it as read
+          so it no longer shows the unread indicator, or keep it unread to review later.
+        </p>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setMarkReadPromptOpen(false);
+              onKeepUnreadAndClose?.();
+            }}
+          >
+            Keep unread
+          </Button>
+          <Button
+            onClick={() => {
+              setMarkReadPromptOpen(false);
+              onMarkReadAndClose?.();
+            }}
+          >
+            Mark as read
           </Button>
         </DialogFooter>
       </DialogContent>
