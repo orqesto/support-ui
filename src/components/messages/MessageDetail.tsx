@@ -70,6 +70,10 @@ export type MessageDetailProps = {
   /** Fired after the per-user read/unread state changes, so the board can refresh
    *  the triage unread indicator without closing the detail. */
   onReadChanged?: () => void;
+  /** Registers this panel's prompt-aware close handler with the parent, so that
+   *  close gestures OUTSIDE the panel (e.g. the backdrop) route through the same
+   *  "Mark as read?" prompt as the header X. Passed null on unmount. */
+  onRegisterRequestClose?: (requestClose: (() => void) | null) => void;
   /** Fired after a customer reply is sent (not notes) — the conversation flips to
    *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
   onReplied?: () => void;
@@ -95,6 +99,7 @@ export function MessageDetail({
   onResolve,
   onRefresh,
   onReadChanged,
+  onRegisterRequestClose,
   onReplied,
   onOptimisticMove,
   onClassify,
@@ -438,6 +443,15 @@ export function MessageDetail({
     }
   }, [isTriage, readState, onClose]);
 
+  // Expose the prompt-aware close to the parent so out-of-panel close gestures
+  // (the backdrop) go through the same "Mark as read?" prompt as the header X.
+  // Re-registers whenever the handler identity changes (readState/isTriage), and
+  // clears on unmount so a stale handler can't fire against a torn-down panel.
+  useEffect(() => {
+    onRegisterRequestClose?.(handleRequestClose);
+    return () => onRegisterRequestClose?.(null);
+  }, [handleRequestClose, onRegisterRequestClose]);
+
   const handleGhostClick = useCallback(
     (answer: string, _source: string, _attachments?: KBAttachment[]) => {
       setComposer(
@@ -757,8 +771,10 @@ export function MessageDetail({
         onReopen={handleReopen}
         onResolveToKB={handleResolveWithoutReply}
         onCloseThread={handleClose}
-        onMarkReadAndClose={() => {
-          void applyRead(true);
+        onMarkReadAndClose={async () => {
+          // Await the mark-read so a failure surfaces (toast + revert) while the
+          // panel is still mounted, rather than as an orphaned toast post-close.
+          await applyRead(true);
           onClose?.();
         }}
         onKeepUnreadAndClose={() => onClose?.()}

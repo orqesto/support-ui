@@ -106,10 +106,20 @@ export const isTriageMessage = (message: {
   const spam = getSpamCheck(message);
   // not_analysed + archived both live under status='filtered'.
   if (message.status === 'filtered') return true;
-  // suspicious.
+  // suspicious: category='suspicious' AND not filtered (mirrors BE messageFilters;
+  // the BE suspicious predicate has NO terminal-status exclusion, so a
+  // resolved/closed conv that is still flagged suspicious remains suspicious).
   if (spam?.category === 'suspicious') return true;
-  // spam.
-  if (spam?.isSpam === true || spam?.category === 'spam') return true;
+  // spam: mirror the BE spam queue, which excludes terminal/needs_routing statuses
+  // so a conv that WAS spam but is now resolved/closed no longer counts as triage.
+  if (
+    (spam?.isSpam === true || spam?.category === 'spam') &&
+    message.status !== 'resolved' &&
+    message.status !== 'closed' &&
+    message.status !== 'needs_routing'
+  ) {
+    return true;
+  }
   return false;
 };
 
