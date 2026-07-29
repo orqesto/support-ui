@@ -105,9 +105,16 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
   const priorityBadge = getPriorityBadge(msg.priority);
-  // Per-user read/unread dot — only on the triage queues (suspicious,
-  // not_analysed, archived, spam), where "have I reviewed this?" is the signal.
-  const showUnreadDot = colId ? TRIAGE_READ_COLUMN_IDS.has(colId) && thread.isRead === false : false;
+  // Per-user read/unread — only on the triage queues (suspicious, not_analysed,
+  // archived, spam), where "have I reviewed this?" is the signal. Unread shows a
+  // dot + bold sender; read is dimmed.
+  const isTriageCol = colId ? TRIAGE_READ_COLUMN_IDS.has(colId) : false;
+  const showUnreadDot = isTriageCol && thread.isRead === false;
+  const senderClass = showUnreadDot
+    ? 'font-bold'
+    : isTriageCol && thread.isRead === true
+      ? 'font-semibold text-muted-foreground'
+      : 'font-semibold';
 
   // Optimistic state wins when it diverges from server state; clears when
   // they converge (i.e. a fresh fetch confirmed the assignment).
@@ -226,11 +233,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
         <span className="text-xs shrink-0 text-muted-foreground">
           {getChannelIcon(msg.channel)}
         </span>
-        <span
-          className={`flex-1 min-w-0 text-sm truncate ${showUnreadDot ? 'font-bold' : 'font-semibold'}`}
-        >
-          {customer}
-        </span>
+        <span className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{customer}</span>
       </div>
 
       {/* Subject row — muted, separate from sender for breathing room */}
