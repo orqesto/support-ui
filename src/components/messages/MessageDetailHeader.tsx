@@ -724,7 +724,7 @@ export function MessageDetailHeader({
               </button>
             </Link>
           )}
-          {onClose && (
+          {onClose && !isFullPage && (
             <button
               onClick={onClose}
               className="p-1 rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
