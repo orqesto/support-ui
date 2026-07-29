@@ -522,6 +522,7 @@ export const MessagesPage = () => {
     // its own columns), so they only count toward the visible badge in list mode.
     (!isKanban && filters.lifecycle && filters.lifecycle !== 'all' ? 1 : 0) +
     (!isKanban && filters.queue && filters.queue !== 'all' ? 1 : 0) +
+    (!isKanban && filters.read && filters.read !== 'all' ? 1 : 0) +
     // Kanban's own lifecycle selector (threadStatus) still counts in kanban mode.
     (isKanban && filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
@@ -542,6 +543,7 @@ export const MessagesPage = () => {
     (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
     (filters.lifecycle && filters.lifecycle !== 'all' ? 1 : 0) +
     (filters.queue && filters.queue !== 'all' ? 1 : 0) +
+    (filters.read && filters.read !== 'all' ? 1 : 0) +
     (filters.priority && filters.priority !== 'all' ? 1 : 0) +
     (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
