@@ -109,6 +109,9 @@ export const MessagesPage = () => {
   // card to move without a full board refetch.
   const kanbanRef = useRef<MessagesKanbanHandle>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
+  // The open detail panel registers its prompt-aware close here, so the backdrop
+  // routes through the same "Mark as read?" prompt as the header X (triage threads).
+  const detailRequestCloseRef = useRef<(() => void) | null>(null);
   // Move the open conversation's card to `targetColId` instantly via the Kanban's
   // optimistic path; fall back to a full board refetch when we can't target a card
   // (list mode / opened from a deep-link with no captured threadId). null = remove.
@@ -766,12 +769,19 @@ export const MessagesPage = () => {
         {/* ── Modal overlay ─────────────────────────────────────────── */}
         {selectedMessage && (
           <>
-            {/* Backdrop — dims the list, click to close */}
+            {/* Backdrop — dims the list, click to close. Route through the panel's
+                prompt-aware close so an unread triage thread still asks "Mark as
+                read?" here, matching the header X. Falls back to a direct close if
+                the panel hasn't registered a handler yet. */}
             <button
               type="button"
               aria-label="Close"
               className="fixed inset-0 z-20 cursor-default lg:left-64 bg-black/25 dark:bg-black/50"
               onClick={() => {
+                if (detailRequestCloseRef.current) {
+                  detailRequestCloseRef.current();
+                  return;
+                }
                 const params = new URLSearchParams(searchParams);
                 params.delete('id');
                 setSearchParams(params);
@@ -814,6 +824,9 @@ export const MessagesPage = () => {
                   // tearing down the open detail panel.
                   bumpKanban();
                   void fetchMessages(messagesPagination.page, true);
+                }}
+                onRegisterRequestClose={(fn) => {
+                  detailRequestCloseRef.current = fn;
                 }}
                 onRefresh={handleRefreshMessage}
                 onClassify={async (action, createDetectionRule, trainSpamFilter) => {
