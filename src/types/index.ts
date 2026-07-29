@@ -43,8 +43,11 @@ export type User = {
   slack?: string | null; // Slack username or user ID
   phone?: string | null; // Phone number
   signature?: string | null; // Personal email signature
-  // SCIM: true when the member's per-org scim_external_id is set — their role/dept
-  // is owned by the IdP, so the in-app editor renders read-only for them (D2-01).
+  // SCIM: true when the member is IdP-managed by the BE's robust signal
+  // (auth_provider='scim' OR per-org scim_external_id set OR a member of a SCIM
+  // group in this org) — NOT scim_external_id alone, which JumpCloud omits on
+  // Users. Their role/dept is owned by the IdP, so the in-app editor renders
+  // read-only for them (D2-01).
   scimManaged?: boolean;
   createdAt: string;
   updatedAt?: string;
