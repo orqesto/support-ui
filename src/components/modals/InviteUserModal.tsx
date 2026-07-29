@@ -51,7 +51,10 @@ export const InviteUserModal = ({
     const loadOrganizations = async () => {
       try {
         if (isAdmin) {
-          const result = await organizationService.getAll();
+          // Load up to the server cap (100) so older orgs beyond the newest page are
+          // selectable — the picker filters client-side, so all must be loaded first.
+          // (Past 100 orgs this needs a server-side typeahead; see getAll's `search`.)
+          const result = await organizationService.getAll(undefined, 1, 100);
           const orgs = result.data || [];
           setOrganizations(orgs);
           if (prefilledOrganizationId) {
@@ -125,7 +128,11 @@ export const InviteUserModal = ({
       setError('Please select an organization');
       return;
     }
-    if (departmentIds.length === 0) {
+    // org_admin sees every department regardless (the BE fans them out); mirror
+    // CreateUser — auto-send all active depts and skip the "pick one" requirement.
+    const effectiveDepartmentIds =
+      role === 'org_admin' ? departments.map((dept) => dept.id) : departmentIds;
+    if (role !== 'org_admin' && departmentIds.length === 0) {
       setError('Please select at least one department');
       return;
     }
@@ -135,7 +142,7 @@ export const InviteUserModal = ({
       await onInvite(
         email,
         role,
-        departmentIds,
+        effectiveDepartmentIds,
         organizationId,
         // Only meaningful when there's a choice; BE defaults to the org's first otherwise.
         emailIntegrations.length > 1 ? senderIntegrationId ?? undefined : undefined
@@ -254,37 +261,47 @@ export const InviteUserModal = ({
               : 'Org admins cannot invite other org admins'}
           </p>
 
-          {/* Departments — multi-select. org_admin invites see every dept regardless, so
-              the picker is most useful for support/moderator/associate roles. */}
-          <div>
-            <span className="block mb-2 text-sm font-medium text-foreground">
-              Departments <span className="text-destructive">*</span>
-            </span>
-            {departments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Loading departments…</p>
-            ) : (
-              <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
-                {departments.map((dept) => (
-                  <label
-                    key={dept.id}
-                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
-                  >
-                    <input
-                      type="checkbox"
-                      className="rounded border-border"
-                      checked={departmentIds.includes(dept.id)}
-                      onChange={() => toggleDepartment(dept.id)}
-                    />
-                    <span>{dept.name}</span>
-                  </label>
-                ))}
+          {/* Departments. org_admin is auto-linked to every department (BE fans out),
+              so — like CreateUser — we hide the picker and show an "all departments" note. */}
+          {role === 'org_admin' ? (
+            <div>
+              <span className="block mb-2 text-sm font-medium text-foreground">Departments</span>
+              <div className="px-3 py-2 text-sm rounded-md border bg-muted/30 text-muted-foreground">
+                <strong>All active departments</strong> — org admins are auto-linked to every
+                department for cross-department visibility.
               </div>
-            )}
-            <p className="mt-1 text-sm text-muted-foreground">
-              Select one or more. Determines which message sources, categories, and docs the
-              user sees. {role === 'org_admin' && 'Org admins are added to every department.'}
-            </p>
-          </div>
+            </div>
+          ) : (
+            <div>
+              <span className="block mb-2 text-sm font-medium text-foreground">
+                Departments <span className="text-destructive">*</span>
+              </span>
+              {departments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Loading departments…</p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                  {departments.map((dept) => (
+                    <label
+                      key={dept.id}
+                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-border"
+                        checked={departmentIds.includes(dept.id)}
+                        onChange={() => toggleDepartment(dept.id)}
+                      />
+                      <span>{dept.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <p className="mt-1 text-sm text-muted-foreground">
+                Select one or more. Determines which message sources, categories, and docs the
+                user sees.
+              </p>
+            </div>
+          )}
 
           {/* Send-from picker — only when the org has more than one email integration. */}
           {emailIntegrations.length > 1 && (
