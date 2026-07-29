@@ -71,9 +71,13 @@ export type MessageDetailProps = {
    *  the triage unread indicator without closing the detail. */
   onReadChanged?: () => void;
   /** Registers this panel's prompt-aware close handler with the parent, so that
-   *  close gestures OUTSIDE the panel (e.g. the backdrop) route through the same
-   *  "Mark as read?" prompt as the header X. Passed null on unmount. */
+   *  close gestures OUTSIDE the panel (e.g. the backdrop, or the full-page Back
+   *  button) route through the same "Mark as read?" prompt as the header X.
+   *  Passed null on unmount. */
   onRegisterRequestClose?: (requestClose: (() => void) | null) => void;
+  /** Rendered as the standalone full-page view (has its own Back bar): suppress
+   *  the header X + "open full page" button even though onClose is provided. */
+  isFullPage?: boolean;
   /** Fired after a customer reply is sent (not notes) — the conversation flips to
    *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
   onReplied?: () => void;
@@ -100,10 +104,13 @@ export function MessageDetail({
   onRefresh,
   onReadChanged,
   onRegisterRequestClose,
+  isFullPage: isFullPageProp,
   onReplied,
   onOptimisticMove,
   onClassify,
 }: MessageDetailProps) {
+  // Full-page view has its own Back bar; the slide-over derives it from onClose.
+  const fullPage = isFullPageProp ?? !onClose;
   // ── Thread state ───────────────────────────────────────────────────────────
   const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -591,8 +598,8 @@ export function MessageDetail({
       <MessageDetailHeader
         message={message}
         onClose={onClose ? handleRequestClose : undefined}
-        showFullPageButton={!!onClose}
-        isFullPage={!onClose}
+        showFullPageButton={!!onClose && !fullPage}
+        isFullPage={fullPage}
         threadCount={sortedThread.length}
         onRefresh={handleRefresh}
         labelsRefreshKey={labelsRefreshKey}
