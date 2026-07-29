@@ -149,26 +149,10 @@ export const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      // Email-first SSO resolve (D-01). A single enabled-domain match redirects
-      // straight to the provider; ambiguous prompts for an org slug (D-02); a
-      // "not found" (or ANY resolve error) falls through to the password flow —
-      // resolve failure must NEVER block password login.
-      try {
-        const resolved = await resolveOrgByEmail(email);
-        if ('orgSlug' in resolved) {
-          window.location.assign(startSsoUrl(resolved.orgSlug));
-          return; // leaving the SPA; keep the spinner up
-        }
-        if ('ambiguous' in resolved) {
-          setStep('ssoSlug');
-          setInfo('Multiple organizations use this email domain. Enter your organization slug to continue with SSO.');
-          return;
-        }
-        // `{ found: false }` → no SSO org; continue the password flow below.
-      } catch (resolveErr) {
-        logger.warn('SSO resolve failed; falling back to password login', resolveErr);
-      }
-
+      // Password is the DEFAULT path. SSO is opt-in via the "Sign in with SSO"
+      // button (handleSsoLogin), so a password account whose email domain also has
+      // SSO enabled is never force-redirected to the IdP (the admin-lockout gap).
+      // Both methods coexist (D-04); the user chooses which to use.
       const checkResponse = await authService.checkEmail({
         email,
         captchaToken: captchaToken ?? undefined,
@@ -188,6 +172,36 @@ export const LoginPage = () => {
     } catch {
       setError('Unable to continue. Please try again.');
       resetCaptcha();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Opt-in SSO: resolve the typed email's domain to its org and redirect to the IdP.
+  // Runs ONLY when the user explicitly clicks "Sign in with SSO", so it never hijacks
+  // the password path. Not-found / error falls back to a hint (never blocks password).
+  const handleSsoLogin = async () => {
+    setError('');
+    if (!email.trim()) {
+      setInfo('Enter your work email above, then click "Sign in with SSO".');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const resolved = await resolveOrgByEmail(email);
+      if ('orgSlug' in resolved) {
+        window.location.assign(startSsoUrl(resolved.orgSlug));
+        return; // leaving the SPA; keep the spinner up
+      }
+      if ('ambiguous' in resolved) {
+        setStep('ssoSlug');
+        setInfo('Multiple organizations use this email domain. Enter your organization slug to continue with SSO.');
+        return;
+      }
+      setInfo('No SSO is configured for this email domain — sign in with your password.');
+    } catch (err) {
+      logger.warn('SSO resolve failed', err);
+      setError('Could not start SSO. Please try again or use your password.');
     } finally {
       setIsLoading(false);
     }
@@ -508,6 +522,26 @@ export const LoginPage = () => {
                             : 'Verify'}
               </Button>
             </div>
+
+            {step === 'email' && (
+              <>
+                <div className="flex gap-3 items-center">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isLoading}
+                  onClick={handleSsoLogin}
+                >
+                  Sign in with SSO
+                </Button>
+              </>
+            )}
+
             <div className="py-2 text-sm text-center text-muted-foreground">
               Don&apos;t have an account? Contact your administrator for an invitation.
             </div>
