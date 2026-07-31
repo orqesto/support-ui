@@ -10,6 +10,7 @@ import {
   Plug,
   MessageSquare,
   Zap,
+  HardDrive,
   Settings,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -53,12 +54,14 @@ type DashboardData = {
     integrations: UsageItem;
     messages: UsageItem;
     aiCalls: UsageItem;
+    storage: UsageItem;
   };
   limits: {
     maxUsers: number;
     maxIntegrations: number;
     maxMessagesPerMonth: number;
     maxAICallsPerMonth: number;
+    maxStorageMb: number;
   };
 };
 
@@ -335,13 +338,15 @@ export const SubscriptionPage = () => {
               <UsageCard title="Integrations" icon={Plug} item={usage.integrations} />
               <UsageCard title="Messages" icon={MessageSquare} item={usage.messages} />
               <UsageCard title="AI Calls" icon={Zap} item={usage.aiCalls} />
+              <UsageCard title="Storage (MB)" icon={HardDrive} item={usage.storage} />
             </div>
 
             {/* Warning Alert */}
             {(usage.users.warning ||
               usage.integrations.warning ||
               usage.messages.warning ||
-              usage.aiCalls.warning) && (
+              usage.aiCalls.warning ||
+              usage.storage.warning) && (
               <div className="flex gap-3 items-start p-4 mt-4 bg-orange-50 rounded-lg border border-orange-200">
                 <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
                 <div>
@@ -397,6 +402,12 @@ export const SubscriptionPage = () => {
                   {dashboard.limits.maxAICallsPerMonth === 0
                     ? 'Not included'
                     : dashboard.limits.maxAICallsPerMonth.toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Storage</p>
+                <p className="text-lg font-semibold">
+                  {dashboard.limits.maxStorageMb.toLocaleString()} MB
                 </p>
               </div>
             </div>
