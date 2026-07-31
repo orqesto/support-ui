@@ -2,22 +2,14 @@ import { useEffect, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CategoriesSettings } from './CategoriesSettings';
-import { DepartmentsSettings } from './DepartmentsSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
 import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
 
-type OrgSection =
-  | 'departments'
-  | 'categories'
-  | 'labels'
-  | 'routing-skills'
-  | 'sla-config'
-  | 'security';
+type OrgSection = 'categories' | 'labels' | 'routing-skills' | 'sla-config' | 'security';
 
 const sections = [
-  { id: 'departments' as OrgSection, label: 'Departments', description: 'Where incoming messages are routed' },
   { id: 'categories' as OrgSection, label: 'Categories', description: 'Ticket categories and keywords' },
   { id: 'labels' as OrgSection, label: 'Labels', description: 'Custom ticket labels' },
   { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
@@ -37,7 +29,7 @@ type OrganizationSettingsProps = {
 
 export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}) => {
   const navigate = useNavigate();
-  const initial = section && isOrgSection(section) ? section : 'departments';
+  const initial = section && isOrgSection(section) ? section : 'categories';
   const [active, setActive] = useState<OrgSection>(initial);
 
   useEffect(() => {
@@ -78,7 +70,6 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         ))}
       </div>
 
-      {active === 'departments' && <DepartmentsSettings />}
       {active === 'categories' && <CategoriesSettings />}
       {active === 'labels' && <LabelsSettings />}
       {active === 'routing-skills' && <RoutingKeysSettings />}
