@@ -7,9 +7,10 @@ import { useAuthStore } from '@/stores/authStore';
 import type { OrganizationRole } from '@/types/roles';
 
 /**
- * Step 5 — invite teammates (optional). Reuses InviteUserModal + the same
+ * Step 6 — invite teammates (optional). Reuses InviteUserModal + the same
  * invitationService call as UsersPage. Invited members skip the wizard — it's
- * org-level state and this admin is completing it.
+ * org-level state and this admin is completing it. This is the last step: the
+ * footer shows "Finish setup".
  */
 export const InviteTeamStep = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
@@ -50,6 +51,11 @@ export const InviteTeamStep = () => {
           ))}
         </ul>
       )}
+
+      <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+        This is the last step. Click <span className="font-medium text-foreground">Finish setup</span>{' '}
+        below when you&apos;re ready — you can invite more teammates anytime from the Users page.
+      </p>
 
       <InviteUserModal
         isOpen={modalOpen}

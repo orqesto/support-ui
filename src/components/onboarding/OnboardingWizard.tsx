@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { AiChoiceStep } from './steps/AiChoiceStep';
@@ -9,6 +9,7 @@ import { RoutingStep } from './steps/RoutingStep';
 import { StorageStep } from './steps/StorageStep';
 import { StepIndicator, STEP_LABELS } from './StepIndicator';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { logger } from '@/lib/logger';
@@ -38,6 +39,14 @@ export const OnboardingWizard = () => {
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [channelsConnected, setChannelsConnected] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // Move focus to the step heading on each step change so keyboard/screen-reader
+  // users are told the step changed instead of being stranded on the old content.
+  useEffect(() => {
+    stepHeadingRef.current?.focus();
+  }, [activeStep]);
 
   const persistStep = (step: StepNumber) => {
     // Fire-and-forget: a 409 here just means the wizard was already finished/skipped
@@ -91,9 +100,10 @@ export const OnboardingWizard = () => {
   // Only the AI step (2) blocks Next until a choice is made. Storage (3) and
   // channels (4) are optional — the client can skip and set them up later.
   const nextDisabled = activeStep === 2 && !aiChoice;
-  const optionalUnfinished =
-    activeStep === 3 || (activeStep === 4 && !channelsConnected);
-  const nextLabel = optionalUnfinished ? 'Skip for now' : 'Next';
+  const optionalUnfinished = activeStep === 3 || (activeStep === 4 && !channelsConnected);
+  // Per-step skip (footer) is distinct from ending the whole wizard (header).
+  const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
+  const isLastStep = activeStep >= STEP_LABELS.length;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-10">
@@ -102,18 +112,25 @@ export const OnboardingWizard = () => {
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Set up your workspace</h1>
             <p className="text-sm text-muted-foreground">
-              A few quick steps — your 14-day trial starts when you finish.
+              A few quick steps. Finish setup to start your 14-day trial.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => void handleSkip()}>
-            Skip setup
+          <Button variant="ghost" size="sm" onClick={() => setSkipConfirmOpen(true)}>
+            Finish later
           </Button>
         </div>
         <StepIndicator activeStep={activeStep} />
       </div>
 
-      <div className="space-y-6">
-        <h2 className="text-lg font-medium text-foreground">{STEP_TITLES[activeStep]}</h2>
+      <div className="space-y-6" style={{ minHeight: '22rem' }}>
+        <h2
+          ref={stepHeadingRef}
+          tabIndex={-1}
+          className="text-lg font-medium text-foreground outline-none"
+        >
+          <span className="sr-only">{`Step ${activeStep} of ${STEP_LABELS.length}: `}</span>
+          {STEP_TITLES[activeStep]}
+        </h2>
 
         {activeStep === 1 && <DepartmentsStep />}
         {activeStep === 2 && <AiChoiceStep value={aiChoice} onChoose={handleChooseAi} />}
@@ -132,7 +149,7 @@ export const OnboardingWizard = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
-        {activeStep < STEP_LABELS.length ? (
+        {!isLastStep ? (
           <Button disabled={nextDisabled} onClick={() => goTo((activeStep + 1) as StepNumber)}>
             {nextLabel}
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -144,6 +161,17 @@ export const OnboardingWizard = () => {
           </Button>
         )}
       </div>
+
+      <ConfirmDialog
+        open={skipConfirmOpen}
+        onOpenChange={setSkipConfirmOpen}
+        onConfirm={() => void handleSkip()}
+        title="Finish setup later?"
+        description="You'll go to your dashboard. You can configure departments, AI, storage and channels anytime in Settings. Note: this won't start your 14-day trial — complete this setup to start it."
+        confirmText="Go to dashboard"
+        cancelText="Keep setting up"
+        variant="info"
+      />
     </div>
   );
 };
