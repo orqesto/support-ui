@@ -38,6 +38,8 @@ export const OnboardingWizard = () => {
   const [finishing, setFinishing] = useState(false);
 
   const persistStep = (step: StepNumber) => {
+    // Fire-and-forget: a 409 here just means the wizard was already finished/skipped
+    // (e.g. this step-change raced a complete) — benign, log only, never surface it.
     onboardingService.updateProgress({ currentStep: step }).catch((error: unknown) => {
       logger.error('Failed to persist onboarding step:', error);
     });
