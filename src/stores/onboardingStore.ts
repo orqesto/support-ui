@@ -17,6 +17,8 @@ type OnboardingStoreState = {
   status: 'unknown' | 'pending' | 'complete';
   onboarding: OnboardingState | null;
   trial: TrialInfo | null;
+  /** Whether the platform offers managed ("our AI") mode — drives the wizard AI step. */
+  managedAiAvailable: boolean;
   fetchedForOrg: number | null;
   fetchOnce: (organizationId: number | null) => void;
   refresh: () => Promise<void>;
@@ -31,6 +33,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
   status: 'unknown',
   onboarding: null,
   trial: null,
+  managedAiAvailable: false,
   fetchedForOrg: null,
 
   fetchOnce: (organizationId: number | null) => {
@@ -49,6 +52,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
           status: data.isComplete ? 'complete' : 'pending',
           onboarding: data.onboarding,
           trial: data.trial,
+          managedAiAvailable: data.managedAiAvailable ?? false,
         });
       })
       .catch((error: unknown) => {
@@ -68,6 +72,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
         status: data.isComplete ? 'complete' : 'pending',
         onboarding: data.onboarding,
         trial: data.trial,
+        managedAiAvailable: data.managedAiAvailable ?? false,
       });
     } catch (error) {
       logger.error('Failed to refresh onboarding status:', error);

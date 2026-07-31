@@ -23,6 +23,8 @@ export type OnboardingStatus = {
   onboarding: OnboardingState | null;
   isComplete: boolean;
   trial: TrialInfo | null;
+  /** True when the platform can serve managed ("our AI") mode — gates the AI step. */
+  managedAiAvailable?: boolean;
 };
 
 export type OnboardingPatch = {
