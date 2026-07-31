@@ -6,6 +6,8 @@ import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
 import { ObjectStorageConfigCard } from './providers/ObjectStorageConfigCard';
 import { TicketAutomationSettings } from './TicketAutomationSettings';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 
 type ServiceSection =
   | 'message-sources'
@@ -22,19 +24,23 @@ type Props = {
 
 export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  // AI Providers + Object Storage are per-org config an org admin can own — gate
+  // them on MANAGE_INTEGRATIONS (which the save endpoints require anyway) so the
+  // onboarding wizard's "set this up in Settings" promises are actually reachable.
+  // Chat Widgets stays global-admin-only.
+  const canManageIntegrations = hasPermission(Permission.MANAGE_INTEGRATIONS);
 
-  // `ai-providers` and `chat-widgets` are admin-only — fold the filter into
-  // the visible section list so deep-links to those for a non-admin fall back
-  // to the default rather than selecting a tab that renders blank.
+  // Fold visibility into the section list so a deep-link a user can't see falls
+  // back to the default rather than selecting a tab that renders blank.
   const visibleIds = useMemo<ServiceSection[]>(
     () => [
       'message-sources',
       'ticket-automation',
-      ...(isGlobalAdmin
-        ? (['ai-providers', 'chat-widgets', 'object-storage'] as ServiceSection[])
-        : []),
+      ...(canManageIntegrations ? (['ai-providers', 'object-storage'] as ServiceSection[]) : []),
+      ...(isGlobalAdmin ? (['chat-widgets'] as ServiceSection[]) : []),
     ],
-    [isGlobalAdmin]
+    [isGlobalAdmin, canManageIntegrations]
   );
   const initial =
     section && (visibleIds as string[]).includes(section)
@@ -57,12 +63,14 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
   const sections = [
     { id: 'message-sources' as ServiceSection, label: 'Message Sources', description: 'Configure Email, Gmail, Telegram, Slack inboxes' },
     { id: 'ticket-automation' as ServiceSection, label: 'Ticket Automation', description: 'Configure Jira and ticket workflows' },
-    ...(isGlobalAdmin
+    ...(canManageIntegrations
       ? [
           { id: 'ai-providers' as ServiceSection, label: 'AI Providers', description: 'Configure OpenAI, Anthropic and models' },
-          { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
           { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket' },
         ]
+      : []),
+    ...(isGlobalAdmin
+      ? [{ id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' }]
       : []),
   ];
 
@@ -97,9 +105,9 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
 
       {active === 'message-sources' && <MessageSourcesSettings />}
       {active === 'ticket-automation' && <TicketAutomationSettings />}
-      {isGlobalAdmin && active === 'ai-providers' && <AIProvidersSettings />}
+      {canManageIntegrations && active === 'ai-providers' && <AIProvidersSettings />}
+      {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
       {isGlobalAdmin && active === 'chat-widgets' && <ChatWidgetSettings />}
-      {isGlobalAdmin && active === 'object-storage' && <ObjectStorageConfigCard />}
     </div>
   );
 };

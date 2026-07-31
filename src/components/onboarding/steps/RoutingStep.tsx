@@ -4,15 +4,18 @@ import { departmentService, type Department } from '@/services/department.servic
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 
+const CHANNEL_TYPES = new Set(['gmail', 'email', 'slack', 'telegram']);
+
 /**
- * Step 4 — read-only routing confirmation: active departments, the default
- * (fallback) department, and connected sources. Rule editing lives in
- * Settings → Routing (linked), not in the wizard.
+ * Step 5 — read-only routing confirmation: active departments, the default
+ * (fallback) department, and connected channels. Rule editing lives in Settings,
+ * not in the wizard.
  */
 export const RoutingStep = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [sources, setSources] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     Promise.all([departmentService.getAll(), integrationsService.getAll()])
@@ -22,20 +25,26 @@ export const RoutingStep = () => {
           integrationsResponse.success && integrationsResponse.data
             ? integrationsResponse.data
             : [];
-        setSources(
-          list.filter(
-            (item) => (item.type === 'gmail' || item.type === 'email') && !item.isKnowledgeBase
-          )
-        );
+        setSources(list.filter((item) => CHANNEL_TYPES.has(item.type) && !item.isKnowledgeBase));
       })
-      .catch((error: unknown) => {
-        logger.error('Failed to load routing overview:', error);
+      .catch((err: unknown) => {
+        logger.error('Failed to load routing overview:', err);
+        setError(true);
       })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <div className="py-8 text-center text-muted-foreground">Loading…</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+        Couldn&apos;t load your routing overview. You can review departments and channels anytime in
+        Settings.
+      </div>
+    );
   }
 
   const fallback = departments.find((dept) => dept.isDefault);
@@ -52,8 +61,8 @@ export const RoutingStep = () => {
           <Inbox className="h-4 w-4 text-primary" />
           <span className="font-medium text-foreground">
             {sources.length > 0
-              ? `${sources.length} connected ${sources.length === 1 ? 'mailbox' : 'mailboxes'}`
-              : 'No mailbox connected yet'}
+              ? `${sources.length} connected ${sources.length === 1 ? 'channel' : 'channels'}`
+              : 'No channels connected yet'}
           </span>
         </div>
         <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -69,7 +78,9 @@ export const RoutingStep = () => {
                 aria-hidden
               />
               {dept.name}
-              {dept.isDefault && <Star className="h-3 w-3 text-primary" />}
+              {dept.isDefault && (
+                <Star className="h-3 w-3 text-primary" aria-label="Default department" />
+              )}
             </span>
           ))}
         </div>
@@ -83,8 +94,8 @@ export const RoutingStep = () => {
           </p>
         )}
         <p>
-          Fine-tune keyword rules and per-department routing anytime in{' '}
-          <span className="font-medium text-foreground">Settings → Routing Rules</span>.
+          You can fine-tune keyword routing rules and per-department settings anytime in{' '}
+          <span className="font-medium text-foreground">Settings</span>.
         </p>
       </div>
     </div>
