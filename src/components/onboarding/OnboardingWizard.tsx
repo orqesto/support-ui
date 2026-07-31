@@ -33,6 +33,7 @@ const STEP_TITLES: Record<StepNumber, string> = {
 export const OnboardingWizard = () => {
   const navigate = useNavigate();
   const persisted = useOnboardingStore((state) => state.onboarding);
+  const managedAiAvailable = useOnboardingStore((state) => state.managedAiAvailable);
   const markComplete = useOnboardingStore((state) => state.markComplete);
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
   const [activeStep, setActiveStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
@@ -97,8 +98,8 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // No step blocks advancing. AI (2, BYO is optional; managed is coming-soon),
-  // storage (3) and channels (4) are all optional — set up now or later.
+  // No step blocks advancing. AI (2 — managed or BYO, both optional), storage (3)
+  // and channels (4) are all optional — set up now or later.
   const nextDisabled = false;
   const optionalUnfinished =
     (activeStep === 2 && !aiChoice) || activeStep === 3 || (activeStep === 4 && !channelsConnected);
@@ -134,7 +135,13 @@ export const OnboardingWizard = () => {
         </h2>
 
         {activeStep === 1 && <DepartmentsStep />}
-        {activeStep === 2 && <AiChoiceStep value={aiChoice} onChoose={handleChooseAi} />}
+        {activeStep === 2 && (
+          <AiChoiceStep
+            value={aiChoice}
+            onChoose={handleChooseAi}
+            managedAvailable={managedAiAvailable}
+          />
+        )}
         {activeStep === 3 && <StorageStep />}
         {activeStep === 4 && <ChannelsStep onConnectedChange={setChannelsConnected} />}
         {activeStep === 5 && <RoutingStep />}

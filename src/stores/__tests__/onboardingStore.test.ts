@@ -43,6 +43,29 @@ describe('onboardingStore', () => {
     expect(state.trial?.status).toBe('trialing');
   });
 
+  it('surfaces managedAiAvailable from the status payload (drives the AI step)', async () => {
+    getStatusMock.mockResolvedValue({
+      onboarding: { status: 'pending', currentStep: 2, startedAt: 'x' },
+      isComplete: false,
+      trial: null,
+      managedAiAvailable: true,
+    });
+
+    useOnboardingStore.getState().fetchOnce(7);
+    await flush();
+
+    expect(useOnboardingStore.getState().managedAiAvailable).toBe(true);
+  });
+
+  it('defaults managedAiAvailable to false when the payload omits it', async () => {
+    getStatusMock.mockResolvedValue({ onboarding: null, isComplete: true, trial: null });
+
+    useOnboardingStore.getState().fetchOnce(7);
+    await flush();
+
+    expect(useOnboardingStore.getState().managedAiAvailable).toBe(false);
+  });
+
   it('derives complete when the org predates the wizard (null onboarding)', async () => {
     getStatusMock.mockResolvedValue({ onboarding: null, isComplete: true, trial: null });
 
