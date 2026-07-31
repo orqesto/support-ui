@@ -39,7 +39,14 @@ const CHANNELS: {
 export const ChannelsStep = ({ onConnectedChange }: Props) => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openKey, setOpenKey] = useState<ChannelKey | null>(null);
+  // Start with the Gmail row open when returning from a blocked-popup OAuth
+  // redirect — the card must be mounted for its effect to consume the pending
+  // result. (The redirect lands back on this step via `onboarding_resume`.)
+  const [openKey, setOpenKey] = useState<ChannelKey | null>(() =>
+    typeof window !== 'undefined' && window.sessionStorage.getItem('gmail_oauth_pending_config')
+      ? 'gmail'
+      : null
+  );
   const [alertDialog, setAlertDialog] = useState<AlertState>({
     open: false,
     title: '',
