@@ -6,11 +6,6 @@ import { departmentService, type Department } from '@/services/department.servic
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
-type Props = {
-  /** Notifies the parent when the active-department set changes (count/default). */
-  onChange?: (active: Department[]) => void;
-};
-
 /**
  * Shared department management: list active departments, add new ones, set the
  * default, and remove/restore. Removal is a soft-delete that stays reversible —
@@ -18,7 +13,7 @@ type Props = {
  * accidental removal is never a dead end. Used by both the onboarding wizard and
  * Settings. Guards: the default and the last remaining department can't be removed.
  */
-export const DepartmentsManager = ({ onChange }: Props) => {
+export const DepartmentsManager = () => {
   const [active, setActive] = useState<Department[]>([]);
   const [removed, setRemoved] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,17 +26,15 @@ export const DepartmentsManager = ({ onChange }: Props) => {
   const load = useCallback(async () => {
     try {
       const all = await departmentService.getAll(true);
-      const act = all.filter((dept) => dept.active);
-      setActive(act);
+      setActive(all.filter((dept) => dept.active));
       setRemoved(all.filter((dept) => !dept.active));
-      onChange?.(act);
     } catch (err) {
       logger.error('Failed to load departments:', err);
       setError('Could not load departments.');
     } finally {
       setLoading(false);
     }
-  }, [onChange]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -72,7 +65,11 @@ export const DepartmentsManager = ({ onChange }: Props) => {
       await load();
     } catch (err) {
       logger.error('Failed to add department:', err);
-      setError('Could not add the department. The name may already be in use.');
+      setError(
+        removed.length > 0
+          ? 'Could not add the department — the name may be in use. If you removed it earlier, use Restore below instead.'
+          : 'Could not add the department. The name may already be in use.'
+      );
     } finally {
       setAdding(false);
     }
