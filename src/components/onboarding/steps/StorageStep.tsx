@@ -1,30 +1,82 @@
-import { HardDrive } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Cloud, HardDrive } from 'lucide-react';
 import { ObjectStorageConfigCard } from '@/components/settings/providers/ObjectStorageConfigCard';
+import { Card, CardContent } from '@/components/ui/Card';
+import { cn } from '@/lib/utils';
+
+type Choice = 'managed' | 'byo';
 
 /**
- * Step 3 — where files (attachments, KB documents) are stored. Optional: leaving
- * it unset keeps the org on the platform's managed storage; configuring an S3
- * bucket keeps everything in the client's own infrastructure. Wraps the existing
- * ObjectStorageConfigCard (per-org storage_configs; BE allows MANAGE_INTEGRATIONS,
- * which org admins have), which handles configure/test/save/remove itself.
+ * Step 3 — where attachments and KB documents are stored. Two choices, mirroring
+ * the AI step: managed (default, nothing to configure) or bring-your-own S3. The
+ * heavy config form only appears when BYO is chosen, so the default state is a
+ * light two-card selector. Optional — the client can skip and set this up later.
  */
-export const StorageStep = () => (
-  <div className="space-y-4">
-    <p className="text-sm text-muted-foreground">
-      Choose where attachments and knowledge-base documents are stored. Leave this unset to use
-      our managed storage, or connect your own S3-compatible bucket (AWS, Hetzner, MinIO) to keep
-      all files in your own infrastructure. You can change this later in Settings.
-    </p>
+export const StorageStep = () => {
+  const [choice, setChoice] = useState<Choice | undefined>();
 
-    <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-      <HardDrive className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-      <span>
-        Bringing your own bucket is recommended for production — files live in storage you control
-        and it scales beyond the app server. This step is optional; you can skip it and set it up
-        anytime.
-      </span>
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Choose where attachments and knowledge-base documents are stored. You can change this
+        anytime in Settings.
+      </p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <button
+          type="button"
+          aria-pressed={choice === 'managed'}
+          onClick={() => setChoice('managed')}
+          className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Card
+            className={cn(
+              'h-full cursor-pointer transition-colors hover:border-primary/60',
+              choice === 'managed' && 'border-primary ring-2 ring-primary'
+            )}
+          >
+            <CardContent className="space-y-2 p-5">
+              <div className="flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-primary" />
+                <span className="font-medium text-foreground">Use our managed storage</span>
+                {choice === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Nothing to set up — we store your files for you. You can switch to your own bucket
+                later.
+              </p>
+            </CardContent>
+          </Card>
+        </button>
+
+        <button
+          type="button"
+          aria-pressed={choice === 'byo'}
+          onClick={() => setChoice('byo')}
+          className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Card
+            className={cn(
+              'h-full cursor-pointer transition-colors hover:border-primary/60',
+              choice === 'byo' && 'border-primary ring-2 ring-primary'
+            )}
+          >
+            <CardContent className="space-y-2 p-5">
+              <div className="flex items-center gap-2">
+                <HardDrive className="h-5 w-5 text-primary" />
+                <span className="font-medium text-foreground">Bring your own S3 bucket</span>
+                {choice === 'byo' && <Check className="ml-auto h-4 w-4 text-primary" />}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Keep files in your own S3-compatible storage (AWS, Hetzner, MinIO) — recommended for
+                production.
+              </p>
+            </CardContent>
+          </Card>
+        </button>
+      </div>
+
+      {choice === 'byo' && <ObjectStorageConfigCard />}
     </div>
-
-    <ObjectStorageConfigCard />
-  </div>
-);
+  );
+};
