@@ -23,7 +23,9 @@ type OnboardingStoreState = {
   markComplete: () => void;
 };
 
-let inFlight: Promise<void> | null = null;
+// Which org a fetch is currently in flight for — org-scoped so switching orgs
+// mid-fetch still triggers the new org's fetch (a plain boolean would swallow it).
+let inFlightForOrg: number | null = null;
 
 export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
   status: 'unknown',
@@ -33,11 +35,16 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
 
   fetchOnce: (organizationId: number | null) => {
     if (organizationId === null) return;
-    if (get().fetchedForOrg === organizationId || inFlight) return;
-    set({ status: 'unknown', fetchedForOrg: organizationId });
-    inFlight = onboardingService
+    // Already have this org's data, or a fetch for THIS org is already running.
+    if (get().fetchedForOrg === organizationId || inFlightForOrg === organizationId) return;
+    inFlightForOrg = organizationId;
+    // Drop any prior org's data immediately so the banner/redirect never act on
+    // another org's status during the fetch.
+    set({ status: 'unknown', onboarding: null, trial: null, fetchedForOrg: organizationId });
+    onboardingService
       .getStatus()
       .then((data) => {
+        if (get().fetchedForOrg !== organizationId) return; // org switched mid-flight — discard
         set({
           status: data.isComplete ? 'complete' : 'pending',
           onboarding: data.onboarding,
@@ -45,11 +52,12 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
         });
       })
       .catch((error: unknown) => {
+        if (get().fetchedForOrg !== organizationId) return;
         logger.error('Failed to fetch onboarding status:', error);
         set({ status: 'complete' });
       })
       .finally(() => {
-        inFlight = null;
+        if (inFlightForOrg === organizationId) inFlightForOrg = null;
       });
   },
 

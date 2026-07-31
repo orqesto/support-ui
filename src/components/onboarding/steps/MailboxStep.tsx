@@ -32,7 +32,11 @@ export const MailboxStep = ({ onConnectedChange }: Props) => {
       const response = await integrationsService.getAll();
       const list = response.success && response.data ? response.data : [];
       setIntegrations(list);
-      onConnectedChange(list.some((item) => item.type === 'gmail' || item.type === 'email'));
+      onConnectedChange(
+        list.some(
+          (item) => (item.type === 'gmail' || item.type === 'email') && !item.isKnowledgeBase
+        )
+      );
     } catch (error) {
       logger.error('Failed to fetch integrations:', error);
     } finally {

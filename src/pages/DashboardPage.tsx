@@ -51,7 +51,12 @@ export const DashboardPage = () => {
   }, [fetchOnboardingOnce, selectedOrganizationId]);
 
   useEffect(() => {
+    // Exclude GLOBAL admins: `organizationRole` reflects their home/system org,
+    // not the org they're viewing via the switcher — without this a global admin
+    // would be force-redirected into (and could consume the one-shot trial of)
+    // every freshly created client org. Global admins never need the wizard.
     if (
+      authUser?.role !== 'admin' &&
       authUser?.organizationRole === 'org_admin' &&
       onboardingStatus === 'pending' &&
       !subscriptionGated

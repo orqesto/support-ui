@@ -24,6 +24,11 @@ export const OAuthCallbackPage = () => {
 
     if (error) {
       setStatus('error');
+      // Clear redirect-flow state so an aborted/denied attempt can't leak into a
+      // later flow (and so a lingering resume flag doesn't misroute the user).
+      sessionStorage.removeItem('gmail_oauth_pending_config');
+      sessionStorage.removeItem('gmail_oauth_payload');
+      sessionStorage.removeItem('onboarding_resume');
       const knownErrors: Record<string, string> = {
         access_denied: 'Access was denied. Please try again.',
         invalid_request: 'The authorization request was invalid.',

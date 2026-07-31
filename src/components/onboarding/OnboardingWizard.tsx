@@ -31,6 +31,7 @@ export const OnboardingWizard = () => {
   const navigate = useNavigate();
   const persisted = useOnboardingStore((state) => state.onboarding);
   const markComplete = useOnboardingStore((state) => state.markComplete);
+  const refreshOnboarding = useOnboardingStore((state) => state.refresh);
   const [activeStep, setActiveStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [mailboxConnected, setMailboxConnected] = useState(false);
@@ -56,6 +57,9 @@ export const OnboardingWizard = () => {
 
   const leaveWizard = () => {
     markComplete();
+    // Pull the fresh trial dates (completion restamped the clock) so the banner
+    // shows the new countdown without a full reload.
+    void refreshOnboarding();
     navigate('/dashboard', { replace: true });
   };
 
