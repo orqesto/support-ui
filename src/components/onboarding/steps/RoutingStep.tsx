@@ -22,7 +22,11 @@ export const RoutingStep = () => {
           integrationsResponse.success && integrationsResponse.data
             ? integrationsResponse.data
             : [];
-        setSources(list.filter((item) => item.type === 'gmail' || item.type === 'email'));
+        setSources(
+          list.filter(
+            (item) => (item.type === 'gmail' || item.type === 'email') && !item.isKnowledgeBase
+          )
+        );
       })
       .catch((error: unknown) => {
         logger.error('Failed to load routing overview:', error);

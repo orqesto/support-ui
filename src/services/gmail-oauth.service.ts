@@ -322,10 +322,15 @@ export const gmailOAuthService = {
   > => {
     const payloadRaw = sessionStorage.getItem('gmail_oauth_payload');
     const configRaw = sessionStorage.getItem('gmail_oauth_pending_config');
-    if (!payloadRaw || !configRaw) return null;
+    if (!configRaw) return null;
 
+    // Clear the redirect-flow keys as soon as a pending config is seen — even if
+    // no code came back (user denied/abandoned at Google). Otherwise a stale
+    // config lingers and a later POPUP flow (which inherits this sessionStorage)
+    // would misdetect itself as a redirect flow.
     sessionStorage.removeItem('gmail_oauth_payload');
     sessionStorage.removeItem('gmail_oauth_pending_config');
+    if (!payloadRaw) return null;
 
     let payloadParsed: unknown;
     let pendingParsed: unknown;

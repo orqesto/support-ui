@@ -25,7 +25,9 @@ export const OnboardingPage = () => {
 
   useEffect(() => {
     if (!user?.role) return; // profile still restoring — don't bounce on unknown role
-    const isOrgAdmin = user.organizationRole === 'org_admin';
+    // Global admins are never onboarding subjects (their org_admin role is for the
+    // system org, not the org they're viewing) — bounce them out too.
+    const isOrgAdmin = user.role !== 'admin' && user.organizationRole === 'org_admin';
     if (!isOrgAdmin || status === 'complete' || gated) {
       navigate('/dashboard', { replace: true });
     }

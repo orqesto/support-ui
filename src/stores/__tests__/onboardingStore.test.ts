@@ -95,4 +95,48 @@ describe('onboardingStore', () => {
     useOnboardingStore.getState().markComplete();
     expect(useOnboardingStore.getState().status).toBe('complete');
   });
+
+  it('org switch mid-flight: fetches org B and discards the stale org-A response', async () => {
+    // Deferred promises so we control resolution order.
+    let resolveA!: (v: unknown) => void;
+    let resolveB!: (v: unknown) => void;
+    getStatusMock
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveA = resolve)))
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveB = resolve)));
+
+    useOnboardingStore.getState().fetchOnce(7); // org A in flight
+    useOnboardingStore.getState().fetchOnce(8); // switch to B before A resolves
+    expect(getStatusMock).toHaveBeenCalledTimes(2); // B's fetch was NOT swallowed
+
+    // A resolves LATE with pending — must be discarded (fetchedForOrg is now 8).
+    resolveA({
+      onboarding: { status: 'pending', currentStep: 1, startedAt: 'x' },
+      isComplete: false,
+      trial: { status: 'trialing', trialEndsAt: 'a' },
+    });
+    await flush();
+    expect(useOnboardingStore.getState().status).not.toBe('pending');
+
+    // B resolves with complete — this is the one that sticks.
+    resolveB({ onboarding: null, isComplete: true, trial: null });
+    await flush();
+    expect(useOnboardingStore.getState().status).toBe('complete');
+    expect(useOnboardingStore.getState().fetchedForOrg).toBe(8);
+  });
+
+  it('clears prior-org trial/onboarding immediately when a new org fetch starts', () => {
+    useOnboardingStore.setState({
+      status: 'pending',
+      onboarding: { status: 'pending', currentStep: 3, startedAt: 'x' },
+      trial: { status: 'trialing', trialEndsAt: 'a' },
+      fetchedForOrg: 7,
+    });
+    getStatusMock.mockImplementation(() => new Promise(() => {})); // never resolves
+
+    useOnboardingStore.getState().fetchOnce(9);
+    // Stale org-7 data must be gone before org-9's response arrives.
+    expect(useOnboardingStore.getState().status).toBe('unknown');
+    expect(useOnboardingStore.getState().trial).toBeNull();
+    expect(useOnboardingStore.getState().onboarding).toBeNull();
+  });
 });

@@ -111,6 +111,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_REPORTS,
     Permission.MANAGE_LABELS,
     Permission.VIEW_LABELS,
+    Permission.VIEW_SUBSCRIPTION,
     Permission.MANAGE_SUBSCRIPTION,
     Permission.MANAGE_AI_MODULES,
     Permission.VIEW_BILLING,
@@ -138,6 +139,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_LABELS,
     Permission.VIEW_LABELS,
     Permission.VIEW_STATISTICS,
+    Permission.VIEW_SUBSCRIPTION,
   ],
 
   // Support
@@ -152,6 +154,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.PROCESS_MESSAGES,
     Permission.VIEW_LABELS,
     Permission.VIEW_STATISTICS,
+    Permission.VIEW_SUBSCRIPTION,
   ],
 
   // Associate
