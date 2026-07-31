@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { AiChoiceStep } from './steps/AiChoiceStep';
+import { ChannelsStep } from './steps/ChannelsStep';
 import { DepartmentsStep } from './steps/DepartmentsStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
-import { MailboxStep } from './steps/MailboxStep';
 import { RoutingStep } from './steps/RoutingStep';
+import { StorageStep } from './steps/StorageStep';
 import { StepIndicator, STEP_LABELS } from './StepIndicator';
 import { Button } from '@/components/ui/Button';
 import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
@@ -15,11 +16,12 @@ import { logger } from '@/lib/logger';
 type StepNumber = OnboardingState['currentStep'];
 
 const STEP_TITLES: Record<StepNumber, string> = {
-  1: 'How should AI features work?',
-  2: 'Review your departments',
-  3: 'Connect your mailbox',
-  4: 'Confirm message routing',
-  5: 'Invite your team',
+  1: 'Review your departments',
+  2: 'How should AI features work?',
+  3: 'Where should files be stored?',
+  4: 'Connect your message channels',
+  5: 'Confirm message routing',
+  6: 'Invite your team',
 };
 
 /**
@@ -34,7 +36,7 @@ export const OnboardingWizard = () => {
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
   const [activeStep, setActiveStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
-  const [mailboxConnected, setMailboxConnected] = useState(false);
+  const [channelsConnected, setChannelsConnected] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
   const persistStep = (step: StepNumber) => {
@@ -86,8 +88,12 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  const nextDisabled = activeStep === 1 && !aiChoice;
-  const nextLabel = activeStep === 3 && !mailboxConnected ? 'Skip for now' : 'Next';
+  // Only the AI step (2) blocks Next until a choice is made. Storage (3) and
+  // channels (4) are optional — the client can skip and set them up later.
+  const nextDisabled = activeStep === 2 && !aiChoice;
+  const optionalUnfinished =
+    activeStep === 3 || (activeStep === 4 && !channelsConnected);
+  const nextLabel = optionalUnfinished ? 'Skip for now' : 'Next';
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-10">
@@ -109,11 +115,12 @@ export const OnboardingWizard = () => {
       <div className="space-y-6">
         <h2 className="text-lg font-medium text-foreground">{STEP_TITLES[activeStep]}</h2>
 
-        {activeStep === 1 && <AiChoiceStep value={aiChoice} onChoose={handleChooseAi} />}
-        {activeStep === 2 && <DepartmentsStep />}
-        {activeStep === 3 && <MailboxStep onConnectedChange={setMailboxConnected} />}
-        {activeStep === 4 && <RoutingStep />}
-        {activeStep === 5 && <InviteTeamStep />}
+        {activeStep === 1 && <DepartmentsStep />}
+        {activeStep === 2 && <AiChoiceStep value={aiChoice} onChoose={handleChooseAi} />}
+        {activeStep === 3 && <StorageStep />}
+        {activeStep === 4 && <ChannelsStep onConnectedChange={setChannelsConnected} />}
+        {activeStep === 5 && <RoutingStep />}
+        {activeStep === 6 && <InviteTeamStep />}
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-6">

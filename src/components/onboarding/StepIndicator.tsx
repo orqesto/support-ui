@@ -1,7 +1,14 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const STEP_LABELS = ['AI setup', 'Departments', 'Mailbox', 'Routing', 'Team'] as const;
+export const STEP_LABELS = [
+  'Departments',
+  'AI setup',
+  'Storage',
+  'Channels',
+  'Routing',
+  'Team',
+] as const;
 
 type Props = {
   activeStep: number; // 1-based
