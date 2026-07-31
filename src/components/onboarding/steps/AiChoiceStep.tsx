@@ -1,4 +1,5 @@
 import { Bot, Check, KeyRound } from 'lucide-react';
+import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 
@@ -8,9 +9,10 @@ type Props = {
 };
 
 /**
- * Step 2 — "your AI or ours". Only records the intent in onboarding state;
- * managed mode is activated server-side once the managed-AI feature is live,
- * and BYO keys are configured later in Settings → AI Providers.
+ * Step 2 — "your AI or ours". Records the intent in onboarding state; managed
+ * mode is activated server-side once the managed-AI feature is live. Choosing
+ * BYO reveals the provider setup inline so the client configures a key here in
+ * the wizard (same AIProvidersSettings shown in Settings → Integrations).
  */
 export const AiChoiceStep = ({ value, onChoose }: Props) => (
   <div className="space-y-4">
@@ -63,19 +65,21 @@ export const AiChoiceStep = ({ value, onChoose }: Props) => (
               {value === 'byo' && <Check className="ml-auto h-4 w-4 text-primary" />}
             </div>
             <p className="text-sm text-muted-foreground">
-              Connect your own provider (OpenAI, Anthropic, Bedrock, …) after setup in Settings →
-              Integrations → AI Providers. You pay the provider directly.
+              Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the provider
+              directly. AI features stay off until a provider is configured.
             </p>
           </CardContent>
         </Card>
       </button>
     </div>
     {value === 'byo' && (
-      <p className="text-sm text-muted-foreground">
-        After finishing setup, add your provider key under{' '}
-        <span className="font-medium text-foreground">Settings → Integrations → AI Providers</span>{' '}
-        — AI features stay off until a provider is configured.
-      </p>
+      <div className="space-y-3 rounded-lg border border-border p-4">
+        <p className="text-sm text-muted-foreground">
+          Add a provider now — pick one, enter your API key, and save. You can add or change
+          providers later in Settings → Integrations → AI Providers.
+        </p>
+        <AIProvidersSettings />
+      </div>
     )}
   </div>
 );
