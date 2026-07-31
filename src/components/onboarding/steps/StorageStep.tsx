@@ -38,12 +38,12 @@ export const StorageStep = () => {
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
                 <Cloud className="h-5 w-5 text-primary" />
-                <span className="font-medium text-foreground">Use our managed storage</span>
+                <span className="font-medium text-foreground">Use built-in storage</span>
                 {choice === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
               </div>
               <p className="text-sm text-muted-foreground">
-                Nothing to set up — we store your files for you. You can switch to your own bucket
-                later.
+                Files are stored on the platform — nothing to set up. For production we recommend
+                bringing your own S3 bucket (right) for durability and control.
               </p>
             </CardContent>
           </Card>
