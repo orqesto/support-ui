@@ -17,6 +17,9 @@ import { messageService } from '@/services/message.service';
 import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 import { logger } from '@/lib/logger';
 import { MESSAGE_SOURCE_TYPES } from '@/types';
 import { DashboardKBSection } from '@/components/dashboard/DashboardKBSection';
@@ -31,6 +34,32 @@ import { cn } from '@/lib/utils';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
+
+  // Onboarding entry redirect: org_admins of an org that never finished the
+  // wizard land there after login. Soft gate — only the dashboard redirects,
+  // deep links elsewhere are untouched, and the wizard itself is skippable.
+  // Never redirect while status is 'unknown' (loading) or when the org is
+  // subscription-gated (the overlay owns the screen then).
+  const authUser = useAuthStore((state) => state.user);
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const onboardingStatus = useOnboardingStore((state) => state.status);
+  const fetchOnboardingOnce = useOnboardingStore((state) => state.fetchOnce);
+  const subscriptionGated = useSubscriptionGateStore((state) => state.gated);
+
+  useEffect(() => {
+    fetchOnboardingOnce(selectedOrganizationId);
+  }, [fetchOnboardingOnce, selectedOrganizationId]);
+
+  useEffect(() => {
+    if (
+      authUser?.organizationRole === 'org_admin' &&
+      onboardingStatus === 'pending' &&
+      !subscriptionGated
+    ) {
+      navigate('/onboarding', { replace: true });
+    }
+  }, [authUser, onboardingStatus, subscriptionGated, navigate]);
+
   const [stats, setStats] = useState({
     slaBreachCount: 0,
     slaAtRiskCount: 0,

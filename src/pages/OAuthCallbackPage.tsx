@@ -64,9 +64,17 @@ export const OAuthCallbackPage = () => {
           // Full-page redirect path — the original window is THIS one. window.close()
           // is blocked for windows not opened by script, so route back to the
           // integrations page where the Gmail card will pick up the pending result.
-          setMessage('Authorization successful! Returning to integrations…');
+          // When the flow started inside the onboarding wizard (flag set by
+          // OnboardingPage), resume the wizard instead of the settings page.
+          const resumeOnboarding = sessionStorage.getItem('onboarding_resume') !== null;
+          sessionStorage.removeItem('onboarding_resume');
+          setMessage(
+            resumeOnboarding
+              ? 'Authorization successful! Returning to setup…'
+              : 'Authorization successful! Returning to integrations…'
+          );
           window.setTimeout(() => {
-            window.location.href = '/settings#integrations';
+            window.location.href = resumeOnboarding ? '/onboarding' : '/settings#integrations';
           }, 800);
         } else {
           setMessage('Authorization successful! This window will close automatically.');

@@ -81,6 +81,9 @@ const NeedsRoutingPage = lazy(() =>
 const OrphanedOutboundPage = lazy(() =>
   import('./pages/OrphanedOutboundPage').then((mod) => ({ default: mod.OrphanedOutboundPage }))
 );
+const OnboardingPage = lazy(() =>
+  import('./pages/OnboardingPage').then((mod) => ({ default: mod.OnboardingPage }))
+);
 const SLADashboardPage = lazy(() =>
   import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
 );
@@ -213,6 +216,18 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <DashboardPage />
+          </PrivateRoute>
+        }
+      />
+      {/* Onboarding wizard — full page, deliberately outside Layout so it can
+          never stack with SubscriptionGateOverlay. */}
+      <Route
+        path="/onboarding"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <OnboardingPage />
+            </Suspense>
           </PrivateRoute>
         }
       />
