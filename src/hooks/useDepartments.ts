@@ -4,7 +4,9 @@ import { departmentService, type Department } from '@/services/department.servic
 export const useDepartments = () =>
   useQuery<Department[]>({
     queryKey: ['departments'],
-    queryFn: departmentService.getAll,
+    // Wrap in an arrow: getAll now takes an optional `includeInactive` flag, and
+    // React Query would otherwise pass its QueryFunctionContext as that argument.
+    queryFn: () => departmentService.getAll(),
     staleTime: 5 * 60 * 1000, // 5 min
   });
 
