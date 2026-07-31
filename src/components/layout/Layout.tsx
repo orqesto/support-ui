@@ -41,6 +41,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { NotificationCenter } from './NotificationCenter';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
 import { LicenseExpiryBanner } from './LicenseExpiryBanner';
+import { TrialBanner } from './TrialBanner';
 import { SubscriptionGateOverlay } from '@/components/subscription/SubscriptionGateOverlay';
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
@@ -570,6 +571,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </header>
           <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
             <LicenseExpiryBanner />
+            <TrialBanner />
             {children}
           </main>
           <SubscriptionGateOverlay />

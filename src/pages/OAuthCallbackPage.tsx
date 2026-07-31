@@ -24,6 +24,11 @@ export const OAuthCallbackPage = () => {
 
     if (error) {
       setStatus('error');
+      // Clear redirect-flow state so an aborted/denied attempt can't leak into a
+      // later flow (and so a lingering resume flag doesn't misroute the user).
+      sessionStorage.removeItem('gmail_oauth_pending_config');
+      sessionStorage.removeItem('gmail_oauth_payload');
+      sessionStorage.removeItem('onboarding_resume');
       const knownErrors: Record<string, string> = {
         access_denied: 'Access was denied. Please try again.',
         invalid_request: 'The authorization request was invalid.',
@@ -64,9 +69,17 @@ export const OAuthCallbackPage = () => {
           // Full-page redirect path — the original window is THIS one. window.close()
           // is blocked for windows not opened by script, so route back to the
           // integrations page where the Gmail card will pick up the pending result.
-          setMessage('Authorization successful! Returning to integrations…');
+          // When the flow started inside the onboarding wizard (flag set by
+          // OnboardingPage), resume the wizard instead of the settings page.
+          const resumeOnboarding = sessionStorage.getItem('onboarding_resume') !== null;
+          sessionStorage.removeItem('onboarding_resume');
+          setMessage(
+            resumeOnboarding
+              ? 'Authorization successful! Returning to setup…'
+              : 'Authorization successful! Returning to integrations…'
+          );
           window.setTimeout(() => {
-            window.location.href = '/settings#integrations';
+            window.location.href = resumeOnboarding ? '/onboarding' : '/settings#integrations';
           }, 800);
         } else {
           setMessage('Authorization successful! This window will close automatically.');
