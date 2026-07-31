@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 export const STEP_LABELS = [
   'Departments',
   'AI setup',
+  'Knowledge',
   'Storage',
   'Channels',
   'Routing',
@@ -36,7 +37,7 @@ export const StepIndicator = ({ activeStep }: Props) => (
               >
                 {done ? <Check className="h-4 w-4" /> : step}
               </span>
-              {/* Only the active step shows its label inline, so 6 steps never
+              {/* Only the active step shows its label inline, so the steps never
                   overflow the container; the others are dots. */}
               {current && (
                 <span className="hidden text-sm font-medium text-foreground sm:inline">
