@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { departmentService, type Department } from '@/services/department.service';
 import { logger } from '@/lib/logger';
-import { cn } from '@/lib/utils';
 
 /**
  * Review + trim the org's departments during onboarding: remove the ones you
@@ -14,10 +13,10 @@ import { cn } from '@/lib/utils';
  *
  * Intentionally does NOT create departments: under the strict-cascade routing
  * model a department is only reachable once it has routing rules, so creating one
- * belongs with the rule tools in Settings, not a bare name field here. The default
- * department is shown read-only — it no longer catches unmatched mail (those go to
- * the triage queue), so this step doesn't set it. Guards: the default and the last
- * remaining department can't be removed.
+ * belongs with the rule tools in Settings, not a bare name field here. There is no
+ * "default department" surfaced here — unmatched mail goes to the triage queue (not a
+ * fallback department), and the per-channel default lives on the message source, not
+ * on the department. Guard: the last remaining department can't be removed.
  */
 export const DepartmentsManager = () => {
   const [active, setActive] = useState<Department[]>([]);
@@ -80,11 +79,6 @@ export const DepartmentsManager = () => {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-medium text-foreground">{dept.name}</span>
-                  {dept.isDefault && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      default
-                    </span>
-                  )}
                 </div>
                 {dept.description && (
                   <p className="truncate text-sm text-muted-foreground">{dept.description}</p>
@@ -94,16 +88,10 @@ export const DepartmentsManager = () => {
             <Button
               variant="ghost"
               size="sm"
-              title={
-                dept.isDefault
-                  ? 'The default department cannot be removed'
-                  : active.length <= 1
-                    ? 'At least one department is required'
-                    : 'Remove'
-              }
-              disabled={busyId !== null || dept.isDefault || active.length <= 1}
+              title={active.length <= 1 ? 'At least one department is required' : 'Remove'}
+              disabled={busyId !== null || active.length <= 1}
               onClick={() => setConfirmRemove(dept)}
-              className={cn(!dept.isDefault && 'text-destructive hover:text-destructive')}
+              className="text-destructive hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
