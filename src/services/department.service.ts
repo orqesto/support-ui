@@ -22,4 +22,9 @@ export const departmentService = {
     );
     return response.data.data;
   },
+
+  /** Soft-delete (BE sets active=false); the department disappears from getAll(). */
+  deactivate: async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/departments/${id}`);
+  },
 };
