@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Inbox, Star } from 'lucide-react';
+import { ArrowRight, Inbox } from 'lucide-react';
 import { departmentService, type Department } from '@/services/department.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
@@ -47,13 +47,12 @@ export const RoutingStep = () => {
     );
   }
 
-  const fallback = departments.find((dept) => dept.isDefault);
-
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
         Here&apos;s how incoming messages will flow. Each message is analyzed and routed to the
-        best-matching department; anything unmatched lands in the default department.
+        best-matching department based on your routing rules; anything that doesn&apos;t match goes
+        to a triage queue for manual routing.
       </p>
 
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-border p-4">
@@ -78,21 +77,16 @@ export const RoutingStep = () => {
                 aria-hidden
               />
               {dept.name}
-              {dept.isDefault && (
-                <Star className="h-3 w-3 text-primary" aria-label="Default department" />
-              )}
             </span>
           ))}
         </div>
       </div>
 
       <div className="space-y-1 text-sm text-muted-foreground">
-        {fallback && (
-          <p>
-            Unmatched messages go to{' '}
-            <span className="font-medium text-foreground">{fallback.name}</span>.
-          </p>
-        )}
+        <p>
+          Messages that don&apos;t match a department&apos;s rules land in the triage queue, where
+          your team can route them by hand.
+        </p>
         <p>
           You can fine-tune keyword routing rules and per-department settings anytime in{' '}
           <span className="font-medium text-foreground">Settings</span>.

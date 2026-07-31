@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, RotateCcw, Star, Trash2 } from 'lucide-react';
+import { RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { departmentService, type Department } from '@/services/department.service';
@@ -7,11 +7,17 @@ import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
 /**
- * Shared department management: list active departments, add new ones, set the
- * default, and remove/restore. Removal is a soft-delete that stays reversible —
- * removed departments show in a "Removed" section with a Restore button — so an
- * accidental removal is never a dead end. Used by both the onboarding wizard and
- * Settings. Guards: the default and the last remaining department can't be removed.
+ * Review + trim the org's departments during onboarding: remove the ones you
+ * don't need and restore any you removed by mistake. Removal is a reversible
+ * soft-delete (removed departments show in a "Removed" list with Restore), so an
+ * accidental removal is never a dead end.
+ *
+ * Intentionally does NOT create departments: under the strict-cascade routing
+ * model a department is only reachable once it has routing rules, so creating one
+ * belongs with the rule tools in Settings, not a bare name field here. The default
+ * department is shown read-only — it no longer catches unmatched mail (those go to
+ * the triage queue), so this step doesn't set it. Guards: the default and the last
+ * remaining department can't be removed.
  */
 export const DepartmentsManager = () => {
   const [active, setActive] = useState<Department[]>([]);
@@ -19,8 +25,6 @@ export const DepartmentsManager = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [newName, setNewName] = useState('');
-  const [adding, setAdding] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<Department | null>(null);
 
   const load = useCallback(async () => {
@@ -54,27 +58,6 @@ export const DepartmentsManager = () => {
     }
   };
 
-  const handleAdd = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    setAdding(true);
-    setError('');
-    try {
-      await departmentService.create({ name });
-      setNewName('');
-      await load();
-    } catch (err) {
-      logger.error('Failed to add department:', err);
-      setError(
-        removed.length > 0
-          ? 'Could not add the department — the name may be in use. If you removed it earlier, use Restore below instead.'
-          : 'Could not add the department. The name may already be in use.'
-      );
-    } finally {
-      setAdding(false);
-    }
-  };
-
   if (loading) {
     return <div className="py-8 text-center text-muted-foreground">Loading departments…</div>;
   }
@@ -98,7 +81,7 @@ export const DepartmentsManager = () => {
                 <div className="flex items-center gap-2">
                   <span className="truncate font-medium text-foreground">{dept.name}</span>
                   {dept.isDefault && (
-                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                       default
                     </span>
                   )}
@@ -108,65 +91,26 @@ export const DepartmentsManager = () => {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              {!dept.isDefault && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Make default"
-                  disabled={busyId !== null}
-                  isLoading={busyId === dept.id}
-                  onClick={() =>
-                    void run(dept.id, () => departmentService.setDefault(dept.id), 'Could not set default.')
-                  }
-                >
-                  <Star className="h-4 w-4" />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                title={
-                  dept.isDefault
-                    ? 'The default department cannot be removed'
-                    : active.length <= 1
-                      ? 'At least one department is required'
-                      : 'Remove'
-                }
-                disabled={busyId !== null || dept.isDefault || active.length <= 1}
-                onClick={() => setConfirmRemove(dept)}
-                className={cn(!dept.isDefault && 'text-destructive hover:text-destructive')}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              title={
+                dept.isDefault
+                  ? 'The default department cannot be removed'
+                  : active.length <= 1
+                    ? 'At least one department is required'
+                    : 'Remove'
+              }
+              disabled={busyId !== null || dept.isDefault || active.length <= 1}
+              onClick={() => setConfirmRemove(dept)}
+              className={cn(!dept.isDefault && 'text-destructive hover:text-destructive')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </li>
         ))}
       </ul>
 
-      {/* Add a department */}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={newName}
-          onChange={(event) => setNewName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              void handleAdd();
-            }
-          }}
-          placeholder="New department name"
-          maxLength={100}
-          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        <Button variant="outline" onClick={() => void handleAdd()} isLoading={adding} disabled={!newName.trim()}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add
-        </Button>
-      </div>
-
-      {/* Removed (restorable) */}
       {removed.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -211,7 +155,7 @@ export const DepartmentsManager = () => {
           }
         }}
         title={`Remove ${confirmRemove?.name ?? 'department'}?`}
-        description="It stops receiving messages, but you can restore it from the Removed list below (or in Settings) anytime."
+        description="It stops receiving messages, but you can restore it from the Removed list below anytime."
         confirmText="Remove"
         variant="warning"
       />
