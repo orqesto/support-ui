@@ -21,31 +21,25 @@ export const AiChoiceStep = ({ value, onChoose }: Props) => (
       You can change this later in Settings.
     </p>
     <div className="grid gap-4 sm:grid-cols-2">
-      <button
-        type="button"
-        aria-pressed={value === 'managed'}
-        onClick={() => onChoose('managed')}
-        className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        <Card
-          className={cn(
-            'h-full cursor-pointer transition-colors hover:border-primary/60',
-            value === 'managed' && 'border-primary ring-2 ring-primary'
-          )}
-        >
+      {/* Managed AI is not available on this build yet — shown as coming-soon and
+          non-selectable so we never imply AI works when it doesn't. */}
+      <div aria-disabled className="rounded-lg">
+        <Card className="h-full border-dashed opacity-70">
           <CardContent className="space-y-2 p-5">
             <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" />
+              <Bot className="h-5 w-5 text-muted-foreground" />
               <span className="font-medium text-foreground">Use our AI</span>
-              {value === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
+              <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                Coming soon
+              </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              We handle model access for you — nothing to configure. Usage counts toward your
-              plan&apos;s AI allowance.
+              Managed model access is on the way — no keys to manage. For now, connect your own
+              provider to turn on AI features.
             </p>
           </CardContent>
         </Card>
-      </button>
+      </div>
       <button
         type="button"
         aria-pressed={value === 'byo'}

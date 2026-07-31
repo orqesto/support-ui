@@ -97,10 +97,11 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // Only the AI step (2) blocks Next until a choice is made. Storage (3) and
-  // channels (4) are optional — the client can skip and set them up later.
-  const nextDisabled = activeStep === 2 && !aiChoice;
-  const optionalUnfinished = activeStep === 3 || (activeStep === 4 && !channelsConnected);
+  // No step blocks advancing. AI (2, BYO is optional; managed is coming-soon),
+  // storage (3) and channels (4) are all optional — set up now or later.
+  const nextDisabled = false;
+  const optionalUnfinished =
+    (activeStep === 2 && !aiChoice) || activeStep === 3 || (activeStep === 4 && !channelsConnected);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= STEP_LABELS.length;
