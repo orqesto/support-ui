@@ -7,9 +7,9 @@ import { logger } from '@/lib/logger';
 const CHANNEL_TYPES = new Set(['gmail', 'email', 'slack', 'telegram']);
 
 /**
- * Step 5 — read-only routing confirmation: active departments, the default
- * (fallback) department, and connected channels. Rule editing lives in Settings,
- * not in the wizard.
+ * Step 5 — read-only routing confirmation: active departments and connected
+ * channels. Unmatched messages go to the triage queue (strict-cascade routing —
+ * there is no default/fallback department). Rule editing lives in Settings.
  */
 export const RoutingStep = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
