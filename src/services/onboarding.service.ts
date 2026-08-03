@@ -4,7 +4,7 @@ import type { ApiResponse } from '@/types';
 /** Mirrors BE OnboardingState (BE-service organizationDefaults.ts). */
 export type OnboardingState = {
   status: 'pending' | 'completed' | 'skipped';
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   aiChoice?: 'managed' | 'byo';
   aiChoiceApplied?: boolean;
   startedAt: string;

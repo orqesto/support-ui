@@ -5,6 +5,7 @@ import { AiChoiceStep } from './steps/AiChoiceStep';
 import { ChannelsStep } from './steps/ChannelsStep';
 import { DepartmentsStep } from './steps/DepartmentsStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
+import { KbStep } from './steps/KbStep';
 import { RoutingStep } from './steps/RoutingStep';
 import { StorageStep } from './steps/StorageStep';
 import { StepIndicator, STEP_LABELS } from './StepIndicator';
@@ -19,10 +20,11 @@ type StepNumber = OnboardingState['currentStep'];
 const STEP_TITLES: Record<StepNumber, string> = {
   1: 'Review your departments',
   2: 'How should AI features work?',
-  3: 'Where should files be stored?',
-  4: 'Connect your message channels',
-  5: 'Confirm message routing',
-  6: 'Invite your team',
+  3: 'Add knowledge for your AI',
+  4: 'Where should files be stored?',
+  5: 'Connect your message channels',
+  6: 'Confirm message routing',
+  7: 'Invite your team',
 };
 
 /**
@@ -98,11 +100,14 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // No step blocks advancing. AI (2 — managed or BYO, both optional), storage (3)
-  // and channels (4) are all optional — set up now or later.
+  // No step blocks advancing. AI (2 — managed or BYO), KB (3), storage (4) and
+  // channels (5) are all optional — set up now or later.
   const nextDisabled = false;
   const optionalUnfinished =
-    (activeStep === 2 && !aiChoice) || activeStep === 3 || (activeStep === 4 && !channelsConnected);
+    (activeStep === 2 && !aiChoice) ||
+    activeStep === 3 ||
+    activeStep === 4 ||
+    (activeStep === 5 && !channelsConnected);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= STEP_LABELS.length;
@@ -142,10 +147,11 @@ export const OnboardingWizard = () => {
             managedAvailable={managedAiAvailable}
           />
         )}
-        {activeStep === 3 && <StorageStep />}
-        {activeStep === 4 && <ChannelsStep onConnectedChange={setChannelsConnected} />}
-        {activeStep === 5 && <RoutingStep />}
-        {activeStep === 6 && <InviteTeamStep />}
+        {activeStep === 3 && <KbStep />}
+        {activeStep === 4 && <StorageStep />}
+        {activeStep === 5 && <ChannelsStep onConnectedChange={setChannelsConnected} />}
+        {activeStep === 6 && <RoutingStep />}
+        {activeStep === 7 && <InviteTeamStep />}
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-6">
