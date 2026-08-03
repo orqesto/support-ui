@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useBackendVersion } from './hooks/useBackendVersion';
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -101,6 +102,20 @@ const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   return isAuthenticated && user ? children : <Navigate to="/login" />;
+};
+
+/**
+ * Gate for customer-facing billing pages (Subscription, Pricing, Usage Stats).
+ * The nav hides these when billing is off, but the routes must be guarded too so
+ * a hand-typed URL can't reach them. `billingEnabled` is the authoritative BE
+ * signal (a billing provider is configured); false on self-hosted and on managed
+ * boxes not yet activated. We wait for the health call to settle before deciding
+ * so a legit managed user isn't bounced during the in-flight window.
+ */
+const BillingRoute = ({ children }: { children: JSX.Element }) => {
+  const { data: backendVersion, isLoading } = useBackendVersion();
+  if (isLoading) return <LoadingFallback />;
+  return backendVersion?.billingEnabled ? children : <Navigate to="/dashboard" replace />;
 };
 
 const AppRoutes = () => {
@@ -397,11 +412,13 @@ const AppRoutes = () => {
         path="/subscription"
         element={
           <PrivateRoute>
-            <ProtectedRoute requiredPermission={Permission.VIEW_SUBSCRIPTION}>
-              <Suspense fallback={<LoadingFallback />}>
-                <SubscriptionPage />
-              </Suspense>
-            </ProtectedRoute>
+            <BillingRoute>
+              <ProtectedRoute requiredPermission={Permission.VIEW_SUBSCRIPTION}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <SubscriptionPage />
+                </Suspense>
+              </ProtectedRoute>
+            </BillingRoute>
           </PrivateRoute>
         }
       />
@@ -409,9 +426,11 @@ const AppRoutes = () => {
         path="/pricing"
         element={
           <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <PricingPage />
-            </Suspense>
+            <BillingRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <PricingPage />
+              </Suspense>
+            </BillingRoute>
           </PrivateRoute>
         }
       />

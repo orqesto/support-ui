@@ -9,6 +9,7 @@ import { LearningTrustSettings } from './LearningTrustSettings';
 import { PromptsSettings } from './PromptsSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { apiClient } from '@/lib/api-client';
 
 type AISection =
@@ -43,6 +44,11 @@ const DEFAULT_AI_SECTION: AISection = 'prompts';
 
 export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   const { isOrgAdmin } = usePermissions();
+  const { data: backendVersion } = useBackendVersion();
+  // When no billing provider is configured, plans are assigned by an admin, not
+  // purchased — so the paywall drops the "Upgrade to Enterprise" / pricing CTA
+  // and just states the feature isn't in the current plan.
+  const billingEnabled = backendVersion?.billingEnabled ?? false;
   const sections = useMemo(
     () => ALL_SECTIONS.filter((sect) => !sect.adminOnly || isOrgAdmin),
     [isOrgAdmin]
@@ -137,15 +143,19 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
             <div>
               <p className="font-semibold">Lead Qualification not included in your plan</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Upgrade to Enterprise or Admin plan to access AI Lead Qualification.
+                {billingEnabled
+                  ? 'Upgrade to Enterprise or Admin plan to access AI Lead Qualification.'
+                  : 'AI Lead Qualification isn’t enabled for your plan. Contact your administrator to enable it.'}
               </p>
             </div>
-            <button
-              onClick={() => navigate('/pricing')}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              View Plans
-            </button>
+            {billingEnabled && (
+              <button
+                onClick={() => navigate('/pricing')}
+                className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                View Plans
+              </button>
+            )}
           </div>
         ) : hasLeadQualification === true ? (
           <LeadQualificationSettings />

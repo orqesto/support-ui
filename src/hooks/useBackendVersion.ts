@@ -6,6 +6,11 @@ type BackendVersion = {
   gitSha: string;
   buildTime: string;
   selfHosted: boolean;
+  // Authoritative billing signal from the BE: true only when a billing provider
+  // is configured (managed SaaS). When false the FE hides ALL billing/upgrade/
+  // paywall UI — decoupled from selfHosted, so a not-yet-activated managed box
+  // hides billing too. Defaults to false so a box with no signal stays hidden.
+  billingEnabled: boolean;
   // Self-hosted opt-in (BEDROCK_ALLOW_INSTANCE_PROFILE): gates the Bedrock
   // "EC2 instance profile" credential option in the provider UI.
   bedrockInstanceProfile: boolean;
@@ -29,13 +34,18 @@ export const useBackendVersion = () =>
         version: string;
         gitSha?: string;
         buildTime?: string;
-        deployment?: { selfHosted?: boolean; bedrockInstanceProfile?: boolean };
+        deployment?: {
+          selfHosted?: boolean;
+          billingEnabled?: boolean;
+          bedrockInstanceProfile?: boolean;
+        };
       }>('/api/health/version');
       return {
         version: res.data.version ?? 'unknown',
         gitSha: res.data.gitSha ?? 'dev',
         buildTime: res.data.buildTime ?? 'unknown',
         selfHosted: res.data.deployment?.selfHosted ?? false,
+        billingEnabled: res.data.deployment?.billingEnabled ?? false,
         bedrockInstanceProfile: res.data.deployment?.bedrockInstanceProfile ?? false,
       };
     },
