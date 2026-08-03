@@ -5,6 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 
 /**
  * Trial countdown banner for all members while the org subscription is
@@ -18,11 +19,15 @@ export const TrialBanner = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const trial = useOnboardingStore((state) => state.trial);
   const fetchOnce = useOnboardingStore((state) => state.fetchOnce);
+  const { data: backendVersion } = useBackendVersion();
 
   useEffect(() => {
     fetchOnce(selectedOrganizationId); // store dedupes per org
   }, [fetchOnce, selectedOrganizationId]);
 
+  // No billing provider configured → no trials, no upgrade path. Hide entirely
+  // (self-hosted and not-yet-activated managed boxes).
+  if (!backendVersion?.billingEnabled) return null;
   if (location.pathname.startsWith('/subscription')) return null;
   if (trial?.status !== 'trialing' || !trial.trialEndsAt) return null;
 
