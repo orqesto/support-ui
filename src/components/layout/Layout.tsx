@@ -72,7 +72,10 @@ const allNavigation: Array<{
   adminOnly?: boolean;
   moduleRequired?: string;
   showBadge?: boolean;
-  hideOnSelfHosted?: boolean;
+  // Hidden whenever the BE reports billing is off (deployment.billingEnabled=false):
+  // self-hosted boxes AND managed boxes where a billing provider isn't configured
+  // yet. Authoritative billing signal — supersedes the old selfHosted-only gate.
+  hideWhenBillingOff?: boolean;
 }> = [
   // ─── Work — daily inbox / triage ────────────────────────────────────────────
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -120,6 +123,7 @@ const allNavigation: Array<{
     href: '/usage-stats',
     icon: TrendingUp,
     permission: Permission.VIEW_USAGE_STATS,
+    hideWhenBillingOff: true,
   },
   {
     group: 'insights',
@@ -128,7 +132,7 @@ const allNavigation: Array<{
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
     moduleRequired: 'billing-intelligence',
-    hideOnSelfHosted: true,
+    hideWhenBillingOff: true,
   },
 
   // ─── Admin — configuration & rare-use ───────────────────────────────────────
@@ -147,7 +151,7 @@ const allNavigation: Array<{
     href: '/subscription',
     icon: CreditCard,
     permission: Permission.VIEW_SUBSCRIPTION,
-    hideOnSelfHosted: true,
+    hideWhenBillingOff: true,
   },
   {
     group: 'admin',
@@ -374,7 +378,10 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [sessions, closedSessions]);
 
   const { data: backendVersion } = useBackendVersion();
-  const isSelfHosted = backendVersion?.selfHosted ?? false;
+  // Authoritative billing signal: true only when the BE has a billing provider
+  // configured. Undefined (health call in-flight) is treated as billing-off so
+  // billing UI never flashes before we know — it reveals once the flag arrives.
+  const billingEnabled = backendVersion?.billingEnabled ?? false;
 
   // Filter navigation based on permissions
   const navigation = useMemo(
@@ -384,10 +391,11 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.adminOnly && user?.role !== 'admin') {
           return false;
         }
-        // Customer-facing billing UI hidden on self-hosted deployments. Admin
-        // Plans & Modules / Organization Usage live on AdminDashboardPage and
-        // are unaffected — those are still needed to assign the admin plan.
-        if (item.hideOnSelfHosted && isSelfHosted) {
+        // Customer-facing billing UI hidden whenever billing is off (self-hosted
+        // or a managed box without a billing provider yet). Admin Plans & Modules /
+        // Organization Usage live on AdminDashboardPage and are unaffected — those
+        // are still needed to assign the admin plan.
+        if (item.hideWhenBillingOff && !billingEnabled) {
           return false;
         }
         // Check module gate (item hidden if module not enabled for the org)
@@ -408,7 +416,7 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasModule, user?.role, hasTickets, hasRoutingItems, isSelfHosted]
+    [hasPermission, hasModule, user?.role, hasTickets, hasRoutingItems, billingEnabled]
   );
 
   const handleLogout = () => {
