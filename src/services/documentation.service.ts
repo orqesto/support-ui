@@ -31,6 +31,10 @@ export type Documentation = {
   createdAt: string;
   updatedAt: string;
   metadata: unknown;
+  // External-source provenance (e.g. Confluence sync). null = uploaded manually.
+  externalSource?: string | null;
+  externalId?: string | null;
+  sourceDeleted?: boolean;
 };
 
 export type DocumentationStats = {

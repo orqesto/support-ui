@@ -130,6 +130,11 @@ export type BaseIntegration = {
   createdAt: string;
   updatedAt: string;
   hasCredentials?: boolean;
+  // Content-source (Confluence) last-sync observability — surfaced on the card.
+  lastSyncStatus?: 'syncing' | 'success' | 'failed' | null;
+  lastSyncedAt?: string | null;
+  lastSyncError?: string | null;
+  lastSyncedPageCount?: number | null;
 };
 
 // Type-specific integrations
