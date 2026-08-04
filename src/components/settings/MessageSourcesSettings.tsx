@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ConfluenceIntegrationCard } from '@/components/settings/integrations/ConfluenceIntegrationCard';
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
@@ -88,7 +89,7 @@ export const MessageSourcesSettings = () => {
         <div className="pt-4 border-t">
           <h2 className="text-lg font-semibold text-foreground">Knowledge Base Sources</h2>
           <p className="text-sm text-muted-foreground">
-            Email accounts used to extract Q&amp;A pairs and documentation for AI-powered responses. These don't appear in the active inbox.
+            Email accounts and content sources used to extract Q&amp;A pairs and documentation for AI-powered responses. These don't appear in the active inbox.
           </p>
         </div>
 
@@ -104,6 +105,12 @@ export const MessageSourcesSettings = () => {
           onRefresh={fetchIntegrations}
           onShowAlert={setAlertDialog}
           defaultKB={true}
+        />
+
+        <ConfluenceIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
         />
       </div>
 
