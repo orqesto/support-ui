@@ -438,12 +438,12 @@ export const ConfluenceIntegrationCard = ({
                 </div>
               </div>
 
-              {/* Page-tree picker — choose which pages sync (empty = whole space) */}
+              {/* Page-tree picker — sync is opt-in: only ticked pages sync, empty = nothing */}
               <div>
                 <label className="text-sm font-medium">Pages to sync</label>
                 <p className="mt-0.5 mb-1 text-xs text-muted-foreground">
                   {selectedPageIds.size === 0
-                    ? 'Syncing every page in the space(s). Choose specific pages to narrow it down.'
+                    ? 'No pages selected — nothing will sync yet. Choose the pages you want in the Knowledge Base (use “All” to add the whole space).'
                     : `${selectedPageIds.size} page${selectedPageIds.size === 1 ? '' : 's'} selected — only the exact pages you tick sync (child pages aren’t included automatically).`}
                   {editingId
                     ? ' Pages reflect the saved configuration — save changes to pick from newly-added spaces.'
