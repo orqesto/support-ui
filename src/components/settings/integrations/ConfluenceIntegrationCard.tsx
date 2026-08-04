@@ -215,9 +215,12 @@ export const ConfluenceIntegrationCard = ({
   // lastSyncStatus='syncing' asynchronously, so an immediate refresh can miss it and the
   // poll effect never engages. Cleared on unmount (no leak).
   const kickTimerRef = useRef<number | null>(null);
-  useEffect(() => () => {
-    if (kickTimerRef.current) window.clearTimeout(kickTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (kickTimerRef.current) window.clearTimeout(kickTimerRef.current);
+    },
+    []
+  );
   // Raw text mirror of the Space Keys field. A controlled input bound to
   // config.spaceKeys.join(', ') re-parses every keystroke and eats the separator, making
   // multi-key entry by typing impossible. Keep the raw string here and parse into the
@@ -332,7 +335,11 @@ export const ConfluenceIntegrationCard = ({
       });
       onShowAlert({
         open: true,
-        title: res.success ? (currentlyEnabled ? 'Source paused' : 'Source enabled') : 'Update failed',
+        title: res.success
+          ? currentlyEnabled
+            ? 'Source paused'
+            : 'Source enabled'
+          : 'Update failed',
         description: res.success
           ? currentlyEnabled
             ? `“${name}” paused — its pages are excluded from AI answers.`
@@ -392,7 +399,7 @@ export const ConfluenceIntegrationCard = ({
                 setShowForm(!showForm);
               }}
             >
-              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
+              <Plus className="hidden mr-1 w-4 h-4 sm:block" />
               Add Confluence
             </Button>
           </div>

@@ -1,3 +1,4 @@
+/* eslint-disable id-length -- short callback param (s) in the source-filter pills map */
 import {
   FileText,
   Trash2,
@@ -122,12 +123,13 @@ export const DocumentationList = ({
   // Source filter: gives a Confluence-ONLY list (separate from uploaded docs) where each
   // synced page can be toggled on/off for AI answers.
   const [sourceFilter, setSourceFilter] = useState<'all' | 'uploaded' | 'confluence'>('all');
-  const isConfluenceDoc = (d: Documentation) => d.externalSource?.split(':')[0] === 'confluence';
+  const isConfluenceDoc = (doc: Documentation) =>
+    doc.externalSource?.split(':')[0] === 'confluence';
   const hasConfluence = docs.some(isConfluenceDoc);
   const confluenceCount = docs.filter(isConfluenceDoc).length;
-  const filteredDocs = docs.filter((d) => {
-    if (sourceFilter === 'confluence') return isConfluenceDoc(d);
-    if (sourceFilter === 'uploaded') return !isConfluenceDoc(d);
+  const filteredDocs = docs.filter((doc) => {
+    if (sourceFilter === 'confluence') return isConfluenceDoc(doc);
+    if (sourceFilter === 'uploaded') return !isConfluenceDoc(doc);
     return true;
   });
 
