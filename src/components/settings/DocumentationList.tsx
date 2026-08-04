@@ -1,4 +1,3 @@
-/* eslint-disable id-length -- short callback param (s) in the source-filter pills map */
 import {
   FileText,
   Trash2,
@@ -171,17 +170,21 @@ export const DocumentationList = ({
 
       {hasConfluence && (
         <div className="flex flex-wrap gap-1 mb-4">
-          {(['all', 'uploaded', 'confluence'] as const).map((s) => {
+          {(['all', 'uploaded', 'confluence'] as const).map((src) => {
             const count =
-              s === 'all' ? docs.length : s === 'confluence' ? confluenceCount : docs.length - confluenceCount;
-            const label = s === 'all' ? 'All' : s === 'uploaded' ? 'Uploaded' : 'Confluence';
+              src === 'all'
+                ? docs.length
+                : src === 'confluence'
+                  ? confluenceCount
+                  : docs.length - confluenceCount;
+            const label = src === 'all' ? 'All' : src === 'uploaded' ? 'Uploaded' : 'Confluence';
             return (
               <button
-                key={s}
+                key={src}
                 type="button"
-                onClick={() => setSourceFilter(s)}
+                onClick={() => setSourceFilter(src)}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                  sourceFilter === s
+                  sourceFilter === src
                     ? 'bg-primary text-primary-foreground border-primary'
                     : 'text-muted-foreground border-border hover:bg-muted'
                 }`}
