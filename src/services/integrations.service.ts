@@ -24,6 +24,16 @@ export type JiraConfig = {
   projectKey: string;
 };
 
+// Confluence content-source config (synced into the KB). Atlassian basic-auth;
+// spaceKeys is always an array (the card parses the comma/space input before save).
+export type ConfluenceConfig = {
+  baseUrl: string;
+  email: string;
+  apiToken: string;
+  spaceKeys: string[];
+  syncIntervalMinutes?: number;
+};
+
 export type TelegramConfig = {
   botToken: string;
 };
@@ -105,7 +115,8 @@ export type BaseIntegration = {
     | 'ollama'
     | 'bedrock'
     | 'custom'
-    | 'local_embeddings';
+    | 'local_embeddings'
+    | 'confluence';
   enabled: boolean;
   departmentId?: number | null;
   isDefault?: boolean;
@@ -135,6 +146,11 @@ export type GmailIntegration = BaseIntegration & {
 export type JiraIntegration = BaseIntegration & {
   type: 'jira';
   config: JiraConfig;
+};
+
+export type ConfluenceIntegration = BaseIntegration & {
+  type: 'confluence';
+  config: ConfluenceConfig;
 };
 
 export type TelegramIntegration = BaseIntegration & {
@@ -217,7 +233,8 @@ export type Integration =
   | QwenIntegration
   | OllamaIntegration
   | BedrockIntegration
-  | CustomIntegration;
+  | CustomIntegration
+  | ConfluenceIntegration;
 
 export type SourceDepartmentLink = {
   id: number;
