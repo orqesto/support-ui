@@ -223,17 +223,20 @@ export const DocumentationList = ({
               }`}
             >
               <div className="flex gap-3 items-start flex-1 min-w-0">
-                <button
-                  onClick={() => onToggleDoc(doc.id)}
-                  className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
-                  aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
-                >
-                  {selectedDocs.has(doc.id) ? (
-                    <CheckSquare className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Square className="w-5 h-5" />
-                  )}
-                </button>
+                {/* Bulk-select checkbox only in the unfiltered view (bulk actions hide otherwise). */}
+                {sourceFilter === 'all' && (
+                  <button
+                    onClick={() => onToggleDoc(doc.id)}
+                    className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
+                    aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
+                  >
+                    {selectedDocs.has(doc.id) ? (
+                      <CheckSquare className="w-5 h-5 text-primary" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
