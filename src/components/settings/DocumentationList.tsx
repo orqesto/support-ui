@@ -18,6 +18,7 @@ import {
   Power,
   Square,
 } from 'lucide-react';
+import { useState } from 'react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -117,11 +118,26 @@ export const DocumentationList = ({
   onViewContent,
   onToggleEnabled,
   onDeleteClick,
-}: DocumentationListProps) => (
+}: DocumentationListProps) => {
+  // Source filter: gives a Confluence-ONLY list (separate from uploaded docs) where each
+  // synced page can be toggled on/off for AI answers.
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'uploaded' | 'confluence'>('all');
+  const isConfluenceDoc = (d: Documentation) => d.externalSource?.split(':')[0] === 'confluence';
+  const hasConfluence = docs.some(isConfluenceDoc);
+  const confluenceCount = docs.filter(isConfluenceDoc).length;
+  const filteredDocs = docs.filter((d) => {
+    if (sourceFilter === 'confluence') return isConfluenceDoc(d);
+    if (sourceFilter === 'uploaded') return !isConfluenceDoc(d);
+    return true;
+  });
+
+  return (
     <Card className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Uploaded Documentation</h3>
-        {docs.length > 0 && (
+        <h3 className="text-lg font-semibold">
+          {sourceFilter === 'confluence' ? 'Confluence Pages' : 'Documentation'}
+        </h3>
+        {sourceFilter === 'all' && docs.length > 0 && (
           <div className="flex gap-2 items-center">
             {selectedDocs.size > 0 && (
               <>
@@ -151,15 +167,50 @@ export const DocumentationList = ({
         )}
       </div>
 
-      {docs.length === 0 ? (
+      {hasConfluence && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {(['all', 'uploaded', 'confluence'] as const).map((s) => {
+            const count =
+              s === 'all' ? docs.length : s === 'confluence' ? confluenceCount : docs.length - confluenceCount;
+            const label = s === 'all' ? 'All' : s === 'uploaded' ? 'Uploaded' : 'Confluence';
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSourceFilter(s)}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  sourceFilter === s
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {filteredDocs.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
           <BookOpen className="mx-auto mb-4 w-12 h-12 opacity-50" />
-          <p>No documentation uploaded yet.</p>
-          <p className="text-sm">Upload your first document to get started.</p>
+          {sourceFilter === 'confluence' ? (
+            <>
+              <p>No Confluence pages synced yet.</p>
+              <p className="text-sm">
+                Connect a Confluence space in Settings → Integrations, then Sync.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>No documentation uploaded yet.</p>
+              <p className="text-sm">Upload your first document to get started.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {docs.map((doc) => (
+          {filteredDocs.map((doc) => (
             <div
               key={doc.id}
               id={`doc-${doc.id}`}
@@ -315,3 +366,4 @@ export const DocumentationList = ({
       )}
     </Card>
   );
+};
