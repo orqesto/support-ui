@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ConfluenceIntegrationCard } from '@/components/settings/integrations/ConfluenceIntegrationCard';
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { JiraIntegrationCard } from '@/components/settings/integrations/JiraIntegrationCard';
@@ -87,7 +88,7 @@ export const IntegrationsSettings = () => {
       <div className="space-y-6">
         <div className="pt-4 border-t">
           <h3 className="text-base font-semibold">Knowledge Base Sources</h3>
-          <p className="text-sm text-muted-foreground">Email accounts used to extract Q&amp;A pairs and documentation for AI responses</p>
+          <p className="text-sm text-muted-foreground">Email accounts and content sources used to extract Q&amp;A pairs and documentation for AI responses</p>
         </div>
         <EmailIntegrationCard
           integrations={integrations}
@@ -100,6 +101,11 @@ export const IntegrationsSettings = () => {
           onRefresh={fetchIntegrations}
           onShowAlert={setAlertDialog}
           defaultKB={true}
+        />
+        <ConfluenceIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
         />
       </div>
 
