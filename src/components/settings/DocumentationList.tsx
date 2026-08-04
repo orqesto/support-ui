@@ -188,6 +188,12 @@ export const DocumentationList = ({
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
+                    {doc.externalSource === 'confluence' && (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-sky-800 bg-sky-100 rounded-full dark:bg-sky-900 dark:text-sky-200">
+                        <BookOpen className="w-3 h-3" />
+                        Confluence
+                      </span>
+                    )}
                     {doc.departmentIds.length === 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         <Globe className="w-3 h-3" />

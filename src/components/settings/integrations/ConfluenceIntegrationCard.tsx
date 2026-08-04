@@ -4,7 +4,11 @@ import type { IntegrationCardProps } from '@/components/settings/integrations/ty
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
-import { integrationsService, type ConfluenceConfig } from '@/services/integrations.service';
+import {
+  integrationsService,
+  type BaseIntegration,
+  type ConfluenceConfig,
+} from '@/services/integrations.service';
 
 // Parse a raw "SUP, DOCS ENG" input into a clean string[] of space keys. The saved
 // config MUST carry spaceKeys as an array (the backend sync expects string[]).
@@ -13,6 +17,36 @@ const parseSpaceKeys = (raw: string): string[] =>
     .split(/[\s,]+/)
     .map((key) => key.trim())
     .filter(Boolean);
+
+const timeAgo = (iso: string): string => {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+};
+
+// Last-sync summary line shown under each saved space.
+const syncMeta = (
+  i: Pick<
+    BaseIntegration,
+    'lastSyncStatus' | 'lastSyncedAt' | 'lastSyncedPageCount' | 'lastSyncError'
+  >
+): { text: string; cls: string } => {
+  if (i.lastSyncStatus === 'syncing') return { text: 'Syncing…', cls: 'text-blue-600' };
+  if (i.lastSyncStatus === 'failed') {
+    const detail = i.lastSyncError ? `: ${i.lastSyncError.slice(0, 90)}` : '';
+    return { text: `Sync failed${detail}`, cls: 'text-red-600' };
+  }
+  if (i.lastSyncStatus === 'success') {
+    const n = i.lastSyncedPageCount ?? 0;
+    const when = i.lastSyncedAt ? ` · ${timeAgo(i.lastSyncedAt)}` : '';
+    return { text: `Synced ${n} page${n === 1 ? '' : 's'}${when}`, cls: 'text-green-600' };
+  }
+  return { text: 'Not synced yet', cls: 'text-muted-foreground' };
+};
 
 export const ConfluenceIntegrationCard = ({
   integrations,
@@ -68,6 +102,10 @@ export const ConfluenceIntegrationCard = ({
             : 'Could not start the sync.'),
         variant: res.success ? 'success' : 'error',
       });
+      // Refresh to surface 'syncing' immediately, then again to catch the result.
+      void onRefresh();
+      window.setTimeout(() => void onRefresh(), 4000);
+      window.setTimeout(() => void onRefresh(), 12000);
     } catch {
       onShowAlert({
         open: true,
@@ -132,6 +170,10 @@ export const ConfluenceIntegrationCard = ({
                         <p className="text-xs text-muted-foreground">
                           {cfg.baseUrl ?? 'Not configured'}
                         </p>
+                        {(() => {
+                          const meta = syncMeta(integration);
+                          return <p className={`text-xs mt-0.5 ${meta.cls}`}>{meta.text}</p>;
+                        })()}
                       </div>
                     </div>
                     <div className="flex gap-2">
