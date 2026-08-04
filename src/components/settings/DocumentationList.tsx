@@ -18,6 +18,7 @@ import {
   Power,
   Square,
 } from 'lucide-react';
+import { useState } from 'react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -117,11 +118,27 @@ export const DocumentationList = ({
   onViewContent,
   onToggleEnabled,
   onDeleteClick,
-}: DocumentationListProps) => (
+}: DocumentationListProps) => {
+  // Source filter: gives a Confluence-ONLY list (separate from uploaded docs) where each
+  // synced page can be toggled on/off for AI answers.
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'uploaded' | 'confluence'>('all');
+  const isConfluenceDoc = (doc: Documentation) =>
+    doc.externalSource?.split(':')[0] === 'confluence';
+  const hasConfluence = docs.some(isConfluenceDoc);
+  const confluenceCount = docs.filter(isConfluenceDoc).length;
+  const filteredDocs = docs.filter((doc) => {
+    if (sourceFilter === 'confluence') return isConfluenceDoc(doc);
+    if (sourceFilter === 'uploaded') return !isConfluenceDoc(doc);
+    return true;
+  });
+
+  return (
     <Card className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Uploaded Documentation</h3>
-        {docs.length > 0 && (
+        <h3 className="text-lg font-semibold">
+          {sourceFilter === 'confluence' ? 'Confluence Pages' : 'Documentation'}
+        </h3>
+        {sourceFilter === 'all' && docs.length > 0 && (
           <div className="flex gap-2 items-center">
             {selectedDocs.size > 0 && (
               <>
@@ -151,15 +168,54 @@ export const DocumentationList = ({
         )}
       </div>
 
-      {docs.length === 0 ? (
+      {hasConfluence && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {(['all', 'uploaded', 'confluence'] as const).map((src) => {
+            const count =
+              src === 'all'
+                ? docs.length
+                : src === 'confluence'
+                  ? confluenceCount
+                  : docs.length - confluenceCount;
+            const label = src === 'all' ? 'All' : src === 'uploaded' ? 'Uploaded' : 'Confluence';
+            return (
+              <button
+                key={src}
+                type="button"
+                onClick={() => setSourceFilter(src)}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  sourceFilter === src
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {filteredDocs.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
           <BookOpen className="mx-auto mb-4 w-12 h-12 opacity-50" />
-          <p>No documentation uploaded yet.</p>
-          <p className="text-sm">Upload your first document to get started.</p>
+          {sourceFilter === 'confluence' ? (
+            <>
+              <p>No Confluence pages synced yet.</p>
+              <p className="text-sm">
+                Connect a Confluence space in Settings → Integrations, then Sync.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>No documentation uploaded yet.</p>
+              <p className="text-sm">Upload your first document to get started.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {docs.map((doc) => (
+          {filteredDocs.map((doc) => (
             <div
               key={doc.id}
               id={`doc-${doc.id}`}
@@ -172,22 +228,31 @@ export const DocumentationList = ({
               }`}
             >
               <div className="flex gap-3 items-start flex-1 min-w-0">
-                <button
-                  onClick={() => onToggleDoc(doc.id)}
-                  className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
-                  aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
-                >
-                  {selectedDocs.has(doc.id) ? (
-                    <CheckSquare className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Square className="w-5 h-5" />
-                  )}
-                </button>
+                {/* Bulk-select checkbox only in the unfiltered view (bulk actions hide otherwise). */}
+                {sourceFilter === 'all' && (
+                  <button
+                    onClick={() => onToggleDoc(doc.id)}
+                    className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
+                    aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
+                  >
+                    {selectedDocs.has(doc.id) ? (
+                      <CheckSquare className="w-5 h-5 text-primary" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
+                    {doc.externalSource?.split(':')[0] === 'confluence' && (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-sky-800 bg-sky-100 rounded-full dark:bg-sky-900 dark:text-sky-200">
+                        <BookOpen className="w-3 h-3" />
+                        Confluence
+                      </span>
+                    )}
                     {doc.departmentIds.length === 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         <Globe className="w-3 h-3" />
@@ -277,22 +342,28 @@ export const DocumentationList = ({
                 >
                   <Power className="w-4 h-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
-                    window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
-                  }}
-                  title="Download file"
-                >
-                  <Download className="w-4 h-4" />
-                </Button>
+                {doc.externalSource?.split(':')[0] !== 'confluence' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
+                      window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
+                    }}
+                    title="Download file"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteClick(doc.id)}
-                  title="Delete documentation"
+                  title={
+                    doc.externalSource?.split(':')[0] === 'confluence'
+                      ? 'Synced from Confluence — it reappears on the next sync unless you remove its space from the Confluence source. Use the Power toggle to exclude it from AI answers.'
+                      : 'Delete documentation'
+                  }
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -303,3 +374,4 @@ export const DocumentationList = ({
       )}
     </Card>
   );
+};

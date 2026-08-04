@@ -24,6 +24,25 @@ export type JiraConfig = {
   projectKey: string;
 };
 
+// Confluence content-source config (synced into the KB). Atlassian basic-auth;
+// spaceKeys is always an array (the card parses the comma/space input before save).
+export type ConfluenceConfig = {
+  baseUrl: string;
+  email: string;
+  apiToken: string;
+  spaceKeys: string[];
+  syncIntervalMinutes?: number;
+  // Page-tree picker: sync ONLY these page ids; empty/absent = whole space.
+  selectedPageIds?: string[];
+};
+
+export type ConfluencePageNode = {
+  id: string;
+  title: string;
+  parentId: string | null;
+  spaceKey: string;
+};
+
 export type TelegramConfig = {
   botToken: string;
 };
@@ -105,7 +124,8 @@ export type BaseIntegration = {
     | 'ollama'
     | 'bedrock'
     | 'custom'
-    | 'local_embeddings';
+    | 'local_embeddings'
+    | 'confluence';
   enabled: boolean;
   departmentId?: number | null;
   isDefault?: boolean;
@@ -119,6 +139,11 @@ export type BaseIntegration = {
   createdAt: string;
   updatedAt: string;
   hasCredentials?: boolean;
+  // Content-source (Confluence) last-sync observability — surfaced on the card.
+  lastSyncStatus?: 'syncing' | 'success' | 'failed' | null;
+  lastSyncedAt?: string | null;
+  lastSyncError?: string | null;
+  lastSyncedPageCount?: number | null;
 };
 
 // Type-specific integrations
@@ -135,6 +160,11 @@ export type GmailIntegration = BaseIntegration & {
 export type JiraIntegration = BaseIntegration & {
   type: 'jira';
   config: JiraConfig;
+};
+
+export type ConfluenceIntegration = BaseIntegration & {
+  type: 'confluence';
+  config: ConfluenceConfig;
 };
 
 export type TelegramIntegration = BaseIntegration & {
@@ -217,7 +247,8 @@ export type Integration =
   | QwenIntegration
   | OllamaIntegration
   | BedrockIntegration
-  | CustomIntegration;
+  | CustomIntegration
+  | ConfluenceIntegration;
 
 export type SourceDepartmentLink = {
   id: number;
@@ -293,6 +324,26 @@ export const integrationsService = {
   ): Promise<ApiResponse<{ success: boolean; message: string }>> => {
     const response = await apiClient.post<{ success: boolean; message: string }>(
       `/api/integrations/${id}/test?type=${encodeURIComponent(type)}`
+    );
+    return { success: response.data.success, data: response.data };
+  },
+
+  /** List a Confluence space's pages for the page-tree picker (by saved id, or a pre-save config). */
+  listConfluencePages: async (payload: {
+    integrationId?: number;
+    config?: { baseUrl: string; email: string; apiToken: string; spaceKeys: string[] };
+  }): Promise<ApiResponse<{ pages: ConfluencePageNode[] }>> => {
+    const response = await apiClient.post<{ success: boolean; data: { pages: ConfluencePageNode[] } }>(
+      '/api/integrations/confluence/pages',
+      payload
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  /** Manually trigger a content-source (Confluence) re-sync — the "Sync now" button. */
+  syncNow: async (id: number): Promise<ApiResponse<{ success: boolean; message: string }>> => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/integrations/${id}/sync`
     );
     return { success: response.data.success, data: response.data };
   },
