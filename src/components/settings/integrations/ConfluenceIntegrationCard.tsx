@@ -1,5 +1,5 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -11,33 +11,38 @@ import {
   type ConfluencePageNode,
 } from '@/services/integrations.service';
 
-// One checkbox row in the page picker (indented by tree depth).
-const PageRow = ({
-  node,
-  depth,
-  selected,
-  onToggle,
-}: {
-  node: ConfluencePageNode;
-  depth: number;
-  selected: Set<string>;
-  onToggle: (id: string) => void;
-}) => (
-  <label
-    className="flex gap-2 items-center py-0.5 text-sm cursor-pointer"
-    style={{ paddingLeft: `${depth * 16}px` }}
-  >
-    <input
-      type="checkbox"
-      checked={selected.has(node.id)}
-      onChange={() => onToggle(node.id)}
-      className="flex-shrink-0"
-    />
-    <span className="truncate">{node.title}</span>
-  </label>
+// One checkbox row in the page picker (indented by tree depth). Memoized on a boolean
+// `checked` (not the whole Set) so toggling one page doesn't re-render every row.
+const PageRow = memo(
+  ({
+    node,
+    depth,
+    checked,
+    onToggle,
+  }: {
+    node: ConfluencePageNode;
+    depth: number;
+    checked: boolean;
+    onToggle: (id: string) => void;
+  }) => (
+    <label
+      className="flex gap-2 items-center py-0.5 text-sm cursor-pointer"
+      style={{ paddingLeft: `${depth * 16}px` }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onToggle(node.id)}
+        className="flex-shrink-0"
+      />
+      <span className="truncate">{node.title}</span>
+    </label>
+  )
 );
+PageRow.displayName = 'PageRow';
 
 // Renders the page list as a hierarchy (or a flat filtered list while searching).
+// Hardened against duplicate ids and parent cycles via dedupe + a `visited` set.
 const PageTree = ({
   pages,
   selected,
@@ -49,37 +54,78 @@ const PageTree = ({
   onToggle: (id: string) => void;
   filter: string;
 }) => {
+  // Build the (deduped) tree structure once per page list, not on every render/toggle.
+  const { deduped, byParent } = useMemo(() => {
+    const seen = new Set<string>();
+    const dd: ConfluencePageNode[] = [];
+    for (const p of pages) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        dd.push(p);
+      }
+    }
+    const ids = new Set(dd.map((p) => p.id));
+    const bp = new Map<string | null, ConfluencePageNode[]>();
+    for (const p of dd) {
+      const key = p.parentId && ids.has(p.parentId) ? p.parentId : null; // orphan → root
+      const arr = bp.get(key);
+      if (arr) arr.push(p);
+      else bp.set(key, [p]);
+    }
+    for (const arr of bp.values()) arr.sort((a, b) => a.title.localeCompare(b.title));
+    return { deduped: dd, byParent: bp };
+  }, [pages]);
+
   const f = filter.trim().toLowerCase();
   if (f) {
-    const matches = pages.filter((p) => p.title.toLowerCase().includes(f));
+    const matches = deduped.filter((p) => p.title.toLowerCase().includes(f));
     if (matches.length === 0) {
       return <p className="py-2 text-xs text-muted-foreground">No pages match “{filter}”.</p>;
     }
     return (
       <div>
         {matches.map((p) => (
-          <PageRow key={p.id} node={p} depth={0} selected={selected} onToggle={onToggle} />
+          <PageRow key={p.id} node={p} depth={0} checked={selected.has(p.id)} onToggle={onToggle} />
         ))}
       </div>
     );
   }
-  const ids = new Set(pages.map((p) => p.id));
-  const byParent = new Map<string | null, ConfluencePageNode[]>();
-  for (const p of pages) {
-    const key = p.parentId && ids.has(p.parentId) ? p.parentId : null; // orphan → root
-    const arr = byParent.get(key) ?? [];
-    arr.push(p);
-    byParent.set(key, arr);
+
+  const rows: ReactNode[] = [];
+  const visited = new Set<string>();
+  const walk = (parentId: string | null, depth: number): void => {
+    for (const node of byParent.get(parentId) ?? []) {
+      if (visited.has(node.id)) continue; // guard cycles / duplicate parents
+      visited.add(node.id);
+      rows.push(
+        <PageRow
+          key={node.id}
+          node={node}
+          depth={depth}
+          checked={selected.has(node.id)}
+          onToggle={onToggle}
+        />
+      );
+      walk(node.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  // Surface any node not reached from a root (e.g. a member of a parent cycle) so it's
+  // never silently hidden.
+  for (const node of deduped) {
+    if (!visited.has(node.id)) {
+      rows.push(
+        <PageRow
+          key={node.id}
+          node={node}
+          depth={0}
+          checked={selected.has(node.id)}
+          onToggle={onToggle}
+        />
+      );
+    }
   }
-  const renderLevel = (parentId: string | null, depth: number): ReactNode[] =>
-    (byParent.get(parentId) ?? [])
-      .slice()
-      .sort((a, b) => a.title.localeCompare(b.title))
-      .flatMap((node) => [
-        <PageRow key={node.id} node={node} depth={depth} selected={selected} onToggle={onToggle} />,
-        ...renderLevel(node.id, depth + 1),
-      ]);
-  return <div>{renderLevel(null, 0)}</div>;
+  return <div>{rows}</div>;
 };
 
 // Parse a raw "SUP, DOCS ENG" input into a clean string[] of space keys. The saved
@@ -536,7 +582,10 @@ export const ConfluenceIntegrationCard = ({
                 <p className="mt-0.5 mb-1 text-xs text-muted-foreground">
                   {selectedPageIds.size === 0
                     ? 'Syncing every page in the space(s). Choose specific pages to narrow it down.'
-                    : `${selectedPageIds.size} page${selectedPageIds.size === 1 ? '' : 's'} selected.`}
+                    : `${selectedPageIds.size} page${selectedPageIds.size === 1 ? '' : 's'} selected — only the exact pages you tick sync (child pages aren’t included automatically).`}
+                  {editingId
+                    ? ' Pages reflect the saved configuration — save changes to pick from newly-added spaces.'
+                    : ''}
                 </p>
                 {!showPagePicker ? (
                   <Button
@@ -544,7 +593,7 @@ export const ConfluenceIntegrationCard = ({
                     size="sm"
                     onClick={() => {
                       setShowPagePicker(true);
-                      if (!pages) void loadPages();
+                      void loadPages(); // always refetch — creds/space keys may have changed
                     }}
                     disabled={
                       config.spaceKeys.length === 0 ||
@@ -563,8 +612,24 @@ export const ConfluenceIntegrationCard = ({
                     {pagesLoading && (
                       <p className="text-xs text-muted-foreground">Loading pages…</p>
                     )}
-                    {pagesError && <p className="text-xs text-red-600">{pagesError}</p>}
-                    {pages && !pagesLoading && (
+                    {pagesError && !pagesLoading && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-red-600">{pagesError}</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => void loadPages()}>
+                            Retry
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowPagePicker(false)}
+                          >
+                            Close
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {pages && !pagesLoading && !pagesError && (
                       <>
                         <div className="flex gap-2 items-center">
                           <input
@@ -572,14 +637,26 @@ export const ConfluenceIntegrationCard = ({
                             value={pageFilter}
                             onChange={(e) => setPageFilter(e.target.value)}
                             placeholder="Filter pages…"
+                            aria-label="Filter pages"
                             className="flex-1 px-2 py-1 text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                           />
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              setConfig({ ...config, selectedPageIds: pages.map((p) => p.id) })
+                            title={
+                              pageFilter.trim()
+                                ? 'Select all pages matching the filter'
+                                : 'Select all pages'
                             }
+                            onClick={() => {
+                              const f = pageFilter.trim().toLowerCase();
+                              const pool = f
+                                ? pages.filter((p) => p.title.toLowerCase().includes(f))
+                                : pages;
+                              const merged = new Set(config.selectedPageIds ?? []);
+                              pool.forEach((p) => merged.add(p.id));
+                              setConfig({ ...config, selectedPageIds: Array.from(merged) });
+                            }}
                           >
                             All
                           </Button>
