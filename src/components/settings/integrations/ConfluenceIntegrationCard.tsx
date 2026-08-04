@@ -86,6 +86,11 @@ export const ConfluenceIntegrationCard = ({
   const confluenceIntegrations = integrations.filter((integ) => integ.type === 'confluence');
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  // Raw text mirror of the Space Keys field. A controlled input bound to
+  // config.spaceKeys.join(', ') re-parses every keystroke and eats the separator, making
+  // multi-key entry by typing impossible. Keep the raw string here and parse into the
+  // config array in parallel, so the field renders exactly what the user types.
+  const [spaceKeysRaw, setSpaceKeysRaw] = useState('');
 
   // "Sync now" — enqueue an immediate re-sync instead of waiting for the poller.
   const handleSyncNow = async (id: number) => {
@@ -141,6 +146,7 @@ export const ConfluenceIntegrationCard = ({
               size="sm"
               onClick={() => {
                 resetForm();
+                setSpaceKeysRaw('');
                 setShowForm(!showForm);
               }}
             >
@@ -180,7 +186,12 @@ export const ConfluenceIntegrationCard = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => loadForEdit(integration.id, cfg)}
+                        onClick={() => {
+                          loadForEdit(integration.id, cfg);
+                          setSpaceKeysRaw((cfg.spaceKeys ?? []).join(', '));
+                        }}
+                        aria-label="Edit Confluence source"
+                        title="Edit"
                         disabled={editingId === integration.id}
                       >
                         <Edit className="w-4 h-4" />
@@ -250,10 +261,11 @@ export const ConfluenceIntegrationCard = ({
                   <input
                     id="spaceKeys"
                     type="text"
-                    value={config.spaceKeys.join(', ')}
-                    onChange={(event) =>
-                      setConfig({ ...config, spaceKeys: parseSpaceKeys(event.target.value) })
-                    }
+                    value={spaceKeysRaw}
+                    onChange={(event) => {
+                      setSpaceKeysRaw(event.target.value);
+                      setConfig({ ...config, spaceKeys: parseSpaceKeys(event.target.value) });
+                    }}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="SUP, DOCS"
                   />
