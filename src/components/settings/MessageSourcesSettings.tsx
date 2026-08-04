@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ConfluenceIntegrationCard } from '@/components/settings/integrations/ConfluenceIntegrationCard';
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
@@ -19,13 +19,9 @@ export const MessageSourcesSettings = () => {
     variant: 'info',
   });
 
-  useEffect(() => {
-    fetchIntegrations().catch((error) => {
-      logger.error('Failed to fetch integrations:', error);
-    });
-  }, []);
-
-  const fetchIntegrations = async () => {
+  // Stable identity (closes over nothing) so children's effects keyed on onRefresh —
+  // e.g. the Confluence card's sync poll cap — don't churn every render.
+  const fetchIntegrations = useCallback(async () => {
     try {
       const response = await integrationsService.getAll();
       if (response.success && response.data) {
@@ -40,7 +36,13 @@ export const MessageSourcesSettings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchIntegrations().catch((error) => {
+      logger.error('Failed to fetch integrations:', error);
+    });
+  }, [fetchIntegrations]);
 
   if (loading) {
     return <div className="py-12 text-center">Loading message sources...</div>;
