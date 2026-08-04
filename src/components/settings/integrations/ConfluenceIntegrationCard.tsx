@@ -1,5 +1,5 @@
 import { BookOpen, Plus, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -107,10 +107,8 @@ export const ConfluenceIntegrationCard = ({
             : 'Could not start the sync.'),
         variant: res.success ? 'success' : 'error',
       });
-      // Refresh to surface 'syncing' immediately, then again to catch the result.
+      // Surface 'syncing' immediately; the poll effect below refreshes until it resolves.
       void onRefresh();
-      window.setTimeout(() => void onRefresh(), 4000);
-      window.setTimeout(() => void onRefresh(), 12000);
     } catch {
       onShowAlert({
         open: true,
@@ -122,6 +120,20 @@ export const ConfluenceIntegrationCard = ({
       setSyncingId(null);
     }
   };
+
+  // While any space is mid-sync, poll so the status line resolves to Synced/Failed
+  // without a manual reload — with a hard cap and proper cleanup (no unmount leak).
+  const anySyncing = confluenceIntegrations.some((i) => i.lastSyncStatus === 'syncing');
+  useEffect(() => {
+    if (!anySyncing) return;
+    let ticks = 0;
+    const id = window.setInterval(() => {
+      ticks += 1;
+      void onRefresh();
+      if (ticks >= 30) window.clearInterval(id); // ~2 min cap (30 × 4s)
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [anySyncing, onRefresh]);
 
   // No project key like Jira — name the connection after its first space (or a fixed label).
   const saveIntegration = () =>
@@ -201,18 +213,35 @@ export const ConfluenceIntegrationCard = ({
                         size="sm"
                         onClick={() => testConnection(integration.id, integration.name)}
                         isLoading={testing === integration.id}
-                        disabled={!integration.hasCredentials}
+                        disabled={!integration.hasCredentials || testing === integration.id}
+                        aria-label="Test Confluence connection"
+                        title={
+                          integration.hasCredentials
+                            ? 'Test the connection'
+                            : 'Add credentials first'
+                        }
                       >
                         <TestTube2 className="w-4 h-4" />
-                        Poke
+                        Test
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => void handleSyncNow(integration.id)}
                         isLoading={syncingId === integration.id}
-                        disabled={!integration.enabled || !integration.hasCredentials}
-                        title="Sync pages from Confluence into the Knowledge Base now"
+                        disabled={
+                          !integration.enabled ||
+                          !integration.hasCredentials ||
+                          syncingId === integration.id
+                        }
+                        aria-label="Sync now"
+                        title={
+                          !integration.enabled
+                            ? 'Enable this source first'
+                            : !integration.hasCredentials
+                              ? 'Add credentials to sync'
+                              : 'Sync pages from Confluence into the Knowledge Base now'
+                        }
                       >
                         <RefreshCw className="w-4 h-4" />
                         Sync now
@@ -294,26 +323,6 @@ export const ConfluenceIntegrationCard = ({
                     onChange={(event) => setConfig({ ...config, apiToken: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="syncIntervalMinutes" className="text-sm font-medium">
-                    Sync Interval (minutes)
-                  </label>
-                  <input
-                    id="syncIntervalMinutes"
-                    type="number"
-                    min={1}
-                    value={config.syncIntervalMinutes ?? ''}
-                    onChange={(event) => {
-                      const raw = event.target.value.trim();
-                      setConfig({
-                        ...config,
-                        syncIntervalMinutes: raw === '' ? undefined : Number(raw),
-                      });
-                    }}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="360"
                   />
                 </div>
               </div>
