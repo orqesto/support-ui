@@ -1,4 +1,4 @@
-import { BookOpen, Plus, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
@@ -86,6 +86,14 @@ export const ConfluenceIntegrationCard = ({
   const confluenceIntegrations = integrations.filter((integ) => integ.type === 'confluence');
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  // A one-shot timer to re-check status shortly after "Sync now": the worker sets
+  // lastSyncStatus='syncing' asynchronously, so an immediate refresh can miss it and the
+  // poll effect never engages. Cleared on unmount (no leak).
+  const kickTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (kickTimerRef.current) window.clearTimeout(kickTimerRef.current);
+  }, []);
   // Raw text mirror of the Space Keys field. A controlled input bound to
   // config.spaceKeys.join(', ') re-parses every keystroke and eats the separator, making
   // multi-key entry by typing impossible. Keep the raw string here and parse into the
@@ -109,6 +117,10 @@ export const ConfluenceIntegrationCard = ({
       });
       // Surface 'syncing' immediately; the poll effect below refreshes until it resolves.
       void onRefresh();
+      // Re-check ~1.5s later to catch the worker flipping the row to 'syncing' (the
+      // immediate refresh can land first), which engages the poll effect.
+      if (kickTimerRef.current) window.clearTimeout(kickTimerRef.current);
+      kickTimerRef.current = window.setTimeout(() => void onRefresh(), 1500);
     } catch {
       onShowAlert({
         open: true,
@@ -142,9 +154,47 @@ export const ConfluenceIntegrationCard = ({
     return () => window.clearInterval(id);
   }, [anySyncing, onRefresh]);
 
+  // Pause/resume a source. Disabling stops syncing and (via the PATCH handler) soft-deletes
+  // its docs so they leave AI answers; re-enabling re-syncs and restores them.
+  const handleToggleEnabled = async (id: number, currentlyEnabled: boolean, name: string) => {
+    setTogglingId(id);
+    try {
+      const res = await integrationsService.update(id, { enabled: !currentlyEnabled });
+      onShowAlert({
+        open: true,
+        title: res.success ? (currentlyEnabled ? 'Source paused' : 'Source enabled') : 'Update failed',
+        description: res.success
+          ? currentlyEnabled
+            ? `“${name}” paused — its pages are excluded from AI answers.`
+            : `“${name}” enabled — syncing its pages back into the Knowledge Base.`
+          : 'Could not update the source. Try again.',
+        variant: res.success ? 'success' : 'error',
+      });
+      void onRefresh();
+    } catch {
+      onShowAlert({
+        open: true,
+        title: 'Update failed',
+        description: 'Could not update the source. Try again.',
+        variant: 'error',
+      });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   // No project key like Jira — name the connection after its first space (or a fixed label).
-  const saveIntegration = () =>
-    saveIntegrationBase(config.spaceKeys[0] ? `Confluence-${config.spaceKeys[0]}` : 'Confluence');
+  // On EDIT, reuse the EXISTING name: the upsert matches by (org,type,name), so a name that
+  // shifts when the first space key changes would miss → create a DUPLICATE (via the
+  // restore-less CREATE branch, corrupting the masked token too). A stable name → UPDATE.
+  const saveIntegration = () => {
+    const existingName = editingId
+      ? confluenceIntegrations.find((i) => i.id === editingId)?.name
+      : undefined;
+    const name =
+      existingName ?? (config.spaceKeys[0] ? `Confluence-${config.spaceKeys[0]}` : 'Confluence');
+    saveIntegrationBase(name);
+  };
 
   const handleDelete = () => {
     if (deleteConfirm) {
@@ -252,6 +302,28 @@ export const ConfluenceIntegrationCard = ({
                       >
                         <RefreshCw className="w-4 h-4" />
                         Sync now
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void handleToggleEnabled(
+                            integration.id,
+                            integration.enabled,
+                            integration.name
+                          )
+                        }
+                        isLoading={togglingId === integration.id}
+                        disabled={togglingId === integration.id}
+                        aria-label={integration.enabled ? 'Pause source' : 'Enable source'}
+                        title={
+                          integration.enabled
+                            ? 'Pause — stop syncing and exclude its pages from AI answers'
+                            : 'Enable — resume syncing its pages'
+                        }
+                        className={integration.enabled ? 'text-green-600' : 'text-gray-400'}
+                      >
+                        <Power className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="outline"
