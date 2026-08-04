@@ -1,5 +1,5 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -8,7 +8,79 @@ import {
   integrationsService,
   type BaseIntegration,
   type ConfluenceConfig,
+  type ConfluencePageNode,
 } from '@/services/integrations.service';
+
+// One checkbox row in the page picker (indented by tree depth).
+const PageRow = ({
+  node,
+  depth,
+  selected,
+  onToggle,
+}: {
+  node: ConfluencePageNode;
+  depth: number;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+}) => (
+  <label
+    className="flex gap-2 items-center py-0.5 text-sm cursor-pointer"
+    style={{ paddingLeft: `${depth * 16}px` }}
+  >
+    <input
+      type="checkbox"
+      checked={selected.has(node.id)}
+      onChange={() => onToggle(node.id)}
+      className="flex-shrink-0"
+    />
+    <span className="truncate">{node.title}</span>
+  </label>
+);
+
+// Renders the page list as a hierarchy (or a flat filtered list while searching).
+const PageTree = ({
+  pages,
+  selected,
+  onToggle,
+  filter,
+}: {
+  pages: ConfluencePageNode[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  filter: string;
+}) => {
+  const f = filter.trim().toLowerCase();
+  if (f) {
+    const matches = pages.filter((p) => p.title.toLowerCase().includes(f));
+    if (matches.length === 0) {
+      return <p className="py-2 text-xs text-muted-foreground">No pages match “{filter}”.</p>;
+    }
+    return (
+      <div>
+        {matches.map((p) => (
+          <PageRow key={p.id} node={p} depth={0} selected={selected} onToggle={onToggle} />
+        ))}
+      </div>
+    );
+  }
+  const ids = new Set(pages.map((p) => p.id));
+  const byParent = new Map<string | null, ConfluencePageNode[]>();
+  for (const p of pages) {
+    const key = p.parentId && ids.has(p.parentId) ? p.parentId : null; // orphan → root
+    const arr = byParent.get(key) ?? [];
+    arr.push(p);
+    byParent.set(key, arr);
+  }
+  const renderLevel = (parentId: string | null, depth: number): ReactNode[] =>
+    (byParent.get(parentId) ?? [])
+      .slice()
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .flatMap((node) => [
+        <PageRow key={node.id} node={node} depth={depth} selected={selected} onToggle={onToggle} />,
+        ...renderLevel(node.id, depth + 1),
+      ]);
+  return <div>{renderLevel(null, 0)}</div>;
+};
 
 // Parse a raw "SUP, DOCS ENG" input into a clean string[] of space keys. The saved
 // config MUST carry spaceKeys as an array (the backend sync expects string[]).
@@ -87,6 +159,12 @@ export const ConfluenceIntegrationCard = ({
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  // Page-tree picker state.
+  const [showPagePicker, setShowPagePicker] = useState(false);
+  const [pages, setPages] = useState<ConfluencePageNode[] | null>(null);
+  const [pagesLoading, setPagesLoading] = useState(false);
+  const [pagesError, setPagesError] = useState<string | null>(null);
+  const [pageFilter, setPageFilter] = useState('');
   // A one-shot timer to re-check status shortly after "Sync now": the worker sets
   // lastSyncStatus='syncing' asynchronously, so an immediate refresh can miss it and the
   // poll effect never engages. Cleared on unmount (no leak).
@@ -153,6 +231,41 @@ export const ConfluenceIntegrationCard = ({
     }, 4000);
     return () => window.clearInterval(id);
   }, [anySyncing, onRefresh]);
+
+  const selectedPageIds = new Set(config.selectedPageIds ?? []);
+
+  const togglePage = (id: string) => {
+    const next = new Set(config.selectedPageIds ?? []);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setConfig({ ...config, selectedPageIds: Array.from(next) });
+  };
+
+  // Load the space's pages for the picker. Uses stored creds by id when editing (so the
+  // masked token isn't needed); otherwise the config the user just typed.
+  const loadPages = async () => {
+    setPagesLoading(true);
+    setPagesError(null);
+    try {
+      const payload = editingId
+        ? { integrationId: editingId }
+        : {
+            config: {
+              baseUrl: config.baseUrl,
+              email: config.email,
+              apiToken: config.apiToken,
+              spaceKeys: config.spaceKeys,
+            },
+          };
+      const res = await integrationsService.listConfluencePages(payload);
+      if (res.success && res.data) setPages(res.data.pages);
+      else setPagesError('Could not load pages. Check the connection.');
+    } catch {
+      setPagesError('Could not load pages. Check the base URL, credentials and space key.');
+    } finally {
+      setPagesLoading(false);
+    }
+  };
 
   // Pause/resume a source. Disabling stops syncing and (via the PATCH handler) soft-deletes
   // its docs so they leave AI answers; re-enabling re-syncs and restores them.
@@ -221,6 +334,9 @@ export const ConfluenceIntegrationCard = ({
               onClick={() => {
                 resetForm();
                 setSpaceKeysRaw('');
+                setShowPagePicker(false);
+                setPages(null);
+                setPageFilter('');
                 setShowForm(!showForm);
               }}
             >
@@ -263,6 +379,9 @@ export const ConfluenceIntegrationCard = ({
                         onClick={() => {
                           loadForEdit(integration.id, cfg);
                           setSpaceKeysRaw((cfg.spaceKeys ?? []).join(', '));
+                          setShowPagePicker(false);
+                          setPages(null);
+                          setPageFilter('');
                         }}
                         aria-label="Edit Confluence source"
                         title="Edit"
@@ -410,6 +529,96 @@ export const ConfluenceIntegrationCard = ({
                   />
                 </div>
               </div>
+
+              {/* Page-tree picker — choose which pages sync (empty = whole space) */}
+              <div>
+                <label className="text-sm font-medium">Pages to sync</label>
+                <p className="mt-0.5 mb-1 text-xs text-muted-foreground">
+                  {selectedPageIds.size === 0
+                    ? 'Syncing every page in the space(s). Choose specific pages to narrow it down.'
+                    : `${selectedPageIds.size} page${selectedPageIds.size === 1 ? '' : 's'} selected.`}
+                </p>
+                {!showPagePicker ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowPagePicker(true);
+                      if (!pages) void loadPages();
+                    }}
+                    disabled={
+                      config.spaceKeys.length === 0 ||
+                      (!editingId && (!config.baseUrl || !config.email || !config.apiToken))
+                    }
+                    title={
+                      config.spaceKeys.length === 0
+                        ? 'Enter a space key first'
+                        : 'Choose which pages to sync'
+                    }
+                  >
+                    Choose pages
+                  </Button>
+                ) : (
+                  <div className="p-2 space-y-2 rounded-md border">
+                    {pagesLoading && (
+                      <p className="text-xs text-muted-foreground">Loading pages…</p>
+                    )}
+                    {pagesError && <p className="text-xs text-red-600">{pagesError}</p>}
+                    {pages && !pagesLoading && (
+                      <>
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={pageFilter}
+                            onChange={(e) => setPageFilter(e.target.value)}
+                            placeholder="Filter pages…"
+                            className="flex-1 px-2 py-1 text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setConfig({ ...config, selectedPageIds: pages.map((p) => p.id) })
+                            }
+                          >
+                            All
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfig({ ...config, selectedPageIds: [] })}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                        {pages.length > 500 && (
+                          <p className="text-xs text-amber-600">
+                            {pages.length} pages — use the filter to find pages faster.
+                          </p>
+                        )}
+                        {pages.length === 0 ? (
+                          <p className="py-2 text-xs text-muted-foreground">
+                            No pages found in the configured space(s).
+                          </p>
+                        ) : (
+                          <div className="overflow-y-auto max-h-64">
+                            <PageTree
+                              pages={pages}
+                              selected={selectedPageIds}
+                              onToggle={togglePage}
+                              filter={pageFilter}
+                            />
+                          </div>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => setShowPagePicker(false)}>
+                          Done
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <Button
                   onClick={saveIntegration}

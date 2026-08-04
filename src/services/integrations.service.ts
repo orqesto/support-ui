@@ -32,6 +32,15 @@ export type ConfluenceConfig = {
   apiToken: string;
   spaceKeys: string[];
   syncIntervalMinutes?: number;
+  // Page-tree picker: sync ONLY these page ids; empty/absent = whole space.
+  selectedPageIds?: string[];
+};
+
+export type ConfluencePageNode = {
+  id: string;
+  title: string;
+  parentId: string | null;
+  spaceKey: string;
 };
 
 export type TelegramConfig = {
@@ -317,6 +326,18 @@ export const integrationsService = {
       `/api/integrations/${id}/test?type=${encodeURIComponent(type)}`
     );
     return { success: response.data.success, data: response.data };
+  },
+
+  /** List a Confluence space's pages for the page-tree picker (by saved id, or a pre-save config). */
+  listConfluencePages: async (payload: {
+    integrationId?: number;
+    config?: { baseUrl: string; email: string; apiToken: string; spaceKeys: string[] };
+  }): Promise<ApiResponse<{ pages: ConfluencePageNode[] }>> => {
+    const response = await apiClient.post<{ success: boolean; data: { pages: ConfluencePageNode[] } }>(
+      '/api/integrations/confluence/pages',
+      payload
+    );
+    return { success: response.data.success, data: response.data.data };
   },
 
   /** Manually trigger a content-source (Confluence) re-sync — the "Sync now" button. */
