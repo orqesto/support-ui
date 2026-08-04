@@ -1,9 +1,10 @@
-import { BookOpen, Plus, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import { BookOpen, Plus, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
+import { useState } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
-import type { ConfluenceConfig } from '@/services/integrations.service';
+import { integrationsService, type ConfluenceConfig } from '@/services/integrations.service';
 
 // Parse a raw "SUP, DOCS ENG" input into a clean string[] of space keys. The saved
 // config MUST carry spaceKeys as an array (the backend sync expects string[]).
@@ -49,6 +50,35 @@ export const ConfluenceIntegrationCard = ({
   });
 
   const confluenceIntegrations = integrations.filter((integ) => integ.type === 'confluence');
+
+  const [syncingId, setSyncingId] = useState<number | null>(null);
+
+  // "Sync now" — enqueue an immediate re-sync instead of waiting for the poller.
+  const handleSyncNow = async (id: number) => {
+    setSyncingId(id);
+    try {
+      const res = await integrationsService.syncNow(id);
+      onShowAlert({
+        open: true,
+        title: res.success ? 'Sync started' : 'Sync failed',
+        description:
+          res.data?.message ??
+          (res.success
+            ? 'Pages will appear in the Knowledge Base shortly.'
+            : 'Could not start the sync.'),
+        variant: res.success ? 'success' : 'error',
+      });
+    } catch {
+      onShowAlert({
+        open: true,
+        title: 'Sync failed',
+        description: 'Could not start the sync. Check the connection and try again.',
+        variant: 'error',
+      });
+    } finally {
+      setSyncingId(null);
+    }
+  };
 
   // No project key like Jira — name the connection after its first space (or a fixed label).
   const saveIntegration = () =>
@@ -122,6 +152,17 @@ export const ConfluenceIntegrationCard = ({
                       >
                         <TestTube2 className="w-4 h-4" />
                         Poke
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleSyncNow(integration.id)}
+                        isLoading={syncingId === integration.id}
+                        disabled={!integration.enabled || !integration.hasCredentials}
+                        title="Sync pages from Confluence into the Knowledge Base now"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Sync now
                       </Button>
                       <Button
                         variant="outline"
