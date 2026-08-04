@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ConfluenceIntegrationCard } from '@/components/settings/integrations/ConfluenceIntegrationCard';
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
@@ -18,13 +19,9 @@ export const MessageSourcesSettings = () => {
     variant: 'info',
   });
 
-  useEffect(() => {
-    fetchIntegrations().catch((error) => {
-      logger.error('Failed to fetch integrations:', error);
-    });
-  }, []);
-
-  const fetchIntegrations = async () => {
+  // Stable identity (closes over nothing) so children's effects keyed on onRefresh —
+  // e.g. the Confluence card's sync poll cap — don't churn every render.
+  const fetchIntegrations = useCallback(async () => {
     try {
       const response = await integrationsService.getAll();
       if (response.success && response.data) {
@@ -39,7 +36,13 @@ export const MessageSourcesSettings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchIntegrations().catch((error) => {
+      logger.error('Failed to fetch integrations:', error);
+    });
+  }, [fetchIntegrations]);
 
   if (loading) {
     return <div className="py-12 text-center">Loading message sources...</div>;
@@ -88,7 +91,7 @@ export const MessageSourcesSettings = () => {
         <div className="pt-4 border-t">
           <h2 className="text-lg font-semibold text-foreground">Knowledge Base Sources</h2>
           <p className="text-sm text-muted-foreground">
-            Email accounts used to extract Q&amp;A pairs and documentation for AI-powered responses. These don't appear in the active inbox.
+            Email accounts and content sources used to extract Q&amp;A pairs and documentation for AI-powered responses. These don't appear in the active inbox.
           </p>
         </div>
 
@@ -104,6 +107,12 @@ export const MessageSourcesSettings = () => {
           onRefresh={fetchIntegrations}
           onShowAlert={setAlertDialog}
           defaultKB={true}
+        />
+
+        <ConfluenceIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
         />
       </div>
 
