@@ -57,35 +57,42 @@ const PageTree = ({
   // Build the (deduped) tree structure once per page list, not on every render/toggle.
   const { deduped, byParent } = useMemo(() => {
     const seen = new Set<string>();
-    const dd: ConfluencePageNode[] = [];
-    for (const p of pages) {
-      if (!seen.has(p.id)) {
-        seen.add(p.id);
-        dd.push(p);
+    const list: ConfluencePageNode[] = [];
+    for (const page of pages) {
+      if (!seen.has(page.id)) {
+        seen.add(page.id);
+        list.push(page);
       }
     }
-    const ids = new Set(dd.map((p) => p.id));
-    const bp = new Map<string | null, ConfluencePageNode[]>();
-    for (const p of dd) {
-      const key = p.parentId && ids.has(p.parentId) ? p.parentId : null; // orphan → root
-      const arr = bp.get(key);
-      if (arr) arr.push(p);
-      else bp.set(key, [p]);
+    const ids = new Set(list.map((page) => page.id));
+    const parentMap = new Map<string | null, ConfluencePageNode[]>();
+    for (const page of list) {
+      const key = page.parentId && ids.has(page.parentId) ? page.parentId : null; // orphan → root
+      const arr = parentMap.get(key);
+      if (arr) arr.push(page);
+      else parentMap.set(key, [page]);
     }
-    for (const arr of bp.values()) arr.sort((a, b) => a.title.localeCompare(b.title));
-    return { deduped: dd, byParent: bp };
+    for (const arr of parentMap.values())
+      arr.sort((first, second) => first.title.localeCompare(second.title));
+    return { deduped: list, byParent: parentMap };
   }, [pages]);
 
-  const f = filter.trim().toLowerCase();
-  if (f) {
-    const matches = deduped.filter((p) => p.title.toLowerCase().includes(f));
+  const needle = filter.trim().toLowerCase();
+  if (needle) {
+    const matches = deduped.filter((page) => page.title.toLowerCase().includes(needle));
     if (matches.length === 0) {
       return <p className="py-2 text-xs text-muted-foreground">No pages match “{filter}”.</p>;
     }
     return (
       <div>
-        {matches.map((p) => (
-          <PageRow key={p.id} node={p} depth={0} checked={selected.has(p.id)} onToggle={onToggle} />
+        {matches.map((page) => (
+          <PageRow
+            key={page.id}
+            node={page}
+            depth={0}
+            checked={selected.has(page.id)}
+            onToggle={onToggle}
+          />
         ))}
       </div>
     );
@@ -137,31 +144,31 @@ const parseSpaceKeys = (raw: string): string[] =>
     .filter(Boolean);
 
 const timeAgo = (iso: string): string => {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60) return 'just now';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 };
 
 // Last-sync summary line shown under each saved space.
 const syncMeta = (
-  i: Pick<
+  integ: Pick<
     BaseIntegration,
     'lastSyncStatus' | 'lastSyncedAt' | 'lastSyncedPageCount' | 'lastSyncError'
   >
 ): { text: string; cls: string } => {
-  if (i.lastSyncStatus === 'syncing') return { text: 'Syncing…', cls: 'text-blue-600' };
-  if (i.lastSyncStatus === 'failed') {
-    const detail = i.lastSyncError ? `: ${i.lastSyncError.slice(0, 90)}` : '';
+  if (integ.lastSyncStatus === 'syncing') return { text: 'Syncing…', cls: 'text-blue-600' };
+  if (integ.lastSyncStatus === 'failed') {
+    const detail = integ.lastSyncError ? `: ${integ.lastSyncError.slice(0, 90)}` : '';
     return { text: `Sync failed${detail}`, cls: 'text-red-600' };
   }
-  if (i.lastSyncStatus === 'success') {
-    const n = i.lastSyncedPageCount ?? 0;
-    const when = i.lastSyncedAt ? ` · ${timeAgo(i.lastSyncedAt)}` : '';
-    return { text: `Synced ${n} page${n === 1 ? '' : 's'}${when}`, cls: 'text-green-600' };
+  if (integ.lastSyncStatus === 'success') {
+    const count = integ.lastSyncedPageCount ?? 0;
+    const when = integ.lastSyncedAt ? ` · ${timeAgo(integ.lastSyncedAt)}` : '';
+    return { text: `Synced ${count} page${count === 1 ? '' : 's'}${when}`, cls: 'text-green-600' };
   }
   return { text: 'Not synced yet', cls: 'text-muted-foreground' };
 };
@@ -263,7 +270,7 @@ export const ConfluenceIntegrationCard = ({
   // While any space is mid-sync, poll so the status line resolves to Synced/Failed without
   // a manual reload — capped and cleaned up (no unmount leak). The deadline lives in a ref
   // (not a local counter) so the cap survives effect re-runs when onRefresh isn't memoized.
-  const anySyncing = confluenceIntegrations.some((i) => i.lastSyncStatus === 'syncing');
+  const anySyncing = confluenceIntegrations.some((integ) => integ.lastSyncStatus === 'syncing');
   const pollDeadlineRef = useRef(0);
   useEffect(() => {
     if (!anySyncing) {
@@ -366,7 +373,7 @@ export const ConfluenceIntegrationCard = ({
   // restore-less CREATE branch, corrupting the masked token too). A stable name → UPDATE.
   const saveIntegration = () => {
     const existingName = editingId
-      ? confluenceIntegrations.find((i) => i.id === editingId)?.name
+      ? confluenceIntegrations.find((integ) => integ.id === editingId)?.name
       : undefined;
     const name =
       existingName ?? (config.spaceKeys[0] ? `Confluence-${config.spaceKeys[0]}` : 'Confluence');
@@ -648,7 +655,7 @@ export const ConfluenceIntegrationCard = ({
                           <input
                             type="text"
                             value={pageFilter}
-                            onChange={(e) => setPageFilter(e.target.value)}
+                            onChange={(ev) => setPageFilter(ev.target.value)}
                             placeholder="Filter pages…"
                             aria-label="Filter pages"
                             className="flex-1 px-2 py-1 text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
@@ -662,12 +669,12 @@ export const ConfluenceIntegrationCard = ({
                                 : 'Select all pages'
                             }
                             onClick={() => {
-                              const f = pageFilter.trim().toLowerCase();
+                              const needle = pageFilter.trim().toLowerCase();
                               const pool = f
-                                ? pages.filter((p) => p.title.toLowerCase().includes(f))
+                                ? pages.filter((page) => page.title.toLowerCase().includes(needle))
                                 : pages;
                               const merged = new Set(config.selectedPageIds ?? []);
-                              pool.forEach((p) => merged.add(p.id));
+                              pool.forEach((page) => merged.add(page.id));
                               setConfig({ ...config, selectedPageIds: Array.from(merged) });
                             }}
                           >
