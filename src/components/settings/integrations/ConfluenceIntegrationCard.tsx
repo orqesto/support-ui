@@ -1,5 +1,5 @@
 import { BookOpen, Plus, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -121,16 +121,23 @@ export const ConfluenceIntegrationCard = ({
     }
   };
 
-  // While any space is mid-sync, poll so the status line resolves to Synced/Failed
-  // without a manual reload — with a hard cap and proper cleanup (no unmount leak).
+  // While any space is mid-sync, poll so the status line resolves to Synced/Failed without
+  // a manual reload — capped and cleaned up (no unmount leak). The deadline lives in a ref
+  // (not a local counter) so the cap survives effect re-runs when onRefresh isn't memoized.
   const anySyncing = confluenceIntegrations.some((i) => i.lastSyncStatus === 'syncing');
+  const pollDeadlineRef = useRef(0);
   useEffect(() => {
-    if (!anySyncing) return;
-    let ticks = 0;
+    if (!anySyncing) {
+      pollDeadlineRef.current = 0;
+      return;
+    }
+    if (pollDeadlineRef.current === 0) pollDeadlineRef.current = Date.now() + 2 * 60 * 1000; // 2 min cap
     const id = window.setInterval(() => {
-      ticks += 1;
+      if (Date.now() >= pollDeadlineRef.current) {
+        window.clearInterval(id);
+        return;
+      }
       void onRefresh();
-      if (ticks >= 30) window.clearInterval(id); // ~2 min cap (30 × 4s)
     }, 4000);
     return () => window.clearInterval(id);
   }, [anySyncing, onRefresh]);
@@ -331,6 +338,7 @@ export const ConfluenceIntegrationCard = ({
                   onClick={saveIntegration}
                   isLoading={saving}
                   disabled={
+                    saving ||
                     !config.baseUrl ||
                     !config.email ||
                     !config.apiToken ||
