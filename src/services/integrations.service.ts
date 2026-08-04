@@ -314,6 +314,14 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
+  /** Manually trigger a content-source (Confluence) re-sync — the "Sync now" button. */
+  syncNow: async (id: number): Promise<ApiResponse<{ success: boolean; message: string }>> => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/integrations/${id}/sync`
+    );
+    return { success: response.data.success, data: response.data };
+  },
+
   testImapConfig: async (config: {
     host: string;
     port: number;
