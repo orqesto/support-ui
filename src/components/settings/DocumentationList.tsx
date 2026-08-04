@@ -283,22 +283,28 @@ export const DocumentationList = ({
                 >
                   <Power className="w-4 h-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
-                    window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
-                  }}
-                  title="Download file"
-                >
-                  <Download className="w-4 h-4" />
-                </Button>
+                {doc.externalSource?.split(':')[0] !== 'confluence' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
+                      window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
+                    }}
+                    title="Download file"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteClick(doc.id)}
-                  title="Delete documentation"
+                  title={
+                    doc.externalSource?.split(':')[0] === 'confluence'
+                      ? 'Synced from Confluence — it reappears on the next sync unless you remove its space from the Confluence source. Use the Power toggle to exclude it from AI answers.'
+                      : 'Delete documentation'
+                  }
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
