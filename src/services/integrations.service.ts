@@ -32,7 +32,7 @@ export type ConfluenceConfig = {
   apiToken: string;
   spaceKeys: string[];
   syncIntervalMinutes?: number;
-  // Page-tree picker: sync ONLY these page ids; empty/absent = whole space.
+  // Page-tree picker (opt-in): sync ONLY these page ids; empty/absent = sync nothing.
   selectedPageIds?: string[];
 };
 
