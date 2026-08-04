@@ -159,7 +159,12 @@ export const ConfluenceIntegrationCard = ({
   const handleToggleEnabled = async (id: number, currentlyEnabled: boolean, name: string) => {
     setTogglingId(id);
     try {
-      const res = await integrationsService.update(id, { enabled: !currentlyEnabled });
+      // `type` is REQUIRED by the PATCH handler (guards against cross-table id-collision);
+      // without it the request 400s before the enable/disable KB branch runs.
+      const res = await integrationsService.update(id, {
+        enabled: !currentlyEnabled,
+        type: 'confluence',
+      });
       onShowAlert({
         open: true,
         title: res.success ? (currentlyEnabled ? 'Source paused' : 'Source enabled') : 'Update failed',
