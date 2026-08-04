@@ -1,5 +1,5 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -280,12 +280,18 @@ export const ConfluenceIntegrationCard = ({
 
   const selectedPageIds = new Set(config.selectedPageIds ?? []);
 
-  const togglePage = (id: string) => {
-    const next = new Set(config.selectedPageIds ?? []);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setConfig({ ...config, selectedPageIds: Array.from(next) });
-  };
+  // Stable identity (functional setConfig) so React.memo(PageRow) can skip untouched rows.
+  const togglePage = useCallback(
+    (id: string) => {
+      setConfig((prev) => {
+        const next = new Set(prev.selectedPageIds ?? []);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return { ...prev, selectedPageIds: Array.from(next) };
+      });
+    },
+    [setConfig]
+  );
 
   // Load the space's pages for the picker. Uses stored creds by id when editing (so the
   // masked token isn't needed); otherwise the config the user just typed.
