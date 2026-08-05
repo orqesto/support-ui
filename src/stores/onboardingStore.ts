@@ -44,25 +44,44 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
     // Drop any prior org's data immediately so the banner/redirect never act on
     // another org's status during the fetch.
     set({ status: 'unknown', onboarding: null, trial: null, fetchedForOrg: organizationId });
-    onboardingService
-      .getStatus()
-      .then((data) => {
-        if (get().fetchedForOrg !== organizationId) return; // org switched mid-flight — discard
-        set({
-          status: data.isComplete ? 'complete' : 'pending',
-          onboarding: data.onboarding,
-          trial: data.trial,
-          managedAiAvailable: data.managedAiAvailable ?? false,
+    // Retry transient failures before deciding. A pending org must not slip past
+    // the onboarding gate because one status call blipped, so we only give up
+    // (and fail open, to avoid trapping the user) after several attempts.
+    const MAX_ATTEMPTS = 4;
+    const clearInFlight = () => {
+      if (inFlightForOrg === organizationId) inFlightForOrg = null;
+    };
+    const attempt = (attemptNo: number) => {
+      onboardingService
+        .getStatus()
+        .then((data) => {
+          if (get().fetchedForOrg !== organizationId) return clearInFlight(); // org switched — discard
+          set({
+            status: data.isComplete ? 'complete' : 'pending',
+            onboarding: data.onboarding,
+            trial: data.trial,
+            managedAiAvailable: data.managedAiAvailable ?? false,
+          });
+          clearInFlight();
+        })
+        .catch((error: unknown) => {
+          if (get().fetchedForOrg !== organizationId) return clearInFlight();
+          if (attemptNo < MAX_ATTEMPTS) {
+            setTimeout(() => {
+              if (get().fetchedForOrg === organizationId) attempt(attemptNo + 1);
+              else clearInFlight();
+            }, 1000 * attemptNo);
+            return;
+          }
+          // Sustained failure: fail open so a broken status call can't trap the
+          // user in a redirect loop — but only after retries, so a transient blip
+          // no longer leaks a pending org straight into the app.
+          logger.error('Failed to fetch onboarding status after retries:', error);
+          set({ status: 'complete' });
+          clearInFlight();
         });
-      })
-      .catch((error: unknown) => {
-        if (get().fetchedForOrg !== organizationId) return;
-        logger.error('Failed to fetch onboarding status:', error);
-        set({ status: 'complete' });
-      })
-      .finally(() => {
-        if (inFlightForOrg === organizationId) inFlightForOrg = null;
-      });
+    };
+    attempt(1);
   },
 
   refresh: async () => {

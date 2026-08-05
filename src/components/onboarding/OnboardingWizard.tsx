@@ -12,6 +12,7 @@ import { StepIndicator, STEP_LABELS } from './StepIndicator';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
+import { integrationsService } from '@/services/integrations.service';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { logger } from '@/lib/logger';
 
@@ -41,6 +42,7 @@ export const OnboardingWizard = () => {
   const [activeStep, setActiveStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [channelsConnected, setChannelsConnected] = useState(false);
+  const [channelsKnown, setChannelsKnown] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -50,6 +52,38 @@ export const OnboardingWizard = () => {
   useEffect(() => {
     stepHeadingRef.current?.focus();
   }, [activeStep]);
+
+  // Seed connected-channel state up front so the Finish gate is correct even when
+  // the user resumes at a later step without mounting the Channels step. The
+  // Channels step keeps it fresh (onConnectedChange) while the user is on step 5.
+  useEffect(() => {
+    let cancelled = false;
+    integrationsService
+      .getAll()
+      .then((res) => {
+        if (cancelled) return;
+        const list = res.success && res.data ? res.data : [];
+        setChannelsConnected(
+          list.some(
+            (item) =>
+              (item.type === 'gmail' ||
+                item.type === 'email' ||
+                item.type === 'telegram' ||
+                item.type === 'slack') &&
+              !item.isKnowledgeBase
+          )
+        );
+        setChannelsKnown(true);
+      })
+      .catch((error: unknown) => {
+        // Couldn't verify channels — leave the requirement un-enforced rather than
+        // trap the user; the AI-choice requirement still applies.
+        logger.error('Failed to check connected channels for onboarding:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const persistStep = (step: StepNumber) => {
     // Fire-and-forget: a 409 here just means the wizard was already finished/skipped
@@ -69,6 +103,11 @@ export const OnboardingWizard = () => {
     onboardingService.updateProgress({ aiChoice: choice }).catch((error: unknown) => {
       logger.error('Failed to persist AI choice:', error);
     });
+  };
+
+  const handleChannelsConnected = (connected: boolean) => {
+    setChannelsConnected(connected);
+    setChannelsKnown(true);
   };
 
   const leaveWizard = () => {
@@ -112,6 +151,15 @@ export const OnboardingWizard = () => {
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= STEP_LABELS.length;
 
+  // Finishing STARTS the 14-day trial, so require the org to be minimally usable
+  // first: an explicit AI choice, and at least one connected channel (else no mail
+  // can arrive). "Finish later" (header) stays the escape hatch — it doesn't start
+  // the trial. The channel requirement is only enforced once we could verify it
+  // (channelsKnown), so a failed check never traps the user on this screen.
+  const missingAiChoice = !aiChoice;
+  const missingChannel = channelsKnown && !channelsConnected;
+  const readyToFinish = !missingAiChoice && !missingChannel;
+
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-10">
       <div className="space-y-6">
@@ -149,7 +197,7 @@ export const OnboardingWizard = () => {
         )}
         {activeStep === 3 && <KbStep />}
         {activeStep === 4 && <StorageStep />}
-        {activeStep === 5 && <ChannelsStep onConnectedChange={setChannelsConnected} />}
+        {activeStep === 5 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
         {activeStep === 6 && <RoutingStep />}
         {activeStep === 7 && <InviteTeamStep />}
       </div>
@@ -169,10 +217,41 @@ export const OnboardingWizard = () => {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : (
-          <Button isLoading={finishing} onClick={() => void handleFinish()}>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Finish setup
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            {!readyToFinish && (
+              <p className="text-right text-xs text-muted-foreground">
+                To start your trial, finish setup:{' '}
+                {missingAiChoice && (
+                  <button
+                    type="button"
+                    onClick={() => goTo(2)}
+                    className="font-medium text-primary underline"
+                  >
+                    choose how AI works
+                  </button>
+                )}
+                {missingAiChoice && missingChannel && ' and '}
+                {missingChannel && (
+                  <button
+                    type="button"
+                    onClick={() => goTo(5)}
+                    className="font-medium text-primary underline"
+                  >
+                    connect a channel
+                  </button>
+                )}
+                . Or use “Finish later”.
+              </p>
+            )}
+            <Button
+              isLoading={finishing}
+              disabled={!readyToFinish}
+              onClick={() => void handleFinish()}
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Finish setup
+            </Button>
+          </div>
         )}
       </div>
 
