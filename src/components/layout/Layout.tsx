@@ -25,7 +25,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useModules } from '@/hooks/useModules';
+import { useFeatures } from '@/hooks/useFeatures';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
@@ -70,7 +70,7 @@ const allNavigation: Array<{
   icon: typeof LayoutDashboard;
   permission?: Permission;
   adminOnly?: boolean;
-  moduleRequired?: string;
+  featureRequired?: string;
   showBadge?: boolean;
   // Hidden whenever the BE reports billing is off (deployment.billingEnabled=false):
   // self-hosted boxes AND managed boxes where a billing provider isn't configured
@@ -131,7 +131,7 @@ const allNavigation: Array<{
     href: '/billing',
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
-    moduleRequired: 'billing-intelligence',
+    featureRequired: 'billingIntelligence',
     hideWhenBillingOff: true,
   },
 
@@ -234,7 +234,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasPermission, orgRole } = usePermissions();
-  const { hasModule } = useModules();
+  const { hasFeature } = useFeatures();
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
 
@@ -392,14 +392,14 @@ export const Layout = ({ children }: LayoutProps) => {
           return false;
         }
         // Customer-facing billing UI hidden whenever billing is off (self-hosted
-        // or a managed box without a billing provider yet). Admin Plans & Modules /
+        // or a managed box without a billing provider yet). Admin Plans /
         // Organization Usage live on AdminDashboardPage and are unaffected — those
         // are still needed to assign the admin plan.
         if (item.hideWhenBillingOff && !billingEnabled) {
           return false;
         }
-        // Check module gate (item hidden if module not enabled for the org)
-        if (item.moduleRequired && !hasModule(item.moduleRequired)) {
+        // Check feature gate (item hidden if feature not enabled for the org)
+        if (item.featureRequired && !hasFeature(item.featureRequired)) {
           return false;
         }
         // Hide Tickets until the org actually has one. Cuts noise for inbox-only
@@ -416,7 +416,7 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasModule, user?.role, hasTickets, hasRoutingItems, billingEnabled]
+    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled]
   );
 
   const handleLogout = () => {

@@ -31,7 +31,7 @@ export type Plan = {
   id: number;
   name: string;
   displayName: string;
-  planType: 'base' | 'bundle' | 'enterprise';
+  planType: 'base' | 'enterprise';
   price: number;
   currency: string;
 };
@@ -54,32 +54,6 @@ export type OrganizationUsage = {
   plan: Plan | null;
   limits: UsageLimits;
   usage: Usage;
-};
-
-export type OrgModule = {
-  id: number;
-  moduleId: number;
-  isActive: boolean;
-  currentPeriodUsage: number | null;
-  activatedAt: string | null;
-  deactivatedAt: string | null;
-  module: {
-    name: string;
-    displayName: string;
-    description: string;
-    monthlyFee: number;
-    unitName: string;
-  };
-};
-
-export type CatalogModule = {
-  id: number;
-  name: string;
-  displayName: string;
-  description: string;
-  monthlyFee: number;
-  unitName: string;
-  isActive: boolean;
 };
 
 export const CANCELLABLE = new Set(['active', 'trialing', 'past_due']);
@@ -120,8 +94,6 @@ export const getPlanTypeBadgeColor = (planType: string) => {
   switch (planType) {
     case 'base':
       return 'bg-blue-100 text-blue-700';
-    case 'bundle':
-      return 'bg-purple-100 text-purple-700';
     case 'enterprise':
       return 'bg-amber-100 text-amber-700';
     default:
