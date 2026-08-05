@@ -143,7 +143,7 @@ export const CreateOrganizationModal = ({
             <Input
               label="Organization Name"
               type="text"
-              placeholder="Acme Corporation"
+              placeholder="Arasaka Corporation"
               value={formData.name}
               onChange={(event) => handleNameChange(event.target.value)}
               required
@@ -155,7 +155,7 @@ export const CreateOrganizationModal = ({
             <Input
               label="Slug"
               type="text"
-              placeholder="acme-corp"
+              placeholder="arasaka"
               value={formData.slug}
               onChange={(event) => setFormData({ ...formData, slug: event.target.value })}
               required
@@ -209,7 +209,7 @@ export const CreateOrganizationModal = ({
                 <Input
                   label="DB Secret Ref"
                   type="text"
-                  placeholder="ORG_ACME_DB_URL"
+                  placeholder="ORG_ARASAKA_DB_URL"
                   value={formData.dbSecretRef}
                   onChange={(event) => setFormData({ ...formData, dbSecretRef: event.target.value })}
                   required
