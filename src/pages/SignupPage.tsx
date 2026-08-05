@@ -300,6 +300,13 @@ export const SignupPage = () => {
                 Sign in
               </Link>
             </div>
+
+            <div className="text-sm text-center text-muted-foreground">
+              Want your own workspace?{' '}
+              <Link to="/signup" className="font-medium text-primary hover:underline">
+                Start a free trial
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>

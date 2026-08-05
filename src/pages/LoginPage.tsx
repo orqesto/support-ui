@@ -543,7 +543,10 @@ export const LoginPage = () => {
             )}
 
             <div className="py-2 text-sm text-center text-muted-foreground">
-              Don&apos;t have an account? Contact your administrator for an invitation.
+              Don&apos;t have an account?{' '}
+              <Link to="/signup" className="font-medium text-primary hover:underline">
+                Create a workspace
+              </Link>
             </div>
           </form>
         </CardContent>
