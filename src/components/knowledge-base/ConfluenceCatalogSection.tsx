@@ -1,6 +1,9 @@
 import { RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Spinner } from '@/components/ui/Spinner';
 import { documentationService } from '@/services/documentation.service';
 import {
@@ -12,10 +15,19 @@ import {
 const POLL_MS = 2500;
 const MAX_POLLS = 48; // ~2 min ceiling so a stuck job can't poll forever
 
-// KB-state label shown to the right of a processed page's title.
-const StatusLabel = ({ status }: { status: string | null | undefined }) => {
-  if (status === 'failed') return <span className="text-xs text-red-600">Failed — retry</span>;
-  return <span className="text-xs font-medium text-green-600">In Knowledge Base</span>;
+// KB-state badge shown to the right of a processed page's title.
+const StatusBadge = ({ status }: { status: string | null | undefined }) => {
+  if (status === 'failed')
+    return (
+      <Badge variant="danger" size="sm">
+        Failed — retry
+      </Badge>
+    );
+  return (
+    <Badge variant="success" size="sm">
+      In Knowledge Base
+    </Badge>
+  );
 };
 
 // One connected Confluence integration: its live pages, each independently Process/Remove-able.
@@ -122,7 +134,7 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
     : (pages ?? []);
 
   return (
-    <div className="rounded-lg border border-border">
+    <Card padding="none">
       <div className="flex gap-3 justify-between items-center px-4 py-3 border-b border-border">
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{integration.name}</p>
@@ -138,14 +150,7 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
 
       {pages && pages.length > 0 && (
         <div className="px-4 pt-3">
-          <input
-            type="text"
-            value={filter}
-            onChange={(ev) => setFilter(ev.target.value)}
-            placeholder="Search pages…"
-            aria-label="Search Confluence pages"
-            className="px-3 py-1.5 w-full text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-          />
+          <SearchInput value={filter} onChange={setFilter} placeholder="Search pages…" />
         </div>
       )}
 
@@ -178,17 +183,19 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
             const isProcessing = pending.has(page.id) || page.status === 'processing';
             return (
               <li key={page.id} className="flex gap-3 justify-between items-center px-4 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm truncate">{page.title}</p>
+                <div className="flex flex-wrap gap-2 items-center min-w-0">
+                  <span className="text-sm truncate">{page.title}</span>
                   {isProcessing ? (
-                    <span className="text-xs text-blue-600">Processing…</span>
+                    <Badge variant="warning" size="sm">
+                      Processing…
+                    </Badge>
                   ) : (
-                    page.processed && <StatusLabel status={page.status} />
+                    page.processed && <StatusBadge status={page.status} />
                   )}
                 </div>
                 {isProcessing ? (
-                  <span className="flex gap-1.5 items-center text-xs shrink-0 text-muted-foreground">
-                    <Spinner /> Queued
+                  <span className="text-muted-foreground shrink-0">
+                    <Spinner />
                   </span>
                 ) : page.processed ? (
                   <Button
@@ -215,7 +222,7 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 };
 
