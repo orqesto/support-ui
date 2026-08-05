@@ -10,15 +10,12 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
 
 /**
  * Declarative console section registry — the single source of truth for BOTH the
  * AdminShell sidebar and the child <Route>s generated in App.tsx (mirrors
- * SettingsPage's SETTINGS_TABS pattern). Later waves swap a section's `element`
- * from the placeholder to its real page; the nav entry and route stay in sync
- * because both read this array. Overview is real in this wave (05-01); the rest
- * render a lightweight placeholder until their wave lands.
+ * SettingsPage's SETTINGS_TABS pattern). The nav entry and route stay in sync
+ * because both read this array. As of 05-09 every section mounts its real page.
  */
 export type ConsoleScopeCtx = {
   scope: 'alliance' | 'platform' | null;
@@ -36,23 +33,6 @@ export type ConsoleSection = {
   element: ComponentType;
   /** UX gate only — the BE re-validates every call. Defaults to always-visible. */
   visible?: (ctx: ConsoleScopeCtx) => boolean;
-};
-
-const ConsolePlaceholder = ({ title }: { title: string }) => (
-  <Card>
-    <CardContent>
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        This section arrives later in Phase 5.
-      </p>
-    </CardContent>
-  </Card>
-);
-
-const makePlaceholder = (title: string): ComponentType => {
-  const Placeholder = () => <ConsolePlaceholder title={title} />;
-  Placeholder.displayName = `ConsolePlaceholder(${title})`;
-  return Placeholder;
 };
 
 const ConsoleOverview = lazy(() =>
@@ -73,6 +53,12 @@ const ConsoleIdentity = lazy(() =>
 const ConsoleProvisioning = lazy(() =>
   import('@/pages/console/ConsoleProvisioning').then((mod) => ({ default: mod.ConsoleProvisioning }))
 );
+const ConsoleAudit = lazy(() =>
+  import('@/pages/console/ConsoleAudit').then((mod) => ({ default: mod.ConsoleAudit }))
+);
+const ConsoleSettings = lazy(() =>
+  import('@/pages/console/ConsoleSettings').then((mod) => ({ default: mod.ConsoleSettings }))
+);
 
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
@@ -81,6 +67,6 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: ConsoleGroups },
   { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: ConsoleIdentity },
   { id: 'provisioning', label: 'Provisioning', icon: ShieldCheck, path: 'provisioning', element: ConsoleProvisioning },
-  { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: makePlaceholder('Audit log') },
-  { id: 'settings', label: 'Settings', icon: Settings, path: 'settings', element: makePlaceholder('Settings') },
+  { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: ConsoleAudit },
+  { id: 'settings', label: 'Settings', icon: Settings, path: 'settings', element: ConsoleSettings },
 ];
