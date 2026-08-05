@@ -58,11 +58,17 @@ const makePlaceholder = (title: string): ComponentType => {
 const ConsoleOverview = lazy(() =>
   import('@/pages/console/ConsoleOverview').then((mod) => ({ default: mod.ConsoleOverview }))
 );
+const ConsoleOrganizations = lazy(() =>
+  import('@/pages/console/ConsoleOrganizations').then((mod) => ({ default: mod.ConsoleOrganizations }))
+);
+const ConsoleMembers = lazy(() =>
+  import('@/pages/console/ConsoleMembers').then((mod) => ({ default: mod.ConsoleMembers }))
+);
 
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
-  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: makePlaceholder('Organizations') },
-  { id: 'members', label: 'Members', icon: Users, path: 'members', element: makePlaceholder('Members') },
+  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: ConsoleOrganizations },
+  { id: 'members', label: 'Members', icon: Users, path: 'members', element: ConsoleMembers },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: makePlaceholder('Groups') },
   { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: makePlaceholder('Identity') },
   { id: 'provisioning', label: 'Provisioning', icon: ShieldCheck, path: 'provisioning', element: makePlaceholder('Provisioning') },
