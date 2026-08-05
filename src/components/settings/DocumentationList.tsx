@@ -22,6 +22,7 @@ import { useState } from 'react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { formatDate } from '@/lib/utils';
 import type {
   Documentation,
@@ -176,14 +177,9 @@ export const DocumentationList = ({
       </div>
 
       {docs.length > 0 && (
-        <input
-          type="text"
-          value={search}
-          onChange={(ev) => setSearch(ev.target.value)}
-          placeholder="Search documents…"
-          aria-label="Search documents"
-          className="px-3 py-1.5 mb-3 w-full text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-        />
+        <div className="mb-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search documents…" />
+        </div>
       )}
 
       {hasConfluence && (
@@ -246,20 +242,18 @@ export const DocumentationList = ({
               }`}
             >
               <div className="flex gap-3 items-start flex-1 min-w-0">
-                {/* Bulk-select checkbox only in the unfiltered view (bulk actions hide otherwise). */}
-                {sourceFilter === 'all' && (
-                  <button
-                    onClick={() => onToggleDoc(doc.id)}
-                    className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
-                    aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
-                  >
-                    {selectedDocs.has(doc.id) ? (
-                      <CheckSquare className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Square className="w-5 h-5" />
-                    )}
-                  </button>
-                )}
+                {/* Bulk-select checkbox — available on every facet (All / Uploaded / Confluence). */}
+                <button
+                  onClick={() => onToggleDoc(doc.id)}
+                  className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
+                  aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
+                >
+                  {selectedDocs.has(doc.id) ? (
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Square className="w-5 h-5" />
+                  )}
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
