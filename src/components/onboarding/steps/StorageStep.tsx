@@ -8,14 +8,29 @@ import { cn } from '@/lib/utils';
 
 type Choice = 'managed' | 'byo';
 
+interface StorageStepProps {
+  /**
+   * Notifies the wizard whenever a storage choice is made (or cleared), so the
+   * footer button can switch from "Skip this step" to "Next" once the user has
+   * actually engaged with the step. Mirrors ChannelsStep's onConnectedChange.
+   */
+  onChoiceChange?: (choice: Choice | undefined) => void;
+}
+
 /**
- * Step 3 — where attachments and KB documents are stored. Two choices, mirroring
+ * Step — where attachments and KB documents are stored. Two choices, mirroring
  * the AI step: managed (default, nothing to configure) or bring-your-own S3. The
  * heavy config form only appears when BYO is chosen, so the default state is a
  * light two-card selector. Optional — the client can skip and set this up later.
  */
-export const StorageStep = () => {
+export const StorageStep = ({ onChoiceChange }: StorageStepProps) => {
   const [choice, setChoice] = useState<Choice | undefined>();
+
+  // Report the current selection up to the wizard on every change (click or the
+  // resume pre-select below), so "Skip this step" becomes "Next" once chosen.
+  useEffect(() => {
+    onChoiceChange?.(choice);
+  }, [choice, onChoiceChange]);
 
   // On resume, reflect an existing BYO storage config: the choice itself isn't
   // persisted to onboarding state, but a saved config is the source of truth, so

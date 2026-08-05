@@ -27,11 +27,15 @@ type DocumentationSettingsProps = {
   // Call after this component mutates docs (delete / bulk-delete / upload) so sibling
   // surfaces (the catalog's processed counts) refresh too.
   onKbChange?: () => void;
+  // Report the current document count to a host (e.g. the onboarding KB step) so it
+  // can reflect whether the KB has any content yet. Fires on load and after any change.
+  onDocsCountChange?: (count: number) => void;
 };
 
 export const DocumentationSettings = ({
   refreshSignal = 0,
   onKbChange,
+  onDocsCountChange,
 }: DocumentationSettingsProps = {}) => {
   const [docs, setDocs] = useState<Documentation[]>([]);
   const [stats, setStats] = useState<{
@@ -166,6 +170,12 @@ export const DocumentationSettings = ({
 
     return () => clearInterval(interval);
   }, [processingDocIds, loadDocumentation, docs]);
+
+  // Report the current doc count up to any host (e.g. the onboarding KB step)
+  // whenever it changes — on initial load, after uploads, and after deletes.
+  useEffect(() => {
+    onDocsCountChange?.(docs.length);
+  }, [docs.length, onDocsCountChange]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
