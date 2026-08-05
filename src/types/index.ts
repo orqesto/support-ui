@@ -1,4 +1,4 @@
-import type { GlobalRole, OrganizationRole, PermissionOverrides } from './roles';
+import type { GlobalRole, OrganizationRole, AllianceRole, PermissionOverrides } from './roles';
 
 export type Department = {
   id: number;
@@ -34,6 +34,10 @@ export type User = {
   position: string | null;
   role: GlobalRole; // Global role (admin, user)
   organizationRole?: OrganizationRole; // Role in current organization
+  // Alliance memberships (multi-org identity, Phase 4/5). Present when the BE user payload
+  // carries the caller's alliance roles; drives the console nav gate (UX only — the BE
+  // re-validates alliance authority server-side on every /api/alliances call).
+  allianceMemberships?: { allianceId: number; role: AllianceRole }[];
   departmentIds?: number[]; // ALL department IDs the user belongs to in their current organization
   permissionOverrides?: PermissionOverrides; // Wave 5 B per-user overrides on top of org role
   organizationId?: number; // Current organization ID
