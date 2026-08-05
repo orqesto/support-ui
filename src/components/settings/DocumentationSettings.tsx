@@ -20,7 +20,19 @@ import {
 } from '@/services/documentation.service';
 import { logger } from '@/lib/logger';
 
-export const DocumentationSettings = () => {
+type DocumentationSettingsProps = {
+  // Shared KB revision (from the KB page). Bumped whenever a sibling surface (the Confluence
+  // catalog) changes the doc set, so this list re-fetches instead of showing stale rows.
+  refreshSignal?: number;
+  // Call after this component mutates docs (delete / bulk-delete / upload) so sibling
+  // surfaces (the catalog's processed counts) refresh too.
+  onKbChange?: () => void;
+};
+
+export const DocumentationSettings = ({
+  refreshSignal = 0,
+  onKbChange,
+}: DocumentationSettingsProps = {}) => {
   const [docs, setDocs] = useState<Documentation[]>([]);
   const [stats, setStats] = useState<{
     totalDocs: number;
@@ -93,6 +105,12 @@ export const DocumentationSettings = () => {
   useEffect(() => {
     void loadDocumentation(true);
   }, [loadDocumentation]);
+
+  // Re-fetch when a sibling surface (the Confluence catalog) changes the doc set. Skip the
+  // initial 0 so this doesn't double-fetch on mount.
+  useEffect(() => {
+    if (refreshSignal > 0) void loadDocumentation(false);
+  }, [refreshSignal, loadDocumentation]);
 
   useEffect(() => {
     if (highlightDocId && !loading && docs.length > 0) {
@@ -265,6 +283,7 @@ export const DocumentationSettings = () => {
       }, 2000);
 
       await loadDocumentation();
+      onKbChange?.();
     } catch (error) {
       logger.error('Failed to upload documentation:', error);
     } finally {
@@ -314,11 +333,13 @@ export const DocumentationSettings = () => {
       );
       setSelectedDocs(new Set());
       await loadDocumentation();
+      onKbChange?.();
     } catch (error) {
       logger.error('Failed to delete documentation:', error);
       // Refresh state even on partial failure so UI stays consistent (P7-IN-06)
       setSelectedDocs(new Set());
       void loadDocumentation();
+      onKbChange?.();
     }
   };
 
@@ -344,6 +365,7 @@ export const DocumentationSettings = () => {
     try {
       await documentationService.deleteDocumentation(deleteDialog.docId);
       await loadDocumentation();
+      onKbChange?.();
       setDeleteDialog({ open: false, docId: null });
     } catch (error) {
       logger.error('Failed to delete documentation:', error);

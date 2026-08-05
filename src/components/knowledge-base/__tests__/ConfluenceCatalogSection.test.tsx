@@ -84,6 +84,17 @@ describe('ConfluenceCatalogSection — visible catalog with per-page process/rem
     );
   });
 
+  it('notifies onKbChange after removing a page (so the Documentation list re-fetches)', async () => {
+    primeCatalog();
+    deleteDocumentation.mockResolvedValue(undefined);
+    const onKbChange = vi.fn();
+    render(<ConfluenceCatalogSection onKbChange={onKbChange} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /remove from kb/i }));
+
+    await waitFor(() => expect(onKbChange).toHaveBeenCalled());
+  });
+
   it('renders nothing when there are no Confluence integrations', async () => {
     getAll.mockResolvedValue({ success: true, data: [] });
     const { container } = render(<ConfluenceCatalogSection />);

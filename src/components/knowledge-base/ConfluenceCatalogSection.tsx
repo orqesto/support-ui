@@ -31,7 +31,15 @@ const StatusBadge = ({ status }: { status: string | null | undefined }) => {
 };
 
 // One connected Confluence integration: its live pages, each independently Process/Remove-able.
-const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegration }) => {
+const IntegrationCatalog = ({
+  integration,
+  refreshSignal,
+  onKbChange,
+}: {
+  integration: ConfluenceIntegration;
+  refreshSignal: number;
+  onKbChange?: () => void;
+}) => {
   const [pages, setPages] = useState<ConfluencePageNode[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +48,11 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
   const [removing, setRemoving] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const pollCount = useRef(0);
+  // Mirror of `pending` for reads inside the memoized refresh (which can't depend on it).
+  const pendingRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
 
   // Fetch the catalog and merge in place (no top-level loading flash). Drops a page from
   // `pending` once the server confirms it's processed — server status takes over from there.
@@ -49,6 +62,9 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
       const fresh = [...(res.data?.pages ?? [])].sort((first, second) =>
         first.title.localeCompare(second.title)
       );
+      // A page we were waiting on just landed as processed → a new KB doc exists; tell the
+      // Documentation list to re-fetch. (Only fires on a real completion, so no sync loop.)
+      const completed = fresh.some((page) => page.processed && pendingRef.current.has(page.id));
       setPages(fresh);
       setPending((prev) => {
         if (prev.size === 0) return prev;
@@ -56,17 +72,24 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
         for (const page of fresh) if (page.processed) next.delete(page.id);
         return next;
       });
+      if (completed) onKbChange?.();
       setError(null);
     } catch {
       setError('Could not load pages from Confluence — check the connection and space keys.');
     }
-  }, [integration.id]);
+  }, [integration.id, onKbChange]);
 
   // Initial load (the only time we show the section spinner).
   useEffect(() => {
     setLoading(true);
     void refresh().finally(() => setLoading(false));
   }, [refresh]);
+
+  // Re-fetch when a sibling surface (the Documentation list) changes the doc set, so the
+  // processed badges/counts here stay in sync. Skip the initial 0.
+  useEffect(() => {
+    if (refreshSignal > 0) void refresh();
+  }, [refreshSignal, refresh]);
 
   // Live updates: while anything is optimistically pending OR the server reports a page
   // mid-embed ('processing'), poll and merge — updating only the rows that change.
@@ -116,6 +139,8 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
               item.id === page.id ? { ...item, processed: false, docId: null, status: null } : item
             ) ?? prev
         );
+        // The KB doc is gone → tell the Documentation list to drop it too.
+        onKbChange?.();
       })
       .catch(() => setError(`Could not remove “${page.title}” from the Knowledge Base.`))
       .finally(() =>
@@ -233,7 +258,13 @@ const IntegrationCatalog = ({ integration }: { integration: ConfluenceIntegratio
  * chunks) while staying visible here for re-processing. Processing/removal update per-row
  * in place; nothing reloads the whole list.
  */
-export const ConfluenceCatalogSection = () => {
+export const ConfluenceCatalogSection = ({
+  refreshSignal = 0,
+  onKbChange,
+}: {
+  refreshSignal?: number;
+  onKbChange?: () => void;
+} = {}) => {
   const [integrations, setIntegrations] = useState<ConfluenceIntegration[] | null>(null);
 
   useEffect(() => {
@@ -262,7 +293,12 @@ export const ConfluenceCatalogSection = () => {
         </p>
       </div>
       {integrations.map((integration) => (
-        <IntegrationCatalog key={integration.id} integration={integration} />
+        <IntegrationCatalog
+          key={integration.id}
+          integration={integration}
+          refreshSignal={refreshSignal}
+          onKbChange={onKbChange}
+        />
       ))}
     </section>
   );
