@@ -289,7 +289,7 @@ export const EditUserModal = ({
       onClose();
     } catch (error) {
       logger.error('Failed to change organization:', error);
-      toast.failure('change organization', error);
+      toast.failure('change workspace', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -420,7 +420,7 @@ export const EditUserModal = ({
               {canEditRoles && (
                 <>
                   <ReactSelect
-                    label="Organization Role"
+                    label="Workspace Role"
                     id="organizationRole"
                     value={organizationRole}
                     onChange={(value) => setOrganizationRole(value as OrganizationRole)}
@@ -438,10 +438,10 @@ export const EditUserModal = ({
                   ) : !isAdmin && isLastOrgAdmin ? (
                     <p className="flex gap-1 items-center -mt-2 text-xs font-medium text-red-600">
                       <AlertTriangle className="w-3 h-3" />
-                      Cannot change role - you are the last Organization Administrator
+                      Cannot change role - you are the last Workspace Administrator
                     </p>
                   ) : (
-                    <p className="-mt-2 text-xs text-muted-foreground">Permissions within the organization</p>
+                    <p className="-mt-2 text-xs text-muted-foreground">Permissions within the workspace</p>
                   )}
                   {/* Show role permissions info */}
                   <div className="-mt-2">
@@ -522,7 +522,7 @@ export const EditUserModal = ({
               {isAdmin && organizations.length > 0 && (
                 <>
                   <ReactSelect
-                    label="Organization"
+                    label="Workspace"
                     id="organization"
                     value={String(selectedOrgId ?? '')}
                     onChange={(value) => setSelectedOrgId(Number(value))}
@@ -532,7 +532,7 @@ export const EditUserModal = ({
                     }))}
                   />
                   <p className="-mt-2 text-xs text-muted-foreground">
-                    Change user&apos;s organization membership
+                    Change user&apos;s workspace membership
                   </p>
                 </>
               )}
@@ -592,7 +592,7 @@ export const EditUserModal = ({
                   </div>
                   {routingKeys.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      No routing keys defined. Add routing keys in Organization Settings.
+                      No routing keys defined. Add routing keys in Workspace Settings.
                     </p>
                   ) : (
                     <div className="space-y-3">
@@ -698,10 +698,10 @@ export const EditUserModal = ({
           setOrgChangeDialog({ open: false, newOrgId: 0 });
           await handleOrgChangeConfirm(newOrgId);
         }}
-        title="Change Organization"
+        title="Change Workspace"
         description={
           user
-            ? `This will move ${user.firstName} ${user.lastName} from their current organization to the selected organization. This action cannot be undone.`
+            ? `This will move ${user.firstName} ${user.lastName} from their current workspace to the selected workspace. This action cannot be undone.`
             : ''
         }
         confirmText="Move User"

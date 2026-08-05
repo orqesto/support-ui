@@ -79,7 +79,7 @@ export const SignupPage = () => {
         // Store invitation details
         const email = data.data.invitation.email;
         setInvitationEmail(email);
-        setOrganizationName(data.data.invitation.organizationName || 'the organization');
+        setOrganizationName(data.data.invitation.organizationName || 'the workspace');
         setInvitationRole(data.data.invitation.role);
 
         // Remove the token from the URL (both query and hash) so it isn't exposed

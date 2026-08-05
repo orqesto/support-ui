@@ -46,7 +46,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
       <div>
         <h2 className="flex gap-2 items-center text-xl font-semibold">
           <Layers className="w-5 h-5" />
-          Organization
+          Workspace
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Manage ticket categories and custom labels

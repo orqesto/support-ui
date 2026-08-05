@@ -198,7 +198,7 @@ export const OrganizationPage = () => {
         const errorMessage =
           apiError.response?.data?.message ??
           error.message ??
-          'Failed to delete organization. Please check the console for details.';
+          'Failed to delete workspace. Please check the console for details.';
         setAlertDialog({
           open: true,
           title: 'Delete Failed',
@@ -227,7 +227,7 @@ export const OrganizationPage = () => {
         const errorMessage =
           apiError.response?.data?.message ??
           error.message ??
-          'Failed to update organization. Please check the console for details.';
+          'Failed to update workspace. Please check the console for details.';
         setAlertDialog({
           open: true,
           title: 'Update Failed',
@@ -244,7 +244,7 @@ export const OrganizationPage = () => {
         <div className="px-4 mx-auto w-full flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
-            <p className="text-muted-foreground">Loading organization...</p>
+            <p className="text-muted-foreground">Loading workspace...</p>
           </div>
         </div>
       </Layout>
@@ -256,9 +256,9 @@ export const OrganizationPage = () => {
       <Layout>
         <div className="px-4 mx-auto w-full flex flex-col items-center justify-center min-h-[60vh]">
           <Building2 className="mb-4 w-16 h-16 text-gray-400" />
-          <h2 className="mb-2 text-2xl font-bold text-gray-900">No Organization</h2>
+          <h2 className="mb-2 text-2xl font-bold text-gray-900">No Workspace</h2>
           <p className="max-w-md text-center text-gray-600">
-            You are not currently associated with an organization.
+            You are not currently associated with a workspace.
           </p>
         </div>
       </Layout>
@@ -271,17 +271,17 @@ export const OrganizationPage = () => {
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-2xl font-bold">Organization Settings</h2>
+            <h2 className="text-2xl font-bold">Workspace Settings</h2>
             <p className="text-sm text-muted-foreground">
               {isAdmin
-                ? 'Manage all organizations in the system'
-                : "Manage your organization's details"}
+                ? 'Manage all workspaces in the system'
+                : "Manage your workspace's details"}
             </p>
           </div>
           {isAdmin && (
             <Button onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="mr-2 w-4 h-4" />
-              Create Organization
+              Create Workspace
             </Button>
           )}
         </div>
@@ -322,12 +322,12 @@ export const OrganizationPage = () => {
                 </div>
                 <div>
                   <CardTitle className="text-xl font-bold sm:text-xl">
-                    {isAdmin ? 'My Current Organization' : 'Organization Details'}
+                    {isAdmin ? 'My Current Workspace' : 'Workspace Details'}
                   </CardTitle>
                   <CardDescription className="mt-1 text-sm text-gray-600 sm:text-base">
                     {isAdmin
-                      ? `Details of your assigned organization (${organization.name})`
-                      : 'Basic information about your organization'}
+                      ? `Details of your assigned workspace (${organization.name})`
+                      : 'Basic information about your workspace'}
                   </CardDescription>
                 </div>
               </div>
@@ -344,13 +344,13 @@ export const OrganizationPage = () => {
               <>
                 <div>
                   <label htmlFor="name" className="block mb-1 text-sm font-medium">
-                    Organization Name
+                    Workspace Name
                   </label>
                   <input
                     type="text"
                     value={editForm.name}
                     onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
-                    placeholder="Enter organization name"
+                    placeholder="Enter workspace name"
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
@@ -363,7 +363,7 @@ export const OrganizationPage = () => {
                     onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     rows={3}
-                    placeholder="Enter organization description"
+                    placeholder="Enter workspace description"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -442,7 +442,7 @@ export const OrganizationPage = () => {
         onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, isOpen: open })}
       >
         <DialogHeader>
-          <DialogTitle>Delete Organization</DialogTitle>
+          <DialogTitle>Delete Workspace</DialogTitle>
           <DialogClose
             onClose={() => setDeleteDialog({ isOpen: false, orgId: null, orgName: '' })}
           />
@@ -458,8 +458,8 @@ export const OrganizationPage = () => {
                 This will permanently delete:
               </p>
               <ul className="space-y-1 text-sm list-disc list-inside text-red-600 dark:text-red-400">
-                <li>The organization</li>
-                <li>All users in this organization</li>
+                <li>The workspace</li>
+                <li>All users in this workspace</li>
                 <li>All tickets and messages</li>
                 <li>All categories and settings</li>
               </ul>
@@ -482,7 +482,7 @@ export const OrganizationPage = () => {
             className="text-white bg-red-600 hover:bg-red-700"
           >
             <Trash2 className="mr-2 w-4 h-4" />
-            Delete Organization
+            Delete Workspace
           </Button>
         </DialogFooter>
       </Dialog>

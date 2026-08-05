@@ -160,7 +160,7 @@ describe('SettingsSmoke', () => {
     );
     // Non-admin user sees 5 tabs (no System tab)
     expect(screen.getByText('Profile')).toBeTruthy();
-    expect(screen.getByText('Organization')).toBeTruthy();
+    expect(screen.getByText('Workspace')).toBeTruthy();
     expect(screen.getByText('AI')).toBeTruthy();
     expect(screen.getByText('Integrations')).toBeTruthy();
     expect(screen.getByText('Rules')).toBeTruthy();

@@ -61,7 +61,7 @@ export const SystemManagementSettings = () => {
           </h2>
           <p className="text-gray-700 dark:text-gray-300">
             You don't have permission to access System Management. This section is restricted to
-            organization administrators only.
+            workspace administrators only.
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteMessages = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} department` : 'your organization';
+    const scope = dept ? `${dept} department` : 'your workspace';
     handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Messages`,
       `This will permanently delete all messages for ${scope}. This action cannot be undone.`,
@@ -147,7 +147,7 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteTickets = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} department` : 'your organization';
+    const scope = dept ? `${dept} department` : 'your workspace';
     handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Tickets`,
       `This will permanently delete all tickets for ${scope}. This action cannot be undone.`,
@@ -162,7 +162,7 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteKB = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} department` : 'your organization';
+    const scope = dept ? `${dept} department` : 'your workspace';
     handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Knowledge Base`,
       `This will permanently delete all KB entries and documentation for ${scope}. This action cannot be undone.`,
@@ -190,7 +190,7 @@ export const SystemManagementSettings = () => {
   const handleNuclear = () => {
     handleAction(
       'Nuclear Cleanup',
-      'This will permanently delete EVERYTHING for your organization: all messages, tickets, KB entries, attachments, and clear all queues. This action cannot be undone and will reset your organization to a clean state.',
+      'This will permanently delete EVERYTHING for your workspace: all messages, tickets, KB entries, attachments, and clear all queues. This action cannot be undone and will reset your workspace to a clean state.',
       async () => {
         const res = await systemService.nuclearCleanup('DELETE EVERYTHING');
         if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
@@ -222,7 +222,7 @@ export const SystemManagementSettings = () => {
       <div>
         <h2 className="mb-2 text-lg font-semibold">System Management</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Dangerous system operations that affect your entire organization. Use with extreme
+          Dangerous system operations that affect your entire workspace. Use with extreme
           caution.
         </p>
       </div>
@@ -281,7 +281,7 @@ export const SystemManagementSettings = () => {
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Filter cleanup operations by department. Select "All Departments" to affect the entire
-            organization.
+            workspace.
           </p>
         </div>
 
@@ -290,7 +290,7 @@ export const SystemManagementSettings = () => {
             <div>
               <p className="font-medium text-red-600 dark:text-red-400">Delete All Messages</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Permanently delete all messages for your organization
+                Permanently delete all messages for your workspace
               </p>
             </div>
             <Button variant="destructive" size="sm" onClick={handleDeleteMessages} className="ml-4">
@@ -303,7 +303,7 @@ export const SystemManagementSettings = () => {
             <div>
               <p className="font-medium text-red-600 dark:text-red-400">Delete All Tickets</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Permanently delete all tickets for your organization
+                Permanently delete all tickets for your workspace
               </p>
             </div>
             <Button variant="destructive" size="sm" onClick={handleDeleteTickets} className="ml-4">
@@ -364,7 +364,7 @@ export const SystemManagementSettings = () => {
         </h3>
         <div className="space-y-3">
           <p className="text-sm text-gray-700 dark:text-gray-300">
-            This will delete <strong>EVERYTHING</strong> for your organization:
+            This will delete <strong>EVERYTHING</strong> for your workspace:
           </p>
           <ul className="space-y-1 text-sm list-disc list-inside text-gray-700 dark:text-gray-300">
             <li>All messages and responses</li>
@@ -375,7 +375,7 @@ export const SystemManagementSettings = () => {
             <li>All sync checkpoints</li>
           </ul>
           <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-            This action is IRREVERSIBLE. Your organization will be reset to a clean state.
+            This action is IRREVERSIBLE. Your workspace will be reset to a clean state.
           </p>
           <Button
             variant="destructive"
