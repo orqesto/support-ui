@@ -129,7 +129,7 @@ export const CreateWorkspacePage = () => {
             <Input
               label="Workspace name"
               type="text"
-              placeholder="Acme Support"
+              placeholder="Arasaka"
               value={formData.workspaceName}
               onChange={(event) => handleChange('workspaceName', event.target.value)}
               required
