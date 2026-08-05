@@ -312,6 +312,16 @@ export const gmailOAuthService = {
   },
 
   /**
+   * Synchronous check for whether a redirect-flow OAuth is waiting to be finished
+   * on this mount (redirectToOAuth stashed a pending config before leaving for
+   * Google, and we've now landed back). Lets the card show a "finishing…" loader
+   * immediately instead of rendering the form while consumePendingRedirectResult
+   * runs. Must be read BEFORE consumePendingRedirectResult, which clears the keys.
+   */
+  hasPendingRedirectResult: (): boolean =>
+    sessionStorage.getItem('gmail_oauth_pending_config') !== null,
+
+  /**
    * Called on integrations page mount to finish a redirect-flow OAuth. Reads the
    * code+state OAuthCallbackPage stored and the config redirectToOAuth stashed,
    * then dispatches the BE callback. Returns null if no redirect-flow result is
