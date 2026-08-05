@@ -41,6 +41,13 @@ export type ConfluencePageNode = {
   title: string;
   parentId: string | null;
   spaceKey: string;
+  // KB state, populated only when listing by a saved integrationId (the live catalog).
+  // `processed` = a documentation row exists for this page; `docId` is its id (used to
+  // Remove-from-KB). Absent on the pre-save `config` listing path.
+  processed?: boolean;
+  docId?: number | null;
+  status?: string | null;
+  enabled?: boolean | null;
 };
 
 export type TelegramConfig = {
@@ -337,6 +344,20 @@ export const integrationsService = {
       '/api/integrations/confluence/pages',
       payload
     );
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  /** Promote ONE visible Confluence page into the KB (download + chunk + embed). */
+  processConfluencePage: async (
+    integrationId: number,
+    pageId: string
+  ): Promise<ApiResponse<{ docId: number; title: string; status: string }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { docId: number; title: string; status: string };
+    }>(`/api/integrations/confluence/pages/${encodeURIComponent(pageId)}/process`, {
+      integrationId,
+    });
     return { success: response.data.success, data: response.data.data };
   },
 

@@ -1,6 +1,5 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { PageTree } from '@/components/settings/integrations/ConfluencePageTree';
+import { useEffect, useRef, useState } from 'react';
 import {
   parseSpaceKeys,
   syncMeta,
@@ -12,7 +11,6 @@ import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import {
   integrationsService,
   type ConfluenceConfig,
-  type ConfluencePageNode,
 } from '@/services/integrations.service';
 
 export const ConfluenceIntegrationCard = ({
@@ -54,12 +52,6 @@ export const ConfluenceIntegrationCard = ({
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
-  // Page-tree picker state.
-  const [showPagePicker, setShowPagePicker] = useState(false);
-  const [pages, setPages] = useState<ConfluencePageNode[] | null>(null);
-  const [pagesLoading, setPagesLoading] = useState(false);
-  const [pagesError, setPagesError] = useState<string | null>(null);
-  const [pageFilter, setPageFilter] = useState('');
   // A one-shot timer to re-check status shortly after "Sync now": the worker sets
   // lastSyncStatus='syncing' asynchronously, so an immediate refresh can miss it and the
   // poll effect never engages. Cleared on unmount (no leak).
@@ -130,46 +122,6 @@ export const ConfluenceIntegrationCard = ({
     return () => window.clearInterval(id);
   }, [anySyncing, onRefresh]);
 
-  const selectedPageIds = new Set(config.selectedPageIds ?? []);
-
-  // Stable identity (functional setConfig) so React.memo(PageRow) can skip untouched rows.
-  const togglePage = useCallback(
-    (id: string) => {
-      setConfig((prev) => {
-        const next = new Set(prev.selectedPageIds ?? []);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return { ...prev, selectedPageIds: Array.from(next) };
-      });
-    },
-    [setConfig]
-  );
-
-  // Load the space's pages for the picker. Uses stored creds by id when editing (so the
-  // masked token isn't needed); otherwise the config the user just typed.
-  const loadPages = async () => {
-    setPagesLoading(true);
-    setPagesError(null);
-    try {
-      const payload = editingId
-        ? { integrationId: editingId }
-        : {
-            config: {
-              baseUrl: config.baseUrl,
-              email: config.email,
-              apiToken: config.apiToken,
-              spaceKeys: config.spaceKeys,
-            },
-          };
-      const res = await integrationsService.listConfluencePages(payload);
-      if (res.success && res.data) setPages(res.data.pages);
-      else setPagesError('Could not load pages. Check the connection.');
-    } catch {
-      setPagesError('Could not load pages. Check the base URL, credentials and space key.');
-    } finally {
-      setPagesLoading(false);
-    }
-  };
 
   // Pause/resume a source. Disabling stops syncing and (via the PATCH handler) soft-deletes
   // its docs so they leave AI answers; re-enabling re-syncs and restores them.
@@ -242,9 +194,6 @@ export const ConfluenceIntegrationCard = ({
               onClick={() => {
                 resetForm();
                 setSpaceKeysRaw('');
-                setShowPagePicker(false);
-                setPages(null);
-                setPageFilter('');
                 setShowForm(!showForm);
               }}
             >
@@ -287,9 +236,6 @@ export const ConfluenceIntegrationCard = ({
                         onClick={() => {
                           loadForEdit(integration.id, cfg);
                           setSpaceKeysRaw((cfg.spaceKeys ?? []).join(', '));
-                          setShowPagePicker(false);
-                          setPages(null);
-                          setPageFilter('');
                         }}
                         aria-label="Edit Confluence source"
                         title="Edit"
@@ -438,124 +384,11 @@ export const ConfluenceIntegrationCard = ({
                 </div>
               </div>
 
-              {/* Page-tree picker — sync is opt-in: only ticked pages sync, empty = nothing */}
-              <div>
-                <label className="text-sm font-medium">Pages to sync</label>
-                <p className="mt-0.5 mb-1 text-xs text-muted-foreground">
-                  {selectedPageIds.size === 0
-                    ? 'No pages selected — nothing will sync yet. Choose the pages you want in the Knowledge Base (use “All” to add the whole space).'
-                    : `${selectedPageIds.size} page${selectedPageIds.size === 1 ? '' : 's'} selected — only the exact pages you tick sync (child pages aren’t included automatically).`}
-                  {editingId
-                    ? ' Pages reflect the saved configuration — save changes to pick from newly-added spaces.'
-                    : ''}
-                </p>
-                {!showPagePicker ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowPagePicker(true);
-                      void loadPages(); // always refetch — creds/space keys may have changed
-                    }}
-                    disabled={
-                      config.spaceKeys.length === 0 ||
-                      (!editingId && (!config.baseUrl || !config.email || !config.apiToken))
-                    }
-                    title={
-                      config.spaceKeys.length === 0
-                        ? 'Enter a space key first'
-                        : 'Choose which pages to sync'
-                    }
-                  >
-                    Choose pages
-                  </Button>
-                ) : (
-                  <div className="p-2 space-y-2 rounded-md border">
-                    {pagesLoading && (
-                      <p className="text-xs text-muted-foreground">Loading pages…</p>
-                    )}
-                    {pagesError && !pagesLoading && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-red-600">{pagesError}</p>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => void loadPages()}>
-                            Retry
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowPagePicker(false)}
-                          >
-                            Close
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    {pages && !pagesLoading && !pagesError && (
-                      <>
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            value={pageFilter}
-                            onChange={(ev) => setPageFilter(ev.target.value)}
-                            placeholder="Filter pages…"
-                            aria-label="Filter pages"
-                            className="flex-1 px-2 py-1 text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title={
-                              pageFilter.trim()
-                                ? 'Select all pages matching the filter'
-                                : 'Select all pages'
-                            }
-                            onClick={() => {
-                              const needle = pageFilter.trim().toLowerCase();
-                              const pool = needle
-                                ? pages.filter((page) => page.title.toLowerCase().includes(needle))
-                                : pages;
-                              const merged = new Set(config.selectedPageIds ?? []);
-                              pool.forEach((page) => merged.add(page.id));
-                              setConfig({ ...config, selectedPageIds: Array.from(merged) });
-                            }}
-                          >
-                            All
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfig({ ...config, selectedPageIds: [] })}
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                        {pages.length > 500 && (
-                          <p className="text-xs text-amber-600">
-                            {pages.length} pages — use the filter to find pages faster.
-                          </p>
-                        )}
-                        {pages.length === 0 ? (
-                          <p className="py-2 text-xs text-muted-foreground">
-                            No pages found in the configured space(s).
-                          </p>
-                        ) : (
-                          <div className="overflow-y-auto max-h-64">
-                            <PageTree
-                              pages={pages}
-                              selected={selectedPageIds}
-                              onToggle={togglePage}
-                              filter={pageFilter}
-                            />
-                          </div>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => setShowPagePicker(false)}>
-                          Done
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
+              {/* Page selection lives on the Knowledge Base page now (per-page Process/Remove). */}
+              <div className="p-3 text-xs rounded-md border text-muted-foreground border-border">
+                Once connected, choose which pages go into the Knowledge Base on the{' '}
+                <span className="font-medium text-foreground">Knowledge Base</span> page — connected
+                spaces list their pages there, and you add or remove each page individually.
               </div>
 
               <div className="flex gap-2">
