@@ -7,6 +7,7 @@ import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfluenceCatalogSection } from '@/components/knowledge-base/ConfluenceCatalogSection';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -418,7 +419,10 @@ export const KnowledgeBasePage = () => {
 
         {/* Documentation Tab Content */}
         {filterType === 'documentation' ? (
-          <DocumentationSettings />
+          <>
+            <ConfluenceCatalogSection />
+            <DocumentationSettings />
+          </>
         ) : (
           <>
             {/* Mobile Card View */}
