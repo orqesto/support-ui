@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { CONSOLE_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useBackendVersion } from './hooks/useBackendVersion';
 // Eager load critical routes
@@ -87,6 +88,13 @@ const OnboardingPage = lazy(() =>
 );
 const SLADashboardPage = lazy(() =>
   import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
+);
+// Alliance admin console (Phase 5) — org-agnostic shell above the org-switcher.
+const ConsolePage = lazy(() =>
+  import('./pages/ConsolePage').then((mod) => ({ default: mod.ConsolePage }))
+);
+const AdminShell = lazy(() =>
+  import('./components/console/AdminShell').then((mod) => ({ default: mod.AdminShell }))
 );
 
 const LoadingFallback = () => (
@@ -348,6 +356,44 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* Alliance admin console (Phase 5). `/console` resolves the caller's first
+          administered alliance; `/console/alliance/:id` mounts the AdminShell
+          (own chrome) behind the alliance-admin route guard, with one child route
+          per console section (sections drive both nav + routes). */}
+      <Route
+        path="/console"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ConsolePage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/console/alliance/:allianceId"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute allianceAdmin>
+              <Suspense fallback={<LoadingFallback />}>
+                <AdminShell />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      >
+        {CONSOLE_SECTIONS.map((section) => {
+          const SectionElement = section.element;
+          return (
+            <Route
+              key={section.id}
+              index={section.index}
+              path={section.index ? undefined : section.path}
+              element={<SectionElement />}
+            />
+          );
+        })}
+      </Route>
       <Route
         path="/users"
         element={
