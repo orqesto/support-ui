@@ -6,6 +6,12 @@ type ProtectedRouteProps = {
   children: React.ReactNode;
   requiredPermission?: Permission;
   requiredRole?: string;
+  /**
+   * Alliance-console gate (SPEC §8.5): mount only for a global admin or a user
+   * with an active alliance_admin membership. UX gate — the BE re-validates every
+   * /api/alliances call from the route param, so a bypass reveals nothing.
+   */
+  allianceAdmin?: boolean;
   fallbackPath?: string;
 };
 
@@ -18,6 +24,7 @@ export const ProtectedRoute = ({
   children,
   requiredPermission,
   requiredRole,
+  allianceAdmin,
   fallbackPath = '/dashboard',
 }: ProtectedRouteProps) => {
   const user = useAuthStore((state) => state.user);
@@ -31,6 +38,16 @@ export const ProtectedRoute = ({
   // Check global role if required (e.g. system admin pages)
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to={fallbackPath} replace />;
+  }
+
+  // Alliance-console gate: global admin, or an active alliance_admin membership.
+  if (allianceAdmin) {
+    const mayAdminister =
+      user.role === 'admin' ||
+      (user.allianceMemberships?.some((membership) => membership.role === 'alliance_admin') ?? false);
+    if (!mayAdminister) {
+      return <Navigate to={fallbackPath} replace />;
+    }
   }
 
   // Check permission if required
