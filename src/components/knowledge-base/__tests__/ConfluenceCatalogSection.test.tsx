@@ -67,7 +67,7 @@ describe('ConfluenceCatalogSection — visible catalog with per-page process/rem
 
     await waitFor(() => expect(processConfluencePage).toHaveBeenCalledWith(7, 'p1'));
     // Optimistic per-row state appears immediately — no full-list reload/blocking.
-    expect(await screen.findByText(/queued/i)).toBeInTheDocument();
+    expect(await screen.findByText(/processing/i)).toBeInTheDocument();
   });
 
   it('Remove from KB deletes by docId and flips just that row back to unprocessed', async () => {
