@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { AiChoiceStep } from './steps/AiChoiceStep';
@@ -43,6 +43,10 @@ export const OnboardingWizard = () => {
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [channelsConnected, setChannelsConnected] = useState(false);
   const [channelsKnown, setChannelsKnown] = useState(false);
+  // Per-step "the user actually engaged" signals, so the footer button reads
+  // "Next" instead of "Skip this step" once they've added KB docs / picked storage.
+  const [kbHasDocs, setKbHasDocs] = useState(false);
+  const [storageChosen, setStorageChosen] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
   // Set when complete()/skip() fails — surfaced to the user instead of silently
@@ -115,6 +119,14 @@ export const OnboardingWizard = () => {
     setChannelsKnown(true);
   };
 
+  // Stable identities so the step components' report-up effects fire only on real
+  // changes (doc count / storage choice), not on every wizard re-render.
+  const handleKbDocsCount = useCallback((count: number) => setKbHasDocs(count > 0), []);
+  const handleStorageChoice = useCallback(
+    (choice: 'managed' | 'byo' | undefined) => setStorageChosen(!!choice),
+    []
+  );
+
   const leaveWizard = () => {
     markComplete();
     // Pull the fresh trial dates (completion restamped the clock) so the banner
@@ -157,8 +169,8 @@ export const OnboardingWizard = () => {
   const nextDisabled = false;
   const optionalUnfinished =
     (activeStep === 2 && !aiChoice) ||
-    activeStep === 3 ||
-    activeStep === 4 ||
+    (activeStep === 3 && !kbHasDocs) ||
+    (activeStep === 4 && !storageChosen) ||
     (activeStep === 5 && !channelsConnected);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
@@ -208,8 +220,8 @@ export const OnboardingWizard = () => {
             managedAvailable={managedAiAvailable}
           />
         )}
-        {activeStep === 3 && <KbStep />}
-        {activeStep === 4 && <StorageStep />}
+        {activeStep === 3 && <KbStep onDocsCountChange={handleKbDocsCount} />}
+        {activeStep === 4 && <StorageStep onChoiceChange={handleStorageChoice} />}
         {activeStep === 5 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
         {activeStep === 6 && <RoutingStep />}
         {activeStep === 7 && <InviteTeamStep />}
