@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Cloud, HardDrive } from 'lucide-react';
 import { ObjectStorageConfigCard } from '@/components/settings/providers/ObjectStorageConfigCard';
+import { apiClient } from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/Card';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
 type Choice = 'managed' | 'byo';
@@ -14,6 +16,25 @@ type Choice = 'managed' | 'byo';
  */
 export const StorageStep = () => {
   const [choice, setChoice] = useState<Choice | undefined>();
+
+  // On resume, reflect an existing BYO storage config: the choice itself isn't
+  // persisted to onboarding state, but a saved config is the source of truth, so
+  // pre-select "bring your own" (revealing its form) when one already exists.
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{ success: boolean; data: unknown }>('/api/integrations/storage-config')
+      .then((res) => {
+        if (!cancelled && res.data?.data) setChoice('byo');
+      })
+      .catch((error: unknown) => {
+        // Non-fatal: couldn't check existing config; leave the selection default.
+        logger.error('Failed to check storage config for onboarding:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
