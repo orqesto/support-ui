@@ -70,6 +70,9 @@ const ConsoleGroups = lazy(() =>
 const ConsoleIdentity = lazy(() =>
   import('@/pages/console/ConsoleIdentity').then((mod) => ({ default: mod.ConsoleIdentity }))
 );
+const ConsoleProvisioning = lazy(() =>
+  import('@/pages/console/ConsoleProvisioning').then((mod) => ({ default: mod.ConsoleProvisioning }))
+);
 
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
@@ -77,7 +80,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'members', label: 'Members', icon: Users, path: 'members', element: ConsoleMembers },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: ConsoleGroups },
   { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: ConsoleIdentity },
-  { id: 'provisioning', label: 'Provisioning', icon: ShieldCheck, path: 'provisioning', element: makePlaceholder('Provisioning') },
+  { id: 'provisioning', label: 'Provisioning', icon: ShieldCheck, path: 'provisioning', element: ConsoleProvisioning },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: makePlaceholder('Audit log') },
   { id: 'settings', label: 'Settings', icon: Settings, path: 'settings', element: makePlaceholder('Settings') },
 ];

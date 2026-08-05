@@ -1,14 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { KeyRound, Copy, Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Alert } from '@/components/ui/Alert';
 import {
   getSsoConfig,
   putSsoConfig,
   testSsoConfig,
   type SsoTestResult,
 } from '@/services/sso.service';
+import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
@@ -91,6 +94,12 @@ export const SSOConfigSettings = () => {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === 'admin' || user?.organizationRole === 'org_admin';
 
+  // Alliance membership drives the read-only flip. `undefined` = still loading the
+  // org; a number = member org (identity managed by the alliance console — LOCKED-6);
+  // null = standalone (fully-editable tab). The BE resolver precedence is the real
+  // guard; this flip is cosmetic reinforcement, reversible on detach.
+  const [allianceId, setAllianceId] = useState<number | null | undefined>(undefined);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -116,8 +125,29 @@ export const SSOConfigSettings = () => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<SsoTestResult | null>(null);
 
+  // Resolve alliance membership first. On error, fail open to the editable tab
+  // (the BE per-org endpoints stay guarded regardless).
   useEffect(() => {
     if (!isAdmin) return;
+    let active = true;
+    organizationService
+      .getCurrent()
+      .then((org) => {
+        if (active) setAllianceId(org.allianceId ?? null);
+      })
+      .catch((err: unknown) => {
+        logger.error('Failed to load organization for alliance check', err);
+        if (active) setAllianceId(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    // Only load the per-org SSO config for standalone orgs; member orgs render the
+    // read-only "managed by your alliance" state instead.
+    if (!isAdmin || allianceId !== null) return;
     let active = true;
     getSsoConfig()
       .then(({ config, redirectUri: uri }) => {
@@ -147,7 +177,7 @@ export const SSOConfigSettings = () => {
     return () => {
       active = false;
     };
-  }, [isAdmin]);
+  }, [isAdmin, allianceId]);
 
   // Selecting a provider prefills the Issuer URL template + scopes. Clears any prior
   // test result since the target changed.
@@ -222,6 +252,37 @@ export const SSOConfigSettings = () => {
 
   // Defense-in-depth: hide the entire card from non-admins.
   if (!isAdmin) return null;
+
+  // Member org (alliance-governed): identity is managed by the alliance console.
+  // Read-only state — no editable form is rendered. Reversible on detach (LOCKED-6).
+  if (allianceId !== null && allianceId !== undefined) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <ShieldCheck className="w-5 h-5 text-purple-600" />
+            Single Sign-On (SSO)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="info">
+            <div className="space-y-2">
+              <p className="text-sm">
+                Identity for this workspace is managed by your alliance. Configure it in the Alliance
+                console.
+              </p>
+              <Link
+                to={`/console/alliance/${allianceId}/identity`}
+                className="inline-flex gap-1 items-center text-sm font-medium underline text-primary hover:no-underline"
+              >
+                Open the Alliance console
+              </Link>
+            </div>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const providerHint = PROVIDERS.find((prov) => prov.id === provider)?.hint;
 
