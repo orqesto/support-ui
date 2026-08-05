@@ -35,7 +35,7 @@ type DocumentationListProps = {
   docProgress: Record<number, DocumentationProgress>;
   highlightDocId?: number;
   onToggleDoc: (id: number) => void;
-  onToggleAll: () => void;
+  onToggleAll: (visibleIds: number[]) => void;
   onBulkDelete: () => void;
   onViewContent: (doc: Documentation) => void;
   onToggleEnabled: (doc: Documentation) => void;
@@ -119,18 +119,25 @@ export const DocumentationList = ({
   onToggleEnabled,
   onDeleteClick,
 }: DocumentationListProps) => {
-  // Source filter: gives a Confluence-ONLY list (separate from uploaded docs) where each
-  // synced page can be toggled on/off for AI answers.
+  // Source facet (All / Uploaded / Confluence) + free-text search. Together they define the
+  // "visible" docs, which drive both the list and the bulk Select-All (so bulk works on any
+  // facet, not just All).
   const [sourceFilter, setSourceFilter] = useState<'all' | 'uploaded' | 'confluence'>('all');
+  const [search, setSearch] = useState('');
   const isConfluenceDoc = (doc: Documentation) =>
     doc.externalSource?.split(':')[0] === 'confluence';
   const hasConfluence = docs.some(isConfluenceDoc);
   const confluenceCount = docs.filter(isConfluenceDoc).length;
+  const needle = search.trim().toLowerCase();
   const filteredDocs = docs.filter((doc) => {
-    if (sourceFilter === 'confluence') return isConfluenceDoc(doc);
-    if (sourceFilter === 'uploaded') return !isConfluenceDoc(doc);
+    if (sourceFilter === 'confluence' && !isConfluenceDoc(doc)) return false;
+    if (sourceFilter === 'uploaded' && isConfluenceDoc(doc)) return false;
+    if (needle && !doc.title.toLowerCase().includes(needle)) return false;
     return true;
   });
+  const visibleIds = filteredDocs.map((doc) => doc.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedDocs.has(id));
 
   return (
     <Card className="p-6">
@@ -138,7 +145,7 @@ export const DocumentationList = ({
         <h3 className="text-lg font-semibold">
           {sourceFilter === 'confluence' ? 'Confluence Pages' : 'Documentation'}
         </h3>
-        {sourceFilter === 'all' && docs.length > 0 && (
+        {filteredDocs.length > 0 && (
           <div className="flex gap-2 items-center">
             {selectedDocs.size > 0 && (
               <>
@@ -151,8 +158,8 @@ export const DocumentationList = ({
                 </Button>
               </>
             )}
-            <Button variant="outline" size="sm" onClick={onToggleAll}>
-              {selectedDocs.size === docs.length ? (
+            <Button variant="outline" size="sm" onClick={() => onToggleAll(visibleIds)}>
+              {allVisibleSelected ? (
                 <>
                   <CheckSquare className="mr-2 w-4 h-4" />
                   Deselect All
@@ -167,6 +174,17 @@ export const DocumentationList = ({
           </div>
         )}
       </div>
+
+      {docs.length > 0 && (
+        <input
+          type="text"
+          value={search}
+          onChange={(ev) => setSearch(ev.target.value)}
+          placeholder="Search documents…"
+          aria-label="Search documents"
+          className="px-3 py-1.5 mb-3 w-full text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+        />
+      )}
 
       {hasConfluence && (
         <div className="flex flex-wrap gap-1 mb-4">
