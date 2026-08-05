@@ -62,7 +62,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   },
   {
     id: 'organization',
-    label: 'Organization',
+    label: 'Workspace',
     icon: Layers,
     description: 'Manage categories and labels',
     render: (ctx) => <OrganizationSettings section={ctx.section} />,
@@ -102,7 +102,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     id: 'sso',
     label: 'SSO',
     icon: KeyRound,
-    description: 'Configure single sign-on (OIDC) for your organization',
+    description: 'Configure single sign-on (OIDC) for your workspace',
     render: () => <SSOConfigSettings />,
     visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
   },

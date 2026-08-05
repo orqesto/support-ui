@@ -293,7 +293,7 @@ export const DashboardPage = () => {
         open: true,
         title: 'No Email Integration',
         description:
-          'No email integrations configured for the current organization. Please configure email integration in Settings.',
+          'No email integrations configured for the current workspace. Please configure email integration in Settings.',
         variant: 'warning',
       });
       return;
@@ -303,7 +303,7 @@ export const DashboardPage = () => {
         open: true,
         title: 'No Telegram Integration',
         description:
-          'No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.',
+          'No Telegram integration configured for the current workspace. Please configure Telegram integration in Settings.',
         variant: 'warning',
       });
       return;

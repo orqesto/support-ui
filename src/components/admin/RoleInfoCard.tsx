@@ -168,7 +168,7 @@ const roleCapabilities: Record<OrganizationRole, RoleCapability[]> = {
 
 const roleDescriptions: Record<OrganizationRole, string> = {
   org_admin:
-    'Full control over organization settings, users, integrations, and billing. Can manage everything except creating other org admins.',
+    'Full control over workspace settings, users, integrations, and billing. Can manage everything except creating other workspace admins.',
   moderator:
     'Operational manager with control over integrations, AI configuration, and ticket management. Cannot manage users or billing.',
   support:

@@ -197,7 +197,7 @@ export const AdminPlansTab = () => {
       {currentPlan && (
         <div>
           <h2 className="mb-4 text-xl font-semibold text-gray-300">Current Subscription</h2>
-          <p className="mb-4 text-sm text-gray-400">Your organization&apos;s active plan</p>
+          <p className="mb-4 text-sm text-gray-400">Your workspace&apos;s active plan</p>
           <div className="grid grid-cols-1 gap-6">
             {renderPlanCard({ ...currentPlan, isActive: true })}
           </div>

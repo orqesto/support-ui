@@ -184,7 +184,7 @@ export const AdminUsageTab = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-muted-foreground">Loading organizations usage...</div>
+        <div className="text-muted-foreground">Loading workspaces usage...</div>
       </div>
     );
   }
@@ -197,7 +197,7 @@ export const AdminUsageTab = () => {
           <CardContent className="p-6">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-sm font-medium text-gray-400">Total Organizations</p>
+                <p className="text-sm font-medium text-gray-400">Total Workspaces</p>
                 <p className="mt-2 text-3xl font-bold">{organizations.length}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-full">
@@ -272,7 +272,7 @@ export const AdminUsageTab = () => {
                   className="px-3 py-3 text-sm font-medium text-left cursor-pointer hover:bg-muted"
                   onClick={() => handleSort('name')}
                 >
-                  Organization{' '}
+                  Workspace{' '}
                   {sortBy === 'name' && (
                     <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                   )}
@@ -588,7 +588,7 @@ export const AdminUsageTab = () => {
 
         {organizations.length === 0 && (
           <div className="py-12 text-center">
-            <p className="text-muted-foreground">No organizations found</p>
+            <p className="text-muted-foreground">No workspaces found</p>
           </div>
         )}
       </div>

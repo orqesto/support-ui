@@ -260,7 +260,7 @@ export const getEffectiveRole = (
 export const roleDisplayNames: Record<UserRole, string> = {
   admin: 'System Administrator',
   user: 'User',
-  org_admin: 'Organization Administrator',
+  org_admin: 'Workspace Administrator',
   moderator: 'Moderator',
   support: 'Support Agent',
   associate: 'Associate',
@@ -270,9 +270,9 @@ export const roleDisplayNames: Record<UserRole, string> = {
  * Role descriptions
  */
 export const roleDescriptions: Record<UserRole, string> = {
-  admin: 'Full system access across all organizations',
+  admin: 'Full system access across all workspaces',
   user: 'Basic user access',
-  org_admin: 'Full control within organization, can manage users and settings',
+  org_admin: 'Full control within workspace, can manage users and settings',
   moderator: 'Can manage integrations, categories, AI settings, and handle tickets/messages',
   support: 'Can manage tickets and messages, view statistics',
   associate: 'View-only access with ability to request changes',

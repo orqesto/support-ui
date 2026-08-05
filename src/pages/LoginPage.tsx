@@ -16,7 +16,7 @@ type Step = 'email' | 'password' | 'selectOrg' | 'ssoSlug' | 'totp' | 'setup2fa'
 
 // Friendly copy for the `?ssoError=<code>` codes the BE redirects back with.
 const SSO_ERROR_MESSAGES: Record<string, string> = {
-  access_denied: 'Your account is not permitted to sign in via SSO for this organization.',
+  access_denied: 'Your account is not permitted to sign in via SSO for this workspace.',
   sso_failed: 'Single sign-on failed. Please try again or use your password.',
   session_failed: 'We could not complete your sign-in session. Please try again.',
   handoff: 'The sign-in link was incomplete. Please try signing in again.',
@@ -105,7 +105,7 @@ export const LoginPage = () => {
       setOrgOptions(data.organizations);
       setSelectedOrgId(data.organizations[0]?.id ?? null);
       setStep('selectOrg');
-      setInfo(`You have access to ${data.organizations.length} organizations. Pick one to continue.`);
+      setInfo(`You have access to ${data.organizations.length} workspaces. Pick one to continue.`);
       return;
     }
 
@@ -117,7 +117,7 @@ export const LoginPage = () => {
         setSetup2faQr(setupData.qrCodeDataUrl);
         setSetup2faSecret(setupData.secret);
         setStep('setup2fa');
-        setInfo('Your organization requires two-factor authentication. Scan the QR code and enter the code to complete login.');
+        setInfo('Your workspace requires two-factor authentication. Scan the QR code and enter the code to complete login.');
       } catch {
         setError('Failed to initialize 2FA setup. Please try again.');
       } finally {
@@ -195,7 +195,7 @@ export const LoginPage = () => {
       }
       if ('ambiguous' in resolved) {
         setStep('ssoSlug');
-        setInfo('Multiple organizations use this email domain. Enter your organization slug to continue with SSO.');
+        setInfo('Multiple workspaces use this email domain. Enter your workspace slug to continue with SSO.');
         return;
       }
       setInfo('No SSO is configured for this email domain — sign in with your password.');
@@ -230,7 +230,7 @@ export const LoginPage = () => {
   const handleSubmitOrgPick = async (event: FormEvent) => {
     event.preventDefault();
     if (!selectedOrgId) {
-      setError('Please select an organization');
+      setError('Please select a workspace');
       return;
     }
     setError('');
@@ -261,7 +261,7 @@ export const LoginPage = () => {
     event.preventDefault();
     const slug = ssoSlug.trim();
     if (!slug) {
-      setError('Please enter your organization slug.');
+      setError('Please enter your workspace slug.');
       return;
     }
     setError('');
@@ -394,7 +394,7 @@ export const LoginPage = () => {
 
             {step === 'selectOrg' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Organization</label>
+                <label className="text-sm font-medium text-foreground">Workspace</label>
                 <select
                   value={selectedOrgId ?? ''}
                   onChange={(event) => setSelectedOrgId(Number(event.target.value) || null)}
@@ -402,7 +402,7 @@ export const LoginPage = () => {
                   required
                 >
                   <option value="" disabled>
-                    Select organization
+                    Select workspace
                   </option>
                   {orgOptions.map((org) => (
                     <option key={org.id} value={org.id}>
@@ -415,7 +415,7 @@ export const LoginPage = () => {
 
             {step === 'ssoSlug' && (
               <Input
-                label="Organization slug"
+                label="Workspace slug"
                 type="text"
                 autoComplete="off"
                 placeholder="your-org"

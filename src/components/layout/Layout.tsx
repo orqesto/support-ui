@@ -139,7 +139,7 @@ const allNavigation: Array<{
 
   // ─── Admin — configuration & rare-use ───────────────────────────────────────
   { group: 'admin', name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
-  { group: 'admin', name: 'Organization', href: '/organization', icon: Building2 },
+  { group: 'admin', name: 'Workspace', href: '/organization', icon: Building2 },
   {
     group: 'admin',
     name: 'Settings',

@@ -306,7 +306,7 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
       key: 'unusual',
       label: 'Unusual',
       tone: 'risk',
-      tooltip: 'Unusual attachments for this organization',
+      tooltip: 'Unusual attachments for this workspace',
     });
   }
 

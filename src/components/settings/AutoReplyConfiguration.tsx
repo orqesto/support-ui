@@ -259,7 +259,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
             {org.autoReplyEnabled && org.autoReplyHighConfidenceThreshold !== undefined &&
               ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
-            . Only organization admins can change auto-reply settings.
+            . Only workspace admins can change auto-reply settings.
           </p>
         </CardHeader>
       </Card>
