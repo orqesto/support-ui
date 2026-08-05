@@ -61,6 +61,11 @@ export const KnowledgeBasePage = () => {
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null);
+  // Shared KB revision: the Confluence catalog and the Documentation list are separate
+  // components over an overlapping doc set, so a mutation in one bumps this to make the
+  // other re-fetch (Process adds a doc → list refreshes; Remove/Delete → both refresh).
+  const [kbVersion, setKbVersion] = useState(0);
+  const bumpKb = useCallback(() => setKbVersion((version) => version + 1), []);
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -420,8 +425,8 @@ export const KnowledgeBasePage = () => {
         {/* Documentation Tab Content */}
         {filterType === 'documentation' ? (
           <>
-            <ConfluenceCatalogSection />
-            <DocumentationSettings />
+            <ConfluenceCatalogSection refreshSignal={kbVersion} onKbChange={bumpKb} />
+            <DocumentationSettings refreshSignal={kbVersion} onKbChange={bumpKb} />
           </>
         ) : (
           <>
