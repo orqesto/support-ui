@@ -20,12 +20,10 @@ import {
   getPlanTypeBadgeColor,
   getUsageBadge,
   statusBadgeVariant,
-  type CatalogModule,
-  type OrgModule,
   type OrganizationUsage,
   type Plan,
 } from './AdminUsageTab.helpers';
-import { OrgAiUsageSection, OrgModulesSection } from './AdminUsageOrgDetailSections';
+import { OrgAiUsageSection, OrgFeatureOverridesSection } from './AdminUsageOrgDetailSections';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -51,12 +49,6 @@ export const AdminUsageTab = () => {
   const [reactivating, setReactivating] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Per-org AI modules
-  const [orgModulesMap, setOrgModulesMap] = useState<Map<number, OrgModule[]>>(new Map());
-  const [modulesLoadingSet, setModulesLoadingSet] = useState<Set<number>>(new Set());
-  const [allModules, setAllModules] = useState<CatalogModule[]>([]);
-  const [togglingModule, setTogglingModule] = useState<{ orgId: number; moduleId: number } | null>(null);
-
   const refreshOrgs = useCallback(async () => {
     const response = await apiClient.get<{
       data: { organizations: OrganizationUsage[] } | OrganizationUsage[];
@@ -72,12 +64,11 @@ export const AdminUsageTab = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [usageRes, plansRes, modulesRes] = await Promise.all([
+        const [usageRes, plansRes] = await Promise.all([
           apiClient.get<{ data: { organizations: OrganizationUsage[] } | OrganizationUsage[] }>(
             '/api/admin/organizations/usage'
           ),
           apiClient.get<{ success: boolean; data: { plans: Plan[] } }>('/api/subscriptions/plans'),
-          apiClient.get<{ data: CatalogModule[] }>('/api/admin/modules'),
         ]);
         const raw = usageRes.data.data;
         setOrganizations(
@@ -86,7 +77,6 @@ export const AdminUsageTab = () => {
             : ((raw as { organizations: OrganizationUsage[] }).organizations ?? [])
         );
         setAvailablePlans(plansRes.data.data.plans || []);
-        setAllModules(modulesRes.data.data || []);
       } catch (error) {
         logger.error('Failed to load organizations usage:', error);
       } finally {
@@ -96,36 +86,12 @@ export const AdminUsageTab = () => {
     void init();
   }, []);
 
-  const loadOrgModules = useCallback(
-    async (orgId: number) => {
-      if (orgModulesMap.has(orgId) || modulesLoadingSet.has(orgId)) return;
-      setModulesLoadingSet((prev) => new Set(prev).add(orgId));
-      try {
-        const res = await apiClient.get<{ data: OrgModule[] }>(
-          `/api/admin/organizations/${orgId}/modules`
-        );
-        setOrgModulesMap((prev) => new Map(prev).set(orgId, res.data.data || []));
-      } catch (err) {
-        logger.error('Failed to load org modules:', err);
-        setOrgModulesMap((prev) => new Map(prev).set(orgId, []));
-      } finally {
-        setModulesLoadingSet((prev) => {
-          const set = new Set(prev);
-          set.delete(orgId);
-          return set;
-        });
-      }
-    },
-    [orgModulesMap, modulesLoadingSet]
-  );
-
   const toggleRow = (orgId: number) => {
     const newExpanded = new Set(expandedRows);
     if (newExpanded.has(orgId)) {
       newExpanded.delete(orgId);
     } else {
       newExpanded.add(orgId);
-      void loadOrgModules(orgId);
     }
     setExpandedRows(newExpanded);
   };
@@ -176,41 +142,6 @@ export const AdminUsageTab = () => {
       setActionError('Failed to reactivate subscription.');
     } finally {
       setReactivating(null);
-    }
-  };
-
-  const handleEnableModule = async (orgId: number, moduleId: number) => {
-    setTogglingModule({ orgId, moduleId });
-    try {
-      await apiClient.post(`/api/admin/organizations/${orgId}/modules`, { moduleId });
-      const res = await apiClient.get<{ data: OrgModule[] }>(
-        `/api/admin/organizations/${orgId}/modules`
-      );
-      setOrgModulesMap((prev) => new Map(prev).set(orgId, res.data.data || []));
-    } catch (error) {
-      logger.error('Failed to enable module:', error);
-    } finally {
-      setTogglingModule(null);
-    }
-  };
-
-  const handleDisableModule = async (orgId: number, moduleId: number) => {
-    setTogglingModule({ orgId, moduleId });
-    try {
-      await apiClient.delete(`/api/admin/organizations/${orgId}/modules/${moduleId}`);
-      setOrgModulesMap((prev) => {
-        const current = prev.get(orgId) ?? [];
-        return new Map(prev).set(
-          orgId,
-          current.map((module) =>
-            module.moduleId === moduleId ? { ...module, isActive: false } : module
-          )
-        );
-      });
-    } catch (error) {
-      logger.error('Failed to disable module:', error);
-    } finally {
-      setTogglingModule(null);
     }
   };
 
@@ -393,8 +324,6 @@ export const AdminUsageTab = () => {
                 const status = org.subscription?.status;
                 const canCancel = status ? CANCELLABLE.has(status) : false;
                 const canReactivate = status ? REACTIVATABLE.has(status) : false;
-                const orgModules = orgModulesMap.get(org.id) ?? [];
-                const modulesLoading = modulesLoadingSet.has(org.id);
 
                 return (
                   <>
@@ -643,19 +572,7 @@ export const AdminUsageTab = () => {
                                 </div>
                               )}
                             </div>
-                            <OrgModulesSection
-                              orgId={org.id}
-                              modulesLoading={modulesLoading}
-                              allModules={allModules}
-                              orgModules={orgModules}
-                              togglingModule={togglingModule}
-                              onEnableModule={(orgId, moduleId) =>
-                                void handleEnableModule(orgId, moduleId)
-                              }
-                              onDisableModule={(orgId, moduleId) =>
-                                void handleDisableModule(orgId, moduleId)
-                              }
-                            />
+                            <OrgFeatureOverridesSection orgId={org.id} />
 
                             <OrgAiUsageSection aiCalls={org.usage.aiCalls} />
                           </div>

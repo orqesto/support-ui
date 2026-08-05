@@ -1,18 +1,15 @@
 import { apiClient } from '@/lib/api-client';
 
-export type ActiveModule = {
-  id: number;
-  moduleId: number;
-  isActive: boolean;
-  activatedAt: string;
-  name: string;
-  displayName: string;
-};
-
-const getActiveModules = () =>
+/**
+ * Effective on/off state of every feature for the current org (plan grant with
+ * any per-org override already applied by the backend).
+ */
+const getFeatures = () =>
   apiClient
-    .get<{ success: boolean; data: { modules: ActiveModule[] } }>('/api/subscriptions/modules/active')
-    .then((res) => res.data.data.modules);
+    .get<{ success: boolean; data: { features: Record<string, boolean> } }>(
+      '/api/subscriptions/features'
+    )
+    .then((res) => res.data.data.features);
 
 /**
  * Open the Stripe Customer Portal. BE creates a Stripe-hosted session and
@@ -28,6 +25,6 @@ const openCustomerPortal = () =>
     .then((res) => res.data.data.url);
 
 export const subscriptionService = {
-  getActiveModules,
+  getFeatures,
   openCustomerPortal,
 };
