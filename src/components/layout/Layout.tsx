@@ -30,6 +30,8 @@ import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 import { apiClient } from '@/lib/api-client';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
@@ -233,6 +235,31 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Onboarding gate (shell-level so it covers every protected route, not just the
+  // dashboard — closes the deep-link bypass). Redirect an org_admin whose org
+  // never finished the wizard into it. Excludes GLOBAL admins: their
+  // `organizationRole` reflects their home/system org, not the client org they're
+  // viewing via the switcher, so gating them would pull them into (and consume the
+  // one-shot trial of) every fresh client org. Skips while status is 'unknown'
+  // (loading) or the org is subscription-gated (the overlay owns the screen). The
+  // wizard lives outside Layout, so this never loops.
+  const onboardingStatus = useOnboardingStore((state) => state.status);
+  const fetchOnboardingOnce = useOnboardingStore((state) => state.fetchOnce);
+  const subscriptionGated = useSubscriptionGateStore((state) => state.gated);
+  useEffect(() => {
+    fetchOnboardingOnce(selectedOrganizationId);
+  }, [fetchOnboardingOnce, selectedOrganizationId]);
+  useEffect(() => {
+    if (
+      user?.role !== 'admin' &&
+      user?.organizationRole === 'org_admin' &&
+      onboardingStatus === 'pending' &&
+      !subscriptionGated
+    ) {
+      navigate('/onboarding', { replace: true });
+    }
+  }, [user, onboardingStatus, subscriptionGated, navigate]);
   const { hasPermission, orgRole } = usePermissions();
   const { hasFeature } = useFeatures();
   const slaNotifications = useSLANotifications();
