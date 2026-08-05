@@ -58,19 +58,19 @@ describe('ConfluenceCatalogSection — visible catalog with per-page process/rem
     expect(screen.getByRole('button', { name: /remove from kb/i })).toBeInTheDocument();
   });
 
-  it('Process as KB calls processConfluencePage(integrationId, pageId) then reloads', async () => {
+  it('Process as KB queues the page (async) and optimistically shows it processing', async () => {
     primeCatalog();
-    processConfluencePage.mockResolvedValue({ success: true, data: { docId: 99, status: 'ready' } });
+    processConfluencePage.mockResolvedValue({ success: true, data: { queued: true, pageId: 'p1' } });
     render(<ConfluenceCatalogSection />);
 
     fireEvent.click(await screen.findByRole('button', { name: /process as kb/i }));
 
     await waitFor(() => expect(processConfluencePage).toHaveBeenCalledWith(7, 'p1'));
-    // Reloads the catalog to reflect the new processed state.
-    expect(listConfluencePages).toHaveBeenCalledTimes(2);
+    // Optimistic per-row state appears immediately — no full-list reload/blocking.
+    expect(await screen.findByText(/queued/i)).toBeInTheDocument();
   });
 
-  it('Remove from KB deletes the doc by docId then reloads (page stays visible)', async () => {
+  it('Remove from KB deletes by docId and flips just that row back to unprocessed', async () => {
     primeCatalog();
     deleteDocumentation.mockResolvedValue(undefined);
     render(<ConfluenceCatalogSection />);
@@ -78,7 +78,10 @@ describe('ConfluenceCatalogSection — visible catalog with per-page process/rem
     fireEvent.click(await screen.findByRole('button', { name: /remove from kb/i }));
 
     await waitFor(() => expect(deleteDocumentation).toHaveBeenCalledWith(42));
-    expect(listConfluencePages).toHaveBeenCalledTimes(2);
+    // In-place: the removed page now shows a Process button (both rows unprocessed), no reload.
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /process as kb/i })).toHaveLength(2)
+    );
   });
 
   it('renders nothing when there are no Confluence integrations', async () => {
