@@ -288,12 +288,21 @@ export const DocumentationSettings = () => {
     });
   };
 
-  const handleToggleAll = () => {
-    if (selectedDocs.size === docs.length) {
-      setSelectedDocs(new Set());
-    } else {
-      setSelectedDocs(new Set(docs.map((doc) => doc.id)));
-    }
+  // Filter-aware: toggles the CURRENTLY-VISIBLE docs (the list passes the ids it's showing
+  // after its source-facet + search filter). Selecting-all on a filtered view selects only
+  // that view; other selections are preserved.
+  const handleToggleAll = (visibleIds: number[]) => {
+    setSelectedDocs((prev) => {
+      const allVisibleSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const id of visibleIds) next.delete(id);
+      } else {
+        for (const id of visibleIds) next.add(id);
+      }
+      return next;
+    });
   };
 
   const handleBulkDelete = async () => {
