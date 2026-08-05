@@ -6,7 +6,6 @@ import { ChannelsStep } from './steps/ChannelsStep';
 import { DepartmentsStep } from './steps/DepartmentsStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
 import { KbStep } from './steps/KbStep';
-import { RoutingStep } from './steps/RoutingStep';
 import { StorageStep } from './steps/StorageStep';
 import { StepIndicator, STEP_LABELS } from './StepIndicator';
 import { Button } from '@/components/ui/Button';
@@ -24,8 +23,7 @@ const STEP_TITLES: Record<StepNumber, string> = {
   3: 'Add knowledge for your AI',
   4: 'Where should files be stored?',
   5: 'Connect your message channels',
-  6: 'Confirm message routing',
-  7: 'Invite your team',
+  6: 'Invite your team',
 };
 
 /**
@@ -39,7 +37,12 @@ export const OnboardingWizard = () => {
   const managedAiAvailable = useOnboardingStore((state) => state.managedAiAvailable);
   const markComplete = useOnboardingStore((state) => state.markComplete);
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
-  const [activeStep, setActiveStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
+  // Clamp a resumed step into range: the wizard dropped from 7 steps to 6 (the
+  // read-only Routing step was removed), so an org persisted at the old step 7
+  // resumes on the last step instead of a blank screen.
+  const [activeStep, setActiveStep] = useState<StepNumber>(
+    Math.min(persisted?.currentStep ?? 1, STEP_LABELS.length) as StepNumber
+  );
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [channelsConnected, setChannelsConnected] = useState(false);
   const [channelsKnown, setChannelsKnown] = useState(false);
@@ -223,8 +226,7 @@ export const OnboardingWizard = () => {
         {activeStep === 3 && <KbStep onDocsCountChange={handleKbDocsCount} />}
         {activeStep === 4 && <StorageStep onChoiceChange={handleStorageChoice} />}
         {activeStep === 5 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
-        {activeStep === 6 && <RoutingStep />}
-        {activeStep === 7 && <InviteTeamStep />}
+        {activeStep === 6 && <InviteTeamStep />}
       </div>
 
       {exitError && (
