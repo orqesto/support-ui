@@ -45,6 +45,10 @@ export const OnboardingWizard = () => {
   const [channelsKnown, setChannelsKnown] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  // Set when complete()/skip() fails — surfaced to the user instead of silently
+  // navigating to /dashboard (where the still-pending status would bounce them
+  // right back into the wizard, an invisible loop).
+  const [exitError, setExitError] = useState<string | null>(null);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
 
   // Move focus to the step heading on each step change so keyboard/screen-reader
@@ -94,6 +98,7 @@ export const OnboardingWizard = () => {
   };
 
   const goTo = (step: StepNumber) => {
+    setExitError(null);
     setActiveStep(step);
     persistStep(step);
   };
@@ -119,23 +124,31 @@ export const OnboardingWizard = () => {
   };
 
   const handleSkip = async () => {
+    setExitError(null);
     try {
       await onboardingService.skip();
     } catch (error) {
       logger.error('Failed to skip onboarding:', error);
+      // Stay on the wizard and surface it — navigating away on a failed skip
+      // just loops the user back (status is still pending).
+      setExitError("Couldn't skip setup right now. Please check your connection and try again.");
+      return;
     }
     leaveWizard();
   };
 
   const handleFinish = async () => {
     setFinishing(true);
+    setExitError(null);
     try {
       await onboardingService.complete();
     } catch (error) {
       logger.error('Failed to complete onboarding:', error);
-    } finally {
+      setExitError("Couldn't finish setup right now. Please check your connection and try again.");
       setFinishing(false);
+      return;
     }
+    setFinishing(false);
     leaveWizard();
   };
 
@@ -201,6 +214,12 @@ export const OnboardingWizard = () => {
         {activeStep === 6 && <RoutingStep />}
         {activeStep === 7 && <InviteTeamStep />}
       </div>
+
+      {exitError && (
+        <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          {exitError}
+        </div>
+      )}
 
       <div className="flex items-center justify-between border-t border-border pt-6">
         <Button
