@@ -10,7 +10,12 @@ export function ThreadBubble({ content, isAgent }: { content: string | null | un
   // Content can be null (e.g. an attachment-only message or a body that failed to
   // extract) — coerce to '' so the regex/split helpers below don't throw.
   const safeContent = content ?? '';
-  const isHtml = /<[a-z][\s\S]*>/i.test(safeContent);
+  // Require a *real* HTML tag — a closing tag (</p>) or a known structural/void
+  // tag (<br>, <div ...>). The old /<[a-z][\s\S]*>/ matched any angle-bracket
+  // token, so a plaintext email containing a bare <https://…> link or a
+  // <name@domain> address was misrouted into the HTML renderer, where newlines
+  // collapse into one wall of text and the >-quoted reply history never splits.
+  const isHtml = /<\/[a-z][a-z0-9]*\s*>|<(?:br|hr|img|p|div|table|span|a|ul|ol|li|blockquote|h[1-6])[\s/>]/i.test(safeContent);
   const { main, quote } = useMemo(() => splitAtQuote(safeContent, isHtml), [safeContent, isHtml]);
 
   // `[overflow-wrap:anywhere]` so a long unbroken token (e.g. a 200-char tracking
