@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ScrollText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { useAllianceAudit } from '@/hooks/useAllianceAudit';
 import type { AllianceAuditRow } from '@/services/alliance-audit.service';
 
@@ -48,17 +48,30 @@ export const ConsoleAudit = () => {
 
   const pagination = auditQuery.data?.pagination;
 
-  // Distinct actions on the current page — a small, cheap filter source (v1).
-  const actionOptions = useMemo(() => {
-    const distinct = new Set((auditQuery.data?.rows ?? []).map((row) => row.action));
-    return Array.from(distinct).sort();
+  // Accumulate a STABLE superset of the actions we've seen across pages so applying a
+  // filter (which narrows the rows to one action) doesn't collapse the option list.
+  // Still best-effort v1 — a dedicated distinct-actions endpoint would make it complete.
+  const [knownActions, setKnownActions] = useState<string[]>([]);
+  useEffect(() => {
+    const rows = auditQuery.data?.rows;
+    if (!rows) {
+      return;
+    }
+    setKnownActions((prev) => {
+      const merged = new Set(prev);
+      for (const row of rows) {
+        merged.add(row.action);
+      }
+      // The union only grows; a length match means nothing new was added.
+      return merged.size === prev.length ? prev : Array.from(merged).sort();
+    });
   }, [auditQuery.data?.rows]);
 
   const rows = auditQuery.data?.rows ?? [];
 
   // First load has no data yet; subsequent pages keep the previous page (placeholderData).
   if (auditQuery.isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (auditQuery.isError) {
@@ -111,7 +124,7 @@ export const ConsoleAudit = () => {
                 onChange={(event) => handleActionChange(event.target.value)}
               >
                 <option value="">All actions</option>
-                {actionOptions.map((option) => (
+                {knownActions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -123,7 +136,7 @@ export const ConsoleAudit = () => {
           {rows.length === 0 ? (
             <p className="py-8 text-sm text-center text-muted-foreground">No audit events yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-md border border-border">
+            <Card padding="none" className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-left text-muted-foreground">
@@ -153,7 +166,7 @@ export const ConsoleAudit = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           )}
         </CardContent>
         {pagination && pagination.totalPages > 1 && (

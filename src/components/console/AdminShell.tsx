@@ -2,8 +2,12 @@ import { Suspense, useEffect, useMemo } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
 import { ArrowLeft, Network } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useScopeStore } from '@/stores/scopeStore';
+import { ConsoleLoading } from './ConsoleLoading';
 import { CONSOLE_SECTIONS, type ConsoleScopeCtx } from './consoleSections';
 import { AllianceSwitcher } from './AllianceSwitcher';
 
@@ -17,10 +21,14 @@ import { AllianceSwitcher } from './AllianceSwitcher';
  */
 export const AdminShell = () => {
   const { allianceId } = useParams();
-  const numericId = allianceId ? Number(allianceId) : null;
+  // A non-numeric param (Number(...) === NaN) is invalid — hooks gate on `!== null`, so
+  // NaN would otherwise slip through to /api/alliances/NaN/... Treat non-finite as null.
+  const parsedId = allianceId ? Number(allianceId) : NaN;
+  const numericId = Number.isFinite(parsedId) ? parsedId : null;
   const setScope = useScopeStore((state) => state.setScope);
   const clearScope = useScopeStore((state) => state.clearScope);
   const { isAdmin } = usePermissions();
+  const { data: alliances = [], isLoading: alliancesLoading } = useMyAlliances();
 
   useEffect(() => {
     setScope({ scope: 'alliance', allianceId: numericId });
@@ -31,6 +39,40 @@ export const AdminShell = () => {
     const ctx: ConsoleScopeCtx = { scope: 'alliance', isGlobalAdmin: isAdmin, allianceId: numericId };
     return CONSOLE_SECTIONS.filter((section) => (section.visible ? section.visible(ctx) : true));
   }, [isAdmin, numericId]);
+
+  // Wrong/invalid alliance: a global admin may view any *valid* alliance; everyone else
+  // must administer THIS specific alliance. Render an explicit state — never substitute
+  // one, and never mount the sections (which would re-derive NaN and hit /alliances/NaN).
+  const invalidId = numericId === null;
+  const administersThis = !invalidId && (isAdmin || alliances.some((alliance) => alliance.id === numericId));
+  // A global admin needs no membership list; only a non-admin waits on it to decide.
+  if (!invalidId && !isAdmin && alliancesLoading) {
+    return <ConsoleLoading />;
+  }
+  if (!administersThis) {
+    return (
+      <div className="flex justify-center items-center p-6 min-h-screen bg-background">
+        <Alert variant="danger" className="max-w-md">
+          <div className="space-y-3">
+            <div>
+              <p className="font-medium text-foreground">You don&apos;t administer this alliance</p>
+              <p className="text-sm text-muted-foreground">
+                {invalidId
+                  ? 'This alliance link is invalid.'
+                  : 'Your account has no alliance-admin access to this alliance.'}
+              </p>
+            </div>
+            <NavLink to="/dashboard">
+              <Button variant="secondary">
+                <ArrowLeft className="mr-2 w-4 h-4" />
+                Back to app
+              </Button>
+            </NavLink>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

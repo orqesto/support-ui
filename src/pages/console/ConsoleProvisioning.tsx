@@ -18,10 +18,11 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Toggle } from '@/components/ui/Toggle';
-import { Spinner } from '@/components/ui/Spinner';
+import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import {
   useAllianceScimConfig,
@@ -100,7 +101,10 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
 type ConfirmTarget =
   | { kind: 'token'; id: number; label: string }
   | { kind: 'groupmap'; id: number; label: string }
-  | { kind: 'rolemap'; id: number; label: string };
+  | { kind: 'rolemap'; id: number; label: string }
+  // Elevating an EXISTING role map to alliance_admin — gated behind the same confirm as
+  // deletes because it grants admin across every org in the alliance (T-05-29).
+  | { kind: 'elevate'; idpGroupExternalId: string; label: string };
 
 export const ConsoleProvisioning = () => {
   const { allianceId } = useParams();
@@ -213,14 +217,20 @@ export const ConsoleProvisioning = () => {
       revokeToken.mutate(confirm.id);
     } else if (confirm.kind === 'groupmap') {
       deleteGroupMap.mutate(confirm.id);
-    } else {
+    } else if (confirm.kind === 'rolemap') {
       deleteRoleMap.mutate(confirm.id);
+    } else {
+      // Confirmed elevation of an existing mapping to alliance_admin.
+      setRoleMap.mutate({
+        idpGroupExternalId: confirm.idpGroupExternalId,
+        mappedRole: 'alliance_admin',
+      });
     }
     setConfirm(null);
   };
 
   if (isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (isError) {
@@ -331,7 +341,7 @@ export const ConsoleProvisioning = () => {
           {tokens.length === 0 ? (
             <p className="text-xs text-muted-foreground">No tokens yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-md border border-border">
+            <Card padding="none" className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-left text-muted-foreground">
@@ -342,33 +352,44 @@ export const ConsoleProvisioning = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {tokens.map((token) => (
-                    <tr key={token.id} className="border-t border-border">
-                      <td className="px-3 py-2">{token.label ?? '—'}</td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : 'Never'}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {new Date(token.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setConfirm({ kind: 'token', id: token.id, label: token.label ?? 'this token' })
-                          }
-                          aria-label="Revoke token"
-                        >
-                          <Trash2 className="mr-1 w-3.5 h-3.5" />
-                          Revoke
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {tokens.map((token) => {
+                    const revoked = token.revokedAt !== null;
+                    return (
+                      <tr key={token.id} className="border-t border-border">
+                        <td className="px-3 py-2">
+                          <span className={revoked ? 'text-muted-foreground line-through' : undefined}>
+                            {token.label ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : 'Never'}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {new Date(token.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {revoked ? (
+                            <Badge variant="secondary">Revoked</Badge>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setConfirm({ kind: 'token', id: token.id, label: token.label ?? 'this token' })
+                              }
+                              aria-label="Revoke token"
+                            >
+                              <Trash2 className="mr-1 w-3.5 h-3.5" />
+                              Revoke
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            </div>
+            </Card>
           )}
         </CardContent>
       </Card>
@@ -399,10 +420,7 @@ export const ConsoleProvisioning = () => {
           {groupMaps.length > 0 && (
             <div className="space-y-3">
               {groupMaps.map((mapping: AllianceGroupMapping) => (
-                <div
-                  key={mapping.id}
-                  className="flex flex-wrap gap-3 items-end p-3 rounded-md border border-border"
-                >
+                <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
                   <div className="flex-1 min-w-[12rem]">
                     <Label className="mb-1">IdP group external id</Label>
                     <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
@@ -435,7 +453,7 @@ export const ConsoleProvisioning = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -502,10 +520,7 @@ export const ConsoleProvisioning = () => {
           {roleMaps.length > 0 && (
             <div className="space-y-3">
               {roleMaps.map((mapping: AllianceRoleMapping) => (
-                <div
-                  key={mapping.id}
-                  className="flex flex-wrap gap-3 items-end p-3 rounded-md border border-border"
-                >
+                <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
                   <div className="flex-1 min-w-[12rem]">
                     <Label className="mb-1">IdP group external id</Label>
                     <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
@@ -519,12 +534,23 @@ export const ConsoleProvisioning = () => {
                       value={mapping.mappedRole}
                       onChange={(event) => {
                         const next = event.target.value as AllianceRole;
-                        if (next !== mapping.mappedRole) {
-                          setRoleMap.mutate({
-                            idpGroupExternalId: mapping.idpGroupExternalId,
-                            mappedRole: next,
-                          });
+                        if (next === mapping.mappedRole) {
+                          return;
                         }
+                        // Elevating an existing mapping to alliance_admin must be a
+                        // deliberate, confirmed action (grants admin across every org).
+                        if (next === 'alliance_admin') {
+                          setConfirm({
+                            kind: 'elevate',
+                            idpGroupExternalId: mapping.idpGroupExternalId,
+                            label: mapping.idpGroupExternalId,
+                          });
+                          return;
+                        }
+                        setRoleMap.mutate({
+                          idpGroupExternalId: mapping.idpGroupExternalId,
+                          mappedRole: next,
+                        });
                       }}
                     >
                       {ROLE_OPTIONS.map((option) => (
@@ -547,7 +573,7 @@ export const ConsoleProvisioning = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -629,18 +655,28 @@ export const ConsoleProvisioning = () => {
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={handleConfirm}
         variant="danger"
-        confirmText={confirm?.kind === 'token' ? 'Revoke token' : 'Remove mapping'}
+        confirmText={
+          confirm?.kind === 'token'
+            ? 'Revoke token'
+            : confirm?.kind === 'elevate'
+              ? 'Grant alliance admin'
+              : 'Remove mapping'
+        }
         title={
           confirm?.kind === 'token'
             ? `Revoke ${confirm.label}?`
-            : `Remove mapping for ${confirm?.label ?? ''}?`
+            : confirm?.kind === 'elevate'
+              ? `Elevate ${confirm.label} to alliance admin?`
+              : `Remove mapping for ${confirm?.label ?? ''}?`
         }
         description={
           confirm?.kind === 'token'
             ? 'Any IdP connection using this token will stop syncing immediately. This cannot be undone.'
-            : confirm?.kind === 'rolemap'
-              ? 'Members of this IdP group will no longer be granted this alliance role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
-              : 'Members of this IdP group will no longer be added to the alliance group on future syncs.'
+            : confirm?.kind === 'elevate'
+              ? 'Members of this IdP group will gain alliance-admin rights across every organization in this alliance on the next SCIM sync. Only confirm if you intend to elevate them.'
+              : confirm?.kind === 'rolemap'
+                ? 'Members of this IdP group will no longer be granted this alliance role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
+                : 'Members of this IdP group will no longer be added to the alliance group on future syncs.'
         }
       />
     </div>
