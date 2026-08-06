@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { usePermissions } from '@/hooks/usePermissions';
 import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
@@ -29,12 +30,27 @@ type OrganizationSettingsProps = {
 
 export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}) => {
   const navigate = useNavigate();
-  const initial = section && isOrgSection(section) ? section : 'categories';
+  const { isAdmin, isOrgAdmin } = usePermissions();
+
+  // The "Workspace" tab is reachable by moderators (VIEW_ORGANIZATION_SETTINGS), but the
+  // Security sub-section configures workspace-wide auth policy (2FA enforcement) — an
+  // admin-only control. Gate it to org_admin+ / global admin so it isn't shown to
+  // moderators. UX-only; the BE requireOrgAdmin guard remains the real authority.
+  const canManageSecurity = isAdmin || isOrgAdmin;
+  const visibleSections = canManageSecurity
+    ? sections
+    : sections.filter((sect) => sect.id !== 'security');
+
+  const requested = section && isOrgSection(section) ? section : 'categories';
+  // Don't let a non-admin deep-link (#organization/security) land on a hidden tab.
+  const initial: OrgSection =
+    requested === 'security' && !canManageSecurity ? 'categories' : requested;
   const [active, setActive] = useState<OrgSection>(initial);
 
   useEffect(() => {
-    if (section && isOrgSection(section)) setActive(section);
-  }, [section]);
+    if (!section || !isOrgSection(section)) return;
+    setActive(section === 'security' && !canManageSecurity ? 'categories' : section);
+  }, [section, canManageSecurity]);
 
   const goToSection = (next: OrgSection) => {
     setActive(next);
@@ -54,7 +70,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
       </div>
 
       <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {sections.map((sect) => (
+        {visibleSections.map((sect) => (
           <button
             key={sect.id}
             onClick={() => goToSection(sect.id)}
@@ -74,7 +90,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
       {active === 'labels' && <LabelsSettings />}
       {active === 'routing-skills' && <RoutingKeysSettings />}
       {active === 'sla-config' && <SLAConfigSettings />}
-      {active === 'security' && <SecuritySettings />}
+      {active === 'security' && canManageSecurity && <SecuritySettings />}
     </div>
   );
 };
