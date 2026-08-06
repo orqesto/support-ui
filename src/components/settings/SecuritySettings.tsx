@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Shield } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
 import { logger } from '@/lib/logger';
 
 export const SecuritySettings = () => {
+  const { isAdmin, isOrgAdmin } = usePermissions();
+  const canManageSecurity = isAdmin || isOrgAdmin;
   const [require2FA, setRequire2FA] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -12,6 +15,9 @@ export const SecuritySettings = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    // Admin-only control; skip the fetch entirely for non-admins (the section is
+    // also hidden by the parent). BE requireOrgAdmin is the real authority.
+    if (!canManageSecurity) return;
     organizationService
       .getSecuritySettings()
       .then((data) => {
@@ -19,7 +25,7 @@ export const SecuritySettings = () => {
       })
       .catch((err: unknown) => logger.error('Failed to load security settings', err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [canManageSecurity]);
 
   const handleSave = async () => {
     setError('');
@@ -35,6 +41,10 @@ export const SecuritySettings = () => {
       setSaving(false);
     }
   };
+
+  // Defense-in-depth: never render workspace security policy for a non-admin, even
+  // if this component is reached directly (deep-link / future reuse).
+  if (!canManageSecurity) return null;
 
   if (loading) {
     return <div className="py-4 text-sm text-muted-foreground">Loading...</div>;
