@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -18,6 +18,30 @@ export const AllianceSwitcher = () => {
   const navigate = useNavigate();
   const { data: alliances = [], isLoading } = useMyAlliances();
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss the dropdown on outside click / Escape without a focusable overlay element.
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const handlePointer = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [isOpen]);
 
   if (isLoading) {
     return <Spinner size={16} />;
@@ -26,14 +50,17 @@ export const AllianceSwitcher = () => {
     return null;
   }
 
-  const current = alliances.find((alliance) => alliance.id === currentId) ?? alliances[0];
+  // Never substitute alliances[0] — a URL id that isn't in the list must not be
+  // mislabeled as the current alliance (AdminShell renders the unauthorized state).
+  const current = alliances.find((alliance) => alliance.id === currentId) ?? null;
 
   if (alliances.length === 1) {
+    const only = alliances[0];
     return (
       <Badge variant="secondary" className="flex gap-2 items-center px-3 py-1.5">
         <Building2 className="w-3.5 h-3.5" />
         <span className="truncate">
-          {current?.name} — {current?.orgCount} organization{current?.orgCount === 1 ? '' : 's'}
+          {only.name} — {only.orgCount} organization{only.orgCount === 1 ? '' : 's'}
         </span>
       </Badge>
     );
@@ -45,7 +72,7 @@ export const AllianceSwitcher = () => {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <Button
         variant="ghost"
         onClick={() => setIsOpen(!isOpen)}
@@ -57,42 +84,28 @@ export const AllianceSwitcher = () => {
       </Button>
 
       {isOpen && (
-        <>
-          <div
-            role="button"
-            tabIndex={0}
-            className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                setIsOpen(false);
-              }
-            }}
-            aria-label="Close alliance menu"
-          />
-          <div className="overflow-y-auto absolute left-0 top-full z-20 mt-2 w-72 max-h-80 rounded-md border shadow-lg bg-card border-border">
-            <div className="p-2">
-              {alliances.map((alliance) => (
-                <Button
-                  key={alliance.id}
-                  variant="ghost"
-                  onClick={() => handleSelect(alliance.id)}
-                  className="flex gap-2 justify-between items-center px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent"
-                >
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-medium truncate">{alliance.name}</span>
-                    <span className="block text-xs truncate text-muted-foreground">
-                      {alliance.orgCount} organization{alliance.orgCount === 1 ? '' : 's'}
-                    </span>
+        <div className="overflow-y-auto absolute left-0 top-full z-20 mt-2 w-72 max-h-80 rounded-md border shadow-lg bg-card border-border">
+          <div className="p-2">
+            {alliances.map((alliance) => (
+              <Button
+                key={alliance.id}
+                variant="ghost"
+                onClick={() => handleSelect(alliance.id)}
+                className="flex gap-2 justify-between items-center px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent"
+              >
+                <span className="flex-1 min-w-0">
+                  <span className="block font-medium truncate">{alliance.name}</span>
+                  <span className="block text-xs truncate text-muted-foreground">
+                    {alliance.orgCount} organization{alliance.orgCount === 1 ? '' : 's'}
                   </span>
-                  {alliance.id === currentId && (
-                    <Check className="flex-shrink-0 ml-2 w-4 h-4 text-primary" />
-                  )}
-                </Button>
-              ))}
-            </div>
+                </span>
+                {alliance.id === currentId && (
+                  <Check className="flex-shrink-0 ml-2 w-4 h-4 text-primary" />
+                )}
+              </Button>
+            ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

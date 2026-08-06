@@ -5,21 +5,24 @@ import { Plus, UserMinus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import {
   useAllianceMembers,
   useAddMember,
   useChangeMemberRole,
   useRemoveMember,
 } from '@/hooks/useAllianceAdmin';
-import { ALLIANCE_ROLES, type AllianceRole } from '@/types/roles';
+import { ALLIANCE_ROLES, roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
 import type { AllianceMember } from '@/services/alliance-admin.service';
+
+/** Friendly label for an org-role enum surfaced in the effective-roles chips. */
+const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole] ?? role;
 
 const ROLE_LABEL: Record<AllianceRole, string> = {
   alliance_admin: 'Alliance admin',
@@ -92,8 +95,11 @@ export const ConsoleMembers = () => {
     );
   };
 
+  const parsedNewUserId = Number(newUserId);
+  const newUserIdValid = Number.isInteger(parsedNewUserId) && parsedNewUserId > 0;
+
   if (isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (isError || !members) {
@@ -147,6 +153,9 @@ export const ConsoleMembers = () => {
                     <td className="px-4 py-3">
                       <Select
                         value={member.allianceRole}
+                        // Server-controlled value with no optimistic update: disable the row
+                        // while its change is in flight so it can't visibly revert mid-request.
+                        disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
                         onChange={(event) =>
                           handleChangeRole(member.userId, event.target.value as AllianceRole)
                         }
@@ -165,7 +174,7 @@ export const ConsoleMembers = () => {
                         <div className="flex flex-wrap gap-1.5">
                           {member.effectiveRoles.map((role) => (
                             <Badge key={role.orgId} variant="secondary">
-                              {role.role} in {role.orgName}
+                              {orgRoleLabel(role.role)} in {role.orgName}
                             </Badge>
                           ))}
                         </div>
@@ -203,6 +212,14 @@ export const ConsoleMembers = () => {
                 onChange={(event) => setNewUserId(event.target.value)}
                 placeholder="e.g. 42"
               />
+              <p className="text-xs text-muted-foreground">
+                Enter the user&apos;s internal numeric ID. It must be a whole number greater than zero.
+              </p>
+              {newUserId.trim().length > 0 && !newUserIdValid && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  Enter a valid user ID (a positive whole number).
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="alliance-add-role">Alliance role</Label>
@@ -222,7 +239,7 @@ export const ConsoleMembers = () => {
               <Button variant="outline" onClick={() => setAddOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAdd} isLoading={addMember.isPending}>
+              <Button onClick={handleAdd} isLoading={addMember.isPending} disabled={!newUserIdValid || addMember.isPending}>
                 Add member
               </Button>
             </div>
