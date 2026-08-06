@@ -41,6 +41,7 @@ import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import {
   toGhostOption,
+  suggestedAnswerToHtml,
   type GhostOption,
   type SuggestedAnswerMeta,
 } from './messageDetailConstants';
@@ -462,7 +463,10 @@ export function MessageDetail({
   const handleGhostClick = useCallback(
     (answer: string, _source: string, _attachments?: KBAttachment[]) => {
       setComposer(
-        DOMPurify.sanitize(answer, {
+        // Suggested answers arrive as plain text with markdown-ish syntax; turn
+        // them into HTML so the editor holds editable rich text and the customer
+        // receives formatted output instead of literal "**bold**" / "- " runs.
+        DOMPurify.sanitize(suggestedAnswerToHtml(answer), {
           ALLOWED_TAGS: [
             'p',
             'br',
