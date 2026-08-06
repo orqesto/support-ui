@@ -62,7 +62,11 @@ export const useSaveGroup = (allianceId: number | null) => {
         await allianceGroupsService.removeMember(id, original.id, userId);
       }
     },
-    onSuccess: invalidate,
+    // Edit fans out to update→setOrgs→N×add→M×remove sequentially and is NOT atomic:
+    // a mid-sequence failure leaves the BE half-updated. Invalidate on settle (error
+    // too) so the UI reflects whatever partial writes committed rather than going stale.
+    // A fuller fix is an atomic group-PUT on the BE that applies the whole diff in one tx.
+    onSettled: invalidate,
   });
 };
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
@@ -71,7 +72,7 @@ export const ConsoleOrganizations = () => {
   };
 
   if (isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (isError || !orgs) {

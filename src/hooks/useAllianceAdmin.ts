@@ -58,6 +58,8 @@ export const useAttachOrg = (allianceId: number | null) => {
     onSuccess: () => {
       invalidate();
       void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'attachable-orgs'] });
+      // The switcher's orgCount comes from ['alliance','mine'] — refresh it too.
+      void queryClient.invalidateQueries({ queryKey: ['alliance', 'mine'] });
     },
   });
 };
@@ -70,6 +72,8 @@ export const useDetachOrg = (allianceId: number | null) => {
     onSuccess: () => {
       invalidate();
       void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'attachable-orgs'] });
+      // The switcher's orgCount comes from ['alliance','mine'] — refresh it too.
+      void queryClient.invalidateQueries({ queryKey: ['alliance', 'mine'] });
     },
   });
 };

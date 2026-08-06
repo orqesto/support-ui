@@ -5,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/Dialog';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import {
   useAllianceSettings,
   useUpdateAllianceSettings,
@@ -52,7 +52,7 @@ export const ConsoleSettings = () => {
   const [confirmSlug, setConfirmSlug] = useState('');
 
   if (settingsQuery.isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (settingsQuery.isError || !settings) {
@@ -78,7 +78,10 @@ export const ConsoleSettings = () => {
   const trimmedName = name.trim();
   const trimmedSlug = slug.trim();
   const dirty = trimmedName !== settings.name || trimmedSlug !== settings.slug;
-  const canSave = dirty && trimmedName.length >= 2 && trimmedSlug.length >= 2;
+  // Slug must match the documented format (lowercase letters, numbers, hyphens only).
+  const slugFormatValid = /^[a-z0-9-]+$/.test(trimmedSlug);
+  const canSave =
+    dirty && trimmedName.length >= 2 && trimmedSlug.length >= 2 && slugFormatValid;
 
   const handleSave = () => {
     if (!canSave) {
@@ -147,6 +150,11 @@ export const ConsoleSettings = () => {
             <p className="text-xs text-muted-foreground">
               Lowercase letters, numbers and hyphens only.
             </p>
+            {trimmedSlug.length > 0 && !slugFormatValid && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                Use only lowercase letters, numbers and hyphens (no spaces or uppercase).
+              </p>
+            )}
             {slugCollision && (
               <p className="text-xs text-red-600 dark:text-red-400">{saveError}</p>
             )}
