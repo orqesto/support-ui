@@ -18,7 +18,7 @@ export const AttachmentRelevanceIndicator = ({ relevance }: AttachmentRelevanceI
     <Tooltip
       content={
         <div className="space-y-1">
-          <div className="font-semibold">Unusual attachment for this organization</div>
+          <div className="font-semibold">Unusual attachment for this workspace</div>
           <div className="text-xs">Relevance score: {relevancePercentage}%</div>
           {relevance.scores.descriptionMatch > 0 && (
             <div className="text-xs">
@@ -57,7 +57,7 @@ export const MessageAttachmentWarning = ({
 
   return (
     <Tooltip
-      content={`${count} attachment${count > 1 ? 's' : ''}, some unusual for this organization`}
+      content={`${count} attachment${count > 1 ? 's' : ''}, some unusual for this workspace`}
     >
       <Badge variant="warning" size="sm" className="gap-1">
         <AlertTriangle className="w-3 h-3" />

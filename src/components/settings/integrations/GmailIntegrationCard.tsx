@@ -17,6 +17,7 @@ import { SourceDepartmentEditor } from '@/components/settings/integrations/Sourc
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Spinner } from '@/components/ui/Spinner';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect';
@@ -73,6 +74,12 @@ export const GmailIntegrationCard = ({
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [manualAuthUrl, setManualAuthUrl] = useState<string | null>(null);
+  // True while a redirect-flow OAuth is being finished on this mount (we landed
+  // back from Google). Seeded synchronously so the "finishing…" loader shows
+  // immediately instead of the form flashing open before the callback resolves.
+  const [finishingOAuth, setFinishingOAuth] = useState(() =>
+    gmailOAuthService.hasPendingRedirectResult()
+  );
 
   // Centralized create-form department picker state (load + default + selection).
   const deptPicker = useCreateSourceDepartments();
@@ -231,10 +238,10 @@ export const GmailIntegrationCard = ({
     let cancelled = false;
     void (async () => {
       const result = await gmailOAuthService.consumePendingRedirectResult();
-      if (cancelled || !result) return;
-      if (result.success && result.data) {
+      if (cancelled) return;
+      if (result?.success && result.data) {
         await handleOAuthSuccess(result.data);
-      } else {
+      } else if (result) {
         onShowAlert({
           open: true,
           title: 'Gmail Connection Failed',
@@ -242,6 +249,9 @@ export const GmailIntegrationCard = ({
           variant: 'error',
         });
       }
+      // Whether it succeeded, failed, or there was nothing pending, we're done
+      // finishing — drop the loader and reveal the (now up-to-date) card.
+      if (!cancelled) setFinishingOAuth(false);
     })();
     return () => {
       cancelled = true;
@@ -334,6 +344,17 @@ export const GmailIntegrationCard = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {finishingOAuth && (
+            <div className="flex gap-3 items-center p-4 rounded-lg border bg-muted/40">
+              <Spinner size={20} className="text-primary" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Finishing Gmail connection…</p>
+                <p className="text-xs text-muted-foreground">
+                  Completing sign-in and adding your account — just a moment.
+                </p>
+              </div>
+            </div>
+          )}
           {gmailIntegrations.length > 0 && (
             <div className="space-y-2">
               {gmailIntegrations.map((integration) => (

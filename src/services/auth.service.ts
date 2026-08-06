@@ -1,5 +1,21 @@
 import { apiClient } from '@/lib/api-client';
-import type { LoginRequest, LoginResponse, ApiResponse } from '@/types';
+import type { LoginRequest, LoginResponse, ApiResponse, User } from '@/types';
+
+/** Public self-serve "create a workspace" signup (distinct from the invite-only register). */
+export type SignupRequest = {
+  workspaceName: string;
+  firstName: string;
+  email: string;
+  password: string;
+  lastName?: string;
+  captchaToken?: string;
+};
+
+export type SignupResponseData = {
+  user: User;
+  organization: { id: number; slug: string; name: string };
+  onboarding: { status: string; currentStep: number };
+};
 
 export const authService = {
   // Step 1 of the multi-step login: captcha-gated, no disclosure of user/org.
@@ -32,6 +48,17 @@ export const authService = {
   }) => {
     const response = await apiClient.post<ApiResponse<LoginResponse>>(
       '/api/auth/select-organization',
+      data
+    );
+    return response.data;
+  },
+
+  // Public, unauthenticated self-serve signup. On 201 the BE sets the httpOnly
+  // `jwt` cookie (auto-login, exactly like a password login) and returns the new
+  // user + organization + onboarding state (status 'pending', step 1).
+  signup: async (data: SignupRequest) => {
+    const response = await apiClient.post<ApiResponse<SignupResponseData>>(
+      '/api/auth/signup',
       data
     );
     return response.data;

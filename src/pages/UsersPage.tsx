@@ -259,7 +259,7 @@ export const UsersPage = () => {
           <Shield className="mb-4 w-16 h-16 text-gray-400" />
           <h2 className="mb-2 text-2xl font-bold">Access Denied</h2>
           <p className="max-w-md text-center text-muted-foreground">
-            You don&apos;t have permission to manage users. Please contact your organization
+            You don&apos;t have permission to manage users. Please contact your workspace
             administrator.
           </p>
         </div>
@@ -325,7 +325,7 @@ export const UsersPage = () => {
               )}
             </div>
             <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-              {showRoleInfo ? 'Hide' : 'View'} detailed permissions for each organization role
+              {showRoleInfo ? 'Hide' : 'View'} detailed permissions for each workspace role
             </p>
           </button>
           {showRoleInfo && (
@@ -359,7 +359,7 @@ export const UsersPage = () => {
               <div className="p-8 text-center">
                 <Users className="mx-auto mb-4 w-16 h-16 text-gray-400" />
                 <h3 className="mb-2 text-lg font-semibold">No Users Found</h3>
-                <p className="text-muted-foreground">No users in the organization yet.</p>
+                <p className="text-muted-foreground">No users in the workspace yet.</p>
               </div>
             ) : (
               <>
@@ -611,7 +611,7 @@ export const UsersPage = () => {
                 </div>
                 <p className="mb-1 text-sm font-medium">{roleDisplayNames.org_admin}</p>
                 <p className="text-xs text-muted-foreground">
-                  Full control within organization. Can manage users, settings, and all resources.
+                  Full control within workspace. Can manage users, settings, and all resources.
                 </p>
               </div>
               <div className="p-4 rounded-lg border">

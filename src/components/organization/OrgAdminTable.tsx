@@ -69,15 +69,15 @@ export function OrgAdminTable({ allOrganizations, searchOrg, pendingSearch, edit
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
           <div>
-            <CardTitle>All Organizations</CardTitle>
-            <CardDescription>{allOrganizations.length} organization{allOrganizations.length !== 1 ? 's' : ''} in the system</CardDescription>
+            <CardTitle>All Workspaces</CardTitle>
+            <CardDescription>{allOrganizations.length} workspace{allOrganizations.length !== 1 ? 's' : ''} in the system</CardDescription>
           </div>
           <SearchInput key="org-search" value={pendingSearch} onChange={onPendingSearchChange} onSearch={onSearch} onBlur={onSearchBlur} showSearchButton={true} placeholder="Search by ID, name, slug, description..." className="w-full sm:w-auto sm:min-w-[300px]" />
         </div>
       </CardHeader>
       <CardContent className="p-0">
         {allOrganizations.length === 0 ? (
-          <div className="p-8 text-center"><p className="text-sm text-muted-foreground">{searchOrg ? 'No organizations found matching your search' : 'No organizations available'}</p></div>
+          <div className="p-8 text-center"><p className="text-sm text-muted-foreground">{searchOrg ? 'No workspaces found matching your search' : 'No workspaces available'}</p></div>
         ) : (
           <>
             {/* Mobile/Tablet */}

@@ -70,7 +70,7 @@ const GROUPS: { label: string; permissions: Permission[] }[] = [
     permissions: [Permission.VIEW_INTEGRATIONS, Permission.MANAGE_INTEGRATIONS],
   },
   {
-    label: 'Organization',
+    label: 'Workspace',
     permissions: [Permission.VIEW_ORGANIZATION_SETTINGS, Permission.MANAGE_ORGANIZATION],
   },
   {

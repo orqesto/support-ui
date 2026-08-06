@@ -79,7 +79,7 @@ export const SignupPage = () => {
         // Store invitation details
         const email = data.data.invitation.email;
         setInvitationEmail(email);
-        setOrganizationName(data.data.invitation.organizationName || 'the organization');
+        setOrganizationName(data.data.invitation.organizationName || 'the workspace');
         setInvitationRole(data.data.invitation.role);
 
         // Remove the token from the URL (both query and hash) so it isn't exposed
@@ -298,6 +298,13 @@ export const SignupPage = () => {
               Already have an account?{' '}
               <Link to="/login" className="font-medium text-primary hover:underline">
                 Sign in
+              </Link>
+            </div>
+
+            <div className="text-sm text-center text-muted-foreground">
+              Want your own workspace?{' '}
+              <Link to="/signup" className="font-medium text-primary hover:underline">
+                Start a free trial
               </Link>
             </div>
           </form>

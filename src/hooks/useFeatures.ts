@@ -2,21 +2,21 @@ import { useEffect, useState } from 'react';
 import { subscriptionService } from '@/services/subscription.service';
 import { useAuthStore } from '@/stores/authStore';
 
-type ModuleState = {
-  activeModules: Set<string>;
+type FeatureState = {
+  features: Record<string, boolean>;
   loading: boolean;
 };
 
-export const useModules = () => {
+export const useFeatures = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const user = useAuthStore((state) => state.user);
 
-  const [state, setState] = useState<ModuleState>({ activeModules: new Set(), loading: true });
+  const [state, setState] = useState<FeatureState>({ features: {}, loading: true });
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setState({ activeModules: new Set(), loading: false });
+      setState({ features: {}, loading: false });
       return;
     }
 
@@ -24,15 +24,15 @@ export const useModules = () => {
     setState((prev) => ({ ...prev, loading: true }));
 
     subscriptionService
-      .getActiveModules()
-      .then((modules) => {
+      .getFeatures()
+      .then((features) => {
         if (!cancelled) {
-          setState({ activeModules: new Set(modules.map((mod) => mod.name)), loading: false });
+          setState({ features, loading: false });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setState({ activeModules: new Set(), loading: false });
+          setState({ features: {}, loading: false });
         }
       });
 
@@ -42,7 +42,7 @@ export const useModules = () => {
   }, [isAuthenticated, selectedOrganizationId, user?.organizationId]);
 
   return {
-    hasModule: (name: string) => state.activeModules.has(name),
+    hasFeature: (key: string) => state.features[key] === true,
     loading: state.loading,
   };
 };

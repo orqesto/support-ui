@@ -49,7 +49,7 @@ export function SubscriptionGateOverlay() {
         <p className="mb-2 text-sm text-muted-foreground">{message}</p>
         <p className="mb-5 text-sm text-muted-foreground">
           Access is paused until the subscription is renewed. Please contact us to reactivate your
-          organization — once it&apos;s active again, reload to continue.
+          workspace — once it&apos;s active again, reload to continue.
         </p>
 
         <div className="flex flex-wrap gap-2">

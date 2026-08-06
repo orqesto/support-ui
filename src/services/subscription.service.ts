@@ -1,18 +1,15 @@
 import { apiClient } from '@/lib/api-client';
 
-export type ActiveModule = {
-  id: number;
-  moduleId: number;
-  isActive: boolean;
-  activatedAt: string;
-  name: string;
-  displayName: string;
-};
-
-const getActiveModules = () =>
+/**
+ * Effective on/off state of every feature for the current org (plan grant with
+ * any per-org override already applied by the backend).
+ */
+const getFeatures = () =>
   apiClient
-    .get<{ success: boolean; data: { modules: ActiveModule[] } }>('/api/subscriptions/modules/active')
-    .then((res) => res.data.data.modules);
+    .get<{ success: boolean; data: { features: Record<string, boolean> } }>(
+      '/api/subscriptions/features'
+    )
+    .then((res) => res.data.data.features);
 
 /**
  * Open the Stripe Customer Portal. BE creates a Stripe-hosted session and
@@ -27,7 +24,22 @@ const openCustomerPortal = () =>
     .post<{ success: boolean; data: { url: string } }>('/api/subscriptions/portal')
     .then((res) => res.data.data.url);
 
+export type OrgUsage = {
+  current: { messages: number; users: number; integrations: number };
+  limits: { messages: number; users: number; integrations: number };
+  percentage: { messages: number; users: number; integrations: number };
+  month: string;
+};
+
+/**
+ * Current-month usage + plan limits for the org (GET /api/usage/current).
+ * Used to show remaining seats/quota. The endpoint returns the object directly
+ * (no { success, data } envelope).
+ */
+const getUsage = () => apiClient.get<OrgUsage>('/api/usage/current').then((res) => res.data);
+
 export const subscriptionService = {
-  getActiveModules,
+  getFeatures,
   openCustomerPortal,
+  getUsage,
 };

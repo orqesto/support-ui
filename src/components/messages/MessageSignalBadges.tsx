@@ -156,7 +156,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
       {(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed | undefined)
         ?.hasUnusualAttachments && (
         <Tooltip
-          content={`${(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed).count} attachment(s), some unusual for this organization`}
+          content={`${(message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed).count} attachment(s), some unusual for this workspace`}
           size="sm"
         >
           <Badge variant="warning" className={bc}>

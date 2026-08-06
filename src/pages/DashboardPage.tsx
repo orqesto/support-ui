@@ -17,9 +17,6 @@ import { messageService } from '@/services/message.service';
 import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
-import { useAuthStore } from '@/stores/authStore';
-import { useOnboardingStore } from '@/stores/onboardingStore';
-import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 import { logger } from '@/lib/logger';
 import { MESSAGE_SOURCE_TYPES } from '@/types';
 import { DashboardKBSection } from '@/components/dashboard/DashboardKBSection';
@@ -35,35 +32,8 @@ import { cn } from '@/lib/utils';
 export const DashboardPage = () => {
   const navigate = useNavigate();
 
-  // Onboarding entry redirect: org_admins of an org that never finished the
-  // wizard land there after login. Soft gate — only the dashboard redirects,
-  // deep links elsewhere are untouched, and the wizard itself is skippable.
-  // Never redirect while status is 'unknown' (loading) or when the org is
-  // subscription-gated (the overlay owns the screen then).
-  const authUser = useAuthStore((state) => state.user);
-  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
-  const onboardingStatus = useOnboardingStore((state) => state.status);
-  const fetchOnboardingOnce = useOnboardingStore((state) => state.fetchOnce);
-  const subscriptionGated = useSubscriptionGateStore((state) => state.gated);
-
-  useEffect(() => {
-    fetchOnboardingOnce(selectedOrganizationId);
-  }, [fetchOnboardingOnce, selectedOrganizationId]);
-
-  useEffect(() => {
-    // Exclude GLOBAL admins: `organizationRole` reflects their home/system org,
-    // not the org they're viewing via the switcher — without this a global admin
-    // would be force-redirected into (and could consume the one-shot trial of)
-    // every freshly created client org. Global admins never need the wizard.
-    if (
-      authUser?.role !== 'admin' &&
-      authUser?.organizationRole === 'org_admin' &&
-      onboardingStatus === 'pending' &&
-      !subscriptionGated
-    ) {
-      navigate('/onboarding', { replace: true });
-    }
-  }, [authUser, onboardingStatus, subscriptionGated, navigate]);
+  // Onboarding entry redirect now lives in the shared app shell (Layout) so it
+  // fires on every protected route, not just the dashboard (deep-link bypass fix).
 
   const [stats, setStats] = useState({
     slaBreachCount: 0,
@@ -323,7 +293,7 @@ export const DashboardPage = () => {
         open: true,
         title: 'No Email Integration',
         description:
-          'No email integrations configured for the current organization. Please configure email integration in Settings.',
+          'No email integrations configured for the current workspace. Please configure email integration in Settings.',
         variant: 'warning',
       });
       return;
@@ -333,7 +303,7 @@ export const DashboardPage = () => {
         open: true,
         title: 'No Telegram Integration',
         description:
-          'No Telegram integration configured for the current organization. Please configure Telegram integration in Settings.',
+          'No Telegram integration configured for the current workspace. Please configure Telegram integration in Settings.',
         variant: 'warning',
       });
       return;

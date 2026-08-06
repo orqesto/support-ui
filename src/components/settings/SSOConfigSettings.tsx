@@ -310,7 +310,7 @@ export const SSOConfigSettings = () => {
                 onChange={(event) => setEnabled(event.target.checked)}
                 className="w-4 h-4"
               />
-              <span className="text-sm font-medium text-foreground">Enable SSO for this organization</span>
+              <span className="text-sm font-medium text-foreground">Enable SSO for this workspace</span>
             </label>
 
             {/* Redirect URI to register at the IdP — authoritative (derived server-side). */}

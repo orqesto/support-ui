@@ -48,7 +48,7 @@ export const SecuritySettings = () => {
           Security Policies
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Enforce password and authentication requirements for all users in this organization.
+          Enforce password and authentication requirements for all users in this workspace.
         </p>
       </div>
 

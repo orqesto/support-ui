@@ -7,7 +7,6 @@ export const STEP_LABELS = [
   'Knowledge',
   'Storage',
   'Channels',
-  'Routing',
   'Team',
 ] as const;
 

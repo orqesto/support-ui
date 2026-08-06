@@ -125,7 +125,7 @@ export const InviteUserModal = ({
     setError('');
 
     if (!organizationId) {
-      setError('Please select an organization');
+      setError('Please select a workspace');
       return;
     }
     // org_admin sees every department regardless (the BE fans them out); mirror
@@ -223,12 +223,12 @@ export const InviteUserModal = ({
           </div>
 
           <ReactSelect
-            label="Organization"
+            label="Workspace"
             value={String(organizationId ?? '')}
             onChange={(value) => setOrganizationId(Number(value))}
             options={[
               ...(organizations.length === 0
-                ? [{ value: '', label: 'Loading organizations...' }]
+                ? [{ value: '', label: 'Loading workspaces...' }]
                 : []),
               ...organizations.map((org) => ({ value: String(org.id), label: org.name })),
             ]}
@@ -237,8 +237,8 @@ export const InviteUserModal = ({
           />
           <p className="-mt-2 text-sm text-muted-foreground">
             {isAdmin
-              ? 'Select the organization to invite this user to'
-              : 'User will be added to your organization'}
+              ? 'Select the workspace to invite this user to'
+              : 'User will be added to your workspace'}
           </p>
 
           <ReactSelect
@@ -250,14 +250,14 @@ export const InviteUserModal = ({
               { value: 'support', label: 'Support - Manage tickets and messages' },
               { value: 'moderator', label: 'Moderator - Manage integrations, categories, AI' },
               ...(isAdmin
-                ? [{ value: 'org_admin', label: 'Organization Admin - Full control' }]
+                ? [{ value: 'org_admin', label: 'Workspace Admin - Full control' }]
                 : []),
             ]}
             required
           />
           <p className="-mt-2 text-sm text-muted-foreground">
             {isAdmin
-              ? 'Select the role for this user in the organization'
+              ? 'Select the role for this user in the workspace'
               : 'Org admins cannot invite other org admins'}
           </p>
 

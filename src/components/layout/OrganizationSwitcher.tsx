@@ -99,7 +99,7 @@ export const OrganizationSwitcher = () => {
           <div className="flex flex-1 gap-2 items-center min-w-0">
             <Building2 className="flex-shrink-0 w-4 h-4" />
             <span className="truncate">
-              {selectedOrg ? selectedOrg.name : 'Select Organization'}
+              {selectedOrg ? selectedOrg.name : 'Select Workspace'}
             </span>
           </div>
           <ChevronDown className="flex-shrink-0 w-4 h-4" />
@@ -118,7 +118,7 @@ export const OrganizationSwitcher = () => {
                   setIsOpen(false);
                 }
               }}
-              aria-label="Close organization menu"
+              aria-label="Close workspace menu"
             />
 
             {/* Dropdown */}
@@ -128,7 +128,7 @@ export const OrganizationSwitcher = () => {
                   <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
                 ) : organizations.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No organizations found
+                    No workspaces found
                   </div>
                 ) : (
                   organizations.map((org) => (

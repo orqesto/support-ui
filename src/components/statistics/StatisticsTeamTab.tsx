@@ -59,7 +59,7 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                       </tr>
                     ))
                   ) : !teamData || teamData.length === 0 ? (
-                    <tr><td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">No agents found for this organisation.</td></tr>
+                    <tr><td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">No agents found for this workspace.</td></tr>
                   ) : (
                     teamData.map((entry) => {
                       const topLang = Object.entries(entry.stats.languageBreakdown ?? {}).sort(([, itemA], [, itemB]) => itemB - itemA)[0]?.[0] ?? '—';

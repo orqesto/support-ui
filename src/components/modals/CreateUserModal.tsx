@@ -125,7 +125,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   if (!isOpen) return null;
 
   const organizationRoleOptions = [
-    { value: 'org_admin', label: 'Organization Admin' },
+    { value: 'org_admin', label: 'Workspace Admin' },
     { value: 'moderator', label: 'Moderator' },
     { value: 'support', label: 'Support' },
     { value: 'associate', label: 'Associate' },
@@ -230,11 +230,11 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           />
 
           <ReactSelect
-            label="Organization Role"
+            label="Workspace Role"
             value={organizationRole}
             onChange={(value) => setOrganizationRole(value as OrganizationRole)}
             options={organizationRoleOptions}
-            placeholder="Select organization role"
+            placeholder="Select workspace role"
           />
 
           {organizationRole === 'org_admin' || role === 'admin' ? (
