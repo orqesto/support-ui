@@ -49,6 +49,8 @@ export const useDetachAllOrgs = (allianceId: number | null) => {
       void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'overview'] });
       void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'orgs'] });
       void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'attachable-orgs'] });
+      // The switcher's orgCount comes from ['alliance','mine'] — refresh it too.
+      void queryClient.invalidateQueries({ queryKey: ['alliance', 'mine'] });
       toast.success(
         result.detachedCount === 1
           ? 'Detached 1 organization from the alliance'

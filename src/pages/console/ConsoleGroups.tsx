@@ -5,13 +5,17 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { GroupEditor } from '@/components/console/GroupEditor';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { useAllianceGroups, useDeleteGroup } from '@/hooks/useAllianceGroups';
 import { useAllianceOrgs, useAllianceMembers } from '@/hooks/useAllianceAdmin';
+import { roleDisplayNames, type UserRole } from '@/types/roles';
 import type { AllianceGroup } from '@/services/alliance-groups.service';
+
+/** Friendly label for an org-role enum shown in the Grants column. */
+const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole] ?? role;
 
 /**
  * Groups list (SPEC §8.3): each group's name, scoped-org count, granted role, and
@@ -54,7 +58,7 @@ export const ConsoleGroups = () => {
   };
 
   if (isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (isError || !groups) {
@@ -111,7 +115,7 @@ export const ConsoleGroups = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {group.orgRole ? <Badge variant="secondary">{group.orgRole}</Badge> : <span className="text-muted-foreground">—</span>}
+                      {group.orgRole ? <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge> : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-foreground">{group.orgIds.length}</td>
                     <td className="px-4 py-3 text-right text-foreground">{group.memberCount}</td>

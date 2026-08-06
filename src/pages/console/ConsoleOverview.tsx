@@ -2,9 +2,9 @@ import { useParams } from 'react-router-dom';
 import { Building2, Users, UsersRound, KeyRound, ShieldCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { useAllianceOverview } from '@/hooks/useAllianceAdmin';
 
 /**
@@ -17,7 +17,7 @@ export const ConsoleOverview = () => {
   const { data, isLoading, isError, refetch } = useAllianceOverview(numericId);
 
   if (isLoading) {
-    return <Spinner size={20} />;
+    return <ConsoleLoading />;
   }
 
   if (isError || !data) {

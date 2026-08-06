@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/Label';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Toggle } from '@/components/ui/Toggle';
-import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { API_BASE_URL } from '@/lib/config';
 import { useAllianceOverview } from '@/hooks/useAllianceAdmin';
 import {
@@ -138,6 +139,7 @@ const DomainRow = ({ allianceId, domain }: { allianceId: number | null; domain: 
   const verify = useVerifyDomain(allianceId);
   const remove = useRemoveDomain(allianceId);
   const verified = domain.verifiedAt !== null;
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   return (
     <Card>
@@ -158,7 +160,7 @@ const DomainRow = ({ allianceId, domain }: { allianceId: number | null; domain: 
             )}
             <Button
               variant="ghost"
-              onClick={() => remove.mutate(domain.id)}
+              onClick={() => setConfirmRemove(true)}
               disabled={remove.isPending}
               aria-label={`Remove ${domain.domain}`}
             >
@@ -166,6 +168,22 @@ const DomainRow = ({ allianceId, domain }: { allianceId: number | null; domain: 
             </Button>
           </div>
         </div>
+        <ConfirmDialog
+          open={confirmRemove}
+          onOpenChange={setConfirmRemove}
+          onConfirm={() => {
+            remove.mutate(domain.id);
+            setConfirmRemove(false);
+          }}
+          variant="danger"
+          confirmText="Remove domain"
+          title={`Remove ${domain.domain}?`}
+          description={
+            verified
+              ? 'This domain is verified and governs which alliance its users resolve to at SSO login. Removing it can break SSO routing for those users. This cannot be undone.'
+              : 'This removes the pending domain and its DNS-TXT challenge. You can add it again later.'
+          }
+        />
         {!verified && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
@@ -228,6 +246,10 @@ export const ConsoleIdentity = () => {
 
   const providerHint = PROVIDERS.find((prov) => prov.id === provider)?.hint;
 
+  // Enabling SSO on a first-time config with a blank secret would show SSO as enabled
+  // while every login fails (no secret stored). Require a secret in that exact case.
+  const secretRequiredMissing = enabled && !hasClientSecret && clientSecret.trim().length === 0;
+
   const applyProvider = (id: string) => {
     setProvider(id);
     const preset = PROVIDERS.find((prov) => prov.id === id);
@@ -241,6 +263,10 @@ export const ConsoleIdentity = () => {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmedSecret = clientSecret.trim();
+    // Guard: don't enable SSO without a secret on first config (mirrors the disabled Save).
+    if (secretRequiredMissing) {
+      return;
+    }
     saveSso.mutate(
       {
         enabled,
@@ -272,11 +298,13 @@ export const ConsoleIdentity = () => {
     addDomain.mutate(domain, { onSuccess: () => setNewDomain('') });
   };
 
-  if (ssoQuery.isLoading || domainsQuery.isLoading) {
-    return <Spinner size={20} />;
+  // Overview supplies the slug the callback URL is built from — gate on it too, or the
+  // callback URL would silently vanish if only the overview query failed.
+  if (ssoQuery.isLoading || domainsQuery.isLoading || overview.isLoading) {
+    return <ConsoleLoading />;
   }
 
-  if (ssoQuery.isError || domainsQuery.isError) {
+  if (ssoQuery.isError || domainsQuery.isError || overview.isError) {
     return (
       <Alert variant="danger">
         <div className="flex gap-3 justify-between items-center">
@@ -286,6 +314,7 @@ export const ConsoleIdentity = () => {
             onClick={() => {
               void ssoQuery.refetch();
               void domainsQuery.refetch();
+              void overview.refetch();
             }}
           >
             Retry
@@ -384,6 +413,11 @@ export const ConsoleIdentity = () => {
                   ? 'A secret is already configured. Leave blank to keep it, or enter a new one to replace it.'
                   : 'Required to complete the connection.'}
               </p>
+              {secretRequiredMissing && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  Enter a client secret before enabling SSO — otherwise every login will fail.
+                </p>
+              )}
             </div>
 
             <Textarea
@@ -426,7 +460,11 @@ export const ConsoleIdentity = () => {
               </p>
             </div>
 
-            <Button type="submit" isLoading={saveSso.isPending} disabled={saveSso.isPending}>
+            <Button
+              type="submit"
+              isLoading={saveSso.isPending}
+              disabled={saveSso.isPending || secretRequiredMissing}
+            >
               Save SSO settings
             </Button>
           </form>
