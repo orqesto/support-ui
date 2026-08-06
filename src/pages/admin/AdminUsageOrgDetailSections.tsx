@@ -3,129 +3,11 @@
  * Extracted to keep AdminUsageTab.tsx under the max-lines limit.
  */
 
-import { RefreshCw, ToggleLeft, ToggleRight, Zap } from 'lucide-react';
-import {
-  UsageProgressBar,
-  formatCurrency,
-  type CatalogModule,
-  type OrgModule,
-  type UsageItem,
-} from './AdminUsageTab.helpers';
-import { Badge } from '@/components/ui/Badge';
+import { useCallback, useEffect, useState } from 'react';
+import { RefreshCw, Zap } from 'lucide-react';
+import { UsageProgressBar, type UsageItem } from './AdminUsageTab.helpers';
 import { Button } from '@/components/ui/Button';
-
-type OrgModulesSectionProps = {
-  orgId: number;
-  modulesLoading: boolean;
-  allModules: CatalogModule[];
-  orgModules: OrgModule[];
-  togglingModule: { orgId: number; moduleId: number } | null;
-  onEnableModule: (orgId: number, moduleId: number) => void;
-  onDisableModule: (orgId: number, moduleId: number) => void;
-};
-
-export const OrgModulesSection = ({
-  orgId,
-  modulesLoading,
-  allModules,
-  orgModules,
-  togglingModule,
-  onEnableModule,
-  onDisableModule,
-}: OrgModulesSectionProps) => {
-  const activeModules = allModules.filter((mod) => mod.isActive);
-
-  return (
-    <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-muted-foreground">AI Modules</h4>
-
-      {modulesLoading ? (
-        <div className="text-sm text-muted-foreground">Loading modules...</div>
-      ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="px-3 py-2 font-medium text-left text-muted-foreground">Module</th>
-                <th className="px-3 py-2 font-medium text-left text-muted-foreground">Status</th>
-                <th className="px-3 py-2 font-medium text-left text-muted-foreground hidden sm:table-cell">
-                  Usage
-                </th>
-                <th className="px-3 py-2 font-medium text-right text-muted-foreground">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {activeModules.map((catalogMod) => {
-                const orgMod = orgModules.find((mod) => mod.moduleId === catalogMod.id);
-                const enabled = orgMod?.isActive ?? false;
-                const isToggling =
-                  togglingModule?.orgId === orgId && togglingModule?.moduleId === catalogMod.id;
-
-                return (
-                  <tr key={catalogMod.id} className="hover:bg-muted/20">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{catalogMod.displayName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatCurrency(catalogMod.monthlyFee, 'EUR')}/mo
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      {enabled ? (
-                        <Badge className="bg-green-100 text-green-700">Active</Badge>
-                      ) : (
-                        <Badge variant="secondary">Inactive</Badge>
-                      )}
-                    </td>
-                    <td className="hidden px-3 py-2 sm:table-cell text-muted-foreground">
-                      {orgMod?.currentPeriodUsage !== null &&
-                      orgMod?.currentPeriodUsage !== undefined
-                        ? `${orgMod.currentPeriodUsage} ${catalogMod.unitName}s`
-                        : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant={enabled ? 'outline' : 'primary'}
-                        disabled={isToggling}
-                        onClick={() =>
-                          enabled
-                            ? onDisableModule(orgId, catalogMod.id)
-                            : onEnableModule(orgId, catalogMod.id)
-                        }
-                      >
-                        {isToggling ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : enabled ? (
-                          <>
-                            <ToggleLeft className="mr-1.5 w-3.5 h-3.5" /> Disable
-                          </>
-                        ) : (
-                          <>
-                            <ToggleRight className="mr-1.5 w-3.5 h-3.5" /> Enable
-                          </>
-                        )}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {activeModules.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 py-4 text-center text-sm text-muted-foreground"
-                  >
-                    No AI modules configured in the catalog
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
+import { apiClient } from '@/lib/api-client';
 
 type OrgAiUsageSectionProps = {
   aiCalls: UsageItem;
@@ -168,3 +50,129 @@ export const OrgAiUsageSection = ({ aiCalls }: OrgAiUsageSectionProps) => (
     </div>
   </div>
 );
+
+// ── Per-org feature overrides ────────────────────────────────────────────────
+// Lists EVERY plan feature with a per-org toggle (Inherit / On / Off). A global
+// admin can force any capability on or off for a specific org; the override wins
+// over the plan on the backend (org_feature_overrides). Self-fetches on mount.
+type FeatureOverrideRow = {
+  key: string;
+  label: string;
+  category: string;
+  planGrant: boolean;
+  override: boolean | null;
+  effective: boolean;
+};
+
+export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
+  const [features, setFeatures] = useState<FeatureOverrideRow[] | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.get<{ data: { features: FeatureOverrideRow[] } }>(
+        `/api/admin/organizations/${orgId}/feature-overrides`
+      );
+      setFeatures(res.data.data.features);
+      setError(null);
+    } catch {
+      setError('Failed to load features');
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const apply = async (featureKey: string, enabled: boolean | null) => {
+    setSaving(featureKey);
+    try {
+      await apiClient.put(`/api/admin/organizations/${orgId}/feature-overrides`, {
+        featureKey,
+        enabled,
+      });
+      await load();
+    } catch {
+      setError('Failed to update feature');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const categories = features ? [...new Set(features.map((feat) => feat.category))] : [];
+  const options = [
+    { v: null as boolean | null, l: 'Inherit' },
+    { v: true as boolean | null, l: 'On' },
+    { v: false as boolean | null, l: 'Off' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="flex justify-between items-center">
+          <h4 className="text-sm font-semibold text-muted-foreground">
+            Feature Access — per-org overrides
+          </h4>
+          {error && <span className="text-xs text-red-500">{error}</span>}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          <span className="font-medium">Inherit</span> follows the plan ·{' '}
+          <span className="font-medium">On/Off</span> overrides it · the dot and label show the{' '}
+          <span className="font-medium">effective</span> result.
+        </p>
+      </div>
+      {!features ? (
+        <p className="text-sm text-muted-foreground">Loading features…</p>
+      ) : (
+        <div className="space-y-4">
+          {categories.map((cat) => (
+            <div key={cat}>
+              <p className="mb-2 text-xs font-medium tracking-wide uppercase text-muted-foreground">
+                {cat}
+              </p>
+              <div className="space-y-1">
+                {features
+                  .filter((feat) => feat.category === cat)
+                  .map((feat) => (
+                    <div key={feat.key} className="flex gap-3 justify-between items-center py-1">
+                      <div className="flex gap-2 items-center min-w-0">
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${feat.effective ? 'bg-green-500' : 'bg-gray-500'}`}
+                        />
+                        <span className="text-sm truncate">{feat.label}</span>
+                        <span
+                          className={`flex-shrink-0 text-xs font-medium ${feat.effective ? 'text-green-600' : 'text-gray-500'}`}
+                        >
+                          {feat.effective ? 'On' : 'Off'}
+                        </span>
+                        <span className="flex-shrink-0 text-xs text-muted-foreground">
+                          (plan: {feat.planGrant ? 'on' : 'off'})
+                        </span>
+                        {saving === feat.key && (
+                          <RefreshCw className="flex-shrink-0 w-3 h-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex flex-shrink-0 gap-1">
+                        {options.map((opt) => (
+                          <Button
+                            key={opt.l}
+                            size="sm"
+                            variant={feat.override === opt.v ? 'primary' : 'outline'}
+                            disabled={saving !== null}
+                            onClick={() => void apply(feat.key, opt.v)}
+                          >
+                            {opt.l}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

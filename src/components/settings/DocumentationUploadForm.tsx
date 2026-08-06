@@ -160,7 +160,16 @@ export const DocumentationUploadForm = ({
 
               {selectedFiles.length > 0 ? (
                 <div className="space-y-2 w-full">
-                  <p className="text-sm font-medium">{selectedFiles.length} file(s) selected:</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-between items-center">
+                    <p className="text-sm font-medium">
+                      {selectedFiles.length} file(s) ready — not uploaded yet
+                    </p>
+                    <p className="text-xs font-medium text-primary">
+                      ↓ Click “Upload {selectedFiles.length}{' '}
+                      {selectedFiles.length === 1 ? 'file' : 'files'}” below to add{' '}
+                      {selectedFiles.length === 1 ? 'it' : 'them'}
+                    </p>
+                  </div>
                   {selectedFiles.map((file, index) => {
                     const progress = uploadProgress[file.name];
                     return (

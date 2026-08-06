@@ -669,7 +669,7 @@ export const LeadQualificationSettings = () => {
               placeholder="Comma-separated emails — leave blank to send to org admins"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Leave blank to send to all organization admins.
+              Leave blank to send to all workspace admins.
             </p>
           </div>
         )}

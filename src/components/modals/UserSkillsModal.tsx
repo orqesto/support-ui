@@ -119,7 +119,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : routingKeys.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No routing keys defined. Add keys in Organization Settings.
+              No routing keys defined. Add keys in Workspace Settings.
             </p>
           ) : (
             routingKeys.map(({ key, description }) => (

@@ -39,7 +39,7 @@ export const AdminDashboardPage = () => {
         <div>
           <h1 className="text-2xl font-bold">System Administration</h1>
           <p className="mt-1 text-gray-400">
-            Manage subscription plans, modules, and monitor organization usage
+            Manage subscription plans and monitor workspace usage
           </p>
         </div>
 
@@ -49,15 +49,15 @@ export const AdminDashboardPage = () => {
             [
               {
                 id: 'plans' as const,
-                label: 'Plans & Modules',
+                label: 'Plans',
                 icon: Settings,
-                description: 'Manage subscription plans and modules',
+                description: 'Manage subscription plans',
               },
               {
                 id: 'usage' as const,
-                label: 'Organization Usage',
+                label: 'Workspace Usage',
                 icon: BarChart3,
-                description: 'Monitor organization resource usage',
+                description: 'Monitor workspace resource usage',
               },
             ] satisfies Tab<TabType>[]
           }

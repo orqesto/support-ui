@@ -19,7 +19,7 @@ const TEMPLATES: Template[] = [
   {
     type: 'invitation',
     name: 'User Invitation',
-    description: 'Email sent when admins invite new users to join an organization',
+    description: 'Email sent when admins invite new users to join a workspace',
   },
   {
     type: 'verification',
@@ -188,7 +188,7 @@ export const EmailTemplatesPage = () => {
                         <>
                           <div>
                             <span className="text-primary">{'{{organizationName}}'}</span> -
-                            Organization
+                            Workspace
                           </div>
                           <div>
                             <span className="text-primary">{'{{role}}'}</span> - User role

@@ -85,7 +85,7 @@ export const CreateOrganizationModal = ({
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Failed to create organization');
+        setError('Failed to create workspace');
       }
     } finally {
       setIsLoading(false);
@@ -125,7 +125,7 @@ export const CreateOrganizationModal = ({
             <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">
               <Building2 className="w-5 h-5 text-purple-600" />
             </div>
-            <h2 className="text-xl font-semibold">Create Organization</h2>
+            <h2 className="text-xl font-semibold">Create Workspace</h2>
           </div>
           <Button
             variant="ghost"
@@ -141,21 +141,21 @@ export const CreateOrganizationModal = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <Input
-              label="Organization Name"
+              label="Workspace Name"
               type="text"
-              placeholder="Acme Corporation"
+              placeholder="Arasaka Corporation"
               value={formData.name}
               onChange={(event) => handleNameChange(event.target.value)}
               required
             />
-            <p className="mt-1 text-sm text-muted-foreground">The full name of your organization</p>
+            <p className="mt-1 text-sm text-muted-foreground">The full name of your workspace</p>
           </div>
 
           <div>
             <Input
               label="Slug"
               type="text"
-              placeholder="acme-corp"
+              placeholder="arasaka"
               value={formData.slug}
               onChange={(event) => setFormData({ ...formData, slug: event.target.value })}
               required
@@ -174,7 +174,7 @@ export const CreateOrganizationModal = ({
               onChange={(event) => setFormData({ ...formData, description: event.target.value })}
               className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               rows={3}
-              placeholder="Brief description of the organization"
+              placeholder="Brief description of the workspace"
             />
           </div>
 
@@ -209,7 +209,7 @@ export const CreateOrganizationModal = ({
                 <Input
                   label="DB Secret Ref"
                   type="text"
-                  placeholder="ORG_ACME_DB_URL"
+                  placeholder="ORG_ARASAKA_DB_URL"
                   value={formData.dbSecretRef}
                   onChange={(event) => setFormData({ ...formData, dbSecretRef: event.target.value })}
                   required

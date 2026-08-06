@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
+import { CreateWorkspacePage } from './pages/CreateWorkspacePage';
 import { SsoCallbackPage } from './pages/SsoCallbackPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
@@ -105,6 +106,16 @@ const LoadingFallback = () => (
     </div>
   </div>
 );
+
+// `/signup` serves two flows: an invitation-accept page when the URL carries a
+// `token=` (query or hash — the link BE emails to invited users), and the public
+// self-serve "create a workspace" page otherwise.
+const SignupRoute = () => {
+  const hasInviteToken =
+    new URLSearchParams(window.location.search).has('token') ||
+    new URLSearchParams(window.location.hash.replace(/^#/, '')).has('token');
+  return hasInviteToken ? <SignupPage /> : <CreateWorkspacePage />;
+};
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -211,7 +222,7 @@ const AppRoutes = () => {
       />
       <Route
         path="/signup"
-        element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />}
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupRoute />}
       />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route

@@ -281,7 +281,7 @@ export const RoutingRulesSettings = () => {
         <h3 className="text-sm font-semibold text-foreground">Default department</h3>
         <p className="mt-1 mb-3 text-xs text-muted-foreground">
           The fallback department for incoming messages when no source binding or routing rule
-          resolves one. Exactly one per organization.
+          resolves one. Exactly one per workspace.
         </p>
         <div className="max-w-xs">
           <ReactSelect

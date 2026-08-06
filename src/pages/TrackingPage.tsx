@@ -198,7 +198,7 @@ const buildPreviewData = (): TrackingPayload => {
   const now = Date.now();
   const hour = 60 * 60 * 1000;
   return {
-    organization: { name: 'Acme Corp' },
+    organization: { name: 'Arasaka' },
     department: { name: 'Customer Support' },
     conversation: {
       id: 0,
