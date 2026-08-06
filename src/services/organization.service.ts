@@ -18,7 +18,16 @@ export type TenantDbInfo = {
  * `tenantDb`, which only the global-admin list endpoint attaches (not yet modelled
  * in the contract — tracked as a follow-up).
  */
-export type Organization = ApiOrganization & { tenantDb?: TenantDbInfo | null };
+export type Organization = ApiOrganization & {
+  tenantDb?: TenantDbInfo | null;
+  /**
+   * The alliance this org belongs to, or null/absent when standalone. Returned by
+   * the full-row endpoints (getCurrent/getById) but not yet in the generated
+   * contract. When set, the per-org SSO/SCIM settings tabs go read-only — identity
+   * is governed by the alliance console (LOCKED-6; the BE resolver is authoritative).
+   */
+  allianceId?: number | null;
+};
 
 export type { OrganizationMember };
 
