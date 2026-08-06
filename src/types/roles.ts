@@ -10,6 +10,13 @@ export type GlobalRole = 'admin' | 'user';
 export type OrganizationRole = 'org_admin' | 'moderator' | 'support' | 'associate';
 export const ORGANIZATION_ROLES = ['org_admin', 'moderator', 'support', 'associate'] as const satisfies readonly OrganizationRole[];
 
+// Alliance roles (multi-org identity, Phase 4/5). A SEPARATE authorization axis from
+// Global/Organization roles — deliberately NOT added to UserRole or rolePermissions.
+// Mirrors the BE allianceRoleEnum. Used only for FE console nav/route gating (UX); the
+// backend re-validates alliance authority on every call from DB-verified memberships.
+export type AllianceRole = 'alliance_admin' | 'alliance_agent';
+export const ALLIANCE_ROLES = ['alliance_admin', 'alliance_agent'] as const satisfies readonly AllianceRole[];
+
 // All possible roles
 export type UserRole = GlobalRole | OrganizationRole;
 

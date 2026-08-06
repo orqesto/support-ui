@@ -20,6 +20,7 @@ import {
   MailOpen,
   MailWarning,
   ScrollText,
+  Network,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -78,6 +79,8 @@ const allNavigation: Array<{
   // self-hosted boxes AND managed boxes where a billing provider isn't configured
   // yet. Authoritative billing signal — supersedes the old selfHosted-only gate.
   hideWhenBillingOff?: boolean;
+  // Alliance console entry — visible only to a global admin or an alliance_admin.
+  allianceAdmin?: boolean;
 }> = [
   // ─── Work — daily inbox / triage ────────────────────────────────────────────
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -138,6 +141,7 @@ const allNavigation: Array<{
   },
 
   // ─── Admin — configuration & rare-use ───────────────────────────────────────
+  { group: 'admin', name: 'Manage', href: '/console', icon: Network, allianceAdmin: true },
   { group: 'admin', name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
   { group: 'admin', name: 'Workspace', href: '/organization', icon: Building2 },
   {
@@ -260,7 +264,7 @@ export const Layout = ({ children }: LayoutProps) => {
       navigate('/onboarding', { replace: true });
     }
   }, [user, onboardingStatus, subscriptionGated, navigate]);
-  const { hasPermission, orgRole } = usePermissions();
+  const { hasPermission, orgRole, isAllianceAdmin } = usePermissions();
   const { hasFeature } = useFeatures();
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
@@ -418,6 +422,10 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.adminOnly && user?.role !== 'admin') {
           return false;
         }
+        // Alliance console entry — global admin or an alliance_admin membership.
+        if (item.allianceAdmin && !isAllianceAdmin) {
+          return false;
+        }
         // Customer-facing billing UI hidden whenever billing is off (self-hosted
         // or a managed box without a billing provider yet). Admin Plans /
         // Organization Usage live on AdminDashboardPage and are unaffected — those
@@ -443,7 +451,7 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled]
+    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled, isAllianceAdmin]
   );
 
   const handleLogout = () => {

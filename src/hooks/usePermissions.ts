@@ -27,6 +27,15 @@ export const usePermissions = () => {
   const orgRole: OrganizationRole | undefined = user?.organizationRole;
   const overrides: PermissionOverrides | null = user?.permissionOverrides ?? null;
 
+  // Alliance-console gate (D-ADM-shell-A): a global admin, or a user with any
+  // alliance_admin membership in the payload, may open the console shell. UX-only —
+  // the BE re-validates on every /api/alliances call. The precise per-alliance list
+  // (and the switcher target) comes from the useAllianceAdmin "my alliances" query
+  // (05-01 Task 3); this predicate just decides whether the "Manage" affordance shows.
+  const isAllianceAdmin =
+    userRole === 'admin' ||
+    (user?.allianceMemberships?.some((membership) => membership.role === 'alliance_admin') ?? false);
+
   return useMemo(
     () => ({
       // Check single permission
@@ -45,6 +54,7 @@ export const usePermissions = () => {
       // can affect derived "can X" predicates that resolve to permission checks)
       isAdmin: userRole === 'admin',
       isOrgAdmin: isOrgAdminOrHigher(userRole, orgRole),
+      isAllianceAdmin,
       canManageUsers: canManageUsers(userRole, orgRole, overrides),
       canAccessSettings: canAccessSettings(userRole, orgRole, overrides),
       canManageOrganization: isOrgAdminOrHigher(userRole, orgRole),
@@ -54,6 +64,6 @@ export const usePermissions = () => {
       orgRole,
       user,
     }),
-    [userRole, orgRole, overrides, user]
+    [userRole, orgRole, overrides, user, isAllianceAdmin]
   );
 };
