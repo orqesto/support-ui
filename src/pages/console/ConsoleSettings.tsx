@@ -210,8 +210,9 @@ export const ConsoleSettings = () => {
         <DialogContent className="space-y-3">
           <Alert variant="warning">
             <span className="text-sm">
-              This detaches every organization from <strong>{settings.name}</strong> and cannot be
-              undone. Type the alliance slug{' '}
+              This detaches <strong>every</strong> organization from <strong>{settings.name}</strong> and
+              cannot be undone. Members without a direct grant lose access across all of them — their open
+              tickets are reassigned and their sessions revoked. Type the alliance slug{' '}
               <code className="px-1 font-mono rounded bg-muted">{settings.slug}</code> to confirm.
             </span>
           </Alert>
