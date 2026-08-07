@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { CONSOLE_SECTIONS } from './components/console/consoleSections';
+import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useBackendVersion } from './hooks/useBackendVersion';
 // Eager load critical routes
@@ -394,6 +394,32 @@ const AppRoutes = () => {
         }
       >
         {CONSOLE_SECTIONS.map((section) => {
+          const SectionElement = section.element;
+          return (
+            <Route
+              key={section.id}
+              index={section.index}
+              path={section.index ? undefined : section.path}
+              element={<SectionElement />}
+            />
+          );
+        })}
+      </Route>
+      {/* Platform (global-admin) console — same AdminShell, platform scope. Gated on
+          the global-admin role; sections drive both the shell nav and these routes. */}
+      <Route
+        path="/console/platform"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredRole="admin">
+              <Suspense fallback={<LoadingFallback />}>
+                <AdminShell scope="platform" />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      >
+        {PLATFORM_SECTIONS.map((section) => {
           const SectionElement = section.element;
           return (
             <Route

@@ -32,13 +32,18 @@ export const applyRequestContext = (
     delete config.headers['Content-Type'];
   }
 
+  const { scope, allianceId } = useScopeStore.getState();
   if (config.url?.startsWith('/api/alliances')) {
     // Alliance-scoped: never leak the org context onto a cross-org console call.
     delete config.headers['X-Organization-Context'];
-    const { allianceId } = useScopeStore.getState();
     if (allianceId !== null) {
       config.headers['X-Alliance-Context'] = String(allianceId);
     }
+  } else if (scope === 'platform') {
+    // Platform (global-admin) console: cross-org by definition (D-ADM-1) — never attach
+    // an org context onto a platform call. The BE authorizes the global admin from the
+    // role, not a header; a stale org context could scope a reused handler to one org.
+    delete config.headers['X-Organization-Context'];
   } else {
     // Add selected organization context — read directly from Zustand store to avoid
     // JSON.parse(localStorage) on every request (avoids parsing cost and stale-parse issues).

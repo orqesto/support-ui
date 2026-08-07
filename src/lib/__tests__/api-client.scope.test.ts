@@ -32,6 +32,15 @@ describe('api-client request interceptor — D-ADM-1 scope headers', () => {
     expect(config.headers['X-Alliance-Context']).toBeUndefined();
   });
 
+  it('suppresses X-Organization-Context on platform-scope requests, even with an org selected (D-ADM-1)', () => {
+    // Global-admin platform console is cross-org: a stale org context must never ride
+    // along on /api/admin, /api/users, /api/organizations, etc.
+    useScopeStore.getState().setScope({ scope: 'platform', allianceId: null });
+    const config = applyRequestContext(makeConfig('/api/admin/organizations'));
+    expect(config.headers['X-Organization-Context']).toBeUndefined();
+    expect(config.headers['X-Alliance-Context']).toBeUndefined();
+  });
+
   it('strips the JSON Content-Type for FormData and keeps X-Department-Context unchanged', () => {
     // Department selection is keyed "{userId}:{orgId}" — matches the beforeEach user/org.
     useDepartmentContextStore.setState({ _selectedByKey: { '1:5': [2, 3] } });
