@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -448,9 +449,13 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.MANAGE_ORGANIZATION}>
-              <Suspense fallback={<LoadingFallback />}>
-                <OrganizationPage />
-              </Suspense>
+              {/* P3: global admins consolidate into the platform console; org
+                  admins keep this workspace page. */}
+              <GlobalAdminRedirect to="/console/platform/organizations">
+                <Suspense fallback={<LoadingFallback />}>
+                  <OrganizationPage />
+                </Suspense>
+              </GlobalAdminRedirect>
             </ProtectedRoute>
           </PrivateRoute>
         }
@@ -484,9 +489,13 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <ProtectedRoute requiredRole="admin">
-              <Suspense fallback={<LoadingFallback />}>
-                <AdminDashboardPage />
-              </Suspense>
+              {/* P3: the Plans/Usage dashboard is now Billing & Plans in the
+                  platform console. Only global admins reach this route. */}
+              <GlobalAdminRedirect to="/console/platform/billing">
+                <Suspense fallback={<LoadingFallback />}>
+                  <AdminDashboardPage />
+                </Suspense>
+              </GlobalAdminRedirect>
             </ProtectedRoute>
           </PrivateRoute>
         }
