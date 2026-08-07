@@ -75,14 +75,20 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'settings', label: 'Settings', icon: Settings, path: 'settings', element: ConsoleSettings },
 ];
 
-// P0 placeholder — one component for every platform section until P1 wires the real
-// surfaces (most reuse existing admin components). Kept separate from CONSOLE_SECTIONS
-// so the alliance shell/routes are untouched.
-const PlatformPlaceholder = lazy(() =>
-  import('@/pages/console/PlatformPlaceholder').then((mod) => ({ default: mod.PlatformPlaceholder }))
+// Platform console pages. P1 landed Organizations/Billing/Usage (reusing existing admin
+// components); P2 adds Overview/Alliances/Users/System/Audit — every section now mounts a
+// real surface. Kept separate from CONSOLE_SECTIONS so the alliance shell/routes are untouched.
+const PlatformOverview = lazy(() =>
+  import('@/pages/console/PlatformOverview').then((mod) => ({ default: mod.PlatformOverview }))
+);
+const PlatformAlliances = lazy(() =>
+  import('@/pages/console/PlatformAlliances').then((mod) => ({ default: mod.PlatformAlliances }))
 );
 const PlatformOrganizations = lazy(() =>
   import('@/pages/console/PlatformOrganizations').then((mod) => ({ default: mod.PlatformOrganizations }))
+);
+const PlatformUsers = lazy(() =>
+  import('@/pages/console/PlatformUsers').then((mod) => ({ default: mod.PlatformUsers }))
 );
 const PlatformBilling = lazy(() =>
   import('@/pages/console/PlatformBilling').then((mod) => ({ default: mod.PlatformBilling }))
@@ -90,18 +96,24 @@ const PlatformBilling = lazy(() =>
 const PlatformUsage = lazy(() =>
   import('@/pages/console/PlatformUsage').then((mod) => ({ default: mod.PlatformUsage }))
 );
+const PlatformSystem = lazy(() =>
+  import('@/pages/console/PlatformSystem').then((mod) => ({ default: mod.PlatformSystem }))
+);
+const PlatformAudit = lazy(() =>
+  import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
+);
 
 /**
  * Platform (global-admin) console sections — same shell, platform scope. Paths are
- * relative to `/console/platform`. P0 mounts placeholders; P1 swaps in the real pages.
+ * relative to `/console/platform`. Every section mounts its real page as of P2.
  */
 export const PLATFORM_SECTIONS: ConsoleSection[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: PlatformPlaceholder },
-  { id: 'alliances', label: 'Alliances', icon: Network, path: 'alliances', element: PlatformPlaceholder },
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: PlatformOverview },
+  { id: 'alliances', label: 'Alliances', icon: Network, path: 'alliances', element: PlatformAlliances },
   { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: PlatformOrganizations },
-  { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformPlaceholder },
+  { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformUsers },
   { id: 'billing', label: 'Billing & Plans', icon: CreditCard, path: 'billing', element: PlatformBilling },
   { id: 'usage', label: 'Usage', icon: BarChart3, path: 'usage', element: PlatformUsage },
-  { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformPlaceholder },
-  { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformPlaceholder },
+  { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
+  { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformAudit },
 ];
