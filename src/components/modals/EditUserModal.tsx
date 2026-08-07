@@ -17,7 +17,6 @@ import {
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
-import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { User } from '@/types';
 import {
   roleDisplayNames,
@@ -53,7 +52,6 @@ type EditUserModalProps = {
   allUsers: User[];
 };
 
-const globalRoles: GlobalRole[] = ['admin', 'user'];
 const orgRoles: OrganizationRole[] = [...ORGANIZATION_ROLES];
 
 export const EditUserModal = ({
@@ -65,17 +63,15 @@ export const EditUserModal = ({
 }: EditUserModalProps) => {
   const { isAdmin, canManageUsers } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
-  // Global System Administrators only exist in the system org — outside it, don't
-  // offer promoting to admin (backend enforces this; this is UX/defense-in-depth).
-  const isSystemOrg = useOrganizationsStore(
-    (state) => state.currentOrganization?.isSystem === true
-  );
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [position, setPosition] = useState('');
   const [telegram, setTelegram] = useState('');
   const [slack, setSlack] = useState('');
   const [phone, setPhone] = useState('');
+  // Read-only mirror of the member's global role (from user.role) — global-role
+  // EDITING moved to the platform console (Platform › Users). Kept here only to
+  // gate the departments UI (global admins have access to all departments).
   const [globalRole, setGlobalRole] = useState<GlobalRole>('user');
   const [organizationRole, setOrganizationRole] = useState<OrganizationRole>('associate');
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<number[]>([]);
@@ -110,11 +106,6 @@ export const EditUserModal = ({
 
   // Safety check: ensure allUsers is always an array
   const safeAllUsers = Array.isArray(allUsers) ? allUsers : [];
-
-  // Check if this is the last global admin
-  const adminCount = safeAllUsers.filter((usr) => usr.role === 'admin').length;
-  const isLastGlobalAdmin = user?.role === 'admin' && adminCount === 1;
-  const isGlobalRoleChangeDisabled = isLastGlobalAdmin && globalRole !== 'admin';
 
   // Check if this is the last org_admin in the organization
   const orgAdminCount = safeAllUsers.filter(
@@ -241,7 +232,7 @@ export const EditUserModal = ({
         telegram: telegram.trim() ?? undefined,
         slack: slack.trim() ?? undefined,
         phone: phone.trim() ?? undefined,
-        role: canEditRoles && isAdmin ? globalRole : undefined,
+        // Global role is managed in the platform console (Platform › Users), not here.
         // Skip IdP-owned fields for SCIM-managed members (D2-01) so an in-app save
         // can never fight the IdP's derivation.
         organizationRole: canEditRoles && !roleReadOnly ? organizationRole : undefined,
@@ -281,7 +272,7 @@ export const EditUserModal = ({
         telegram: telegram.trim() ?? undefined,
         slack: slack.trim() ?? undefined,
         phone: phone.trim() ?? undefined,
-        role: canEditRoles && isAdmin ? globalRole : undefined,
+        // Global role is managed in the platform console (Platform › Users), not here.
         organizationRole: canEditRoles && !roleReadOnly ? organizationRole : undefined,
         departmentIds: canEditRoles && !deptReadOnly ? selectedDepartmentIds : undefined,
         permissionOverrides: canEditRoles ? permissionOverrides : undefined,
@@ -389,33 +380,8 @@ export const EditUserModal = ({
                 </div>
               </div>
 
-              {canEditRoles && isAdmin && (
-                <>
-                  <ReactSelect
-                    label="Global Role"
-                    id="globalRole"
-                    value={globalRole}
-                    onChange={(value) => setGlobalRole(value as GlobalRole)}
-                    options={globalRoles
-                      .filter((role) => role !== 'admin' || isSystemOrg || globalRole === 'admin')
-                      .map((role) => ({
-                        value: role,
-                        label: role === 'admin' ? 'System Administrator' : 'User',
-                      }))}
-                    isDisabled={isLastGlobalAdmin}
-                  />
-                  {isLastGlobalAdmin ? (
-                    <p className="flex gap-1 items-center -mt-2 text-xs font-medium text-red-600">
-                      <AlertTriangle className="w-3 h-3" />
-                      Cannot change role - you are the last System Administrator
-                    </p>
-                  ) : (
-                    <p className="-mt-2 text-xs text-muted-foreground">
-                      System-wide role (admin has full access)
-                    </p>
-                  )}
-                </>
-              )}
+              {/* Global (System Administrator) role is managed in the platform console
+                  → Platform › Users. Removed from the org users page in P3. */}
 
               {canEditRoles && (
                 <>
@@ -667,7 +633,7 @@ export const EditUserModal = ({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting ?? isGlobalRoleChangeDisabled ?? isOrgRoleChangeDisabled}
+              disabled={isSubmitting ?? isOrgRoleChangeDisabled}
             >
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
