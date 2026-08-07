@@ -30,6 +30,19 @@ export const usePlatformUsers = (filters: PlatformUsersFilters) =>
     refetchOnWindowFocus: false,
   });
 
+export const useUpdatePlatformUserRole = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: number; role: 'admin' | 'user' }) =>
+      platformService.updateUserRole(id, role),
+    onSuccess: () => {
+      // Prefix-invalidate every paged/filtered users query + the overview KPI counts.
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'users'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+    },
+  });
+};
+
 export type PlatformAuditFilters = {
   page: number;
   pageSize: number;

@@ -1,21 +1,28 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
-import { usePlatformUsers } from '@/hooks/usePlatformAdmin';
-import type { PlatformUserRow } from '@/services/platform.service';
+import { usePlatformUsers, useUpdatePlatformUserRole } from '@/hooks/usePlatformAdmin';
+import { useAuthStore } from '@/stores/authStore';
+import type { GlobalRole, PlatformUserRow } from '@/services/platform.service';
 
 /**
- * Platform console → Users. A global, cross-org user directory backed by the new
+ * Platform console → Users. A global, cross-org user directory backed by the
  * GET /api/admin/platform/users endpoint (the org `/api/users` handler is org-scoped
- * and has no all-users branch). Searchable + paginated, read-only in this slice.
+ * and has no all-users branch). Searchable + paginated. Global-role editing is done
+ * here (PATCH .../role) — the platform console is the home for global-admin management.
  */
 
 const PAGE_SIZE = 25;
+
+/** A pending global-role change awaiting confirmation. */
+type PendingRoleChange = { id: number; email: string; nextRole: GlobalRole };
 
 const fullName = (row: PlatformUserRow): string =>
   [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || '—';
@@ -28,14 +35,36 @@ const formatDate = (iso: string): string => {
 export const PlatformUsers = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [pending, setPending] = useState<PendingRoleChange | null>(null);
 
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const usersQuery = usePlatformUsers({ page, pageSize: PAGE_SIZE, search: search || undefined });
+  const updateRole = useUpdatePlatformUserRole();
   const pagination = usersQuery.data?.pagination;
   const rows = usersQuery.data?.rows ?? [];
 
   const handleSearch = (value: string) => {
     setSearch(value);
     setPage(1);
+  };
+
+  const confirmRoleChange = () => {
+    if (!pending) {
+      return;
+    }
+    updateRole.mutate(
+      { id: pending.id, role: pending.nextRole },
+      {
+        onSuccess: (updated) => {
+          toast.success(
+            `${pending.email} is now ${updated.role === 'admin' ? 'a global admin' : 'a regular user'}.`
+          );
+          setPending(null);
+        },
+        onError: (error: unknown) =>
+          toast.error(error instanceof Error ? error.message : 'Could not update role'),
+      }
+    );
   };
 
   return (
@@ -84,6 +113,7 @@ export const PlatformUsers = () => {
                     <th className="px-3 py-2 font-medium">Role</th>
                     <th className="px-3 py-2 font-medium">Workspaces</th>
                     <th className="px-3 py-2 font-medium">Joined</th>
+                    <th className="px-3 py-2 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -107,6 +137,31 @@ export const PlatformUsers = () => {
                       <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
                         {formatDate(row.createdAt)}
                       </td>
+                      <td className="px-3 py-2 text-right">
+                        {row.id === currentUserId ? (
+                          <span className="text-xs text-muted-foreground">You</span>
+                        ) : row.role === 'admin' ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              setPending({ id: row.id, email: row.email, nextRole: 'user' })
+                            }
+                          >
+                            Revoke admin
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              setPending({ id: row.id, email: row.email, nextRole: 'admin' })
+                            }
+                          >
+                            Make admin
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -125,6 +180,28 @@ export const PlatformUsers = () => {
           />
         )}
       </Card>
+
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPending(null);
+          }
+        }}
+        onConfirm={confirmRoleChange}
+        variant={pending?.nextRole === 'admin' ? 'danger' : 'warning'}
+        confirmText={pending?.nextRole === 'admin' ? 'Make global admin' : 'Revoke admin'}
+        title={
+          pending?.nextRole === 'admin'
+            ? `Make ${pending?.email ?? 'this user'} a global admin?`
+            : `Revoke global admin from ${pending?.email ?? 'this user'}?`
+        }
+        description={
+          pending?.nextRole === 'admin'
+            ? 'Global admins have full platform-wide access across every workspace. Promotion only succeeds if the user belongs to the system organization. This signs them out of all sessions.'
+            : 'This removes platform-wide access and signs them out of all sessions. They keep their per-workspace roles.'
+        }
+      />
     </div>
   );
 };

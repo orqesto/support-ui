@@ -56,6 +56,11 @@ export type PlatformPagination = {
   hasMore: boolean;
 };
 
+export type GlobalRole = 'admin' | 'user';
+
+/** Shape returned by the role-update endpoint (subset of the directory row). */
+export type PlatformUserRoleUpdate = { id: number; email: string; role: GlobalRole };
+
 export type PlatformUsersResult = { rows: PlatformUserRow[]; pagination: PlatformPagination };
 export type PlatformAuditResult = { rows: PlatformAuditRow[]; pagination: PlatformPagination };
 
@@ -112,6 +117,15 @@ export const platformService = {
       }
     );
     return { rows: res.data.data, pagination: res.data.pagination };
+  },
+
+  /** Set a user's global role (PATCH /api/admin/platform/users/:id/role, requireGlobalAdmin). */
+  updateUserRole: async (id: number, role: GlobalRole): Promise<PlatformUserRoleUpdate> => {
+    const res = await apiClient.patch<{ data: PlatformUserRoleUpdate }>(
+      `${PLATFORM}/users/${id}/role`,
+      { role }
+    );
+    return res.data.data;
   },
 
   listAudit: async (params: ListAuditParams): Promise<PlatformAuditResult> => {
