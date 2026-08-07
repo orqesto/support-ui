@@ -81,6 +81,9 @@ const allNavigation: Array<{
   hideWhenBillingOff?: boolean;
   // Alliance console entry — visible only to a global admin or an alliance_admin.
   allianceAdmin?: boolean;
+  // P3: hidden from global admins, whose equivalent lives in the platform console
+  // (e.g. Workspace → Platform › Organizations). Non-global users still see it.
+  hideForGlobalAdmin?: boolean;
 }> = [
   // ─── Work — daily inbox / triage ────────────────────────────────────────────
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -144,7 +147,7 @@ const allNavigation: Array<{
   { group: 'admin', name: 'Manage', href: '/console', icon: Network, allianceAdmin: true },
   { group: 'admin', name: 'Platform', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
   { group: 'admin', name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
-  { group: 'admin', name: 'Workspace', href: '/organization', icon: Building2 },
+  { group: 'admin', name: 'Workspace', href: '/organization', icon: Building2, hideForGlobalAdmin: true },
   {
     group: 'admin',
     name: 'Settings',
@@ -174,13 +177,9 @@ const allNavigation: Array<{
     icon: ScrollText,
     permission: Permission.VIEW_AUDIT_LOGS,
   },
-  {
-    group: 'admin',
-    name: 'Admin Dashboard',
-    href: '/admin',
-    icon: ShieldAlert,
-    adminOnly: true,
-  },
+  // P3: 'Admin Dashboard' (/admin) removed — its Plans + Usage tabs now live in
+  // the platform console (Billing & Plans / Usage). The /admin route still
+  // redirects global admins there as a one-release fallback.
   {
     group: 'admin',
     name: 'Deleted Messages',
@@ -421,6 +420,11 @@ export const Layout = ({ children }: LayoutProps) => {
       allNavigation.filter((item) => {
         // Check if admin-only and user is global admin
         if (item.adminOnly && user?.role !== 'admin') {
+          return false;
+        }
+        // P3: hide entries a global admin now reaches via the platform console
+        // (e.g. Workspace). Org admins / moderators keep them.
+        if (item.hideForGlobalAdmin && user?.role === 'admin') {
           return false;
         }
         // Alliance console entry — global admin or an alliance_admin membership.
