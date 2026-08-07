@@ -230,6 +230,24 @@ export const organizationService = {
     return response.data;
   },
 
+  getVisionConfig: async (): Promise<{ enabled: boolean; provider?: string; model?: string }> => {
+    const response = await apiClient.get<
+      ApiResponse<{ enabled: boolean; provider?: string; model?: string }>
+    >('/api/organizations/vision-config');
+    return response.data.data ?? { enabled: true };
+  },
+
+  updateVisionConfig: async (data: {
+    enabled?: boolean;
+    provider?: string | null;
+    model?: string | null;
+  }) => {
+    const response = await apiClient.patch<
+      ApiResponse<{ enabled: boolean; provider?: string; model?: string }>
+    >('/api/organizations/vision-config', data);
+    return response.data;
+  },
+
   getRoutingKeys: async (): Promise<Array<{ id: number; key: string; description: string | null }>> => {
     const response = await apiClient.get<ApiResponse<Array<{ id: number; key: string; description: string | null }>>>('/api/organizations/routing-keys');
     return response.data.data ?? [];

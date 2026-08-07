@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
+import { VisionSettings } from '@/components/settings/VisionSettings';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { BedrockProviderCard } from '@/components/settings/providers/BedrockProviderCard';
 import { CustomProviderCard } from '@/components/settings/providers/CustomProviderCard';
@@ -361,6 +362,8 @@ export const AIProvidersSettings = () => {
       {!hasAnyProvider && <AINoProviderBanner />}
 
       <AckReplyPerSourceList onShowAlert={setAlertDialog} />
+
+      {hasAnyProvider && <VisionSettings />}
 
       <OpenAIProviderCard
         {...commonProviderProps}
