@@ -8,6 +8,10 @@ import {
   ShieldCheck,
   ScrollText,
   Settings,
+  Network,
+  CreditCard,
+  BarChart3,
+  ServerCog,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -69,4 +73,26 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'provisioning', label: 'Provisioning', icon: ShieldCheck, path: 'provisioning', element: ConsoleProvisioning },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: ConsoleAudit },
   { id: 'settings', label: 'Settings', icon: Settings, path: 'settings', element: ConsoleSettings },
+];
+
+// P0 placeholder — one component for every platform section until P1 wires the real
+// surfaces (most reuse existing admin components). Kept separate from CONSOLE_SECTIONS
+// so the alliance shell/routes are untouched.
+const PlatformPlaceholder = lazy(() =>
+  import('@/pages/console/PlatformPlaceholder').then((mod) => ({ default: mod.PlatformPlaceholder }))
+);
+
+/**
+ * Platform (global-admin) console sections — same shell, platform scope. Paths are
+ * relative to `/console/platform`. P0 mounts placeholders; P1 swaps in the real pages.
+ */
+export const PLATFORM_SECTIONS: ConsoleSection[] = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: PlatformPlaceholder },
+  { id: 'alliances', label: 'Alliances', icon: Network, path: 'alliances', element: PlatformPlaceholder },
+  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: PlatformPlaceholder },
+  { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformPlaceholder },
+  { id: 'billing', label: 'Billing & Plans', icon: CreditCard, path: 'billing', element: PlatformPlaceholder },
+  { id: 'usage', label: 'Usage', icon: BarChart3, path: 'usage', element: PlatformPlaceholder },
+  { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformPlaceholder },
+  { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformPlaceholder },
 ];

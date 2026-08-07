@@ -142,6 +142,7 @@ const allNavigation: Array<{
 
   // ─── Admin — configuration & rare-use ───────────────────────────────────────
   { group: 'admin', name: 'Manage', href: '/console', icon: Network, allianceAdmin: true },
+  { group: 'admin', name: 'Platform', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
   { group: 'admin', name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
   { group: 'admin', name: 'Workspace', href: '/organization', icon: Building2 },
   {
