@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { usePermissions } from '@/hooks/usePermissions';
 import { DetectionRulesSettings } from './DetectionRulesSettings';
 import { KnowledgeDetectionRulesSettings } from './KnowledgeDetectionRulesSettings';
 import { RoutingRulesSettings } from './RoutingRulesSettings';
@@ -20,12 +21,21 @@ type RulesSettingsProps = {
 
 export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
   const navigate = useNavigate();
-  const initial = section && isRuleType(section) ? section : 'spam';
+  const { canManageOrganization } = usePermissions();
+
+  // Routing rules are gated to MANAGE_ORGANIZATION on the BE (every /api/routing-rules
+  // route). Moderators reach this page via VIEW_ORGANIZATION_SETTINGS but can't save
+  // routing changes, so hide the sub-tab for them instead of showing a dead-end UI.
+  const canManageRouting = canManageOrganization;
+
+  const requested = section && isRuleType(section) ? section : 'spam';
+  const initial: RuleType = requested === 'routing' && !canManageRouting ? 'spam' : requested;
   const [activeRuleType, setActiveRuleType] = useState<RuleType>(initial);
 
   useEffect(() => {
-    if (section && isRuleType(section)) setActiveRuleType(section);
-  }, [section]);
+    if (!section || !isRuleType(section)) return;
+    setActiveRuleType(section === 'routing' && !canManageRouting ? 'spam' : section);
+  }, [section, canManageRouting]);
 
   const goToRuleType = (next: RuleType) => {
     setActiveRuleType(next);
@@ -55,6 +65,11 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
     },
   ];
 
+  // Hide the routing sub-tab from users who can't manage it (BE returns 403 on save).
+  const visibleRuleTypes = canManageRouting
+    ? ruleTypes
+    : ruleTypes.filter((type) => type.id !== 'routing');
+
   return (
     <div className="space-y-6">
       {/* Header with Rule Type Switcher */}
@@ -72,7 +87,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
 
       {/* Rule Type Switcher - Pill Buttons */}
       <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {ruleTypes.map((type) => (
+        {visibleRuleTypes.map((type) => (
           <button
             key={type.id}
             onClick={() => goToRuleType(type.id)}
@@ -93,7 +108,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
         {activeRuleType === 'spam' && <SpamRulesSettings />}
         {activeRuleType === 'detection' && <DetectionRulesSettings />}
         {activeRuleType === 'knowledge' && <KnowledgeDetectionRulesSettings />}
-        {activeRuleType === 'routing' && <RoutingRulesSettings />}
+        {activeRuleType === 'routing' && canManageRouting && <RoutingRulesSettings />}
       </div>
     </div>
   );
