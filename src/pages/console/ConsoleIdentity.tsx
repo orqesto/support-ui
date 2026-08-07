@@ -325,6 +325,11 @@ export const ConsoleIdentity = () => {
   }
 
   const domains = domainsQuery.data ?? [];
+  // SSO only routes/provisions users whose email domain is DNS-VERIFIED here — the
+  // typed allowed-domains list alone does not authorize sign-in. Warn when SSO is
+  // enabled but nothing is verified yet, so the admin isn't left with a green
+  // "enabled" state that silently routes no one.
+  const hasVerifiedDomain = domains.some((domain) => domain.verifiedAt !== null);
 
   return (
     <div className="space-y-6">
@@ -355,6 +360,16 @@ export const ConsoleIdentity = () => {
               onChange={setEnabled}
               label="Enable SSO for this alliance"
             />
+
+            {enabled && !hasVerifiedDomain && (
+              <Alert variant="warning">
+                <span className="text-sm">
+                  SSO is enabled but no email domain is <strong>verified</strong> yet. Until you verify at
+                  least one domain in the panel below, no users are routed to SSO or provisioned — the
+                  allowed-domains list alone does not authorize sign-in.
+                </span>
+              </Alert>
+            )}
 
             {redirectUri && <CopyField label="Redirect / callback URL" value={redirectUri} />}
             <p className="-mt-1 text-xs text-muted-foreground">

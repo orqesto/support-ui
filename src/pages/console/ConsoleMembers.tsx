@@ -45,15 +45,28 @@ export const ConsoleMembers = () => {
   const addMember = useAddMember(numericId);
 
   const [removeTarget, setRemoveTarget] = useState<AllianceMember | null>(null);
+  const [roleChange, setRoleChange] = useState<{ member: AllianceMember; newRole: AllianceRole } | null>(
+    null
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [newRole, setNewRole] = useState<AllianceRole>('alliance_agent');
 
-  const handleChangeRole = (userId: number, allianceRole: AllianceRole) => {
+  // An alliance-role change applies across EVERY org in the alliance (admin ⇒
+  // org_admin everywhere, agent ⇒ associate), so it's confirmed rather than applied
+  // on the raw dropdown change — parity with the gate on the IdP-group elevation path.
+  const handleChangeRole = () => {
+    if (!roleChange) {
+      return;
+    }
+    const { member, newRole: nextRole } = roleChange;
     changeRole.mutate(
-      { userId, allianceRole },
+      { userId: member.userId, allianceRole: nextRole },
       {
-        onSuccess: () => toast.success('Role updated'),
+        onSuccess: () => {
+          toast.success('Role updated');
+          setRoleChange(null);
+        },
         onError: (error: unknown) =>
           toast.error(error instanceof Error ? error.message : 'Could not update role'),
       }
@@ -156,9 +169,12 @@ export const ConsoleMembers = () => {
                         // Server-controlled value with no optimistic update: disable the row
                         // while its change is in flight so it can't visibly revert mid-request.
                         disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
-                        onChange={(event) =>
-                          handleChangeRole(member.userId, event.target.value as AllianceRole)
-                        }
+                        onChange={(event) => {
+                          const next = event.target.value as AllianceRole;
+                          if (next !== member.allianceRole) {
+                            setRoleChange({ member, newRole: next });
+                          }
+                        }}
                       >
                         {ALLIANCE_ROLES.map((role) => (
                           <option key={role} value={role}>
@@ -259,6 +275,28 @@ export const ConsoleMembers = () => {
         confirmText="Remove member"
         title={`Remove ${removeTarget?.name || 'this member'}?`}
         description="This revokes the member's sessions and reassigns their open tickets across every organization in the alliance. Their alliance-managed roles are removed (any direct grant is preserved)."
+      />
+
+      <ConfirmDialog
+        open={roleChange !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRoleChange(null);
+          }
+        }}
+        onConfirm={handleChangeRole}
+        variant={roleChange?.newRole === 'alliance_admin' ? 'danger' : 'warning'}
+        confirmText={roleChange?.newRole === 'alliance_admin' ? 'Grant alliance admin' : 'Change to agent'}
+        title={
+          roleChange?.newRole === 'alliance_admin'
+            ? `Make ${roleChange?.member.name || 'this member'} an alliance admin?`
+            : `Change ${roleChange?.member.name || 'this member'} to alliance agent?`
+        }
+        description={
+          roleChange?.newRole === 'alliance_admin'
+            ? 'Alliance admins manage identity, provisioning, groups, members and organizations — this grants org-admin access across every organization in the alliance. Applied on the next reconcile.'
+            : 'This lowers the member to alliance agent (associate) across every organization in the alliance and may reduce their department visibility. Applied on the next reconcile.'
+        }
       />
     </div>
   );
