@@ -81,6 +81,9 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
 const PlatformPlaceholder = lazy(() =>
   import('@/pages/console/PlatformPlaceholder').then((mod) => ({ default: mod.PlatformPlaceholder }))
 );
+const PlatformOrganizations = lazy(() =>
+  import('@/pages/console/PlatformOrganizations').then((mod) => ({ default: mod.PlatformOrganizations }))
+);
 
 /**
  * Platform (global-admin) console sections — same shell, platform scope. Paths are
@@ -89,7 +92,7 @@ const PlatformPlaceholder = lazy(() =>
 export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: PlatformPlaceholder },
   { id: 'alliances', label: 'Alliances', icon: Network, path: 'alliances', element: PlatformPlaceholder },
-  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: PlatformPlaceholder },
+  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: PlatformOrganizations },
   { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformPlaceholder },
   { id: 'billing', label: 'Billing & Plans', icon: CreditCard, path: 'billing', element: PlatformPlaceholder },
   { id: 'usage', label: 'Usage', icon: BarChart3, path: 'usage', element: PlatformPlaceholder },
