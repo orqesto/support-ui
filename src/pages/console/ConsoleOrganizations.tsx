@@ -191,7 +191,7 @@ export const ConsoleOrganizations = () => {
         variant="danger"
         confirmText="Detach"
         title={`Detach ${detachTarget?.name ?? ''}?`}
-        description="Alliance-managed roles in this organization will be unwound (members fall back to any direct grant). This does not delete the organization."
+        description="Alliance-managed roles in this organization are unwound. Any member without a direct grant here loses access — their open tickets in this organization are reassigned and their sessions are revoked. Members with a direct grant keep it. This does not delete the organization."
       />
     </div>
   );
