@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Users, Copy, Check, Trash2, KeyRound } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
+import { Button, IconButton } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Alert } from '@/components/ui/Alert';
+import { Label } from '@/components/ui/Label';
+import { Select } from '@/components/ui/Select';
+import { Toggle } from '@/components/ui/Toggle';
 import { departmentService, type Department } from '@/services/department.service';
 import { organizationService } from '@/services/organization.service';
 import {
@@ -36,9 +39,6 @@ import { logger } from '@/lib/logger';
  * FE role visibility is UX-only — the BE `requireOrgAdmin` gate is the real
  * authority (T-02-21).
  */
-
-const inputCls =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground';
 
 const ROLE_OPTIONS: { value: OrgRole | ''; label: string }[] = [
   { value: '', label: '— no role —' },
@@ -281,40 +281,36 @@ export const SCIMConfigSettings = () => {
         ) : (
           <div className="space-y-6">
             {error && (
-              <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
+              <Alert variant="danger">
+                <p className="text-sm">{error}</p>
+              </Alert>
             )}
 
             {/* Enable + account-linking flags. */}
             <div className="space-y-3">
-              <label className="flex gap-3 items-center cursor-pointer">
-                <input
-                  type="checkbox"
+              <div className="flex gap-3 items-center">
+                <Toggle
                   checked={enabled}
                   disabled={savingFlags}
-                  onChange={(event) => void saveFlags({ enabled: event.target.checked })}
-                  className="w-4 h-4"
+                  onChange={(next) => void saveFlags({ enabled: next })}
                 />
                 <span className="text-sm font-medium text-foreground">
                   Enable SCIM provisioning for this workspace
                 </span>
-              </label>
+              </div>
 
               <div className="space-y-1">
-                <label className="flex gap-3 items-center cursor-pointer">
-                  <input
-                    type="checkbox"
+                <div className="flex gap-3 items-center">
+                  <Toggle
                     checked={allowLinking}
                     disabled={savingFlags}
-                    onChange={(event) =>
-                      void saveFlags({ allowScimAccountLinking: event.target.checked })
-                    }
-                    className="w-4 h-4"
+                    onChange={(next) => void saveFlags({ allowScimAccountLinking: next })}
                   />
                   <span className="text-sm font-medium text-foreground">
                     Allow linking to existing accounts
                   </span>
-                </label>
-                <p className="pl-7 text-xs text-muted-foreground">
+                </div>
+                <p className="pl-12 text-xs text-muted-foreground">
                   When on, a SCIM POST for a member who already has an account adopts that account
                   (matched by verified email) instead of failing. Leave off unless you trust your IdP
                   to claim existing accounts.
@@ -323,28 +319,33 @@ export const SCIMConfigSettings = () => {
             </div>
 
             {/* SCIM Base URL — authoritative, server-derived, copyable. */}
-            <div className="space-y-1">
-              <label htmlFor="scim-base-url" className="text-sm font-medium text-foreground">
-                SCIM Base URL
-              </label>
+            <div>
+              <Label htmlFor="scim-base-url">SCIM Base URL</Label>
               <div className="flex gap-2 items-center">
-                <input
-                  id="scim-base-url"
-                  readOnly
-                  value={scimBaseUrl}
-                  onFocus={(event) => event.currentTarget.select()}
-                  className={`${inputCls} font-mono text-xs`}
-                />
-                <button
-                  type="button"
-                  onClick={copyBaseUrl}
+                <div className="flex-1">
+                  <Input
+                    id="scim-base-url"
+                    readOnly
+                    value={scimBaseUrl}
+                    onFocus={(event) => event.currentTarget.select()}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <IconButton
+                  variant="outline"
+                  aria-label="Copy SCIM Base URL"
                   title="Copy"
-                  className="flex shrink-0 gap-1 items-center px-3 py-2 text-sm rounded-md border border-border hover:bg-muted"
-                >
-                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
+                  onClick={copyBaseUrl}
+                  icon={
+                    copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )
+                  }
+                />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Paste this exact URL into your IdP's SCIM connection settings.
               </p>
             </div>
@@ -358,38 +359,44 @@ export const SCIMConfigSettings = () => {
 
               {/* One-time plaintext reveal after minting. */}
               {mintedToken && (
-                <div className="p-3 space-y-2 rounded-md border border-green-500/40 bg-green-50">
-                  <p className="text-xs font-medium text-green-800">
-                    Copy this token now — it will not be shown again.
-                  </p>
-                  <div className="flex gap-2 items-center">
-                    <input
-                      readOnly
-                      value={mintedToken}
-                      onFocus={(event) => event.currentTarget.select()}
-                      className={`${inputCls} font-mono text-xs`}
-                    />
-                    <button
-                      type="button"
-                      onClick={copyMinted}
-                      title="Copy"
-                      className="flex shrink-0 gap-1 items-center px-3 py-2 text-sm rounded-md border border-border hover:bg-muted"
+                <Alert variant="success">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium">
+                      Copy this token now — it will not be shown again.
+                    </p>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <Input
+                          readOnly
+                          value={mintedToken}
+                          onFocus={(event) => event.currentTarget.select()}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                      <IconButton
+                        variant="outline"
+                        aria-label="Copy token"
+                        title="Copy"
+                        onClick={copyMinted}
+                        icon={
+                          mintedCopied ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )
+                        }
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setMintedToken(null)}
+                      className="px-0 h-auto text-xs underline"
                     >
-                      {mintedCopied ? (
-                        <Check className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
+                      Done — hide token
+                    </Button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setMintedToken(null)}
-                    className="text-xs underline text-muted-foreground"
-                  >
-                    Done — hide token
-                  </button>
-                </div>
+                </Alert>
               )}
 
               <div className="flex gap-2 items-end">
@@ -433,15 +440,16 @@ export const SCIMConfigSettings = () => {
                             {new Date(token.createdAt).toLocaleDateString()}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => void handleRevoke(token.id)}
                               title="Revoke"
-                              className="inline-flex gap-1 items-center text-xs text-destructive hover:underline"
+                              className="gap-1 px-2 h-auto text-xs text-destructive hover:text-destructive"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               Revoke
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -476,26 +484,25 @@ export const SCIMConfigSettings = () => {
                         )}
                       </div>
 
-                      <div className="space-y-1">
-                        <label
+                      <div>
+                        <Label
                           htmlFor={`scim-role-${group.id}`}
-                          className="text-xs font-medium text-muted-foreground"
+                          className="mb-1 text-xs text-muted-foreground"
                         >
                           Role
-                        </label>
-                        <select
+                        </Label>
+                        <Select
                           id={`scim-role-${group.id}`}
                           value={group.mappedRole ?? ''}
                           disabled={savingGroupId === group.id}
                           onChange={(event) => onRoleChange(group, event.target.value)}
-                          className={inputCls}
                         >
                           {ROLE_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
 
                       {departments.length > 0 && (
@@ -503,23 +510,15 @@ export const SCIMConfigSettings = () => {
                           <span className="text-xs font-medium text-muted-foreground">
                             Departments
                           </span>
-                          <div className="flex flex-wrap gap-3">
+                          <div className="flex flex-wrap gap-x-4 gap-y-2">
                             {departments.map((dept) => (
-                              <label
+                              <Toggle
                                 key={dept.id}
-                                className="flex gap-2 items-center text-sm cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={group.mappedDepartmentIds.includes(dept.id)}
-                                  disabled={savingGroupId === group.id}
-                                  onChange={(event) =>
-                                    onDeptToggle(group, dept.id, event.target.checked)
-                                  }
-                                  className="w-4 h-4"
-                                />
-                                <span className="text-foreground">{dept.name}</span>
-                              </label>
+                                checked={group.mappedDepartmentIds.includes(dept.id)}
+                                disabled={savingGroupId === group.id}
+                                onChange={(next) => onDeptToggle(group, dept.id, next)}
+                                label={dept.name}
+                              />
                             ))}
                           </div>
                         </div>
