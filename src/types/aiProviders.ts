@@ -28,6 +28,8 @@ export type AIModel = {
   type: AIModelType;
   contextWindow: number;
   description?: string;
+  /** True when this model can analyze images (vision). Mirrors the BE catalog; drives the vision picker. */
+  supportsVision?: boolean;
 };
 
 export type AIProviderConfig = {
