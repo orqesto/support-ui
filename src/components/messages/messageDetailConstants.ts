@@ -213,6 +213,87 @@ export function renderMarkdown(raw: string): string {
     .replace(/\n/g, '<br>');
 }
 
+// Converts a suggested/AI answer (generated as plain text with markdown-ish
+// syntax — blank-line paragraphs, `- ` bullets, `1.` lists, **bold**) into real
+// HTML, so inserting it into the reply editor yields editable rich text that is
+// sent to the customer as formatted HTML — not literal "**bold**" / "- " runs.
+// If the answer already contains HTML tags it is returned untouched (TipTap +
+// the outbound sanitizer handle it). Block structure (<p>/<ul>/<ol>) is built
+// line-by-line; inline marks are applied to already-escaped text.
+export function suggestedAnswerToHtml(raw: string): string {
+  if (!raw) return '';
+  // Already real HTML (a closing tag or a known inline/block tag)? Leave it for
+  // the editor + outbound sanitizer. A stricter test than /<[a-z].*>/ so a bare
+  // <https://…> / <name@host> token in plain text still gets converted, not
+  // passed through (where the sanitizer would drop it as an unknown tag).
+  if (/<\/[a-z][a-z0-9]*\s*>|<(?:br|p|div|ul|ol|li|strong|em|b|i|a|blockquote|pre|code)[\s/>]/i.test(raw))
+    return raw;
+
+  const inline = (text: string): string =>
+    text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+      .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      // URL char class excludes quotes/brackets so a crafted link text can't
+      // break out of the href attribute (belt-and-suspenders — the caller also
+      // runs the result through DOMPurify's attribute allowlist).
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s"'<>)]+)\)/g, '<a href="$2">$1</a>');
+
+  const out: string[] = [];
+  let para: string[] = [];
+  let list: { tag: 'ul' | 'ol'; items: string[] } | null = null;
+
+  const flushPara = () => {
+    if (para.length) out.push(`<p>${para.map(inline).join('<br>')}</p>`);
+    para = [];
+  };
+  const flushList = () => {
+    if (list) out.push(`<${list.tag}>${list.items.map((item) => `<li>${inline(item)}</li>`).join('')}</${list.tag}>`);
+    list = null;
+  };
+
+  for (const line of raw.replace(/\r\n/g, '\n').split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed === '') {
+      flushPara();
+      flushList();
+      continue;
+    }
+    const heading = trimmed.match(/^#{1,6}\s+(.*)$/);
+    const bullet = trimmed.match(/^[-*]\s+(.*)$/);
+    const numbered = trimmed.match(/^\d+[.)]\s+(.*)$/);
+    if (heading) {
+      flushPara();
+      flushList();
+      out.push(`<p><strong>${inline(heading[1])}</strong></p>`);
+    } else if (bullet) {
+      flushPara();
+      if (list?.tag !== 'ul') {
+        flushList();
+        list = { tag: 'ul', items: [] };
+      }
+      list.items.push(bullet[1]);
+    } else if (numbered) {
+      flushPara();
+      if (list?.tag !== 'ol') {
+        flushList();
+        list = { tag: 'ol', items: [] };
+      }
+      list.items.push(numbered[1]);
+    } else {
+      flushList();
+      para.push(trimmed);
+    }
+  }
+  flushPara();
+  flushList();
+  return out.join('');
+}
+
 // ─── Ghost answer types ───────────────────────────────────────────────────────
 
 export type GhostOption = {
@@ -258,7 +339,9 @@ export function splitAtQuote(
     if (bq > 150) return { main: content.slice(0, bq).trimEnd(), quote: content.slice(bq) };
     return { main: content, quote: null };
   }
-  const idx = content.search(/\n-{3,}|\nOn .{5,} wrote:/);
+  // Plain-text reply history: an attribution line ("On … wrote:"), a signature
+  // divider (--- / ___), a forwarded-header block, or the first `>`-quoted line.
+  const idx = content.search(/\n-{3,}|\n_{3,}|\nOn .{5,}wrote:|\n-{2,} ?Forwarded|\nFrom: .{2,}\n|\n\s*>[ >]/);
   if (idx > 50) return { main: content.slice(0, idx).trimEnd(), quote: content.slice(idx) };
   return { main: content, quote: null };
 }

@@ -203,7 +203,7 @@ const buildPreviewData = (): TrackingPayload => {
     conversation: {
       id: 0,
       publicId: 'SUP-42',
-      subject: 'Order #12345 — shipping confirmation?',
+      subject: 'Order #A-4471 — Kiroshi Mk.3 optics delivery?',
       status: 'awaiting_response',
       priority: 'medium',
       createdAt: new Date(now - 4 * hour).toISOString(),
@@ -220,7 +220,7 @@ const buildPreviewData = (): TrackingPayload => {
         isAutomated: false,
         channel: 'email',
         content:
-          "Hi, I placed order #12345 yesterday but haven't received a shipping confirmation. Can you check on it?",
+          "Hi — I ordered a set of Kiroshi Mk.3 optics on Tuesday (order #A-4471) and haven't had a dispatch notice yet. Could you check where it is?",
         sentAt: new Date(now - 4 * hour).toISOString(),
       },
       {
@@ -229,7 +229,7 @@ const buildPreviewData = (): TrackingPayload => {
         isAutomated: true,
         channel: 'email',
         content:
-          "Thanks for reaching out — we've received your message and an agent will get back to you shortly. You can track this request on this page.",
+          "Thanks — we've logged your request and an agent will follow up shortly. You can watch for updates right here on this page.",
         sentAt: new Date(now - 4 * hour + 5000).toISOString(),
       },
       {
@@ -238,7 +238,7 @@ const buildPreviewData = (): TrackingPayload => {
         isAutomated: false,
         channel: 'email',
         content:
-          "Hi! I checked your order — it's currently being prepared for shipping today. You should receive a tracking number within 24 hours. Let me know if anything else comes up.",
+          "Hi! Your order cleared the warehouse this morning and ships today — you'll get a courier tracking code within 24 hours. Anything else I can line up for you?",
         sentAt: new Date(now - 0.5 * hour).toISOString(),
       },
     ],
