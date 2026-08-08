@@ -166,7 +166,7 @@ export const ProfileSettings = () => {
           maxLength={5000}
           rows={5}
           className="w-full px-3 py-2 rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm placeholder:text-muted-foreground"
-          placeholder={'Best regards,\nJohn Smith\nSupport Team'}
+          placeholder={'Best regards,\nMara Kováč\nSupport Team'}
         />
         <div className="flex items-center justify-between mt-2">
           <span className="text-xs text-muted-foreground">{signature.length}/5000 characters</span>
