@@ -433,8 +433,8 @@ export const Layout = ({ children }: LayoutProps) => {
         }
         // Customer-facing billing UI hidden whenever billing is off (self-hosted
         // or a managed box without a billing provider yet). Admin Plans /
-        // Organization Usage live on AdminDashboardPage and are unaffected — those
-        // are still needed to assign the admin plan.
+        // Organization Usage live in the platform console (Billing & Plans) and are
+        // unaffected — those are still needed to assign the admin plan.
         if (item.hideWhenBillingOff && !billingEnabled) {
           return false;
         }
