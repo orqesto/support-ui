@@ -1,3 +1,4 @@
+import { StripePriceMapping } from '@/components/console/StripePriceMapping';
 import { AdminPlansTab } from '@/pages/admin/AdminPlansTab';
 
 /**
@@ -12,5 +13,6 @@ export const PlatformBilling = () => (
       <p className="text-sm text-muted-foreground">Subscription plans across the platform.</p>
     </div>
     <AdminPlansTab />
+    <StripePriceMapping />
   </div>
 );
