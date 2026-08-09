@@ -64,9 +64,6 @@ const SubscriptionPage = lazy(() =>
 const PricingPage = lazy(() =>
   import('./pages/PricingPage').then((mod) => ({ default: mod.PricingPage }))
 );
-const AdminDashboardPage = lazy(() =>
-  import('./pages/AdminDashboardPage').then((mod) => ({ default: mod.AdminDashboardPage }))
-);
 const UsageStatsPage = lazy(() =>
   import('./pages/UsageStatsPage').then((mod) => ({ default: mod.UsageStatsPage }))
 );
@@ -480,22 +477,6 @@ const AppRoutes = () => {
               <Suspense fallback={<LoadingFallback />}>
                 <AuditLogsPage />
               </Suspense>
-            </ProtectedRoute>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredRole="admin">
-              {/* P3: the Plans/Usage dashboard is now Billing & Plans in the
-                  platform console. Only global admins reach this route. */}
-              <GlobalAdminRedirect to="/console/platform/billing">
-                <Suspense fallback={<LoadingFallback />}>
-                  <AdminDashboardPage />
-                </Suspense>
-              </GlobalAdminRedirect>
             </ProtectedRoute>
           </PrivateRoute>
         }
