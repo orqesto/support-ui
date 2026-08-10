@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { DetectionRulesSettings } from './DetectionRulesSettings';
 import { KnowledgeDetectionRulesSettings } from './KnowledgeDetectionRulesSettings';
@@ -85,31 +86,19 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
         </div>
       </div>
 
-      {/* Rule Type Switcher - Pill Buttons */}
-      <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {visibleRuleTypes.map((type) => (
-          <button
-            key={type.id}
-            onClick={() => goToRuleType(type.id)}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-              activeRuleType === type.id
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-            }`}
-            title={type.description}
-          >
-            {type.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Rule Content */}
-      <div>
+      {/* Rule Type Switcher */}
+      <Tabs<RuleType>
+        tabs={visibleRuleTypes.map((type) => ({ id: type.id, label: type.label, description: type.description }))}
+        activeTab={activeRuleType}
+        onTabChange={goToRuleType}
+        variant="simple"
+        showIcons={false}
+      >
         {activeRuleType === 'spam' && <SpamRulesSettings />}
         {activeRuleType === 'detection' && <DetectionRulesSettings />}
         {activeRuleType === 'knowledge' && <KnowledgeDetectionRulesSettings />}
         {activeRuleType === 'routing' && canManageRouting && <RoutingRulesSettings />}
-      </div>
+      </Tabs>
     </div>
   );
 };
