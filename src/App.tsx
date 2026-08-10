@@ -434,9 +434,13 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_USERS}>
-              <Suspense fallback={<LoadingFallback />}>
-                <UsersPage />
-              </Suspense>
+              {/* P3: global admins manage users in the platform console; org admins
+                  keep this org-scoped members list. */}
+              <GlobalAdminRedirect to="/console/platform/users">
+                <Suspense fallback={<LoadingFallback />}>
+                  <UsersPage />
+                </Suspense>
+              </GlobalAdminRedirect>
             </ProtectedRoute>
           </PrivateRoute>
         }
@@ -474,9 +478,13 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_AUDIT_LOGS}>
-              <Suspense fallback={<LoadingFallback />}>
-                <AuditLogsPage />
-              </Suspense>
+              {/* P3: global admins view audit in the platform console; org admins
+                  keep this org-scoped audit page. */}
+              <GlobalAdminRedirect to="/console/platform/audit">
+                <Suspense fallback={<LoadingFallback />}>
+                  <AuditLogsPage />
+                </Suspense>
+              </GlobalAdminRedirect>
             </ProtectedRoute>
           </PrivateRoute>
         }
@@ -565,6 +573,10 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* P3: the old '/admin' dashboard was removed; its Plans/Usage tabs now live in
+          the platform console. Redirect any lingering '/admin' link there (the console
+          gates non-admins) instead of dropping to a 404. */}
+      <Route path="/admin" element={<Navigate to="/console/platform" replace />} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route
         path="*"

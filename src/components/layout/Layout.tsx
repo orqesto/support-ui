@@ -64,7 +64,7 @@ type LayoutProps = {
 // VIEW_MESSAGES users so admins stop being the bottleneck). "Deleted Messages" is
 // a recovery tool — moved to Admin and gated to global admin (was misleadingly
 // surfaced to every VIEW_MESSAGES user before).
-type NavGroup = 'work' | 'insights' | 'admin';
+type NavGroup = 'work' | 'insights' | 'admin' | 'consoles';
 
 const allNavigation: Array<{
   group: NavGroup;
@@ -143,11 +143,32 @@ const allNavigation: Array<{
     hideWhenBillingOff: true,
   },
 
-  // ─── Admin — configuration & rare-use ───────────────────────────────────────
-  { group: 'admin', name: 'Manage', href: '/console', icon: Network, allianceAdmin: true },
-  { group: 'admin', name: 'Platform', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
-  { group: 'admin', name: 'Users', href: '/users', icon: Users, permission: Permission.VIEW_USERS },
-  { group: 'admin', name: 'Workspace', href: '/organization', icon: Building2, hideForGlobalAdmin: true },
+  // ─── Consoles — scope-aware admin shells (own group; labels match the shell
+  //     headers so the audience is obvious). Alliance = customer IT; Platform = Odly staff.
+  { group: 'consoles', name: 'Alliance Console', href: '/console', icon: Network, allianceAdmin: true },
+  { group: 'consoles', name: 'Platform Console', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
+
+  // ─── Admin — org-scoped configuration & rare-use ────────────────────────────
+  // Global admin manages users via the platform console (Platform › Users); hide the
+  // org-scoped members list from the main nav so it isn't a duplicate entry point.
+  {
+    group: 'admin',
+    name: 'Users',
+    href: '/users',
+    icon: Users,
+    permission: Permission.VIEW_USERS,
+    hideForGlobalAdmin: true,
+  },
+  // MANAGE_ORGANIZATION-gated: without it the link renders for moderator/support who
+  // then 403 at the route (dead-end). hideForGlobalAdmin: global admins use the console.
+  {
+    group: 'admin',
+    name: 'Workspace',
+    href: '/organization',
+    icon: Building2,
+    permission: Permission.MANAGE_ORGANIZATION,
+    hideForGlobalAdmin: true,
+  },
   {
     group: 'admin',
     name: 'Settings',
@@ -170,12 +191,15 @@ const allNavigation: Array<{
     icon: MailOpen,
     adminOnly: true,
   },
+  // Global admin views audit via the platform console (Platform › Audit); hide the
+  // org-scoped audit page from the main nav to avoid the duplicate entry point.
   {
     group: 'admin',
     name: 'Audit Logs',
     href: '/audit-logs',
     icon: ScrollText,
     permission: Permission.VIEW_AUDIT_LOGS,
+    hideForGlobalAdmin: true,
   },
   // P3: 'Admin Dashboard' (/admin) removed — its Plans + Usage tabs now live in
   // the platform console (Billing & Plans / Usage). The /admin route still
@@ -207,9 +231,10 @@ const allNavigation: Array<{
 const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   work: 'Work',
   insights: 'Insights',
-  admin: 'Manage',
+  admin: 'Administration',
+  consoles: 'Consoles',
 };
-const NAV_GROUP_ORDER: NavGroup[] = ['work', 'insights', 'admin'];
+const NAV_GROUP_ORDER: NavGroup[] = ['work', 'insights', 'admin', 'consoles'];
 
 /**
  * Routes that are reachable but don't have a top-nav entry. Used so the mobile

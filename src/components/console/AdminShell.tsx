@@ -92,9 +92,9 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
   const basePath = isPlatform ? '/console/platform' : `/console/alliance/${allianceId}`;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="flex flex-col w-64 border-r border-border bg-card">
-        <div className="flex gap-2 items-center px-4 h-16 border-b border-border">
+    <div className="flex overflow-hidden h-screen bg-background">
+      <aside className="flex overflow-hidden flex-col w-64 border-r border-border bg-card">
+        <div className="flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border">
           {isPlatform ? (
             <ShieldAlert className="w-5 h-5 text-primary" />
           ) : (
@@ -104,7 +104,7 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
             {isPlatform ? 'Platform Admin' : 'Alliance Admin'}
           </span>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="overflow-y-auto flex-1 p-3 space-y-1">
           {sections.map((section) => {
             const Icon = section.icon;
             const to = section.path ? `${basePath}/${section.path}` : basePath;
@@ -127,7 +127,7 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-border">
+        <div className="flex-shrink-0 p-3 border-t border-border">
           <NavLink
             to="/dashboard"
             className="flex gap-2 items-center px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
