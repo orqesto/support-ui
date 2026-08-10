@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
@@ -395,10 +396,9 @@ export const LoginPage = () => {
             {step === 'selectOrg' && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Workspace</label>
-                <select
+                <Select
                   value={selectedOrgId ?? ''}
                   onChange={(event) => setSelectedOrgId(Number(event.target.value) || null)}
-                  className="px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 >
                   <option value="" disabled>
@@ -409,7 +409,7 @@ export const LoginPage = () => {
                       {org.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
 

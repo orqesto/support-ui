@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AtSign, Hash, Link as LinkIcon, MessageSquare, Phone, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
@@ -95,8 +96,7 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
       {/* Assigned manager */}
       <div>
         <SectionLabel>Assigned manager</SectionLabel>
-        <select
-          className="px-3 py-2 w-full text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        <Select
           value={contact.assignedUserId ?? ''}
           onChange={(event) => props.onAssign(event.target.value ? parseInt(event.target.value) : null)}
         >
@@ -106,7 +106,7 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
               {usr.firstName} {usr.lastName ?? ''} ({usr.email})
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {/* Labels */}
@@ -236,8 +236,7 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
         </div>
         {props.showProfileForm && (
           <div className="mt-2 space-y-2">
-            <select
-              className="px-2 py-1.5 w-full text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            <Select
               value={props.profileTypeInput}
               onChange={(event) => props.setProfileTypeInput(event.target.value as ContactProfileType)}
             >
@@ -245,7 +244,7 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
               <option value="telegram_username">Telegram Username</option>
               <option value="telegram_phone">Telegram Phone</option>
               <option value="slack">Slack</option>
-            </select>
+            </Select>
             <Input
               size="sm"
               placeholder={profilePlaceholder(props.profileTypeInput)}

@@ -5,6 +5,7 @@ import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
 import { formatAge, formatDate } from '@/lib/utils';
@@ -408,17 +409,17 @@ export function ContactsView({
         </div>
         <div className="flex gap-1 items-center px-1 h-8 rounded-lg bg-muted">
           <span className="pl-2 pr-0.5 text-[11px] text-muted-foreground">Sort</span>
-          <select
+          <Select
             value={sort}
             onChange={(event) => setSort(event.target.value as SortKey)}
-            className="h-7 pr-1 text-xs font-medium bg-transparent outline-none cursor-pointer text-foreground"
+            className="px-1 pr-1 w-auto h-7 text-xs font-medium bg-transparent border-0 cursor-pointer"
           >
             {Object.entries(SORTS).map(([key, sortDef]) => (
               <option key={key} value={key}>
                 {sortDef.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 

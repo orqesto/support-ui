@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -345,18 +346,17 @@ export const SSOConfigSettings = () => {
               <label htmlFor="sso-provider" className="text-sm font-medium text-foreground">
                 Identity provider
               </label>
-              <select
+              <Select
                 id="sso-provider"
                 value={provider}
                 onChange={(event) => applyProvider(event.target.value)}
-                className={inputCls}
               >
                 {PROVIDERS.map((prov) => (
                   <option key={prov.id} value={prov.id}>
                     {prov.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="space-y-1">

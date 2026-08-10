@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import {
   Dialog,
   DialogClose,
@@ -157,12 +158,11 @@ export const MoveDepartmentDialog = ({
                 member of (or all active depts as an admin).
               </p>
             ) : (
-              <select
+              <Select
                 id="target-dept"
                 value={targetDeptId ?? ''}
                 onChange={(ev) => setTargetDeptId(Number(ev.target.value) || null)}
                 disabled={submitting}
-                className="w-full px-3 py-2 text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select department…</option>
                 {candidateDepts.map((dept) => (
@@ -170,7 +170,7 @@ export const MoveDepartmentDialog = ({
                     {dept.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
 

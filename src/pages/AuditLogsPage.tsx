@@ -3,6 +3,7 @@ import { FileText, RefreshCw, X } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -73,8 +74,6 @@ const ENTITY_OPTIONS = [
   { value: 'settings', label: 'Settings' },
 ];
 
-const filterSelectClass =
-  'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer';
 
 const filterInputClass =
   'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring dark:[color-scheme:dark]';
@@ -229,10 +228,10 @@ export const AuditLogsPage = () => {
               {/* Filter bar */}
               <div className="border-b px-4 py-3 flex flex-wrap gap-2 items-center bg-muted/30">
                 {/* Action */}
-                <select
+                <Select
                   value={filters.action ?? ''}
                   onChange={(event) => patchFilter({ action: event.target.value || undefined })}
-                  className={filterSelectClass}
+                  className="w-auto h-8"
                   aria-label="Filter by action"
                 >
                   {ACTION_OPTIONS.map((opt) => (
@@ -240,13 +239,13 @@ export const AuditLogsPage = () => {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
 
                 {/* Entity */}
-                <select
+                <Select
                   value={filters.entity ?? ''}
                   onChange={(event) => patchFilter({ entity: event.target.value || undefined })}
-                  className={filterSelectClass}
+                  className="w-auto h-8"
                   aria-label="Filter by entity"
                 >
                   {ENTITY_OPTIONS.map((opt) => (
@@ -254,7 +253,7 @@ export const AuditLogsPage = () => {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
 
                 {/* Date range */}
                 <div className="flex items-center gap-1">
