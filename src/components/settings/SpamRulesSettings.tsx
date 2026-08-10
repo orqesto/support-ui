@@ -3,6 +3,8 @@ import { Brain, Lock } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
@@ -112,14 +114,16 @@ export const SpamRulesSettings = () => {
                   ? `Manual (${rules.length - feedbackCount})`
                   : `Auto-learned (${feedbackCount})`;
             return (
-              <button
+              <Button
                 key={filter}
+                variant="ghost"
+                size="sm"
                 onClick={() => setRuleFilter(filter)}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-3 py-1.5 h-auto text-sm rounded-md font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {filter === 'feedback' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
                 {label}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -195,10 +199,9 @@ export const SpamRulesSettings = () => {
           </div>
           <div>
             <label className="block mb-1 text-sm font-medium">Description</label>
-            <textarea
+            <Textarea
               value={formData.description}
               onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-              className="px-3 py-2 w-full rounded-md border bg-background"
               placeholder="What this rule detects"
               rows={2}
             />
@@ -217,10 +220,9 @@ export const SpamRulesSettings = () => {
             <label className="block mb-1 text-sm font-medium">
               Example text (used for semantic embedding match)
             </label>
-            <textarea
+            <Textarea
               value={formData.exampleText}
               onChange={(event) => setFormData({ ...formData, exampleText: event.target.value })}
-              className="px-3 py-2 w-full rounded-md border bg-background"
               placeholder="Sample spam text the rule should match (multilingual; falls back to pattern when empty)"
               rows={3}
               maxLength={5000}

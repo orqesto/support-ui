@@ -4,6 +4,7 @@ import { TwoFactorSettings } from './TwoFactorSettings';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -160,12 +161,12 @@ export const ProfileSettings = () => {
         <p className="text-sm text-muted-foreground mb-4">
           Appended to replies you send. Leave blank to send without a signature.
         </p>
-        <textarea
+        <Textarea
           value={signature}
           onChange={(event) => setSignature(event.target.value)}
           maxLength={5000}
           rows={5}
-          className="w-full px-3 py-2 rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm placeholder:text-muted-foreground"
+          className="font-mono"
           placeholder={'Best regards,\nMara Kováč\nSupport Team'}
         />
         <div className="flex items-center justify-between mt-2">

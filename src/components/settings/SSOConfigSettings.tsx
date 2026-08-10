@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -399,13 +400,12 @@ export const SSOConfigSettings = () => {
               <label htmlFor="sso-domains" className="text-sm font-medium text-foreground">
                 Allowed email domains
               </label>
-              <textarea
+              <Textarea
                 id="sso-domains"
                 value={domainsText}
                 onChange={(event) => setDomainsText(event.target.value)}
                 rows={3}
                 placeholder={'example.com\nsubsidiary.example.com'}
-                className={inputCls}
               />
               <p className="text-xs text-muted-foreground">
                 One per line (or comma-separated). Users with these email domains are routed to SSO.

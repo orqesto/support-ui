@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import {
   Dialog,
   DialogHeader,
@@ -141,10 +142,9 @@ export const CategoriesSettings = () => {
               <label htmlFor="description" className="text-sm font-medium">
                 Description
               </label>
-              <textarea
+              <Textarea
                 value={formData.description}
                 onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 rows={2}
                 placeholder="Brief description of this category"
               />
@@ -153,10 +153,10 @@ export const CategoriesSettings = () => {
               <label htmlFor="keywords" className="text-sm font-medium">
                 Keywords (comma-separated)
               </label>
-              <textarea
+              <Textarea
                 value={formData.keywords}
                 onChange={(event) => setFormData({ ...formData, keywords: event.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                className="font-mono"
                 rows={3}
                 placeholder="technical, bug, error, crash, not working, broken"
               />
@@ -207,10 +207,9 @@ export const CategoriesSettings = () => {
                     <label htmlFor="description" className="text-sm font-medium">
                       Description
                     </label>
-                    <textarea
+                    <Textarea
                       value={formData.description}
                       onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
                       rows={2}
                     />
                   </div>
@@ -218,10 +217,10 @@ export const CategoriesSettings = () => {
                     <label htmlFor="keywords" className="text-sm font-medium">
                       Keywords
                     </label>
-                    <textarea
+                    <Textarea
                       value={formData.keywords}
                       onChange={(event) => setFormData({ ...formData, keywords: event.target.value })}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="font-mono"
                       rows={3}
                     />
                   </div>

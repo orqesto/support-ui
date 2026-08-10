@@ -6,6 +6,7 @@ import {
   type CreateChatWidgetRequest,
 } from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -276,12 +277,12 @@ export const ChatWidgetModal = ({
             <Label htmlFor="allowedDomains">
               Allowed Domains (one per line, leave empty for all)
             </Label>
-            <textarea
+            <Textarea
               id="allowedDomains"
               value={domainsText}
               onChange={(event) => setDomainsText(event.target.value)}
               placeholder="example.com&#10;*.example.com&#10;app.example.com"
-              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="min-h-[100px]"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Restrict widget to specific domains. Use * for wildcards.
