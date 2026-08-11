@@ -5,6 +5,7 @@ import { organizationService, type Organization } from '@/services/organization.
 import { departmentService, type Department } from '@/services/department.service';
 import { listScimGroupMappings } from '@/services/scim.service';
 import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   Dialog,
@@ -539,21 +540,10 @@ export const EditUserModal = ({
                     </label>
                     <label className="flex gap-2 items-center cursor-pointer">
                       <span className="text-xs text-muted-foreground">Allow self-edit</span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={canEditSkills}
-                        onClick={() => handleToggleCanEditSkills(!canEditSkills)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
-                          canEditSkills ? 'bg-primary' : 'bg-muted-foreground/30'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                            canEditSkills ? 'translate-x-4' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
+                      <Toggle
+                        checked={canEditSkills}
+                        onChange={(next) => handleToggleCanEditSkills(next)}
+                      />
                     </label>
                   </div>
                   {routingKeys.length === 0 ? (
@@ -579,13 +569,15 @@ export const EditUserModal = ({
                                 className="flex gap-1 items-center px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
                               >
                                 {val}
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleRemoveValue(key, val)}
-                                  className="hover:text-red-500"
+                                  className="p-0 w-auto h-auto hover:text-red-500"
                                 >
                                   <X className="w-3 h-3" />
-                                </button>
+                                </Button>
                               </span>
                             ))}
                             {(skillValues[key] ?? []).length === 0 && (
@@ -608,13 +600,14 @@ export const EditUserModal = ({
                               placeholder="e.g. de, en (comma-separated)"
                               className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                             />
-                            <button
+                            <Button
                               type="button"
+                              size="sm"
                               onClick={() => handleAddValue(key)}
-                              className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                              className="px-2 py-1 h-auto text-xs"
                             >
                               Add
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))}

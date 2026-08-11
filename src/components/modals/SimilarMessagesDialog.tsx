@@ -491,7 +491,9 @@ export const SimilarMessagesDialog = ({
                   {msg.source === 'documentation' ? (
                     <div className="mb-3">
                       {msg.content && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={(event) => {
                             event.stopPropagation();
                             setExpandedQuotes((prev) => {
@@ -504,7 +506,7 @@ export const SimilarMessagesDialog = ({
                               return nextSet;
                             });
                           }}
-                          className="flex gap-1 items-center text-xs transition-colors text-muted-foreground hover:text-primary"
+                          className="gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-primary"
                         >
                           {expandedQuotes.has(index) ? (
                             <>
@@ -517,7 +519,7 @@ export const SimilarMessagesDialog = ({
                               Show Original Text
                             </>
                           )}
-                        </button>
+                        </Button>
                       )}
                       {msg.content && expandedQuotes.has(index) && (
                         <div className="p-3 mt-2 rounded border bg-muted/30 border-muted">
@@ -566,33 +568,29 @@ export const SimilarMessagesDialog = ({
                         msg.detectedLanguage &&
                         msg.detectedLanguage !== 'en' && (
                           <div className="flex gap-1">
-                            <button
+                            <Button
+                              size="sm"
+                              variant={!showEnglish[index] ? 'primary' : 'secondary'}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setShowEnglish((prev) => ({ ...prev, [index]: false }));
                               }}
-                              className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
-                                !showEnglish[index]
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                              }`}
+                              className="gap-1 items-center px-2 py-1 h-auto text-xs"
                             >
                               <Globe className="w-3 h-3" />
                               {msg.detectedLanguage.toUpperCase()}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={showEnglish[index] ? 'primary' : 'secondary'}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setShowEnglish((prev) => ({ ...prev, [index]: true }));
                               }}
-                              className={`flex gap-1 items-center px-2 py-1 text-xs rounded transition-colors ${
-                                showEnglish[index]
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                              }`}
+                              className="gap-1 items-center px-2 py-1 h-auto text-xs"
                             >
                               EN
-                            </button>
+                            </Button>
                           </div>
                         )}
                     </div>

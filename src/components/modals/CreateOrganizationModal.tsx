@@ -182,18 +182,20 @@ export const CreateOrganizationModal = ({
             <label className="block mb-1 text-sm font-medium">Database Deployment</label>
             <div className="grid grid-cols-3 gap-2">
               {(['shared', 'dedicated', 'external'] as DeploymentType[]).map((type) => (
-                <button
+                <Button
                   key={type}
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setFormData({ ...formData, deploymentType: type })}
-                  className={`py-2 px-3 rounded-md border text-sm capitalize transition-colors ${
+                  className={`capitalize ${
                     formData.deploymentType === type
                       ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-border text-muted-foreground hover:border-primary/50'
+                      : ''
                   }`}
                 >
                   {type}
-                </button>
+                </Button>
               ))}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
