@@ -59,14 +59,17 @@ export const MessageReplyForm = ({ onSend, onCancel, submitting }: MessageReplyF
               >
                 <File className="w-3 h-3" />
                 <span className="max-w-[200px] truncate">{file.name}</span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove file"
                   onClick={() => handleRemoveFile(index)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground"
                   disabled={submitting}
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               </div>
             ))}
           </div>

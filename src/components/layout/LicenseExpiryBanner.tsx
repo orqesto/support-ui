@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { useLicenseStatus } from '@/hooks/useLicenseStatus';
 
 const DISMISSED_STORAGE_KEY = 'license-banner-dismissed-validatedAt';
@@ -62,14 +63,16 @@ export const LicenseExpiryBanner = () => {
         <AlertTriangle className="flex-shrink-0 mt-0.5 w-5 h-5" />
         <AlertDescription className="flex-1">{message}</AlertDescription>
         {status.daysLeft > 7 && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleDismiss}
             aria-label="Dismiss until next validation"
-            className="flex-shrink-0 text-current opacity-60 transition-opacity hover:opacity-100"
+            className="flex-shrink-0 p-0 w-auto h-auto text-current opacity-60 transition-opacity hover:opacity-100"
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         )}
       </div>
     </Alert>

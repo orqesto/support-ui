@@ -193,18 +193,20 @@ export const DocumentationList = ({
                   : docs.length - confluenceCount;
             const label = src === 'all' ? 'All' : src === 'uploaded' ? 'Uploaded' : 'Confluence';
             return (
-              <button
+              <Button
                 key={src}
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setSourceFilter(src)}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                className={`px-3 py-1 h-auto text-xs font-medium rounded-full ${
                   sourceFilter === src
                     ? 'bg-primary text-primary-foreground border-primary'
                     : 'text-muted-foreground border-border hover:bg-muted'
                 }`}
               >
                 {label} ({count})
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -243,9 +245,11 @@ export const DocumentationList = ({
             >
               <div className="flex gap-3 items-start flex-1 min-w-0">
                 {/* Bulk-select checkbox — available on every facet (All / Uploaded / Confluence). */}
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => onToggleDoc(doc.id)}
-                  className="flex-shrink-0 mt-1 text-gray-400 transition-colors hover:text-primary focus:outline-none"
+                  className="flex-shrink-0 p-0 w-auto h-auto mt-1 text-gray-400 transition-colors hover:text-primary hover:bg-transparent focus:outline-none"
                   aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
                 >
                   {selectedDocs.has(doc.id) ? (
@@ -253,7 +257,7 @@ export const DocumentationList = ({
                   ) : (
                     <Square className="w-5 h-5" />
                   )}
-                </button>
+                </Button>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />

@@ -247,12 +247,13 @@ export const MessageFilters = ({
             "Clear all" live OUTSIDE it so clicking a stat can't collapse the
             panel; the hit target is just icon + Filters + count + chevron. */}
         <div className="flex gap-3 justify-between items-center">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setExpanded((val) => !val)}
             aria-expanded={expanded}
             aria-label={expanded ? 'Collapse filters' : 'Expand filters'}
-            className="flex gap-2.5 items-center min-w-0 cursor-pointer -mx-2 px-2 py-1.5 rounded-lg transition-colors group hover:bg-accent"
+            className="flex justify-start gap-2.5 items-center min-w-0 h-auto cursor-pointer -mx-2 px-2 py-1.5 rounded-lg transition-colors group hover:bg-accent"
           >
             <span className="grid place-items-center w-7 h-7 rounded-lg transition-colors shrink-0 bg-accent text-foreground group-hover:bg-primary group-hover:text-primary-foreground">
               <Filter className="w-3.5 h-3.5" />
@@ -266,7 +267,7 @@ export const MessageFilters = ({
             <ChevronDown
               className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
             />
-          </button>
+          </Button>
 
           <div className="flex gap-2 items-center shrink-0">
             {!isKanban && pagination.total > 0 && (
@@ -280,14 +281,15 @@ export const MessageFilters = ({
             {clearableFilterCount > 0 && (
               <>
                 <span className="hidden w-px h-4 bg-border sm:block" />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={onClearFilters}
                   className="flex gap-1 items-center px-2.5 h-8 rounded-lg transition-colors text-[13px] font-medium text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Clear all</span>
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -316,9 +318,11 @@ export const MessageFilters = ({
         {activeChips.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 items-center">
             {activeChips.map((chip) => (
-              <button
+              <Button
                 key={chip.key}
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={chip.onRemove}
                 aria-label={`Remove ${chip.label}`}
                 className="flex gap-1.5 items-center pr-1.5 pl-2.5 h-7 rounded-full border text-[12px] font-medium transition-colors group border-border bg-accent/40 text-foreground hover:border-rose-400/50 hover:bg-rose-500/10"
@@ -330,7 +334,7 @@ export const MessageFilters = ({
                 <span className="grid place-items-center w-4 h-4 rounded-full transition-colors text-muted-foreground group-hover:text-rose-500 group-hover:bg-rose-500/15">
                   <X className="w-2.5 h-2.5" />
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         ) : (
@@ -497,10 +501,12 @@ export const MessageFilters = ({
                 same slaBreached/slaAtRisk params every kanban column already sends. */}
             <div className="flex flex-wrap gap-2 items-center pt-1">
                 <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onFilterChange('slaBreached', !filters.slaBreached)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 h-auto rounded-full text-xs font-medium border transition-colors ${
                     filters.slaBreached
                       ? 'bg-red-600 border-red-600 text-white'
                       : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40'
@@ -508,11 +514,13 @@ export const MessageFilters = ({
                 >
                   <AlertTriangle className="w-3 h-3" />
                   SLA Breach
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onFilterChange('slaAtRisk', !filters.slaAtRisk)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 h-auto rounded-full text-xs font-medium border transition-colors ${
                     filters.slaAtRisk
                       ? 'bg-amber-500 border-amber-500 text-white'
                       : 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40'
@@ -520,12 +528,14 @@ export const MessageFilters = ({
                 >
                   <AlertCircle className="w-3 h-3" />
                   SLA At Risk
-                </button>
+                </Button>
                 <span className="w-px h-4 bg-border shrink-0" />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onFilterChange('hasAttachments', !filters.hasAttachments)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 h-auto rounded-full text-xs font-medium border transition-colors ${
                     filters.hasAttachments
                       ? 'bg-primary border-primary text-primary-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -533,7 +543,7 @@ export const MessageFilters = ({
                 >
                   <Paperclip className="w-3 h-3" />
                   Has Attachments
-                </button>
+                </Button>
             </div>
           </FilterSection>
 
@@ -651,16 +661,17 @@ export const MessageFilters = ({
           toggle when collapsed — the header is the single entry point. */}
       {expanded && (
         <div className="-mx-4 -mb-4">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setExpanded(false)}
             aria-expanded={true}
             aria-label="Collapse filters"
-            className="flex gap-1.5 justify-center items-center py-2.5 w-full border-t transition-colors cursor-pointer rounded-b-lg text-[11px] font-semibold tracking-wider uppercase border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex gap-1.5 justify-center items-center py-2.5 h-auto w-full border-t transition-colors cursor-pointer rounded-b-lg text-[11px] font-semibold tracking-wider uppercase border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ChevronDown className="w-3.5 h-3.5 rotate-180" />
             Collapse
-          </button>
+          </Button>
         </div>
       )}
     </Card>

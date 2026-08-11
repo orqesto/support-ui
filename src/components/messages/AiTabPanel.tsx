@@ -8,6 +8,7 @@ import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/con
 import { messageService } from '@/services/message.service';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { logger } from '@/lib/logger';
 
@@ -316,7 +317,9 @@ export function AiTabPanel({
           <div className="flex justify-between items-center mb-1.5">
             <p className={`${MONO} text-muted-foreground`}>SUGGESTED REPLY</p>
             {!loadingSimilar && activeOption && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() =>
                   onGhostClick(
                     activeOption.answer,
@@ -328,10 +331,10 @@ export function AiTabPanel({
                     activeOption.attachments
                   )
                 }
-                className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                className="p-0 h-auto text-[10px] text-muted-foreground hover:text-foreground underline"
               >
                 Use
-              </button>
+              </Button>
             )}
           </div>
 
@@ -390,19 +393,21 @@ export function AiTabPanel({
                 <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
                   <BookOpen className="flex-shrink-0 w-3 h-3 text-sky-500" />
                   {activeOption.references && activeOption.references.length > 1 ? (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={(event) => {
                         event.stopPropagation();
                         setViewKBSources(activeOption);
                       }}
-                      className="text-[10px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 truncate"
+                      className="inline-block p-0 h-auto text-[10px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 truncate"
                     >
                       {activeOption.documentTitle
                         ?.replace(/^Q:\s*/i, '')
                         .replace(/<[^>]+>/g, '')
                         .trim()
                         .slice(0, 80) ?? 'View sources'}
-                    </button>
+                    </Button>
                   ) : (
                     <Link
                       to={`/knowledge-base?docId=${activeOption.documentationId}#documentation`}
@@ -427,12 +432,14 @@ export function AiTabPanel({
                 !activeOption.documentationId && (
                   <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
                     <BookOpen className="flex-shrink-0 w-3 h-3 text-violet-500" />
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={(event) => {
                         event.stopPropagation();
                         setViewLeadSources(activeOption);
                       }}
-                      className="text-[10px] text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300 truncate"
+                      className="inline-block p-0 h-auto text-[10px] text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300 truncate"
                     >
                       {activeOption.kbSources.length === 1
                         ? (activeOption.kbSources[0].title
@@ -441,7 +448,7 @@ export function AiTabPanel({
                             .trim()
                             .slice(0, 80) ?? 'View source')
                         : `Combined from ${activeOption.kbSources.length} sources (${Math.round((activeOption.kbSources.reduce((sum, source) => sum + source.similarity, 0) / activeOption.kbSources.length) * 100)}%)`}
-                    </button>
+                    </Button>
                   </div>
                 )}
               {activeOption.messageId &&
@@ -451,15 +458,17 @@ export function AiTabPanel({
                   <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1">
                     <MessageSquare className="flex-shrink-0 w-3 h-3 text-amber-500" />
                     {activeOption.content ? (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={(event) => {
                           event.stopPropagation();
                           setViewOriginal(activeOption);
                         }}
-                        className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                        className="p-0 h-auto text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
                       >
                         View original message
-                      </button>
+                      </Button>
                     ) : (
                       <Link
                         to={`/messages/${activeOption.messageId}`}

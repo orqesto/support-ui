@@ -26,6 +26,7 @@ import {
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { ticketService } from '@/services/ticket.service';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { formatAge } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { canTransition } from '@/lib/ticketStatus';
@@ -175,9 +176,9 @@ function TicketKanbanCard({
       <GripVertical className="absolute top-2 right-2 w-3.5 h-3.5 text-muted-foreground/30 hover:text-muted-foreground/70 pointer-events-none" />
 
       {/* distance:8 activation means short taps still fire onClick without starting a drag */}
-      <button type="button" onClick={() => onOpen(ticket)} className="w-full text-left p-3">
+      <Button type="button" variant="ghost" onClick={() => onOpen(ticket)} className="w-full text-left justify-start p-3 h-auto rounded-none font-normal hover:bg-transparent">
         <TicketCardContent ticket={ticket} />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -237,15 +238,17 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
             {/* Drop target padding so there's always somewhere to drop at the bottom */}
             {activeTicketId !== null && <div className="min-h-[60px] shrink-0" />}
             {state.hasMore && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 md:w-full"
+                className="gap-1 justify-center items-center shrink-0 px-3 py-2 h-auto text-xs text-muted-foreground hover:text-foreground md:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
-              </button>
+              </Button>
             )}
           </>
         )}

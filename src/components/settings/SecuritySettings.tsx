@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Shield } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
 import { logger } from '@/lib/logger';
@@ -71,21 +72,10 @@ export const SecuritySettings = () => {
               login before gaining access.
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={require2FA}
-            onClick={() => setRequire2FA(!require2FA)}
-            className={`relative mt-0.5 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-              require2FA ? 'bg-primary' : 'bg-input'
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                require2FA ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
+          <Toggle
+            checked={require2FA}
+            onChange={(next) => setRequire2FA(next)}
+          />
         </div>
       </div>
 

@@ -32,6 +32,7 @@ import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Button } from '@/components/ui/Button';
 import { SORT_PRESET_OPTIONS, sortingToPreset, presetToSorting } from './sortPresets';
 import { KanbanCard } from './KanbanCard';
 import { logger } from '@/lib/logger';
@@ -118,15 +119,17 @@ function DraggableMessageCard({
       {/* Grip is the drag handle — listeners on the grip only, not the wrapper,
           so the card body keeps native text-selection + click-to-open. opacity-30
           at rest (discoverable on hover) → opacity-80 on hover. */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         aria-label="Drag to move card"
         {...attributes}
         {...listeners}
-        className="absolute top-1.5 right-1.5 z-10 p-1 rounded text-muted-foreground opacity-30 group-hover:opacity-80 transition-opacity cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        className="absolute top-1.5 right-1.5 z-10 p-1 w-auto h-auto rounded text-muted-foreground opacity-30 group-hover:opacity-80 transition-opacity cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
       >
         <GripVertical className="w-3.5 h-3.5" />
-      </button>
+      </Button>
       <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} colId={colId} />
     </div>
   );
@@ -194,15 +197,17 @@ const KanbanColumn = ({
         {/* P2: unread auto-arrival badge (Suspicious/Spam). Click = "reviewed" → clears
             for this user (PATCH /read-all?kind=). Distinct from the neutral total count. */}
         {typeof newCount === 'number' && newCount > 0 && (
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="sm"
             onClick={onClearNew}
             title={`${newCount} new — click to mark reviewed`}
             aria-label={`${newCount} new ${col.label.toLowerCase()} — mark reviewed`}
             className="shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-primary text-primary-foreground hover:opacity-80 transition-opacity"
           >
             {newCount > 99 ? '99+' : newCount}
-          </button>
+          </Button>
         )}
         {!state.loading && (
           <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
@@ -269,15 +274,16 @@ const KanbanColumn = ({
             )}
             {isDroppable && activeThreadId !== null && <div className="min-h-[60px] shrink-0" />}
             {state.hasMore && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center px-3 py-2 text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 lg:w-full"
+                className="flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 lg:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
-              </button>
+              </Button>
             )}
           </>
         )}
@@ -726,12 +732,13 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               const isActive = activeTab === axis;
               const count = axis === 'lifecycle' ? boardCount : triageCount;
               return (
-                <button
+                <Button
                   key={axis}
                   type="button"
+                  variant="ghost"
                   onClick={() => setActiveTab(axis)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                    'flex items-center gap-1.5 px-3 py-1.5 h-auto rounded-md text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
@@ -754,7 +761,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                       {count}
                     </span>
                   )}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -767,13 +774,14 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                 const Icon = col.icon;
                 const count = colStates[col.id]?.total ?? 0;
                 return (
-                  <button
+                  <Button
                     key={col.id}
                     type="button"
+                    variant="ghost"
                     onClick={() => toggleCol(col.id)}
                     aria-pressed={shown}
                     className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded border font-medium transition-colors',
+                      'flex items-center gap-1 px-2 py-0.5 h-auto rounded border font-medium transition-colors',
                       shown
                         ? 'border-transparent bg-muted text-foreground'
                         : 'border-border text-muted-foreground hover:text-foreground'
@@ -782,7 +790,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                     <Icon className="w-3 h-3" />
                     {col.label}
                     <span className="ml-0.5 tabular-nums opacity-70">{count}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

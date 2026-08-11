@@ -3,6 +3,7 @@ import { X, Plus, Tag, ShieldCheck } from 'lucide-react';
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
 import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
 import {
   Dialog,
   DialogHeader,
@@ -139,15 +140,17 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                     >
                       {val}
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleRemoveValue(key, val).catch((err) => { logger.error(err); })}
                         disabled={saving[key]}
-                        className="hover:text-red-600 disabled:opacity-40"
+                        className="p-0 w-auto h-auto hover:text-red-600 disabled:opacity-40"
                         aria-label={`Remove ${val}`}
                       >
                         <X className="w-3 h-3" />
-                      </button>
+                      </Button>
                     </span>
                   ))}
                   {(skills[key] ?? []).length === 0 && (
@@ -191,22 +194,11 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
               </span>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
+                <Toggle
+                  checked={canEditSkills}
+                  onChange={() => void handleToggleCanEdit()}
                   disabled={togglingPermission}
-                  onClick={() => void handleToggleCanEdit()}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                    canEditSkills ? 'bg-primary' : 'bg-muted-foreground/30'
-                  } ${togglingPermission ? 'opacity-50' : ''}`}
-                  role="switch"
-                  aria-checked={canEditSkills}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      canEditSkills ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                />
                 <span className="text-xs text-muted-foreground">Allow self-edit</span>
               </div>
             )}

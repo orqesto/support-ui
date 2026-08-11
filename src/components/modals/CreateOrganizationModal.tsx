@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X, Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 
 type DeploymentType = 'shared' | 'dedicated' | 'external';
@@ -169,10 +170,9 @@ export const CreateOrganizationModal = ({
             <label htmlFor="description" className="block mb-1 text-sm font-medium">
               Description (Optional)
             </label>
-            <textarea
+            <Textarea
               value={formData.description}
               onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               rows={3}
               placeholder="Brief description of the workspace"
             />
@@ -182,18 +182,20 @@ export const CreateOrganizationModal = ({
             <label className="block mb-1 text-sm font-medium">Database Deployment</label>
             <div className="grid grid-cols-3 gap-2">
               {(['shared', 'dedicated', 'external'] as DeploymentType[]).map((type) => (
-                <button
+                <Button
                   key={type}
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setFormData({ ...formData, deploymentType: type })}
-                  className={`py-2 px-3 rounded-md border text-sm capitalize transition-colors ${
+                  className={`capitalize ${
                     formData.deploymentType === type
                       ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-border text-muted-foreground hover:border-primary/50'
+                      : ''
                   }`}
                 >
                   {type}
-                </button>
+                </Button>
               ))}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">

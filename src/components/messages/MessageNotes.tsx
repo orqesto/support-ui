@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Send, Lock, Pencil, Trash2, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { messageService, type MessageNote } from '@/services/message.service';
@@ -142,21 +143,27 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                     <span className="text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
                     {isOwner && !isEditing && (
                       <>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Edit note"
                           onClick={() => handleStartEdit(note)}
-                          className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                          className="ml-1 p-0.5 w-auto h-auto rounded text-muted-foreground hover:text-foreground transition-colors"
                           title="Edit note"
                         >
                           <Pencil className="w-3 h-3" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete note"
                           onClick={() => void handleDelete(note.id)}
                           disabled={isDeleting}
-                          className="p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          className="p-0.5 w-auto h-auto rounded text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
                           title="Delete note"
                         >
                           <Trash2 className="w-3 h-3" />
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
@@ -164,12 +171,12 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
 
                 {isEditing ? (
                   <div className="space-y-2 mt-1">
-                    <textarea
+                    <Textarea
                       value={editContent}
                       onChange={(event) => setEditContent(event.target.value)}
                       rows={3}
                       autoFocus
-                      className="w-full px-3 py-2 text-sm rounded-md border resize-none bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="resize-none"
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void handleSaveEdit(note.id);
                         if (event.key === 'Escape') handleCancelEdit();
@@ -204,13 +211,13 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
         <p className="text-xs text-destructive">{noteError}</p>
       )}
       <div className="flex gap-2 pt-2">
-        <textarea
+        <Textarea
           value={newNote}
           onChange={(event) => setNewNote(event.target.value)}
           placeholder="Add an internal note..."
           rows={2}
           disabled={isSubmitting}
-          className="flex-1 px-3 py-2 text-sm rounded-md border resize-none bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
+          className="flex-1 resize-none"
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
               void handleAddNote();

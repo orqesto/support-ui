@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import { Toggle } from '@/components/ui/Toggle';
+import { Button } from '@/components/ui/Button';
 import type { Message } from '@/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -96,10 +97,11 @@ export function MessageActionStrip({
       <div className={strip}>
         <p className={`${statusLabel} ${meta.statusClass}`}>{meta.statusText}</p>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => void handleClassify('approve')}
             disabled={classifying}
-            className={`${btnBase} ${meta.approveClass}`}
+            className={`${btnBase} h-auto ${meta.approveClass}`}
           >
             {isSecurityThreat ? (
               <ShieldAlert className="w-3.5 h-3.5" />
@@ -107,7 +109,7 @@ export function MessageActionStrip({
               <ShieldCheck className="w-3.5 h-3.5" />
             )}
             {classifying ? 'Approving…' : meta.approveLabel}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -149,23 +151,25 @@ export function MessageActionStrip({
           </div>
         )}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="primary"
             onClick={() => void handleClassify('approve', createRule)}
             disabled={classifying}
-            className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
+            className={`${btnBase} h-auto`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             {classifying ? 'Updating…' : isSecurityThreat ? 'Not a Threat — Approve' : 'Not Spam — Approve'}
-          </button>
+          </Button>
           {!isSecurityThreat && (
-            <button
+            <Button
+              variant="ghost"
               onClick={() => void handleClassify('move_to_spam', undefined, trainSpamFilter)}
               disabled={classifying}
-              className={`text-red-600 border border-red-300 ${btnBase} hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
+              className={`text-red-600 border border-red-300 ${btnBase} h-auto hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
             >
               <Trash2 className="w-3.5 h-3.5" />
               {classifying ? 'Moving…' : 'Move to Spam'}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -181,13 +185,14 @@ export function MessageActionStrip({
       <div className={strip}>
         <p className={statusLabel}>Open — resolve without sending a reply</p>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="primary"
             onClick={() => setRejectDialogOpen(true)}
-            className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
+            className={`${btnBase} h-auto`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
             Resolve (no KB)
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -206,10 +211,11 @@ export function MessageActionStrip({
     return (
       <div className={strip}>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="primary"
             onClick={onResolveWithoutReply}
             disabled={resolving}
-            className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
+            className={`${btnBase} h-auto`}
           >
             {resolving ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -217,16 +223,17 @@ export function MessageActionStrip({
               <CheckCircle className="w-3.5 h-3.5" />
             )}
             {resolving ? 'Processing…' : 'Resolve & Save to KB'}
-          </button>
+          </Button>
           {onClose && (
-            <button
+            <Button
+              variant="ghost"
               onClick={onClose}
               disabled={resolving}
-              className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
+              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
             >
               <CheckCircle className="w-3.5 h-3.5" />
               Resolve (no KB)
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -239,13 +246,14 @@ export function MessageActionStrip({
       <div className={strip}>
         <p className={statusLabel}>Resolved</p>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setReopenDialogOpen(true)}
-            className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
+            className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Unresolve
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -257,13 +265,14 @@ export function MessageActionStrip({
       <div className={strip}>
         <p className={statusLabel}>Closed</p>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setReopenDialogOpen(true)}
-            className={`border ${btnBase} border-border text-muted-foreground hover:bg-accent`}
+            className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Reopen
-          </button>
+          </Button>
         </div>
       </div>
     );

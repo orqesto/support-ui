@@ -1,4 +1,5 @@
 import { Mail, StickyNote, Ticket } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { formatAge } from '@/lib/utils';
 
 export type ActivityItem = {
@@ -57,16 +58,17 @@ export function ContactProfileActivity({ activity }: { activity: ActivityItem[] 
             </div>
             <div className="flex-1 min-w-0 pb-5">
               <div className="flex gap-2 justify-between items-start">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={item.onClick}
                   disabled={!item.onClick}
-                  className={`text-[12.5px] font-medium leading-snug text-left text-foreground ${
+                  className={`justify-start p-0 h-auto text-[12.5px] font-medium leading-snug text-left text-foreground hover:bg-transparent disabled:opacity-100 ${
                     item.onClick ? 'hover:text-primary' : 'cursor-default'
                   }`}
                 >
                   {item.title}
-                </button>
+                </Button>
                 <span className="text-[11px] text-muted-foreground whitespace-nowrap tabular-nums flex-shrink-0 mt-0.5">
                   {formatAge(item.at)}
                 </span>

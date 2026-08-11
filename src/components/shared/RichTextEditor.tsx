@@ -348,14 +348,16 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             {initiallyHidden && (
               <>
                 <div className="w-px h-8 bg-border mx-1" />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setIsExpanded(false)}
-                  className="flex items-center gap-1 ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors px-2 rounded"
+                  className="items-center gap-1 ml-auto text-xs text-muted-foreground hover:text-foreground px-2 h-auto rounded"
                 >
                   <ChevronUp className="h-3 w-3" />
                   Collapse
-                </button>
+                </Button>
               </>
             )}
           </div>

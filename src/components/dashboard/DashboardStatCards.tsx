@@ -1,5 +1,6 @@
 import { BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import type { ElementType } from 'react';
 
 export interface StatCard {
@@ -86,11 +87,12 @@ export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProp
       </CardHeader>
       <CardContent className="pb-4 space-y-1.5">
         {cards.map((row) => (
-          <button
+          <Button
             key={row.title}
             type="button"
+            variant="ghost"
             onClick={row.onClick}
-            className="flex gap-3 items-center px-1 py-1 w-full rounded transition-colors group hover:bg-muted/50"
+            className="flex gap-3 items-center px-1 py-1 w-full h-auto rounded transition-colors group hover:bg-muted/50"
           >
             <div className="flex-shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: row.borderColor }} />
             <span className="w-36 text-sm font-medium text-left text-foreground/80 group-hover:text-foreground">{row.title}</span>
@@ -99,7 +101,7 @@ export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProp
             </div>
             <span className="w-6 text-sm font-semibold text-right">{row.value}</span>
             <span className="opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100">→</span>
-          </button>
+          </Button>
         ))}
       </CardContent>
     </Card>

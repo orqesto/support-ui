@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { Coins, Cpu, Layers, Hash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { statisticsService, type TokenUsageData } from '@/services/statistics.service';
 import { logger } from '@/lib/logger';
@@ -298,10 +299,10 @@ const FilterBar = ({
   <div className="flex flex-wrap items-center gap-4">
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">Feature:</span>
-      <select
+      <Select
         value={feature}
         onChange={(event) => setFeature(event.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        className="w-auto"
       >
         <option value="all">All features</option>
         {featureOptions.map((opt) => (
@@ -309,14 +310,14 @@ const FilterBar = ({
             {featureLabel(opt)}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">Provider:</span>
-      <select
+      <Select
         value={provider}
         onChange={(event) => setProvider(event.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        className="w-auto"
       >
         <option value="all">All providers</option>
         {providerOptions.map((opt) => (
@@ -324,7 +325,7 @@ const FilterBar = ({
             {opt}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   </div>
 );

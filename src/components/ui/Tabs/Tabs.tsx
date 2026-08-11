@@ -57,9 +57,10 @@ export const Tabs = <T extends string = string>({
             return (
               <Button
                 key={tab.id}
+                variant="ghost"
                 onClick={() => !tab.disabled && onTabChange(tab.id)}
                 disabled={tab.disabled}
-                className={`px-2 py-2 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-2 py-2 font-medium text-sm rounded-none border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'

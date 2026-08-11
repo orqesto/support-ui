@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
+import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
@@ -147,10 +148,10 @@ export const PromptsSettings = () => {
               <label htmlFor="prompt" className="text-sm font-medium">
                 Prompt Template
               </label>
-              <textarea
+              <Textarea
                 value={formData.prompt}
                 onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                className="font-mono"
                 rows={12}
               />
             </div>
@@ -231,10 +232,10 @@ export const PromptsSettings = () => {
                     <label htmlFor="prompt" className="text-sm font-medium">
                       Prompt Template
                     </label>
-                    <textarea
+                    <Textarea
                       value={formData.prompt}
                       onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="font-mono"
                       rows={12}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">

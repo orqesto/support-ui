@@ -235,22 +235,26 @@ export function RuleEditor<
                 <p className="px-2 mb-1 text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
                   Filter by department
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={clearFilter}
-                  className={`flex justify-between items-center px-3 py-2 w-full text-sm text-left rounded-md transition-colors hover:bg-accent ${localDeptFilter.length === 0 ? 'text-primary font-medium' : ''}`}
+                  className={`justify-between px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent ${localDeptFilter.length === 0 ? 'text-primary font-medium' : ''}`}
                 >
                   <span>All departments</span>
                   {localDeptFilter.length === 0 && <X className="w-3.5 h-3.5 opacity-50" />}
-                </button>
+                </Button>
                 {accessibleDepts.map((dept) => {
                   const checked = localDeptFilter.includes(dept.id);
                   return (
-                    <button
+                    <Button
                       key={dept.id}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => toggleDept(dept.id)}
-                      className="flex justify-between items-center px-3 py-2 w-full text-sm text-left rounded-md transition-colors hover:bg-accent"
+                      className="justify-between px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent"
                     >
                       <span className={checked ? 'font-medium' : ''}>{dept.name}</span>
                       <span
@@ -272,18 +276,20 @@ export function RuleEditor<
                           </svg>
                         )}
                       </span>
-                    </button>
+                    </Button>
                   );
                 })}
                 {localDeptFilter.length > 0 && (
                   <div className="border-t mt-1 pt-1">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={clearFilter}
-                      className="px-3 py-1.5 w-full text-xs text-left rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      className="justify-start px-3 py-1.5 w-full h-auto text-xs text-left rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
                       Clear filter (show all)
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -326,14 +332,17 @@ export function RuleEditor<
                       <span>Name</span>
                       {showDeptFilter && (
                         <div className="relative inline-flex">
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={openFilter}
-                            className={filterTriggerClasses(localDeptFilter.length > 0)}
+                            className={`${filterTriggerClasses(localDeptFilter.length > 0)} w-auto h-auto`}
                             title="Filter by department"
+                            aria-label="Filter by department"
                           >
                             <Filter className="w-3 h-3" />
-                          </button>
+                          </Button>
                           {localDeptFilter.length > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 text-[9px] flex items-center justify-center rounded-full bg-primary text-primary-foreground font-bold pointer-events-none">
                               {localDeptFilter.length}
@@ -401,11 +410,13 @@ export function RuleEditor<
                         </td>
                       ))}
                       <td className="px-4 py-3 text-sm text-center">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => !toggleDisabled && onToggleActive(rule)}
                           disabled={toggleDisabled}
                           title={toggleTitle?.(rule)}
-                          className="inline-flex gap-1 items-center transition-colors hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="gap-1 items-center p-0 h-auto hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {rule.active ? (
                             <>
@@ -418,7 +429,7 @@ export function RuleEditor<
                               <span className="text-xs text-muted-foreground">Inactive</span>
                             </>
                           )}
-                        </button>
+                        </Button>
                       </td>
                       <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
                         <div className="flex gap-1 justify-end">
@@ -454,10 +465,12 @@ export function RuleEditor<
           <div className="lg:hidden space-y-3">
             {showDeptFilter && (
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={openFilter}
-                  className={`flex gap-1 items-center px-2 py-1 text-xs rounded border transition-colors ${
+                  className={`gap-1 items-center px-2 py-1 h-auto text-xs ${
                     localDeptFilter.length > 0
                       ? 'border-primary text-primary bg-primary/10'
                       : 'border-border text-muted-foreground hover:bg-accent'
@@ -469,7 +482,7 @@ export function RuleEditor<
                       ? 'All depts'
                       : `${localDeptFilter.length} dept${localDeptFilter.length === 1 ? '' : 's'}`}
                   </span>
-                </button>
+                </Button>
               </div>
             )}
             {filteredRules.map((rule) => {
@@ -521,11 +534,13 @@ export function RuleEditor<
                     ) : (
                       <div />
                     )}
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => !toggleDisabled && onToggleActive(rule)}
                       disabled={toggleDisabled}
                       title={toggleTitle?.(rule)}
-                      className="inline-flex gap-1 items-center transition-colors hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="gap-1 items-center p-0 h-auto hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {rule.active ? (
                         <>
@@ -538,7 +553,7 @@ export function RuleEditor<
                           <span className="text-xs text-muted-foreground">Inactive</span>
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );

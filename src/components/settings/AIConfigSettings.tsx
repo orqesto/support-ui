@@ -8,6 +8,8 @@ import { LearningSuggestionsSettings } from './LearningSuggestionsSettings';
 import { LearningTrustSettings } from './LearningTrustSettings';
 import { PromptsSettings } from './PromptsSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
+import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { apiClient } from '@/lib/api-client';
@@ -110,57 +112,43 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
         </p>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {sections.map((sect) => (
-          <button
-            key={sect.id}
-            onClick={() => goToSection(sect.id)}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-              active === sect.id
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-            }`}
-            title={sect.description}
-          >
-            {sect.label}
-          </button>
-        ))}
-      </div>
-
-      {active === 'prompts' && <PromptsSettings />}
-      {active === 'auto-reply' && <AutoReplyConfiguration onShowAlert={setAlertDialog} />}
-      {active === 'learning' && (
-        <div className="space-y-6">
-          <LearningSuggestionsSettings />
-          <LearningNotificationsInbox />
-        </div>
-      )}
-      {active === 'learning-trust' && <LearningTrustSettings />}
-      {active === 'lead-qualification' && (
-        hasLeadQualification === false ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
-            <Lock className="w-10 h-10 text-muted-foreground" />
-            <div>
-              <p className="font-semibold">Lead Qualification not included in your plan</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {billingEnabled
-                  ? 'Upgrade to Enterprise or Admin plan to access AI Lead Qualification.'
-                  : 'AI Lead Qualification isn’t enabled for your plan. Contact your administrator to enable it.'}
-              </p>
-            </div>
-            {billingEnabled && (
-              <button
-                onClick={() => navigate('/pricing')}
-                className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                View Plans
-              </button>
-            )}
+      <Tabs<AISection>
+        tabs={sections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
+        activeTab={active}
+        onTabChange={goToSection}
+        variant="simple"
+        showIcons={false}
+      >
+        {active === 'prompts' && <PromptsSettings />}
+        {active === 'auto-reply' && <AutoReplyConfiguration onShowAlert={setAlertDialog} />}
+        {active === 'learning' && (
+          <div className="space-y-6">
+            <LearningSuggestionsSettings />
+            <LearningNotificationsInbox />
           </div>
-        ) : hasLeadQualification === true ? (
-          <LeadQualificationSettings />
-        ) : null
-      )}
+        )}
+        {active === 'learning-trust' && <LearningTrustSettings />}
+        {active === 'lead-qualification' && (
+          hasLeadQualification === false ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
+              <Lock className="w-10 h-10 text-muted-foreground" />
+              <div>
+                <p className="font-semibold">Lead Qualification not included in your plan</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {billingEnabled
+                    ? 'Upgrade to Enterprise or Admin plan to access AI Lead Qualification.'
+                    : 'AI Lead Qualification isn’t enabled for your plan. Contact your administrator to enable it.'}
+                </p>
+              </div>
+              {billingEnabled && (
+                <Button onClick={() => navigate('/pricing')}>View Plans</Button>
+              )}
+            </div>
+          ) : hasLeadQualification === true ? (
+            <LeadQualificationSettings />
+          ) : null
+        )}
+      </Tabs>
 
       <AlertDialog
         open={alertDialog.open}

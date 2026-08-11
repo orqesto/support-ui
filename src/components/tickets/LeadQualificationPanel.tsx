@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
 import type { ApiResponse } from '@/types';
 import { logger } from '@/lib/logger';
@@ -231,31 +232,37 @@ export const LeadQualificationPanel = ({
             </Badge>
           )}
           {!editing ? (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={startEdit}
-              className="p-1 rounded transition-colors hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600"
+              className="p-1 w-auto h-auto rounded hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600"
               title="Edit qualification data"
             >
               <Pencil className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           ) : (
             <div className="flex gap-1 items-center">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={saveEdit}
                 disabled={saving}
-                className="p-1 rounded transition-colors hover:bg-green-500/10 text-muted-foreground hover:text-green-600 disabled:opacity-50"
+                className="p-1 w-auto h-auto rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600"
                 title="Save changes"
               >
                 <Check className="w-3.5 h-3.5" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={cancelEdit}
                 disabled={saving}
-                className="p-1 rounded transition-colors hover:bg-red-500/10 text-muted-foreground hover:text-red-500 disabled:opacity-50"
+                className="p-1 w-auto h-auto rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
                 title="Cancel"
               >
                 <X className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -352,9 +359,11 @@ export const LeadQualificationPanel = ({
       {/* Qualification Fields */}
       {fieldEntries.length > 0 && (
         <div className="space-y-2">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setFieldsExpanded((prev) => !prev)}
-            className="flex justify-between items-center w-full text-xs font-medium tracking-wide uppercase transition-colors text-muted-foreground hover:text-foreground"
+            className="flex justify-between items-center w-full h-auto p-0 text-xs font-medium tracking-wide uppercase text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <span>
               Qualification Info ({filledCount}/{fieldEntries.length} collected)
@@ -364,7 +373,7 @@ export const LeadQualificationPanel = ({
             ) : (
               <ChevronDown className="w-3.5 h-3.5" />
             )}
-          </button>
+          </Button>
 
           {fieldsExpanded && (
             <div className="pl-2 space-y-1.5 border-l-2 border-violet-500/20">

@@ -4,6 +4,7 @@ import { GitBranch, RefreshCw, ArrowRight, AlertCircle, Ban } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useDepartments } from '@/hooks/useDepartments';
 import { apiClient } from '@/lib/api-client';
@@ -249,7 +250,7 @@ export const NeedsRoutingPage = () => {
                         {formatDate(msg.createdAt)}
                       </td>
                       <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
-                        <select
+                        <Select
                           value={selectedDept[msg.id] ?? ''}
                           onChange={(ev) =>
                             setSelectedDept((prev) => ({
@@ -257,7 +258,7 @@ export const NeedsRoutingPage = () => {
                               [msg.id]: Number(ev.target.value),
                             }))
                           }
-                          className="text-sm rounded border bg-input text-foreground border-border px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-auto"
                         >
                           <option value="">Select department…</option>
                           {activeDepts.map((dept) => (
@@ -265,7 +266,7 @@ export const NeedsRoutingPage = () => {
                               {dept.name}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </td>
                       <td
                         className="px-4 py-3 text-right whitespace-nowrap"
@@ -321,7 +322,7 @@ export const NeedsRoutingPage = () => {
                     {/* Action row — each control stops propagation individually so triaging
                         in place doesn't bubble up to the Card's open-thread handler. */}
                     <div className="flex gap-2 items-end">
-                      <select
+                      <Select
                         value={selectedDept[msg.id] ?? ''}
                         onClick={(ev) => ev.stopPropagation()}
                         onChange={(ev) =>
@@ -330,7 +331,7 @@ export const NeedsRoutingPage = () => {
                             [msg.id]: Number(ev.target.value),
                           }))
                         }
-                        className="flex-1 text-sm rounded border bg-input text-foreground border-border px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="flex-1"
                       >
                         <option value="">Select department…</option>
                         {activeDepts.map((dept) => (
@@ -338,7 +339,7 @@ export const NeedsRoutingPage = () => {
                             {dept.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                       <Button
                         size="sm"
                         onClick={(ev) => {

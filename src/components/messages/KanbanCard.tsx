@@ -12,6 +12,7 @@ import {
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
@@ -196,9 +197,10 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
             )}
           </div>
         )}
-        <button
+        <Button
           type="button"
-          className="font-mono shrink-0 inline-flex items-center gap-1 cursor-pointer hover:text-foreground"
+          variant="ghost"
+          className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto cursor-pointer hover:text-foreground"
           title={copied ? 'Copied!' : 'Copy link to this conversation'}
           onClick={(event) => {
             event.stopPropagation();
@@ -216,7 +218,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           ) : (
             <Copy className="w-3 h-3 opacity-50" />
           )}
-        </button>
+        </Button>
         <span className="flex-1" />
         <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
       </div>
@@ -361,9 +363,11 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
               </button>
             </Tooltip>
           ) : (
-            <button
+            <Button
               ref={pickerBtnRef}
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={openPicker}
               onPointerDown={(event) => event.stopPropagation()}
               disabled={!currentUser?.id}
@@ -371,7 +375,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
             >
               <Plus className="w-3 h-3" />
               Claim
-            </button>
+            </Button>
           )}
           {pickerOpen && pickerPos && createPortal(
             <div

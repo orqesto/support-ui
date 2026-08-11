@@ -134,10 +134,12 @@ export const GmailForm = ({
           </p>
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex gap-1 items-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="gap-1 items-center p-0 h-auto text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
         >
           {showAdvanced ? (
             <ChevronDown className="w-3.5 h-3.5" />
@@ -145,7 +147,7 @@ export const GmailForm = ({
             <ChevronRight className="w-3.5 h-3.5" />
           )}
           Advanced
-        </button>
+        </Button>
 
         {showAdvanced && (
           <div className="space-y-3 pl-3 border-l-2 border-border">

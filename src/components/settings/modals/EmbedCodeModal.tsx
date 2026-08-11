@@ -39,9 +39,9 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
       >
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Embed Code</h2>
-          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-4">

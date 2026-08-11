@@ -1,4 +1,5 @@
 import { Check, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import type { Department } from '@/services/department.service';
 
 type Props = {
@@ -46,11 +47,13 @@ export const DepartmentMultiPicker = ({
           const isSelected = selected.includes(dept.id);
           const isDefault = dept.id === defaultId;
           return (
-            <button
+            <Button
               key={dept.id}
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => toggle(dept.id)}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors ${
+              className={`gap-1 items-center px-2 py-1 h-auto text-xs ${
                 isSelected
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
@@ -61,7 +64,7 @@ export const DepartmentMultiPicker = ({
               {isDefault && isSelected && (
                 <span className="ml-0.5 opacity-70">(default)</span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -74,18 +77,20 @@ export const DepartmentMultiPicker = ({
               const dept = allDepts.find((dep) => dep.id === id);
               if (!dept) return null;
               return (
-                <button
+                <Button
                   key={id}
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => onDefaultChange(id)}
-                  className={`px-2 py-0.5 rounded text-xs border transition-colors ${
+                  className={`px-2 py-0.5 h-auto text-xs ${
                     id === defaultId
                       ? 'bg-primary/20 border-primary text-primary'
                       : 'border-border hover:bg-accent'
                   }`}
                 >
                   {dept.name}
-                </button>
+                </Button>
               );
             })}
           </div>

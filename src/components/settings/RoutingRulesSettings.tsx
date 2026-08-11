@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
@@ -306,14 +308,16 @@ export const RoutingRulesSettings = () => {
                   ? `Manual (${rules.length - learnedCount})`
                   : `Auto-learned (${learnedCount})`;
             return (
-              <button
+              <Button
                 key={filter}
+                variant="ghost"
+                size="sm"
                 onClick={() => setRuleFilter(filter)}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-3 py-1.5 h-auto text-sm rounded-md font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {filter === 'learned' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
                 {label}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -439,10 +443,9 @@ export const RoutingRulesSettings = () => {
               Example phrases{' '}
               <span className="text-muted-foreground font-normal">(optional, multilingual)</span>
             </label>
-            <textarea
+            <Textarea
               value={formData.exampleText}
               onChange={(event) => setFormData({ ...formData, exampleText: event.target.value })}
-              className="px-3 py-2 w-full text-sm rounded-md border bg-background"
               placeholder="invoice question, payment failure, billing dispute, refund request"
               rows={2}
               maxLength={1000}

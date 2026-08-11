@@ -1,5 +1,6 @@
 import { Sparkles, BookOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Button } from '@/components/ui/Button';
 import type { GhostOption } from './messageDetailConstants';
 
 type Props = {
@@ -82,15 +83,17 @@ export function MessageGhostBubble({
             tap to use
           </span>
           {alternativeCount > 1 && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={(event) => {
                 event.stopPropagation();
                 onShowAlternatives();
               }}
-              className="text-[9px] font-mono text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 underline transition-colors"
+              className="p-0 h-auto text-[9px] font-mono text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 underline transition-colors"
             >
               +{alternativeCount - 1} more
-            </button>
+            </Button>
           )}
         </div>
         <div className="rounded-lg px-3 py-2 border border-dashed border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/10 text-muted-foreground group-hover:text-foreground group-hover:border-violet-400/50 dark:group-hover:border-violet-600/50 text-[12px] leading-relaxed text-left transition-colors">

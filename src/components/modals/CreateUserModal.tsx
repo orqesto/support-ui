@@ -139,12 +139,15 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/50">
       <div className="relative p-6 w-full max-w-md bg-white rounded-lg shadow-xl dark:bg-gray-800">
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          aria-label="Close"
+          className="absolute top-4 right-4 w-8 h-8 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
         >
           <X className="w-5 h-5" />
-        </button>
+        </Button>
 
         <div className="flex gap-3 items-center mb-6">
           <div className="flex justify-center items-center w-12 h-12 rounded-lg bg-primary/10">

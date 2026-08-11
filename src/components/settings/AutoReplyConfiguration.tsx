@@ -6,6 +6,7 @@ import {
   X,
 } from 'lucide-react';
 import type { AlertState } from '@/components/settings/integrations/types';
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -480,42 +481,48 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     {/* Override toggle: tri-state via two explicit choices */}
                     <div className="flex flex-wrap gap-2 items-center pt-2">
                       <span className="text-xs text-muted-foreground">Auto-reply for this dept:</span>
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         disabled={isSaving}
                         onClick={() => inheritDeptEnabled(dept.id)}
-                        className={`px-2 py-0.5 text-[10px] rounded-full border ${
+                        className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           !hasOverride
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-background hover:bg-muted'
                         }`}
                       >
                         Inherit default {orgEnabled ? '(on)' : '(off)'}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         disabled={isSaving}
                         onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: true })}
-                        className={`px-2 py-0.5 text-[10px] rounded-full border ${
+                        className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === true
                             ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/40 dark:text-emerald-300'
                             : 'bg-background hover:bg-muted'
                         }`}
                       >
                         Override: on
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         disabled={isSaving}
                         onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: false })}
-                        className={`px-2 py-0.5 text-[10px] rounded-full border ${
+                        className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === false
                             ? 'bg-rose-500/15 text-rose-700 border-rose-500/40 dark:text-rose-300'
                             : 'bg-background hover:bg-muted'
                         }`}
                       >
                         Override: off
-                      </button>
+                      </Button>
                     </div>
 
                     {/* Threshold override only available when this dept will fire auto-reply */}
@@ -606,8 +613,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             className="flex gap-1 items-center px-2 py-0.5 text-xs text-yellow-900 bg-yellow-100 rounded-full dark:bg-yellow-900/30 dark:text-yellow-200"
                           >
                             {phrase}
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon"
                               disabled={isSaving}
                               onClick={() =>
                                 void saveDept(dept.id, {
@@ -615,10 +624,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                                   escalationPhrases: phrases.filter((entry) => entry !== phrase),
                                 })
                               }
-                              className="hover:text-red-600 disabled:opacity-50"
+                              aria-label={`Remove phrase ${phrase}`}
+                              className="p-0 w-auto h-auto hover:text-red-600 disabled:opacity-50"
                             >
                               <X className="w-3 h-3" />
-                            </button>
+                            </Button>
                           </span>
                         ))}
                       </div>
@@ -655,8 +665,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           }}
                           className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                         />
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
                           disabled={isSaving || !(phraseDrafts[key] ?? '').trim()}
                           onClick={() => {
                             const draft = (phraseDrafts[key] ?? '').trim();
@@ -677,24 +688,26 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             });
                             setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
                           }}
-                          className="flex gap-1 items-center px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                          className="gap-1 items-center px-2 py-1 h-auto text-xs"
                         >
                           <Plus className="w-3 h-3" />
                           Add
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
                     {hasOverride && (
                       <div className="pt-3 border-t">
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           disabled={isSaving}
                           onClick={() => resetDept(dept.id)}
-                          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                          className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground hover:underline hover:bg-transparent"
                         >
                           Reset all overrides for {dept.name}
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>

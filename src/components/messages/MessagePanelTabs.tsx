@@ -5,6 +5,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
+import { Button } from '@/components/ui/Button';
 import { ContradictionAlert } from './ContradictionAlert';
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
@@ -237,16 +238,17 @@ export function MessagePanelTabs({
       {/* Tab bar */}
       <div className="flex w-full border-b border-border">
         {/* Thread tab — active when panel is closed */}
-        <button
+        <Button
+          variant="ghost"
           onClick={() => { setPanelOpen(false); setComposerMode('reply'); }}
-          className={`flex flex-1 justify-center items-center px-2 h-[33px] ${MONO} border-b-2 transition-colors ${
+          className={`flex flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${MONO} border-b-2 transition-colors ${
             !panelOpen
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           Thread
-        </button>
+        </Button>
 
         {(
           [
@@ -260,8 +262,9 @@ export function MessagePanelTabs({
             ...(message.isLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
           ] as { id: typeof tab; label: string; badge: number }[]
         ).map(({ id, label, badge }) => (
-          <button
+          <Button
             key={id}
+            variant="ghost"
             onClick={() => {
               if (panelOpen && tab === id) {
                 setPanelOpen(false);
@@ -272,7 +275,7 @@ export function MessagePanelTabs({
                 setComposerMode(id === 'notes' ? 'note' : 'reply');
               }
             }}
-            className={`flex flex-1 justify-center items-center gap-1 px-2 h-[33px] ${MONO} border-b-2 transition-colors ${
+            className={`flex flex-1 justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${MONO} border-b-2 transition-colors ${
               tab === id && panelOpen
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -290,7 +293,7 @@ export function MessagePanelTabs({
                 {badge}
               </span>
             )}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -475,13 +478,14 @@ export function MessagePanelTabs({
                   {crossCheck && <CleanResult check={crossCheck} />}
                   {intraCheck && <CleanResult check={intraCheck} />}
                   {onCheckContradiction && (
-                    <button
+                    <Button
+                      variant="ghost"
                       onClick={() => void handleCheckContradiction()}
                       disabled={checkingContradiction}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
                     >
                       {checkingContradiction ? 'Checking…' : 'Re-check'}
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
@@ -491,13 +495,14 @@ export function MessagePanelTabs({
               <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
                 <p className="text-[11px] text-muted-foreground">Not checked yet.</p>
                 {onCheckContradiction && (
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => void handleCheckContradiction()}
                     disabled={checkingContradiction}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
                   >
                     {checkingContradiction ? 'Checking…' : 'Check contradiction'}
-                  </button>
+                  </Button>
                 )}
               </div>
             );
@@ -571,22 +576,28 @@ export function MessagePanelTabs({
                       </span>
                       {isOwner && !isEditing && (
                         <div className="flex gap-1 items-center">
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Edit note"
                             onClick={() => {
                               setEditingNoteId(note.id);
                               setEditNoteContent(note.content);
                             }}
-                            className="text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
+                            className="p-0 w-auto h-auto text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
                           >
                             <Pencil className="w-2.5 h-2.5" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Delete note"
                             onClick={() => void handleDeleteNote(note.id)}
                             disabled={isDeleting}
-                            className="text-amber-700 hover:text-red-600 dark:text-amber-400 dark:hover:text-red-400 disabled:opacity-40"
+                            className="p-0 w-auto h-auto text-amber-700 hover:text-red-600 dark:text-amber-400 dark:hover:text-red-400 disabled:opacity-40"
                           >
                             <Trash2 className="w-2.5 h-2.5" />
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -602,21 +613,25 @@ export function MessagePanelTabs({
                           />
                         </div>
                         <div className="flex gap-2">
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => void handleEditNote(note.id)}
-                            className="text-[10px] text-muted-foreground hover:text-foreground dark:text-amber-600 dark:hover:text-amber-700"
+                            className="p-0 h-auto text-[10px] text-muted-foreground hover:text-foreground dark:text-amber-600 dark:hover:text-amber-700"
                           >
                             Save
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               setEditingNoteId(null);
                               setEditNoteContent('');
                             }}
-                            className="text-[10px] text-muted-foreground"
+                            className="p-0 h-auto text-[10px] text-muted-foreground"
                           >
                             Cancel
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -628,16 +643,17 @@ export function MessagePanelTabs({
                   </div>
                 );
               })}
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setComposerMode('note');
                   setTimeout(() => noteEditorRef.current?.focus(), 50);
                 }}
-                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-dashed border-amber-400 dark:border-amber-700 text-[11px] text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 h-auto rounded border border-dashed border-amber-400 dark:border-amber-700 text-[11px] text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
               >
                 <StickyNote className="w-3 h-3" />
                 Add a note via the composer
-              </button>
+              </Button>
             </div>
           )}
 

@@ -171,8 +171,9 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
 
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700/60 overflow-hidden">
-      <button
-        className="flex gap-2 items-center p-4 w-full text-left bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/30 dark:hover:bg-slate-900/50 transition-colors"
+      <Button
+        variant="ghost"
+        className="flex gap-2 items-center p-4 w-full h-auto justify-start rounded-none text-left font-normal bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/30 dark:hover:bg-slate-900/50 transition-colors"
         onClick={() => setExpanded((prev) => !prev)}
       >
         <div className="p-1.5 rounded-md bg-slate-200/70 dark:bg-slate-700/50">
@@ -191,7 +192,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
         ) : (
           <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
         )}
-      </button>
+      </Button>
 
       {expanded && (
         <div className="p-3 space-y-2 bg-white dark:bg-transparent border-t border-slate-100 dark:border-slate-700/40">

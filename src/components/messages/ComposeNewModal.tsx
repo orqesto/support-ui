@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { messageService } from '@/services/message.service';
@@ -174,10 +175,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                 No email sources configured. Add one in Settings → Connected Services first.
               </div>
             ) : (
-              <select
+              <Select
                 value={messageSourceId ?? ''}
                 onChange={(event) => setMessageSourceId(Number(event.target.value) || null)}
-                className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 disabled={submitting}
                 required
               >
@@ -189,7 +189,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                     {src.name} ({src.type})
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
 
@@ -240,15 +240,17 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                       ({Math.round(file.size / 1024)} KB)
                     </span>
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => removeFile(index)}
                     disabled={submitting}
-                    className="text-muted-foreground hover:text-destructive"
+                    className="p-0 w-auto h-auto text-muted-foreground hover:text-destructive"
                     aria-label="Remove attachment"
                   >
                     <X className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -326,14 +328,16 @@ export const SSOConfigSettings = () => {
                   onFocus={(event) => event.currentTarget.select()}
                   className={`${inputCls} font-mono text-xs`}
                 />
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={copyRedirect}
                   title="Copy"
-                  className="flex shrink-0 gap-1 items-center px-3 py-2 text-sm rounded-md border border-border hover:bg-muted"
+                  aria-label="Copy"
+                  className="flex shrink-0 gap-1 items-center px-3 py-2 h-auto text-sm"
                 >
                   {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
+                </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 Register this exact URL as the redirect / callback URI in your identity provider.
@@ -345,18 +349,17 @@ export const SSOConfigSettings = () => {
               <label htmlFor="sso-provider" className="text-sm font-medium text-foreground">
                 Identity provider
               </label>
-              <select
+              <Select
                 id="sso-provider"
                 value={provider}
                 onChange={(event) => applyProvider(event.target.value)}
-                className={inputCls}
               >
                 {PROVIDERS.map((prov) => (
                   <option key={prov.id} value={prov.id}>
                     {prov.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="space-y-1">
@@ -399,13 +402,12 @@ export const SSOConfigSettings = () => {
               <label htmlFor="sso-domains" className="text-sm font-medium text-foreground">
                 Allowed email domains
               </label>
-              <textarea
+              <Textarea
                 id="sso-domains"
                 value={domainsText}
                 onChange={(event) => setDomainsText(event.target.value)}
                 rows={3}
                 placeholder={'example.com\nsubsidiary.example.com'}
-                className={inputCls}
               />
               <p className="text-xs text-muted-foreground">
                 One per line (or comma-separated). Users with these email domains are routed to SSO.
@@ -453,14 +455,15 @@ export const SSOConfigSettings = () => {
 
             {/* Pre-save "Test connection" — real SSRF-guarded discovery probe. */}
             <div className="space-y-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleTest}
                 disabled={testing || !issuerUrl.trim() || !clientId.trim()}
-                className="px-3 py-2 text-sm rounded-md border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {testing ? 'Testing…' : 'Test connection'}
-              </button>
+              </Button>
               {testResult && (
                 <div
                   className={`p-3 text-sm rounded-md ${

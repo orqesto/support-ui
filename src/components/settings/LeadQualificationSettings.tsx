@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Target, Info, ArrowRight, Zap, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import {
   organizationService,
   type OrgLeadConfig,
@@ -449,21 +450,21 @@ export const LeadQualificationSettings = () => {
                   className="flex-1 px-2 py-1 text-sm rounded border bg-input"
                   placeholder="Label"
                 />
-                <select
+                <Select
                   value={cat.priority}
                   onChange={(event) =>
                     updateCategory(cat.key, {
                       priority: event.target.value as LeadCategoryConfig['priority'],
                     })
                   }
-                  className="px-2 py-1 text-xs rounded border bg-input"
+                  className="w-auto h-8 text-xs"
                 >
                   {PRIORITY_OPTIONS.map((prio) => (
                     <option key={prio} value={prio}>
                       {prio}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <label className="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">
                   <input
                     type="checkbox"
@@ -517,7 +518,7 @@ export const LeadQualificationSettings = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Priority</label>
-                <select
+                <Select
                   value={newCategory.priority}
                   onChange={(event) =>
                     setNewCategory((cat) => ({
@@ -525,14 +526,13 @@ export const LeadQualificationSettings = () => {
                       priority: event.target.value as LeadCategoryConfig['priority'],
                     }))
                   }
-                  className={inputCls}
                 >
                   {PRIORITY_OPTIONS.map((prio) => (
                     <option key={prio} value={prio}>
                       {prio.charAt(0).toUpperCase() + prio.slice(1)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="flex items-end pb-1.5">
                 <label className="flex items-center gap-2 cursor-pointer text-sm">

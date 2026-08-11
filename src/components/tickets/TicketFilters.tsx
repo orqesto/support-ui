@@ -106,8 +106,10 @@ export const TicketFilters = ({
 
         {/* Header */}
         <div className="flex items-center justify-between gap-2">
-          <button
-            className="flex items-center gap-2 min-w-0 cursor-pointer"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-2 min-w-0 h-auto p-0 cursor-pointer hover:bg-transparent"
             onClick={() => setExpanded((val) => !val)}
             aria-expanded={expanded}
           >
@@ -124,7 +126,7 @@ export const TicketFilters = ({
             <ChevronDown
               className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
             />
-          </button>
+          </Button>
 
           <div className="flex items-center gap-2 shrink-0">
             {pagination.total > 0 && (
@@ -276,18 +278,18 @@ export const TicketFilters = ({
             {/* Quick presets */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-muted-foreground shrink-0">Quick:</span>
-              <button type="button" onClick={() => onApplyPreset('urgent')} className="flex items-center gap-1 px-2 py-0.5 rounded text-xs border hover:bg-muted transition-colors">
+              <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('urgent')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
                 <AlertTriangle className="w-3 h-3 text-orange-500" />Urgent
-              </button>
-              <button type="button" onClick={() => onApplyPreset('in-progress')} className="flex items-center gap-1 px-2 py-0.5 rounded text-xs border hover:bg-muted transition-colors">
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('in-progress')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
                 <Zap className="w-3 h-3 text-blue-500" />In Progress
-              </button>
-              <button type="button" onClick={() => onApplyPreset('pending')} className="flex items-center gap-1 px-2 py-0.5 rounded text-xs border hover:bg-muted transition-colors">
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('pending')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
                 <Clock className="w-3 h-3" />Pending
-              </button>
-              <button type="button" onClick={() => onApplyPreset('recent')} className="flex items-center gap-1 px-2 py-0.5 rounded text-xs border hover:bg-muted transition-colors">
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('recent')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
                 <CheckCircle className="w-3 h-3 text-green-500" />Recent
-              </button>
+              </Button>
             </div>
           </div>
 

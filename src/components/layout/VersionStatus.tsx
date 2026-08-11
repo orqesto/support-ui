@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { Button } from '@/components/ui/Button';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 
 type Drift = 'sync' | 'patch' | 'minor' | 'major' | 'unknown';
@@ -73,16 +74,18 @@ export const VersionStatus = () => {
 
   return (
     <div className="relative inline-block">
-      <button
+      <Button
         ref={buttonRef}
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen((val) => !val)}
         title={`${driftLabel[drift]} · click for details`}
-        className="inline-flex items-center gap-1.5 px-1.5 py-1 rounded text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent transition-colors"
+        className="gap-1.5 px-1.5 py-1 h-auto rounded text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent"
       >
         <span className={`inline-block w-2 h-2 rounded-full ${dotColor[drift]}`} aria-hidden />
         <span className="font-mono">v{be?.version ?? feVersion}</span>
-      </button>
+      </Button>
       {open && pos && createPortal(
         <div
           ref={popRef}

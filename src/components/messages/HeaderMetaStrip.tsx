@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -174,8 +175,9 @@ export function HeaderMetaStrip({
             </span>
           </div>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             disabled={!canRoute}
             onClick={() => canRoute && setEditingDept(true)}
             title={
@@ -183,7 +185,7 @@ export function HeaderMetaStrip({
                 ? 'Click to change department'
                 : 'You need ticket management permission to re-route'
             }
-            className={`inline-flex gap-1 items-center px-1.5 py-0.5 text-[11px] font-medium rounded ${
+            className={`inline-flex gap-1 items-center px-1.5 py-0.5 h-auto text-[11px] font-medium rounded ${
               canRoute ? 'cursor-pointer hover:ring-1 hover:ring-border' : 'cursor-default'
             } ${
               needsRouting
@@ -214,7 +216,7 @@ export function HeaderMetaStrip({
             ) : (
               <span className="text-muted-foreground">—</span>
             )}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -271,28 +273,31 @@ export function HeaderMetaStrip({
               >
                 {label.name}
                 {hasManageLabels && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => onToggleLabel(label)}
-                    className="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-black/20 transition-colors"
+                    className="flex items-center justify-center w-3.5 h-3.5 p-0 rounded-full hover:bg-black/20 transition-colors"
                     aria-label={`Remove ${label.name}`}
                   >
                     <X className="w-2 h-2" />
-                  </button>
+                  </Button>
                 )}
               </span>
             ))}
 
             {hasManageLabels && (
               <div ref={labelPickerRef}>
-                <button
+                <Button
                   ref={labelBtnRef}
+                  variant="ghost"
                   onClick={onToggleLabelPicker}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border/70 transition-colors"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 h-auto rounded-full text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border/70 transition-colors"
                   aria-label="Add label"
                 >
                   <Tag className="w-2.5 h-2.5" />
                   <Plus className="w-2.5 h-2.5" />
-                </button>
+                </Button>
 
                 {showLabelPicker && pickerPos && createPortal(
                   (() => {
@@ -322,10 +327,11 @@ export function HeaderMetaStrip({
                         {filtered.map((label) => {
                           const assigned = messageLabels.some((lbl) => lbl.id === label.id);
                           return (
-                            <button
+                            <Button
                               key={label.id}
+                              variant="ghost"
                               onClick={() => onToggleLabel(label)}
-                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors text-left"
+                              className="w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left"
                             >
                               <span
                                 className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
@@ -333,19 +339,20 @@ export function HeaderMetaStrip({
                               />
                               <span className="flex-1 text-foreground">{label.name}</span>
                               {assigned && <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                            </button>
+                            </Button>
                           );
                         })}
                         {showCreate && (
-                          <button
+                          <Button
+                            variant="ghost"
                             onClick={() => void onCreateLabel?.(trimmed)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 mt-1 rounded-md text-xs hover:bg-accent transition-colors text-left border-t border-border"
+                            className="w-full flex justify-start items-center gap-2 px-2 py-1.5 mt-1 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left border-t border-border"
                           >
                             <Plus className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
                             <span className="flex-1 text-foreground">
                               Create &quot;{trimmed}&quot;
                             </span>
-                          </button>
+                          </Button>
                         )}
                         {filtered.length === 0 && !showCreate && (
                           <div className="px-2 py-1.5 text-xs text-muted-foreground">

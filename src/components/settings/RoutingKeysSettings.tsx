@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Route } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { organizationService } from '@/services/organization.service';
 
@@ -117,11 +118,13 @@ export const RoutingKeysSettings = () => {
         </p>
         <div className="flex gap-2">
           {AUTO_ASSIGN_OPTIONS.map((opt) => (
-            <button
+            <Button
               key={opt.value}
+              variant="outline"
+              size="sm"
               disabled={savingMode}
               onClick={() => void handleModeChange(opt.value)}
-              className={`flex-1 px-3 py-2 text-sm rounded-md border transition-all text-left ${
+              className={`flex-1 h-auto flex-col items-start px-3 py-2 text-left ${
                 autoAssignMode === opt.value
                   ? 'border-primary bg-primary/10 text-foreground'
                   : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/50'
@@ -129,7 +132,7 @@ export const RoutingKeysSettings = () => {
             >
               <div className="font-medium">{opt.label}</div>
               <div className="text-xs mt-0.5 text-muted-foreground">{opt.description}</div>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -145,22 +148,11 @@ export const RoutingKeysSettings = () => {
               When enabled, all org members can update their own routing skill values. Individual overrides still apply when this is off.
             </p>
           </div>
-          <button
-            type="button"
+          <Toggle
+            checked={allowSelfEditSkills}
+            onChange={() => void handleSelfEditToggle()}
             disabled={savingSelfEdit}
-            onClick={() => void handleSelfEditToggle()}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-              allowSelfEditSkills ? 'bg-primary' : 'bg-muted-foreground/30'
-            } ${savingSelfEdit ? 'opacity-50' : ''}`}
-            role="switch"
-            aria-checked={allowSelfEditSkills}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                allowSelfEditSkills ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
+          />
         </div>
       </div>
 

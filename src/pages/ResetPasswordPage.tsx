@@ -117,14 +117,16 @@ export const ResetPasswordPage = () => {
                 required
                 minLength={8}
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-3 top-[38px] w-auto h-auto p-0 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </button>
+              </Button>
             </div>
             <div className="relative">
               <Input
@@ -137,14 +139,16 @@ export const ResetPasswordPage = () => {
                 required
                 minLength={8}
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[38px] text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-3 top-[38px] w-auto h-auto p-0 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               >
                 {showConfirmPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </button>
+              </Button>
             </div>
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">

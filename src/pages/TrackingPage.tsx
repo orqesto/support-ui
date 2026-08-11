@@ -9,6 +9,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 
@@ -821,7 +823,7 @@ export const TrackingPage = () => {
                         : 'border-[hsl(214.3,31.8%,91.4%)] focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20'
                     }`}
                   >
-                    <textarea
+                    <Textarea
                       id="tracking-reply"
                       rows={3}
                       maxLength={4000}
@@ -838,7 +840,7 @@ export const TrackingPage = () => {
                         }
                       }}
                       placeholder="Reply, add details, or context that helps us answer…"
-                      className="w-full px-3.5 py-2.5 text-[15px] bg-transparent resize-none focus:outline-none rounded-lg disabled:opacity-60"
+                      className="px-3.5 py-2.5 text-[15px] bg-transparent border-0 resize-none rounded-lg disabled:opacity-60"
                     />
                     <div className="flex items-center gap-2 px-3 py-2 border-t border-[hsl(214.3,31.8%,91.4%)]">
                       <span className="text-xs text-[hsl(215.4,16.3%,46.9%)]">
@@ -846,14 +848,15 @@ export const TrackingPage = () => {
                           ? `${replyText.length.toLocaleString()} / 4,000`
                           : "We'll email you a copy of your reply."}
                       </span>
-                      <button
+                      <Button
                         type="button"
+                        variant="primary"
                         onClick={() => void submitReply()}
                         disabled={replyState.kind === 'submitting' || replyText.trim().length === 0}
-                        className="ml-auto bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-md hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="ml-auto bg-blue-600 text-white text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {replyState.kind === 'submitting' ? 'Sending…' : 'Send'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   {replyState.kind === 'error' && (

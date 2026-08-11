@@ -3,6 +3,7 @@ import { FileText, RefreshCw, X } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -73,8 +74,6 @@ const ENTITY_OPTIONS = [
   { value: 'settings', label: 'Settings' },
 ];
 
-const filterSelectClass =
-  'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer';
 
 const filterInputClass =
   'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring dark:[color-scheme:dark]';
@@ -229,10 +228,10 @@ export const AuditLogsPage = () => {
               {/* Filter bar */}
               <div className="border-b px-4 py-3 flex flex-wrap gap-2 items-center bg-muted/30">
                 {/* Action */}
-                <select
+                <Select
                   value={filters.action ?? ''}
                   onChange={(event) => patchFilter({ action: event.target.value || undefined })}
-                  className={filterSelectClass}
+                  className="w-auto h-8"
                   aria-label="Filter by action"
                 >
                   {ACTION_OPTIONS.map((opt) => (
@@ -240,13 +239,13 @@ export const AuditLogsPage = () => {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
 
                 {/* Entity */}
-                <select
+                <Select
                   value={filters.entity ?? ''}
                   onChange={(event) => patchFilter({ entity: event.target.value || undefined })}
-                  className={filterSelectClass}
+                  className="w-auto h-8"
                   aria-label="Filter by entity"
                 >
                   {ENTITY_OPTIONS.map((opt) => (
@@ -254,7 +253,7 @@ export const AuditLogsPage = () => {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
 
                 {/* Date range */}
                 <div className="flex items-center gap-1">
@@ -301,13 +300,15 @@ export const AuditLogsPage = () => {
 
                 {/* Clear all */}
                 {activeFilterCount > 0 && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleClearFilters}
-                    className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    className="ml-auto gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-foreground"
                   >
                     <X className="w-3 h-3" />
                     Clear all ({activeFilterCount})
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -340,35 +341,41 @@ export const AuditLogsPage = () => {
                         <div key={log.id} className="p-4 transition-colors hover:bg-accent">
                           <div className="flex-1 min-w-0">
                             <div className="flex gap-2 flex-wrap items-center mb-2">
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleClickAction(log.action)}
                                 title="Filter by this action"
-                                className="cursor-pointer"
+                                className="p-0 w-auto h-auto cursor-pointer"
                               >
                                 <Badge variant={getActionBadgeVariant(log.action)}>
                                   {formatAction(log.action)}
                                 </Badge>
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleClickEntity(log.entity)}
                                 title="Filter by this entity"
-                                className="cursor-pointer"
+                                className="p-0 w-auto h-auto cursor-pointer"
                               >
                                 <Badge variant="secondary">{log.entity}</Badge>
-                              </button>
+                              </Button>
                             </div>
                             <div className="space-y-1 text-sm">
                               <div>
                                 <span className="font-medium">Entity ID:</span> {log.entityId}
                               </div>
                               {log.userEmail && (
-                                <button
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => handleClickUser(log.userId, log.userEmail)}
                                   title="Filter by this user"
-                                  className="text-left hover:underline text-primary cursor-pointer"
+                                  className="p-0 h-auto text-left hover:underline text-primary cursor-pointer"
                                 >
                                   {log.userEmail}
-                                </button>
+                                </Button>
                               )}
                               <div className="text-xs text-muted-foreground">
                                 {formatDate(log.createdAt)}
@@ -424,36 +431,42 @@ export const AuditLogsPage = () => {
                               </td>
                               <td className="px-4 py-3 text-sm">
                                 {log.userEmail ? (
-                                  <button
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => handleClickUser(log.userId, log.userEmail)}
                                     title="Filter by this user"
-                                    className="hover:underline text-left cursor-pointer"
+                                    className="p-0 h-auto hover:underline text-left cursor-pointer"
                                   >
                                     {log.userEmail}
-                                  </button>
+                                  </Button>
                                 ) : (
                                   <span className="italic text-muted-foreground">System</span>
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                <button
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleClickAction(log.action)}
                                   title="Filter by this action"
-                                  className="cursor-pointer"
+                                  className="p-0 w-auto h-auto cursor-pointer"
                                 >
                                   <Badge variant={getActionBadgeVariant(log.action)}>
                                     {formatAction(log.action)}
                                   </Badge>
-                                </button>
+                                </Button>
                               </td>
                               <td className="px-4 py-3">
-                                <button
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleClickEntity(log.entity)}
                                   title="Filter by this entity"
-                                  className="cursor-pointer"
+                                  className="p-0 w-auto h-auto cursor-pointer"
                                 >
                                   <Badge variant="secondary">{log.entity}</Badge>
-                                </button>
+                                </Button>
                               </td>
                               <td className="px-4 py-3 text-sm font-mono">{log.entityId}</td>
                               <td className="px-4 py-3 text-sm">

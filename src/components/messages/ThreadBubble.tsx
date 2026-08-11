@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import { Button } from '@/components/ui/Button';
 import { THREAD_SANITIZE, addNoopenerHook, renderMarkdown, splitAtQuote } from './messageDetailConstants';
 
 addNoopenerHook(DOMPurify);
@@ -48,12 +49,14 @@ export function ThreadBubble({ content, isAgent }: { content: string | null | un
     <>
       {render(main)}
       {quote && (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={(event) => {
             event.stopPropagation();
             setShowQuote((val) => !val);
           }}
-          className={`text-[10px] mt-1.5 flex items-center gap-0.5 transition-opacity ${
+          className={`text-[10px] mt-1.5 flex items-center gap-0.5 p-0 h-auto transition-opacity ${
             isAgent
               ? 'text-primary-foreground/55 hover:text-primary-foreground/90'
               : 'text-muted-foreground/55 hover:text-muted-foreground'
@@ -63,7 +66,7 @@ export function ThreadBubble({ content, isAgent }: { content: string | null | un
             className={`w-2.5 h-2.5 transition-transform duration-150 ${showQuote ? 'rotate-180' : ''}`}
           />
           {showQuote ? 'hide quoted' : 'show quoted'}
-        </button>
+        </Button>
       )}
       {quote && showQuote && (
         <div

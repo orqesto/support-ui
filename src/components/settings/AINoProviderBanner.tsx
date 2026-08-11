@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
 export const AINoProviderBanner = () => {
   const [showFeatureDetails, setShowFeatureDetails] = useState(false);
 
   return (
     <div className="p-3 bg-amber-50 rounded-lg border-2 border-amber-500 dark:bg-amber-950/50">
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setShowFeatureDetails(!showFeatureDetails)}
-        className="flex justify-between items-center w-full text-left"
+        className="flex justify-between items-center w-full text-left p-0 h-auto hover:bg-transparent"
       >
         <div className="flex gap-2 items-center">
           <AlertCircle className="flex-shrink-0 w-4 h-4 text-amber-600" />
@@ -24,7 +26,7 @@ export const AINoProviderBanner = () => {
             <ChevronDown className="w-4 h-4 text-amber-600" />
           )}
         </div>
-      </button>
+      </Button>
 
       {showFeatureDetails && (
         <div className="grid grid-cols-1 gap-3 mt-3 text-xs md:grid-cols-2">

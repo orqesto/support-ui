@@ -6,6 +6,7 @@ import {
   type CreateChatWidgetRequest,
 } from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -167,9 +168,9 @@ export const ChatWidgetModal = ({
           <h2 className="text-xl font-semibold">
             {widget ? 'Edit Chat Widget' : 'Create Chat Widget'}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -193,18 +194,16 @@ export const ChatWidgetModal = ({
                 departments.map((dept) => {
                   const selected = (formData.departmentIds ?? []).includes(dept.id);
                   return (
-                    <button
+                    <Button
                       key={dept.id}
                       type="button"
+                      size="sm"
+                      variant={selected ? 'primary' : 'secondary'}
                       onClick={() => toggleDept(dept.id)}
-                      className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                        selected
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
-                      }`}
+                      className="px-2 py-1 h-auto text-xs rounded-full"
                     >
                       {dept.name}
-                    </button>
+                    </Button>
                   );
                 })
               )}
@@ -276,12 +275,12 @@ export const ChatWidgetModal = ({
             <Label htmlFor="allowedDomains">
               Allowed Domains (one per line, leave empty for all)
             </Label>
-            <textarea
+            <Textarea
               id="allowedDomains"
               value={domainsText}
               onChange={(event) => setDomainsText(event.target.value)}
               placeholder="example.com&#10;*.example.com&#10;app.example.com"
-              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="min-h-[100px]"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Restrict widget to specific domains. Use * for wildcards.

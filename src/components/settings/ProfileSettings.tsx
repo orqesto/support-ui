@@ -4,6 +4,7 @@ import { TwoFactorSettings } from './TwoFactorSettings';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -160,12 +161,12 @@ export const ProfileSettings = () => {
         <p className="text-sm text-muted-foreground mb-4">
           Appended to replies you send. Leave blank to send without a signature.
         </p>
-        <textarea
+        <Textarea
           value={signature}
           onChange={(event) => setSignature(event.target.value)}
           maxLength={5000}
           rows={5}
-          className="w-full px-3 py-2 rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm placeholder:text-muted-foreground"
+          className="font-mono"
           placeholder={'Best regards,\nMara Kováč\nSupport Team'}
         />
         <div className="flex items-center justify-between mt-2">
@@ -204,13 +205,16 @@ export const ProfileSettings = () => {
                       >
                         {val}
                         {canEditSkills && (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleRemoveValue(key, val)}
-                            className="hover:text-red-500"
+                            aria-label={`Remove ${val}`}
+                            className="p-0 w-auto h-auto hover:text-red-500"
                           >
                             <X className="w-3 h-3" />
-                          </button>
+                          </Button>
                         )}
                       </span>
                     ))}
@@ -235,13 +239,14 @@ export const ProfileSettings = () => {
                         placeholder="e.g. de, en (comma-separated)"
                         className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       />
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         onClick={() => handleAddValue(key)}
-                        className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                        className="px-2 py-1 h-auto text-xs"
                       >
                         Add
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { PermissionCheckboxGrid } from './PermissionCheckboxGrid';
 import type { OrganizationRole, Permission, PermissionOverrides } from '@/types/roles';
 
@@ -24,10 +25,12 @@ export const PermissionOverridesSection = ({
 
   return (
     <div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex gap-1 items-center text-sm font-medium hover:text-primary"
+        className="gap-1 items-center p-0 h-auto text-sm font-medium hover:text-primary"
       >
         {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         Customize permissions
@@ -36,7 +39,7 @@ export const PermissionOverridesSection = ({
             {overrideCount}
           </span>
         )}
-      </button>
+      </Button>
       {open && (
         <div className="mt-3">
           <PermissionCheckboxGrid

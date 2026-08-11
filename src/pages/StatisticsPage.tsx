@@ -5,6 +5,7 @@ import { BarChart3, Users, Activity, RefreshCw, Cpu, Coins } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData, type SLASummary } from '@/services/statistics.service';
 import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOverviewTab';
@@ -263,28 +264,30 @@ export const StatisticsPage = () => {
             <span className="text-sm text-muted-foreground">Period:</span>
             <div className="flex rounded-md border border-border overflow-hidden">
               {DAYS_OPTIONS.map((opt) => (
-                <button
+                <Button
                   key={opt.value}
                   type="button"
+                  variant={days === opt.value ? 'primary' : 'ghost'}
+                  size="sm"
                   onClick={() => setDays(opt.value)}
                   className={cn(
-                    'px-3 py-1.5 text-sm font-medium transition-colors',
+                    'rounded-none px-3 h-auto py-1.5 font-medium',
                     days === opt.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-background text-muted-foreground hover:bg-muted'
+                      ? ''
+                      : 'text-muted-foreground hover:bg-muted'
                   )}
                 >
                   {opt.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Channel:</span>
-            <select
+            <Select
               value={channel}
               onChange={(event) => setChannel(event.target.value)}
-              className="px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-auto"
             >
               <option value="all">All Channels</option>
               <option value="email">Email</option>
@@ -292,7 +295,7 @@ export const StatisticsPage = () => {
               <option value="slack">Slack</option>
               <option value="chat">Chat Widget</option>
               <option value="other">Other</option>
-            </select>
+            </Select>
           </div>
         </div>
 
