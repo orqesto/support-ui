@@ -425,16 +425,22 @@ const AppRoutes = () => {
           );
         })}
       </Route>
-      {/* Per-workspace management shell (B2). TOP-LEVEL — NOT nested under
+      {/* Per-workspace management shell. TOP-LEVEL — NOT nested under
           /console/platform — so the platform scope (which drops X-Organization-Context)
           never applies here. WorkspaceShell points the org context at :orgId and clears
           scope on mount; the embedded UsersPage/OrganizationPage then make org-scoped
-          calls (invite, skills, permission overrides, config) against that workspace. */}
+          calls (invite, skills, permission overrides, config) against that workspace.
+          Gate = `allianceAdmin` (global-admin OR an active alliance_admin membership), NOT
+          global-admin-only: an alliance_admin is materialized as `org_admin` of every
+          member workspace (roleMapping D-04 alliance_admin→org_admin via the fan-out
+          reconciler), so managing one is a right they already hold. The per-workspace
+          authorization is enforced by the BE org-context on each embedded call (a caller
+          with no `user_organizations` row for :orgId gets 403), so this is only a UX gate. */}
       <Route
         path="/console/workspace/:orgId"
         element={
           <PrivateRoute>
-            <ProtectedRoute requiredRole="admin">
+            <ProtectedRoute allianceAdmin>
               <Suspense fallback={<LoadingFallback />}>
                 <WorkspaceShell />
               </Suspense>
