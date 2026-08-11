@@ -191,15 +191,17 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
 
   return (
     <div className="mt-2 pt-2 border-t border-border/40">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => void toggle()}
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        className="gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-foreground hover:bg-transparent"
       >
         {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         <Eye className="w-3 h-3" />
         Evidence messages
-      </button>
+      </Button>
       {open && (
         <div className="mt-2">
           {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
@@ -575,8 +577,10 @@ export const LearningSuggestionsSettings = () => {
                       >
                         <div className="flex justify-between gap-3 items-start p-3">
                           <div className="flex-1 min-w-0">
-                            <button
-                              className="flex items-start gap-1 text-left w-full min-w-0 group"
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="flex items-start justify-start gap-1 p-0 h-auto text-left w-full min-w-0 group hover:bg-transparent"
                               onClick={() => setExpandedId((prev) => prev === suggestion.id ? null : suggestion.id)}
                             >
                               {expandedId === suggestion.id
@@ -587,7 +591,7 @@ export const LearningSuggestionsSettings = () => {
                                 <span className="mr-1.5 inline-flex align-middle"><SeverityBadge suggestion={suggestion} /></span>
                                 {summarizeSuggestion(suggestion, deptNameById)}
                               </p>
-                            </button>
+                            </Button>
                             <div className="flex flex-wrap gap-3 mt-1 ml-5 text-xs text-muted-foreground">
                               <span>Evidence: {suggestion.evidenceCount}</span>
                               {confidence !== null && <span>Confidence: {confidence}%</span>}

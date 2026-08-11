@@ -435,8 +435,9 @@ export const GmailIntegrationCard = ({
                             />
                             <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md border shadow-lg dark:bg-gray-800">
                               <div className="py-1">
-                                <button
-                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                <Button
+                                  variant="ghost"
+                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
                                   onClick={() => {
                                     const gmailConfig = (
                                       integration.config as { gmail?: { bulkImportDays?: number } }
@@ -453,9 +454,10 @@ export const GmailIntegrationCard = ({
                                 >
                                   <Calendar className="mr-2 w-4 h-4" />
                                   Initial Sync Range
-                                </button>
-                                <button
-                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
                                   onClick={() => {
                                     void testConnection(integration.id, integration.name);
                                     setShowMenu(null);
@@ -463,9 +465,10 @@ export const GmailIntegrationCard = ({
                                 >
                                   <TestTube2 className="mr-2 w-4 h-4" />
                                   Test Connection
-                                </button>
-                                <button
-                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
                                   onClick={() => {
                                     setEditDepts(integration.id);
                                     setShowMenu(null);
@@ -473,9 +476,10 @@ export const GmailIntegrationCard = ({
                                 >
                                   <Building2 className="mr-2 w-4 h-4" />
                                   Assign Departments
-                                </button>
-                                <button
-                                  className="flex items-center px-3 py-2 w-full text-sm hover:bg-accent"
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
                                   onClick={() => {
                                     setEditAckReply(integration.id);
                                     setShowMenu(null);
@@ -483,9 +487,10 @@ export const GmailIntegrationCard = ({
                                 >
                                   <MessageSquareReply className="mr-2 w-4 h-4" />
                                   Auto-reply Template
-                                </button>
-                                <button
-                                  className="flex items-center px-3 py-2 w-full text-sm text-red-600 hover:bg-accent"
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm text-red-600 hover:bg-accent"
                                   onClick={() => {
                                     setDeleteConfirm({
                                       id: integration.id,
@@ -496,7 +501,7 @@ export const GmailIntegrationCard = ({
                                 >
                                   <Trash2 className="mr-2 w-4 h-4" />
                                   Delete
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           </>
@@ -540,23 +545,25 @@ export const GmailIntegrationCard = ({
               <div className="font-medium">Your browser blocked the OAuth popup.</div>
               <div className="mt-1">{getPopupUnblockInstructions(detectBrowser())}</div>
               <div className="mt-2">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handleGmailOAuth}
                   disabled={saving || redirecting}
-                  className="font-medium underline hover:no-underline disabled:opacity-50"
+                  className="inline p-0 h-auto align-baseline font-medium underline hover:no-underline hover:bg-transparent disabled:opacity-50"
                 >
                   Try the popup again
-                </button>
+                </Button>
                 {' or '}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handleGmailRedirect}
                   disabled={saving || redirecting}
-                  className="font-medium underline hover:no-underline disabled:opacity-50"
+                  className="inline p-0 h-auto align-baseline font-medium underline hover:no-underline hover:bg-transparent disabled:opacity-50"
                 >
                   continue without popup
-                </button>
+                </Button>
                 {' (this redirects the whole page and may clear unsaved settings).'}
               </div>
               {manualAuthUrl && (

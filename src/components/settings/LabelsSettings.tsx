@@ -156,9 +156,12 @@ export const LabelsSettings = () => {
             <p className="text-xs text-muted-foreground">Color</p>
             <div className="flex items-center gap-2 flex-wrap">
               {PRESET_COLORS.map((clr) => (
-                <button
+                <Button
                   key={clr}
-                  className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Select color ${clr}`}
+                  className={`w-6 h-6 p-0 rounded-full border-2 transition-transform ${
                     formData.color === clr ? 'border-foreground scale-110' : 'border-transparent'
                   }`}
                   style={{ backgroundColor: clr }}
@@ -182,18 +185,16 @@ export const LabelsSettings = () => {
               {activeDepts.map((dept) => {
                 const selected = formData.departmentIds.includes(dept.id);
                 return (
-                  <button
+                  <Button
                     key={dept.id}
                     type="button"
+                    size="sm"
+                    variant={selected ? 'primary' : 'secondary'}
                     onClick={() => toggleDept(dept.id)}
-                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                      selected
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
-                    }`}
+                    className="px-2 py-1 h-auto text-xs rounded-full"
                   >
                     {dept.name}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

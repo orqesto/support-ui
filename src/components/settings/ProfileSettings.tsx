@@ -205,13 +205,16 @@ export const ProfileSettings = () => {
                       >
                         {val}
                         {canEditSkills && (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleRemoveValue(key, val)}
-                            className="hover:text-red-500"
+                            aria-label={`Remove ${val}`}
+                            className="p-0 w-auto h-auto hover:text-red-500"
                           >
                             <X className="w-3 h-3" />
-                          </button>
+                          </Button>
                         )}
                       </span>
                     ))}
@@ -236,13 +239,14 @@ export const ProfileSettings = () => {
                         placeholder="e.g. de, en (comma-separated)"
                         className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       />
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         onClick={() => handleAddValue(key)}
-                        className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                        className="px-2 py-1 h-auto text-xs"
                       >
                         Add
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

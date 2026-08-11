@@ -93,9 +93,9 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
         <span className="text-sm font-medium flex items-center gap-1">
           <Building2 className="w-3.5 h-3.5" /> Assign Departments
         </span>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
 
       <DepartmentMultiPicker
@@ -126,11 +126,13 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
                       <span className="ml-1.5 text-muted-foreground">(default)</span>
                     )}
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => void handleToggleAutoReply(link)}
                     disabled={isToggling}
-                    className="inline-flex gap-1 items-center text-xs transition-colors hover:text-primary disabled:opacity-50"
+                    className="gap-1 items-center p-0 h-auto text-xs hover:text-primary hover:bg-transparent"
                     title={
                       link.autoReplyEnabled
                         ? 'Auto-reply enabled — click to disable'
@@ -150,7 +152,7 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
                         <span className="text-muted-foreground">Auto-reply off</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               );
             })}

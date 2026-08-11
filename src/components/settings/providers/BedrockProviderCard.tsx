@@ -577,9 +577,10 @@ export const BedrockProviderCard = ({
               {/* IAM setup helper — AssumeRole (cross-account) only */}
               {credMode === 'assume_role' && (
                 <div className="rounded-md border bg-background">
-                  <button
+                  <Button
                     type="button"
-                    className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium text-left"
+                    variant="ghost"
+                    className="flex justify-between items-center px-3 py-2 w-full h-auto text-sm font-medium text-left hover:bg-transparent"
                     onClick={() => setShowSetup(!showSetup)}
                     aria-expanded={showSetup}
                   >
@@ -589,7 +590,7 @@ export const BedrockProviderCard = ({
                     ) : (
                       <ChevronDown className="w-4 h-4" />
                     )}
-                  </button>
+                  </Button>
                   {showSetup && (
                     <div className="p-3 space-y-3 border-t">
                       <p className="text-xs text-muted-foreground">

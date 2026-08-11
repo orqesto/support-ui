@@ -184,13 +184,15 @@ export const EmailForm = ({
 
       {/* Advanced Settings Toggle */}
       <div className="pt-2 border-t">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onToggleAdvanced}
-          className="flex gap-1 items-center text-sm text-muted-foreground hover:text-foreground"
+          className="gap-1 items-center p-0 h-auto text-sm text-muted-foreground hover:text-foreground hover:bg-transparent"
         >
           {showAdvanced ? '▼' : '▶'} Advanced Settings
-        </button>
+        </Button>
       </div>
 
       {/* Advanced Settings Panel */}

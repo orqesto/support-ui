@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Timer } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 // Centralised SLA config shape (generated backend contract) — was a component-local
 // duplicate.
@@ -208,13 +209,13 @@ export const SLAConfigSettings = () => {
       {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
       {saved && <p className="text-xs text-green-600">Saved</p>}
 
-      <button
+      <Button
         onClick={save}
         disabled={saving}
-        className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        className="text-sm"
       >
         Save changes
-      </button>
+      </Button>
     </div>
   );
 };

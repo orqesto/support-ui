@@ -199,13 +199,16 @@ export const DocumentationUploadForm = ({
                               </span>
                             )}
                             {!uploading && (
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => onRemoveFile(index)}
-                                className="p-1 rounded transition-colors hover:bg-destructive/10"
+                                aria-label="Remove file"
+                                className="p-1 w-auto h-auto rounded transition-colors hover:bg-destructive/10"
                                 type="button"
                               >
                                 <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -276,13 +279,15 @@ export const DocumentationUploadForm = ({
               </div>
             )}
             {!isOrgWide && departments.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => onSelectedDeptIdsChange(departments.map((dept) => dept.id))}
-                className="pl-6 text-xs text-primary hover:underline"
+                className="p-0 pl-6 h-auto text-xs text-primary hover:underline hover:bg-transparent"
               >
                 Select all departments
-              </button>
+              </Button>
             )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">

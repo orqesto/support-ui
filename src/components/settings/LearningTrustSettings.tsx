@@ -293,13 +293,14 @@ export const LearningTrustSettings = () => {
                 const isSaving = savingMode === mode.id;
                 const isDisabled = isSaving || (savingMode !== null && !isSaving);
                 return (
-                  <button
+                  <Button
                     key={mode.id}
                     type="button"
+                    variant="outline"
                     onClick={() => void handleSelect(mode.id)}
                     disabled={isDisabled}
                     title={mode.hint}
-                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                    className={`block w-full h-auto text-left p-3 rounded-lg border transition-all ${
                       isSelected
                         ? 'border-primary bg-primary/5'
                         : 'border-border bg-background hover:bg-muted/50'
@@ -323,7 +324,7 @@ export const LearningTrustSettings = () => {
                         <p className="mt-1 text-xs text-muted-foreground/80">{mode.hint}</p>
                       </div>
                     </div>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

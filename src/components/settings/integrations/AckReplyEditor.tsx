@@ -194,24 +194,28 @@ export const AckReplyEditor = ({
           </span>
           <div className="flex gap-1">
             {TOKENS.map((token) => (
-              <button
+              <Button
                 key={token}
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => insertTokenIntoBody(token)}
-                className="px-2 py-0.5 text-xs rounded border bg-background hover:bg-accent border-border"
+                className="px-2 py-0.5 h-auto text-xs"
                 title={`Insert ${token}`}
               >
                 {token}
-              </button>
+              </Button>
             ))}
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => bodyRef.current?.setContent(DEFAULT_BODY_TEMPLATE)}
-              className="px-2 py-0.5 text-xs rounded border bg-background hover:bg-accent border-border"
+              className="px-2 py-0.5 h-auto text-xs"
               title="Reset to default template"
             >
               Use default
-            </button>
+            </Button>
           </div>
         </div>
         <RichTextEditor
