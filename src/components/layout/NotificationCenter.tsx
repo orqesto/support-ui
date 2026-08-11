@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban, Wand2, Lightbulb, GitBranch } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import {
   type SLABreachNotification,
@@ -88,14 +89,17 @@ const SLABreachItem = ({
             >
               {formatBreachAmount(notification.breachAmount)}
             </span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => onDismiss(notification.id)}
-              className="relative z-[2] flex justify-center items-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
+              className="relative z-[2] flex justify-center items-center w-4 h-4 p-0 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
               title="Dismiss"
+              aria-label="Dismiss"
             >
               <X className="w-3 h-3" />
-            </button>
+            </Button>
           </div>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground">
@@ -244,11 +248,14 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
 
   return (
     <div>
-      <button
+      <Button
         ref={buttonRef}
+        variant="ghost"
+        size="icon"
         onClick={handleOpen}
-        className="flex relative justify-center items-center w-8 h-8 rounded-md transition-colors hover:bg-accent text-foreground/70 hover:text-foreground"
+        className="flex relative justify-center items-center w-8 h-8 p-0 rounded-md hover:bg-accent text-foreground/70 hover:text-foreground"
         title="Notifications"
+        aria-label="Notifications"
       >
         <Bell className="w-4 h-4" />
         {badgeCount > 0 && (
@@ -256,7 +263,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
             {badgeCount > 9 ? '9+' : badgeCount}
           </span>
         )}
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -267,10 +274,12 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold">Notifications</span>
             <div className="flex gap-1 items-center">
-              <button
+              <Button
+                variant={sla.onlyAssignedToMe ? 'primary' : 'ghost'}
+                size="sm"
                 onClick={() => sla.setOnlyMine(!sla.onlyAssignedToMe)}
                 className={cn(
-                  'px-2 py-0.5 text-xs rounded transition-colors',
+                  'px-2 py-0.5 h-auto text-xs',
                   sla.onlyAssignedToMe
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -280,23 +289,27 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 }
               >
                 Only mine
-              </button>
+              </Button>
               {hasSla && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={sla.clearAll}
-                  className="px-2 py-0.5 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+                  className="px-2 py-0.5 h-auto text-xs text-muted-foreground hover:text-foreground hover:bg-accent"
                   title="Dismiss all SLA breaches"
                 >
                   Clear all
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setOpen(false)}
-                className="flex justify-center items-center w-6 h-6 rounded transition-colors text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="flex justify-center items-center w-6 h-6 p-0 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Close"
               >
                 <X className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -310,50 +323,56 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                   <>
                     {showSectionLabels && <SectionLabel>Queues</SectionLabel>}
                     {arrivalRows.map(({ kind, label, queue, Icon, iconClass, count }) => (
-                      <button
+                      <Button
                         key={kind}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => openQueue(kind, queue)}
-                        className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                        className="flex gap-3 items-center p-3 w-full h-auto text-sm text-left rounded-lg border bg-background hover:bg-accent border-border"
                       >
                         <Icon className={cn('w-4 h-4 shrink-0', iconClass)} />
                         <span className="flex-1 font-medium text-foreground">{label}</span>
                         <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
                           {count > 99 ? '99+' : count} new
                         </span>
-                      </button>
+                      </Button>
                     ))}
                     {suspiciousQueueCount > 0 && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           navigate('/messages?queue=suspicious');
                           setOpen(false);
                         }}
-                        className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                        className="flex gap-3 items-center p-3 w-full h-auto text-sm text-left rounded-lg border bg-background hover:bg-accent border-border"
                       >
                         <ShieldAlert className="w-4 h-4 shrink-0 text-purple-500" />
                         <span className="flex-1 font-medium text-foreground">Suspicious</span>
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                           {suspiciousQueueCount > 99 ? '99+' : suspiciousQueueCount}
                         </span>
-                      </button>
+                      </Button>
                     )}
                     {needsRoutingCount > 0 && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           navigate('/needs-routing');
                           setOpen(false);
                         }}
-                        className="flex gap-3 items-center p-3 w-full text-sm text-left rounded-lg border transition-colors bg-background hover:bg-accent border-border"
+                        className="flex gap-3 items-center p-3 w-full h-auto text-sm text-left rounded-lg border bg-background hover:bg-accent border-border"
                       >
                         <GitBranch className="w-4 h-4 shrink-0 text-amber-500" />
                         <span className="flex-1 font-medium text-foreground">Needs Routing</span>
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                           {needsRoutingCount > 99 ? '99+' : needsRoutingCount}
                         </span>
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}
@@ -384,11 +403,13 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                   <>
                     <SectionLabel>Auto-actions ({learningNotes.length})</SectionLabel>
                     {learningNotes.slice(0, PANEL_PEEK_LIMIT).map((note) => (
-                      <button
+                      <Button
                         key={note.id}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => goToAiSettings()}
-                        className="flex gap-2 items-start p-2 w-full text-sm text-left rounded border transition-colors bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900 hover:bg-violet-100 dark:hover:bg-violet-950/50"
+                        className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900 hover:bg-violet-100 dark:hover:bg-violet-950/50"
                       >
                         <Wand2 className="mt-0.5 w-3.5 h-3.5 shrink-0 text-violet-500" />
                         <div className="flex-1 min-w-0">
@@ -397,16 +418,18 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             {note.domain} · {note.actionType} · {formatRelativeTime(note.createdAt)}
                           </p>
                         </div>
-                      </button>
+                      </Button>
                     ))}
                     {learningNotes.length > PANEL_PEEK_LIMIT && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => goToAiSettings()}
-                        className="px-1 text-[11px] text-left transition-colors text-muted-foreground hover:text-foreground"
+                        className="justify-start px-1 h-auto text-[11px] text-left text-muted-foreground hover:text-foreground"
                       >
                         +{learningNotes.length - PANEL_PEEK_LIMIT} more — View all
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}
@@ -423,11 +446,13 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             ? sug.payload.summary
                             : `${sug.suggestionType} (${sug.evidenceCount} signals)`;
                       return (
-                        <button
+                        <Button
                           key={sug.id}
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => goToAiSettings(sug.id)}
-                          className="flex gap-2 items-start p-2 w-full text-sm text-left rounded border transition-colors bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                          className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/50"
                         >
                           <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-amber-500" />
                           <div className="flex-1 min-w-0">
@@ -436,17 +461,19 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                               {sug.domain} · {formatRelativeTime(sug.createdAt)}
                             </p>
                           </div>
-                        </button>
+                        </Button>
                       );
                     })}
                     {learningSuggestions.length > PANEL_PEEK_LIMIT && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => goToAiSettings()}
-                        className="px-1 text-[11px] text-left transition-colors text-muted-foreground hover:text-foreground"
+                        className="justify-start px-1 h-auto text-[11px] text-left text-muted-foreground hover:text-foreground"
                       >
                         +{learningSuggestions.length - PANEL_PEEK_LIMIT} more — View all
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}

@@ -7,6 +7,7 @@ import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIn
 import { TelegramIntegrationCard } from '@/components/settings/integrations/TelegramIntegrationCard';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -118,11 +119,13 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
           const open = openKey === key;
           return (
             <div key={key}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 aria-expanded={open}
                 onClick={() => setOpenKey(open ? null : key)}
-                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/40"
+                className="w-full items-center gap-3 p-3 h-auto text-left rounded-none hover:bg-muted/40"
               >
                 <Icon className="h-5 w-5 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
@@ -144,7 +147,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
                   )}
                   aria-hidden
                 />
-              </button>
+              </Button>
               {open && <div className="border-t border-border bg-muted/20 p-3">{renderCard(key)}</div>}
             </div>
           );

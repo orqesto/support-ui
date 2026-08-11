@@ -111,24 +111,28 @@ export const DepartmentSwitcher = () => {
               </p>
 
               {/* "All departments" row */}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={handleSelectAll}
-                className={`flex justify-between items-center px-3 py-2 w-full text-sm text-left rounded-md transition-colors hover:bg-accent ${isAll ? 'text-primary font-medium' : ''}`}
+                className={`justify-between px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent ${isAll ? 'text-primary font-medium' : ''}`}
               >
                 <span>All departments</span>
                 {isAll && <X className="w-3.5 h-3.5 opacity-50" />}
-              </button>
+              </Button>
 
               {/* Individual dept rows */}
               {accessibleDepts.map((dept) => {
                 const checked = selectedIds.includes(dept.id);
                 return (
-                  <button
+                  <Button
                     key={dept.id}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => toggleDept(dept.id)}
-                    className="flex justify-between items-center px-3 py-2 w-full text-sm text-left rounded-md transition-colors hover:bg-accent"
+                    className="justify-between px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent"
                   >
                     <span className={checked ? 'font-medium' : ''}>{dept.name}</span>
                     {/* Checkbox visual */}
@@ -153,20 +157,22 @@ export const DepartmentSwitcher = () => {
                         </svg>
                       )}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
 
               {/* Clear selection shortcut */}
               {!isAll && (
                 <div className="border-t mt-1 pt-1">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={handleSelectAll}
-                    className="px-3 py-1.5 w-full text-xs text-left rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    className="justify-start px-3 py-1.5 w-full h-auto text-xs text-left rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     Clear filter (show all)
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

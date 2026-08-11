@@ -4,6 +4,7 @@ import { Languages, Loader2, X } from 'lucide-react';
 import { useTranslation, useSupportedLanguages } from '@/hooks/useTranslation';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { toast } from '@/lib/toast';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
@@ -120,12 +121,15 @@ export const TranslateButton = ({
         }
         size="sm"
       >
-        <button
+        <Button
           ref={buttonRef}
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleToggle}
           disabled={!aiConfigured}
           title={aiConfigured ? 'Translate' : 'AI translation needs a provider'}
+          aria-label="Translate"
           className={`${
             buttonClassName ??
             `inline-flex items-center justify-center w-5 h-5 rounded transition-colors ${
@@ -136,7 +140,7 @@ export const TranslateButton = ({
           } ${!aiConfigured ? 'opacity-40 cursor-not-allowed' : ''}`}
         >
           <Languages className="w-3 h-3" />
-        </button>
+        </Button>
       </Tooltip>
       {isTranslating && (
         <Loader2
@@ -144,17 +148,20 @@ export const TranslateButton = ({
         />
       )}
       {hasTranslation && !isTranslating && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleClear}
           title="Show original"
+          aria-label="Show original"
           className={
             clearClassName ??
             'inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground/60 hover:text-muted-foreground transition-colors flex-shrink-0'
           }
         >
           <X className="w-2.5 h-2.5" />
-        </button>
+        </Button>
       )}
 
       {isOpen &&
@@ -172,20 +179,22 @@ export const TranslateButton = ({
           >
             <div className="overflow-y-auto max-h-52 py-1">
               {languageOptions.map((lang) => (
-                <button
+                <Button
                   key={lang.value}
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     void handleSelect(lang.value);
                   }}
-                  className={`block w-full whitespace-nowrap text-left px-2.5 py-1.5 text-[13px] transition-colors ${
+                  className={`block justify-start w-full whitespace-nowrap text-left px-2.5 py-1.5 h-auto text-[13px] rounded-none ${
                     selectedLanguage === lang.value
                       ? 'font-medium text-foreground bg-accent'
                       : 'text-foreground/80 hover:bg-accent'
                   }`}
                 >
                   {lang.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>,

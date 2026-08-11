@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog/ConfirmDialog';
 import {
   Permission,
@@ -189,15 +190,17 @@ export const PermissionCheckboxGrid = ({
             : 'Using role defaults.'}
         </p>
         {hasOverrides && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={reset}
             disabled={disabled}
-            className="flex gap-1 items-center text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            className="gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             <RotateCcw className="w-3 h-3" />
             Reset to role defaults
-          </button>
+          </Button>
         )}
       </div>
 
