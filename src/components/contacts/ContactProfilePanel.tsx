@@ -181,9 +181,10 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                       </Button>
                     </div>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="flex gap-1.5 items-center text-left group/name"
+                      variant="ghost"
+                      className="flex gap-1.5 justify-start items-center text-left p-0 h-auto font-normal hover:bg-transparent group/name"
                       onClick={() => {
                         setEditingName(true);
                         setNameInput(contact.displayName ?? '');
@@ -193,7 +194,7 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                         {contact.displayName?.trim() ? contact.displayName : contact.primaryEmail}
                       </h2>
                       <Settings2 className="w-3 h-3 opacity-0 text-muted-foreground group-hover/name:opacity-100" />
-                    </button>
+                    </Button>
                   )}
                   <p className="text-xs font-mono truncate text-muted-foreground mt-0.5">
                     {contact.primaryEmail}
@@ -219,14 +220,17 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                     </div>
                   )}
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={onClose}
-                  className="grid place-items-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
+                  className="grid place-items-center w-7 h-7 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
                   title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
 
             </div>

@@ -38,13 +38,16 @@ export function ContactNotesPanel({
             </span>
             <div className="flex gap-2 items-center">
               <span className="text-[10.5px] text-muted-foreground">{formatDate(note.createdAt)}</span>
-              <button
+              <Button
                 type="button"
-                className="opacity-0 group-hover:opacity-100 text-destructive"
+                variant="ghost"
+                size="icon"
+                aria-label="Delete note"
+                className="opacity-0 group-hover:opacity-100 text-destructive p-0 w-auto h-auto hover:bg-transparent"
                 onClick={() => onDeleteNote(note.id)}
               >
                 <Trash2 className="w-3 h-3" />
-              </button>
+              </Button>
             </div>
           </div>
           <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground">{note.content}</p>

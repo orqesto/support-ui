@@ -416,7 +416,10 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                               {formatFileSize(attachment.size)}
                             </p>
                           </div>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Download attachment"
                             onClick={() => {
                               void apiClient.get(`/api/attachments/${attachment.id}/download`, { responseType: 'blob' }).then((response) => {
                                 const url = URL.createObjectURL(response.data as Blob);
@@ -425,10 +428,10 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                                 URL.revokeObjectURL(url);
                               });
                             }}
-                            className="p-1 rounded hover:bg-accent"
+                            className="p-1 w-auto h-auto rounded hover:bg-accent"
                           >
                             <Download className="w-4 h-4 text-gray-600" />
-                          </button>
+                          </Button>
                           {canEditComment(comment) && (
                             <Button
                               variant="ghost"

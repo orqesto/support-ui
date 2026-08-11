@@ -303,13 +303,15 @@ export const TicketDetail = ({
                 >
                   {label.name}
                   {hasManageLabels && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleToggleLabel(label)}
-                      className="opacity-70 hover:opacity-100 ml-0.5"
+                      className="p-0 w-auto h-auto opacity-70 hover:opacity-100 ml-0.5 hover:bg-transparent"
                       title={`Remove ${label.name}`}
                     >
                       <X className="w-3 h-3" />
-                    </button>
+                    </Button>
                   )}
                 </span>
               ))}
@@ -347,10 +349,11 @@ export const TicketDetail = ({
                       {filtered.map((label) => {
                         const isAssigned = ticketLabels.some((lbl) => lbl.id === label.id);
                         return (
-                          <button
+                          <Button
                             key={label.id}
+                            variant="ghost"
                             onClick={() => handleToggleLabel(label)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent text-left"
+                            className="w-full flex items-center justify-start gap-2 px-2 py-1.5 h-auto rounded text-sm font-normal hover:bg-accent text-left"
                           >
                             <span
                               className="w-3 h-3 rounded-full flex-shrink-0"
@@ -358,17 +361,18 @@ export const TicketDetail = ({
                             />
                             <span className="flex-1">{label.name}</span>
                             {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
-                          </button>
+                          </Button>
                         );
                       })}
                       {showCreate && (
-                        <button
+                        <Button
+                          variant="ghost"
                           onClick={() => void handleCreateLabel(trimmed)}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 mt-1 rounded text-sm hover:bg-accent text-left border-t border-border"
+                          className="w-full flex items-center justify-start gap-2 px-2 py-1.5 mt-1 h-auto rounded text-sm font-normal hover:bg-accent text-left border-t border-border"
                         >
                           <Plus className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                           <span className="flex-1">Create &quot;{trimmed}&quot;</span>
-                        </button>
+                        </Button>
                       )}
                       {filtered.length === 0 && !showCreate && (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">
