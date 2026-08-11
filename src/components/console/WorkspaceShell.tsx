@@ -61,15 +61,20 @@ export const WorkspaceShell = () => {
   }, [numericId, setSelectedOrganization, clearScope]);
 
   // Header label — resilient: a failed/absent fetch just falls back to a generic title.
+  // Use `getCurrent` (org-context resolved, gated by VIEW_MESSAGES) rather than
+  // `getById` (global-admin only → 403 for an alliance_admin, who would then always
+  // see the generic "Manage workspace" title). The org context was pointed at
+  // `:orgId` by the effect above, so `current` IS this workspace; guard on the
+  // returned id in case that context hasn't settled, to never show a wrong name.
   useEffect(() => {
     if (numericId === null) {
       return;
     }
     let cancelled = false;
     organizationService
-      .getById(numericId)
+      .getCurrent()
       .then((organization) => {
-        if (!cancelled) {
+        if (!cancelled && organization.id === numericId) {
           setWorkspaceName(organization.name);
         }
       })
