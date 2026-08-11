@@ -11,7 +11,10 @@ import { useScopeStore } from '@/stores/scopeStore';
 import { logger } from '@/lib/logger';
 
 /**
- * Per-workspace management shell for a global admin (B2). Its OWN chrome (sidebar +
+ * Per-workspace management shell for a global admin OR an alliance_admin managing one of
+ * their alliance's member workspaces (B2). An alliance_admin is materialized as `org_admin`
+ * of every member workspace (roleMapping D-04 via the fan-out reconciler), so the embedded
+ * org-scoped calls below are authorized for them by the BE org-context. Its OWN chrome (sidebar +
  * top bar + <Outlet/>) — deliberately NOT the org-scoped Layout — mounted at the
  * TOP-LEVEL route `/console/workspace/:orgId/*` (a sibling of `/console/platform`,
  * never a child of it). That placement is load-bearing:
