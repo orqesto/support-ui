@@ -13,13 +13,13 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
 import type { AllianceGroup } from '@/services/alliance-groups.service';
 import type { AllianceOrg, AllianceMember } from '@/services/alliance-admin.service';
-import type { OrganizationRole } from '@/types/roles';
+import { roleDisplayNames, type OrganizationRole } from '@/types/roles';
 
 const ROLE_OPTIONS: { value: OrganizationRole; label: string }[] = [
-  { value: 'associate', label: 'Associate' },
-  { value: 'support', label: 'Support' },
-  { value: 'moderator', label: 'Moderator' },
-  { value: 'org_admin', label: 'Org admin' },
+  { value: 'associate', label: roleDisplayNames.associate },
+  { value: 'support', label: roleDisplayNames.support },
+  { value: 'moderator', label: roleDisplayNames.moderator },
+  { value: 'org_admin', label: roleDisplayNames.org_admin },
 ];
 
 type GroupEditorProps = {
@@ -63,16 +63,27 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
     return (userId: number) => byId.get(userId) ?? `User #${userId}`;
   }, [members]);
 
-  const orgName = useMemo(() => {
-    const byId = new Map(orgs.map((org) => [org.id, org.name]));
-    return (orgId: number) => byId.get(orgId) ?? `Org #${orgId}`;
+  // Secondary identifier for a member — email when known, else the numeric id —
+  // so two members with the same display name are still distinguishable.
+  const memberSecondary = useMemo(() => {
+    const byId = new Map(members.map((member) => [member.userId, member.email ?? `#${member.userId}`]));
+    return (userId: number) => byId.get(userId) ?? `#${userId}`;
+  }, [members]);
+
+  // Workspaces can share a display name, so qualify them with their unique slug.
+  const orgLabel = useMemo(() => {
+    const byId = new Map(orgs.map((org) => [org.id, `${org.name} (/${org.slug})`]));
+    return (orgId: number) => byId.get(orgId) ?? `Workspace #${orgId}`;
   }, [orgs]);
 
   const addableMemberOptions = useMemo(
     () =>
       members
         .filter((member) => !selectedMemberIds.includes(member.userId))
-        .map((member) => ({ value: String(member.userId), label: member.name || `User #${member.userId}` })),
+        .map((member) => ({
+          value: String(member.userId),
+          label: `${member.name || `User #${member.userId}`} · ${member.email ?? `#${member.userId}`}`,
+        })),
     [members, selectedMemberIds]
   );
 
@@ -136,15 +147,15 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
         </div>
 
         <div className="space-y-2">
-          <Label>Applies to organizations</Label>
+          <Label>Applies to workspaces</Label>
           {orgs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">This alliance has no organizations yet.</p>
+            <p className="text-sm text-muted-foreground">This alliance has no workspaces yet.</p>
           ) : (
             <div className="space-y-1.5">
               {orgs.map((org) => (
                 <Toggle
                   key={org.id}
-                  label={org.name}
+                  label={`${org.name} (/${org.slug})`}
                   checked={selectedOrgIds.includes(org.id)}
                   onChange={(checked) => toggleOrg(org.id, checked)}
                 />
@@ -154,34 +165,45 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
         </div>
 
         <div className="space-y-2">
-          <Label>Members</Label>
-          {selectedMemberIds.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {selectedMemberIds.map((userId) => (
-                <Badge key={userId} variant="secondary" className="flex gap-1 items-center">
-                  {memberName(userId)}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Remove ${memberName(userId)}`}
-                    onClick={() => setSelectedMemberIds((current) => current.filter((existing) => existing !== userId))}
-                    className="p-0 ml-1 w-4 h-4"
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              ))}
-            </div>
+          <Label>Members {members.length === 0 && <span className="font-normal text-muted-foreground">(optional)</span>}</Label>
+          {members.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No alliance members yet — add them in the Members tab or let SCIM provision
+              them. You can still create this group now (name + role) and map an identity-provider
+              group to it; members are filled in automatically as they&apos;re provisioned.
+            </p>
+          ) : (
+            <>
+              {selectedMemberIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedMemberIds.map((userId) => (
+                    <Badge key={userId} variant="secondary" className="flex gap-1 items-center">
+                      {memberName(userId)}
+                      <span className="text-muted-foreground">· {memberSecondary(userId)}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Remove ${memberName(userId)}`}
+                        onClick={() => setSelectedMemberIds((current) => current.filter((existing) => existing !== userId))}
+                        className="p-0 ml-1 w-4 h-4"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <ReactSelect
+                options={addableMemberOptions}
+                value=""
+                onChange={(value) => {
+                  if (value) {
+                    setSelectedMemberIds((current) => [...current, Number(value)]);
+                  }
+                }}
+              />
+            </>
           )}
-          <ReactSelect
-            options={addableMemberOptions}
-            value=""
-            onChange={(value) => {
-              if (value) {
-                setSelectedMemberIds((current) => [...current, Number(value)]);
-              }
-            }}
-          />
         </div>
 
         <Card>
@@ -189,14 +211,15 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
             <h3 className="mb-2 text-sm font-semibold text-foreground">Effective access preview</h3>
             {selectedMemberIds.length === 0 || selectedOrgIds.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Select at least one member and one organization to preview.
+                Select at least one member and one workspace to preview.
               </p>
             ) : (
               <ul className="space-y-1 text-sm">
                 {selectedMemberIds.map((userId) => (
                   <li key={userId} className="text-foreground">
-                    <span className="font-medium">{memberName(userId)}</span> →{' '}
-                    {roleLabel} in {selectedOrgIds.map(orgName).join(', ')}
+                    <span className="font-medium">{memberName(userId)}</span>{' '}
+                    <span className="text-muted-foreground">({memberSecondary(userId)})</span> →{' '}
+                    {roleLabel} in {selectedOrgIds.map(orgLabel).join(', ')}
                   </li>
                 ))}
               </ul>

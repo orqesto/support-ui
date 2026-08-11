@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
 import { OrgAdminTable } from '@/components/organization/OrgAdminTable';
 import { Layout } from '@/components/layout/Layout';
@@ -6,6 +6,8 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
 import {
   Dialog,
   DialogHeader,
@@ -21,7 +23,10 @@ import { useOrganizationsStore } from '@/stores/organizationsStore';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
 import { logger } from '@/lib/logger';
 
-export const OrganizationPage = () => {
+export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = {}) => {
+  // Embedded in the WorkspaceShell → render into its chrome via a Fragment;
+  // standalone → wrap in the org-scoped Layout.
+  const Wrap = embedded ? Fragment : Layout;
   const { canManageOrganization, isAdmin } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -240,20 +245,20 @@ export const OrganizationPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <Wrap>
         <div className="px-4 mx-auto w-full flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
             <p className="text-muted-foreground">Loading workspace...</p>
           </div>
         </div>
-      </Layout>
+      </Wrap>
     );
   }
 
   if (!organization) {
     return (
-      <Layout>
+      <Wrap>
         <div className="px-4 mx-auto w-full flex flex-col items-center justify-center min-h-[60vh]">
           <Building2 className="mb-4 w-16 h-16 text-gray-400" />
           <h2 className="mb-2 text-2xl font-bold text-gray-900">No Workspace</h2>
@@ -261,12 +266,12 @@ export const OrganizationPage = () => {
             You are not currently associated with a workspace.
           </p>
         </div>
-      </Layout>
+      </Wrap>
     );
   }
 
   return (
-    <Layout>
+    <Wrap>
       <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="flex justify-between items-start">
@@ -342,30 +347,20 @@ export const OrganizationPage = () => {
           <CardContent className="space-y-4">
             {isEditing ? (
               <>
-                <div>
-                  <label htmlFor="name" className="block mb-1 text-sm font-medium">
-                    Workspace Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
-                    placeholder="Enter workspace name"
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="description" className="block mb-1 text-sm font-medium">
-                    Description
-                  </label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    rows={3}
-                    placeholder="Enter workspace description"
-                  />
-                </div>
+                <Input
+                  label="Workspace Name"
+                  type="text"
+                  value={editForm.name}
+                  onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
+                  placeholder="Enter workspace name"
+                />
+                <Textarea
+                  label="Description"
+                  value={editForm.description}
+                  onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
+                  rows={3}
+                  placeholder="Enter workspace description"
+                />
                 <div className="flex gap-2">
                   <Button onClick={handleSave} isLoading={saving}>
                     <Save className="mr-2 w-4 h-4" />
@@ -495,6 +490,6 @@ export const OrganizationPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
-    </Layout>
+    </Wrap>
   );
 };

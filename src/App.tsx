@@ -5,6 +5,7 @@ import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Button } from './components/ui/Button';
 import { useBackendVersion } from './hooks/useBackendVersion';
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
@@ -52,9 +53,6 @@ const UsersPage = lazy(() =>
 const OrganizationPage = lazy(() =>
   import('./pages/OrganizationPage').then((mod) => ({ default: mod.OrganizationPage }))
 );
-const EmailTemplatesPage = lazy(() =>
-  import('./pages/EmailTemplatesPage').then((mod) => ({ default: mod.EmailTemplatesPage }))
-);
 const AuditLogsPage = lazy(() =>
   import('./pages/AuditLogsPage').then((mod) => ({ default: mod.AuditLogsPage }))
 );
@@ -73,14 +71,8 @@ const KnowledgeBasePage = lazy(() =>
 const BillingDashboardPage = lazy(() =>
   import('./pages/BillingDashboardPage').then((mod) => ({ default: mod.BillingDashboardPage }))
 );
-const DeletedMessagesPage = lazy(() =>
-  import('./pages/DeletedMessagesPage').then((mod) => ({ default: mod.DeletedMessagesPage }))
-);
 const NeedsRoutingPage = lazy(() =>
   import('./pages/NeedsRoutingPage').then((mod) => ({ default: mod.NeedsRoutingPage }))
-);
-const OrphanedOutboundPage = lazy(() =>
-  import('./pages/OrphanedOutboundPage').then((mod) => ({ default: mod.OrphanedOutboundPage }))
 );
 const OnboardingPage = lazy(() =>
   import('./pages/OnboardingPage').then((mod) => ({ default: mod.OnboardingPage }))
@@ -94,6 +86,12 @@ const ConsolePage = lazy(() =>
 );
 const AdminShell = lazy(() =>
   import('./components/console/AdminShell').then((mod) => ({ default: mod.AdminShell }))
+);
+// Per-workspace management shell (B2) — a global admin manages ANY workspace's Users +
+// config in-console, reusing UsersPage/OrganizationPage embedded. TOP-LEVEL (sibling of
+// /console/platform) so the platform scope never drops X-Organization-Context here.
+const WorkspaceShell = lazy(() =>
+  import('./components/console/WorkspaceShell').then((mod) => ({ default: mod.WorkspaceShell }))
 );
 
 const LoadingFallback = () => (
@@ -203,9 +201,7 @@ const AppRoutes = () => {
           }}
         >
           <p>Couldn&apos;t load your profile. Check your connection and try again.</p>
-          <button type="button" onClick={() => window.location.reload()}>
-            Retry
-          </button>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
         </div>
       );
     }
@@ -429,18 +425,53 @@ const AppRoutes = () => {
           );
         })}
       </Route>
+      {/* Per-workspace management shell (B2). TOP-LEVEL — NOT nested under
+          /console/platform — so the platform scope (which drops X-Organization-Context)
+          never applies here. WorkspaceShell points the org context at :orgId and clears
+          scope on mount; the embedded UsersPage/OrganizationPage then make org-scoped
+          calls (invite, skills, permission overrides, config) against that workspace. */}
+      <Route
+        path="/console/workspace/:orgId"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredRole="admin">
+              <Suspense fallback={<LoadingFallback />}>
+                <WorkspaceShell />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      >
+        <Route
+          index
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <UsersPage embedded />
+            </Suspense>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <OrganizationPage embedded />
+            </Suspense>
+          }
+        />
+      </Route>
       <Route
         path="/users"
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_USERS}>
-              {/* P3: global admins manage users in the platform console; org admins
-                  keep this org-scoped members list. */}
-              <GlobalAdminRedirect to="/console/platform/users">
-                <Suspense fallback={<LoadingFallback />}>
-                  <UsersPage />
-                </Suspense>
-              </GlobalAdminRedirect>
+              {/* Per-workspace user management: invite, create, edit, delete, routing
+                  skills, and permission overrides. Global admins KEEP this page (they
+                  select the target workspace via the OrganizationSwitcher) — the platform
+                  console's Users section is only a cross-org directory + global-role
+                  editor and can't perform these org-scoped actions. */}
+              <Suspense fallback={<LoadingFallback />}>
+                <UsersPage />
+              </Suspense>
             </ProtectedRoute>
           </PrivateRoute>
         }
@@ -450,28 +481,21 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.MANAGE_ORGANIZATION}>
-              {/* P3: global admins consolidate into the platform console; org
-                  admins keep this workspace page. */}
-              <GlobalAdminRedirect to="/console/platform/organizations">
-                <Suspense fallback={<LoadingFallback />}>
-                  <OrganizationPage />
-                </Suspense>
-              </GlobalAdminRedirect>
-            </ProtectedRoute>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/email-templates"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredRole="admin">
+              {/* Per-workspace configuration (categories, labels, departments, etc.).
+                  Global admins KEEP this page — the platform console's Organizations
+                  section is a cross-org list, not this per-workspace editor. */}
               <Suspense fallback={<LoadingFallback />}>
-                <EmailTemplatesPage />
+                <OrganizationPage />
               </Suspense>
             </ProtectedRoute>
           </PrivateRoute>
         }
+      />
+      {/* Email Templates moved into the platform console (Platform › Email Templates).
+          Redirect the old route; the console gates non-admins to a clean access state. */}
+      <Route
+        path="/email-templates"
+        element={<Navigate to="/console/platform/email-templates" replace />}
       />
       <Route
         path="/audit-logs"
@@ -539,39 +563,27 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* Deleted Messages folded into Settings › System (sub-tab). Redirect the old route. */}
       <Route
         path="/deleted-messages"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredRole="admin">
-              <Suspense fallback={<LoadingFallback />}>
-                <DeletedMessagesPage />
-              </Suspense>
-            </ProtectedRoute>
-          </PrivateRoute>
-        }
+        element={<Navigate to="/settings#system/deleted" replace />}
       />
       <Route
         path="/needs-routing"
         element={
           <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <NeedsRoutingPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/orphaned-outbound"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredRole="admin">
+            <ProtectedRoute requiredPermission={Permission.VIEW_MESSAGES}>
               <Suspense fallback={<LoadingFallback />}>
-                <OrphanedOutboundPage />
+                <NeedsRoutingPage />
               </Suspense>
             </ProtectedRoute>
           </PrivateRoute>
         }
+      />
+      {/* Orphaned Outbound folded into Settings › System (sub-tab). Redirect the old route. */}
+      <Route
+        path="/orphaned-outbound"
+        element={<Navigate to="/settings#system/orphaned" replace />}
       />
       {/* P3: the old '/admin' dashboard was removed; its Plans/Usage tabs now live in
           the platform console. Redirect any lingering '/admin' link there (the console

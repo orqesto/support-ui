@@ -4,6 +4,7 @@
  */
 
 import { AlertTriangle } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 export type UsageItem = {
   current: number;
@@ -58,6 +59,33 @@ export type OrganizationUsage = {
 
 export const CANCELLABLE = new Set(['active', 'trialing', 'past_due']);
 export const REACTIVATABLE = new Set(['cancelled', 'expired']);
+
+/**
+ * Fetch EVERY workspace's usage. The endpoint is paginated (BE DEFAULT_LIMIT is only 5,
+ * MAX_LIMIT 50), so a single param-less request returned just the first 5 workspaces and
+ * silently hid the rest — a platform with 65 workspaces showed 5. Page through with the
+ * max page size and follow `pagination.totalPages` so the caller's client-side
+ * search/filter/sort operate over the complete set. The 100-page cap is a runaway backstop.
+ */
+export const fetchAllOrganizationsUsage = async (): Promise<OrganizationUsage[]> => {
+  const LIMIT = 50; // BE MAX_LIMIT
+  const all: OrganizationUsage[] = [];
+  for (let page = 1; page <= 100; page += 1) {
+    const res = await apiClient.get<{
+      data:
+        | { organizations: OrganizationUsage[]; pagination?: { totalPages: number } }
+        | OrganizationUsage[];
+    }>(`/api/admin/organizations/usage?page=${page}&limit=${LIMIT}`);
+    const raw = res.data.data;
+    const batch = Array.isArray(raw) ? raw : (raw.organizations ?? []);
+    all.push(...batch);
+    const totalPages = Array.isArray(raw) ? 1 : (raw.pagination?.totalPages ?? 1);
+    if (page >= totalPages || batch.length === 0) {
+      break;
+    }
+  }
+  return all;
+};
 
 export const getUsageColor = (percentage: number) => {
   if (percentage >= 100) return 'text-red-600 bg-red-50';

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Mail, Eye, RefreshCw, AlertCircle, Pencil, Save, X } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
@@ -33,7 +32,9 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-export const EmailTemplatesPage = () => {
+// Rendered inside the Platform Console (AdminShell) as the "Email Templates" section —
+// no <Layout> of its own. System-wide email templates are global-admin scoped.
+export const EmailTemplates = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | null>(null);
   const [previewHtml, setPreviewHtml] = useState('');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -111,8 +112,7 @@ export const EmailTemplatesPage = () => {
   };
 
   return (
-    <Layout>
-      <div className="px-4 mx-auto space-y-6 w-full">
+    <div className="mx-auto space-y-6 w-full">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="flex gap-2 items-center text-2xl font-bold">
@@ -120,7 +120,7 @@ export const EmailTemplatesPage = () => {
               Email Templates
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Preview and customize email templates (Admin only)
+              Preview and customize system email templates
             </p>
           </div>
         </div>
@@ -350,7 +350,6 @@ export const EmailTemplatesPage = () => {
             </Card>
           </div>
         </div>
-      </div>
-    </Layout>
+    </div>
   );
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
@@ -15,8 +16,12 @@ const sections = [
   { id: 'labels' as OrgSection, label: 'Labels', description: 'Custom ticket labels' },
   { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
   { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
-  { id: 'security' as OrgSection, label: 'Security', description: 'Password policy and 2FA requirements' },
+  { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
 ];
+
+// Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from
+// moderators who can otherwise reach the Workspace tab via VIEW_ORGANIZATION_SETTINGS.
+const ADMIN_ONLY_SECTIONS: OrgSection[] = ['sla-config', 'security'];
 
 const KNOWN_ORG_SECTIONS = sections.map((sect) => sect.id);
 const isOrgSection = (value: string): value is OrgSection =>
@@ -32,25 +37,27 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
   const navigate = useNavigate();
   const { isAdmin, isOrgAdmin } = usePermissions();
 
-  // The "Workspace" tab is reachable by moderators (VIEW_ORGANIZATION_SETTINGS), but the
-  // Security sub-section configures workspace-wide auth policy (2FA enforcement) — an
-  // admin-only control. Gate it to org_admin+ / global admin so it isn't shown to
-  // moderators. UX-only; the BE requireOrgAdmin guard remains the real authority.
-  const canManageSecurity = isAdmin || isOrgAdmin;
-  const visibleSections = canManageSecurity
+  // The "Workspace" tab is reachable by moderators (VIEW_ORGANIZATION_SETTINGS), but SLA
+  // Thresholds and Authentication configure workspace-wide policy (SLA targets, 2FA
+  // enforcement) — admin-only controls. Gate them to org_admin+ / global admin so they
+  // aren't shown to moderators. UX-only; the BE requireOrgAdmin guard is the authority.
+  const canManageOrgPolicy = isAdmin || isOrgAdmin;
+  const visibleSections = canManageOrgPolicy
     ? sections
-    : sections.filter((sect) => sect.id !== 'security');
+    : sections.filter((sect) => !ADMIN_ONLY_SECTIONS.includes(sect.id));
 
   const requested = section && isOrgSection(section) ? section : 'categories';
-  // Don't let a non-admin deep-link (#organization/security) land on a hidden tab.
+  // Don't let a non-admin deep-link (#organization/sla-config|security) land on a hidden tab.
   const initial: OrgSection =
-    requested === 'security' && !canManageSecurity ? 'categories' : requested;
+    ADMIN_ONLY_SECTIONS.includes(requested) && !canManageOrgPolicy ? 'categories' : requested;
   const [active, setActive] = useState<OrgSection>(initial);
 
   useEffect(() => {
     if (!section || !isOrgSection(section)) return;
-    setActive(section === 'security' && !canManageSecurity ? 'categories' : section);
-  }, [section, canManageSecurity]);
+    setActive(
+      ADMIN_ONLY_SECTIONS.includes(section) && !canManageOrgPolicy ? 'categories' : section
+    );
+  }, [section, canManageOrgPolicy]);
 
   const goToSection = (next: OrgSection) => {
     setActive(next);
@@ -69,28 +76,19 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         </p>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {visibleSections.map((sect) => (
-          <button
-            key={sect.id}
-            onClick={() => goToSection(sect.id)}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-              active === sect.id
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-            }`}
-            title={sect.description}
-          >
-            {sect.label}
-          </button>
-        ))}
-      </div>
-
-      {active === 'categories' && <CategoriesSettings />}
-      {active === 'labels' && <LabelsSettings />}
-      {active === 'routing-skills' && <RoutingKeysSettings />}
-      {active === 'sla-config' && <SLAConfigSettings />}
-      {active === 'security' && canManageSecurity && <SecuritySettings />}
+      <Tabs<OrgSection>
+        tabs={visibleSections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
+        activeTab={active}
+        onTabChange={goToSection}
+        variant="simple"
+        showIcons={false}
+      >
+        {active === 'categories' && <CategoriesSettings />}
+        {active === 'labels' && <LabelsSettings />}
+        {active === 'routing-skills' && <RoutingKeysSettings />}
+        {active === 'sla-config' && canManageOrgPolicy && <SLAConfigSettings />}
+        {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
+      </Tabs>
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/Dialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import {
   useAllianceSettings,
   useUpdateAllianceSettings,
@@ -109,12 +110,10 @@ export const ConsoleSettings = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Edit your alliance&apos;s name and URL slug, and manage destructive actions.
-        </p>
-      </div>
+      <ConsolePageHeader
+        title="Settings"
+        description="Edit your alliance's name and URL slug, and manage destructive actions."
+      />
 
       {/* ─── General ─────────────────────────────────────────────────────── */}
       <Card>
@@ -181,14 +180,14 @@ export const ConsoleSettings = () => {
             Danger zone
           </CardTitle>
           <CardDescription>
-            Detach every organization from this alliance. Each org keeps its own data and users, but
+            Detach every workspace from this alliance. Each workspace keeps its own data and users, but
             loses alliance-wide identity, groups and provisioning. This cannot be undone.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3 justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              Detach all organizations from <strong>{settings.name}</strong>.
+              Detach all workspaces from <strong>{settings.name}</strong>.
             </p>
             <Button
               type="button"
@@ -196,7 +195,7 @@ export const ConsoleSettings = () => {
               onClick={openDangerZone}
               disabled={detachAll.isPending}
             >
-              Detach all organizations
+              Detach all workspaces
             </Button>
           </div>
         </CardContent>
@@ -205,12 +204,12 @@ export const ConsoleSettings = () => {
       {/* Typed-confirm gate — the confirm button stays disabled until the slug matches. */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogHeader>
-          <DialogTitle>Detach all organizations?</DialogTitle>
+          <DialogTitle>Detach all workspaces?</DialogTitle>
         </DialogHeader>
         <DialogContent className="space-y-3">
           <Alert variant="warning">
             <span className="text-sm">
-              This detaches <strong>every</strong> organization from <strong>{settings.name}</strong> and
+              This detaches <strong>every</strong> workspace from <strong>{settings.name}</strong> and
               cannot be undone. Members without a direct grant lose access across all of them — their open
               tickets are reassigned and their sessions revoked. Type the alliance slug{' '}
               <code className="px-1 font-mono rounded bg-muted">{settings.slug}</code> to confirm.

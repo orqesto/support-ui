@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Toggle } from '@/components/ui/Toggle';
 import { Alert } from '@/components/ui/Alert';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { API_BASE_URL } from '@/lib/config';
 import { useAllianceOverview } from '@/hooks/useAllianceAdmin';
 import {
@@ -127,9 +129,11 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
           onFocus={(event) => event.currentTarget.select()}
           className="font-mono text-xs"
         />
-        <Button type="button" variant="secondary" onClick={() => void copy()} aria-label={`Copy ${label}`}>
-          {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-        </Button>
+        <Tooltip content={copied ? 'Copied' : `Copy ${label}`}>
+          <Button type="button" variant="secondary" onClick={() => void copy()} aria-label={`Copy ${label}`}>
+            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -158,14 +162,16 @@ const DomainRow = ({ allianceId, domain }: { allianceId: number | null; domain: 
                 Verify
               </Button>
             )}
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmRemove(true)}
-              disabled={remove.isPending}
-              aria-label={`Remove ${domain.domain}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <Tooltip content={`Remove ${domain.domain}`}>
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmRemove(true)}
+                disabled={remove.isPending}
+                aria-label={`Remove ${domain.domain}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </Tooltip>
           </div>
         </div>
         <ConfirmDialog
@@ -333,12 +339,10 @@ export const ConsoleIdentity = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Identity</h1>
-        <p className="text-sm text-muted-foreground">
-          Connect your identity provider once for the whole alliance, and verify the email domains it governs.
-        </p>
-      </div>
+      <ConsolePageHeader
+        title="Identity"
+        description="Connect your identity provider once for the whole alliance, and verify the email domains it governs."
+      />
 
       {/* ─── OIDC connection ─────────────────────────────────────────────── */}
       <Card>
@@ -348,7 +352,7 @@ export const ConsoleIdentity = () => {
             OIDC connection
           </CardTitle>
           <CardDescription>
-            Connect an OIDC identity provider once. Members across all organizations in this alliance whose
+            Connect an OIDC identity provider once. Members across all workspaces in this alliance whose
             email domain matches sign in through your provider. The client secret is stored encrypted and is
             never shown again.
           </CardDescription>

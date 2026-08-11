@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { GroupEditor } from '@/components/console/GroupEditor';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
 import { useAllianceGroups, useDeleteGroup } from '@/hooks/useAllianceGroups';
 import { useAllianceOrgs, useAllianceMembers } from '@/hooks/useAllianceAdmin';
 import { roleDisplayNames, type UserRole } from '@/types/roles';
@@ -75,64 +78,75 @@ export const ConsoleGroups = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-foreground">Groups</h1>
-        <Button onClick={openCreate}>
-          <Plus className="mr-2 w-4 h-4" />
-          New group
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 h-full min-h-0">
+      <ConsolePageHeader
+        title="Groups"
+        description="Identity-provider groups mapped to alliance roles and workspaces."
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 w-4 h-4" />
+            New group
+          </Button>
+        }
+      />
 
       {groups.length === 0 ? (
-        <Card>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No groups yet. Create one to grant a role to a set of members across chosen organizations.
-            </p>
-          </CardContent>
+        <Card className="flex flex-col flex-1 min-h-0">
+          <ConsoleEmpty
+            icon={Users2}
+            message="No groups yet. Create one to grant a role to a set of members across chosen workspaces."
+          />
         </Card>
       ) : (
-        <Card>
-          <CardContent padding="none">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="px-4 py-3 font-medium text-left">Group</th>
-                  <th className="px-4 py-3 font-medium text-left">Grants</th>
-                  <th className="px-4 py-3 font-medium text-right">Orgs</th>
-                  <th className="px-4 py-3 font-medium text-right">Members</th>
-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((group) => (
-                  <tr key={group.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{group.name}</div>
-                      {group.description && (
-                        <div className="text-xs text-muted-foreground">{group.description}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {group.orgRole ? <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge> : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right text-foreground">{group.orgIds.length}</td>
-                    <td className="px-4 py-3 text-right text-foreground">{group.memberCount}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" onClick={() => openEdit(group)} aria-label={`Edit ${group.name}`}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" onClick={() => setDeleteTarget(group)} aria-label={`Delete ${group.name}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
+        <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
+          <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="px-4 py-2 font-medium text-left">Group</th>
+                    <th className="px-4 py-2 font-medium text-left">Grants</th>
+                    <th className="px-4 py-2 font-medium text-right">Workspaces</th>
+                    <th className="px-4 py-2 font-medium text-right">Members</th>
+                    <th className="px-4 py-2 font-medium text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {groups.map((group) => (
+                    <tr key={group.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-2">
+                        <div className="flex gap-2 items-baseline">
+                          <span className="font-medium text-foreground">{group.name}</span>
+                          <span className="font-mono text-xs text-muted-foreground">#{group.id}</span>
+                        </div>
+                        {group.description && (
+                          <div className="text-xs text-muted-foreground">{group.description}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        {group.orgRole ? <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-2 text-right text-foreground">{group.orgIds.length}</td>
+                      <td className="px-4 py-2 text-right text-foreground">{group.memberCount}</td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-1 justify-end">
+                        <Tooltip content={`Edit ${group.name}`}>
+                          <Button variant="ghost" onClick={() => openEdit(group)} aria-label={`Edit ${group.name}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </Tooltip>
+                        <Tooltip content={`Delete ${group.name}`}>
+                          <Button variant="ghost" onClick={() => setDeleteTarget(group)} aria-label={`Delete ${group.name}`}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </Tooltip>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -157,7 +171,7 @@ export const ConsoleGroups = () => {
         variant="danger"
         confirmText="Delete group"
         title={`Delete ${deleteTarget?.name ?? 'group'}?`}
-        description="Members lose the roles this group granted across its scoped organizations (highest-wins means any role from another source is kept). This cannot be undone."
+        description="Members lose the roles this group granted across its scoped workspaces (highest-wins means any role from another source is kept). This cannot be undone."
       />
     </div>
   );

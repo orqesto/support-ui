@@ -14,11 +14,8 @@ import {
   TrendingUp,
   BookOpen,
   Receipt,
-  Trash2,
   GitBranch,
   ShieldAlert,
-  MailOpen,
-  MailWarning,
   ScrollText,
   Network,
 } from 'lucide-react';
@@ -26,6 +23,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useFeatures } from '@/hooks/useFeatures';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
@@ -149,25 +147,27 @@ const allNavigation: Array<{
   { group: 'consoles', name: 'Platform Console', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
 
   // ─── Admin — org-scoped configuration & rare-use ────────────────────────────
-  // Global admin manages users via the platform console (Platform › Users); hide the
-  // org-scoped members list from the main nav so it isn't a duplicate entry point.
+  // Per-workspace user management (invite/create/edit/delete, skills, permission
+  // overrides). Global admins KEEP this — the platform console's Users section is only a
+  // cross-org directory + global-role editor and can't do these org-scoped actions (the
+  // console drops the org context header). Global admins pick the target workspace via the
+  // OrganizationSwitcher.
   {
     group: 'admin',
     name: 'Users',
     href: '/users',
     icon: Users,
     permission: Permission.VIEW_USERS,
-    hideForGlobalAdmin: true,
   },
-  // MANAGE_ORGANIZATION-gated: without it the link renders for moderator/support who
-  // then 403 at the route (dead-end). hideForGlobalAdmin: global admins use the console.
+  // Per-workspace configuration. MANAGE_ORGANIZATION-gated so the link doesn't render for
+  // moderator/support who would 403 at the route. Global admins keep it (the platform
+  // console's Organizations section is a cross-org list, not this per-workspace editor).
   {
     group: 'admin',
     name: 'Workspace',
     href: '/organization',
     icon: Building2,
     permission: Permission.MANAGE_ORGANIZATION,
-    hideForGlobalAdmin: true,
   },
   {
     group: 'admin',
@@ -184,13 +184,6 @@ const allNavigation: Array<{
     permission: Permission.VIEW_SUBSCRIPTION,
     hideWhenBillingOff: true,
   },
-  {
-    group: 'admin',
-    name: 'Email Templates',
-    href: '/email-templates',
-    icon: MailOpen,
-    adminOnly: true,
-  },
   // Global admin views audit via the platform console (Platform › Audit); hide the
   // org-scoped audit page from the main nav to avoid the duplicate entry point.
   {
@@ -204,30 +197,17 @@ const allNavigation: Array<{
   // P3: 'Admin Dashboard' (/admin) removed — its Plans + Usage tabs now live in
   // the platform console (Billing & Plans / Usage). The /admin route still
   // redirects global admins there as a one-release fallback.
-  {
-    group: 'admin',
-    name: 'Deleted Messages',
-    href: '/deleted-messages',
-    icon: Trash2,
-    adminOnly: true,
-  },
-  {
-    group: 'admin',
-    name: 'Orphaned Outbound',
-    href: '/orphaned-outbound',
-    icon: MailWarning,
-    adminOnly: true,
-  },
+  // Deleted Messages + Orphaned Outbound moved into Settings › System (sub-tabs) so
+  // system ops live in one place instead of loose main-nav entries.
 ];
 
-// 'admin' is the internal group key, but the user-facing label is 'Manage' because
-// most items in this group (Users, Organization, Settings, Subscription, Audit Logs)
-// are visible to moderators with the matching permission — not just global admins.
-// Calling the section "Admin" misled moderators into thinking they were viewing
-// admin-restricted content. The strictly admin-only items (Admin Dashboard, Email
-// Templates, Deleted Messages) still appear here but the section header is
-// role-neutral. A full role-aware split into separate moderator/admin groups remains
-// a future task — see [PLAN] Role-aware nav grouping.
+// 'admin' is the internal group key; the user-facing label is 'Administration'. Most
+// items here (Users, Workspace, Settings, Subscription, Audit Logs) are visible to
+// org_admins/moderators with the matching permission — not just global admins — so the
+// header stays role-neutral rather than implying admin-only content. The strictly
+// admin-only recovery tools (Deleted Messages, Orphaned Outbound) still appear here for
+// global admins. A full role-aware split into separate moderator/admin groups remains a
+// future task — see [PLAN] Role-aware nav grouping.
 const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   work: 'Work',
   insights: 'Insights',
@@ -243,6 +223,7 @@ const NAV_GROUP_ORDER: NavGroup[] = ['work', 'insights', 'admin', 'consoles'];
 const DEEP_ROUTE_TITLES: Record<string, string> = {
   '/pricing': 'Pricing',
   '/tickets/create': 'Create Ticket',
+  '/sla': 'SLA',
 };
 
 const getPageTitle = (pathname: string, navItems: typeof allNavigation): string => {
@@ -290,6 +271,16 @@ export const Layout = ({ children }: LayoutProps) => {
     }
   }, [user, onboardingStatus, subscriptionGated, navigate]);
   const { hasPermission, orgRole, isAllianceAdmin } = usePermissions();
+  // The Alliance Console entry is for NON-global alliance admins (customer IT — exists
+  // in both managed and self-hosted). A global admin reaches every alliance through the
+  // Platform Console (Platform › Alliances → drill in), so we hide this redundant second
+  // door from them. `isAllianceAdmin` is true for every global admin, so gate on
+  // non-global + an actual alliance_admin membership, then require a non-empty alliance
+  // list so the link never dead-ends (same predicate ConsolePage resolves through).
+  const isGlobalAdmin = user?.role === 'admin';
+  const canSeeAllianceConsole = !isGlobalAdmin && isAllianceAdmin;
+  const { data: myAlliances } = useMyAlliances(canSeeAllianceConsole);
+  const showAllianceConsole = canSeeAllianceConsole && (myAlliances?.length ?? 0) > 0;
   const { hasFeature } = useFeatures();
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
@@ -452,8 +443,10 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.hideForGlobalAdmin && user?.role === 'admin') {
           return false;
         }
-        // Alliance console entry — global admin or an alliance_admin membership.
-        if (item.allianceAdmin && !isAllianceAdmin) {
+        // Alliance console entry — non-global alliance_admins only (global admins use
+        // the Platform Console, which drills into any alliance), and only when they
+        // actually administer ≥1 alliance so the link never dead-ends.
+        if (item.allianceAdmin && !showAllianceConsole) {
           return false;
         }
         // Customer-facing billing UI hidden whenever billing is off (self-hosted
@@ -481,7 +474,7 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled, isAllianceAdmin]
+    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled, showAllianceConsole]
   );
 
   const handleLogout = () => {

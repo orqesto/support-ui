@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -78,17 +79,22 @@ export const StripePriceMapping = () => {
           Session. Usually set by <code>seed:stripe-prices</code>; edit here to fix or detach one.
         </p>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
       <div className="space-y-2">
         {paidPlans.map((plan) => {
           const dirty = (drafts[plan.id] ?? '') !== (plan.stripePriceId ?? '');
           return (
             <div key={plan.id} className="flex flex-wrap gap-3 items-center">
               <div className="w-44 min-w-44">
-                <span className="text-sm font-medium text-foreground">{plan.displayName}</span>{' '}
-                <span className="text-xs text-muted-foreground">
-                  €{(plan.price / 100).toFixed(0)}
-                </span>
+                <div>
+                  <span className="text-sm font-medium text-foreground">{plan.displayName}</span>{' '}
+                  <span className="text-xs text-muted-foreground">
+                    €{(plan.price / 100).toFixed(0)}
+                  </span>
+                </div>
+                {/* Slug — disambiguates same-named plans (e.g. two "Enterprise Cloud":
+                    enterprise-cloud vs enterprise) so you know which price you're setting. */}
+                <code className="text-xs text-muted-foreground">{plan.name}</code>
               </div>
               <Input
                 value={drafts[plan.id] ?? ''}

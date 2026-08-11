@@ -8,12 +8,13 @@ import type { AllianceRole } from '@/types/roles';
  * share a cache entry. Mutations invalidate the affected list AND the overview
  * (counts change).
  */
-export const useMyAlliances = () =>
+export const useMyAlliances = (enabled = true) =>
   useQuery({
     queryKey: ['alliance', 'mine'],
     queryFn: () => allianceAdminService.listMyAlliances(),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    enabled,
   });
 
 export const useAllianceOverview = (allianceId: number | null) =>

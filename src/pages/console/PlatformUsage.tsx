@@ -1,18 +1,21 @@
 import { AdminUsageTab } from '@/pages/admin/AdminUsageTab';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 
 /**
- * Platform console → Usage. Reuses the global-admin all-orgs usage + feature-override
- * table (AdminUsageTab, self-fetching) under the platform shell. Its /api/admin routes
- * are requireGlobalAdmin; org context is suppressed on platform scope (D-ADM-1).
+ * Platform console → Subscriptions. The per-workspace plan + feature manager: reuses the
+ * global-admin all-orgs table (AdminUsageTab, self-fetching) — assign/change a plan, override
+ * feature access (Inherit/On/Off), cancel/reactivate, and track usage for every workspace.
+ * Its /api/admin routes are requireGlobalAdmin; org context is suppressed on platform scope
+ * (D-ADM-1). Distinct from Plans & Pricing, which only edits the plan catalog + Stripe prices.
  */
 export const PlatformUsage = () => (
-  <div className="space-y-4">
-    <div>
-      <h1 className="text-2xl font-bold text-foreground">Usage</h1>
-      <p className="text-sm text-muted-foreground">
-        Usage and feature overrides across all workspaces.
-      </p>
+  <div className="flex flex-col gap-4 h-full min-h-0">
+    <ConsolePageHeader
+      title="Subscriptions"
+      description="Assign a plan, override feature access, and track usage for every workspace. Expand a row to change its plan or toggle features."
+    />
+    <div className="flex flex-col flex-1 min-h-0">
+      <AdminUsageTab />
     </div>
-    <AdminUsageTab />
   </div>
 );

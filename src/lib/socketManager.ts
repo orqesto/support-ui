@@ -8,7 +8,28 @@ let socket: Socket | null = null;
 let connectionCount = 0;
 let disconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 const eventListeners: Map<string, Set<EventCallback>> = new Map();
+// The single broadcast wrapper attached per event name. Kept so unsubscribe can remove
+// EXACTLY this listener via socket.off(event, wrapper). A bare socket.off(event) would also
+// strip socket.io's reserved listeners for the same name — notably the internal 'connect'
+// handler (registered in getSocket) that re-joins org rooms after a reconnect.
+const eventWrappers: Map<string, EventCallback> = new Map();
 const activeOrgRooms: Set<number> = new Set();
+
+// Attach the one broadcast listener for `event` to the current socket and remember it so it
+// can be removed precisely later.
+const attachBroadcastWrapper = (event: string) => {
+  if (!socket) return;
+  const wrapper: EventCallback = (data: unknown) => {
+    logger.debug(`📧 Event received: ${event}`, data);
+    const callbacks = eventListeners.get(event);
+    if (callbacks) {
+      logger.info(`  ↳ Broadcasting to ${callbacks.size} subscriber(s)`);
+      callbacks.forEach((cb) => cb(data));
+    }
+  };
+  eventWrappers.set(event, wrapper);
+  socket.on(event, wrapper);
+};
 
 export const getSocket = (): Socket => {
   // Clear any pending disconnect
@@ -29,14 +50,7 @@ export const getSocket = (): Socket => {
 
     // Re-attach any event listeners that survived a socket reset
     for (const event of eventListeners.keys()) {
-      socket.on(event, (data: unknown) => {
-        logger.debug(`📧 Event received: ${event}`, data);
-        const callbacks = eventListeners.get(event);
-        if (callbacks) {
-          logger.info(`  ↳ Broadcasting to ${callbacks.size} subscriber(s)`);
-          callbacks.forEach((cb) => cb(data));
-        }
-      });
+      attachBroadcastWrapper(event);
     }
 
     socket.on('connect', () => {
@@ -85,19 +99,8 @@ export const subscribeToEvent = (event: string, callback: EventCallback) => {
 
   if (!eventListeners.has(event)) {
     eventListeners.set(event, new Set());
-
-    // Add single listener to socket that broadcasts to all subscribers
-    socket.on(event, (data: unknown) => {
-      logger.debug(`📧 Event received: ${event}`, data);
-
-      const callbacks = eventListeners.get(event);
-      if (callbacks) {
-        logger.info(`  ↳ Broadcasting to ${callbacks.size} subscriber(s)`);
-        // Call each unique callback
-        callbacks.forEach((cb) => cb(data));
-      }
-    });
-
+    // Add the single broadcast listener to the socket (tracked so it can be removed precisely)
+    attachBroadcastWrapper(event);
     logger.info(`🎧 Subscribed to event: ${event}`);
   }
 
@@ -112,9 +115,15 @@ export const unsubscribeFromEvent = (event: string, callback: EventCallback) => 
     callbacks.delete(callback);
     logger.info(`🗑️  Removed callback for ${event} (${callbacks.size} remaining)`);
 
-    // Clean up if no more callbacks
+    // Clean up if no more callbacks. Remove ONLY our broadcast wrapper — a bare
+    // socket.off(event) would also delete socket.io's internal listeners for reserved
+    // events (notably the 'connect' handler that re-joins org rooms after a reconnect).
     if (callbacks.size === 0) {
-      socket?.off(event);
+      const wrapper = eventWrappers.get(event);
+      if (wrapper) {
+        socket?.off(event, wrapper);
+      }
+      eventWrappers.delete(event);
       eventListeners.delete(event);
       logger.info(`🔇 Unsubscribed from event: ${event}`);
     }
@@ -125,9 +134,15 @@ export const releaseSocket = () => {
   connectionCount = Math.max(0, connectionCount - 1);
   logger.info(`📊 Active connections: ${connectionCount}`);
 
-  // Delay disconnect to handle React StrictMode double-mounting
+  // Debounce disconnect so the socket survives the no-subscriber gap between unmounting one
+  // page and mounting the next. Today every page renders its own <Layout> (which owns the
+  // socket hooks), so EVERY navigation drops the refcount to 0; a lazy route's Suspense
+  // fallback (no Layout) can exceed a 1s window and cause a real disconnect→reconnect churn.
+  // 5s comfortably spans a navigation + chunk load. The proper fix is a persistent <Layout>
+  // shell mounted once above the router <Outlet> so the refcount never hits 0 on navigation.
+  const DISCONNECT_DEBOUNCE_MS = 5000;
   if (connectionCount <= 0 && socket) {
-    logger.info('⏳ Scheduling disconnect in 1 second...');
+    logger.info(`⏳ Scheduling disconnect in ${DISCONNECT_DEBOUNCE_MS / 1000}s...`);
     disconnectTimeout = setTimeout(() => {
       if (connectionCount <= 0 && socket) {
         logger.info('🔌 Disconnecting WebSocket (no active users)');
@@ -136,14 +151,19 @@ export const releaseSocket = () => {
         connectionCount = 0;
         activeOrgRooms.clear();
         eventListeners.clear();
+        eventWrappers.clear();
       } else {
         logger.info('✅ Disconnect cancelled - components reconnected');
       }
-    }, 1000);
+    }, DISCONNECT_DEBOUNCE_MS);
   }
 };
 
 export const forceDisconnect = () => {
+  if (disconnectTimeout) {
+    clearTimeout(disconnectTimeout);
+    disconnectTimeout = null;
+  }
   if (socket) {
     logger.info('🔌 Force disconnecting WebSocket');
     socket.disconnect();
@@ -151,6 +171,7 @@ export const forceDisconnect = () => {
     connectionCount = 0;
     activeOrgRooms.clear();
     eventListeners.clear();
+    eventWrappers.clear();
   }
 };
 

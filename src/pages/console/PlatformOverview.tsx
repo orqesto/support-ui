@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { usePlatformOverview } from '@/hooks/usePlatformAdmin';
 
 /**
@@ -46,10 +47,16 @@ export const PlatformOverview = () => {
 
   const { counts, subscriptions, plans } = overviewQuery.data;
 
+  // Workspaces the plan-distribution accounts for vs. the total — the remainder have no
+  // plan/subscription at all and are otherwise invisible here (they only surface in the
+  // Subscriptions page). Surface the gap so the numbers reconcile with the workspace count.
+  const workspacesOnAPlan = plans.reduce((sum, plan) => sum + plan.orgCount, 0);
+  const workspacesWithoutPlan = Math.max(0, counts.organizations - workspacesOnAPlan);
+
   const stats = [
     { label: 'Alliances', value: counts.alliances, icon: Network, to: '/console/platform/alliances' },
     {
-      label: 'Organizations',
+      label: 'Workspaces',
       value: counts.organizations,
       hint: `${counts.activeOrganizations} active`,
       icon: Building2,
@@ -60,10 +67,10 @@ export const PlatformOverview = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Overview</h1>
-        <p className="text-sm text-muted-foreground">Platform-wide administration at a glance.</p>
-      </div>
+      <ConsolePageHeader
+        title="Overview"
+        description="Platform-wide administration at a glance."
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((stat) => {
@@ -103,13 +110,23 @@ export const PlatformOverview = () => {
             ) : (
               <ul className="space-y-2">
                 {subscriptions.map((row) => (
-                  <li key={row.status} className="flex justify-between items-center">
-                    <Badge variant={STATUS_VARIANT[row.status] ?? 'secondary'}>{row.status}</Badge>
-                    <span className="text-sm font-medium text-foreground">{row.count}</span>
+                  <li key={row.status}>
+                    <Link
+                      to={`/console/platform/usage?status=${encodeURIComponent(row.status)}`}
+                      className="flex justify-between items-center px-2 py-1 -mx-2 rounded-md hover:bg-muted"
+                    >
+                      <Badge variant={STATUS_VARIANT[row.status] ?? 'secondary'}>{row.status}</Badge>
+                      <span className="text-sm font-medium text-foreground">{row.count} →</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
             )}
+            <div className="pt-3 mt-3 border-t border-border">
+              <Link to="/console/platform/usage" className="text-sm text-primary hover:underline">
+                Manage subscriptions →
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
@@ -125,18 +142,46 @@ export const PlatformOverview = () => {
                 {plans.map((plan) => (
                   <li key={plan.id} className="flex justify-between items-center">
                     <div>
-                      <span className="text-sm font-medium text-foreground">{plan.displayName}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {formatPrice(plan.price)}/mo
-                      </span>
+                      <div>
+                        <span className="text-sm font-medium text-foreground">{plan.displayName}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {formatPrice(plan.price)}/mo
+                        </span>
+                      </div>
+                      {/* Slug disambiguates same-named plans (e.g. two "Enterprise Cloud"). */}
+                      <code className="text-xs text-muted-foreground">{plan.name}</code>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {plan.orgCount} {plan.orgCount === 1 ? 'org' : 'orgs'}
-                    </span>
+                    {plan.orgCount > 0 ? (
+                      <Link
+                        to={`/console/platform/usage?plan=${encodeURIComponent(plan.name)}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {plan.orgCount} {plan.orgCount === 1 ? 'workspace' : 'workspaces'} →
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">0 workspaces</span>
+                    )}
                   </li>
                 ))}
+                {workspacesWithoutPlan > 0 && (
+                  <li className="flex justify-between items-center pt-2 border-t border-border">
+                    <span className="text-sm font-medium text-muted-foreground">No plan</span>
+                    <Link
+                      to="/console/platform/usage?plan=none"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {workspacesWithoutPlan}{' '}
+                      {workspacesWithoutPlan === 1 ? 'workspace' : 'workspaces'} →
+                    </Link>
+                  </li>
+                )}
               </ul>
             )}
+            <div className="pt-3 mt-3 border-t border-border">
+              <Link to="/console/platform/billing" className="text-sm text-primary hover:underline">
+                Edit plans &amp; pricing →
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -4,10 +4,97 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Zap } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Users, Zap } from 'lucide-react';
 import { UsageProgressBar, type UsageItem } from './AdminUsageTab.helpers';
 import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
+
+export type UsageFilter = 'all' | 'at_risk' | 'over_limit';
+
+/** The three KPI cards atop the Subscriptions table (extracted to keep AdminUsageTab.tsx
+ *  under the max-lines limit). Counts are computed by the parent over the full org set.
+ *  The At Risk / Over Limit cards are click-to-filter toggles (aria-pressed reflects state). */
+export const UsageSummaryCards = ({
+  total,
+  atRisk,
+  overLimit,
+  active = 'all',
+  onFilter,
+}: {
+  total: number;
+  atRisk: number;
+  overLimit: number;
+  active?: UsageFilter;
+  onFilter?: (filter: UsageFilter) => void;
+}) => (
+  <div className="grid flex-shrink-0 grid-cols-1 gap-6 md:grid-cols-3">
+    <Card
+      onClick={onFilter ? () => onFilter('all') : undefined}
+      aria-pressed={active === 'all'}
+      title={onFilter ? 'Click to show all workspaces' : undefined}
+      className={cn(
+        onFilter && 'cursor-pointer transition-shadow hover:shadow-md',
+        active === 'all' && 'ring-2 ring-blue-500'
+      )}
+    >
+      <CardContent className="p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm font-medium text-gray-400">Total Workspaces</p>
+            <p className="mt-2 text-3xl font-bold">{total}</p>
+          </div>
+          <div className="p-3 bg-blue-100 rounded-full">
+            <Users className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+    <Card
+      onClick={onFilter ? () => onFilter('at_risk') : undefined}
+      aria-pressed={active === 'at_risk'}
+      title={onFilter ? 'Click to show only at-risk workspaces' : undefined}
+      className={cn(
+        onFilter && 'cursor-pointer transition-shadow hover:shadow-md',
+        active === 'at_risk' && 'ring-2 ring-yellow-500'
+      )}
+    >
+      <CardContent className="p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm font-medium text-gray-400">At Risk (≥80% usage)</p>
+            <p className="mt-2 text-3xl font-bold text-yellow-600">{atRisk}</p>
+          </div>
+          <div className="p-3 bg-yellow-100 rounded-full">
+            <AlertTriangle className="w-6 h-6 text-yellow-600" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+    <Card
+      onClick={onFilter ? () => onFilter('over_limit') : undefined}
+      aria-pressed={active === 'over_limit'}
+      title={onFilter ? 'Click to show only over-limit workspaces' : undefined}
+      className={cn(
+        onFilter && 'cursor-pointer transition-shadow hover:shadow-md',
+        active === 'over_limit' && 'ring-2 ring-red-500'
+      )}
+    >
+      <CardContent className="p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm font-medium text-gray-400">Over Limit</p>
+            <p className="mt-2 text-3xl font-bold text-red-600">{overLimit}</p>
+          </div>
+          <div className="p-3 bg-red-100 rounded-full">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+);
 
 type OrgAiUsageSectionProps = {
   aiCalls: UsageItem;
