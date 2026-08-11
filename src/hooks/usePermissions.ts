@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useWorkspaceScope } from '@/contexts/WorkspaceScopeContext';
 import { useAuthStore } from '@/stores/authStore';
 import {
   hasPermission,
@@ -22,10 +23,18 @@ import {
  */
 export const usePermissions = () => {
   const user = useAuthStore((state) => state.user);
+  // Inside a per-workspace management shell, evaluate permissions against the
+  // caller's effective role in THAT workspace, not their frozen home-org role (F3).
+  // The scope's org_admin comes from D-04 (alliance_admin→org_admin); home-org
+  // permissionOverrides do not apply to a different org, so they are dropped here.
+  const workspaceScope = useWorkspaceScope();
 
   const userRole: GlobalRole = user?.role ?? 'user';
-  const orgRole: OrganizationRole | undefined = user?.organizationRole;
-  const overrides: PermissionOverrides | null = user?.permissionOverrides ?? null;
+  const orgRole: OrganizationRole | undefined =
+    workspaceScope?.orgRole ?? user?.organizationRole;
+  const overrides: PermissionOverrides | null = workspaceScope
+    ? null
+    : user?.permissionOverrides ?? null;
 
   // Alliance-console gate (D-ADM-shell-A): a global admin, or a user with any
   // alliance_admin membership in the payload, may open the console shell. UX-only —

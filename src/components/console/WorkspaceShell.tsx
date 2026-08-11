@@ -5,6 +5,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { WorkspaceScopeProvider } from '@/contexts/WorkspaceScopeContext';
 import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
@@ -156,9 +157,18 @@ export const WorkspaceShell = () => {
           <Badge variant="secondary">Workspace</Badge>
         </header>
         <main className="overflow-y-auto flex-1 p-6">
-          <Suspense fallback={<Spinner size={20} />}>
-            <Outlet />
-          </Suspense>
+          {/* F3: the embedded pages act on `:orgId`, not the caller's home org. Scope
+              their permission checks to `org_admin` — the role an alliance_admin holds in
+              every member workspace (D-04). Entry is already gated to global-admin OR
+              alliance_admin, and the BE org-context re-authorizes each call, so this only
+              corrects the FE affordance (was a false "no permission" for alliance_admins
+              whose home-org role is below org_admin). Global admins are unaffected — their
+              global role already grants full permissions regardless of org role. */}
+          <WorkspaceScopeProvider orgRole="org_admin">
+            <Suspense fallback={<Spinner size={20} />}>
+              <Outlet />
+            </Suspense>
+          </WorkspaceScopeProvider>
         </main>
       </div>
     </div>
