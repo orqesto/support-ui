@@ -12,6 +12,7 @@ import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import {
@@ -27,6 +28,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
+import { formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
@@ -34,6 +36,7 @@ import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilters } from '@/components/messages/MessageFilters';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
+import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { ContactsView } from '@/components/messages/ContactsView';
 import {
   MessagesKanbanView,
@@ -127,6 +130,11 @@ export const MessagesPage = () => {
     [bumpKanban]
   );
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  // Spam-filtered entries are spamLog rows, not real conversations (synthetic
+  // negative ids, threadId "spamlog_NN"). The heavy MessageDetail pane fetches
+  // events/notes/activity by id, which 404 for these, so we show the captured
+  // body in a lightweight read-only preview instead of opening the pane.
+  const [spamPreview, setSpamPreview] = useState<MessageThread | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
 
   // Lock body scroll while the detail panel is open + notify Layout to hide header
@@ -235,13 +243,9 @@ export const MessagesPage = () => {
   const handleOpenThread = useCallback(
     async (thread: MessageThread) => {
       if (thread.threadId.startsWith('spamlog_')) {
-        setAlertDialog({
-          open: true,
-          title: 'Rule-blocked spam',
-          description:
-            'This message was rejected by a spam rule before being stored. No full content is available.',
-          variant: 'info',
-        });
+        // spamLog rows carry the captured body in latestMessage.content — show
+        // it read-only rather than routing a synthetic row through MessageDetail.
+        setSpamPreview(thread);
         return;
       }
       const anchorId = thread.latestMessage?.id;
@@ -888,6 +892,42 @@ export const MessagesPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
+
+      <Dialog open={spamPreview !== null} onOpenChange={(open) => !open && setSpamPreview(null)} size="lg">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <DialogTitle>{spamPreview?.latestMessage?.subject || '(no subject)'}</DialogTitle>
+            <Badge variant="warning">Blocked spam</Badge>
+          </div>
+        </DialogHeader>
+        <DialogContent>
+          <div className="mb-3 space-y-0.5 text-sm text-muted-foreground">
+            <div>
+              <span className="font-medium text-foreground">From:</span>{' '}
+              {spamPreview?.latestMessage?.sender || 'unknown sender'}
+            </div>
+            {spamPreview?.latestMessage?.createdAt && (
+              <div>
+                <span className="font-medium text-foreground">Received:</span>{' '}
+                {formatDate(spamPreview.latestMessage.createdAt)}
+              </div>
+            )}
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            {spamPreview?.latestMessage?.content ? (
+              <ThreadBubble content={spamPreview.latestMessage.content} isAgent={false} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                This message was rejected by a spam rule before its body was stored, so no content
+                is available.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button onClick={() => setSpamPreview(null)}>Close</Button>
+        </DialogFooter>
+      </Dialog>
 
       <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />
     </Layout>
