@@ -316,23 +316,29 @@ export const KBEntryDetail = ({
                           <p className="flex-1 min-w-0 text-[11px] font-medium truncate">{filename}</p>
                           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                             {isImageFile(filename) && (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => void handleDownload(true)}
                                 title="View"
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                aria-label="View"
+                                className="p-1 w-auto h-auto rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                              </button>
+                              </Button>
                             )}
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon"
                               onClick={() => void handleDownload()}
                               title="Download"
-                              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              aria-label="Download"
+                              className="p-1 w-auto h-auto rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                             >
                               <Download className="w-3.5 h-3.5" />
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>

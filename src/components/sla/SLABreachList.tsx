@@ -113,10 +113,11 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
       <CardContent>
         <div className="space-y-4">
           {data.breaches.map((breach) => (
-            <button
+            <Button
               type="button"
               key={`${breach.type}-${breach.id}`}
-              className="flex justify-between items-center w-full text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
+              variant="ghost"
+              className="flex justify-between items-center w-full h-auto text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
               onClick={() => handleBreachClick(breach)}
             >
               <div className="flex-1">
@@ -151,7 +152,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
                   })()}
                 </p>
               </div>
-            </button>
+            </Button>
           ))}
         </div>
       </CardContent>

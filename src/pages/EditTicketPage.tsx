@@ -364,9 +364,11 @@ export const EditTicketPage = () => {
                     {allLabels.map((label) => {
                       const selected = selectedLabelIds.has(label.id);
                       return (
-                        <button
+                        <Button
                           key={label.id}
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           disabled={!!ticket?.externalId}
                           onClick={() => {
                             setSelectedLabelIds((prev) => {
@@ -379,11 +381,11 @@ export const EditTicketPage = () => {
                               return next;
                             });
                           }}
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
+                          className={`inline-flex items-center px-2.5 py-1 h-auto rounded-full text-xs font-medium text-white transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
                           style={{ backgroundColor: safeCssColor(label.color) }}
                         >
                           {label.name}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>

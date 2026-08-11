@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 
@@ -847,14 +848,15 @@ export const TrackingPage = () => {
                           ? `${replyText.length.toLocaleString()} / 4,000`
                           : "We'll email you a copy of your reply."}
                       </span>
-                      <button
+                      <Button
                         type="button"
+                        variant="primary"
                         onClick={() => void submitReply()}
                         disabled={replyState.kind === 'submitting' || replyText.trim().length === 0}
-                        className="ml-auto bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-md hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="ml-auto bg-blue-600 text-white text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {replyState.kind === 'submitting' ? 'Sending…' : 'Send'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   {replyState.kind === 'error' && (

@@ -264,19 +264,21 @@ export const StatisticsPage = () => {
             <span className="text-sm text-muted-foreground">Period:</span>
             <div className="flex rounded-md border border-border overflow-hidden">
               {DAYS_OPTIONS.map((opt) => (
-                <button
+                <Button
                   key={opt.value}
                   type="button"
+                  variant={days === opt.value ? 'primary' : 'ghost'}
+                  size="sm"
                   onClick={() => setDays(opt.value)}
                   className={cn(
-                    'px-3 py-1.5 text-sm font-medium transition-colors',
+                    'rounded-none px-3 h-auto py-1.5 font-medium',
                     days === opt.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-background text-muted-foreground hover:bg-muted'
+                      ? ''
+                      : 'text-muted-foreground hover:bg-muted'
                   )}
                 >
                   {opt.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
