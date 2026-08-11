@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Send, Lock, Pencil, Trash2, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { messageService, type MessageNote } from '@/services/message.service';
@@ -164,12 +165,12 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
 
                 {isEditing ? (
                   <div className="space-y-2 mt-1">
-                    <textarea
+                    <Textarea
                       value={editContent}
                       onChange={(event) => setEditContent(event.target.value)}
                       rows={3}
                       autoFocus
-                      className="w-full px-3 py-2 text-sm rounded-md border resize-none bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="resize-none"
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void handleSaveEdit(note.id);
                         if (event.key === 'Escape') handleCancelEdit();
@@ -204,13 +205,13 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
         <p className="text-xs text-destructive">{noteError}</p>
       )}
       <div className="flex gap-2 pt-2">
-        <textarea
+        <Textarea
           value={newNote}
           onChange={(event) => setNewNote(event.target.value)}
           placeholder="Add an internal note..."
           rows={2}
           disabled={isSubmitting}
-          className="flex-1 px-3 py-2 text-sm rounded-md border resize-none bg-background border-input focus:outline-none focus:ring-1 focus:ring-ring"
+          className="flex-1 resize-none"
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
               void handleAddNote();

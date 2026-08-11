@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -280,8 +281,7 @@ export const EditTicketPage = () => {
                 <label htmlFor="description" className="block mb-2 text-sm font-medium">
                   Description
                 </label>
-                <textarea
-                  className="flex px-3 py-2 w-full text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                <Textarea
                   rows={6}
                   value={formData.description}
                   onChange={(event) =>
