@@ -6,6 +6,10 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Pagination } from '@/components/ui/Pagination';
+import { ReactSelect } from '@/components/ui/ReactSelect';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { ALL_SOURCES, MessageSourceFilter } from '@/components/messages/MessageSourceFilter';
 import { useDepartments } from '@/hooks/useDepartments';
 import { apiClient } from '@/lib/api-client';
 import { messageService } from '@/services/message.service';
@@ -14,6 +18,25 @@ import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 
 const PAGE_SIZE = 50;
+
+// Local sort presets — Needs Routing sorts on sender/subject/received (distinct from
+// the inbox's time/priority/SLA presets), so it keeps its own list rather than sharing.
+const SORT_OPTIONS = [
+  { value: 'received_desc', label: 'Received (newest)' },
+  { value: 'received_asc', label: 'Received (oldest)' },
+  { value: 'sender_asc', label: 'Sender (A–Z)' },
+  { value: 'sender_desc', label: 'Sender (Z–A)' },
+  { value: 'subject_asc', label: 'Subject (A–Z)' },
+  { value: 'subject_desc', label: 'Subject (Z–A)' },
+];
+const DEFAULT_SORT = 'received_desc';
+
+const parseSort = (value: string): { sortBy: string; sortOrder: 'asc' | 'desc' } => {
+  const idx = value.lastIndexOf('_');
+  const sortBy = value.slice(0, idx);
+  const sortOrder = value.slice(idx + 1) === 'asc' ? 'asc' : 'desc';
+  return { sortBy, sortOrder };
+};
 
 export const NeedsRoutingPage = () => {
   const navigate = useNavigate();
@@ -25,6 +48,14 @@ export const NeedsRoutingPage = () => {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Filters / sort. `search` is the APPLIED term (Enter/blur); `searchText` is the
+  // in-progress field value so we don't refetch on every keystroke.
+  const [sourceId, setSourceId] = useState<string>(ALL_SOURCES);
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortValue, setSortValue] = useState<string>(DEFAULT_SORT);
+
+  const hasActiveFilters = sourceId !== ALL_SOURCES || search.trim() !== '';
   const [routingId, setRoutingId] = useState<number | null>(null);
   const [spamId, setSpamId] = useState<number | null>(null);
   const [selectedDept, setSelectedDept] = useState<Record<number, number>>({});
@@ -35,33 +66,64 @@ export const NeedsRoutingPage = () => {
 
   const activeDepts = departments.filter((dept) => dept.active);
 
-  const load = useCallback(async (pageNum: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        view: 'needs_routing',
-        page: pageNum.toString(),
-        limit: PAGE_SIZE.toString(),
-      });
-      const response = await apiClient.get<{
-        success: boolean;
-        data: Message[];
-        pagination: { total: number };
-      }>(`/api/messages?${params.toString()}`);
-      setMessages(response.data.data);
-      setTotal(response.data.pagination?.total ?? response.data.data.length);
-    } catch (err) {
-      logger.error('Failed to load needs_routing queue:', err);
-      setError('Failed to load the routing queue. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (pageNum: number) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { sortBy, sortOrder } = parseSort(sortValue);
+        const params = new URLSearchParams({
+          view: 'needs_routing',
+          page: pageNum.toString(),
+          limit: PAGE_SIZE.toString(),
+          sortBy,
+          sortOrder,
+        });
+        if (sourceId !== ALL_SOURCES) params.set('messageSourceId', sourceId);
+        if (search.trim()) params.set('search', search.trim());
+        const response = await apiClient.get<{
+          success: boolean;
+          data: Message[];
+          pagination: { total: number };
+        }>(`/api/messages?${params.toString()}`);
+        setMessages(response.data.data);
+        setTotal(response.data.pagination?.total ?? response.data.data.length);
+      } catch (err) {
+        logger.error('Failed to load needs_routing queue:', err);
+        setError('Failed to load the routing queue. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [sourceId, search, sortValue]
+  );
 
   useEffect(() => {
     void load(page);
   }, [load, page]);
+
+  // Filter/sort changes reset to page 1. Because `load`'s identity also changes with
+  // these, the effect above refetches once with the new params (React batches the
+  // two setState calls into a single render).
+  const handleSourceChange = (value: string) => {
+    setSourceId(value);
+    setPage(1);
+  };
+  const handleSortChange = (value: string) => {
+    setSortValue(value);
+    setPage(1);
+  };
+  const applySearch = () => {
+    if (searchText.trim() === search.trim()) return;
+    setSearch(searchText);
+    setPage(1);
+  };
+  const clearFilters = () => {
+    setSourceId(ALL_SOURCES);
+    setSearchText('');
+    setSearch('');
+    setPage(1);
+  };
 
   const handleRoute = async (id: number) => {
     const deptId = selectedDept[id];
@@ -186,6 +248,37 @@ export const NeedsRoutingPage = () => {
           </div>
         )}
 
+        {/* Filters + sort. Always rendered (even when the list is empty) so an active
+            filter can always be changed or cleared. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-48">
+            <MessageSourceFilter value={sourceId} onChange={handleSourceChange} />
+          </div>
+          <div className="w-48">
+            <ReactSelect
+              value={sortValue}
+              onChange={handleSortChange}
+              options={SORT_OPTIONS}
+              aria-label="Sort messages"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <SearchInput
+              value={searchText}
+              onChange={setSearchText}
+              onSearch={applySearch}
+              onBlur={applySearch}
+              placeholder="Search sender or subject…"
+              showSearchButton
+            />
+          </div>
+          {hasActiveFilters && (
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              Clear
+            </Button>
+          )}
+        </div>
+
         {isLoading ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
@@ -196,10 +289,24 @@ export const NeedsRoutingPage = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <GitBranch className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
-              <p className="text-muted-foreground font-medium">No messages need routing</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                All incoming messages have been assigned to a department
-              </p>
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-muted-foreground font-medium">No messages match your filters</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Try a different source or search term.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground font-medium">No messages need routing</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    All incoming messages have been assigned to a department
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -369,29 +476,14 @@ export const NeedsRoutingPage = () => {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex justify-center">
-                <div className="flex gap-2 items-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((prev) => prev - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((prev) => prev + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                total={total}
+                limit={PAGE_SIZE}
+                onPageChange={setPage}
+                loading={isLoading}
+              />
             )}
           </>
         )}

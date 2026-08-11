@@ -7,6 +7,15 @@ import type { MessageListItem, MessageDetail } from '@/types/api';
 const cleanFilters = (filters?: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(filters ?? {}).filter(([, val]) => val !== null && val !== undefined));
 
+// Compact message source for populating list filters (GET /api/messages/sources).
+export type MessageSourceOption = {
+  id: number;
+  name: string;
+  type: string;
+  departmentId: number | null;
+  enabled: boolean;
+};
+
 export type MessageActivityEntry = {
   id: number;
   action: string;
@@ -548,6 +557,14 @@ export const messageService = {
       '/api/messages/needs-routing/count'
     );
     return response.data.count;
+  },
+
+  // Compact source list for list filters (VIEW_MESSAGES-scoped, unlike /api/integrations).
+  getMessageSourcesForFilter: async (): Promise<MessageSourceOption[]> => {
+    const response = await apiClient.get<{ success: boolean; data: MessageSourceOption[] }>(
+      '/api/messages/sources'
+    );
+    return response.data.data;
   },
 
   // `learn` defaults to false: a manual route is a one-off correction and does NOT train
