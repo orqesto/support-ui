@@ -67,7 +67,9 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
           <div className="space-y-3">
             <div>
               <p className="font-medium text-foreground">
-                {isPlatform ? "You don't have platform access" : "You don't administer this alliance"}
+                {isPlatform
+                  ? "You don't have platform access"
+                  : "You don't administer this alliance"}
               </p>
               <p className="text-sm text-muted-foreground">
                 {isPlatform
@@ -92,9 +94,9 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
   const basePath = isPlatform ? '/console/platform' : `/console/alliance/${allianceId}`;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="flex flex-col w-64 border-r border-border bg-card">
-        <div className="flex gap-2 items-center px-4 h-16 border-b border-border">
+    <div className="flex overflow-hidden h-screen bg-background">
+      <aside className="flex overflow-hidden flex-col w-64 border-r border-border bg-card">
+        <div className="flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border">
           {isPlatform ? (
             <ShieldAlert className="w-5 h-5 text-primary" />
           ) : (
@@ -104,7 +106,30 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
             {isPlatform ? 'Platform Admin' : 'Alliance Admin'}
           </span>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="overflow-y-auto flex-1 p-3 space-y-1">
+          {/* Leave-this-shell links pinned at the TOP of the console nav so getting out is
+              always the first affordance. A global admin who drilled into an alliance from
+              the Platform console also gets a link back UP to it (else "Back to app" is the
+              only exit and they're stranded away from where they came from). */}
+          <div className="pb-2 mb-2 space-y-1 border-b border-border">
+            <NavLink
+              to="/dashboard"
+              className="flex gap-2 items-center px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to app</span>
+            </NavLink>
+            {!isPlatform && isAdmin && (
+              <NavLink
+                to="/console/platform/alliances"
+                className="flex gap-2 items-center px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <ShieldAlert className="w-4 h-4" />
+                <span>Platform console</span>
+              </NavLink>
+            )}
+          </div>
           {sections.map((section) => {
             const Icon = section.icon;
             const to = section.path ? `${basePath}/${section.path}` : basePath;
@@ -127,15 +152,6 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-border">
-          <NavLink
-            to="/dashboard"
-            className="flex gap-2 items-center px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to app</span>
-          </NavLink>
-        </div>
       </aside>
 
       <div className="flex flex-col flex-1 min-w-0">

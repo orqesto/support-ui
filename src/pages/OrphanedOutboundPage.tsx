@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MailWarning, RefreshCw, AlertCircle, Info, Search, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
@@ -18,7 +17,9 @@ const PAGE_SIZE = 50;
  * real threads if the parent inbound is ever ingested. This is a data-health view,
  * NOT a work queue — hence read-only (open-thread only, no triage actions).
  */
-export const OrphanedOutboundPage = () => {
+// Rendered as a sub-tab inside Settings › System (shell-less; SettingsPage/Layout owns
+// the chrome). Global-admin-scoped diagnostic for orphaned outbound messages.
+export const OrphanedOutbound = () => {
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -85,8 +86,7 @@ export const OrphanedOutboundPage = () => {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <Layout>
-      <div className="space-y-4">
+    <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -282,6 +282,5 @@ export const OrphanedOutboundPage = () => {
           </>
         )}
       </div>
-    </Layout>
   );
 };

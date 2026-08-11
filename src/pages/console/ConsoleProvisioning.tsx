@@ -20,9 +20,11 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Toggle } from '@/components/ui/Toggle';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import {
   useAllianceScimConfig,
@@ -89,9 +91,11 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
           onFocus={(event) => event.currentTarget.select()}
           className="font-mono text-xs"
         />
-        <Button type="button" variant="secondary" onClick={() => void copy()} aria-label={`Copy ${label}`}>
-          {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-        </Button>
+        <Tooltip content={copied ? 'Copied' : `Copy ${label}`}>
+          <Button type="button" variant="secondary" onClick={() => void copy()} aria-label={`Copy ${label}`}>
+            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -142,7 +146,12 @@ export const ConsoleProvisioning = () => {
   const scimBaseUrl = useMemo(() => allianceScimBaseUrl(), []);
 
   const groupOptions = useMemo(
-    () => (groupsQuery.data ?? []).map((group) => ({ value: String(group.id), label: group.name })),
+    () =>
+      (groupsQuery.data ?? []).map((group) => ({
+        value: String(group.id),
+        // Qualify with the group id so same-name alliance groups stay distinguishable.
+        label: `${group.name} (#${group.id})`,
+      })),
     [groupsQuery.data]
   );
 
@@ -150,9 +159,14 @@ export const ConsoleProvisioning = () => {
     configQuery.isLoading ||
     tokensQuery.isLoading ||
     groupMapsQuery.isLoading ||
-    roleMapsQuery.isLoading;
+    roleMapsQuery.isLoading ||
+    groupsQuery.isLoading;
   const isError =
-    configQuery.isError || tokensQuery.isError || groupMapsQuery.isError || roleMapsQuery.isError;
+    configQuery.isError ||
+    tokensQuery.isError ||
+    groupMapsQuery.isError ||
+    roleMapsQuery.isError ||
+    groupsQuery.isError;
 
   const handleMint = () => {
     mintToken.mutate(tokenLabel.trim() || undefined, {
@@ -263,13 +277,10 @@ export const ConsoleProvisioning = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Provisioning</h1>
-        <p className="text-sm text-muted-foreground">
-          Connect SCIM once for the whole alliance, then map your identity provider&apos;s groups to
-          alliance groups and roles.
-        </p>
-      </div>
+      <ConsolePageHeader
+        title="Provisioning"
+        description="Connect SCIM once for the whole alliance, then map your identity provider's groups to alliance groups and roles."
+      />
 
       {/* ─── SCIM connector ──────────────────────────────────────────────── */}
       <Card>
@@ -404,7 +415,7 @@ export const ConsoleProvisioning = () => {
           <CardDescription>
             Map an identity-provider group to an alliance group. On sync, members of the IdP group are
             added to the alliance group and inherit whatever role that group grants across its
-            organizations.
+            workspaces.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -440,19 +451,21 @@ export const ConsoleProvisioning = () => {
                       }}
                     />
                   </div>
-                  <Button
-                    variant="ghost"
-                    onClick={() =>
-                      setConfirm({
-                        kind: 'groupmap',
-                        id: mapping.id,
-                        label: mapping.idpGroupExternalId,
-                      })
-                    }
-                    aria-label={`Remove mapping for ${mapping.idpGroupExternalId}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <Tooltip content={`Remove mapping for ${mapping.idpGroupExternalId}`}>
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        setConfirm({
+                          kind: 'groupmap',
+                          id: mapping.id,
+                          label: mapping.idpGroupExternalId,
+                        })
+                      }
+                      aria-label={`Remove mapping for ${mapping.idpGroupExternalId}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </Tooltip>
                 </Card>
               ))}
             </div>
@@ -510,7 +523,7 @@ export const ConsoleProvisioning = () => {
                 <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
                 <span className="text-sm">
                   Members of an IdP group mapped to <strong>alliance admin</strong> will gain
-                  alliance-admin rights across <strong>all organizations in this alliance</strong> on
+                  alliance-admin rights across <strong>all workspaces in this alliance</strong> on
                   the next SCIM sync. Only map groups you intend to elevate.
                 </span>
               </div>
@@ -560,19 +573,21 @@ export const ConsoleProvisioning = () => {
                       ))}
                     </Select>
                   </div>
-                  <Button
-                    variant="ghost"
-                    onClick={() =>
-                      setConfirm({
-                        kind: 'rolemap',
-                        id: mapping.id,
-                        label: mapping.idpGroupExternalId,
-                      })
-                    }
-                    aria-label={`Remove role mapping for ${mapping.idpGroupExternalId}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <Tooltip content={`Remove role mapping for ${mapping.idpGroupExternalId}`}>
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        setConfirm({
+                          kind: 'rolemap',
+                          id: mapping.id,
+                          label: mapping.idpGroupExternalId,
+                        })
+                      }
+                      aria-label={`Remove role mapping for ${mapping.idpGroupExternalId}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </Tooltip>
                 </Card>
               ))}
             </div>
@@ -637,9 +652,11 @@ export const ConsoleProvisioning = () => {
               onFocus={(event) => event.currentTarget.select()}
               className="font-mono text-xs"
             />
-            <Button type="button" variant="secondary" onClick={() => void copyMinted()} aria-label="Copy token">
-              {mintedCopied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-            </Button>
+            <Tooltip content={mintedCopied ? 'Copied' : 'Copy token'}>
+              <Button type="button" variant="secondary" onClick={() => void copyMinted()} aria-label="Copy token">
+                {mintedCopied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </Tooltip>
           </div>
         </DialogContent>
         <DialogFooter>
@@ -673,7 +690,7 @@ export const ConsoleProvisioning = () => {
           confirm?.kind === 'token'
             ? 'Any IdP connection using this token will stop syncing immediately. This cannot be undone.'
             : confirm?.kind === 'elevate'
-              ? 'Members of this IdP group will gain alliance-admin rights across every organization in this alliance on the next SCIM sync. Only confirm if you intend to elevate them.'
+              ? 'Members of this IdP group will gain alliance-admin rights across every workspace in this alliance on the next SCIM sync. Only confirm if you intend to elevate them.'
               : confirm?.kind === 'rolemap'
                 ? 'Members of this IdP group will no longer be granted this alliance role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
                 : 'Members of this IdP group will no longer be added to the alliance group on future syncs.'

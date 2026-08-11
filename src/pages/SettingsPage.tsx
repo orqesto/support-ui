@@ -20,7 +20,7 @@ import { OrganizationSettings } from '@/components/settings/OrganizationSettings
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { NotificationPreferencesSettings } from '@/components/settings/NotificationPreferencesSettings';
 import { RulesSettings } from '@/components/settings/RulesSettings';
-import { SystemManagementSettings } from '@/components/settings/SystemManagementSettings';
+import { SystemSettings } from '@/components/settings/SystemSettings';
 import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
 import { SCIMConfigSettings } from '@/components/settings/SCIMConfigSettings';
 import { useAuthStore } from '@/stores/authStore';
@@ -79,9 +79,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     label: 'Integrations',
     icon: Plug,
     description: 'Connect channels, ticket systems, and AI providers',
-    render: (ctx) => (
-      <ConnectedServicesSettings isGlobalAdmin={ctx.isGlobalAdmin} section={ctx.section} />
-    ),
+    render: (ctx) => <ConnectedServicesSettings section={ctx.section} />,
   },
   {
     id: 'rules',
@@ -94,9 +92,12 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     id: 'system',
     label: 'System',
     icon: Database,
-    description: 'Manage queues, cleanup data, and nuclear options (Admin only)',
-    render: () => <SystemManagementSettings />,
-    visible: (ctx) => ctx.isGlobalAdmin,
+    description: 'Cleanup, recovery, and system operations',
+    render: (ctx) => <SystemSettings section={ctx.section} isGlobalAdmin={ctx.isGlobalAdmin} />,
+    // org_admin + global admin — matches the inner MANAGE_ORGANIZATION guard in
+    // SystemManagementSettings (and the SSO/SCIM tabs). Gating on isGlobalAdmin alone
+    // hid the tab from org_admins even though the page itself would render for them.
+    visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
   },
   {
     id: 'sso',

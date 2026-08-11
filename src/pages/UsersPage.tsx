@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useState, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import {
   Users,
@@ -38,7 +38,10 @@ import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { EditUserModal } from '@/components/modals/EditUserModal';
 import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
 
-export const UsersPage = () => {
+export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => {
+  // When embedded in the WorkspaceShell (which supplies its own chrome), render
+  // straight into it via a Fragment; standalone, wrap in the org-scoped Layout.
+  const Wrap = embedded ? Fragment : Layout;
   const { canManageUsers, isAdmin, hasPermission } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(true);
@@ -254,7 +257,7 @@ export const UsersPage = () => {
 
   if (!canViewUsers) {
     return (
-      <Layout>
+      <Wrap>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <Shield className="mb-4 w-16 h-16 text-gray-400" />
           <h2 className="mb-2 text-2xl font-bold">Access Denied</h2>
@@ -263,12 +266,12 @@ export const UsersPage = () => {
             administrator.
           </p>
         </div>
-      </Layout>
+      </Wrap>
     );
   }
 
   return (
-    <Layout>
+    <Wrap>
       <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
@@ -307,9 +310,10 @@ export const UsersPage = () => {
 
         {/* Role Information Panel */}
         <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setShowRoleInfo(!showRoleInfo)}
-            className="p-4 w-full text-left transition-colors hover:bg-blue-100/50 dark:hover:bg-blue-900/20"
+            className="block p-4 w-full h-auto text-left rounded-none hover:bg-blue-100/50 dark:hover:bg-blue-900/20"
           >
             <div className="flex justify-between items-center">
               <div className="flex gap-2 items-center">
@@ -327,7 +331,7 @@ export const UsersPage = () => {
             <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
               {showRoleInfo ? 'Hide' : 'View'} detailed permissions for each workspace role
             </p>
-          </button>
+          </Button>
           {showRoleInfo && (
             <div className="px-4 pb-4 space-y-4">
               <RoleInfoCard />
@@ -703,6 +707,6 @@ export const UsersPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
-    </Layout>
+    </Wrap>
   );
 };

@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle,
   Users,
   Plug,
   MessageSquare,
@@ -16,6 +16,7 @@ import {
   CANCELLABLE,
   REACTIVATABLE,
   UsageProgressBar,
+  fetchAllOrganizationsUsage,
   formatCurrency,
   getPlanTypeBadgeColor,
   getUsageBadge,
@@ -23,12 +24,24 @@ import {
   type OrganizationUsage,
   type Plan,
 } from './AdminUsageTab.helpers';
-import { OrgAiUsageSection, OrgFeatureOverridesSection } from './AdminUsageOrgDetailSections';
-import { Card, CardContent } from '@/components/ui/Card';
+import {
+  OrgAiUsageSection,
+  OrgFeatureOverridesSection,
+  UsageSummaryCards,
+  type UsageFilter,
+} from './AdminUsageOrgDetailSections';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Label } from '@/components/ui/Label';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+
+/** Rows shown per page in the client-paginated workspace usage table. */
+const PAGE_SIZE = 20;
 
 export const AdminUsageTab = () => {
   const [organizations, setOrganizations] = useState<OrganizationUsage[]>([]);
@@ -36,6 +49,21 @@ export const AdminUsageTab = () => {
   const [sortBy, setSortBy] = useState<'name' | 'users' | 'integrations' | 'messages'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  // Client-side search / plan+status filter / pagination over the fetched all-orgs list.
+  // Seed the filters from the URL so deep-links land pre-filtered: the platform Overview's
+  // "No plan → N workspaces" and plan rows pass ?plan=…; its Subscriptions status rows pass
+  // ?status=… ('none' = no plan / no subscription respectively).
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const [planFilter, setPlanFilter] = useState<string>(() => searchParams.get('plan') ?? 'all');
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get('status') ?? 'all');
+  // Usage-health filter, toggled by the At Risk / Over Limit KPI cards (and ?usage= deep-link).
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>(() => {
+    const value = searchParams.get('usage');
+    return value === 'at_risk' || value === 'over_limit' ? value : 'all';
+  });
+  const [page, setPage] = useState(1);
 
   // Plan change
   const [editingOrg, setEditingOrg] = useState<number | null>(null);
@@ -50,32 +78,17 @@ export const AdminUsageTab = () => {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const refreshOrgs = useCallback(async () => {
-    const response = await apiClient.get<{
-      data: { organizations: OrganizationUsage[] } | OrganizationUsage[];
-    }>('/api/admin/organizations/usage');
-    const raw = response.data.data;
-    setOrganizations(
-      Array.isArray(raw)
-        ? raw
-        : ((raw as { organizations: OrganizationUsage[] }).organizations ?? [])
-    );
+    setOrganizations(await fetchAllOrganizationsUsage());
   }, []);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const [usageRes, plansRes] = await Promise.all([
-          apiClient.get<{ data: { organizations: OrganizationUsage[] } | OrganizationUsage[] }>(
-            '/api/admin/organizations/usage'
-          ),
+        const [orgs, plansRes] = await Promise.all([
+          fetchAllOrganizationsUsage(),
           apiClient.get<{ success: boolean; data: { plans: Plan[] } }>('/api/subscriptions/plans'),
         ]);
-        const raw = usageRes.data.data;
-        setOrganizations(
-          Array.isArray(raw)
-            ? raw
-            : ((raw as { organizations: OrganizationUsage[] }).organizations ?? [])
-        );
+        setOrganizations(orgs);
         setAvailablePlans(plansRes.data.data.plans || []);
       } catch (error) {
         logger.error('Failed to load organizations usage:', error);
@@ -173,12 +186,53 @@ export const AdminUsageTab = () => {
     }
   };
 
+  const searchTerm = search.trim().toLowerCase();
+  const filteredOrganizations = sortedOrganizations.filter((org) => {
+    const matchesSearch =
+      searchTerm.length === 0 ||
+      org.name.toLowerCase().includes(searchTerm) ||
+      org.slug.toLowerCase().includes(searchTerm);
+    const matchesPlan =
+      planFilter === 'all' ||
+      (planFilter === 'none' ? !org.plan : org.plan?.name === planFilter);
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'none'
+        ? !org.subscription
+        : org.subscription?.status === statusFilter);
+    const matchesUsage =
+      usageFilter === 'all' ||
+      (usageFilter === 'at_risk'
+        ? org.usage.users.warning ||
+          org.usage.integrations.warning ||
+          org.usage.messagesThisMonth.warning ||
+          org.usage.aiCalls.warning
+        : org.usage.users.critical ||
+          org.usage.integrations.critical ||
+          org.usage.messagesThisMonth.critical ||
+          org.usage.aiCalls.critical);
+    return matchesSearch && matchesPlan && matchesStatus && matchesUsage;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrganizations.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageOrganizations = filteredOrganizations.slice(start, start + PAGE_SIZE);
+
   const atRiskCount = organizations.filter(
     (org) =>
       org.usage.users.warning ||
       org.usage.integrations.warning ||
       org.usage.messagesThisMonth.warning ||
       org.usage.aiCalls.warning
+  ).length;
+
+  const overLimitCount = organizations.filter(
+    (org) =>
+      org.usage.users.critical ||
+      org.usage.integrations.critical ||
+      org.usage.messagesThisMonth.critical ||
+      org.usage.aiCalls.critical
   ).length;
 
   if (loading) {
@@ -190,71 +244,95 @@ export const AdminUsageTab = () => {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-gray-400">Total Workspaces</p>
-                <p className="mt-2 text-3xl font-bold">{organizations.length}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-gray-400">At Risk (≥80% usage)</p>
-                <p className="mt-2 text-3xl font-bold text-yellow-600">{atRiskCount}</p>
-              </div>
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <AlertTriangle className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-gray-400">Over Limit</p>
-                <p className="mt-2 text-3xl font-bold text-red-600">
-                  {
-                    organizations.filter(
-                      (org) =>
-                        org.usage.users.critical ||
-                        org.usage.integrations.critical ||
-                        org.usage.messagesThisMonth.critical ||
-                        org.usage.aiCalls.critical
-                    ).length
-                  }
-                </p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-full">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="flex flex-col gap-6 h-full min-h-0">
+      <UsageSummaryCards
+        total={organizations.length}
+        atRisk={atRiskCount}
+        overLimit={overLimitCount}
+        active={usageFilter}
+        onFilter={(filter) => {
+          setUsageFilter(filter);
+          setPage(1);
+        }}
+      />
 
       {actionError && (
-        <div className="px-4 py-3 text-sm text-red-700 bg-red-50 rounded-lg border border-red-200">
+        <div className="flex-shrink-0 px-4 py-3 text-sm text-red-700 bg-red-50 rounded-lg border border-red-200">
           {actionError}
         </div>
       )}
 
+      {/* Filters */}
+      <div className="flex flex-wrap flex-shrink-0 gap-3 items-end">
+        <div className="w-full max-w-sm">
+          <Label htmlFor="usage-search" className="mb-1">
+            Search
+          </Label>
+          <SearchInput
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            placeholder="Search by workspace name"
+            showSearchButton={false}
+          />
+        </div>
+        <div className="min-w-[12rem]">
+          <Label htmlFor="usage-plan-filter" className="mb-1">
+            Plan
+          </Label>
+          <Select
+            id="usage-plan-filter"
+            value={planFilter}
+            onChange={(evt) => {
+              setPlanFilter(evt.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">All plans</option>
+            {availablePlans.map((plan) => (
+              <option key={plan.id} value={plan.name}>
+                {plan.displayName}
+              </option>
+            ))}
+            {/* A deep-link (?plan=…) can target a plan that's no longer active — the plans
+                endpoint returns active plans only. Surface it so the control reflects the
+                filtered table instead of rendering blank. */}
+            {planFilter !== 'all' &&
+              planFilter !== 'none' &&
+              !availablePlans.some((plan) => plan.name === planFilter) && (
+                <option value={planFilter}>{planFilter} (inactive)</option>
+              )}
+            <option value="none">No plan</option>
+          </Select>
+        </div>
+        <div className="min-w-[12rem]">
+          <Label htmlFor="usage-status-filter" className="mb-1">
+            Subscription
+          </Label>
+          <Select
+            id="usage-status-filter"
+            value={statusFilter}
+            onChange={(evt) => {
+              setStatusFilter(evt.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="trialing">Trialing</option>
+            <option value="past_due">Past due</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="expired">Expired</option>
+            <option value="none">No subscription</option>
+          </Select>
+        </div>
+      </div>
+
       {/* Organizations Table */}
-      <div className="rounded-lg border">
-        <div className="overflow-x-auto">
+      <div className="flex overflow-hidden flex-col flex-1 rounded-lg border min-h-0">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-10" />
@@ -267,9 +345,9 @@ export const AdminUsageTab = () => {
             </colgroup>
             <thead className="bg-muted/50">
               <tr className="border-b">
-                <th className="px-3 py-3 text-sm font-medium text-left" />
+                <th className="px-3 py-2 text-sm font-medium text-left" />
                 <th
-                  className="px-3 py-3 text-sm font-medium text-left cursor-pointer hover:bg-muted"
+                  className="px-3 py-2 text-sm font-medium text-left cursor-pointer hover:bg-muted"
                   onClick={() => handleSort('name')}
                 >
                   Workspace{' '}
@@ -277,18 +355,18 @@ export const AdminUsageTab = () => {
                     <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                   )}
                 </th>
-                <th className="hidden px-3 py-3 text-sm font-medium text-left lg:table-cell">
+                <th className="hidden px-3 py-2 text-sm font-medium text-left lg:table-cell">
                   <div className="flex gap-1 items-center">
                     <Package className="w-4 h-4" /> Plan
                   </div>
                 </th>
-                <th className="hidden px-3 py-3 text-sm font-medium text-center md:table-cell">
+                <th className="hidden px-3 py-2 text-sm font-medium text-center md:table-cell">
                   <div className="flex gap-1 justify-center items-center">
                     <Zap className="w-4 h-4" /> AI Calls
                   </div>
                 </th>
                 <th
-                  className="px-3 py-3 text-sm font-medium text-left cursor-pointer hover:bg-muted"
+                  className="px-3 py-2 text-sm font-medium text-left cursor-pointer hover:bg-muted"
                   onClick={() => handleSort('users')}
                 >
                   <div className="flex gap-1 items-center">
@@ -297,7 +375,7 @@ export const AdminUsageTab = () => {
                   </div>
                 </th>
                 <th
-                  className="hidden px-3 py-3 text-sm font-medium text-left cursor-pointer xl:table-cell hover:bg-muted"
+                  className="hidden px-3 py-2 text-sm font-medium text-left cursor-pointer xl:table-cell hover:bg-muted"
                   onClick={() => handleSort('integrations')}
                 >
                   <div className="flex gap-1 items-center">
@@ -308,7 +386,7 @@ export const AdminUsageTab = () => {
                   </div>
                 </th>
                 <th
-                  className="hidden px-3 py-3 text-sm font-medium text-left cursor-pointer sm:table-cell hover:bg-muted"
+                  className="hidden px-3 py-2 text-sm font-medium text-left cursor-pointer sm:table-cell hover:bg-muted"
                   onClick={() => handleSort('messages')}
                 >
                   <div className="flex gap-1 items-center">
@@ -319,33 +397,35 @@ export const AdminUsageTab = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedOrganizations.map((org) => {
+              {pageOrganizations.map((org) => {
                 const isExpanded = expandedRows.has(org.id);
                 const status = org.subscription?.status;
                 const canCancel = status ? CANCELLABLE.has(status) : false;
                 const canReactivate = status ? REACTIVATABLE.has(status) : false;
 
                 return (
-                  <>
-                    <tr key={org.id} className="border-b hover:bg-muted/50">
-                      <td className="px-3 py-3">
-                        <button
-                          type="button"
+                  <Fragment key={org.id}>
+                    <tr className="border-b hover:bg-muted/50">
+                      <td className="px-3 py-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => toggleRow(org.id)}
-                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+                          className="w-6 h-6 text-muted-foreground hover:text-foreground"
                         >
                           {isExpanded ? (
                             <ChevronDown className="w-4 h-4" />
                           ) : (
                             <ChevronRight className="w-4 h-4" />
                           )}
-                        </button>
+                        </Button>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2">
                         <div className="font-medium truncate">{org.name}</div>
                         <div className="text-sm truncate text-muted-foreground">{org.slug}</div>
                       </td>
-                      <td className="hidden px-3 py-3 lg:table-cell">
+                      <td className="hidden px-3 py-2 lg:table-cell">
                         {org.plan ? (
                           <div className="space-y-1">
                             <div className="flex gap-2 items-center">
@@ -372,7 +452,7 @@ export const AdminUsageTab = () => {
                           <span className="text-sm text-muted-foreground">No plan</span>
                         )}
                       </td>
-                      <td className="hidden px-3 py-3 text-center md:table-cell">
+                      <td className="hidden px-3 py-2 text-center md:table-cell">
                         <div className="space-y-1">
                           {getUsageBadge(
                             org.usage.aiCalls.current,
@@ -382,7 +462,7 @@ export const AdminUsageTab = () => {
                           <UsageProgressBar percentage={org.usage.aiCalls.percentage} />
                         </div>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2">
                         <div className="space-y-1">
                           {getUsageBadge(
                             org.usage.users.current,
@@ -392,7 +472,7 @@ export const AdminUsageTab = () => {
                           <UsageProgressBar percentage={org.usage.users.percentage} />
                         </div>
                       </td>
-                      <td className="hidden px-3 py-3 xl:table-cell">
+                      <td className="hidden px-3 py-2 xl:table-cell">
                         <div className="space-y-1">
                           {getUsageBadge(
                             org.usage.integrations.current,
@@ -402,7 +482,7 @@ export const AdminUsageTab = () => {
                           <UsageProgressBar percentage={org.usage.integrations.percentage} />
                         </div>
                       </td>
-                      <td className="hidden px-3 py-3 sm:table-cell">
+                      <td className="hidden px-3 py-2 sm:table-cell">
                         <div className="space-y-1">
                           {getUsageBadge(
                             org.usage.messagesThisMonth.current,
@@ -415,7 +495,7 @@ export const AdminUsageTab = () => {
                     </tr>
 
                     {isExpanded && (
-                      <tr key={`${org.id}-details`} className="bg-muted/50">
+                      <tr className="bg-muted/50">
                         <td colSpan={7} className="px-6 py-4">
                           <div className="space-y-6">
                             {/* ── Subscription Details ── */}
@@ -518,33 +598,26 @@ export const AdminUsageTab = () => {
                                   <h5 className="mb-3 text-sm font-semibold">Change Plan</h5>
                                   <div className="flex flex-wrap gap-2 mb-3">
                                     {availablePlans.map((plan) => (
-                                      <button
+                                      <Button
                                         key={plan.id}
-                                        type="button"
+                                        size="sm"
+                                        variant={selectedPlanName === plan.name ? 'primary' : 'outline'}
                                         onClick={() => setSelectedPlanName(plan.name)}
-                                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                                          selectedPlanName === plan.name
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-background border-border text-foreground hover:bg-muted'
-                                        }`}
                                       >
                                         {plan.displayName}
                                         {org.plan?.name === plan.name && (
                                           <span className="ml-1 opacity-60">(current)</span>
                                         )}
-                                      </button>
+                                      </Button>
                                     ))}
                                   </div>
                                   <div className="flex flex-wrap gap-3 items-end mb-3">
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-xs text-muted-foreground">
-                                        Period end date (optional)
-                                      </label>
-                                      <input
+                                    <div className="w-48">
+                                      <Input
+                                        label="Period end date (optional)"
                                         type="date"
                                         value={periodEndInput}
                                         onChange={(evt) => setPeriodEndInput(evt.target.value)}
-                                        className="px-2 py-1.5 text-xs rounded border border-input bg-background"
                                       />
                                     </div>
                                   </div>
@@ -579,16 +652,32 @@ export const AdminUsageTab = () => {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
 
-        {organizations.length === 0 && (
-          <div className="py-12 text-center">
-            <p className="text-muted-foreground">No workspaces found</p>
+        {filteredOrganizations.length === 0 && (
+          <div className="flex flex-1 justify-center items-center py-12 min-h-0 text-center">
+            <p className="text-muted-foreground">
+              {organizations.length === 0
+                ? 'No workspaces found'
+                : 'No workspaces match your filters'}
+            </p>
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex-shrink-0">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              total={filteredOrganizations.length}
+              limit={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

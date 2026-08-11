@@ -6,6 +6,7 @@ import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
 import { ObjectStorageConfigCard } from './providers/ObjectStorageConfigCard';
 import { TicketAutomationSettings } from './TicketAutomationSettings';
+import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 
@@ -17,18 +18,16 @@ type ServiceSection =
   | 'object-storage';
 
 type Props = {
-  isGlobalAdmin: boolean;
   /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
   section?: string;
 };
 
-export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => {
+export const ConnectedServicesSettings = ({ section }: Props) => {
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
-  // AI Providers + Object Storage are per-org config an org admin can own — gate
-  // them on MANAGE_INTEGRATIONS (which the save endpoints require anyway) so the
-  // onboarding wizard's "set this up in Settings" promises are actually reachable.
-  // Chat Widgets stays global-admin-only.
+  // AI Providers, Object Storage, and Chat Widgets are per-workspace config an org admin
+  // can own — gate them on MANAGE_INTEGRATIONS (which the save endpoints require anyway)
+  // so the onboarding wizard's "set this up in Settings" promises are actually reachable.
   const canManageIntegrations = hasPermission(Permission.MANAGE_INTEGRATIONS);
 
   // Fold visibility into the section list so a deep-link a user can't see falls
@@ -37,10 +36,11 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
     () => [
       'message-sources',
       'ticket-automation',
-      ...(canManageIntegrations ? (['ai-providers', 'object-storage'] as ServiceSection[]) : []),
-      ...(isGlobalAdmin ? (['chat-widgets'] as ServiceSection[]) : []),
+      ...(canManageIntegrations
+        ? (['ai-providers', 'object-storage', 'chat-widgets'] as ServiceSection[])
+        : []),
     ],
-    [isGlobalAdmin, canManageIntegrations]
+    [canManageIntegrations]
   );
   const initial =
     section && (visibleIds as string[]).includes(section)
@@ -67,10 +67,8 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
       ? [
           { id: 'ai-providers' as ServiceSection, label: 'AI Providers', description: 'Configure OpenAI, Anthropic and models' },
           { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket' },
+          { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
         ]
-      : []),
-    ...(isGlobalAdmin
-      ? [{ id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' }]
       : []),
   ];
 
@@ -86,28 +84,19 @@ export const ConnectedServicesSettings = ({ isGlobalAdmin, section }: Props) => 
         </p>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-lg border bg-muted/50">
-        {sections.map((sect) => (
-          <button
-            key={sect.id}
-            onClick={() => goToSection(sect.id)}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-              active === sect.id
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-            }`}
-            title={sect.description}
-          >
-            {sect.label}
-          </button>
-        ))}
-      </div>
-
-      {active === 'message-sources' && <MessageSourcesSettings />}
-      {active === 'ticket-automation' && <TicketAutomationSettings />}
-      {canManageIntegrations && active === 'ai-providers' && <AIProvidersSettings />}
-      {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
-      {isGlobalAdmin && active === 'chat-widgets' && <ChatWidgetSettings />}
+      <Tabs<ServiceSection>
+        tabs={sections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
+        activeTab={active}
+        onTabChange={goToSection}
+        variant="simple"
+        showIcons={false}
+      >
+        {active === 'message-sources' && <MessageSourcesSettings />}
+        {active === 'ticket-automation' && <TicketAutomationSettings />}
+        {canManageIntegrations && active === 'ai-providers' && <AIProvidersSettings />}
+        {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
+        {canManageIntegrations && active === 'chat-widgets' && <ChatWidgetSettings />}
+      </Tabs>
     </div>
   );
 };

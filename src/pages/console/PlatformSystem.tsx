@@ -1,28 +1,31 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Activity, Cpu, HardDriveDownload, KeyRound, RefreshCw } from 'lucide-react';
+import { Activity, Cpu, KeyRound, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { licenseService } from '@/services/license.service';
 import {
   usePlatformQueueStatus,
   usePlatformSyncCheckpoints,
   useClearSyncCheckpoints,
-  useMigrateAllStorage,
 } from '@/hooks/usePlatformAdmin';
 
 /**
  * Platform console → System. Genuinely PLATFORM-level operational tools that already
  * have global-admin (`/api/admin/*`) endpoints: license status, resource/queue health,
- * sync-checkpoint management and the all-org storage migration. Deliberately does NOT
- * reuse the workspace `SystemManagementSettings` (its "delete everything for your
- * workspace" ops are per-org and meaningless without an org context, which platform scope
- * suppresses).
+ * and sync-checkpoint management. Deliberately does NOT reuse the workspace
+ * `SystemManagementSettings` (its "delete everything for your workspace" ops are per-org
+ * and meaningless without an org context, which platform scope suppresses).
+ *
+ * The all-org "migrate storage" action was removed: it POSTed no target backend (a hard
+ * 400) and is a dangerous bulk op not needed for current deployments. A proper version
+ * needs a target-backend picker before it comes back.
  */
 
 const RESOURCE_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'secondary'> = {
@@ -47,9 +50,8 @@ export const PlatformSystem = () => {
   const queueQuery = usePlatformQueueStatus();
   const checkpointsQuery = usePlatformSyncCheckpoints();
   const clearCheckpoints = useClearSyncCheckpoints();
-  const migrateStorage = useMigrateAllStorage();
 
-  const [confirm, setConfirm] = useState<null | 'clear-checkpoints' | 'migrate-storage'>(null);
+  const [confirm, setConfirm] = useState<null | 'clear-checkpoints'>(null);
 
   const handleClearCheckpoints = async () => {
     try {
@@ -62,16 +64,6 @@ export const PlatformSystem = () => {
     }
   };
 
-  const handleMigrateStorage = async () => {
-    try {
-      const result = await migrateStorage.mutateAsync();
-      toast.success(result.message);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not start migration');
-    } finally {
-      setConfirm(null);
-    }
-  };
 
   const resources = queueQuery.data?.resources;
   const queues = queueQuery.data?.queues ?? [];
@@ -79,13 +71,10 @@ export const PlatformSystem = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">System</h1>
-        <p className="text-sm text-muted-foreground">
-          Platform-level operations and health. Workspace-specific cleanup lives in each
-          workspace&apos;s own settings.
-        </p>
-      </div>
+      <ConsolePageHeader
+        title="System"
+        description="Platform-level operations and health. Workspace-specific cleanup lives in each workspace's own settings."
+      />
 
       {/* License */}
       <Card>
@@ -232,25 +221,6 @@ export const PlatformSystem = () => {
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-4 justify-between items-center pt-4 border-t border-border">
-            <div className="flex gap-3 items-start">
-              <HardDriveDownload className="mt-0.5 w-5 h-5 text-primary" />
-              <div>
-                <p className="font-medium text-foreground">Migrate all storage</p>
-                <p className="text-sm text-muted-foreground">
-                  Move every organization not already on the target backend to it.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirm('migrate-storage')}
-              isLoading={migrateStorage.isPending}
-            >
-              Run migration
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -268,18 +238,6 @@ export const PlatformSystem = () => {
         description="Every source will re-sync from scratch on its next poll. This can cause a burst of reprocessing."
       />
 
-      <ConfirmDialog
-        open={confirm === 'migrate-storage'}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirm(null);
-          }
-        }}
-        onConfirm={handleMigrateStorage}
-        confirmText="Run migration"
-        title="Migrate all organization storage?"
-        description="This fans a storage migration out across every organization not already on the target backend. It runs in the background."
-      />
     </div>
   );
 };

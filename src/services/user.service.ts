@@ -38,6 +38,16 @@ export const userService = {
     return response.data.data as User;
   },
 
+  // Get the workspaces a user belongs to, with their per-workspace role.
+  // Global-admin only — GET /api/users/:id/organizations (requireGlobalAdmin).
+  getUserOrganizations: async (
+    id: number
+  ): Promise<{ id: number; name: string; role: string }[]> => {
+    const response: AxiosResponse<ApiResponse<{ id: number; name: string; role: string }[]>> =
+      await apiClient.get(`/api/users/${id}/organizations`);
+    return response.data.data ?? [];
+  },
+
   // Get current user. The /me shape is locked by the CurrentUser BE contract test;
   // FE keeps the tolerant `User` type here (it uses narrower union types than the
   // wire contract — OrganizationRole/Permission[] vs string — so direct consumption

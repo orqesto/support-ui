@@ -60,7 +60,7 @@ export const AllianceSwitcher = () => {
       <Badge variant="secondary" className="flex gap-2 items-center px-3 py-1.5">
         <Building2 className="w-3.5 h-3.5" />
         <span className="truncate">
-          {only.name} — {only.orgCount} organization{only.orgCount === 1 ? '' : 's'}
+          {only.name} — {only.orgCount} workspace{only.orgCount === 1 ? '' : 's'}
         </span>
       </Badge>
     );
@@ -96,7 +96,7 @@ export const AllianceSwitcher = () => {
                 <span className="flex-1 min-w-0">
                   <span className="block font-medium truncate">{alliance.name}</span>
                   <span className="block text-xs truncate text-muted-foreground">
-                    {alliance.orgCount} organization{alliance.orgCount === 1 ? '' : 's'}
+                    {alliance.orgCount} workspace{alliance.orgCount === 1 ? '' : 's'}
                   </span>
                 </span>
                 {alliance.id === currentId && (

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
 import { apiClient } from '@/lib/api-client';
 
 type Prefs = {
@@ -15,7 +17,7 @@ const defaults: Prefs = {
   notifyTicketResolution: true,
 };
 
-const Toggle = ({
+const PreferenceRow = ({
   label,
   checked,
   onChange,
@@ -26,21 +28,7 @@ const Toggle = ({
 }) => (
   <div className="flex justify-between items-center py-3 border-b border-border last:border-0">
     <p className="text-sm font-medium">{label}</p>
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${
-        checked ? 'bg-primary' : 'bg-input'
-      }`}
-    >
-      <span
-        className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg transition-transform ${
-          checked ? 'translate-x-4' : 'translate-x-0'
-        }`}
-      />
-    </button>
+    <Toggle checked={checked} onChange={onChange} />
   </div>
 );
 
@@ -79,21 +67,25 @@ export const NotificationPreferencesSettings = () => {
   return (
     <div className="space-y-6">
       <div>
+        <h2 className="text-lg font-semibold">SLA Alert Preferences</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Which SLA breach alerts you see in your alert center — a personal preference.
+          SLA time targets themselves are configured in Workspace › SLA Thresholds.
+        </p>
+      </div>
+      <div>
         <h3 className="text-sm font-semibold mb-1">Minimum severity</h3>
         <p className="text-xs text-muted-foreground mb-3">Only show alerts that meet this threshold.</p>
         <div className="flex gap-2">
           {(['warning', 'critical'] as const).map((sev) => (
-            <button
+            <Button
               key={sev}
+              size="sm"
+              variant={prefs.minSeverity === sev ? 'primary' : 'outline'}
               onClick={() => update({ minSeverity: sev })}
-              className={`px-4 py-1.5 text-sm rounded-md border transition-colors capitalize ${
-                prefs.minSeverity === sev
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border bg-card hover:bg-accent'
-              }`}
             >
               {sev === 'warning' ? 'All (warning+)' : 'Critical only'}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -102,17 +94,17 @@ export const NotificationPreferencesSettings = () => {
         <h3 className="text-sm font-semibold mb-1">Alert types</h3>
         <p className="text-xs text-muted-foreground mb-3">Choose which breach types appear in the alert center.</p>
         <div className="rounded-lg border border-border bg-card px-4">
-          <Toggle
+          <PreferenceRow
             label="Message SLA"
             checked={prefs.notifyMessages}
             onChange={(val) => update({ notifyMessages: val })}
           />
-          <Toggle
+          <PreferenceRow
             label="Ticket first response"
             checked={prefs.notifyTicketFirstResponse}
             onChange={(val) => update({ notifyTicketFirstResponse: val })}
           />
-          <Toggle
+          <PreferenceRow
             label="Ticket resolution"
             checked={prefs.notifyTicketResolution}
             onChange={(val) => update({ notifyTicketResolution: val })}

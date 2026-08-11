@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, UserMinus } from 'lucide-react';
+import { Plus, UserMinus, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -9,9 +9,15 @@ import { Alert } from '@/components/ui/Alert';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Pagination } from '@/components/ui/Pagination';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
+import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import {
   useAllianceMembers,
   useAddMember,
@@ -51,6 +57,35 @@ export const ConsoleMembers = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [newRole, setNewRole] = useState<AllianceRole>('alliance_agent');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+
+  // Client-side search over the fetched list (name + email), case-insensitive.
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) {
+      return members ?? [];
+    }
+    return (members ?? []).filter(
+      (member) =>
+        member.name.toLowerCase().includes(term) ||
+        (member.email ?? '').toLowerCase().includes(term)
+    );
+  }, [members, query]);
+
+  // Clamp the page against the filtered result so search never strands the user
+  // on an out-of-range page.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = useMemo(
+    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtered, currentPage]
+  );
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    setPage(1);
+  };
 
   // An alliance-role change applies across EVERY org in the alliance (admin ⇒
   // org_admin everywhere, agent ⇒ associate), so it's confirmed rather than applied
@@ -129,41 +164,62 @@ export const ConsoleMembers = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-foreground">Members</h1>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="mr-2 w-4 h-4" />
-          Add member
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 h-full min-h-0">
+      <ConsolePageHeader
+        title="Members"
+        description="People with access across this alliance's workspaces."
+        actions={
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 w-4 h-4" />
+            Add member
+          </Button>
+        }
+      />
 
       {members.length === 0 ? (
-        <Card>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">No members in this alliance yet.</p>
-          </CardContent>
+        <Card className="flex flex-col flex-1 min-h-0">
+          <ConsoleEmpty icon={Users} message="No members in this alliance yet." />
         </Card>
       ) : (
-        <Card>
-          <CardContent padding="none">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="px-4 py-3 font-medium text-left">Member</th>
-                  <th className="px-4 py-3 font-medium text-left">Alliance role</th>
-                  <th className="px-4 py-3 font-medium text-left">Effective roles</th>
-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((member) => (
-                  <tr key={member.userId} className="border-b border-border last:border-0 align-top">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{member.name || `User #${member.userId}`}</div>
-                      {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
-                    </td>
-                    <td className="px-4 py-3">
+        <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
+          <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
+            <div className="flex flex-col flex-shrink-0 gap-3 px-4 py-3 border-b sm:flex-row sm:justify-between sm:items-center border-border">
+              <p className="text-sm text-muted-foreground">
+                {filtered.length} of {members.length} member{members.length === 1 ? '' : 's'}
+              </p>
+              <SearchInput
+                value={query}
+                onChange={handleSearchChange}
+                placeholder="Search members by name or email…"
+                className="w-full sm:w-auto sm:min-w-[280px]"
+              />
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="flex flex-1 justify-center items-center px-4 py-10 min-h-0 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No members match &ldquo;{query}&rdquo;.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 min-h-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground">
+                      <th className="px-4 py-2 font-medium text-left">Member</th>
+                      <th className="px-4 py-2 font-medium text-left">Alliance role</th>
+                      <th className="px-4 py-2 font-medium text-left">Effective roles</th>
+                      <th className="px-4 py-2 font-medium text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.map((member) => (
+                    <tr key={member.userId} className="border-b border-border last:border-0 align-top">
+                      <td className="px-4 py-2">
+                        <div className="font-medium text-foreground">{member.name || `User #${member.userId}`}</div>
+                        {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
+                      </td>
+                      <td className="px-4 py-2">
                       <Select
                         value={member.allianceRole}
                         // Server-controlled value with no optimistic update: disable the row
@@ -183,7 +239,7 @@ export const ConsoleMembers = () => {
                         ))}
                       </Select>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       {member.effectiveRoles.length === 0 ? (
                         <span className="text-xs text-muted-foreground">—</span>
                       ) : (
@@ -196,19 +252,35 @@ export const ConsoleMembers = () => {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        onClick={() => setRemoveTarget(member)}
-                        aria-label={`Remove ${member.name || member.userId}`}
-                      >
-                        <UserMinus className="w-4 h-4" />
-                      </Button>
+                    <td className="px-4 py-2 text-right">
+                      <Tooltip content={`Remove ${member.name || `User #${member.userId}`} from this alliance`}>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setRemoveTarget(member)}
+                          aria-label={`Remove ${member.name || member.userId}`}
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      </Tooltip>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {filtered.length > PAGE_SIZE && (
+              <div className="flex-shrink-0">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  total={filtered.length}
+                  limit={PAGE_SIZE}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -274,7 +346,7 @@ export const ConsoleMembers = () => {
         variant="danger"
         confirmText="Remove member"
         title={`Remove ${removeTarget?.name || 'this member'}?`}
-        description="This revokes the member's sessions and reassigns their open tickets across every organization in the alliance. Their alliance-managed roles are removed (any direct grant is preserved)."
+        description="This revokes the member's sessions and reassigns their open tickets across every workspace in the alliance. Their alliance-managed roles are removed (any direct grant is preserved)."
       />
 
       <ConfirmDialog
@@ -294,8 +366,8 @@ export const ConsoleMembers = () => {
         }
         description={
           roleChange?.newRole === 'alliance_admin'
-            ? 'Alliance admins manage identity, provisioning, groups, members and organizations — this grants org-admin access across every organization in the alliance. Applied on the next reconcile.'
-            : 'This lowers the member to alliance agent (associate) across every organization in the alliance and may reduce their department visibility. Applied on the next reconcile.'
+            ? 'Alliance admins manage identity, provisioning, groups, members and workspaces — this grants workspace-admin access across every workspace in the alliance. Applied on the next reconcile.'
+            : 'This lowers the member to alliance agent (associate) across every workspace in the alliance and may reduce their department visibility. Applied on the next reconcile.'
         }
       />
     </div>

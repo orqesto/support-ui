@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Network, Plus, ArrowRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import {
@@ -16,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useCreateAlliance } from '@/hooks/usePlatformAdmin';
 
@@ -91,37 +93,34 @@ export const PlatformAlliances = () => {
   const alliances = alliancesQuery.data ?? [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Alliances</h1>
-          <p className="text-sm text-muted-foreground">
-            Every alliance on the platform. Open one to manage its members, identity and orgs.
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 w-4 h-4" />
-          Create alliance
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 h-full min-h-0">
+      <ConsolePageHeader
+        title="Alliances"
+        description="Every alliance on the platform. Open one to manage its members, identity and workspaces."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 w-4 h-4" />
+            Create alliance
+          </Button>
+        }
+      />
 
       {alliances.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col gap-3 items-center py-12 text-center">
-            <Network className="w-8 h-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No alliances yet. Create one to group multiple organizations under a single identity.
-            </p>
-          </CardContent>
+        <Card className="flex flex-col flex-1 min-h-0">
+          <ConsoleEmpty
+            icon={Network}
+            message="No alliances yet. Create one to group multiple workspaces under a single identity."
+          />
         </Card>
       ) : (
-        <Card padding="none" className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <Card padding="none" className="flex overflow-hidden flex-col flex-1 min-h-0">
+          <div className="overflow-auto flex-1 min-h-0">
+            <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr className="text-left text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Slug</th>
-                <th className="px-3 py-2 font-medium">Organizations</th>
+                <th className="px-3 py-2 font-medium">Workspaces</th>
                 <th className="px-3 py-2 font-medium sr-only">Manage</th>
               </tr>
             </thead>
@@ -142,7 +141,8 @@ export const PlatformAlliances = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
 

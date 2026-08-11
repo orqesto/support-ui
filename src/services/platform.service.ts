@@ -64,7 +64,13 @@ export type PlatformUserRoleUpdate = { id: number; email: string; role: GlobalRo
 export type PlatformUsersResult = { rows: PlatformUserRow[]; pagination: PlatformPagination };
 export type PlatformAuditResult = { rows: PlatformAuditRow[]; pagination: PlatformPagination };
 
-export type ListUsersParams = { page: number; pageSize: number; search?: string };
+export type ListUsersParams = {
+  page: number;
+  pageSize: number;
+  search?: string;
+  role?: 'admin' | 'user';
+  verified?: 'verified' | 'unverified';
+};
 export type ListAuditParams = {
   page: number;
   pageSize: number;
@@ -96,6 +102,43 @@ export type SyncCheckpoint = {
   updatedAt: string;
 };
 
+// ─── Plans (global-admin plan catalog) ───────────────────────────────────────
+export type PlanLimits = {
+  maxUsers: number;
+  maxMessagesPerMonth?: number | null;
+  maxIntegrations: number;
+  maxOrganizations?: number;
+  maxAICallsPerMonth?: number;
+};
+
+/** A row from GET /api/admin/plans (the raw subscription_plans record). */
+export type AdminPlan = {
+  id: number;
+  name: string;
+  displayName: string;
+  planType: string;
+  price: number; // cents
+  currency: string;
+  billingInterval: string;
+  isActive: boolean;
+  stripePriceId: string | null;
+  limits: PlanLimits;
+};
+
+/** Map of planId → active-workspace count, from GET /api/admin/plans/stats. */
+export type PlanStats = Record<number, number>;
+
+/** Editable subset accepted by PATCH /api/admin/plans/:id. */
+export type UpdatePlanInput = {
+  displayName?: string;
+  price?: number; // cents
+  limits?: {
+    maxUsers?: number;
+    maxMessagesPerMonth?: number;
+    maxIntegrations?: number;
+  };
+};
+
 const PLATFORM = '/api/admin/platform';
 const ADMIN = '/api/admin';
 
@@ -113,6 +156,8 @@ export const platformService = {
           page: params.page,
           pageSize: params.pageSize,
           ...(params.search ? { search: params.search } : {}),
+          ...(params.role ? { role: params.role } : {}),
+          ...(params.verified ? { verified: params.verified } : {}),
         },
       }
     );
@@ -149,6 +194,34 @@ export const platformService = {
     return res.data.data;
   },
 
+  // ─── Plans (global-admin plan catalog) ──────────────────────────────────────
+  /** All plans incl. inactive (GET /api/admin/plans, requireGlobalAdmin). */
+  getPlans: async (): Promise<AdminPlan[]> => {
+    const res = await apiClient.get<{ data: AdminPlan[] }>(`${ADMIN}/plans`);
+    return res.data.data ?? [];
+  },
+
+  /** Active-workspace count per plan id (GET /api/admin/plans/stats, requireGlobalAdmin). */
+  getPlanStats: async (): Promise<PlanStats> => {
+    const res = await apiClient.get<{ data: PlanStats }>(`${ADMIN}/plans/stats`);
+    return res.data.data ?? {};
+  },
+
+  /** Flip a plan's active flag (PATCH /api/admin/plans/:id/toggle, requireGlobalAdmin). */
+  togglePlan: async (id: number): Promise<{ id: number; isActive: boolean }> => {
+    const res = await apiClient.patch<{ data: { id: number; isActive: boolean } }>(
+      `${ADMIN}/plans/${id}/toggle`,
+      {}
+    );
+    return res.data.data;
+  },
+
+  /** Edit a plan's displayName/price/limits (PATCH /api/admin/plans/:id, requireGlobalAdmin). */
+  updatePlan: async (id: number, input: UpdatePlanInput): Promise<AdminPlan> => {
+    const res = await apiClient.patch<{ data: AdminPlan }>(`${ADMIN}/plans/${id}`, input);
+    return res.data.data;
+  },
+
   // ─── System ops ─────────────────────────────────────────────────────────────
   getQueueStatus: async (): Promise<QueueStatus> => {
     const res = await apiClient.get<{ data: QueueStatus }>(`${ADMIN}/queue-status`);
@@ -165,8 +238,4 @@ export const platformService = {
     return { count: res.data?.count ?? 0 };
   },
 
-  migrateAllStorage: async (): Promise<{ message: string }> => {
-    const res = await apiClient.post<{ message?: string }>(`${ADMIN}/storage/migrate-all`, {});
-    return { message: res.data?.message ?? 'Storage migration started' };
-  },
 };

@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Spinner } from '@/components/ui/Spinner';
+import { ConsoleLoading } from '@/components/console/ConsoleLoading';
+import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import { OrgAdminTable } from '@/components/organization/OrgAdminTable';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
+import { Pagination } from '@/components/ui/Pagination';
+import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { organizationService } from '@/services/organization.service';
 import { logger } from '@/lib/logger';
 
@@ -21,6 +27,8 @@ type EditForm = { name: string; description: string; active: boolean };
  * from the role.
  */
 export const PlatformOrganizations = () => {
+  const navigate = useNavigate();
+  const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOrg, setSearchOrg] = useState('');
@@ -30,25 +38,44 @@ export const PlatformOrganizations = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
+  // Alliance id → name, to show WHICH alliance each in-an-alliance workspace belongs to (an
+  // informational badge only — attach/detach live in the alliance console, not here).
+  const alliancesQuery = useMyAlliances();
+  const allianceNameById = new Map(
+    (alliancesQuery.data ?? []).map((alliance) => [alliance.id, alliance.name])
+  );
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
   const fetchOrgs = useCallback(async () => {
     try {
-      const result = await organizationService.getAll(searchOrg || undefined);
+      // Paginate: without page/limit the service defaults to limit=10, so a platform with
+      // >10 workspaces would silently show only the first 10 (the pagination meta was
+      // discarded entirely before). Request the current page and surface the controls.
+      const result = await organizationService.getAll(searchOrg || undefined, page, PAGE_SIZE);
       setOrgs(result.data);
+      setTotalPages(result.pagination.totalPages);
+      setTotal(result.pagination.total);
     } catch (error) {
       logger.error('Failed to fetch organizations', error);
-      toast.error('Could not load organizations');
+      toast.error('Could not load workspaces');
     } finally {
       setLoading(false);
     }
-  }, [searchOrg]);
+  }, [searchOrg, page]);
 
   useEffect(() => {
     void fetchOrgs();
   }, [fetchOrgs]);
 
-  const handleSearch = () => setSearchOrg(pendingSearch);
+  const handleSearch = () => {
+    setPage(1);
+    setSearchOrg(pendingSearch);
+  };
   const handleSearchBlur = () => {
     if (!pendingSearch.trim() && searchOrg) {
+      setPage(1);
       setSearchOrg('');
     }
   };
@@ -75,9 +102,16 @@ export const PlatformOrganizations = () => {
     }
     try {
       await organizationService.delete(deleteTarget.id);
-      setOrgs((prev) => prev.filter((org) => org.id !== deleteTarget.id));
       toast.success(`Deleted ${deleteTarget.name}`);
       setDeleteTarget(null);
+      // Refetch so total/totalPages reflect the deletion. If we just removed the last row on
+      // a non-first page, step back one page (setPage re-fetches via the effect) so we don't
+      // strand an empty last page.
+      if (orgs.length === 1 && page > 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        await fetchOrgs();
+      }
     } catch (error) {
       logger.error('Failed to delete organization', error);
       toast.error(error instanceof Error ? error.message : 'Could not delete workspace');
@@ -90,26 +124,33 @@ export const PlatformOrganizations = () => {
     await fetchOrgs();
   };
 
+  // B2: enter per-workspace management inside the console. Drop into the WorkspaceShell
+  // for this org — it reuses the full per-workspace surfaces (invite/create/skills/
+  // permission overrides, workspace config) that the org-agnostic platform views can't
+  // perform. The shell itself sets the org context + clears scope on mount, so setting
+  // context here is redundant; kept only to avoid a flash before the shell mounts.
+  const handleManage = (orgId: number, orgName: string) => {
+    setSelectedOrganization(orgId);
+    toast.success(`Now managing ${orgName}`);
+    navigate(`/console/workspace/${orgId}?from=/console/platform/organizations`);
+  };
+
   if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Spinner size={24} />
-      </div>
-    );
+    return <ConsoleLoading />;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Organizations</h1>
-          <p className="text-sm text-muted-foreground">Every workspace on the platform.</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 w-4 h-4" />
-          Create workspace
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 h-full min-h-0">
+      <ConsolePageHeader
+        title="Workspaces"
+        description="Every workspace on the platform."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 w-4 h-4" />
+            Create workspace
+          </Button>
+        }
+      />
 
       <OrgAdminTable
         allOrganizations={orgs}
@@ -128,13 +169,29 @@ export const PlatformOrganizations = () => {
         onCancelEdit={() => setEditingOrgId(null)}
         onSaveEdit={handleSaveEdit}
         onDelete={(orgId, orgName) => setDeleteTarget({ id: orgId, name: orgName })}
+        onManage={(org) => handleManage(org.id, org.name)}
+        allianceNameById={allianceNameById}
+        total={total}
       />
+
+      {totalPages > 1 && (
+        <div className="flex-shrink-0">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            total={total}
+            limit={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
 
       <CreateOrganizationModal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
       />
+
 
       <ConfirmDialog
         open={deleteTarget !== null}

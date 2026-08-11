@@ -10,8 +10,9 @@ import {
   Settings,
   Network,
   CreditCard,
-  BarChart3,
+  Package,
   ServerCog,
+  MailOpen,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -66,7 +67,7 @@ const ConsoleSettings = lazy(() =>
 
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
-  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: ConsoleOrganizations },
+  { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: ConsoleOrganizations },
   { id: 'members', label: 'Members', icon: Users, path: 'members', element: ConsoleMembers },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: ConsoleGroups },
   { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: ConsoleIdentity },
@@ -102,6 +103,11 @@ const PlatformSystem = lazy(() =>
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
+// System-wide email templates (invitation / verification / password-reset). Global-admin
+// scoped, so it lives in the platform console rather than the main app nav.
+const PlatformEmailTemplates = lazy(() =>
+  import('@/pages/EmailTemplatesPage').then((mod) => ({ default: mod.EmailTemplates }))
+);
 
 /**
  * Platform (global-admin) console sections — same shell, platform scope. Paths are
@@ -110,10 +116,11 @@ const PlatformAudit = lazy(() =>
 export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: PlatformOverview },
   { id: 'alliances', label: 'Alliances', icon: Network, path: 'alliances', element: PlatformAlliances },
-  { id: 'organizations', label: 'Organizations', icon: Building2, path: 'organizations', element: PlatformOrganizations },
+  { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: PlatformOrganizations },
   { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformUsers },
-  { id: 'billing', label: 'Billing & Plans', icon: CreditCard, path: 'billing', element: PlatformBilling },
-  { id: 'usage', label: 'Usage', icon: BarChart3, path: 'usage', element: PlatformUsage },
+  { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
+  { id: 'billing', label: 'Plans & Pricing', icon: Package, path: 'billing', element: PlatformBilling },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
+  { id: 'email-templates', label: 'Email Templates', icon: MailOpen, path: 'email-templates', element: PlatformEmailTemplates },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformAudit },
 ];

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Trash2, RotateCcw, AlertCircle, RefreshCw } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
-import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
@@ -30,7 +30,9 @@ type DeletedMessagesResponse = {
 
 const LIMIT = 25;
 
-export const DeletedMessagesPage = () => {
+// Rendered as a sub-tab inside Settings › System (shell-less; SettingsPage/Layout owns
+// the chrome). Global-admin-scoped recovery view for soft-deleted messages.
+export const DeletedMessages = () => {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === 'admin';
 
@@ -114,8 +116,8 @@ export const DeletedMessagesPage = () => {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <Layout>
-      <div className="px-4 mx-auto space-y-6 w-full">
+    <>
+      <div className="space-y-6">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="flex gap-2 items-center text-2xl font-bold">
@@ -256,16 +258,17 @@ export const DeletedMessagesPage = () => {
                 <label className="text-sm text-muted-foreground whitespace-nowrap">
                   Older than
                 </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={3650}
-                  value={olderThanDays}
-                  onChange={(event) =>
-                    setOlderThanDays(Math.max(1, parseInt(event.target.value, 10) || 1))
-                  }
-                  className="px-3 py-1.5 w-24 text-sm rounded-md border border-input bg-background"
-                />
+                <div className="w-24 shrink-0">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={3650}
+                    value={olderThanDays}
+                    onChange={(event) =>
+                      setOlderThanDays(Math.max(1, parseInt(event.target.value, 10) || 1))
+                    }
+                  />
+                </div>
                 <label className="text-sm text-muted-foreground">days</label>
                 <Button
                   variant="destructive"
@@ -297,6 +300,6 @@ export const DeletedMessagesPage = () => {
         confirmText="Permanently delete"
         variant="danger"
       />
-    </Layout>
+    </>
   );
 };
