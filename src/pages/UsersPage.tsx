@@ -32,6 +32,7 @@ import { useUsersStore } from '@/stores/usersStore';
 import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import type { OrganizationRole } from '@/types/roles';
+import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
@@ -177,26 +178,22 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     setIsEditModalOpen(true);
   };
 
-  // Check if current user can edit/delete a specific user
-  const canManageUser = (user: User) => {
-    // Users can always edit their own profile
-    if (currentUser && user.id === currentUser.id) {
-      return true;
-    }
+  // Who can edit/remove a given row — delegated to the shared capability model so the
+  // workspace and platform surfaces reason about authority the same way (see
+  // utils/userListCapabilities; "remove" here is membership-scoped per §5).
+  const rowCapabilities = (user: User) =>
+    getUserRowCapabilities(
+      'workspace',
+      {
+        userId: currentUser?.id,
+        isGlobalAdmin: isAdmin,
+        canManageUsers,
+        canDeleteUsers: hasPermission(Permission.DELETE_USERS),
+      },
+      { userId: user.id, globalRole: user.role }
+    );
 
-    // Global admin can manage everyone
-    if (isAdmin) {
-      return true;
-    }
-
-    // Org admin cannot manage global admins
-    if (user.role === 'admin') {
-      return false;
-    }
-
-    // Org admin can manage other users in their organization
-    return canManageUsers;
-  };
+  const canManageUser = (user: User) => rowCapabilities(user).canEdit;
 
   const handleDeleteUser = (user: User) => {
     setDeleteDialog({ open: true, user });
@@ -224,30 +221,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     }
   };
 
-  const canDeleteUser = (user: User) => {
-    // Cannot delete yourself
-    if (currentUser && user.id === currentUser.id) {
-      return false;
-    }
-
-    // Check if user has delete permission
-    if (!hasPermission(Permission.DELETE_USERS)) {
-      return false;
-    }
-
-    // Global admin can delete anyone
-    if (isAdmin) {
-      return true;
-    }
-
-    // Org admin cannot delete global admins
-    if (user.role === 'admin') {
-      return false;
-    }
-
-    // Org admin can delete other users in their organization
-    return canManageUsers;
-  };
+  const canDeleteUser = (user: User) => rowCapabilities(user).canRemove;
 
   const handleUpdateUser = async (userId: number, data: Partial<User>) => {
     await userService.update(userId, data);
