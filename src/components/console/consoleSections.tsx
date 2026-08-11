@@ -12,6 +12,7 @@ import {
   CreditCard,
   Package,
   ServerCog,
+  SlidersHorizontal,
   MailOpen,
   type LucideIcon,
 } from 'lucide-react';
@@ -100,6 +101,9 @@ const PlatformUsage = lazy(() =>
 const PlatformSystem = lazy(() =>
   import('@/pages/console/PlatformSystem').then((mod) => ({ default: mod.PlatformSystem }))
 );
+const PlatformDefaults = lazy(() =>
+  import('@/pages/console/PlatformDefaults').then((mod) => ({ default: mod.PlatformDefaults }))
+);
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
@@ -121,6 +125,7 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
   { id: 'billing', label: 'Plans & Pricing', icon: Package, path: 'billing', element: PlatformBilling },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
+  { id: 'defaults', label: 'Platform Defaults', icon: SlidersHorizontal, path: 'defaults', element: PlatformDefaults },
   { id: 'email-templates', label: 'Email Templates', icon: MailOpen, path: 'email-templates', element: PlatformEmailTemplates },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformAudit },
 ];
