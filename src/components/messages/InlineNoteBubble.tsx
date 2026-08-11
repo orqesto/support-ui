@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import RichTextEditor from '@/components/shared/RichTextEditor';
+import { Button } from '@/components/ui/Button';
 import { messageService, type MessageNote } from '@/services/message.service';
 import { logger } from '@/lib/logger';
 import { relativeTime } from './messageDetailConstants';
@@ -60,22 +61,28 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
           </span>
           {isOwner && !isEditing && (
             <div className="flex gap-1 items-center ml-auto">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Edit note"
                 onClick={() => {
                   setIsEditing(true);
                   setEditContent(note.content);
                 }}
-                className="text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
+                className="p-0 w-auto h-auto text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
               >
                 <Pencil className="w-2.5 h-2.5" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Delete note"
                 onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="text-amber-700 hover:text-red-600 dark:text-amber-400 dark:hover:text-red-400 disabled:opacity-40"
+                className="p-0 w-auto h-auto text-amber-700 hover:text-red-600 dark:text-amber-400 dark:hover:text-red-400 disabled:opacity-40"
               >
                 <Trash2 className="w-2.5 h-2.5" />
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -91,21 +98,25 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
               />
             </div>
             <div className="flex gap-1">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => void handleSave()}
-                className="text-[10px] font-mono text-muted-foreground hover:text-foreground dark:text-amber-600 dark:hover:text-amber-700"
+                className="p-0 h-auto text-[10px] font-mono text-muted-foreground hover:text-foreground dark:text-amber-600 dark:hover:text-amber-700"
               >
                 Save
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setIsEditing(false);
                   setEditContent('');
                 }}
-                className="text-[10px] text-muted-foreground"
+                className="p-0 h-auto text-[10px] text-muted-foreground"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : (

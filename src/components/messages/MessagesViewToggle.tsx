@@ -1,5 +1,6 @@
 import { MessageSquare, Users, LayoutDashboard } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 
 type DisplayMode = 'threads' | 'contacts' | 'kanban';
 
@@ -33,15 +34,15 @@ export function MessagesViewToggle({ displayMode, onModeChange }: Props) {
 
   return (
     <div className="flex gap-1 items-center mb-2">
-      <button type="button" onClick={handleThreads} className={btnClass(displayMode === 'threads')} title="Thread view — grouped by reply chain">
+      <Button type="button" variant="ghost" onClick={handleThreads} className={`${btnClass(displayMode === 'threads')} h-auto`} title="Thread view — grouped by reply chain">
         <MessageSquare className="w-3.5 h-3.5" />Threads
-      </button>
-      <button type="button" onClick={handleContacts} className={btnClass(displayMode === 'contacts')} title="Contacts view — grouped by sender with conversations by subject">
+      </Button>
+      <Button type="button" variant="ghost" onClick={handleContacts} className={`${btnClass(displayMode === 'contacts')} h-auto`} title="Contacts view — grouped by sender with conversations by subject">
         <Users className="w-3.5 h-3.5" />Contacts
-      </button>
-      <button type="button" onClick={handleKanban} className={btnClass(displayMode === 'kanban')} title="Kanban view — grouped by SLA and workflow status">
+      </Button>
+      <Button type="button" variant="ghost" onClick={handleKanban} className={`${btnClass(displayMode === 'kanban')} h-auto`} title="Kanban view — grouped by SLA and workflow status">
         <LayoutDashboard className="w-3.5 h-3.5" />Kanban
-      </button>
+      </Button>
     </div>
   );
 }

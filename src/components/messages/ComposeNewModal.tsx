@@ -240,15 +240,17 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                       ({Math.round(file.size / 1024)} KB)
                     </span>
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => removeFile(index)}
                     disabled={submitting}
-                    className="text-muted-foreground hover:text-destructive"
+                    className="p-0 w-auto h-auto text-muted-foreground hover:text-destructive"
                     aria-label="Remove attachment"
                   >
                     <X className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

@@ -143,21 +143,27 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                     <span className="text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
                     {isOwner && !isEditing && (
                       <>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Edit note"
                           onClick={() => handleStartEdit(note)}
-                          className="ml-1 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                          className="ml-1 p-0.5 w-auto h-auto rounded text-muted-foreground hover:text-foreground transition-colors"
                           title="Edit note"
                         >
                           <Pencil className="w-3 h-3" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete note"
                           onClick={() => void handleDelete(note.id)}
                           disabled={isDeleting}
-                          className="p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          className="p-0.5 w-auto h-auto rounded text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
                           title="Delete note"
                         >
                           <Trash2 className="w-3 h-3" />
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>

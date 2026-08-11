@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL } from '@/lib/config';
 import type { Attachment } from '@/types/ai';
@@ -154,21 +155,27 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
           {/* Actions — visible on hover */}
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             {isImage(att.mimeType) && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="View"
                 onClick={() => void handleDownload(att, true)}
                 title="View"
-                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                className="p-1 w-auto h-auto rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
                 <Eye className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Download"
               onClick={() => void handleDownload(att)}
               title="Download"
-              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="p-1 w-auto h-auto rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
       ))}

@@ -101,14 +101,17 @@ function ContactRow({
     >
       <div className="flex items-stretch">
         {/* Full-height expand column — separate hit target from the row's open action */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={(event) => {
             event.stopPropagation();
             void handleToggle();
           }}
           title={expanded ? 'Collapse topics' : `Show ${contact.subjectCount} topics`}
-          className={`flex justify-center items-center self-stretch w-9 shrink-0 border-r transition-colors ${
+          aria-label={expanded ? 'Collapse topics' : 'Show topics'}
+          className={`flex justify-center items-center self-stretch w-9 h-auto shrink-0 border-r transition-colors ${
             expanded
               ? 'bg-muted/70 border-border'
               : 'border-transparent hover:bg-muted'
@@ -117,7 +120,7 @@ function ContactRow({
           <ChevronDown
             className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`}
           />
-        </button>
+        </Button>
 
         {/* Identity / signals — click opens the profile */}
         <div
@@ -206,12 +209,13 @@ function ContactRow({
             )}
             {!subjectState.loading &&
               subjectState.data?.map((subject) => (
-                <button
+                <Button
                   key={subject.normalizedSubject}
                   type="button"
+                  variant="ghost"
                   disabled={openingId === subject.latestMessageId}
                   onClick={() => void handleSubjectClick(subject)}
-                  className="group/topic flex items-center gap-3 w-full px-2 py-1.5 rounded-md text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
+                  className="group/topic flex justify-start items-center gap-3 w-full px-2 py-1.5 h-auto rounded-md text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
                 >
                   <span className="w-1 h-1 rounded-full bg-muted-foreground/40 shrink-0" />
                   <span className="flex-1 text-[12.5px] truncate text-muted-foreground group-hover/topic:text-foreground">
@@ -226,7 +230,7 @@ function ContactRow({
                   <span className="text-[11px] text-muted-foreground w-9 text-right tabular-nums">
                     {openingId === subject.latestMessageId ? '…' : formatAge(subject.lastMessageAt)}
                   </span>
-                </button>
+                </Button>
               ))}
           </div>
         </div>

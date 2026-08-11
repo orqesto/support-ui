@@ -2,6 +2,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { Send, Paperclip, BookOpen, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { Button } from '@/components/ui/Button';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
@@ -142,24 +143,26 @@ export function MessageComposer({
             />
           </label>
           {composerMode === 'reply' && (
-            <button
+            <Button
+              variant="ghost"
               onClick={onOpenSimilarMessages}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded bg-violet-600 hover:bg-violet-700 text-white transition-colors"
               title="Search knowledge base"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span className="font-mono text-xs font-semibold">KB</span>
-            </button>
+            </Button>
           )}
           <span className="font-mono text-[9px] text-muted-foreground/70 ml-1 hidden sm:inline">
             ⌘↵ {composerMode === 'note' ? 'send internal note' : 'send reply'}
           </span>
-          <button
+          <Button
+            variant="ghost"
             onClick={onSend}
             // Require text even when files are attached — no attachment-only sends.
             disabled={isBlankRichText(composer) || submitting}
             title={isBlankRichText(composer) ? 'Add a message — attachments alone can’t be sent' : undefined}
-            className={`ml-auto flex items-center gap-1 px-2.5 py-1 rounded ${MONO} transition-colors disabled:opacity-50 ${
+            className={`ml-auto flex items-center gap-1 px-2.5 py-1 h-auto rounded ${MONO} transition-colors disabled:opacity-50 ${
               composerMode === 'note'
                 ? 'bg-amber-800 hover:bg-amber-700 text-primary-foreground'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -167,7 +170,7 @@ export function MessageComposer({
           >
             <Send className="w-2.5 h-2.5" />
             {composerMode === 'note' ? 'POST NOTE' : submitting ? 'SENDING…' : 'SEND'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -181,12 +184,15 @@ export function MessageComposer({
             >
               <Paperclip className="w-2.5 h-2.5 flex-shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate">{file.name}</span>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Remove file"
                 onClick={() => handleRemoveFile(idx)}
-                className="text-stone-400 hover:text-red-500"
+                className="p-0 w-auto h-auto text-stone-400 hover:text-red-500"
               >
                 <X className="w-2.5 h-2.5" />
-              </button>
+              </Button>
             </div>
           ))}
         </div>

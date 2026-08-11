@@ -35,6 +35,7 @@ import { MessagePanelTabs } from './MessagePanelTabs';
 import type { Attachment } from './MessageAttachments';
 import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
+import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
@@ -670,13 +671,15 @@ export function MessageDetail({
           {threadError && (
             <div className="py-4 text-sm text-center text-destructive">
               {threadError}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setThreadRefreshKey((key) => key + 1)}
-                className="block mx-auto mt-1 text-xs underline hover:no-underline"
+                className="block mx-auto mt-1 p-0 h-auto text-xs underline hover:no-underline"
               >
                 Retry
-              </button>
+              </Button>
             </div>
           )}
           {!threadLoading && !threadError && sortedThread.length === 0 && (
@@ -720,13 +723,16 @@ export function MessageDetail({
       {sendFailedError && (
         <div className="mx-4 p-3 text-sm rounded-md text-destructive bg-destructive/10 flex justify-between items-start gap-2">
           <span>{sendFailedError}</span>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Dismiss"
             onClick={() => setSendFailedError(null)}
-            className="shrink-0 text-destructive/70 hover:text-destructive"
+            className="p-0 w-auto h-auto shrink-0 text-destructive/70 hover:text-destructive"
           >
             ✕
-          </button>
+          </Button>
         </div>
       )}
 

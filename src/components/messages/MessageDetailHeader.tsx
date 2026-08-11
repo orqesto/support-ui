@@ -24,6 +24,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -703,10 +704,12 @@ export function MessageDetailHeader({
             />
           )}
           {showReadToggle && onToggleRead && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={onToggleRead}
-              className="p-1 rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
               title={isRead ? 'Mark as unread' : 'Mark as read'}
               aria-label={isRead ? 'Mark as unread' : 'Mark as read'}
             >
@@ -715,23 +718,26 @@ export function MessageDetailHeader({
               ) : (
                 <Mail className="w-3.5 h-3.5 text-primary" />
               )}
-            </button>
+            </Button>
           )}
           {showFullPageButton && !isFullPage && (
             <Link to={`/messages/${message.id}`} title="Open full page">
-              <button className="p-1 rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent">
+              <Button variant="ghost" size="icon" aria-label="Open full page" className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent">
                 <Maximize2 className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             </Link>
           )}
           {onClose && !isFullPage && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Close"
               onClick={onClose}
-              className="p-1 rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
               title="Close (Esc)"
             >
               <X className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -746,14 +752,16 @@ export function MessageDetailHeader({
             {getInitials(message.sender)}
           </div>
           {senderEmail.includes('@') ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setProfileEmail(senderEmail)}
-              className="text-xs truncate text-foreground hover:text-primary hover:underline"
+              className="inline-block p-0 h-auto text-xs truncate text-foreground hover:text-primary hover:underline"
               title="View contact profile"
             >
               {message.sender}
-            </button>
+            </Button>
           ) : (
             <span className="text-xs truncate text-foreground">{message.sender}</span>
           )}
@@ -807,24 +815,28 @@ export function MessageDetailHeader({
                 const busy = routingTo === deptId;
                 return (
                   <span key={deptId} className="inline-flex items-center">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => void handleManualRoute(deptId, false)}
                       disabled={busy}
                       title={`Move this conversation to ${dept.name} (one-off, no rule)`}
-                      className="text-[11px] px-1.5 py-0.5 rounded-l font-medium bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
+                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
                     >
                       {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => void handleManualRoute(deptId, true)}
                       disabled={busy}
                       title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
-                      className="text-[11px] px-1.5 py-0.5 rounded-r font-medium border-l border-blue-300 bg-blue-200 text-blue-900 hover:bg-blue-300 dark:border-blue-700 dark:bg-blue-900/60 dark:text-blue-200 dark:hover:bg-blue-900/80 disabled:opacity-50"
+                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-blue-300 bg-blue-200 text-blue-900 hover:bg-blue-300 dark:border-blue-700 dark:bg-blue-900/60 dark:text-blue-200 dark:hover:bg-blue-900/80 disabled:opacity-50"
                     >
                       {busy && routingLearn ? 'Adding rule…' : '+ rule'}
-                    </button>
+                    </Button>
                   </span>
                 );
               })}
@@ -882,16 +894,17 @@ export function MessageDetailHeader({
           </span>
         )}
         <div className="relative ml-auto">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setMoreOpen((val) => !val)}
-            className={`${CHIP_BASE} text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
+            className={`${CHIP_BASE} h-auto text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
             title="More actions"
           >
             ACTIONS
             <ChevronDown
               className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
             />
-          </button>
+          </Button>
           {moreOpen && (
             <>
               <button
@@ -903,15 +916,16 @@ export function MessageDetailHeader({
               <div className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[180px]">
                 {moreMenuItems.map((item) => {
                   const btn = (
-                    <button
+                    <Button
                       key={item.label}
+                      variant="ghost"
                       onClick={item.action}
                       disabled={item.disabled}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
                     >
                       {item.icon}
                       {item.label}
-                    </button>
+                    </Button>
                   );
                   return item.tooltip ? (
                     <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Paperclip, User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
+import { Button } from '@/components/ui/Button';
 import type { MessageEvent } from '@/types';
 import { ThreadBubble } from './ThreadBubble';
 import { relativeTime, getInitials } from './messageDetailConstants';
@@ -62,15 +63,16 @@ export function ThreadMessageItem({
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {attachments.map((att) => (
-                <button
+                <Button
                   key={att.id}
                   type="button"
+                  variant="ghost"
                   onClick={() => onOpenAttachment?.(att.id)}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25 transition-colors"
+                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 h-auto rounded bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25 transition-colors"
                 >
                   <Paperclip className="w-2.5 h-2.5" />
                   {att.originalFilename}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -121,15 +123,16 @@ export function ThreadMessageItem({
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {attachments.map((att) => (
-              <button
+              <Button
                 key={att.id}
                 type="button"
+                variant="ghost"
                 onClick={() => onOpenAttachment?.(att.id)}
-                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
+                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 h-auto rounded bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
               >
                 <Paperclip className="w-2.5 h-2.5" />
                 {att.originalFilename}
-              </button>
+              </Button>
             ))}
           </div>
         )}

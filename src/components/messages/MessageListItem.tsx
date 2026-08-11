@@ -29,6 +29,7 @@ import { logger } from '@/lib/logger';
 import { stripHtml } from '@/lib/stripHtml';
 import { formatAge, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import {
@@ -224,9 +225,10 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
             </div>
           )}
           <span className="text-muted-foreground shrink-0">{getChannelIcon(msg.channel)}</span>
-          <button
+          <Button
             type="button"
-            className="font-mono shrink-0 inline-flex items-center gap-1 cursor-pointer hover:text-foreground"
+            variant="ghost"
+            className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto cursor-pointer hover:text-foreground"
             title={copied ? 'Copied!' : 'Copy link to this conversation'}
             onClick={(event) => {
               event.stopPropagation();
@@ -244,22 +246,24 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
             ) : (
               <Copy className="w-3 h-3 opacity-50" />
             )}
-          </button>
+          </Button>
           <span className="flex-1" />
           {isTriage && (
             <Tooltip content={effectiveIsRead ? 'Mark as unread' : 'Mark as read'} size="sm">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 aria-label={effectiveIsRead ? 'Mark as unread' : 'Mark as read'}
                 onClick={handleToggleRead}
-                className="shrink-0 p-0.5 rounded opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground"
+                className="shrink-0 p-0.5 w-auto h-auto rounded opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground"
               >
                 {effectiveIsRead ? (
                   <MailOpen className="w-3.5 h-3.5" />
                 ) : (
                   <Mail className="w-3.5 h-3.5 text-primary" />
                 )}
-              </button>
+              </Button>
             </Tooltip>
           )}
           <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
@@ -426,16 +430,18 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
                 </button>
               </Tooltip>
             ) : (
-              <button
+              <Button
                 ref={pickerBtnRef}
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={openPicker}
                 disabled={!currentUser?.id}
                 className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-3 h-3" />
                 Claim
-              </button>
+              </Button>
             )}
             {pickerOpen && pickerPos && createPortal(
               <div
