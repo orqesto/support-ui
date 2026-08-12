@@ -20,6 +20,13 @@ export type MyAlliance = { id: number; name: string; slug: string; orgCount: num
 
 export type AllianceOrg = { id: number; name: string; slug: string; active: boolean; memberCount: number };
 export type AttachableOrg = { id: number; name: string; slug: string };
+/** A user the add-member picker can offer — already in one of the alliance's workspaces. */
+export type AllianceCandidateUser = {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+};
 
 export type EffectiveRole = { orgId: number; orgName: string; role: string };
 export type AllianceMember = {
@@ -53,6 +60,22 @@ export const allianceAdminService = {
 
   listAttachableOrgs: async (allianceId: number): Promise<AttachableOrg[]> => {
     const res = await apiClient.get<{ data: AttachableOrg[] }>(`${BASE}/${allianceId}/attachable-orgs`);
+    return res.data.data;
+  },
+
+  /**
+   * Candidate users for the add-member picker: people already in one of this alliance's
+   * workspaces (never the global directory), minus existing members, filtered by `search`.
+   * Alliance-scoped so a non-global alliance_admin can use it (requireAllianceAdmin).
+   */
+  listMemberCandidates: async (
+    allianceId: number,
+    search?: string
+  ): Promise<AllianceCandidateUser[]> => {
+    const res = await apiClient.get<{ data: AllianceCandidateUser[] }>(
+      `${BASE}/${allianceId}/member-candidates`,
+      { params: search ? { search } : undefined }
+    );
     return res.data.data;
   },
 
