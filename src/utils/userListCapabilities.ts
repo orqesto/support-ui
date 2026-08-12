@@ -111,11 +111,13 @@ const workspaceCapabilities = (
 
 const platformCapabilities = (actor: CapabilityActor, isSelf: boolean): RowCapabilities => ({
   isSelf,
-  // The platform directory exposes no profile-edit or delete endpoint today — the only
-  // per-user mutation is the global role. So edit/remove are off; removeKind records the
-  // §5 intent (a platform remove WOULD be an account delete) for when such an action exists.
-  canEdit: false,
-  canRemove: false,
+  // Platform (global-admin) surface = full GLOBAL user management. A global admin may edit
+  // any user's global profile (name/position via PUT /api/users/:id, which skips the
+  // org-context guard for admins) and delete any account but their own (self-lockout;
+  // system-org guard is BE-enforced). Per-workspace attributes (role in a workspace,
+  // departments, skills) are edited by drilling into that workspace, not here.
+  canEdit: actor.isGlobalAdmin,
+  canRemove: actor.isGlobalAdmin && !isSelf,
   removeKind: 'account',
   // Global role is editable by a global admin, never on your own row (self-lockout;
   // the BE returns 403). The platform surface is global-admin-gated by its route.

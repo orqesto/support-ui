@@ -108,13 +108,22 @@ describe('getUserRowCapabilities — platform scope', () => {
     expect(caps.canChangeGlobalRole).toBe(false);
   });
 
-  it('exposes no profile-edit or delete on the platform directory', () => {
+  it('lets a global admin edit any profile and delete any account (full global management)', () => {
     const caps = getUserRowCapabilities('platform', globalAdmin, normalTarget);
-    expect(caps.canEdit).toBe(false);
-    expect(caps.canRemove).toBe(false);
+    expect(caps.canEdit).toBe(true);
+    expect(caps.canRemove).toBe(true);
   });
 
-  it('pins the §5 semantics: a platform remove would delete the global account', () => {
+  it('enforces self-lockout on delete: a global admin cannot delete their OWN account', () => {
+    const caps = getUserRowCapabilities('platform', globalAdmin, {
+      userId: globalAdmin.userId!,
+      globalRole: 'admin',
+    });
+    expect(caps.canEdit).toBe(true); // editing your own profile is fine
+    expect(caps.canRemove).toBe(false); // but not deleting your own account
+  });
+
+  it('pins the §5 semantics: a platform remove deletes the global account', () => {
     const caps = getUserRowCapabilities('platform', globalAdmin, normalTarget);
     expect(caps.removeKind).toBe('account');
   });
