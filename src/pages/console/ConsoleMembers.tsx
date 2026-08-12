@@ -9,14 +9,12 @@ import { Alert } from '@/components/ui/Alert';
 import { Select } from '@/components/ui/Select';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Label } from '@/components/ui/Label';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Pagination } from '@/components/ui/Pagination';
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
-import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import {
   useAllianceMembers,
@@ -74,7 +72,6 @@ export const ConsoleMembers = () => {
   const [userSearch, setUserSearch] = useState('');
   const [newRole, setNewRole] = useState<AllianceRole>('alliance_agent');
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
 
   // Searchable user picker for "Add member". The alliance console is currently
   // global-admin-only, so we reuse the platform user directory (server-side search). When
@@ -93,32 +90,6 @@ export const ConsoleMembers = () => {
     [usersQuery.data?.rows, existingMemberIds]
   );
 
-  // Client-side search over the fetched list (name + email), case-insensitive.
-  const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) {
-      return members ?? [];
-    }
-    return (members ?? []).filter(
-      (member) =>
-        member.name.toLowerCase().includes(term) ||
-        (member.email ?? '').toLowerCase().includes(term)
-    );
-  }, [members, query]);
-
-  // Clamp the page against the filtered result so search never strands the user
-  // on an out-of-range page.
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = useMemo(
-    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [filtered, currentPage]
-  );
-
-  const handleSearchChange = (value: string) => {
-    setQuery(value);
-    setPage(1);
-  };
 
   // An alliance-role change applies across EVERY org in the alliance (admin ⇒
   // org_admin everywhere, agent ⇒ associate), so it's confirmed rather than applied
@@ -194,6 +165,71 @@ export const ConsoleMembers = () => {
     );
   }
 
+  const memberColumns: ColumnDef<AllianceMember>[] = [
+    {
+      id: 'member',
+      header: 'Member',
+      cell: (member) => (
+        <div>
+          <div className="font-medium text-foreground">
+            {member.name || `User #${member.userId}`}
+          </div>
+          {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
+        </div>
+      ),
+    },
+    {
+      id: 'allianceRole',
+      header: 'Alliance role',
+      cell: (member) => (
+        <Select
+          value={member.allianceRole}
+          disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
+          onChange={(event) => {
+            const next = event.target.value as AllianceRole;
+            if (next !== member.allianceRole) {
+              setRoleChange({ member, newRole: next });
+            }
+          }}
+        >
+          {ALLIANCE_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {ROLE_LABEL[role]}
+            </option>
+          ))}
+        </Select>
+      ),
+    },
+    {
+      id: 'effectiveRoles',
+      header: 'Effective roles',
+      cell: (member) =>
+        member.effectiveRoles.length === 0 ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {member.effectiveRoles.map((role) => (
+              <Badge key={role.orgId} variant="secondary">
+                {orgRoleLabel(role.role)} in {role.orgName}
+              </Badge>
+            ))}
+          </div>
+        ),
+    },
+  ];
+
+  const memberActions = (member: AllianceMember) => (
+    <Tooltip content={`Remove ${member.name || `User #${member.userId}`} from this alliance`}>
+      <Button
+        variant="ghost"
+        onClick={() => setRemoveTarget(member)}
+        aria-label={`Remove ${member.name || member.userId}`}
+      >
+        <UserMinus className="w-4 h-4" />
+      </Button>
+    </Tooltip>
+  );
+
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
@@ -207,114 +243,33 @@ export const ConsoleMembers = () => {
         }
       />
 
-      {members.length === 0 ? (
-        <Card className="flex flex-col flex-1 min-h-0">
-          <ConsoleEmpty icon={Users} message="No members in this alliance yet." />
-        </Card>
-      ) : (
-        <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
-          <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
-            <div className="flex flex-col flex-shrink-0 gap-3 px-4 py-3 border-b sm:flex-row sm:justify-between sm:items-center border-border">
+      <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
+        <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
+          <DataTable
+            rows={members}
+            rowKey={(member) => member.userId}
+            columns={memberColumns}
+            actions={memberActions}
+            toolbarStart={
               <p className="text-sm text-muted-foreground">
-                {filtered.length} of {members.length} member{members.length === 1 ? '' : 's'}
+                {members.length} member{members.length === 1 ? '' : 's'}
               </p>
-              <SearchInput
-                value={query}
-                onChange={handleSearchChange}
-                placeholder="Search members by name or email…"
-                className="w-full sm:w-auto sm:min-w-[280px]"
-              />
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="flex flex-1 justify-center items-center px-4 py-10 min-h-0 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No members match &ldquo;{query}&rdquo;.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-y-auto flex-1 min-h-0">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="px-4 py-2 font-medium text-left">Member</th>
-                      <th className="px-4 py-2 font-medium text-left">Alliance role</th>
-                      <th className="px-4 py-2 font-medium text-left">Effective roles</th>
-                      <th className="px-4 py-2 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageItems.map((member) => (
-                    <tr key={member.userId} className="border-b border-border last:border-0 align-top">
-                      <td className="px-4 py-2">
-                        <div className="font-medium text-foreground">{member.name || `User #${member.userId}`}</div>
-                        {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
-                      </td>
-                      <td className="px-4 py-2">
-                      <Select
-                        value={member.allianceRole}
-                        // Server-controlled value with no optimistic update: disable the row
-                        // while its change is in flight so it can't visibly revert mid-request.
-                        disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
-                        onChange={(event) => {
-                          const next = event.target.value as AllianceRole;
-                          if (next !== member.allianceRole) {
-                            setRoleChange({ member, newRole: next });
-                          }
-                        }}
-                      >
-                        {ALLIANCE_ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {ROLE_LABEL[role]}
-                          </option>
-                        ))}
-                      </Select>
-                    </td>
-                    <td className="px-4 py-2">
-                      {member.effectiveRoles.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {member.effectiveRoles.map((role) => (
-                            <Badge key={role.orgId} variant="secondary">
-                              {orgRoleLabel(role.role)} in {role.orgName}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <Tooltip content={`Remove ${member.name || `User #${member.userId}`} from this alliance`}>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setRemoveTarget(member)}
-                          aria-label={`Remove ${member.name || member.userId}`}
-                        >
-                          <UserMinus className="w-4 h-4" />
-                        </Button>
-                      </Tooltip>
-                    </td>
-                  </tr>
-                ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {filtered.length > PAGE_SIZE && (
-              <div className="flex-shrink-0">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  total={filtered.length}
-                  limit={PAGE_SIZE}
-                  onPageChange={setPage}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            }
+            search={{
+              value: query,
+              onChange: setQuery,
+              placeholder: 'Search members by name or email…',
+              clientAccessor: (member) => [member.name, member.email],
+            }}
+            pagination={{ mode: 'client', pageSize: PAGE_SIZE }}
+            empty={{
+              icon: Users,
+              message: 'No members in this alliance yet.',
+              filteredMessage: 'No members match your search.',
+            }}
+          />
+        </CardContent>
+      </Card>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogHeader>
