@@ -13,7 +13,6 @@ import {
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Permission } from '@/types/roles';
 import systemService from '@/services/system.service';
 import { departmentService, type Department } from '@/services/department.service';
 
@@ -27,8 +26,12 @@ type ConfirmDialog = {
 };
 
 export const SystemManagementSettings = () => {
-  const { hasPermission } = usePermissions();
-  const canManageSystem = hasPermission(Permission.MANAGE_ORGANIZATION);
+  const { isAdmin } = usePermissions();
+  // GLOBAL-ADMIN only. These destructive cleanup ops hit /api/system/* routes
+  // that the backend locked to global-admin (BE #272) — an org_admin would get a
+  // 403 on every button. The tab is already hidden from org_admins upstream; this
+  // is the defense-in-depth guard.
+  const canManageSystem = isAdmin;
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
@@ -60,8 +63,8 @@ export const SystemManagementSettings = () => {
             Access Denied
           </h2>
           <p className="text-gray-700 dark:text-gray-300">
-            You don't have permission to access System Management. This section is restricted to
-            workspace administrators only.
+            You don't have permission to access System Management. These operations are restricted
+            to platform (global) administrators only.
           </p>
         </div>
       </div>

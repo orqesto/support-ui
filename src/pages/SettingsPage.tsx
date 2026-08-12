@@ -94,10 +94,11 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: Database,
     description: 'Cleanup, recovery, and system operations',
     render: (ctx) => <SystemSettings section={ctx.section} isGlobalAdmin={ctx.isGlobalAdmin} />,
-    // org_admin + global admin — matches the inner MANAGE_ORGANIZATION guard in
-    // SystemManagementSettings (and the SSO/SCIM tabs). Gating on isGlobalAdmin alone
-    // hid the tab from org_admins even though the page itself would render for them.
-    visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
+    // GLOBAL-ADMIN only. Every sub-section is now global-admin: Cleanup hits the
+    // /api/system/* routes the backend locked to global-admin (BE #272), and
+    // Deleted Messages / Orphaned Outbound were already global-only. Showing this
+    // to org_admins left them clicking cleanup buttons that 403.
+    visible: (ctx) => ctx.isGlobalAdmin,
   },
   {
     id: 'sso',

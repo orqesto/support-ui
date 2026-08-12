@@ -8,7 +8,7 @@ import { OrphanedOutbound } from '@/pages/OrphanedOutboundPage';
 type SystemSection = 'cleanup' | 'deleted' | 'orphaned';
 
 const SECTIONS: { id: SystemSection; label: string; description: string; globalOnly: boolean }[] = [
-  { id: 'cleanup', label: 'Cleanup', description: 'Queues, data cleanup, and nuclear options', globalOnly: false },
+  { id: 'cleanup', label: 'Cleanup', description: 'Queues, data cleanup, and nuclear options', globalOnly: true },
   { id: 'deleted', label: 'Deleted Messages', description: 'Recover soft-deleted messages', globalOnly: true },
   { id: 'orphaned', label: 'Orphaned Outbound', description: 'Outbound messages with no threaded parent', globalOnly: true },
 ];
@@ -24,11 +24,12 @@ type SystemSettingsProps = {
 };
 
 /**
- * Settings › System — org-scoped system operations grouped as sub-tabs. "Cleanup" is
- * available to any admin who can reach the tab (org_admin+ via MANAGE_ORGANIZATION);
- * the recovery/diagnostic tools (Deleted Messages, Orphaned Outbound) stay global-admin
- * only, matching their prior standalone-route gating. Folded here (was three separate
- * main-nav entries) so system ops live in one place.
+ * Settings › System — system operations grouped as sub-tabs, ALL global-admin only.
+ * "Cleanup" (queues / data cleanup / nuclear) hits /api/system/* routes the backend
+ * locked to global-admin (BE #272), and the recovery/diagnostic tools (Deleted
+ * Messages, Orphaned Outbound) were already global-only. The whole tab is hidden from
+ * org_admins upstream in SettingsPage. Folded here (was three separate main-nav
+ * entries) so system ops live in one place.
  */
 export const SystemSettings = ({ section, isGlobalAdmin }: SystemSettingsProps) => {
   const navigate = useNavigate();
