@@ -11,17 +11,16 @@
  * Capability = (actor's authority) ∩ (scope), per USER-MGMT-CONSOLE-MODEL §4.
  *
  * IMPORTANT — the §5 remove/delete split (`removeKind`): "Remove" means two different
- * things depending on scope, and conflating them can nuke a cross-workspace / SSO
- * identity:
- *   - workspace scope → remove the *membership* only (`user_organizations` row); the
- *     global account survives (critical for multi-workspace / IdP-managed users).
- *   - platform scope  → delete the *account* (global), behind self-lockout + system-org
- *     guards.
- * `removeKind` here EXPRESSES that intent so callers can label the action correctly.
- * It does NOT by itself change which endpoint a page calls — callers stay responsible
- * for wiring the matching backend action. (The workspace backend's exact delete
- * semantics must be verified against §5 before a page relabels its delete as
- * membership-only.)
+ * things and conflating them can nuke a cross-workspace / SSO identity. Verified against
+ * the backend (`userController.deleteUser`): the split keys on the ACTOR's tier, not the
+ * surface —
+ *   - org admin (non-global) → removes the *membership* only (`user_organizations` row);
+ *     the global account survives (critical for multi-workspace / IdP-managed users).
+ *   - global admin → deletes the *account* (global, across ALL workspaces). This is true
+ *     even when acting through a per-workspace UI, so a global admin's "remove" there is a
+ *     full account delete — label it accordingly.
+ * `removeKind` EXPRESSES that so callers can label the action correctly; it does not by
+ * itself change which endpoint a page calls.
  */
 
 import type { GlobalRole } from '@/types/roles';
@@ -102,7 +101,12 @@ const workspaceCapabilities = (
     canRemove = actor.canManageUsers;
   }
 
-  return { isSelf, canEdit, canRemove, removeKind: 'membership', canChangeGlobalRole: false };
+  // What "Remove" destroys mirrors the BE (userController.deleteUser): the decision keys
+  // on the ACTOR's tier, not the surface — a global admin deletes the whole account across
+  // all workspaces, while an org admin removes only this workspace's membership.
+  const removeKind: RemoveKind = actor.isGlobalAdmin ? 'account' : 'membership';
+
+  return { isSelf, canEdit, canRemove, removeKind, canChangeGlobalRole: false };
 };
 
 const platformCapabilities = (actor: CapabilityActor, isSelf: boolean): RowCapabilities => ({

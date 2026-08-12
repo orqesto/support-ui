@@ -80,10 +80,16 @@ describe('getUserRowCapabilities — workspace scope', () => {
     expect(caps.canRemove).toBe(false);
   });
 
-  it('pins the §5 semantics: workspace remove is membership-only, never a global-role change', () => {
-    const caps = getUserRowCapabilities('workspace', orgAdmin, normalTarget);
-    expect(caps.removeKind).toBe('membership');
-    expect(caps.canChangeGlobalRole).toBe(false);
+  it('pins the §5 remove semantics by ACTOR tier: org admin removes membership; global admin deletes the account', () => {
+    // org admin (non-global) → membership-only, matching the BE removeUserFromOrganization path.
+    const orgAdminCaps = getUserRowCapabilities('workspace', orgAdmin, normalTarget);
+    expect(orgAdminCaps.removeKind).toBe('membership');
+    expect(orgAdminCaps.canChangeGlobalRole).toBe(false);
+
+    // global admin acting through the workspace UI → full account delete (BE keys on the
+    // actor's role, not the surface), so the UI must label it as an account deletion.
+    const globalAdminCaps = getUserRowCapabilities('workspace', globalAdmin, normalTarget);
+    expect(globalAdminCaps.removeKind).toBe('account');
   });
 });
 
