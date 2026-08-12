@@ -244,6 +244,17 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     );
   }
 
+  // Delete/remove copy is scope-accurate (see utils/userListCapabilities + the BE
+  // userController.deleteUser): an org admin removes only this workspace's membership
+  // (the account and any other workspace access are kept), while a global admin deletes
+  // the whole account across every workspace. Label the dialog to match what will happen.
+  const deleteIsAccount = deleteDialog.user
+    ? rowCapabilities(deleteDialog.user).removeKind === 'account'
+    : false;
+  const deleteName = deleteDialog.user
+    ? `${deleteDialog.user.firstName} ${deleteDialog.user.lastName}`.trim()
+    : 'this user';
+
   return (
     <Wrap>
       <div className="px-4 mx-auto space-y-4 w-full">
@@ -655,15 +666,15 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ open, user: null })}
         onConfirm={confirmDeleteUser}
-        title="Delete User"
+        title={deleteIsAccount ? 'Delete account' : 'Remove from workspace'}
         description={
-          deleteDialog.user
-            ? `Are you sure you want to delete ${deleteDialog.user.firstName} ${deleteDialog.user.lastName}? This action cannot be undone.`
-            : ''
+          deleteIsAccount
+            ? `Delete ${deleteName}? This permanently removes their account across ALL workspaces and cannot be undone.`
+            : `Remove ${deleteName} from this workspace? Their account and any access to other workspaces are kept.`
         }
-        confirmText="Delete"
+        confirmText={deleteIsAccount ? 'Delete account' : 'Remove'}
         cancelText="Cancel"
-        variant="danger"
+        variant={deleteIsAccount ? 'danger' : 'warning'}
       />
 
       {/* User Skills Modal */}
