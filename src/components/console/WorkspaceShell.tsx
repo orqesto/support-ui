@@ -1,11 +1,12 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Settings, ShieldAlert, Users } from 'lucide-react';
+import { ArrowLeft, Boxes, Building2, Settings, ShieldAlert, Users } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { WorkspaceScopeProvider } from '@/contexts/WorkspaceScopeContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
@@ -47,6 +48,10 @@ export const WorkspaceShell = () => {
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const clearScope = useScopeStore((state) => state.clearScope);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  // The departments budget lever is global-admin only (its BE endpoints are
+  // requireGlobalAdmin) — hide the tab for an alliance_admin, who reaches this shell
+  // as org_admin and would only get 403s.
+  const { isAdmin } = usePermissions();
 
   useEffect(() => {
     if (numericId === null) {
@@ -151,6 +156,12 @@ export const WorkspaceShell = () => {
             <Settings className="flex-shrink-0 w-4 h-4" />
             <span className="truncate">Workspace</span>
           </NavLink>
+          {isAdmin && (
+            <NavLink to={`${basePath}/departments`} className={navLinkClass}>
+              <Boxes className="flex-shrink-0 w-4 h-4" />
+              <span className="truncate">Departments</span>
+            </NavLink>
+          )}
         </nav>
       </aside>
 

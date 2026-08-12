@@ -150,6 +150,44 @@ export type UpdatePlanInput = {
   };
 };
 
+// ─── Workspace departments (plan-budgeted lever) ─────────────────────────────
+export type WorkspaceDepartmentCounts = {
+  messageSources: number;
+  users: number;
+  openConversations: number;
+  totalConversations: number;
+};
+
+export type WorkspaceDepartmentRow = {
+  id: number;
+  name: string;
+  slug: string;
+  active: boolean;
+  isDefault: boolean;
+  counts: WorkspaceDepartmentCounts;
+};
+
+export type WorkspaceDepartmentsView = {
+  budget: { limit: number; activeCount: number };
+  departments: WorkspaceDepartmentRow[];
+};
+
+export type DepartmentMergeCounts = {
+  conversations: number;
+  tickets: number;
+  messageSources: number;
+  messageSourceLinks: number;
+  userMemberships: number;
+  ticketingIntegrations: number;
+};
+
+export type DeactivateDepartmentResult = {
+  departmentId: number;
+  merged: boolean;
+  mergedInto?: number;
+  counts?: DepartmentMergeCounts;
+};
+
 const PLATFORM = '/api/admin/platform';
 const ADMIN = '/api/admin';
 
@@ -254,6 +292,51 @@ export const platformService = {
   clearSyncCheckpoints: async (): Promise<{ count: number }> => {
     const res = await apiClient.delete<{ count: number }>(`${ADMIN}/sync-checkpoints`);
     return { count: res.data?.count ?? 0 };
+  },
+
+  // ─── Workspace departments (plan-budgeted lever, global-admin only) ──────────
+  /** List a workspace's departments with attachment counts + the plan budget. */
+  listWorkspaceDepartments: async (orgId: number): Promise<WorkspaceDepartmentsView> => {
+    const res = await apiClient.get<{ data: WorkspaceDepartmentsView }>(
+      `${ADMIN}/organizations/${orgId}/departments`
+    );
+    return res.data.data;
+  },
+
+  /**
+   * Activate a department. `override` lets a global admin activate beyond the plan
+   * budget (the BE returns 403 when over budget without it). Returns the fresh view.
+   */
+  activateWorkspaceDepartment: async (
+    orgId: number,
+    departmentId: number,
+    override = false
+  ): Promise<WorkspaceDepartmentsView> => {
+    const res = await apiClient.post<{ data: WorkspaceDepartmentsView }>(
+      `${ADMIN}/organizations/${orgId}/departments/${departmentId}/activate${
+        override ? '?override=true' : ''
+      }`
+    );
+    return res.data.data;
+  },
+
+  /**
+   * Deactivate a department. A non-empty department requires `targetDepartmentId` —
+   * its conversations/sources/members reroute there before it is tombstoned (the BE
+   * returns 400 if a non-empty dept is deactivated without a target). Returns the
+   * fresh view plus what the deactivation did.
+   */
+  deactivateWorkspaceDepartment: async (
+    orgId: number,
+    departmentId: number,
+    targetDepartmentId?: number
+  ): Promise<WorkspaceDepartmentsView & { result: DeactivateDepartmentResult }> => {
+    const res = await apiClient.post<{
+      data: WorkspaceDepartmentsView & { result: DeactivateDepartmentResult };
+    }>(`${ADMIN}/organizations/${orgId}/departments/${departmentId}/deactivate`, {
+      ...(targetDepartmentId !== undefined ? { targetDepartmentId } : {}),
+    });
+    return res.data.data;
   },
 
 };
