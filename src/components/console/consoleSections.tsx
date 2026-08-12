@@ -16,6 +16,7 @@ import {
   MailOpen,
   type LucideIcon,
 } from 'lucide-react';
+import { ALLIANCE_CONSOLE_ENABLED } from '@/lib/config';
 
 /**
  * Declarative console section registry — the single source of truth for BOTH the
@@ -69,10 +70,44 @@ const ConsoleSettings = lazy(() =>
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: ConsoleOrganizations },
-  { id: 'members', label: 'Members', icon: Users, path: 'members', element: ConsoleMembers },
-  { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: ConsoleGroups },
-  { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: ConsoleIdentity },
-  { id: 'provisioning', label: 'Provisioning', icon: ShieldCheck, path: 'provisioning', element: ConsoleProvisioning },
+  // IdP / cross-workspace machinery — hidden while the alliance console is deferred
+  // (ALLIANCE_CONSOLE_ENABLED off). Cross-workspace user sharing for a real customer is
+  // driven by Provisioning (SCIM) + Groups (IdP-group → role mapping); Members is only a
+  // bootstrap/no-IdP fallback (seed the first alliance admin). Until a multi-workspace
+  // customer exists these are premature, so a global admin provisioning an alliance sees
+  // just Overview + Workspaces (+ Audit/Settings). They return when the flag is on.
+  {
+    id: 'members',
+    label: 'Members',
+    icon: Users,
+    path: 'members',
+    element: ConsoleMembers,
+    visible: () => ALLIANCE_CONSOLE_ENABLED,
+  },
+  {
+    id: 'groups',
+    label: 'Groups',
+    icon: UsersRound,
+    path: 'groups',
+    element: ConsoleGroups,
+    visible: () => ALLIANCE_CONSOLE_ENABLED,
+  },
+  {
+    id: 'identity',
+    label: 'Identity',
+    icon: KeyRound,
+    path: 'identity',
+    element: ConsoleIdentity,
+    visible: () => ALLIANCE_CONSOLE_ENABLED,
+  },
+  {
+    id: 'provisioning',
+    label: 'Provisioning',
+    icon: ShieldCheck,
+    path: 'provisioning',
+    element: ConsoleProvisioning,
+    visible: () => ALLIANCE_CONSOLE_ENABLED,
+  },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: ConsoleAudit },
   { id: 'settings', label: 'Settings', icon: Settings, path: 'settings', element: ConsoleSettings },
 ];

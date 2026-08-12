@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { useAllianceOverview } from '@/hooks/useAllianceAdmin';
+import { ALLIANCE_CONSOLE_ENABLED } from '@/lib/config';
 
 /**
  * Console landing page — real orgs/members/groups counts and SSO/SCIM connection
@@ -35,10 +36,18 @@ export const ConsoleOverview = () => {
   }
 
   const base = `/console/alliance/${allianceId}`;
+  // Members/Groups + the SSO/SCIM Connections card are the deferred IdP machinery — hidden
+  // until the alliance console is enabled for a real multi-workspace customer (see
+  // ALLIANCE_CONSOLE_ENABLED). Cross-workspace sharing is a SCIM+Groups job; while deferred
+  // a global admin just sees the alliance's workspace count.
   const stats = [
     { label: 'Workspaces', value: data.counts.orgs, icon: Building2, to: `${base}/organizations` },
-    { label: 'Members', value: data.counts.members, icon: Users, to: `${base}/members` },
-    { label: 'Groups', value: data.counts.groups, icon: UsersRound, to: `${base}/groups` },
+    ...(ALLIANCE_CONSOLE_ENABLED
+      ? [
+          { label: 'Members', value: data.counts.members, icon: Users, to: `${base}/members` },
+          { label: 'Groups', value: data.counts.groups, icon: UsersRound, to: `${base}/groups` },
+        ]
+      : []),
   ];
 
   const connections = [
@@ -71,6 +80,7 @@ export const ConsoleOverview = () => {
         })}
       </div>
 
+      {ALLIANCE_CONSOLE_ENABLED && (
       <Card>
         <CardContent>
           <h2 className="mb-3 text-sm font-semibold text-foreground">Connections</h2>
@@ -95,6 +105,7 @@ export const ConsoleOverview = () => {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };
