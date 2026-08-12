@@ -14,8 +14,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { Drawer } from '@/components/ui/Drawer';
 import { Spinner } from '@/components/ui/Spinner';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Pagination } from '@/components/ui/Pagination';
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
@@ -190,6 +189,178 @@ export const PlatformUsers = () => {
     return <ConsoleLoading />;
   }
 
+  const rowCaps = (row: PlatformUserRow) =>
+    getUserRowCapabilities(
+      'platform',
+      { userId: currentUserId, isGlobalAdmin: true, canManageUsers: true, canDeleteUsers: true },
+      { userId: row.id, globalRole: row.role as GlobalRole }
+    );
+
+  const columns: ColumnDef<PlatformUserRow>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: (row) => <span className="font-medium text-foreground">{fullName(row)}</span>,
+    },
+    {
+      id: 'email',
+      header: 'Email',
+      cell: (row) => (
+        <span className="flex gap-2 items-center text-muted-foreground">
+          {row.email}
+          {!row.emailVerified && <Badge variant="warning">unverified</Badge>}
+        </span>
+      ),
+    },
+    {
+      id: 'role',
+      header: 'Role',
+      cell: (row) => (
+        <Badge variant={row.role === 'admin' ? 'danger' : 'secondary'}>{row.role}</Badge>
+      ),
+    },
+    {
+      id: 'workspaces',
+      header: 'Workspaces',
+      cell: (row) =>
+        row.orgCount > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2 h-8 underline decoration-dotted underline-offset-2"
+            onClick={() => setDrawerUser(row)}
+          >
+            {row.orgCount} {row.orgCount === 1 ? 'workspace' : 'workspaces'}
+          </Button>
+        ) : (
+          <span className="text-muted-foreground">0</span>
+        ),
+    },
+    {
+      id: 'joined',
+      header: 'Joined',
+      cell: (row) => (
+        <span className="whitespace-nowrap text-muted-foreground">{formatDate(row.createdAt)}</span>
+      ),
+    },
+    {
+      id: 'globalRole',
+      align: 'right',
+      header: (
+        <Tooltip content="Global admins have platform-wide access across every workspace. Changing a role signs the user out of all sessions.">
+          <span className="underline decoration-dotted underline-offset-2 cursor-help">
+            Global role
+          </span>
+        </Tooltip>
+      ),
+      cell: (row) =>
+        !rowCaps(row).canChangeGlobalRole ? (
+          // Self-lockout guard: the BE rejects a caller changing their own global role (403).
+          <Tooltip content="You can't change your own global role.">
+            <div className="ml-auto w-40">
+              <Select value={row.role} disabled aria-label="Global role">
+                {GLOBAL_ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Tooltip>
+        ) : (
+          <div className="ml-auto w-40">
+            <Select
+              value={row.role}
+              aria-label={`Global role for ${row.email}`}
+              // Server-controlled value with no optimistic update: disable this row while its
+              // change is in flight so it can't visibly revert.
+              disabled={updateRole.isPending && updateRole.variables?.id === row.id}
+              onChange={(event) => {
+                const nextRole = event.target.value as GlobalRole;
+                if (nextRole !== row.role) {
+                  setPending({ id: row.id, email: row.email, nextRole });
+                }
+              }}
+            >
+              {GLOBAL_ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ),
+    },
+  ];
+
+  const rowActions = (row: PlatformUserRow) => {
+    const caps = rowCaps(row);
+    return (
+      <div className="flex gap-1 justify-end">
+        {caps.canEdit && (
+          <Tooltip content={`Edit ${row.email}`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Edit ${row.email}`}
+              onClick={() => openEdit(row)}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </Tooltip>
+        )}
+        {caps.canRemove && (
+          <Tooltip content={`Delete ${row.email}'s account`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Delete ${row.email}`}
+              onClick={() => setDeleteUser(row)}
+            >
+              <Trash2 className="w-4 h-4 text-destructive" />
+            </Button>
+          </Tooltip>
+        )}
+      </div>
+    );
+  };
+
+  const roleFilterControl = (
+    <Select
+      aria-label="Filter by role"
+      className="min-w-[9rem]"
+      value={roleFilter}
+      onChange={(event) => {
+        setRoleFilter(event.target.value as RoleFilter);
+        setPage(1);
+      }}
+    >
+      {ROLE_FILTER_OPTIONS.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </Select>
+  );
+
+  const verifiedFilterControl = (
+    <Select
+      aria-label="Filter by verification"
+      className="min-w-[9rem]"
+      value={verifiedFilter}
+      onChange={(event) => {
+        setVerifiedFilter(event.target.value as VerifiedFilter);
+        setPage(1);
+      }}
+    >
+      {VERIFIED_FILTER_OPTIONS.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </Select>
+  );
+
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader title="Users" description="Every user across all workspaces." />
@@ -198,236 +369,38 @@ export const PlatformUsers = () => {
         <CardHeader className="flex-shrink-0">
           <CardTitle>Directory</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col flex-1 gap-4 min-h-0">
-          <div className="flex flex-wrap flex-shrink-0 gap-3 items-end">
-            <div className="w-full max-w-sm">
-              <Label htmlFor="users-search" className="mb-1">
-                Search
-              </Label>
-              <SearchInput
-                value={search}
-                onChange={handleSearch}
-                placeholder="Search by name or email"
-                showSearchButton={false}
-              />
-            </div>
-            <div className="min-w-[10rem]">
-              <Label htmlFor="users-role-filter" className="mb-1">
-                Role
-              </Label>
-              <Select
-                id="users-role-filter"
-                value={roleFilter}
-                onChange={(event) => {
-                  setRoleFilter(event.target.value as RoleFilter);
-                  setPage(1);
-                }}
-              >
-                {ROLE_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="min-w-[10rem]">
-              <Label htmlFor="users-verified-filter" className="mb-1">
-                Verified
-              </Label>
-              <Select
-                id="users-verified-filter"
-                value={verifiedFilter}
-                onChange={(event) => {
-                  setVerifiedFilter(event.target.value as VerifiedFilter);
-                  setPage(1);
-                }}
-              >
-                {VERIFIED_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-
-          {usersQuery.isError ? (
-            <Alert variant="danger">
-              <div className="flex gap-3 justify-between items-center">
-                <span>Couldn&apos;t load users.</span>
-                <Button variant="secondary" onClick={() => void usersQuery.refetch()}>
-                  Retry
-                </Button>
-              </div>
-            </Alert>
-          ) : rows.length === 0 ? (
-            <p className="flex flex-1 justify-center items-center py-8 min-h-0 text-sm text-center text-muted-foreground">
-              {search || roleFilter !== 'all' || verifiedFilter !== 'all'
-                ? 'No users match your filters.'
-                : 'No users yet.'}
-            </p>
-          ) : (
-            <Card padding="none" className="overflow-auto flex-1 min-h-0">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr className="text-left text-muted-foreground">
-                    <th className="px-3 py-2 font-medium">Name</th>
-                    <th className="px-3 py-2 font-medium">Email</th>
-                    <th className="px-3 py-2 font-medium">Role</th>
-                    <th className="px-3 py-2 font-medium">Workspaces</th>
-                    <th className="px-3 py-2 font-medium">Joined</th>
-                    <th className="px-3 py-2 font-medium text-right">
-                      <Tooltip content="Global admins have platform-wide access across every workspace. Changing a role signs the user out of all sessions.">
-                        <span className="underline decoration-dotted underline-offset-2 cursor-help">
-                          Global role
-                        </span>
-                      </Tooltip>
-                    </th>
-                    <th className="px-3 py-2 font-medium text-right">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    // Full global-admin capabilities for this row (edit profile, delete
-                    // account, change global role) — self-lockout on role/delete is baked in.
-                    // This page is global-admin-gated by its route.
-                    const caps = getUserRowCapabilities(
-                      'platform',
-                      {
-                        userId: currentUserId,
-                        isGlobalAdmin: true,
-                        canManageUsers: true,
-                        canDeleteUsers: true,
-                      },
-                      { userId: row.id, globalRole: row.role as GlobalRole }
-                    );
-                    const canEditGlobalRole = caps.canChangeGlobalRole;
-                    return (
-                    <tr key={row.id} className="border-t border-border">
-                      <td className="px-3 py-2 font-medium text-foreground">{fullName(row)}</td>
-                      <td className="px-3 py-2">
-                        <span className="flex gap-2 items-center text-muted-foreground">
-                          {row.email}
-                          {!row.emailVerified && (
-                            <Badge variant="warning">unverified</Badge>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={row.role === 'admin' ? 'danger' : 'secondary'}>
-                          {row.role}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        {row.orgCount > 0 ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="px-2 h-8 underline decoration-dotted underline-offset-2"
-                            onClick={() => setDrawerUser(row)}
-                          >
-                            {row.orgCount} {row.orgCount === 1 ? 'workspace' : 'workspaces'}
-                          </Button>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
-                        {formatDate(row.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex justify-end">
-                          {!canEditGlobalRole ? (
-                            // Self-lockout guard: the BE rejects a caller changing their own
-                            // global role (403). Mirror it here — disable the control and say why.
-                            <Tooltip content="You can't change your own global role.">
-                              <div className="w-40">
-                                <Select value={row.role} disabled aria-label="Global role">
-                                  {GLOBAL_ROLE_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </Select>
-                              </div>
-                            </Tooltip>
-                          ) : (
-                            <div className="w-40">
-                              <Select
-                                value={row.role}
-                                aria-label={`Global role for ${row.email}`}
-                                // Server-controlled value with no optimistic update: disable this
-                                // row while its change is in flight so it can't visibly revert.
-                                disabled={
-                                  updateRole.isPending && updateRole.variables?.id === row.id
-                                }
-                                onChange={(event) => {
-                                  const nextRole = event.target.value as GlobalRole;
-                                  if (nextRole !== row.role) {
-                                    setPending({ id: row.id, email: row.email, nextRole });
-                                  }
-                                }}
-                              >
-                                {GLOBAL_ROLE_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex gap-1 justify-end">
-                          {caps.canEdit && (
-                            <Tooltip content={`Edit ${row.email}`}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label={`Edit ${row.email}`}
-                                onClick={() => openEdit(row)}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                            </Tooltip>
-                          )}
-                          {caps.canRemove && (
-                            <Tooltip content={`Delete ${row.email}'s account`}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label={`Delete ${row.email}`}
-                                onClick={() => setDeleteUser(row)}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </Card>
-          )}
+        <CardContent padding="none" className="flex overflow-hidden flex-col flex-1 min-h-0">
+          <DataTable
+            rows={rows}
+            rowKey={(row) => row.id}
+            columns={columns}
+            actions={rowActions}
+            toolbarStart={
+              <>
+                {roleFilterControl}
+                {verifiedFilterControl}
+              </>
+            }
+            search={{
+              value: search,
+              onChange: handleSearch,
+              placeholder: 'Search by name or email',
+              showButton: false,
+            }}
+            pagination={{
+              mode: 'server',
+              page: pagination?.page ?? 1,
+              totalPages: pagination?.totalPages ?? 1,
+              total: pagination?.total ?? 0,
+              limit: pagination?.limit ?? PAGE_SIZE,
+              onPageChange: setPage,
+              loading: usersQuery.isFetching,
+            }}
+            isError={usersQuery.isError}
+            onRetry={() => void usersQuery.refetch()}
+            empty={{ message: 'No users yet.', filteredMessage: 'No users match your filters.' }}
+          />
         </CardContent>
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex-shrink-0">
-            <Pagination
-              currentPage={pagination.page}
-              totalPages={pagination.totalPages}
-              total={pagination.total}
-              limit={pagination.limit}
-              onPageChange={setPage}
-              loading={usersQuery.isFetching}
-            />
-          </div>
-        )}
       </Card>
 
       <ConfirmDialog
