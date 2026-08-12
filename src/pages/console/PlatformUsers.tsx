@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +25,7 @@ import {
   useUserOrganizations,
 } from '@/hooks/usePlatformAdmin';
 import { useAuthStore } from '@/stores/authStore';
+import { userService } from '@/services/user.service';
 import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import type { GlobalRole, PlatformUserRow } from '@/services/platform.service';
 
@@ -80,6 +85,9 @@ export const PlatformUsers = () => {
   const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>('all');
   const [pending, setPending] = useState<PendingRoleChange | null>(null);
   const [drawerUser, setDrawerUser] = useState<PlatformUserRow | null>(null);
+  const [editUser, setEditUser] = useState<PlatformUserRow | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', position: '' });
+  const [deleteUser, setDeleteUser] = useState<PlatformUserRow | null>(null);
 
   const currentUserId = useAuthStore((state) => state.user?.id);
   const usersQuery = usePlatformUsers({
@@ -96,6 +104,61 @@ export const PlatformUsers = () => {
   const rows = useMemo(() => usersQuery.data?.rows ?? [], [usersQuery.data?.rows]);
 
   const drawerOrgsQuery = useUserOrganizations(drawerUser?.id ?? null);
+
+  const queryClient = useQueryClient();
+  const invalidateUsers = () => {
+    void queryClient.invalidateQueries({ queryKey: ['platform', 'users'] });
+    void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+  };
+
+  // Profile edit + account delete reuse the GLOBAL-admin paths on /api/users/:id:
+  // updateUser skips the org-context guard for admins (writes name/position to the users
+  // row), and deleteUser hard-deletes the account for admins. Gating comes from
+  // userListCapabilities (platform scope). See SHARED-TABLE plan / §5.
+  const editMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { firstName?: string; lastName?: string; position?: string };
+    }) => userService.update(id, data),
+    onSuccess: () => {
+      invalidateUsers();
+      toast.success('Profile updated');
+      setEditUser(null);
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : 'Could not update profile'),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => userService.delete(id),
+    onSuccess: () => {
+      invalidateUsers();
+      toast.success('Account deleted');
+      setDeleteUser(null);
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : 'Could not delete account'),
+  });
+
+  const openEdit = (user: PlatformUserRow) => {
+    setEditForm({ firstName: user.firstName ?? '', lastName: user.lastName ?? '', position: '' });
+    setEditUser(user);
+  };
+  const handleEditSave = () => {
+    if (!editUser) {
+      return;
+    }
+    editMutation.mutate({
+      id: editUser.id,
+      data: {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        position: editForm.position.trim(),
+      },
+    });
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -220,23 +283,27 @@ export const PlatformUsers = () => {
                         </span>
                       </Tooltip>
                     </th>
+                    <th className="px-3 py-2 font-medium text-right">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => {
-                    // Same capability model the workspace surface uses. This page is
-                    // global-admin-gated by its route, so the actor is a global admin and
-                    // the model reduces to the self-lockout (you can't change your own role).
-                    const canEditGlobalRole = getUserRowCapabilities(
+                    // Full global-admin capabilities for this row (edit profile, delete
+                    // account, change global role) — self-lockout on role/delete is baked in.
+                    // This page is global-admin-gated by its route.
+                    const caps = getUserRowCapabilities(
                       'platform',
                       {
                         userId: currentUserId,
                         isGlobalAdmin: true,
                         canManageUsers: true,
-                        canDeleteUsers: false,
+                        canDeleteUsers: true,
                       },
                       { userId: row.id, globalRole: row.role as GlobalRole }
-                    ).canChangeGlobalRole;
+                    );
+                    const canEditGlobalRole = caps.canChangeGlobalRole;
                     return (
                     <tr key={row.id} className="border-t border-border">
                       <td className="px-3 py-2 font-medium text-foreground">{fullName(row)}</td>
@@ -310,6 +377,34 @@ export const PlatformUsers = () => {
                                 ))}
                               </Select>
                             </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex gap-1 justify-end">
+                          {caps.canEdit && (
+                            <Tooltip content={`Edit ${row.email}`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label={`Edit ${row.email}`}
+                                onClick={() => openEdit(row)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                          )}
+                          {caps.canRemove && (
+                            <Tooltip content={`Delete ${row.email}'s account`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label={`Delete ${row.email}`}
+                                onClick={() => setDeleteUser(row)}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </Tooltip>
                           )}
                         </div>
                       </td>
@@ -396,6 +491,90 @@ export const PlatformUsers = () => {
           </ul>
         )}
       </Drawer>
+
+      <Dialog
+        open={editUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditUser(null);
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Edit profile{editUser ? ` — ${editUser.email}` : ''}</DialogTitle>
+        </DialogHeader>
+        <DialogContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="platform-edit-first">First name</Label>
+                <Input
+                  id="platform-edit-first"
+                  value={editForm.firstName}
+                  onChange={(event) =>
+                    setEditForm((form) => ({ ...form, firstName: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="platform-edit-last">Last name</Label>
+                <Input
+                  id="platform-edit-last"
+                  value={editForm.lastName}
+                  onChange={(event) =>
+                    setEditForm((form) => ({ ...form, lastName: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="platform-edit-position">Position</Label>
+              <Input
+                id="platform-edit-position"
+                value={editForm.position}
+                placeholder="e.g. Support Lead"
+                onChange={(event) =>
+                  setEditForm((form) => ({ ...form, position: event.target.value }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Edits the user&apos;s global profile. Their role and departments within a specific
+              workspace are managed from that workspace (Workspaces → Manage).
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setEditUser(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEditSave}
+                isLoading={editMutation.isPending}
+                disabled={!editForm.firstName.trim() || editMutation.isPending}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleteUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteUser(null);
+          }
+        }}
+        onConfirm={() => {
+          if (deleteUser) {
+            deleteMutation.mutate(deleteUser.id);
+          }
+        }}
+        variant="danger"
+        confirmText="Delete account"
+        title={`Delete ${deleteUser ? fullName(deleteUser) : 'this'} account?`}
+        description={`This permanently deletes ${deleteUser?.email ?? 'this user'}'s account and removes them from ALL workspaces across the platform. This cannot be undone.`}
+      />
     </div>
   );
 };
