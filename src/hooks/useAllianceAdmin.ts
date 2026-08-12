@@ -43,6 +43,24 @@ export const useAttachableOrgs = (allianceId: number | null, enabled: boolean) =
     refetchOnWindowFocus: false,
   });
 
+/**
+ * Candidate users for the add-member picker — alliance-scoped (people already in the
+ * alliance's workspaces), so a non-global alliance_admin can seed members without the
+ * global-admin platform user directory. `search` is server-side; keyed into the query so
+ * each term is its own cache entry.
+ */
+export const useAllianceMemberCandidates = (
+  allianceId: number | null,
+  search: string,
+  enabled: boolean
+) =>
+  useQuery({
+    queryKey: ['alliance', allianceId, 'member-candidates', search],
+    queryFn: () => allianceAdminService.listMemberCandidates(allianceId as number, search || undefined),
+    enabled: allianceId !== null && enabled,
+    refetchOnWindowFocus: false,
+  });
+
 const useAllianceListInvalidator = (allianceId: number | null, listKey: string) => {
   const queryClient = useQueryClient();
   return () => {

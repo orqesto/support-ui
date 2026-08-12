@@ -18,17 +18,16 @@ import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import {
   useAllianceMembers,
+  useAllianceMemberCandidates,
   useAddMember,
   useChangeMemberRole,
   useRemoveMember,
 } from '@/hooks/useAllianceAdmin';
-import { usePlatformUsers } from '@/hooks/usePlatformAdmin';
 import { ALLIANCE_ROLES, roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
-import type { AllianceMember } from '@/services/alliance-admin.service';
-import type { PlatformUserRow } from '@/services/platform.service';
+import type { AllianceCandidateUser, AllianceMember } from '@/services/alliance-admin.service';
 
 /** "Jane Doe — jane@acme.com" (falls back to email when no name is set). */
-const userOptionLabel = (user: PlatformUserRow): string => {
+const userOptionLabel = (user: AllianceCandidateUser): string => {
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
   return name ? `${name} — ${user.email}` : user.email;
 };
@@ -73,21 +72,18 @@ export const ConsoleMembers = () => {
   const [newRole, setNewRole] = useState<AllianceRole>('alliance_agent');
   const [query, setQuery] = useState('');
 
-  // Searchable user picker for "Add member". The alliance console is currently
-  // global-admin-only, so we reuse the platform user directory (server-side search). When
-  // the console is later opened to alliance_admins, swap this for an alliance-scoped user
-  // search (requireAllianceAdmin) — the platform endpoint is global-admin-gated.
-  const usersQuery = usePlatformUsers({ page: 1, pageSize: 20, search: userSearch || undefined });
-  const existingMemberIds = useMemo(
-    () => new Set((members ?? []).map((member) => member.userId)),
-    [members]
-  );
+  // Searchable user picker for "Add member" — alliance-scoped: candidates are people already
+  // in one of the alliance's workspaces (never the global directory), so a NON-global
+  // alliance_admin can seed members. The BE already excludes existing alliance members. Only
+  // fetches while the add dialog is open, and re-queries per search term (server-side).
+  const candidatesQuery = useAllianceMemberCandidates(numericId, userSearch, addOpen);
   const userOptions = useMemo(
     () =>
-      (usersQuery.data?.rows ?? [])
-        .filter((user) => !existingMemberIds.has(user.id))
-        .map((user) => ({ value: String(user.id), label: userOptionLabel(user) })),
-    [usersQuery.data?.rows, existingMemberIds]
+      (candidatesQuery.data ?? []).map((user) => ({
+        value: String(user.id),
+        label: userOptionLabel(user),
+      })),
+    [candidatesQuery.data]
   );
 
 
@@ -284,18 +280,18 @@ export const ConsoleMembers = () => {
                 value={selectedUserId}
                 onChange={setSelectedUserId}
                 options={userOptions}
-                // Search is server-side (platform directory); only update on real typing,
-                // not on blur/menu-close (which fire onInputChange with an empty value).
+                // Search is server-side (alliance-scoped candidates); only update on real
+                // typing, not on blur/menu-close (which fire onInputChange with an empty value).
                 onInputChange={(value, meta) => {
                   if (meta.action === 'input-change') {
                     setUserSearch(value);
                   }
                 }}
                 filterOption={null}
-                isLoading={usersQuery.isFetching}
+                isLoading={candidatesQuery.isFetching}
                 placeholder="Search by name or email…"
                 noOptionsMessage={() =>
-                  usersQuery.isFetching
+                  candidatesQuery.isFetching
                     ? 'Searching…'
                     : userSearch
                       ? 'No matching users'
