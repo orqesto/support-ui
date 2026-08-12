@@ -34,12 +34,17 @@ export type ConfluenceConfig = {
   syncIntervalMinutes?: number;
   // Page-tree picker (opt-in): sync ONLY these page ids; empty/absent = sync nothing.
   selectedPageIds?: string[];
+  // Native folder ids selected for RECURSIVE KB sync (all nested pages).
+  selectedFolderIds?: string[];
 };
+
+export type ConfluenceSpace = { id: string; key: string; name: string };
 
 export type ConfluencePageNode = {
   id: string;
   title: string;
   parentId: string | null;
+  parentType?: string | null;
   spaceKey: string;
   // KB state, populated only when listing by a saved integrationId (the live catalog).
   // `processed` = a documentation row exists for this page; `docId` is its id (used to
@@ -48,6 +53,16 @@ export type ConfluencePageNode = {
   docId?: number | null;
   status?: string | null;
   enabled?: boolean | null;
+  selected?: boolean;
+};
+
+export type ConfluenceFolderNode = {
+  id: string;
+  title: string;
+  parentId: string | null;
+  parentType?: string | null;
+  // True when this folder is in the workspace's persisted KB selection.
+  selected?: boolean;
 };
 
 export type TelegramConfig = {
@@ -335,15 +350,28 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
-  /** List a Confluence space's pages for the page-tree picker (by saved id, or a pre-save config). */
+  /** List the spaces the credentials (env service account or per-workspace) can access. */
+  listConfluenceSpaces: async (payload: {
+    integrationId?: number;
+    config?: { baseUrl: string; email: string; apiToken: string };
+  }): Promise<ApiResponse<{ spaces: ConfluenceSpace[]; mode: string; envConfigured: boolean }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { spaces: ConfluenceSpace[]; mode: string; envConfigured: boolean };
+    }>('/api/integrations/confluence/spaces', payload);
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  /** List a space's pages + folders for the browse-and-select picker (by saved id or config). */
   listConfluencePages: async (payload: {
     integrationId?: number;
     config?: { baseUrl: string; email: string; apiToken: string; spaceKeys: string[] };
-  }): Promise<ApiResponse<{ pages: ConfluencePageNode[] }>> => {
-    const response = await apiClient.post<{ success: boolean; data: { pages: ConfluencePageNode[] } }>(
-      '/api/integrations/confluence/pages',
-      payload
-    );
+    spaceKey?: string;
+  }): Promise<ApiResponse<{ pages: ConfluencePageNode[]; folders: ConfluenceFolderNode[] }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { pages: ConfluencePageNode[]; folders: ConfluenceFolderNode[] };
+    }>('/api/integrations/confluence/pages', payload);
     return { success: response.data.success, data: response.data.data };
   },
 
@@ -357,6 +385,34 @@ export const integrationsService = {
       data: { docId: number; title: string; status: string };
     }>(`/api/integrations/confluence/pages/${encodeURIComponent(pageId)}/process`, {
       integrationId,
+    });
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  /** Add a native folder to the KB selection and process it RECURSIVELY (all nested pages). */
+  processConfluenceFolder: async (
+    integrationId: number,
+    folderId: string
+  ): Promise<ApiResponse<{ queued: boolean; folderId: string }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { queued: boolean; folderId: string };
+    }>(`/api/integrations/confluence/folders/${encodeURIComponent(folderId)}/process`, {
+      integrationId,
+    });
+    return { success: response.data.success, data: response.data.data };
+  },
+
+  /** Remove a folder from the KB selection (stops future re-expansion; keeps ingested docs). */
+  removeConfluenceFolder: async (
+    integrationId: number,
+    folderId: string
+  ): Promise<ApiResponse<{ folderId: string; removed: boolean }>> => {
+    const response = await apiClient.delete<{
+      success: boolean;
+      data: { folderId: string; removed: boolean };
+    }>(`/api/integrations/confluence/folders/${encodeURIComponent(folderId)}`, {
+      data: { integrationId },
     });
     return { success: response.data.success, data: response.data.data };
   },
