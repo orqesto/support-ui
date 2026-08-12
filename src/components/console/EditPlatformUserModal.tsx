@@ -378,7 +378,10 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
           <Button
             onClick={handleSave}
             isLoading={savingProfile || updateRole.isPending}
-            disabled={!firstName.trim()}
+            // Include the pending flags in `disabled`: the DS Button computes
+            // `disabled ?? isLoading`, so an explicit boolean `disabled` shortcuts the
+            // isLoading fallback — without this the button stays clickable mid-save.
+            disabled={!firstName.trim() || savingProfile || updateRole.isPending}
           >
             Save changes
           </Button>
