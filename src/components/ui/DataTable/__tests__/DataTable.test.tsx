@@ -174,6 +174,23 @@ describe('DataTable', () => {
     expect(screen.queryByText('Carol')).not.toBeInTheDocument();
   });
 
+  it('renderCard renders a mobile card per visible row (alongside the desktop table)', () => {
+    render(
+      <DataTable
+        rows={rows}
+        rowKey={(row) => row.id}
+        columns={columns}
+        pagination={{ mode: 'client', pageSize: 2 }}
+        renderCard={(row) => <span>card-{row.name}</span>}
+      />
+    );
+    // One card per row on the current page (pageSize 2 → Alice, Bob).
+    expect(screen.getByText('card-Alice')).toBeInTheDocument();
+    expect(screen.getByText('card-Bob')).toBeInTheDocument();
+    // Rows on later pages aren't rendered as cards.
+    expect(screen.queryByText('card-Carol')).not.toBeInTheDocument();
+  });
+
   it('fires search.onBlur when the search box blurs', () => {
     const onBlur = vi.fn();
     render(
