@@ -25,9 +25,11 @@ import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { ScimTelemetryCard } from '@/components/console/ScimTelemetryCard';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import {
   useAllianceScimConfig,
+  useAllianceScimTelemetry,
   useSaveAllianceScimConfig,
   useAllianceScimTokens,
   useMintAllianceScimToken,
@@ -115,6 +117,7 @@ export const ConsoleProvisioning = () => {
   const numericId = allianceId ? Number(allianceId) : null;
 
   const configQuery = useAllianceScimConfig(numericId);
+  const telemetryQuery = useAllianceScimTelemetry(numericId);
   const saveConfig = useSaveAllianceScimConfig(numericId);
   const tokensQuery = useAllianceScimTokens(numericId);
   const mintToken = useMintAllianceScimToken(numericId);
@@ -319,6 +322,9 @@ export const ConsoleProvisioning = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* ─── Provisioning telemetry (read-only) ──────────────────────────── */}
+      {telemetryQuery.data && <ScimTelemetryCard telemetry={telemetryQuery.data} />}
 
       {/* ─── Bearer tokens ───────────────────────────────────────────────── */}
       <Card>

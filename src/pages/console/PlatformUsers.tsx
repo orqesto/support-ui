@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Ban, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -22,6 +23,8 @@ import {
   usePlatformUsers,
   useUpdatePlatformUserRole,
   useUserOrganizations,
+  useSuspendPlatformUser,
+  useReactivatePlatformUser,
 } from '@/hooks/usePlatformAdmin';
 import { useAuthStore } from '@/stores/authStore';
 import { userService } from '@/services/user.service';
@@ -36,10 +39,9 @@ import type { GlobalRole, PlatformUserRow } from '@/services/platform.service';
  */
 
 /**
- * The only mutation the platform backend exposes for a user is the GLOBAL role
- * (PATCH /api/admin/platform/users/:id/role, roles: admin | user). There is no
- * platform-scoped deactivate / suspend / delete / profile-edit endpoint, so no other
- * per-user action is offered here — a dead button would be worse than none.
+ * Per-user platform mutations: the GLOBAL role (PATCH .../users/:id/role) plus account
+ * suspension (POST .../users/:id/suspend|reactivate). Suspending revokes the user's
+ * sessions across the platform; the BE rejects suspending your own account (self-lockout).
  */
 const GLOBAL_ROLE_OPTIONS: { value: GlobalRole; label: string }[] = [
   { value: 'user', label: 'User' },
@@ -87,6 +89,9 @@ export const PlatformUsers = () => {
   const [editUser, setEditUser] = useState<PlatformUserRow | null>(null);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', position: '' });
   const [deleteUser, setDeleteUser] = useState<PlatformUserRow | null>(null);
+  const [suspendUser, setSuspendUser] = useState<PlatformUserRow | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [reactivateUser, setReactivateUser] = useState<PlatformUserRow | null>(null);
 
   const currentUserId = useAuthStore((state) => state.user?.id);
   const usersQuery = usePlatformUsers({
@@ -99,6 +104,8 @@ export const PlatformUsers = () => {
     verified: verifiedFilter === 'all' ? undefined : verifiedFilter,
   });
   const updateRole = useUpdatePlatformUserRole();
+  const suspendMutation = useSuspendPlatformUser();
+  const reactivateMutation = useReactivatePlatformUser();
   const pagination = usersQuery.data?.pagination;
   const rows = useMemo(() => usersQuery.data?.rows ?? [], [usersQuery.data?.rows]);
 
@@ -186,6 +193,42 @@ export const PlatformUsers = () => {
     );
   };
 
+  const openSuspend = (user: PlatformUserRow) => {
+    setSuspendReason('');
+    setSuspendUser(user);
+  };
+
+  const confirmSuspend = () => {
+    if (!suspendUser) {
+      return;
+    }
+    suspendMutation.mutate(
+      { id: suspendUser.id, reason: suspendReason.trim() || undefined },
+      {
+        onSuccess: () => {
+          toast.success(`${suspendUser.email} suspended`);
+          setSuspendUser(null);
+        },
+        onError: (error: unknown) =>
+          toast.error(error instanceof Error ? error.message : 'Could not suspend user'),
+      }
+    );
+  };
+
+  const confirmReactivate = () => {
+    if (!reactivateUser) {
+      return;
+    }
+    reactivateMutation.mutate(reactivateUser.id, {
+      onSuccess: () => {
+        toast.success(`${reactivateUser.email} reactivated`);
+        setReactivateUser(null);
+      },
+      onError: (error: unknown) =>
+        toast.error(error instanceof Error ? error.message : 'Could not reactivate user'),
+    });
+  };
+
   // Full-section loader as an early return, matching every other console page
   // (previously rendered inside the Card body, leaving the filters mounted).
   if (usersQuery.isLoading) {
@@ -203,7 +246,12 @@ export const PlatformUsers = () => {
     {
       id: 'name',
       header: 'Name',
-      cell: (row) => <span className="font-medium text-foreground">{fullName(row)}</span>,
+      cell: (row) => (
+        <span className="flex flex-wrap gap-2 items-center">
+          <span className="font-medium text-foreground">{fullName(row)}</span>
+          {row.disabledAt && <Badge variant="danger">Suspended</Badge>}
+        </span>
+      ),
     },
     {
       id: 'email',
@@ -298,6 +346,11 @@ export const PlatformUsers = () => {
 
   const rowActions = (row: PlatformUserRow) => {
     const caps = rowCaps(row);
+    // Self-lockout guard: the BE rejects suspending your own account (mirrors the
+    // global-role self-guard above). Reactivate has no self case (you can't be signed
+    // in while suspended), so it's offered whenever the row is disabled.
+    const isSelf = row.id === currentUserId;
+    const isSuspended = Boolean(row.disabledAt);
     return (
       <div className="flex gap-1 justify-end">
         {caps.canEdit && (
@@ -311,6 +364,31 @@ export const PlatformUsers = () => {
               <Pencil className="w-4 h-4" />
             </Button>
           </Tooltip>
+        )}
+        {isSuspended ? (
+          <Tooltip content={`Reactivate ${row.email}`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Reactivate ${row.email}`}
+              onClick={() => setReactivateUser(row)}
+            >
+              <RotateCcw className="w-4 h-4 text-green-600" />
+            </Button>
+          </Tooltip>
+        ) : (
+          !isSelf && (
+            <Tooltip content={`Suspend ${row.email}`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Suspend ${row.email}`}
+                onClick={() => openSuspend(row)}
+              >
+                <Ban className="w-4 h-4 text-destructive" />
+              </Button>
+            </Tooltip>
+          )
         )}
         {caps.canRemove && (
           <Tooltip content={`Delete ${row.email}'s account`}>
@@ -554,6 +632,67 @@ export const PlatformUsers = () => {
         confirmText="Delete account"
         title={`Delete ${deleteUser ? fullName(deleteUser) : 'this'} account?`}
         description={`This permanently deletes ${deleteUser?.email ?? 'this user'}'s account and removes them from ALL workspaces across the platform. This cannot be undone.`}
+      />
+
+      <Dialog
+        open={suspendUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSuspendUser(null);
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Suspend {suspendUser ? fullName(suspendUser) : 'user'}?</DialogTitle>
+        </DialogHeader>
+        <DialogContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This blocks {suspendUser?.email ?? 'this user'} from signing in and revokes their
+              active sessions across every workspace. You can reactivate them later.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="platform-suspend-reason">Reason (optional)</Label>
+              <Textarea
+                id="platform-suspend-reason"
+                value={suspendReason}
+                rows={3}
+                maxLength={500}
+                placeholder="e.g. Policy violation — pending review"
+                onChange={(event) => setSuspendReason(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Recorded on the audit trail. Up to 500 characters.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setSuspendUser(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmSuspend}
+                isLoading={suspendMutation.isPending}
+              >
+                Suspend
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={reactivateUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivateUser(null);
+          }
+        }}
+        onConfirm={confirmReactivate}
+        variant="warning"
+        confirmText="Reactivate"
+        title={`Reactivate ${reactivateUser ? fullName(reactivateUser) : 'this'} account?`}
+        description={`This restores ${reactivateUser?.email ?? 'this user'}'s access — they'll be able to sign in again.`}
       />
     </div>
   );

@@ -43,6 +43,12 @@ export type AllianceSsoConfigInput = {
   allowSsoAccountLinking: boolean;
 };
 
+/** One SSO connection preflight check (POST .../sso/test). */
+export type AllianceSsoCheck = { name: string; ok: boolean; message: string };
+
+/** Result of the SSO connection test — overall pass + a per-check breakdown. */
+export type AllianceSsoTestResult = { ok: boolean; checks: AllianceSsoCheck[] };
+
 /** A domain-verification row (raw BE shape — timestamps serialize as ISO strings). */
 export type AllianceDomain = {
   id: number;
@@ -73,6 +79,18 @@ export const allianceSsoService = {
     input: AllianceSsoConfigInput
   ): Promise<AllianceSsoConfig> => {
     const res = await apiClient.put<{ data: AllianceSsoConfig }>(`${base(allianceId)}/sso`, input);
+    return res.data.data;
+  },
+
+  /**
+   * Run a live preflight against the saved OIDC config (POST .../sso/test). Returns an
+   * overall `ok` plus per-check results (config present, issuer https, client id/secret
+   * set, OIDC discovery reachable). Does not change any state.
+   */
+  testSso: async (allianceId: number): Promise<AllianceSsoTestResult> => {
+    const res = await apiClient.post<{ data: AllianceSsoTestResult }>(
+      `${base(allianceId)}/sso/test`
+    );
     return res.data.data;
   },
 

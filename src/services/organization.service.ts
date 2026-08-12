@@ -27,6 +27,14 @@ export type Organization = ApiOrganization & {
    * is governed by the alliance console (LOCKED-6; the BE resolver is authoritative).
    */
   allianceId?: number | null;
+  /**
+   * The workspace's current plan, or null when it has no subscription. Attached only
+   * by the global-admin list endpoint (getAllOrganizations) — not in the generated
+   * contract, so optional here (absent on the single-org getCurrent/getById reads).
+   */
+  plan?: { name: string; displayName: string } | null;
+  /** Active member count. Attached only by the global-admin list endpoint. */
+  memberCount?: number;
 };
 
 export type { OrganizationMember };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Settings as SettingsIcon, AlertTriangle, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -9,10 +9,12 @@ import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/Dialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { useAuthStore } from '@/stores/authStore';
 import {
   useAllianceSettings,
   useUpdateAllianceSettings,
   useDetachAllOrgs,
+  useDeleteAlliance,
 } from '@/hooks/useAllianceSettings';
 
 /**
@@ -31,10 +33,17 @@ import {
 export const ConsoleSettings = () => {
   const { allianceId } = useParams();
   const numericId = allianceId ? Number(allianceId) : null;
+  const navigate = useNavigate();
+
+  // Deleting an alliance is a platform-tenancy action → global-admin only (the BE gates
+  // it on requireGlobalAdmin). An alliance_admin sees the detach-all danger zone but not
+  // delete — mirrors how ConsoleOrganizations gates attach/detach.
+  const isGlobalAdmin = useAuthStore((state) => state.user?.role === 'admin');
 
   const settingsQuery = useAllianceSettings(numericId);
   const updateSettings = useUpdateAllianceSettings(numericId);
   const detachAll = useDetachAllOrgs(numericId);
+  const deleteAlliance = useDeleteAlliance(numericId);
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -51,6 +60,10 @@ export const ConsoleSettings = () => {
   // Danger-zone typed-confirm gate.
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmSlug, setConfirmSlug] = useState('');
+
+  // Delete-alliance typed-confirm gate (type the alliance NAME to enable).
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   if (settingsQuery.isLoading) {
     return <ConsoleLoading />;
@@ -105,6 +118,27 @@ export const ConsoleSettings = () => {
     }
     detachAll.mutate(undefined, {
       onSuccess: () => setConfirmOpen(false),
+    });
+  };
+
+  const openDelete = () => {
+    setDeleteConfirmName('');
+    setDeleteOpen(true);
+  };
+
+  const deleteNameMatches = deleteConfirmName.trim() === settings.name;
+
+  const handleDeleteConfirm = () => {
+    if (!deleteNameMatches) {
+      return;
+    }
+    deleteAlliance.mutate(undefined, {
+      onSuccess: () => {
+        setDeleteOpen(false);
+        // The alliance is gone — leave the console. A global admin lands on the platform
+        // console; the alliance nav for this id would 404.
+        navigate('/console/platform');
+      },
     });
   };
 
@@ -198,6 +232,26 @@ export const ConsoleSettings = () => {
               Detach all workspaces
             </Button>
           </div>
+
+          {/* Delete the whole alliance — global-admin only (platform-tenancy action). */}
+          {isGlobalAdmin && (
+            <div className="flex flex-wrap gap-3 justify-between items-center pt-4 mt-4 border-t border-red-200 dark:border-red-900/50">
+              <p className="text-sm text-muted-foreground">
+                Delete <strong>{settings.name}</strong> entirely. All workspaces are detached first
+                (they survive), then the alliance and its shared identity, groups and provisioning
+                are removed.
+              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={openDelete}
+                disabled={deleteAlliance.isPending}
+              >
+                <Trash2 className="mr-2 w-4 h-4" />
+                Delete alliance
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -242,6 +296,52 @@ export const ConsoleSettings = () => {
             disabled={!confirmMatches || detachAll.isPending}
           >
             Detach all
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Delete-alliance typed-confirm — the confirm button stays disabled until the
+          typed name matches the alliance name exactly. */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogHeader>
+          <DialogTitle>Delete this alliance?</DialogTitle>
+        </DialogHeader>
+        <DialogContent className="space-y-3">
+          <Alert variant="danger">
+            <span className="text-sm">
+              This permanently deletes <strong>{settings.name}</strong>. Every workspace is detached
+              first — the workspaces, their data and their users all <strong>survive</strong> as
+              standalone workspaces — but the alliance and its shared identity (SSO), groups and
+              provisioning are removed. This cannot be undone. Type the alliance name{' '}
+              <code className="px-1 font-mono rounded bg-muted">{settings.name}</code> to confirm.
+            </span>
+          </Alert>
+          <div className="space-y-1">
+            <Label htmlFor="delete-confirm-name" className="mb-1">
+              Alliance name
+            </Label>
+            <Input
+              id="delete-confirm-name"
+              type="text"
+              value={deleteConfirmName}
+              onChange={(event) => setDeleteConfirmName(event.target.value)}
+              placeholder={settings.name}
+              autoComplete="off"
+            />
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDeleteConfirm}
+            isLoading={deleteAlliance.isPending}
+            disabled={!deleteNameMatches || deleteAlliance.isPending}
+          >
+            Delete alliance
           </Button>
         </DialogFooter>
       </Dialog>

@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, ScrollText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ReactSelect, type Option } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
@@ -12,8 +13,9 @@ import { Pagination } from '@/components/ui/Pagination';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
-import { useAllianceAudit } from '@/hooks/useAllianceAudit';
+import { useAllianceAudit, useAllianceAuditActions } from '@/hooks/useAllianceAudit';
 import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
+import { dateInputToIso } from '@/services/auditQueryParams';
 import type { AllianceAuditRow } from '@/services/alliance-audit.service';
 
 /**
@@ -76,37 +78,32 @@ export const ConsoleAudit = () => {
   const [page, setPage] = useState(1);
   const [action, setAction] = useState('');
   const [organizationId, setOrganizationId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  // Actor email is applied on commit (Enter / blur), not per keystroke.
+  const [actorEmailInput, setActorEmailInput] = useState('');
+  const [actorEmail, setActorEmail] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const orgsQuery = useAllianceOrgs(numericId);
+  const actionsQuery = useAllianceAuditActions(numericId);
 
   const auditQuery = useAllianceAudit(numericId, {
     page,
     pageSize: PAGE_SIZE,
     action: action || undefined,
     organizationId: organizationId ? Number(organizationId) : undefined,
+    dateFrom: dateInputToIso(dateFrom),
+    // Inclusive upper bound — push to end-of-day so a "to" date covers that whole day.
+    dateTo: dateInputToIso(dateTo, true),
+    actorEmail: actorEmail || undefined,
   });
 
   const pagination = auditQuery.data?.pagination;
 
-  // Accumulate a STABLE superset of the actions we've seen across pages so applying a
-  // filter (which narrows the rows to one action) doesn't collapse the option list.
-  // Still best-effort v1 — a dedicated distinct-actions endpoint would make it complete.
-  const [knownActions, setKnownActions] = useState<string[]>([]);
-  useEffect(() => {
-    const rows = auditQuery.data?.rows;
-    if (!rows) {
-      return;
-    }
-    setKnownActions((prev) => {
-      const merged = new Set(prev);
-      for (const row of rows) {
-        merged.add(row.action);
-      }
-      // The union only grows; a length match means nothing new was added.
-      return merged.size === prev.length ? prev : Array.from(merged).sort();
-    });
-  }, [auditQuery.data?.rows]);
+  // Distinct actions come from the dedicated per-alliance endpoint (the BE intersects
+  // with the alliance's org set), so the option list is complete, not page-derived.
+  const knownActions = actionsQuery.data ?? [];
 
   const workspaceOptions = useMemo<Option[]>(() => {
     const workspaces = orgsQuery.data ?? [];
@@ -139,16 +136,40 @@ export const ConsoleAudit = () => {
     );
   }
 
-  const handleActionChange = (next: string) => {
-    setAction(next);
+  // Any filter change collapses open rows and returns to page 1.
+  const resetForFilter = () => {
     setExpandedRows(new Set());
     setPage(1);
   };
 
+  const handleActionChange = (next: string) => {
+    setAction(next);
+    resetForFilter();
+  };
+
   const handleWorkspaceChange = (next: string) => {
     setOrganizationId(next);
-    setExpandedRows(new Set());
-    setPage(1);
+    resetForFilter();
+  };
+
+  const handleDateFromChange = (next: string) => {
+    setDateFrom(next);
+    resetForFilter();
+  };
+
+  const handleDateToChange = (next: string) => {
+    setDateTo(next);
+    resetForFilter();
+  };
+
+  // Commit the typed actor email (Enter or blur) into the applied filter.
+  const commitActorEmail = () => {
+    const next = actorEmailInput.trim();
+    if (next === actorEmail) {
+      return;
+    }
+    setActorEmail(next);
+    resetForFilter();
   };
 
   const handlePageChange = (next: number) => {
@@ -217,6 +238,48 @@ export const ConsoleAudit = () => {
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="min-w-[14rem]">
+              <Label htmlFor="audit-actor" className="mb-1">
+                Filter by actor email
+              </Label>
+              <Input
+                id="audit-actor"
+                type="search"
+                value={actorEmailInput}
+                placeholder="name@example.com"
+                onChange={(event) => setActorEmailInput(event.target.value)}
+                onBlur={commitActorEmail}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    commitActorEmail();
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="audit-date-from" className="mb-1">
+                From
+              </Label>
+              <Input
+                id="audit-date-from"
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(event) => handleDateFromChange(event.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="audit-date-to" className="mb-1">
+                To
+              </Label>
+              <Input
+                id="audit-date-to"
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(event) => handleDateToChange(event.target.value)}
+              />
             </div>
           </div>
 

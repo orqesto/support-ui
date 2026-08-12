@@ -31,6 +31,12 @@ export type DetachAllResult = {
   detachedOrgIds: number[];
 };
 
+/** delete-alliance result — the removed alliance id and the orgs it detached (they survive). */
+export type DeleteAllianceResult = {
+  deletedAllianceId: number;
+  detachedOrgIds: number[];
+};
+
 const base = (allianceId: number): string => `/api/alliances/${allianceId}`;
 
 export const allianceSettingsService = {
@@ -56,6 +62,16 @@ export const allianceSettingsService = {
       `${base(allianceId)}/settings/detach-all`,
       {}
     );
+    return res.data.data;
+  },
+
+  /**
+   * Danger zone — delete the alliance entirely (DELETE /api/alliances/:id). GLOBAL-ADMIN
+   * ONLY (the BE gates this on requireGlobalAdmin, not alliance_admin). Detaches all
+   * workspaces first (they survive), then removes the alliance and its owned rows.
+   */
+  deleteAlliance: async (allianceId: number): Promise<DeleteAllianceResult> => {
+    const res = await apiClient.delete<{ data: DeleteAllianceResult }>(`${base(allianceId)}`);
     return res.data.data;
   },
 };

@@ -29,6 +29,15 @@ export const useAllianceScimConfig = (allianceId: number | null) =>
     refetchOnWindowFocus: false,
   });
 
+/** Read-only provisioning telemetry (token/group counts + informational notes). */
+export const useAllianceScimTelemetry = (allianceId: number | null) =>
+  useQuery({
+    queryKey: ['alliance', allianceId, 'scim-telemetry'],
+    queryFn: () => allianceScimService.getTelemetry(allianceId as number),
+    enabled: allianceId !== null,
+    refetchOnWindowFocus: false,
+  });
+
 export const useSaveAllianceScimConfig = (allianceId: number | null) => {
   const queryClient = useQueryClient();
   return useMutation({

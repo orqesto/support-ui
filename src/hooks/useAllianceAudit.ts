@@ -3,6 +3,7 @@ import {
   allianceAuditService,
   type AllianceAuditListResult,
 } from '@/services/alliance-audit.service';
+import type { AuditQueryFilters } from '@/services/auditQueryParams';
 
 /**
  * React-query hook for the alliance Audit log (05-09). Keyed by allianceId + page
@@ -13,12 +14,7 @@ import {
  * page change.
  */
 
-export type AllianceAuditFilters = {
-  page: number;
-  pageSize: number;
-  action?: string;
-  organizationId?: number;
-};
+export type AllianceAuditFilters = AuditQueryFilters;
 
 export const useAllianceAudit = (allianceId: number | null, filters: AllianceAuditFilters) =>
   useQuery<AllianceAuditListResult>({
@@ -29,15 +25,22 @@ export const useAllianceAudit = (allianceId: number | null, filters: AllianceAud
       filters.page,
       filters.action ?? null,
       filters.organizationId ?? null,
+      filters.dateFrom ?? null,
+      filters.dateTo ?? null,
+      filters.actorEmail ?? null,
     ],
-    queryFn: () =>
-      allianceAuditService.listAudit(allianceId as number, {
-        page: filters.page,
-        pageSize: filters.pageSize,
-        action: filters.action,
-        organizationId: filters.organizationId,
-      }),
+    queryFn: () => allianceAuditService.listAudit(allianceId as number, filters),
     enabled: allianceId !== null,
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+
+/** Distinct audit actions for this alliance's action filter (replaces page-local derivation). */
+export const useAllianceAuditActions = (allianceId: number | null) =>
+  useQuery({
+    queryKey: ['alliance', allianceId, 'audit', 'actions'],
+    queryFn: () => allianceAuditService.listAuditActions(allianceId as number),
+    enabled: allianceId !== null,
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   });

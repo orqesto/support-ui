@@ -41,6 +41,24 @@ export const useUpdateAllianceSettings = (allianceId: number | null) => {
   });
 };
 
+/**
+ * Delete the alliance (global-admin only). On success the alliance no longer exists, so
+ * invalidate the caller's alliance list + the platform overview; the caller routes out of
+ * the console. A 409 (a workspace slipped back in via a concurrent attach) bubbles as a toast.
+ */
+export const useDeleteAlliance = (allianceId: number | null) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => allianceSettingsService.deleteAlliance(allianceId as number),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['alliance', 'mine'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+      toast.success('Alliance deleted');
+    },
+    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not delete alliance')),
+  });
+};
+
 export const useDetachAllOrgs = (allianceId: number | null) => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQueryParams';
 
 /**
  * Platform (global-admin) console service. Calls hit `/api/admin/platform/*` (the new
@@ -30,6 +31,22 @@ export type PlatformUserRow = {
   emailVerified: boolean;
   orgCount: number;
   createdAt: string;
+  /**
+   * Suspension state. NOTE: as of the wave-2 BE branch the users LIST endpoint does NOT
+   * return these — they arrive only on the suspend/reactivate mutation responses — so a
+   * suspended row's badge/Reactivate action won't persist across a refetch until the BE
+   * list also selects them. Kept optional so the UI is correct-by-construction once it does.
+   */
+  disabledAt?: string | null;
+  disabledReason?: string | null;
+};
+
+/** Response of the suspend/reactivate mutations (subset of the directory row). */
+export type PlatformUserSuspension = {
+  id: number;
+  email: string;
+  disabledAt: string | null;
+  disabledReason: string | null;
 };
 
 // ─── Audit (platform-wide) ───────────────────────────────────────────────────
@@ -71,12 +88,8 @@ export type ListUsersParams = {
   role?: 'admin' | 'user';
   verified?: 'verified' | 'unverified';
 };
-export type ListAuditParams = {
-  page: number;
-  pageSize: number;
-  action?: string;
-  organizationId?: number;
-};
+/** Audit list filters — server-side date range + actor-email + action + workspace. */
+export type ListAuditParams = AuditQueryFilters;
 
 // ─── System (existing global-admin ops surfaced under the console) ────────────
 export type QueueStatus = {
@@ -148,6 +161,30 @@ export type UpdatePlanInput = {
     maxMessagesPerMonth?: number;
     maxIntegrations?: number;
   };
+};
+
+export type PlanType = 'base' | 'bundle' | 'enterprise';
+
+/**
+ * Body accepted by POST /api/admin/plans (requireGlobalAdmin). `name` is the unique
+ * slug (^[a-z0-9-]+$); a duplicate returns 409. `limits` and `features` are required
+ * objects, but every key inside them is optional (an empty `features` is valid — a new
+ * plan starts with no features). `currency`/`billingInterval` are omitted here and
+ * default server-side to EUR / month.
+ */
+export type CreatePlanInput = {
+  name: string;
+  displayName: string;
+  planType: PlanType;
+  price: number; // cents
+  stripePriceId?: string;
+  limits: {
+    maxUsers?: number;
+    maxIntegrations?: number;
+    maxMessagesPerMonth?: number;
+  };
+  features: Record<string, boolean>;
+  isActive?: boolean;
 };
 
 // ─── Workspace departments (plan-budgeted lever) ─────────────────────────────
@@ -222,19 +259,40 @@ export const platformService = {
     return res.data.data;
   },
 
+  /**
+   * Suspend a user (POST .../users/:id/suspend, requireGlobalAdmin). Optional reason
+   * (≤500 chars). Revokes their sessions. The BE rejects self-suspend (403).
+   */
+  suspendUser: async (id: number, reason?: string): Promise<PlatformUserSuspension> => {
+    const trimmed = reason?.trim();
+    const res = await apiClient.post<{ data: PlatformUserSuspension }>(
+      `${PLATFORM}/users/${id}/suspend`,
+      trimmed ? { reason: trimmed } : {}
+    );
+    return res.data.data;
+  },
+
+  /** Reactivate a suspended user (POST .../users/:id/reactivate, requireGlobalAdmin). */
+  reactivateUser: async (id: number): Promise<PlatformUserSuspension> => {
+    const res = await apiClient.post<{ data: PlatformUserSuspension }>(
+      `${PLATFORM}/users/${id}/reactivate`,
+      {}
+    );
+    return res.data.data;
+  },
+
   listAudit: async (params: ListAuditParams): Promise<PlatformAuditResult> => {
     const res = await apiClient.get<{ data: PlatformAuditRow[]; pagination: PlatformPagination }>(
       `${PLATFORM}/audit`,
-      {
-        params: {
-          page: params.page,
-          pageSize: params.pageSize,
-          ...(params.action ? { action: params.action } : {}),
-          ...(params.organizationId ? { organizationId: params.organizationId } : {}),
-        },
-      }
+      { params: buildAuditQueryParams(params) }
     );
     return { rows: res.data.data, pagination: res.data.pagination };
+  },
+
+  /** Distinct audit action names (GET .../audit/actions, requireGlobalAdmin) → sorted string[]. */
+  listAuditActions: async (): Promise<string[]> => {
+    const res = await apiClient.get<{ data: string[] }>(`${PLATFORM}/audit/actions`);
+    return res.data.data ?? [];
   },
 
   /** Create a new alliance (POST /api/alliances, requireGlobalAdmin). */
@@ -268,6 +326,12 @@ export const platformService = {
   /** Edit a plan's displayName/price/limits (PATCH /api/admin/plans/:id, requireGlobalAdmin). */
   updatePlan: async (id: number, input: UpdatePlanInput): Promise<AdminPlan> => {
     const res = await apiClient.patch<{ data: AdminPlan }>(`${ADMIN}/plans/${id}`, input);
+    return res.data.data;
+  },
+
+  /** Create a new plan (POST /api/admin/plans, requireGlobalAdmin). 409 on duplicate name. */
+  createPlan: async (input: CreatePlanInput): Promise<AdminPlan> => {
+    const res = await apiClient.post<{ data: AdminPlan }>(`${ADMIN}/plans`, input);
     return res.data.data;
   },
 

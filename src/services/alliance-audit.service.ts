@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQueryParams';
 
 /**
  * Thin API layer for the alliance Audit log (05-09, OQ4 v1 = a filtered READ over
@@ -36,13 +37,12 @@ export type AllianceAuditPagination = {
   hasMore: boolean;
 };
 
-/** Query filters — the org filter is INTERSECTED with the alliance's org set by the BE. */
-export type ListAuditParams = {
-  page: number;
-  pageSize: number;
-  action?: string;
-  organizationId?: number;
-};
+/**
+ * Query filters — server-side date range + actor-email + action + workspace. The org
+ * filter is INTERSECTED with the alliance's org set by the BE (a foreign id can only
+ * narrow the read, never leak another alliance's trail).
+ */
+export type ListAuditParams = AuditQueryFilters;
 
 /** `listAudit` result — rows + the top-level pagination block. */
 export type AllianceAuditListResult = {
@@ -60,14 +60,13 @@ export const allianceAuditService = {
     const res = await apiClient.get<{
       data: AllianceAuditRow[];
       pagination: AllianceAuditPagination;
-    }>(`${base(allianceId)}/audit`, {
-      params: {
-        page: params.page,
-        pageSize: params.pageSize,
-        ...(params.action ? { action: params.action } : {}),
-        ...(params.organizationId ? { organizationId: params.organizationId } : {}),
-      },
-    });
+    }>(`${base(allianceId)}/audit`, { params: buildAuditQueryParams(params) });
     return { rows: res.data.data, pagination: res.data.pagination };
+  },
+
+  /** Distinct audit action names for this alliance (GET .../audit/actions) → string[]. */
+  listAuditActions: async (allianceId: number): Promise<string[]> => {
+    const res = await apiClient.get<{ data: string[] }>(`${base(allianceId)}/audit/actions`);
+    return res.data.data ?? [];
   },
 };

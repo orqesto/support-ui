@@ -14,6 +14,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
+import { formatMemberCount, formatPlanLabel } from '@/pages/console/platformOrganizations.format';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { organizationService } from '@/services/organization.service';
@@ -227,6 +228,26 @@ export const PlatformOrganizations = () => {
       id: 'slug',
       header: 'Slug',
       cell: (org) => <code className="text-sm text-muted-foreground">{org.slug}</code>,
+    },
+    {
+      id: 'plan',
+      header: 'Plan',
+      cell: (org) =>
+        org.plan ? (
+          <Badge variant="secondary">{formatPlanLabel(org.plan)}</Badge>
+        ) : (
+          <span className="text-sm text-muted-foreground">{formatPlanLabel(org.plan)}</span>
+        ),
+    },
+    {
+      id: 'members',
+      header: 'Members',
+      align: 'right',
+      cell: (org) => (
+        <span className="text-sm whitespace-nowrap text-muted-foreground">
+          {formatMemberCount(org.memberCount)}
+        </span>
+      ),
     },
     {
       id: 'status',
