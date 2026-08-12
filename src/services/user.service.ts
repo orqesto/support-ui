@@ -69,9 +69,16 @@ export const userService = {
     return response.data.data as User;
   },
 
-  // Delete user
-  delete: async (id: number): Promise<void> => {
-    await apiClient.delete(`/api/users/${id}`);
+  // Delete user. `scope: 'global'` requests a full account delete across ALL workspaces
+  // (platform console). Omitting it removes only the current workspace's membership for a
+  // multi-workspace user — the safe default. Mirrors BE userController.deleteUser (#270):
+  // without ?scope=global a multi-workspace delete is scoped, so the platform "Delete
+  // account" action MUST pass scope:'global' to actually delete the account.
+  delete: async (id: number, opts?: { scope?: 'global' }): Promise<void> => {
+    await apiClient.delete(
+      `/api/users/${id}`,
+      opts?.scope ? { params: { scope: opts.scope } } : undefined
+    );
   },
 
   // Skill values (structured key→value routing skills) — admin access by user ID
