@@ -42,9 +42,10 @@ export const userService = {
   // Global-admin only — GET /api/users/:id/organizations (requireGlobalAdmin).
   getUserOrganizations: async (
     id: number
-  ): Promise<{ id: number; name: string; role: string }[]> => {
-    const response: AxiosResponse<ApiResponse<{ id: number; name: string; role: string }[]>> =
-      await apiClient.get(`/api/users/${id}/organizations`);
+  ): Promise<{ id: number; name: string; role: string; departmentIds: number[] }[]> => {
+    const response: AxiosResponse<
+      ApiResponse<{ id: number; name: string; role: string; departmentIds: number[] }[]>
+    > = await apiClient.get(`/api/users/${id}/organizations`);
     return response.data.data ?? [];
   },
 

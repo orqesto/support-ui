@@ -336,6 +336,7 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
                       orgId={org.id}
                       orgName={org.name}
                       currentRole={org.role}
+                      currentDepartmentIds={org.departmentIds}
                       userId={user.id}
                       userEmail={user.email}
                       onChanged={refreshMemberships}

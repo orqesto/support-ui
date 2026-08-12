@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Building2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,9 @@ type Props = {
   orgName: string;
   /** The member's current workspace role (from useUserOrganizations — a plain string). */
   currentRole: string;
+  /** The member's current departments in THIS workspace — seeds the department toggles so a
+   *  full-set PATCH preserves existing departments instead of dropping them. */
+  currentDepartmentIds: number[];
   userId: number;
   userEmail: string;
   /** Invalidate the platform-users + user-orgs caches after a mutation so the list refreshes. */
@@ -27,15 +30,16 @@ type Props = {
  * own department query (lazy, keyed by orgId) so hooks stay at component scope rather than in
  * a map callback.
  *
- * Department seeding limitation: useUserOrganizations returns only {id,name,role} — it does
- * NOT carry the member's current departmentIds — so the department toggles start unselected.
- * Toggling one PATCHes the full selected set via setMemberDepartments (a set, not a diff), so
- * an admin assigns departments here explicitly rather than editing a pre-seeded list.
+ * Departments are seeded from the member's current departmentIds (returned per membership by
+ * GET /api/users/:id/organizations), so toggling PATCHes the full set WITH the existing ones
+ * preserved. `setMemberDepartments` takes the complete set (not a diff); each toggle saves and
+ * the parent refetch re-syncs the seed to the persisted state.
  */
 export const WorkspaceMembershipRow = ({
   orgId,
   orgName,
   currentRole,
+  currentDepartmentIds,
   userId,
   userEmail,
   onChanged,
@@ -43,7 +47,15 @@ export const WorkspaceMembershipRow = ({
   const [role, setRole] = useState<string>(currentRole);
   const [savingRole, setSavingRole] = useState(false);
   const [deptOpen, setDeptOpen] = useState(false);
-  const [selectedDeptIds, setSelectedDeptIds] = useState<Set<number>>(new Set());
+  const [selectedDeptIds, setSelectedDeptIds] = useState<Set<number>>(
+    () => new Set(currentDepartmentIds)
+  );
+
+  // Re-sync when the persisted set changes (after a save's refetch). react-query's structural
+  // sharing keeps the array reference stable when unchanged, so this doesn't thrash.
+  useEffect(() => {
+    setSelectedDeptIds(new Set(currentDepartmentIds));
+  }, [currentDepartmentIds]);
   const [savingDeptId, setSavingDeptId] = useState<number | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
 
@@ -167,10 +179,6 @@ export const WorkspaceMembershipRow = ({
                     </li>
                   ))}
                 </ul>
-                <p className="pt-2 text-xs text-muted-foreground">
-                  Toggles start unselected — the directory doesn&apos;t report a member&apos;s
-                  current departments, so set the full list here.
-                </p>
               </>
             )}
           </div>
