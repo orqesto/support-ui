@@ -29,11 +29,14 @@ export function DataTable<Row>({
   empty,
   className,
   actionsLabel = 'Actions',
+  renderEditRow,
+  resetPageKey,
 }: DataTableProps<Row>) {
   const [clientPage, setClientPage] = useState(1);
   const isClient = pagination.mode === 'client';
   const clientFilterActive = Boolean(search?.clientAccessor);
   const term = (search?.value ?? '').trim().toLowerCase();
+  const columnCount = columns.length + (actions ? 1 : 0);
 
   // Client-side filtering (only when a clientAccessor is provided; server search leaves
   // `rows` as the already-filtered page).
@@ -52,6 +55,14 @@ export function DataTable<Row>({
       setClientPage(1);
     }
   }, [term, isClient, clientFilterActive]);
+
+  // Reset to page 1 when an EXTERNAL filter changes (the page narrows `rows` before passing
+  // them in, so the table can't see that filter the way it sees its own search term).
+  useEffect(() => {
+    if (isClient) {
+      setClientPage(1);
+    }
+  }, [resetPageKey, isClient]);
 
   const pageSize = isClient ? pagination.pageSize : pagination.limit;
   const totalItems = isClient ? filtered.length : pagination.total;
@@ -80,6 +91,7 @@ export function DataTable<Row>({
               value={search.value}
               onChange={search.onChange}
               onSearch={search.onCommit}
+              onBlur={search.onBlur}
               showSearchButton={search.showButton}
               placeholder={search.placeholder}
               className="w-full sm:w-auto sm:min-w-[280px]"
@@ -137,23 +149,36 @@ export function DataTable<Row>({
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((row) => (
-                <tr key={rowKey(row)} className="border-t border-border align-top">
-                  {columns.map((col) => (
-                    <td
-                      key={col.id}
-                      className={cn('px-3 py-2', col.align === 'right' && 'text-right', col.cellClassName)}
-                    >
-                      {col.cell(row)}
-                    </td>
-                  ))}
-                  {actions && (
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end">{actions(row)}</div>
-                    </td>
-                  )}
-                </tr>
-              ))}
+              {pageRows.map((row) => {
+                const editNode = renderEditRow?.(row);
+                if (editNode !== undefined && editNode !== null && editNode !== false) {
+                  // Inline edit: this row becomes one full-width cell holding the edit form.
+                  return (
+                    <tr key={rowKey(row)} className="border-t border-border bg-primary/5">
+                      <td colSpan={columnCount} className="px-3 py-2">
+                        {editNode}
+                      </td>
+                    </tr>
+                  );
+                }
+                return (
+                  <tr key={rowKey(row)} className="border-t border-border align-top">
+                    {columns.map((col) => (
+                      <td
+                        key={col.id}
+                        className={cn('px-3 py-2', col.align === 'right' && 'text-right', col.cellClassName)}
+                      >
+                        {col.cell(row)}
+                      </td>
+                    ))}
+                    {actions && (
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end">{actions(row)}</div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

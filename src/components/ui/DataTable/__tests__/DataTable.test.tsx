@@ -126,4 +126,66 @@ describe('DataTable', () => {
     );
     expect(screen.getByText('act-1')).toBeInTheDocument();
   });
+
+  it('renderEditRow replaces a row with a full-width edit cell (inline edit)', () => {
+    render(
+      <DataTable
+        rows={rows.slice(0, 2)}
+        rowKey={(row) => row.id}
+        columns={columns}
+        pagination={{ mode: 'client', pageSize: 10 }}
+        renderEditRow={(row) => (row.id === 2 ? <span>editing-{row.id}</span> : null)}
+      />
+    );
+    // Editing row shows the edit node instead of its normal cells…
+    expect(screen.getByText('editing-2')).toBeInTheDocument();
+    expect(screen.queryByText('bob@x.com')).not.toBeInTheDocument();
+    // …while other rows render normally.
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('alice@x.com')).toBeInTheDocument();
+  });
+
+  it('resetPageKey snaps the client page back to 1 when an external filter changes', () => {
+    const { rerender } = render(
+      <DataTable
+        rows={rows}
+        rowKey={(row) => row.id}
+        columns={columns}
+        pagination={{ mode: 'client', pageSize: 2 }}
+        resetPageKey="all"
+      />
+    );
+    // Go to page 2 (Carol, Dave).
+    fireEvent.click(screen.getAllByRole('button', { name: /next/i })[0]);
+    expect(screen.getByText('Carol')).toBeInTheDocument();
+    expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+
+    // Changing the external filter key resets to page 1.
+    rerender(
+      <DataTable
+        rows={rows}
+        rowKey={(row) => row.id}
+        columns={columns}
+        pagination={{ mode: 'client', pageSize: 2 }}
+        resetPageKey="active"
+      />
+    );
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.queryByText('Carol')).not.toBeInTheDocument();
+  });
+
+  it('fires search.onBlur when the search box blurs', () => {
+    const onBlur = vi.fn();
+    render(
+      <DataTable
+        rows={rows}
+        rowKey={(row) => row.id}
+        columns={columns}
+        pagination={{ mode: 'client', pageSize: 10 }}
+        search={{ value: '', onChange: () => {}, onBlur, placeholder: 'Search' }}
+      />
+    );
+    fireEvent.blur(screen.getByRole('textbox'));
+    expect(onBlur).toHaveBeenCalledOnce();
+  });
 });
