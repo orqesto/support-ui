@@ -92,6 +92,17 @@ export type QueueStatus = {
   queues: { name: string; waiting: number; active: number; completed: number; failed: number; total: number }[];
 };
 
+export type QueueFailedJob = {
+  id: string | null;
+  name: string;
+  failedReason: string | null;
+  stacktrace: string[];
+  attemptsMade: number;
+  enqueuedAt: number | null;
+  failedAt: number | null;
+  organizationId: number | null;
+};
+
 export type SyncCheckpoint = {
   id: number;
   organizationId: number;
@@ -226,6 +237,13 @@ export const platformService = {
   getQueueStatus: async (): Promise<QueueStatus> => {
     const res = await apiClient.get<{ data: QueueStatus }>(`${ADMIN}/queue-status`);
     return res.data.data;
+  },
+
+  getQueueFailedJobs: async (name: string, limit = 20): Promise<QueueFailedJob[]> => {
+    const res = await apiClient.get<{ data: { failed: QueueFailedJob[] } }>(
+      `${ADMIN}/queues/${encodeURIComponent(name)}/failed?limit=${limit}`
+    );
+    return res.data.data.failed;
   },
 
   getSyncCheckpoints: async (): Promise<SyncCheckpoint[]> => {

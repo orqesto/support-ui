@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { licenseService } from '@/services/license.service';
+import { platformService } from '@/services/platform.service';
 import {
   usePlatformQueueStatus,
   usePlatformSyncCheckpoints,
@@ -52,6 +54,15 @@ export const PlatformSystem = () => {
   const clearCheckpoints = useClearSyncCheckpoints();
 
   const [confirm, setConfirm] = useState<null | 'clear-checkpoints'>(null);
+
+  // Failed-jobs drill-down: clicking a queue's failed count loads the actual errors.
+  const [failedQueue, setFailedQueue] = useState<string | null>(null);
+  const failedJobsQuery = useQuery({
+    queryKey: ['platform', 'queue-failed', failedQueue],
+    queryFn: () => platformService.getQueueFailedJobs(failedQueue as string),
+    enabled: !!failedQueue,
+    refetchOnWindowFocus: false,
+  });
 
   const handleClearCheckpoints = async () => {
     try {
@@ -178,7 +189,15 @@ export const PlatformSystem = () => {
                         <td className="px-3 py-2 text-muted-foreground">{queue.completed}</td>
                         <td className="px-3 py-2">
                           {queue.failed > 0 ? (
-                            <Badge variant="danger">{queue.failed}</Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-0 h-auto"
+                              onClick={() => setFailedQueue(queue.name)}
+                              title="View the failure reason for each failed job"
+                            >
+                              <Badge variant="danger">{queue.failed}</Badge>
+                            </Button>
                           ) : (
                             <span className="text-muted-foreground">0</span>
                           )}
@@ -237,6 +256,51 @@ export const PlatformSystem = () => {
         title="Clear all sync checkpoints?"
         description="Every source will re-sync from scratch on its next poll. This can cause a burst of reprocessing."
       />
+
+      <Dialog open={!!failedQueue} onOpenChange={(open) => !open && setFailedQueue(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Failed jobs — {failedQueue}</DialogTitle>
+            <DialogClose onClose={() => setFailedQueue(null)} />
+          </DialogHeader>
+          {failedJobsQuery.isLoading ? (
+            <div className="flex justify-center py-8">
+              <Spinner />
+            </div>
+          ) : failedJobsQuery.isError ? (
+            <p className="py-4 text-sm text-red-600 dark:text-red-400">
+              Could not load failed jobs. Please try again.
+            </p>
+          ) : (failedJobsQuery.data ?? []).length === 0 ? (
+            <p className="py-4 text-sm text-muted-foreground">No failed jobs found.</p>
+          ) : (
+            <ul className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {(failedJobsQuery.data ?? []).map((job) => (
+                <li key={job.id ?? job.name} className="rounded-lg border border-border p-3">
+                  <div className="flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
+                    <span>
+                      #{job.id ?? '?'} · {job.name} · attempt {job.attemptsMade}
+                      {job.organizationId ? ` · org ${job.organizationId}` : ''}
+                    </span>
+                    {job.failedAt ? <span>{formatDate(new Date(job.failedAt).toISOString())}</span> : null}
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-red-600 break-words dark:text-red-400">
+                    {job.failedReason ?? 'Unknown error'}
+                  </p>
+                  {job.stacktrace.length > 0 ? (
+                    <details className="mt-1">
+                      <summary className="text-xs cursor-pointer text-muted-foreground">Stacktrace</summary>
+                      <pre className="mt-1 text-xs whitespace-pre-wrap overflow-x-auto">
+                        {job.stacktrace.join('\n')}
+                      </pre>
+                    </details>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
