@@ -94,6 +94,11 @@ const AdminShell = lazy(() =>
 const WorkspaceShell = lazy(() =>
   import('./components/console/WorkspaceShell').then((mod) => ({ default: mod.WorkspaceShell }))
 );
+const WorkspaceDepartmentsPage = lazy(() =>
+  import('./pages/console/WorkspaceDepartmentsPage').then((mod) => ({
+    default: mod.WorkspaceDepartmentsPage,
+  }))
+);
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-screen bg-background">
@@ -466,6 +471,16 @@ const AppRoutes = () => {
           element={
             <Suspense fallback={<LoadingFallback />}>
               <OrganizationPage embedded />
+            </Suspense>
+          }
+        />
+        {/* Plan-budgeted departments lever — global-admin only (the BE endpoints are
+            requireGlobalAdmin; the nav link is hidden for alliance_admins). */}
+        <Route
+          path="departments"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <WorkspaceDepartmentsPage />
             </Suspense>
           }
         />

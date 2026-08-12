@@ -12,6 +12,8 @@ vi.mock('@/lib/messageHelpers', () => ({
   getSpamCheck: vi.fn().mockReturnValue(null),
   getFilteredCategoryLabel: vi.fn().mockReturnValue(null),
   humanizeSignalFlag: vi.fn().mockReturnValue(''),
+  // Added by the per-user read/unread triage work (MessageListItem:116).
+  isTriageMessage: vi.fn().mockReturnValue(false),
   // Added by ffb9f3c (URL writers prefer publicId) — mock returns the raw id.
   formatConvId: (msg: { id: number; publicId?: string | null }) =>
     msg.publicId ?? `#${msg.id}`,
