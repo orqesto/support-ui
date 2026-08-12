@@ -131,7 +131,10 @@ export const PlatformUsers = () => {
       toast.error(error instanceof Error ? error.message : 'Could not update profile'),
   });
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => userService.delete(id),
+    // Platform console "Delete account" = full global delete across ALL workspaces
+    // (the dialog says so). Must pass scope:'global' or BE #270 scopes a multi-workspace
+    // user to just the current workspace's membership. Workspace UsersPage stays unscoped.
+    mutationFn: (id: number) => userService.delete(id, { scope: 'global' }),
     onSuccess: () => {
       invalidateUsers();
       toast.success('Account deleted');
