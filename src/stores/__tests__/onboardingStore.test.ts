@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Type-only (erased at runtime, so it does not defeat vi.resetModules below).
+import type { useOnboardingStore as UseOnboardingStoreHook } from '../onboardingStore';
 
 const getStatusMock = vi.fn<() => Promise<unknown>>();
 
@@ -12,19 +14,25 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
-import { useOnboardingStore } from '../onboardingStore';
+let useOnboardingStore: typeof UseOnboardingStoreHook;
 
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+// Drain pending microtasks AND the store's retry-backoff timers. Under fake
+// timers this settles resolved fetches and advances the fail-open retry ladder.
+const flush = () => vi.runAllTimersAsync();
 
 describe('onboardingStore', () => {
-  beforeEach(() => {
-    useOnboardingStore.setState({
-      status: 'unknown',
-      onboarding: null,
-      trial: null,
-      fetchedForOrg: null,
-    });
+  beforeEach(async () => {
+    // Re-import for a fresh module so the store's module-level `inFlightForOrg`
+    // guard resets between tests — otherwise a fetch left in flight (e.g. the
+    // fail-open retry ladder) leaks its org and poisons the next test's guard.
+    vi.resetModules();
+    vi.useFakeTimers();
     getStatusMock.mockReset();
+    ({ useOnboardingStore } = await import('../onboardingStore'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('derives pending from an incomplete status payload', async () => {
