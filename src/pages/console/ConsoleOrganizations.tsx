@@ -7,12 +7,11 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Select } from '@/components/ui/Select';
-import { SearchInput } from '@/components/ui/SearchInput';
-import { Pagination } from '@/components/ui/Pagination';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Spinner } from '@/components/ui/Spinner';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
@@ -32,7 +31,8 @@ import type { AllianceOrg } from '@/services/alliance-admin.service';
  * shell), and — FOR A GLOBAL ADMIN ONLY — attach a standalone workspace to this alliance or
  * detach one (both are platform-tenancy actions; the BE gates them on requireGlobalAdmin). An
  * alliance_admin gets view + Manage but neither attach nor detach. The same attach is also
- * reachable from Platform console → Workspaces. The list is searched + paginated client-side.
+ * reachable from Platform console → Workspaces. The list (search + status filter + pagination)
+ * runs client-side via the shared DataTable.
  */
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -50,7 +50,6 @@ export const ConsoleOrganizations = () => {
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [page, setPage] = useState(1);
 
   const detachMutation = useDetachOrg(numericId);
   // Attach picker is only opened by a global admin (the button is gated), and only fetches
@@ -65,8 +64,9 @@ export const ConsoleOrganizations = () => {
     [attachable]
   );
 
-  // Client-side search (name + slug, case-insensitive) plus a status filter, both
-  // applied over the already-fetched list.
+  // Client-side search (name + slug, case-insensitive) plus a status filter, both applied
+  // over the already-fetched list. DataTable paginates the result; `resetPageKey` snaps it
+  // back to page 1 whenever either filter changes.
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return (orgs ?? []).filter((org) => {
@@ -80,25 +80,6 @@ export const ConsoleOrganizations = () => {
       return matchesTerm && matchesStatus;
     });
   }, [orgs, query, statusFilter]);
-
-  // Clamp the page against the filtered result so search never strands the user
-  // on an out-of-range page.
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = useMemo(
-    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [filtered, currentPage]
-  );
-
-  const handleSearchChange = (value: string) => {
-    setQuery(value);
-    setPage(1);
-  };
-
-  const handleStatusChange = (value: StatusFilter) => {
-    setStatusFilter(value);
-    setPage(1);
-  };
 
   // Drop into the per-workspace WorkspaceShell (same target as the platform
   // workspaces list). The shell sets org context + clears scope on mount. Pass `from` so the
@@ -154,6 +135,51 @@ export const ConsoleOrganizations = () => {
     );
   }
 
+  const columns: ColumnDef<AllianceOrg>[] = [
+    {
+      id: 'workspace',
+      header: 'Workspace',
+      cell: (org) => (
+        <div>
+          <div className="font-medium text-foreground">{org.name}</div>
+          <div className="text-xs text-muted-foreground">/{org.slug}</div>
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (org) => (
+        <Badge variant={org.active ? 'success' : 'secondary'}>
+          {org.active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      id: 'members',
+      header: 'Members',
+      align: 'right',
+      cell: (org) => <span className="text-foreground">{org.memberCount}</span>,
+    },
+  ];
+
+  const rowActions = (org: AllianceOrg) => (
+    <div className="flex gap-1 justify-end">
+      <Tooltip content={`Manage ${org.name}`}>
+        <Button variant="ghost" onClick={() => handleManage(org)} aria-label={`Manage ${org.name}`}>
+          <Settings className="w-4 h-4" />
+        </Button>
+      </Tooltip>
+      {isGlobalAdmin && (
+        <Tooltip content={`Detach ${org.name} from this alliance`}>
+          <Button variant="ghost" onClick={() => setDetachTarget(org)} aria-label={`Detach ${org.name}`}>
+            <Unlink className="w-4 h-4" />
+          </Button>
+        </Tooltip>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
@@ -183,102 +209,42 @@ export const ConsoleOrganizations = () => {
       ) : (
         <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
           <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
-            <div className="flex flex-col flex-shrink-0 gap-3 px-4 py-3 border-b sm:flex-row sm:justify-between sm:items-center border-border">
-              <p className="text-sm text-muted-foreground">
-                {filtered.length} of {orgs.length} workspace{orgs.length === 1 ? '' : 's'}
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Select
-                  aria-label="Filter workspaces by status"
-                  value={statusFilter}
-                  onChange={(event) => handleStatusChange(event.target.value as StatusFilter)}
-                  className="w-full sm:w-auto"
-                >
-                  <option value="all">All statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </Select>
-                <SearchInput
-                  value={query}
-                  onChange={handleSearchChange}
-                  placeholder="Search workspaces by name or slug…"
-                  className="w-full sm:w-auto sm:min-w-[280px]"
-                />
-              </div>
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="flex flex-1 justify-center items-center px-4 py-10 min-h-0 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No workspaces match the current search or status filter.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-y-auto flex-1 min-h-0">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="px-4 py-2 font-medium text-left">Workspace</th>
-                      <th className="px-4 py-2 font-medium text-left">Status</th>
-                      <th className="px-4 py-2 font-medium text-right">Members</th>
-                      <th className="px-4 py-2 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageItems.map((org) => (
-                      <tr key={org.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-2">
-                          <div className="font-medium text-foreground">{org.name}</div>
-                          <div className="text-xs text-muted-foreground">/{org.slug}</div>
-                        </td>
-                        <td className="px-4 py-2">
-                          <Badge variant={org.active ? 'success' : 'secondary'}>
-                            {org.active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-2 text-right text-foreground">{org.memberCount}</td>
-                        <td className="px-4 py-2 text-right">
-                          <div className="flex gap-1 justify-end">
-                          <Tooltip content={`Manage ${org.name}`}>
-                            <Button
-                              variant="ghost"
-                              onClick={() => handleManage(org)}
-                              aria-label={`Manage ${org.name}`}
-                            >
-                              <Settings className="w-4 h-4" />
-                            </Button>
-                          </Tooltip>
-                          {isGlobalAdmin && (
-                            <Tooltip content={`Detach ${org.name} from this alliance`}>
-                              <Button
-                                variant="ghost"
-                                onClick={() => setDetachTarget(org)}
-                                aria-label={`Detach ${org.name}`}
-                              >
-                                <Unlink className="w-4 h-4" />
-                              </Button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {filtered.length > PAGE_SIZE && (
-              <div className="flex-shrink-0">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  total={filtered.length}
-                  limit={PAGE_SIZE}
-                  onPageChange={setPage}
-                />
-              </div>
-            )}
+            <DataTable
+              rows={filtered}
+              rowKey={(org) => org.id}
+              columns={columns}
+              actions={rowActions}
+              toolbarStart={
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {filtered.length} of {orgs.length} workspace{orgs.length === 1 ? '' : 's'}
+                  </p>
+                  <div className="w-full sm:w-44">
+                    <Select
+                      aria-label="Filter workspaces by status"
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </Select>
+                  </div>
+                </>
+              }
+              search={{
+                value: query,
+                onChange: setQuery,
+                placeholder: 'Search workspaces by name or slug…',
+              }}
+              pagination={{ mode: 'client', pageSize: PAGE_SIZE }}
+              resetPageKey={`${statusFilter}:${query}`}
+              empty={{
+                icon: Building2,
+                message: 'No workspaces match the current search or status filter.',
+                filteredMessage: 'No workspaces match the current search or status filter.',
+              }}
+            />
           </CardContent>
         </Card>
       )}

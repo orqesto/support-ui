@@ -33,6 +33,8 @@ export type DataTableSearch<Row> = {
   /** Server-committed UX (commit on Enter / button) vs live (default). */
   showButton?: boolean;
   onCommit?: () => void;
+  /** Fires when the search box blurs — e.g. to clear a committed empty query. */
+  onBlur?: () => void;
   /** Set ⇒ client-side filtering over these fields (case-insensitive substring). */
   clientAccessor?: (row: Row) => Array<string | null | undefined>;
 };
@@ -71,4 +73,18 @@ export type DataTableProps<Row> = {
   className?: string;
   /** Accessible label for the trailing actions column header (visually hidden). */
   actionsLabel?: string;
+  /**
+   * Opt-in inline edit: when this returns a node for a row, that row renders as a single
+   * full-width cell holding the node instead of its normal columns (PlatformOrganizations'
+   * edit-in-row). Return null/undefined/false to render the row normally.
+   */
+  renderEditRow?: (row: Row) => ReactNode;
+  /**
+   * Client mode only: changing this value resets the internal page to 1. Use it when an
+   * EXTERNAL filter (e.g. a status `Select`) narrows `rows` — the table resets its page on
+   * a search-term change on its own, but can't see a filter the page applied before passing
+   * `rows` in. Pass a key that changes with that filter (e.g. the filter value, or a
+   * composite `` `${status}:${query}` ``).
+   */
+  resetPageKey?: string | number;
 };
