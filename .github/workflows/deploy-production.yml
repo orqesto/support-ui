@@ -46,8 +46,8 @@ jobs:
             echo "DEPLOY_PATH=/var/www/frontend" >> $GITHUB_OUTPUT
             echo "NGINX_CONF=app.odly.ai" >> $GITHUB_OUTPUT
             echo "ENV_LABEL=PRODUCTION" >> $GITHUB_OUTPUT
-            # Alliance console GO-LIVE: on in production for non-global alliance_admins.
-            echo "VITE_ALLIANCE_CONSOLE=true" >> $GITHUB_OUTPUT
+            # Alliance console stays OFF in production until we flip this to true (go-live).
+            echo "VITE_ALLIANCE_CONSOLE=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout code
