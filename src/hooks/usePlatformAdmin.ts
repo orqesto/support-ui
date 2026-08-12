@@ -1,5 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { platformService, type UpdatePlanInput } from '@/services/platform.service';
+import {
+  platformService,
+  type CreatePlanInput,
+  type UpdatePlanInput,
+} from '@/services/platform.service';
+import type { AuditQueryFilters } from '@/services/auditQueryParams';
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
 
@@ -60,12 +65,32 @@ export const useUpdatePlatformUserRole = () => {
   });
 };
 
-export type PlatformAuditFilters = {
-  page: number;
-  pageSize: number;
-  action?: string;
-  organizationId?: number;
+const useInvalidatePlatformUsers = () => {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ['platform', 'users'] });
+    void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+  };
 };
+
+export const useSuspendPlatformUser = () => {
+  const invalidate = useInvalidatePlatformUsers();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
+      platformService.suspendUser(id, reason),
+    onSuccess: invalidate,
+  });
+};
+
+export const useReactivatePlatformUser = () => {
+  const invalidate = useInvalidatePlatformUsers();
+  return useMutation({
+    mutationFn: (id: number) => platformService.reactivateUser(id),
+    onSuccess: invalidate,
+  });
+};
+
+export type PlatformAuditFilters = AuditQueryFilters;
 
 export const usePlatformAudit = (filters: PlatformAuditFilters) =>
   useQuery({
@@ -75,15 +100,21 @@ export const usePlatformAudit = (filters: PlatformAuditFilters) =>
       filters.page,
       filters.action ?? null,
       filters.organizationId ?? null,
+      filters.dateFrom ?? null,
+      filters.dateTo ?? null,
+      filters.actorEmail ?? null,
     ],
-    queryFn: () =>
-      platformService.listAudit({
-        page: filters.page,
-        pageSize: filters.pageSize,
-        action: filters.action,
-        organizationId: filters.organizationId,
-      }),
+    queryFn: () => platformService.listAudit(filters),
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+
+/** Distinct audit actions for the platform action filter (replaces page-local derivation). */
+export const usePlatformAuditActions = () =>
+  useQuery({
+    queryKey: ['platform', 'audit', 'actions'],
+    queryFn: () => platformService.listAuditActions(),
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
@@ -170,6 +201,18 @@ export const useTogglePlatformPlan = () => {
     mutationFn: (id: number) => platformService.togglePlan(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['platform', 'plans'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+    },
+  });
+};
+
+export const useCreatePlatformPlan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePlanInput) => platformService.createPlan(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'plans'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'plan-stats'] });
       void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
     },
   });
