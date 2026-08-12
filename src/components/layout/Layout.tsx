@@ -9,7 +9,6 @@ import {
   Menu,
   X,
   Users,
-  Building2,
   CreditCard,
   TrendingUp,
   BookOpen,
@@ -160,16 +159,9 @@ const allNavigation: Array<{
     icon: Users,
     permission: Permission.VIEW_USERS,
   },
-  // Per-workspace configuration. MANAGE_ORGANIZATION-gated so the link doesn't render for
-  // moderator/support who would 403 at the route. Global admins keep it (the platform
-  // console's Organizations section is a cross-org list, not this per-workspace editor).
-  {
-    group: 'admin',
-    name: 'Workspace',
-    href: '/organization',
-    icon: Building2,
-    permission: Permission.MANAGE_ORGANIZATION,
-  },
+  // Workspace details moved into Settings › Workspace › Details (the standalone
+  // '/organization' nav tab was retired; that route now redirects there). Keeps
+  // "Workspace" a single concept under Settings instead of a duplicate top-level tab.
   {
     group: 'admin',
     name: 'Settings',
@@ -203,7 +195,7 @@ const allNavigation: Array<{
 ];
 
 // 'admin' is the internal group key; the user-facing label is 'Administration'. Most
-// items here (Users, Workspace, Settings, Subscription, Audit Logs) are visible to
+// items here (Users, Settings, Subscription, Audit Logs) are visible to
 // org_admins/moderators with the matching permission — not just global admins — so the
 // header stays role-neutral rather than implying admin-only content. The strictly
 // admin-only recovery tools (Deleted Messages, Orphaned Outbound) still appear here for

@@ -502,20 +502,12 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* Workspace details moved into Settings › Workspace › Details — the standalone
+          nav tab was retired. Redirect the old route so bookmarks/links don't 404.
+          The destination (Settings) enforces its own view/edit permissions. */}
       <Route
         path="/organization"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredPermission={Permission.MANAGE_ORGANIZATION}>
-              {/* Per-workspace configuration (categories, labels, departments, etc.).
-                  Global admins KEEP this page — the platform console's Organizations
-                  section is a cross-org list, not this per-workspace editor. */}
-              <Suspense fallback={<LoadingFallback />}>
-                <OrganizationPage />
-              </Suspense>
-            </ProtectedRoute>
-          </PrivateRoute>
-        }
+        element={<Navigate to="/settings#organization/details" replace />}
       />
       {/* Email Templates moved into the platform console (Platform › Email Templates).
           Redirect the old route; the console gates non-admins to a clean access state. */}

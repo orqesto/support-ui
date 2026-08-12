@@ -8,10 +8,12 @@ import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
 import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
+import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
 
-type OrgSection = 'categories' | 'labels' | 'routing-skills' | 'sla-config' | 'security';
+type OrgSection = 'details' | 'categories' | 'labels' | 'routing-skills' | 'sla-config' | 'security';
 
 const sections = [
+  { id: 'details' as OrgSection, label: 'Details', description: 'Workspace name and description' },
   { id: 'categories' as OrgSection, label: 'Categories', description: 'Ticket categories and keywords' },
   { id: 'labels' as OrgSection, label: 'Labels', description: 'Custom ticket labels' },
   { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
@@ -46,7 +48,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     ? sections
     : sections.filter((sect) => !ADMIN_ONLY_SECTIONS.includes(sect.id));
 
-  const requested = section && isOrgSection(section) ? section : 'categories';
+  const requested = section && isOrgSection(section) ? section : 'details';
   // Don't let a non-admin deep-link (#organization/sla-config|security) land on a hidden tab.
   const initial: OrgSection =
     ADMIN_ONLY_SECTIONS.includes(requested) && !canManageOrgPolicy ? 'categories' : requested;
@@ -72,7 +74,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
           Workspace
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage ticket categories and custom labels
+          Manage your workspace details, categories, and labels
         </p>
       </div>
 
@@ -83,6 +85,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         variant="simple"
         showIcons={false}
       >
+        {active === 'details' && <WorkspaceDetailsSettings />}
         {active === 'categories' && <CategoriesSettings />}
         {active === 'labels' && <LabelsSettings />}
         {active === 'routing-skills' && <RoutingKeysSettings />}
