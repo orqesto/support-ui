@@ -16,26 +16,31 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
+import { WorkspaceMembershipRow } from '@/components/console/WorkspaceMembershipRow';
 import {
   useUpdatePlatformUserRole,
   useSuspendPlatformUser,
   useReactivatePlatformUser,
   useUserOrganizations,
+  usePlatformWorkspaces,
 } from '@/hooks/usePlatformAdmin';
+import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
 import { getUserRowCapabilities } from '@/utils/userListCapabilities';
+import { ORGANIZATION_ROLES, roleDisplayNames, type OrganizationRole } from '@/types/roles';
 import type { GlobalRole, PlatformUserRow } from '@/services/platform.service';
 
 /**
  * Platform console → Users → one consolidated "Manage user" dialog. Replaces the former
  * scattered controls (a global-role Select in its own column + loose edit/suspend/delete
  * icon buttons + a separate workspaces drawer) with a single dialog that gathers every
- * per-user action: profile, GLOBAL role, suspend/reactivate, workspace memberships (read
- * only), and account deletion. Global concerns only — per-workspace role/departments are
- * edited from that workspace (Workspaces → Manage), matching EditUserModal's split.
+ * per-user action: profile, GLOBAL role, suspend/reactivate, workspace memberships (a full
+ * editor — per-workspace role, departments, add/remove — see WorkspaceMembershipRow), and
+ * account deletion.
  */
 
 const GLOBAL_ROLE_OPTIONS: { value: GlobalRole; label: string }[] = [
@@ -60,6 +65,9 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
   const suspendMutation = useSuspendPlatformUser();
   const reactivateMutation = useReactivatePlatformUser();
   const orgsQuery = useUserOrganizations(isOpen ? (user?.id ?? null) : null);
+  // Full workspace directory, to offer the workspaces this user is NOT yet in for the
+  // "Add to workspace" control. Only fetched while the modal is open.
+  const workspacesQuery = usePlatformWorkspaces();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -73,6 +81,11 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
   const [reactivateConfirmOpen, setReactivateConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  // "Add to workspace" control (bottom of the Workspaces section).
+  const [addOrgId, setAddOrgId] = useState('');
+  const [addRole, setAddRole] = useState<OrganizationRole>('support');
+  const [adding, setAdding] = useState(false);
+
   // Reset the form whenever a different user is opened.
   useEffect(() => {
     if (user) {
@@ -82,6 +95,8 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
       setRole(user.role as GlobalRole);
       setSuspendMode(false);
       setSuspendReason('');
+      setAddOrgId('');
+      setAddRole('support');
     }
   }, [user]);
 
@@ -101,6 +116,44 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['platform', 'users'] });
     void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+  };
+
+  // After any membership change (add/remove/role/departments), refresh the platform users
+  // list AND this user's memberships so both the directory and this modal reflect it.
+  const refreshMemberships = () => {
+    invalidate();
+    void queryClient.invalidateQueries({
+      queryKey: ['platform', 'user-organizations', user.id],
+    });
+  };
+
+  // Workspaces the user is NOT already in — the pool for the "Add to workspace" picker.
+  const memberOrgIds = new Set((orgsQuery.data ?? []).map((org) => org.id));
+  const availableWorkspaces = (workspacesQuery.data?.data ?? []).filter(
+    (workspace) => !memberOrgIds.has(workspace.id)
+  );
+  const workspaceOptions = availableWorkspaces.map((workspace) => ({
+    value: String(workspace.id),
+    label: workspace.name,
+  }));
+
+  const handleAddMember = async () => {
+    const orgId = Number(addOrgId);
+    if (!orgId) {
+      return;
+    }
+    setAdding(true);
+    try {
+      await organizationService.addMember(orgId, user.id, addRole);
+      refreshMemberships();
+      toast.success('Added to workspace');
+      setAddOrgId('');
+      setAddRole('support');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not add to workspace');
+    } finally {
+      setAdding(false);
+    }
   };
 
   // Profile save also carries the global-role change (after its confirm) so a single
@@ -255,7 +308,7 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
               </p>
             </div>
 
-            {/* Workspace memberships (read-only) */}
+            {/* Workspace memberships (editable) */}
             <div className="space-y-1.5">
               <Label>Workspaces</Label>
               {orgsQuery.isLoading ? (
@@ -278,20 +331,63 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
               ) : (
                 <ul className="space-y-2">
                   {orgsQuery.data?.map((org) => (
-                    <li
+                    <WorkspaceMembershipRow
                       key={org.id}
-                      className="flex gap-3 justify-between items-center p-2.5 rounded-md border border-border"
-                    >
-                      <span className="text-sm font-medium text-foreground">{org.name}</span>
-                      <Badge variant="secondary">{org.role}</Badge>
-                    </li>
+                      orgId={org.id}
+                      orgName={org.name}
+                      currentRole={org.role}
+                      userId={user.id}
+                      userEmail={user.email}
+                      onChanged={refreshMemberships}
+                    />
                   ))}
                 </ul>
               )}
-              <p className="text-xs text-muted-foreground">
-                Roles and departments within a workspace are managed from that workspace
-                (Workspaces → Manage).
-              </p>
+
+              {/* Add to workspace */}
+              <div className="pt-3 space-y-2">
+                <Label>Add to workspace</Label>
+                <div className="flex flex-wrap gap-2 items-start">
+                  <div className="flex-1 min-w-[180px]">
+                    <ReactSelect
+                      aria-label="Workspace to add"
+                      value={addOrgId}
+                      onChange={setAddOrgId}
+                      options={workspaceOptions}
+                      isDisabled={workspacesQuery.isLoading || adding}
+                      placeholder={
+                        workspacesQuery.isLoading ? 'Loading workspaces…' : 'Select a workspace…'
+                      }
+                    />
+                  </div>
+                  <Select
+                    value={addRole}
+                    aria-label="Role for the new workspace"
+                    className="w-44"
+                    disabled={adding}
+                    onChange={(event) => setAddRole(event.target.value as OrganizationRole)}
+                  >
+                    {ORGANIZATION_ROLES.map((orgRole) => (
+                      <option key={orgRole} value={orgRole}>
+                        {roleDisplayNames[orgRole]}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleAddMember()}
+                    isLoading={adding}
+                    disabled={!addOrgId || adding}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {workspaceOptions.length === 0 && !workspacesQuery.isLoading && (
+                  <p className="text-xs text-muted-foreground">
+                    This user is already in every workspace.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Account status: suspend / reactivate */}

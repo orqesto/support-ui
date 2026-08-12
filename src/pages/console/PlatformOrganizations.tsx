@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Save, X, Edit2, Trash2, Settings2, Network, Unlink } from 'lucide-react';
+import { Plus, Edit2, Trash2, Settings2, Network, Unlink } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Toggle } from '@/components/ui/Toggle';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { EditWorkspaceModal } from '@/components/console/EditWorkspaceModal';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import { formatMemberCount, formatPlanLabel } from '@/pages/console/platformOrganizations.format';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
@@ -23,7 +22,6 @@ import { formatDate } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 
 type OrgRow = Awaited<ReturnType<typeof organizationService.getAll>>['data'][number];
-type EditForm = { name: string; description: string; active: boolean };
 
 /** Deployment-type → DS Badge variant (replaces the old hand-styled pill). */
 const DEPLOYMENT_BADGE: Record<string, 'secondary' | 'default' | 'warning'> = {
@@ -31,47 +29,6 @@ const DEPLOYMENT_BADGE: Record<string, 'secondary' | 'default' | 'warning'> = {
   dedicated: 'default',
   external: 'warning',
 };
-
-/** Inline edit-in-row form (rendered by DataTable's renderEditRow for the editing workspace). */
-function EditRow({
-  form,
-  onChange,
-  onSave,
-  onCancel,
-}: {
-  form: EditForm;
-  onChange: (next: EditForm) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <Input
-        label="Name"
-        type="text"
-        value={form.name}
-        onChange={(event) => onChange({ ...form, name: event.target.value })}
-      />
-      <Input
-        label="Description"
-        type="text"
-        value={form.description}
-        onChange={(event) => onChange({ ...form, description: event.target.value })}
-      />
-      <Toggle checked={form.active} onChange={(next) => onChange({ ...form, active: next })} label="Active" />
-      <div className="flex gap-2">
-        <Button size="sm" onClick={onSave}>
-          <Save className="mr-2 w-4 h-4" />
-          Save
-        </Button>
-        <Button size="sm" variant="outline" onClick={onCancel}>
-          <X className="mr-2 w-4 h-4" />
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Platform console → Organizations. The cross-org, global-admin workspace directory
@@ -87,8 +44,7 @@ export const PlatformOrganizations = () => {
   const [loading, setLoading] = useState(true);
   const [searchOrg, setSearchOrg] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
-  const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
-  const [editOrgForm, setEditOrgForm] = useState<EditForm>({ name: '', description: '', active: true });
+  const [editTarget, setEditTarget] = useState<OrgRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [detachTarget, setDetachTarget] = useState<{ id: number; name: string; allianceId: number } | null>(null);
@@ -132,27 +88,6 @@ export const PlatformOrganizations = () => {
     if (!pendingSearch.trim() && searchOrg) {
       setPage(1);
       setSearchOrg('');
-    }
-  };
-
-  const startEdit = (org: OrgRow) => {
-    setEditingOrgId(org.id);
-    setEditOrgForm({ name: org.name, description: org.description ?? '', active: org.active });
-  };
-
-  const handleSaveEdit = async (orgId: number) => {
-    try {
-      const updated = await organizationService.updateById(orgId, {
-        name: editOrgForm.name,
-        description: editOrgForm.description || null,
-        active: editOrgForm.active,
-      });
-      setOrgs((prev) => prev.map((org) => (org.id === orgId ? updated : org)));
-      setEditingOrgId(null);
-      toast.success('Workspace updated');
-    } catch (error) {
-      logger.error('Failed to update organization', error);
-      toast.error(error instanceof Error ? error.message : 'Could not update workspace');
     }
   };
 
@@ -317,7 +252,7 @@ export const PlatformOrganizations = () => {
         </Tooltip>
       )}
       <Tooltip content={`Edit ${org.name}`}>
-        <Button variant="outline" size="sm" onClick={() => startEdit(org)} aria-label={`Edit ${org.name}`}>
+        <Button variant="outline" size="sm" onClick={() => setEditTarget(org)} aria-label={`Edit ${org.name}`}>
           <Edit2 className="w-4 h-4" />
         </Button>
       </Tooltip>
@@ -355,16 +290,6 @@ export const PlatformOrganizations = () => {
             rowKey={(org) => org.id}
             columns={columns}
             actions={rowActions}
-            renderEditRow={(org) =>
-              editingOrgId === org.id ? (
-                <EditRow
-                  form={editOrgForm}
-                  onChange={setEditOrgForm}
-                  onSave={() => handleSaveEdit(org.id)}
-                  onCancel={() => setEditingOrgId(null)}
-                />
-              ) : null
-            }
             toolbarStart={
               <p className="text-sm text-muted-foreground">
                 {total} workspace{total === 1 ? '' : 's'}
@@ -398,6 +323,13 @@ export const PlatformOrganizations = () => {
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
+      />
+
+      <EditWorkspaceModal
+        org={editTarget}
+        isOpen={editTarget !== null}
+        onClose={() => setEditTarget(null)}
+        onSaved={fetchOrgs}
       />
 
       <ConfirmDialog

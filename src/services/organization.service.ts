@@ -171,6 +171,33 @@ export const organizationService = {
     return response.data;
   },
 
+  /** Change a member's workspace role (PATCH .../members/:userId/role, global-admin). */
+  updateMemberRole: async (orgId: number, userId: number, role: string) => {
+    const response = await apiClient.patch<ApiResponse<void>>(
+      `/api/organizations/${orgId}/members/${userId}/role`,
+      { role }
+    );
+    return response.data;
+  },
+
+  /** Set a member's departments within a workspace (PATCH .../members/:userId/departments). */
+  setMemberDepartments: async (orgId: number, userId: number, departmentIds: number[]) => {
+    const response = await apiClient.patch<ApiResponse<void>>(
+      `/api/organizations/${orgId}/members/${userId}/departments`,
+      { departmentIds }
+    );
+    return response.data;
+  },
+
+  /** Switch a workspace's subscription plan (PATCH .../subscription/plan, global-admin). */
+  switchWorkspacePlan: async (orgId: number, planId: number) => {
+    const response = await apiClient.patch<ApiResponse<Organization>>(
+      `/api/organizations/${orgId}/subscription/plan`,
+      { planId }
+    );
+    return response.data;
+  },
+
   getAutoReply: async () => {
     const response = await apiClient.get<
       ApiResponse<{

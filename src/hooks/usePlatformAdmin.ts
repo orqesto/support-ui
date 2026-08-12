@@ -166,6 +166,22 @@ export const useUserOrganizations = (userId: number | null) =>
     refetchOnWindowFocus: false,
   });
 
+/**
+ * A workspace's departments (with the plan budget), for the membership editor's per-row
+ * department multi-select. Backed by GET /api/admin/organizations/:id/departments
+ * (requireGlobalAdmin). Cached per orgId and lazy — only fetched when `enabled` (the row's
+ * department panel is opened), so opening the user modal doesn't fan out one request per
+ * membership up front.
+ */
+export const useWorkspaceDepartments = (orgId: number | null, enabled = true) =>
+  useQuery({
+    queryKey: ['platform', 'workspace-departments', orgId],
+    queryFn: () => platformService.listWorkspaceDepartments(orgId as number),
+    enabled: enabled && orgId !== null,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
 export const useCreateAlliance = () => {
   const queryClient = useQueryClient();
   return useMutation({
