@@ -325,40 +325,44 @@ export const PlatformUsers = () => {
     );
   };
 
+  // Wrap each filter in a fixed-width box: the DS Select is full-width, so bare in the
+  // flex toolbar the two would each span 100% and stack. The width box keeps them inline.
   const roleFilterControl = (
-    <Select
-      aria-label="Filter by role"
-      className="min-w-[9rem]"
-      value={roleFilter}
-      onChange={(event) => {
-        setRoleFilter(event.target.value as RoleFilter);
-        setPage(1);
-      }}
-    >
-      {ROLE_FILTER_OPTIONS.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </Select>
+    <div className="w-44">
+      <Select
+        aria-label="Filter by role"
+        value={roleFilter}
+        onChange={(event) => {
+          setRoleFilter(event.target.value as RoleFilter);
+          setPage(1);
+        }}
+      >
+        {ROLE_FILTER_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </div>
   );
 
   const verifiedFilterControl = (
-    <Select
-      aria-label="Filter by verification"
-      className="min-w-[9rem]"
-      value={verifiedFilter}
-      onChange={(event) => {
-        setVerifiedFilter(event.target.value as VerifiedFilter);
-        setPage(1);
-      }}
-    >
-      {VERIFIED_FILTER_OPTIONS.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </Select>
+    <div className="w-44">
+      <Select
+        aria-label="Filter by verification"
+        value={verifiedFilter}
+        onChange={(event) => {
+          setVerifiedFilter(event.target.value as VerifiedFilter);
+          setPage(1);
+        }}
+      >
+        {VERIFIED_FILTER_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </div>
   );
 
   return (
