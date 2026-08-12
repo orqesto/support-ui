@@ -5,8 +5,10 @@ import {
   syncMeta,
 } from '@/components/settings/integrations/confluenceCardHelpers';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Toggle } from '@/components/ui/Toggle';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import {
   integrationsService,
@@ -52,6 +54,17 @@ export const ConfluenceIntegrationCard = ({
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  // Self-hosted: a shared Confluence service account may be configured in backend env. When it
+  // is, offer a no-credentials "use the server service account" flow (both options remain).
+  const [envConfigured, setEnvConfigured] = useState(false);
+  const [useServerAccount, setUseServerAccount] = useState(false);
+  useEffect(() => {
+    integrationsService
+      .getConfluenceEnvStatus()
+      .then((res) => setEnvConfigured(Boolean(res.data?.envConfigured)))
+      .catch(() => setEnvConfigured(false));
+  }, []);
+  const envMode = envConfigured && useServerAccount;
   // A one-shot timer to re-check status shortly after "Sync now": the worker sets
   // lastSyncStatus='syncing' asynchronously, so an immediate refresh can miss it and the
   // poll effect never engages. Cleared on unmount (no leak).
@@ -170,7 +183,12 @@ export const ConfluenceIntegrationCard = ({
       ? confluenceIntegrations.find((integ) => integ.id === editingId)?.name
       : undefined;
     const name =
-      existingName ?? (config.spaceKeys[0] ? `Confluence-${config.spaceKeys[0]}` : 'Confluence');
+      existingName ??
+      (config.spaceKeys[0]
+        ? `Confluence-${config.spaceKeys[0]}`
+        : envMode
+          ? 'Confluence (server account)'
+          : 'Confluence');
     void saveIntegrationBase(name);
   };
 
@@ -194,6 +212,7 @@ export const ConfluenceIntegrationCard = ({
               onClick={() => {
                 resetForm();
                 setSpaceKeysRaw('');
+                setUseServerAccount(envConfigured); // default to the server account when available
                 setShowForm(!showForm);
               }}
             >
@@ -236,6 +255,8 @@ export const ConfluenceIntegrationCard = ({
                         onClick={() => {
                           loadForEdit(integration.id, cfg);
                           setSpaceKeysRaw((cfg.spaceKeys ?? []).join(', '));
+                          // An env-backed row has no stored baseUrl → keep it on the server account.
+                          setUseServerAccount(envConfigured && !cfg.baseUrl);
                         }}
                         aria-label="Edit Confluence source"
                         title="Edit"
@@ -326,70 +347,110 @@ export const ConfluenceIntegrationCard = ({
               <h4 className="font-medium">
                 {editingId ? 'Edit Confluence Space' : 'Add Confluence Space'}
               </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="baseUrl" className="text-sm font-medium">
-                    Base URL
-                  </label>
-                  <input
-                    id="baseUrl"
-                    type="url"
-                    value={config.baseUrl}
-                    onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="https://your-domain.atlassian.net"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="spaceKeys" className="text-sm font-medium">
-                    Space Keys
-                  </label>
-                  <input
-                    id="spaceKeys"
-                    type="text"
-                    value={spaceKeysRaw}
-                    onChange={(event) => {
-                      setSpaceKeysRaw(event.target.value);
-                      setConfig({ ...config, spaceKeys: parseSpaceKeys(event.target.value) });
-                    }}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="SUP, DOCS"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={config.email}
-                    onChange={(event) => setConfig({ ...config, email: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="admin@example.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="apiToken" className="text-sm font-medium">
-                    API Token
-                  </label>
-                  <input
-                    id="apiToken"
-                    type="password"
-                    value={config.apiToken}
-                    onChange={(event) => setConfig({ ...config, apiToken: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                    placeholder="•••••••••"
-                  />
-                </div>
-              </div>
 
-              {/* Page selection lives on the Knowledge Base page now (per-page Process/Remove). */}
-              <div className="p-3 text-xs rounded-md border text-muted-foreground border-border">
-                Once connected, choose which pages go into the Knowledge Base on the{' '}
-                <span className="font-medium text-foreground">Knowledge Base</span> page — connected
-                spaces list their pages there, and you add or remove each page individually.
-              </div>
+              {envConfigured && (
+                <Toggle
+                  checked={useServerAccount}
+                  onChange={(next) => {
+                    setUseServerAccount(next);
+                    // Server account = no per-workspace creds; clear any typed ones.
+                    if (next) setConfig({ ...config, baseUrl: '', email: '', apiToken: '' });
+                  }}
+                  label="Use the server's Confluence service account (no credentials needed)"
+                />
+              )}
+
+              {envMode ? (
+                <>
+                  <Alert variant="info">
+                    Using this server&apos;s shared Confluence service account — no credentials
+                    needed. Save to add the source, then pick folders or pages on the Knowledge Base
+                    page. Optionally scope it to specific spaces below.
+                  </Alert>
+                  <div>
+                    <label htmlFor="spaceKeys" className="text-sm font-medium">
+                      Spaces <span className="text-muted-foreground">(optional)</span>
+                    </label>
+                    <input
+                      id="spaceKeys"
+                      type="text"
+                      value={spaceKeysRaw}
+                      onChange={(event) => {
+                        setSpaceKeysRaw(event.target.value);
+                        setConfig({ ...config, spaceKeys: parseSpaceKeys(event.target.value) });
+                      }}
+                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                      placeholder="Leave blank to browse all spaces, or e.g. ODL, DOCS"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="baseUrl" className="text-sm font-medium">
+                        Base URL
+                      </label>
+                      <input
+                        id="baseUrl"
+                        type="url"
+                        value={config.baseUrl}
+                        onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                        placeholder="https://your-domain.atlassian.net"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="spaceKeys" className="text-sm font-medium">
+                        Space Keys
+                      </label>
+                      <input
+                        id="spaceKeys"
+                        type="text"
+                        value={spaceKeysRaw}
+                        onChange={(event) => {
+                          setSpaceKeysRaw(event.target.value);
+                          setConfig({ ...config, spaceKeys: parseSpaceKeys(event.target.value) });
+                        }}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                        placeholder="SUP, DOCS"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="email" className="text-sm font-medium">
+                        Email
+                      </label>
+                      <input
+                        id="email"
+                        type="email"
+                        value={config.email}
+                        onChange={(event) => setConfig({ ...config, email: event.target.value })}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                        placeholder="admin@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="apiToken" className="text-sm font-medium">
+                        API Token
+                      </label>
+                      <input
+                        id="apiToken"
+                        type="password"
+                        value={config.apiToken}
+                        onChange={(event) => setConfig({ ...config, apiToken: event.target.value })}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                        placeholder="•••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Page selection lives on the Knowledge Base page (per-page / per-folder). */}
+                  <div className="p-3 text-xs rounded-md border text-muted-foreground border-border">
+                    Once connected, choose which folders or pages go into the Knowledge Base on the{' '}
+                    <span className="font-medium text-foreground">Knowledge Base</span> page.
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-2">
                 <Button
@@ -397,10 +458,11 @@ export const ConfluenceIntegrationCard = ({
                   isLoading={saving}
                   disabled={
                     saving ||
-                    !config.baseUrl ||
-                    !config.email ||
-                    !config.apiToken ||
-                    config.spaceKeys.length === 0
+                    (!envMode &&
+                      (!config.baseUrl ||
+                        !config.email ||
+                        !config.apiToken ||
+                        config.spaceKeys.length === 0))
                   }
                 >
                   <Save className="mr-2 w-4 h-4" />

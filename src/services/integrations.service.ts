@@ -350,6 +350,14 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
+  /** Whether the backend has a shared Confluence service account (self-hosted no-creds flow). */
+  getConfluenceEnvStatus: async (): Promise<ApiResponse<{ envConfigured: boolean }>> => {
+    const response = await apiClient.get<{ success: boolean; data: { envConfigured: boolean } }>(
+      '/api/integrations/confluence/env-status'
+    );
+    return { success: response.data.success, data: response.data.data };
+  },
+
   /** List the spaces the credentials (env service account or per-workspace) can access. */
   listConfluenceSpaces: async (payload: {
     integrationId?: number;
