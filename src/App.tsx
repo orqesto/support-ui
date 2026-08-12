@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
@@ -369,9 +370,11 @@ const AppRoutes = () => {
         path="/console"
         element={
           <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <ConsolePage />
-            </Suspense>
+            <AllianceConsoleRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <ConsolePage />
+              </Suspense>
+            </AllianceConsoleRoute>
           </PrivateRoute>
         }
       />
@@ -379,11 +382,13 @@ const AppRoutes = () => {
         path="/console/alliance/:allianceId"
         element={
           <PrivateRoute>
-            <ProtectedRoute allianceAdmin>
-              <Suspense fallback={<LoadingFallback />}>
-                <AdminShell />
-              </Suspense>
-            </ProtectedRoute>
+            <AllianceConsoleRoute>
+              <ProtectedRoute allianceAdmin>
+                <Suspense fallback={<LoadingFallback />}>
+                  <AdminShell />
+                </Suspense>
+              </ProtectedRoute>
+            </AllianceConsoleRoute>
           </PrivateRoute>
         }
       >

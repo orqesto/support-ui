@@ -32,6 +32,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 import { apiClient } from '@/lib/api-client';
+import { ALLIANCE_CONSOLE_ENABLED } from '@/lib/config';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
@@ -278,7 +279,10 @@ export const Layout = ({ children }: LayoutProps) => {
   // non-global + an actual alliance_admin membership, then require a non-empty alliance
   // list so the link never dead-ends (same predicate ConsolePage resolves through).
   const isGlobalAdmin = user?.role === 'admin';
-  const canSeeAllianceConsole = !isGlobalAdmin && isAllianceAdmin;
+  // Alliance console is hidden product-wide until a real multi-workspace customer
+  // exists (see ALLIANCE_CONSOLE_ENABLED). Gate the query on the flag too so we don't
+  // fetch `/api/alliances/mine` for a surface that can never render.
+  const canSeeAllianceConsole = ALLIANCE_CONSOLE_ENABLED && !isGlobalAdmin && isAllianceAdmin;
   const { data: myAlliances } = useMyAlliances(canSeeAllianceConsole);
   const showAllianceConsole = canSeeAllianceConsole && (myAlliances?.length ?? 0) > 0;
   const { hasFeature } = useFeatures();

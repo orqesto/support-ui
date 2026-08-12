@@ -21,6 +21,7 @@ import {
   useUserOrganizations,
 } from '@/hooks/usePlatformAdmin';
 import { useAuthStore } from '@/stores/authStore';
+import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import type { GlobalRole, PlatformUserRow } from '@/services/platform.service';
 
 /**
@@ -222,7 +223,21 @@ export const PlatformUsers = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.map((row) => {
+                    // Same capability model the workspace surface uses. This page is
+                    // global-admin-gated by its route, so the actor is a global admin and
+                    // the model reduces to the self-lockout (you can't change your own role).
+                    const canEditGlobalRole = getUserRowCapabilities(
+                      'platform',
+                      {
+                        userId: currentUserId,
+                        isGlobalAdmin: true,
+                        canManageUsers: true,
+                        canDeleteUsers: false,
+                      },
+                      { userId: row.id, globalRole: row.role as GlobalRole }
+                    ).canChangeGlobalRole;
+                    return (
                     <tr key={row.id} className="border-t border-border">
                       <td className="px-3 py-2 font-medium text-foreground">{fullName(row)}</td>
                       <td className="px-3 py-2">
@@ -257,7 +272,7 @@ export const PlatformUsers = () => {
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end">
-                          {row.id === currentUserId ? (
+                          {!canEditGlobalRole ? (
                             // Self-lockout guard: the BE rejects a caller changing their own
                             // global role (403). Mirror it here — disable the control and say why.
                             <Tooltip content="You can't change your own global role.">
@@ -299,7 +314,8 @@ export const PlatformUsers = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </Card>
