@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Select } from '@/components/ui/Select';
-import { Input } from '@/components/ui/Input';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Label } from '@/components/ui/Label';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
@@ -24,8 +24,23 @@ import {
   useChangeMemberRole,
   useRemoveMember,
 } from '@/hooks/useAllianceAdmin';
+import { usePlatformUsers } from '@/hooks/usePlatformAdmin';
 import { ALLIANCE_ROLES, roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
 import type { AllianceMember } from '@/services/alliance-admin.service';
+import type { PlatformUserRow } from '@/services/platform.service';
+
+/** "Jane Doe — jane@acme.com" (falls back to email when no name is set). */
+const userOptionLabel = (user: PlatformUserRow): string => {
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  return name ? `${name} — ${user.email}` : user.email;
+};
+
+const ROLE_HELP: Record<AllianceRole, string> = {
+  alliance_admin:
+    'Alliance admin — manages the alliance and gets workspace-admin access in every workspace.',
+  alliance_agent:
+    'Alliance agent — a support agent (associate) in every workspace, with no admin rights.',
+};
 
 /** Friendly label for an org-role enum surfaced in the effective-roles chips. */
 const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole] ?? role;
@@ -55,10 +70,28 @@ export const ConsoleMembers = () => {
     null
   );
   const [addOpen, setAddOpen] = useState(false);
-  const [newUserId, setNewUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [userSearch, setUserSearch] = useState('');
   const [newRole, setNewRole] = useState<AllianceRole>('alliance_agent');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
+
+  // Searchable user picker for "Add member". The alliance console is currently
+  // global-admin-only, so we reuse the platform user directory (server-side search). When
+  // the console is later opened to alliance_admins, swap this for an alliance-scoped user
+  // search (requireAllianceAdmin) — the platform endpoint is global-admin-gated.
+  const usersQuery = usePlatformUsers({ page: 1, pageSize: 20, search: userSearch || undefined });
+  const existingMemberIds = useMemo(
+    () => new Set((members ?? []).map((member) => member.userId)),
+    [members]
+  );
+  const userOptions = useMemo(
+    () =>
+      (usersQuery.data?.rows ?? [])
+        .filter((user) => !existingMemberIds.has(user.id))
+        .map((user) => ({ value: String(user.id), label: userOptionLabel(user) })),
+    [usersQuery.data?.rows, existingMemberIds]
+  );
 
   // Client-side search over the fetched list (name + email), case-insensitive.
   const filtered = useMemo(() => {
@@ -123,9 +156,9 @@ export const ConsoleMembers = () => {
   };
 
   const handleAdd = () => {
-    const parsedId = Number(newUserId);
+    const parsedId = Number(selectedUserId);
     if (!Number.isInteger(parsedId) || parsedId <= 0) {
-      toast.error('Enter a valid user ID');
+      toast.error('Select a user to add');
       return;
     }
     addMember.mutate(
@@ -134,7 +167,8 @@ export const ConsoleMembers = () => {
         onSuccess: () => {
           toast.success('Member added');
           setAddOpen(false);
-          setNewUserId('');
+          setSelectedUserId('');
+          setUserSearch('');
           setNewRole('alliance_agent');
         },
         onError: (error: unknown) =>
@@ -142,9 +176,6 @@ export const ConsoleMembers = () => {
       }
     );
   };
-
-  const parsedNewUserId = Number(newUserId);
-  const newUserIdValid = Number.isInteger(parsedNewUserId) && parsedNewUserId > 0;
 
   if (isLoading) {
     return <ConsoleLoading />;
@@ -167,7 +198,7 @@ export const ConsoleMembers = () => {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
         title="Members"
-        description="People with access across this alliance's workspaces."
+        description="People granted a role across every workspace in this alliance. With an IdP, members sync automatically via Provisioning (SCIM) + Groups — add here to seed an admin or when there's no IdP."
         actions={
           <Button onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 w-4 h-4" />
@@ -292,22 +323,34 @@ export const ConsoleMembers = () => {
         <DialogContent>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="alliance-add-user-id">User ID</Label>
-              <Input
-                id="alliance-add-user-id"
-                inputMode="numeric"
-                value={newUserId}
-                onChange={(event) => setNewUserId(event.target.value)}
-                placeholder="e.g. 42"
+              <Label htmlFor="alliance-add-user">User</Label>
+              <ReactSelect
+                id="alliance-add-user"
+                value={selectedUserId}
+                onChange={setSelectedUserId}
+                options={userOptions}
+                // Search is server-side (platform directory); only update on real typing,
+                // not on blur/menu-close (which fire onInputChange with an empty value).
+                onInputChange={(value, meta) => {
+                  if (meta.action === 'input-change') {
+                    setUserSearch(value);
+                  }
+                }}
+                filterOption={null}
+                isLoading={usersQuery.isFetching}
+                placeholder="Search by name or email…"
+                noOptionsMessage={() =>
+                  usersQuery.isFetching
+                    ? 'Searching…'
+                    : userSearch
+                      ? 'No matching users'
+                      : 'Type a name or email to search'
+                }
               />
               <p className="text-xs text-muted-foreground">
-                Enter the user&apos;s internal numeric ID. It must be a whole number greater than zero.
+                Adding a member grants the alliance role below across every workspace in the
+                alliance. People already in the alliance are hidden.
               </p>
-              {newUserId.trim().length > 0 && !newUserIdValid && (
-                <p className="text-xs text-red-600 dark:text-red-400">
-                  Enter a valid user ID (a positive whole number).
-                </p>
-              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="alliance-add-role">Alliance role</Label>
@@ -322,12 +365,17 @@ export const ConsoleMembers = () => {
                   </option>
                 ))}
               </Select>
+              <p className="text-xs text-muted-foreground">{ROLE_HELP[newRole]}</p>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setAddOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAdd} isLoading={addMember.isPending} disabled={!newUserIdValid || addMember.isPending}>
+              <Button
+                onClick={handleAdd}
+                isLoading={addMember.isPending}
+                disabled={!selectedUserId || addMember.isPending}
+              >
                 Add member
               </Button>
             </div>
