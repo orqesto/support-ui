@@ -13,12 +13,17 @@ export const SORT_PRESET_OPTIONS = [
   { value: 'sla_low', label: 'SLA: Least Urgent' },
   // Combined triage sort: highest priority first, ties broken by most-urgent SLA.
   { value: 'priority_sla', label: 'Priority, then SLA' },
+  // Directional reply recency: who most recently pinged us vs what we touched last.
+  { value: 'last_client_reply', label: 'Latest Client Reply' },
+  { value: 'last_our_reply', label: 'Latest Our Reply' },
 ];
 
 export const sortingToPreset = (sorting: SortingState): string => {
   if (sorting.sortBy === 'priority_sla') return 'priority_sla';
   if (sorting.sortBy === 'priority') return sorting.sortOrder === 'asc' ? 'priority_low' : 'priority';
   if (sorting.sortBy === 'sla') return sorting.sortOrder === 'desc' ? 'sla_low' : 'sla';
+  if (sorting.sortBy === 'last_client_reply') return 'last_client_reply';
+  if (sorting.sortBy === 'last_our_reply') return 'last_our_reply';
   return sorting.sortOrder === 'asc' ? 'oldest' : 'newest';
 };
 
@@ -34,6 +39,10 @@ export const presetToSorting = (value: string): SortingState => {
       return { sortBy: 'sla', sortOrder: 'desc' };
     case 'priority_sla':
       return { sortBy: 'priority_sla', sortOrder: 'desc' };
+    case 'last_client_reply':
+      return { sortBy: 'last_client_reply', sortOrder: 'desc' };
+    case 'last_our_reply':
+      return { sortBy: 'last_our_reply', sortOrder: 'desc' };
     case 'oldest':
       return { sortBy: 'time', sortOrder: 'asc' };
     default:

@@ -125,7 +125,13 @@ export const messageService = {
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
     sortOrder?: 'asc' | 'desc',
-    sortBy: 'time' | 'priority' | 'sla' | 'priority_sla' = 'time'
+    sortBy:
+      | 'time'
+      | 'priority'
+      | 'sla'
+      | 'priority_sla'
+      | 'last_client_reply'
+      | 'last_our_reply' = 'time'
   ) => {
     const params = new URLSearchParams({
       ...cleanFilters(filters),
