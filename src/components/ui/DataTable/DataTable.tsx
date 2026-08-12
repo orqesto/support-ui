@@ -68,10 +68,11 @@ export function DataTable<Row>({
 
   const isFilteredEmpty = totalItems === 0 && term.length > 0;
   const EmptyIcon = empty?.icon;
+  const hasToolbar = toolbarStart !== undefined || search !== undefined;
 
   return (
     <div className={cn('flex flex-col min-h-0', className)}>
-      {(toolbarStart || search) && (
+      {hasToolbar && (
         <div className="flex flex-col flex-shrink-0 gap-3 px-4 py-3 border-b sm:flex-row sm:justify-between sm:items-center border-border">
           <div className="flex flex-wrap gap-3 items-center">{toolbarStart}</div>
           {search && (
