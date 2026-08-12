@@ -1,8 +1,9 @@
-import { ChevronDown, ChevronRight, Folder, FolderCheck, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Folder, FolderCheck, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
@@ -17,8 +18,12 @@ import {
 
 const POLL_MS = 2500;
 const MAX_POLLS = 48; // ~2 min ceiling so a stuck job can't poll forever
+// Auto-expand only the first N levels on load so a large space doesn't render as a wall.
+const AUTO_EXPAND_DEPTH = 2;
+// Above this descendant-page count, adding a folder asks for confirmation first.
+const CONFIRM_ADD_THRESHOLD = 15;
 
-// KB-state badge shown to the right of a processed page's title.
+// KB-state badge shown next to a processed page's / selected folder's title.
 const StatusBadge = ({ status }: { status: string | null | undefined }) => {
   if (status === 'failed')
     return (
@@ -33,58 +38,81 @@ const StatusBadge = ({ status }: { status: string | null | undefined }) => {
   );
 };
 
-// A node in the browse tree: a folder (with children) or a page (leaf).
-type TreeNode =
-  | { kind: 'folder'; id: string; title: string; folder: ConfluenceFolderNode; children: TreeNode[] }
-  | { kind: 'page'; id: string; title: string; page: ConfluencePageNode };
+// A node in the browse tree. BOTH folders and pages can have children — Confluence nests
+// folders and sub-pages under a page (e.g. the space homepage), not only under folders.
+type TreeNode = {
+  kind: 'folder' | 'page';
+  id: string;
+  title: string;
+  folder?: ConfluenceFolderNode;
+  page?: ConfluencePageNode;
+  children: TreeNode[];
+};
 
-// Build a folder/page tree from the flat lists using parentId. Anything whose parent isn't in
-// the set (or is null) is a root (top-level under the space).
+const sortNodes = (nodes: TreeNode[]): TreeNode[] =>
+  [...nodes].sort((first, second) =>
+    first.kind !== second.kind
+      ? first.kind === 'folder'
+        ? -1
+        : 1
+      : first.title.localeCompare(second.title)
+  );
+
+// Build a folder/page tree from the flat lists using parentId. A node whose parent isn't in
+// the set (or is null) is a root (top-level under the space). Children attach to ANY parent
+// node — folder OR page — so subtrees hanging off a page (the homepage) are not lost.
 const buildTree = (folders: ConfluenceFolderNode[], pages: ConfluencePageNode[]): TreeNode[] => {
-  const ids = new Set<string>([...folders.map((folder) => folder.id), ...pages.map((page) => page.id)]);
-  const childrenOf = new Map<string, TreeNode[]>();
-  const roots: TreeNode[] = [];
-
-  const place = (node: TreeNode, parentId: string | null) => {
-    if (parentId && ids.has(parentId)) {
-      const list = childrenOf.get(parentId) ?? [];
-      list.push(node);
-      childrenOf.set(parentId, list);
-    } else {
-      roots.push(node);
-    }
-  };
-
-  const folderNodes = new Map<string, Extract<TreeNode, { kind: 'folder' }>>();
-  for (const folder of folders) {
-    const node: Extract<TreeNode, { kind: 'folder' }> = {
+  const byId = new Map<string, TreeNode>();
+  for (const folder of folders)
+    byId.set(folder.id, {
       kind: 'folder',
       id: folder.id,
       title: folder.title || 'Untitled folder',
       folder,
       children: [],
-    };
-    folderNodes.set(folder.id, node);
-  }
-  for (const folder of folders) place(folderNodes.get(folder.id)!, folder.parentId);
+    });
   for (const page of pages)
-    place({ kind: 'page', id: page.id, title: page.title, page }, page.parentId);
+    byId.set(page.id, { kind: 'page', id: page.id, title: page.title, page, children: [] });
 
-  // Attach collected children to folder nodes, sorted (folders first, then pages, A→Z).
-  const sortNodes = (nodes: TreeNode[]): TreeNode[] =>
-    [...nodes].sort((first, second) =>
-      first.kind !== second.kind
-        ? first.kind === 'folder'
-          ? -1
-          : 1
-        : first.title.localeCompare(second.title)
-    );
-  for (const [id, list] of childrenOf) {
-    const parent = folderNodes.get(id);
-    if (parent) parent.children = sortNodes(list);
+  const roots: TreeNode[] = [];
+  for (const node of byId.values()) {
+    const parentId = node.kind === 'folder' ? node.folder?.parentId : node.page?.parentId;
+    const parent = parentId ? byId.get(parentId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
   }
+  for (const node of byId.values()) node.children = sortNodes(node.children);
   return sortNodes(roots);
 };
+
+// Ids of parents to auto-expand on first load — capped to the first AUTO_EXPAND_DEPTH levels.
+const collectParentIds = (
+  nodes: TreeNode[],
+  depth = 0,
+  acc: Set<string> = new Set()
+): Set<string> => {
+  for (const node of nodes) {
+    if (node.children.length > 0) {
+      if (depth < AUTO_EXPAND_DEPTH) acc.add(node.id);
+      collectParentIds(node.children, depth + 1, acc);
+    }
+  }
+  return acc;
+};
+
+// Count all page descendants of a node (for the "Add folder · N pages" hint / confirm).
+const countDescendantPages = (node: TreeNode): number =>
+  node.children.reduce(
+    (sum, child) => sum + (child.kind === 'page' ? 1 : 0) + countDescendantPages(child),
+    0
+  );
+
+type ConfirmState = {
+  title: string;
+  description: string;
+  confirmText: string;
+  onConfirm: () => void;
+} | null;
 
 // One connected Confluence integration: a browse-and-select tree of its folders + pages.
 const IntegrationCatalog = ({
@@ -100,12 +128,14 @@ const IntegrationCatalog = ({
   const [pages, setPages] = useState<ConfluencePageNode[] | null>(null);
   const [folders, setFolders] = useState<ConfluenceFolderNode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false); // manual-refresh spin state
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set()); // page ids queued/processing
   const [removing, setRemoving] = useState<Set<string>>(new Set());
   const [folderBusy, setFolderBusy] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
   // Env/no-configured-space browsing: pick a space to list.
   const [spaces, setSpaces] = useState<ConfluenceSpace[] | null>(null);
   const [spaceKey, setSpaceKey] = useState<string>(configuredSpaceKeys[0] ?? '');
@@ -238,7 +268,7 @@ const IntegrationCatalog = ({
     );
   };
 
-  const processFolder = (folder: ConfluenceFolderNode) => {
+  const doProcessFolder = (folder: ConfluenceFolderNode) => {
     setError(null);
     setFolderSelected(folder.id, true); // optimistic
     withFolderBusy(
@@ -246,6 +276,7 @@ const IntegrationCatalog = ({
       integrationsService
         .processConfluenceFolder(integration.id, folder.id)
         .then(() => refresh())
+        .then(() => onKbChange?.())
         .catch(() => {
           setError(`Could not add “${folder.title}” to the Knowledge Base.`);
           setFolderSelected(folder.id, false);
@@ -253,18 +284,43 @@ const IntegrationCatalog = ({
     );
   };
 
-  const removeFolder = (folder: ConfluenceFolderNode) => {
+  const doRemoveFolder = (folder: ConfluenceFolderNode) => {
     setError(null);
     setFolderSelected(folder.id, false); // optimistic
     withFolderBusy(
       folder.id,
       integrationsService
         .removeConfluenceFolder(integration.id, folder.id)
+        .then(() => refresh())
+        .then(() => onKbChange?.())
         .catch(() => {
           setError(`Could not remove “${folder.title}” from the selection.`);
           setFolderSelected(folder.id, true);
         })
     );
+  };
+
+  // Confirm before adding a large folder, and always before removing one (it drops pages).
+  const requestProcessFolder = (folder: ConfluenceFolderNode, pageCount: number) => {
+    if (pageCount > CONFIRM_ADD_THRESHOLD) {
+      setConfirm({
+        title: 'Add folder to Knowledge Base',
+        description: `This adds “${folder.title}” and its ${pageCount} pages — including nested sub-folders — to the Knowledge Base, and keeps them in sync.`,
+        confirmText: 'Add to KB',
+        onConfirm: () => doProcessFolder(folder),
+      });
+    } else {
+      doProcessFolder(folder);
+    }
+  };
+
+  const requestRemoveFolder = (folder: ConfluenceFolderNode, pageCount: number) => {
+    setConfirm({
+      title: 'Remove folder from Knowledge Base',
+      description: `This removes “${folder.title}”${pageCount > 0 ? ` and its ${pageCount} page(s)` : ''} from the Knowledge Base. Pages also covered by another selected folder are kept.`,
+      confirmText: 'Remove',
+      onConfirm: () => doRemoveFolder(folder),
+    });
   };
 
   const toggleExpand = (id: string) =>
@@ -276,8 +332,39 @@ const IntegrationCatalog = ({
     });
 
   const tree = useMemo(() => buildTree(folders, pages ?? []), [folders, pages]);
-  const processedCount = pages?.filter((page) => page.processed).length ?? 0;
+
+  // Auto-expand the first levels once on load (Confluence nests folders under the space
+  // homepage; a fully-collapsed root would hide everything).
+  const autoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (autoExpandedRef.current) return;
+    if ((pages?.length ?? 0) > 0 || folders.length > 0) {
+      setExpanded(collectParentIds(tree));
+      autoExpandedRef.current = true;
+    }
+  }, [tree, pages, folders]);
+
+  // Pages/folders that sit under a SELECTED folder — they're managed by that folder, so their
+  // own Add/Remove controls are suppressed (removing them individually wouldn't stick).
+  const { coveredPages, coveredFolders } = useMemo(() => {
+    const cp = new Set<string>();
+    const cf = new Set<string>();
+    const selectedIds = new Set(folders.filter((folder) => folder.selected).map((folder) => folder.id));
+    const walk = (nodes: TreeNode[], underSelected: boolean) => {
+      for (const node of nodes) {
+        if (underSelected) (node.kind === 'page' ? cp : cf).add(node.id);
+        walk(node.children, underSelected || (node.kind === 'folder' && selectedIds.has(node.id)));
+      }
+    };
+    walk(tree, false);
+    return { coveredPages: cp, coveredFolders: cf };
+  }, [tree, folders]);
+
   const selectedFolderCount = folders.filter((folder) => folder.selected).length;
+  // Individually-added pages = processed pages NOT already covered by a selected folder.
+  const individualPageCount = (pages ?? []).filter(
+    (page) => page.processed && !coveredPages.has(page.id)
+  ).length;
   const needle = filter.trim().toLowerCase();
 
   // Search mode: flat list of matching folders + pages (hierarchy ignored while searching).
@@ -288,31 +375,64 @@ const IntegrationCatalog = ({
     return { folders: folderHits, pages: pageHits };
   }, [needle, folders, pages]);
 
-  // Row renderers ---------------------------------------------------------------
-  const renderPageRow = (page: ConfluencePageNode, depth = 0) => {
-    const isRemoving = removing.has(page.id);
-    const isProcessing = pending.has(page.id) || page.status === 'processing';
-    return (
-      <li
-        key={`p-${page.id}`}
-        className="flex gap-3 justify-between items-center px-4 py-2"
-        style={{ paddingLeft: `${16 + depth * 18}px` }}
-      >
-        <div className="flex flex-wrap gap-2 items-center min-w-0">
-          <span className="text-sm truncate">{page.title}</span>
-          {isProcessing ? (
-            <Badge variant="warning" size="sm">
-              Processing…
-            </Badge>
-          ) : (
-            page.processed && <StatusBadge status={page.status} />
-          )}
-        </div>
-        {isProcessing ? (
-          <span className="text-muted-foreground shrink-0">
-            <Spinner />
-          </span>
-        ) : page.processed ? (
+  // Unified row renderer — a folder OR a page, each of which may have children.
+  const renderNode = (node: TreeNode, depth = 0): JSX.Element => {
+    const hasChildren = node.children.length > 0;
+    const isOpen = expanded.has(node.id);
+    const isFolder = node.kind === 'folder';
+    const page = node.page;
+    const folder = node.folder;
+    const busy = isFolder && folder ? folderBusy.has(folder.id) : false;
+    const isProcessing = !isFolder && !!page && (pending.has(page.id) || page.status === 'processing');
+    const isRemoving = !isFolder && !!page && removing.has(page.id);
+    const folderSelected = isFolder && folder ? folder.selected : false;
+    const covered = isFolder ? coveredFolders.has(node.id) : coveredPages.has(node.id);
+    const childPages = isFolder ? countDescendantPages(node) : 0;
+
+    const renderAction = () => {
+      // Covered by a selected ancestor folder → managed there; show a passive note, no control.
+      if (covered) {
+        return (
+          <Badge variant="secondary" size="sm">
+            {isFolder ? 'Included' : 'Via folder'}
+          </Badge>
+        );
+      }
+      if (isFolder && folder) {
+        if (busy)
+          return (
+            <span className="text-muted-foreground shrink-0">
+              <Spinner />
+            </span>
+          );
+        return folderSelected ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-600 shrink-0 hover:text-red-700"
+            onClick={() => requestRemoveFolder(folder, childPages)}
+          >
+            Remove from KB
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => requestProcessFolder(folder, childPages)}
+          >
+            Add to KB{childPages > 0 ? ` · ${childPages} page${childPages === 1 ? '' : 's'}` : ''}
+          </Button>
+        );
+      }
+      if (page) {
+        if (isProcessing)
+          return (
+            <span className="text-muted-foreground shrink-0">
+              <Spinner />
+            </span>
+          );
+        return page.processed ? (
           <Button
             variant="ghost"
             size="sm"
@@ -324,79 +444,93 @@ const IntegrationCatalog = ({
           </Button>
         ) : (
           <Button variant="outline" size="sm" className="shrink-0" onClick={() => processPage(page)}>
-            Process as KB
+            Add to KB
           </Button>
-        )}
-      </li>
-    );
-  };
+        );
+      }
+      return null;
+    };
 
-  const renderFolderRow = (node: Extract<TreeNode, { kind: 'folder' }>, depth = 0) => {
-    const isOpen = expanded.has(node.id);
-    const busy = folderBusy.has(node.id);
-    const selected = node.folder.selected;
     return (
-      <li key={`f-${node.id}`}>
+      <li
+        key={`${node.kind}-${node.id}`}
+        role="treeitem"
+        aria-expanded={hasChildren ? isOpen : undefined}
+        aria-selected={isFolder ? folderSelected : Boolean(page?.processed)}
+      >
         <div
-          className="flex gap-3 justify-between items-center px-4 py-2 bg-muted/30"
+          className={`flex gap-2 justify-between items-center px-4 py-2 ${isFolder ? 'bg-muted/30' : ''}`}
           style={{ paddingLeft: `${16 + depth * 18}px` }}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => toggleExpand(node.id)}
-            className="flex gap-2 justify-start items-center px-0 min-w-0 font-normal hover:bg-transparent"
-          >
-            {isOpen ? (
-              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
+          <div className="flex gap-2 items-center min-w-0">
+            {hasChildren ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleExpand(node.id)}
+                aria-label={isOpen ? 'Collapse' : 'Expand'}
+                className="p-0 w-5 h-5 shrink-0 hover:bg-transparent"
+              >
+                {isOpen ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </Button>
             ) : (
-              <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+              <span className="w-5 shrink-0" aria-hidden />
             )}
-            {selected ? (
-              <FolderCheck className="w-4 h-4 shrink-0 text-green-600" />
+            {isFolder ? (
+              folderSelected ? (
+                <FolderCheck className="w-4 h-4 shrink-0 text-green-600" />
+              ) : (
+                <Folder className="w-4 h-4 shrink-0 text-muted-foreground" />
+              )
             ) : (
-              <Folder className="w-4 h-4 shrink-0 text-muted-foreground" />
+              <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
             )}
-            <span className="text-sm font-medium truncate">{node.title}</span>
-            {selected && (
-              <Badge variant="success" size="sm">
-                In Knowledge Base
+            <span className={`text-sm truncate ${isFolder ? 'font-medium' : ''}`}>{node.title}</span>
+            {hasChildren && (
+              <span className="text-xs text-muted-foreground shrink-0">({node.children.length})</span>
+            )}
+            {isProcessing ? (
+              <Badge variant="warning" size="sm">
+                Processing…
               </Badge>
+            ) : isFolder ? (
+              folderSelected && (
+                <Badge variant="success" size="sm">
+                  In Knowledge Base
+                </Badge>
+              )
+            ) : (
+              page?.processed && <StatusBadge status={page.status} />
             )}
-          </Button>
-          {busy ? (
-            <span className="text-muted-foreground shrink-0">
-              <Spinner />
-            </span>
-          ) : selected ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-600 shrink-0 hover:text-red-700"
-              onClick={() => removeFolder(node.folder)}
-            >
-              Remove folder
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              onClick={() => processFolder(node.folder)}
-            >
-              Add folder to KB
-            </Button>
-          )}
+          </div>
+          {renderAction()}
         </div>
-        {isOpen && node.children.length > 0 && (
-          <ul>{node.children.map((child) => renderNode(child, depth + 1))}</ul>
+        {isOpen && hasChildren && (
+          <ul role="group">{node.children.map((child) => renderNode(child, depth + 1))}</ul>
         )}
       </li>
     );
   };
 
-  const renderNode = (node: TreeNode, depth = 0) =>
-    node.kind === 'folder' ? renderFolderRow(node, depth) : renderPageRow(node.page, depth);
+  // Wrap a flat folder/page (search results) as a childless node for the same renderer.
+  const folderLeaf = (folder: ConfluenceFolderNode): TreeNode => ({
+    kind: 'folder',
+    id: folder.id,
+    title: folder.title || 'Untitled folder',
+    folder,
+    children: [],
+  });
+  const pageLeaf = (page: ConfluencePageNode): TreeNode => ({
+    kind: 'page',
+    id: page.id,
+    title: page.title,
+    page,
+    children: [],
+  });
 
   const hasContent = (pages?.length ?? 0) > 0 || folders.length > 0;
   const showSpacePicker = configuredSpaceKeys.length === 0;
@@ -408,11 +542,22 @@ const IntegrationCatalog = ({
           <p className="text-sm font-medium truncate">{integration.name}</p>
           <p className="text-xs text-muted-foreground">
             {configuredSpaceKeys.join(', ') || spaceKey || 'Pick a space'}
-            {pages ? ` · ${processedCount} page(s), ${selectedFolderCount} folder(s) in KB` : ''}
+            {pages
+              ? ` · ${selectedFolderCount} folder${selectedFolderCount === 1 ? '' : 's'}, ${individualPageCount} page${individualPageCount === 1 ? '' : 's'} in KB`
+              : ''}
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => void refresh()} title="Refresh">
-          <RefreshCw className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={refreshing}
+          onClick={() => {
+            setRefreshing(true);
+            void refresh().finally(() => setRefreshing(false));
+          }}
+          title="Refresh"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
@@ -460,22 +605,41 @@ const IntegrationCatalog = ({
         <p className="px-4 py-6 text-sm text-muted-foreground">No content found in this space.</p>
       )}
 
-      {/* Search results (flat) */}
-      {searchMatches && hasContent && (
-        <ul className="mt-2 divide-y divide-border">
-          {searchMatches.folders.length === 0 && searchMatches.pages.length === 0 && (
-            <li className="px-4 py-3 text-sm text-muted-foreground">No matches for “{filter}”.</li>
-          )}
-          {searchMatches.folders.map((folder) =>
-            renderFolderRow({ kind: 'folder', id: folder.id, title: folder.title, folder, children: [] })
-          )}
-          {searchMatches.pages.map((page) => renderPageRow(page))}
-        </ul>
-      )}
+      {/* Deep trees scroll horizontally inside their own container (page never scrolls sideways). */}
+      <div className="overflow-x-auto">
+        {/* Search results (flat) */}
+        {searchMatches && hasContent && (
+          <ul role="tree" className="mt-2 divide-y divide-border">
+            {searchMatches.folders.length === 0 && searchMatches.pages.length === 0 && (
+              <li className="px-4 py-3 text-sm text-muted-foreground">No matches for “{filter}”.</li>
+            )}
+            {searchMatches.folders.map((folder) => renderNode(folderLeaf(folder)))}
+            {searchMatches.pages.map((page) => renderNode(pageLeaf(page)))}
+          </ul>
+        )}
 
-      {/* Tree */}
-      {!searchMatches && hasContent && (
-        <ul className="mt-2 divide-y divide-border">{tree.map((node) => renderNode(node))}</ul>
+        {/* Tree */}
+        {!searchMatches && hasContent && (
+          <ul role="tree" className="mt-2 divide-y divide-border">
+            {tree.map((node) => renderNode(node))}
+          </ul>
+        )}
+      </div>
+
+      {confirm && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setConfirm(null);
+          }}
+          onConfirm={() => {
+            confirm.onConfirm();
+            setConfirm(null);
+          }}
+          title={confirm.title}
+          description={confirm.description}
+          confirmText={confirm.confirmText}
+        />
       )}
     </Card>
   );
