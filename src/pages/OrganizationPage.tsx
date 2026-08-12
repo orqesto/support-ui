@@ -1,74 +1,38 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { Building2, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
-import { OrgAdminTable } from '@/components/organization/OrgAdminTable';
+import { Building2, Edit2, Save, X } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
-import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/Dialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { organizationService } from '@/services/organization.service';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
-import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
 import { logger } from '@/lib/logger';
 
+/**
+ * Per-workspace settings for the user's current workspace (view + edit name/description).
+ * The cross-org, global-admin "manage all workspaces" list used to live here too; it now
+ * lives solely in the Platform console → Workspaces (PlatformOrganizations), so this page is
+ * just the single-workspace editor for everyone.
+ */
 export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = {}) => {
   // Embedded in the WorkspaceShell → render into its chrome via a Fragment;
   // standalone → wrap in the org-scoped Layout.
   const Wrap = embedded ? Fragment : Layout;
-  const { canManageOrganization, isAdmin } = usePermissions();
+  const { canManageOrganization } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
-  const [editOrgForm, setEditOrgForm] = useState<{
-    name: string;
-    description: string;
-    active: boolean;
-  }>({ name: '', description: '', active: true });
-  const [deleteDialog, setDeleteDialog] = useState<{
-    isOpen: boolean;
-    orgId: number | null;
-    orgName: string;
-  }>({ isOpen: false, orgId: null, orgName: '' });
-
-  // Alert dialog state
-  const [alertDialog, setAlertDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    variant: 'success' | 'error' | 'warning' | 'info';
-  }>({ open: false, title: '', description: '', variant: 'info' });
   const [editForm, setEditForm] = useState({
     name: '',
     description: '',
   });
 
-  // Use organizations store
   const organization = useOrganizationsStore((state) => state.currentOrganization);
   const setOrganization = useOrganizationsStore((state) => state.setCurrentOrganization);
-  const allOrganizationsFromStore = useOrganizationsStore((state) => state.allOrganizations);
-  const allOrganizations = Array.isArray(allOrganizationsFromStore)
-    ? allOrganizationsFromStore
-    : [];
-  const searchOrg = useOrganizationsStore((state) => state.searchQuery);
-  const setSearchOrg = useOrganizationsStore((state) => state.setSearchQuery);
-  const setAllOrganizations = useOrganizationsStore((state) => state.setAllOrganizations);
-
-  // Local pending search state
-  const [pendingSearch, setPendingSearch] = useState(searchOrg || '');
 
   const fetchCurrentOrganization = useCallback(async () => {
     setLoading(true);
@@ -86,56 +50,11 @@ export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = 
     }
   }, [setOrganization]);
 
-  const fetchAllOrganizations = useCallback(async () => {
-    if (!isAdmin) {
-      return;
-    }
-
-    try {
-      const result = await organizationService.getAll(searchOrg || undefined);
-      setAllOrganizations(result.data); // Extract data array from response
-    } catch (error) {
-      logger.error('Failed to fetch all organizations:', error);
-    }
-  }, [isAdmin, searchOrg, setAllOrganizations]);
-
-  // Fetch current organization once on mount
   useEffect(() => {
     fetchCurrentOrganization().catch((error) => {
       logger.error('Failed to fetch current organization:', error);
     });
   }, [fetchCurrentOrganization]);
-
-  // Fetch all organizations on mount (for admins)
-  useEffect(() => {
-    if (isAdmin) {
-      fetchAllOrganizations().catch((error) => {
-        logger.error('Failed to fetch organizations:', error);
-      });
-    }
-  }, [fetchAllOrganizations, isAdmin]);
-
-  // Re-fetch only all organizations when search changes (not current org)
-  useEffect(() => {
-    if (!isAdmin) {
-      return;
-    }
-    fetchAllOrganizations().catch((error) => {
-      logger.error('Failed to fetch organizations:', error);
-    });
-  }, [fetchAllOrganizations, isAdmin, searchOrg]);
-
-  const handleSearch = () => {
-    // Trigger actual search when button clicked or Enter pressed
-    setSearchOrg(pendingSearch);
-  };
-
-  const handleSearchBlur = () => {
-    // If search is empty on blur, clear the search filter to show all data
-    if (!pendingSearch.trim() && searchOrg) {
-      setSearchOrg('');
-    }
-  };
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -168,78 +87,6 @@ export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = 
       logger.error('Failed to update organization:', error);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleCreateOrganization = async (
-    data: Parameters<typeof organizationService.create>[0]
-  ) => {
-    await organizationService.create(data);
-    // Refresh the lists to show the newly created organization
-    if (isAdmin) {
-      await fetchAllOrganizations();
-    }
-    await fetchCurrentOrganization();
-  };
-
-  const confirmDeleteOrg = (orgId: number, orgName: string) => {
-    setDeleteDialog({ isOpen: true, orgId, orgName });
-  };
-
-  const handleDeleteOrg = async () => {
-    if (!deleteDialog.orgId) {
-      return;
-    }
-
-    try {
-      await organizationService.delete(deleteDialog.orgId);
-      // Refresh organizations list
-      setAllOrganizations(allOrganizations.filter((org) => org.id !== deleteDialog.orgId));
-      setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
-    } catch (error) {
-      if (error instanceof Error) {
-        logger.error('Failed to delete organization:', error);
-        const apiError = error as Error & { response?: { data?: { message?: string } } };
-        const errorMessage =
-          apiError.response?.data?.message ??
-          error.message ??
-          'Failed to delete workspace. Please check the console for details.';
-        setAlertDialog({
-          open: true,
-          title: 'Delete Failed',
-          description: `Error: ${errorMessage}`,
-          variant: 'error',
-        });
-      }
-      setDeleteDialog({ isOpen: false, orgId: null, orgName: '' });
-    }
-  };
-
-  const handleUpdateOrg = async (orgId: number) => {
-    try {
-      const updated = await organizationService.updateById(orgId, {
-        name: editOrgForm.name,
-        description: editOrgForm.description || null,
-        active: editOrgForm.active,
-      });
-      // Update in the list
-      setAllOrganizations(allOrganizations.map((org) => (org.id === orgId ? updated : org)));
-      setEditingOrgId(null);
-    } catch (error) {
-      if (error instanceof Error) {
-        logger.error('Failed to update organization:', error);
-        const apiError = error as Error & { response?: { data?: { message?: string } } };
-        const errorMessage =
-          apiError.response?.data?.message ??
-          error.message ??
-          'Failed to update workspace. Please check the console for details.';
-        setAlertDialog({
-          open: true,
-          title: 'Update Failed',
-          description: `Error: ${errorMessage}`,
-          variant: 'error',
-        });
-      }
     }
   };
 
@@ -277,62 +124,22 @@ export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = 
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-2xl font-bold">Workspace Settings</h2>
-            <p className="text-sm text-muted-foreground">
-              {isAdmin
-                ? 'Manage all workspaces in the system'
-                : "Manage your workspace's details"}
-            </p>
+            <p className="text-sm text-muted-foreground">Manage your workspace&apos;s details</p>
           </div>
-          {isAdmin && (
-            <Button onClick={() => setIsCreateModalOpen(true)}>
-              <Plus className="mr-2 w-4 h-4" />
-              Create Workspace
-            </Button>
-          )}
         </div>
 
-        {/* All Organizations (Global Admin Only) */}
-        {isAdmin && (
-          <OrgAdminTable
-            allOrganizations={allOrganizations}
-            searchOrg={searchOrg}
-            pendingSearch={pendingSearch}
-            editingOrgId={editingOrgId}
-            editOrgForm={editOrgForm}
-            onPendingSearchChange={setPendingSearch}
-            onSearch={handleSearch}
-            onSearchBlur={handleSearchBlur}
-            onEditOrgFormChange={setEditOrgForm}
-            onStartEdit={(org) => {
-              setEditingOrgId(org.id);
-              setEditOrgForm({
-                name: org.name,
-                description: org.description ?? '',
-                active: org.active,
-              });
-            }}
-            onCancelEdit={() => setEditingOrgId(null)}
-            onSaveEdit={handleUpdateOrg}
-            onDelete={confirmDeleteOrg}
-          />
-        )}
-
-        {/* Organization Details */}
+        {/* Workspace Details */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <div className="flex gap-3 items-center">
-                <div className="block flex hidden justify-center items-center w-12 h-12 bg-purple-100 rounded-lg sm:">
+                <div className="flex justify-center items-center w-12 h-12 bg-purple-100 rounded-lg">
                   <Building2 className="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl font-bold sm:text-xl">
-                    {isAdmin ? 'My Current Workspace' : 'Workspace Details'}
-                  </CardTitle>
+                  <CardTitle className="text-xl font-bold sm:text-xl">Workspace Details</CardTitle>
                   <CardDescription className="mt-1 text-sm text-gray-600 sm:text-base">
-                    {isAdmin
-                      ? `Details of your assigned workspace (${organization.name})`
-                      : 'Basic information about your workspace'}
+                    Basic information about your workspace
                   </CardDescription>
                 </div>
               </div>
@@ -423,73 +230,6 @@ export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = 
           </CardContent>
         </Card>
       </div>
-
-      {/* Create Organization Modal */}
-      <CreateOrganizationModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onCreate={handleCreateOrganization}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialog.isOpen}
-        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, isOpen: open })}
-      >
-        <DialogHeader>
-          <DialogTitle>Delete Workspace</DialogTitle>
-          <DialogClose
-            onClose={() => setDeleteDialog({ isOpen: false, orgId: null, orgName: '' })}
-          />
-        </DialogHeader>
-        <DialogContent>
-          <div className="space-y-4">
-            <p className="text-sm">
-              Are you sure you want to delete{' '}
-              <strong className="font-semibold">{deleteDialog.orgName}</strong>?
-            </p>
-            <div className="p-4 rounded-md border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
-              <p className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">
-                This will permanently delete:
-              </p>
-              <ul className="space-y-1 text-sm list-disc list-inside text-red-600 dark:text-red-400">
-                <li>The workspace</li>
-                <li>All users in this workspace</li>
-                <li>All tickets and messages</li>
-                <li>All categories and settings</li>
-              </ul>
-            </div>
-            <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-              This action cannot be undone.
-            </p>
-          </div>
-        </DialogContent>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setDeleteDialog({ isOpen: false, orgId: null, orgName: '' })}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDeleteOrg}
-            className="text-white bg-red-600 hover:bg-red-700"
-          >
-            <Trash2 className="mr-2 w-4 h-4" />
-            Delete Workspace
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Alert Dialog */}
-      <AlertDialog
-        open={alertDialog.open}
-        onOpenChange={(open) => setAlertDialog({ ...alertDialog, open })}
-        title={alertDialog.title}
-        description={alertDialog.description}
-        variant={alertDialog.variant}
-      />
     </Wrap>
   );
 };
