@@ -69,6 +69,18 @@ export type AllianceRoleMapping = {
   mappedRole: AllianceRole;
 };
 
+/**
+ * Read-only SCIM provisioning telemetry (GET .../scim/telemetry): config flags, token
+ * and group counts, and informational `notes` (e.g. that per-user provision/deprovision
+ * events aren't tracked). Timestamps serialize as ISO strings or null.
+ */
+export type AllianceScimTelemetry = {
+  config: { enabled: boolean; allowScimAccountLinking: boolean };
+  tokens: { total: number; active: number; revoked: number; lastUsedAt: string | null };
+  groups: { total: number; memberships: number; lastSyncedAt: string | null };
+  notes: string[];
+};
+
 const base = (allianceId: number): string => `/api/alliances/${allianceId}`;
 
 /** The bearer SCIM surface origin — matches the per-org connector (`<origin>/api/scim/v2`). */
@@ -86,6 +98,14 @@ export const allianceScimService = {
     input: AllianceScimConfigInput
   ): Promise<AllianceScimConfig> => {
     const res = await apiClient.put<{ data: AllianceScimConfig }>(`${base(allianceId)}/scim`, input);
+    return res.data.data;
+  },
+
+  /** Read-only provisioning telemetry (GET .../scim/telemetry). */
+  getTelemetry: async (allianceId: number): Promise<AllianceScimTelemetry> => {
+    const res = await apiClient.get<{ data: AllianceScimTelemetry }>(
+      `${base(allianceId)}/scim/telemetry`
+    );
     return res.data.data;
   },
 

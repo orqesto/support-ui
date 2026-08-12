@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { KeyRound, ShieldCheck, Copy, Check, Trash2, Plus } from 'lucide-react';
+import {
+  KeyRound,
+  ShieldCheck,
+  Copy,
+  Check,
+  Trash2,
+  Plus,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -19,6 +28,7 @@ import { useAllianceOverview } from '@/hooks/useAllianceAdmin';
 import {
   useAllianceSso,
   useSaveAllianceSso,
+  useTestAllianceSso,
   useAllianceDomains,
   useAddDomain,
   useVerifyDomain,
@@ -106,6 +116,12 @@ const parseDomains = (raw: string): string[] =>
 
 /** The backend origin the alliance callback is served from (matches BE buildAllianceRedirectUri). */
 const backendOrigin = API_BASE_URL.replace(/\/$/, '');
+
+/** Humanize an SSO test check name (config_present → "Config present"). */
+const humanizeCheckName = (name: string): string => {
+  const spaced = name.replace(/_/g, ' ').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
 
 /** A read-only, monospace, copy-able value (redirect URI + DNS TXT name/value). */
 const CopyField = ({ label, value }: { label: string; value: string }) => {
@@ -211,6 +227,7 @@ export const ConsoleIdentity = () => {
   const overview = useAllianceOverview(numericId);
   const ssoQuery = useAllianceSso(numericId);
   const saveSso = useSaveAllianceSso(numericId);
+  const testSso = useTestAllianceSso(numericId);
   const domainsQuery = useAllianceDomains(numericId);
   const addDomain = useAddDomain(numericId);
 
@@ -479,13 +496,54 @@ export const ConsoleIdentity = () => {
               </p>
             </div>
 
-            <Button
-              type="submit"
-              isLoading={saveSso.isPending}
-              disabled={saveSso.isPending || secretRequiredMissing}
-            >
-              Save SSO settings
-            </Button>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                type="submit"
+                isLoading={saveSso.isPending}
+                disabled={saveSso.isPending || secretRequiredMissing}
+              >
+                Save SSO settings
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => testSso.mutate()}
+                isLoading={testSso.isPending}
+                disabled={testSso.isPending}
+              >
+                Test connection
+              </Button>
+            </div>
+
+            {testSso.data && (
+              <div className="pt-4 space-y-2 border-t border-border">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Badge variant={testSso.data.ok ? 'success' : 'danger'}>
+                    {testSso.data.ok ? 'Connection OK' : 'Issues found'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Runs against the saved configuration.
+                  </span>
+                </div>
+                <ul className="space-y-1">
+                  {testSso.data.checks.map((check) => (
+                    <li key={check.name} className="flex gap-2 items-start text-sm">
+                      {check.ok ? (
+                        <CheckCircle2 className="mt-0.5 w-4 h-4 shrink-0 text-green-600" />
+                      ) : (
+                        <XCircle className="mt-0.5 w-4 h-4 shrink-0 text-red-600" />
+                      )}
+                      <span>
+                        <span className="font-medium text-foreground">
+                          {humanizeCheckName(check.name)}
+                        </span>
+                        <span className="text-muted-foreground"> — {check.message}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>

@@ -17,6 +17,14 @@ import {
 const errorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
 
+/** Run the SSO connection preflight (POST .../sso/test). Read-only; no cache to invalidate. */
+export const useTestAllianceSso = (allianceId: number | null) =>
+  useMutation({
+    mutationFn: () => allianceSsoService.testSso(allianceId as number),
+    onError: (error: unknown) =>
+      toast.error(errorMessage(error, 'Could not test the SSO connection')),
+  });
+
 // ─── OIDC connection ───────────────────────────────────────────────────────────
 export const useAllianceSso = (allianceId: number | null) =>
   useQuery({
