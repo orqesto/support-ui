@@ -80,6 +80,13 @@ export type DataTableProps<Row> = {
    */
   renderEditRow?: (row: Row) => ReactNode;
   /**
+   * Opt-in mobile card renderer. When set, viewports below `xl` render a divide-y stack of
+   * these cards (per row) instead of the horizontally-scrolling table, and the table becomes
+   * `xl`-only — matching the customer UsersPage's responsive list. When unset (the console
+   * default), the table just scrolls horizontally on small screens.
+   */
+  renderCard?: (row: Row) => ReactNode;
+  /**
    * Client mode only: changing this value resets the internal page to 1. Use it when an
    * EXTERNAL filter (e.g. a status `Select`) narrows `rows` — the table resets its page on
    * a search-term change on its own, but can't see a filter the page applied before passing

@@ -13,8 +13,9 @@ import type { DataTableProps } from './dataTable.types';
  * so pages no longer re-roll a `<table>` + `.slice`/clamp + search each time.
  *
  * The page still owns data-fetching and passes either the full list (`pagination.mode:
- * 'client'` — the table slices) or the current page + meta (`'server'`). Mobile currently
- * scrolls the table horizontally; the ListCard card layout lands in Phase 3.
+ * 'client'` — the table slices) or the current page + meta (`'server'`). By default mobile
+ * scrolls the table horizontally; pass `renderCard` to render a mobile card list below `xl`
+ * instead (the customer UsersPage's responsive layout).
  */
 export function DataTable<Row>({
   rows,
@@ -30,6 +31,7 @@ export function DataTable<Row>({
   className,
   actionsLabel = 'Actions',
   renderEditRow,
+  renderCard,
   resetPageKey,
 }: DataTableProps<Row>) {
   const [clientPage, setClientPage] = useState(1);
@@ -126,7 +128,14 @@ export function DataTable<Row>({
         </div>
       ) : (
         <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-sm">
+          {renderCard && (
+            <div className="divide-y xl:hidden divide-border">
+              {pageRows.map((row) => (
+                <div key={rowKey(row)}>{renderCard(row)}</div>
+              ))}
+            </div>
+          )}
+          <table className={cn('w-full text-sm', renderCard && 'hidden xl:table')}>
             <thead className="bg-muted/50">
               <tr className="text-left text-muted-foreground">
                 {columns.map((col) => (
