@@ -81,7 +81,7 @@ export type FilterState = {
 };
 
 export type SortingState = {
-  sortBy: 'time' | 'priority' | 'sla' | 'priority_sla';
+  sortBy: 'time' | 'priority' | 'sla' | 'priority_sla' | 'last_client_reply' | 'last_our_reply';
   sortOrder: 'asc' | 'desc';
 };
 
