@@ -26,10 +26,19 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
   const { data: departments = [], isLoading } = useDepartments();
 
   useEffect(() => {
-    if (value === undefined) onChange(isCreate ? seedDeptIds : []);
-    // Seed exactly once on mount.
+    if (value !== undefined) return; // already set: a stored value, or the user picked
+    if (!isCreate) {
+      onChange([]); // editing a legacy (never-scoped) source → explicit org-wide
+      return;
+    }
+    // New connect → default to the admin's own dept(s). seedDeptIds is [] until the auth
+    // store hydrates user.departmentIds; DON'T seed org-wide in that gap — for a
+    // confidentiality control that would silently default to the broadest visibility and,
+    // being mount-only before, never re-seed. Wait until we actually have the depts (deps
+    // include seedDeptIds + isCreate so this re-fires on hydration and on an Add→Edit switch).
+    if (seedDeptIds.length > 0) onChange(seedDeptIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [value, isCreate, seedDeptIds]);
 
   const selected = value ?? (isCreate ? seedDeptIds : []);
   const orgWide = selected.length === 0;

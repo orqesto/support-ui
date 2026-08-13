@@ -31,6 +31,30 @@ describe('ConfluenceDepartmentScope', () => {
     expect(onChange).toHaveBeenCalledWith([2]);
   });
 
+  it('does NOT seed org-wide before the auth store hydrates; seeds admin dept(s) once available', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <ConfluenceDepartmentScope
+        value={undefined}
+        onChange={onChange}
+        seedDeptIds={[]}
+        isCreate={true}
+      />
+    );
+    // user.departmentIds not hydrated yet → must NOT lock the source to org-wide.
+    expect(onChange).not.toHaveBeenCalled();
+    // Auth store hydrates with the admin's department.
+    rerender(
+      <ConfluenceDepartmentScope
+        value={undefined}
+        onChange={onChange}
+        seedDeptIds={[2]}
+        isCreate={true}
+      />
+    );
+    expect(onChange).toHaveBeenCalledWith([2]);
+  });
+
   it('seeds a legacy EDIT (never-scoped source) to org-wide, preserving current behaviour', () => {
     const onChange = vi.fn();
     render(
