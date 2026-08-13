@@ -50,6 +50,7 @@ export const kbService = {
     limit?: number;
     search?: string;
     status?: string;
+    messageSourceId?: number;
   }) => {
     const queryParams = new URLSearchParams();
     if (params?.type) queryParams.set('type', params.type);
@@ -57,6 +58,8 @@ export const kbService = {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.search) queryParams.set('search', params.search);
     if (params?.status) queryParams.set('status', params.status);
+    if (params?.messageSourceId)
+      queryParams.set('messageSourceId', params.messageSourceId.toString());
 
     const queryString = queryParams.toString();
     const response = await apiClient.get<PaginatedResponse<KBEntry>>(

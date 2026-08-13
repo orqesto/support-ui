@@ -36,6 +36,11 @@ export type ConfluenceConfig = {
   selectedPageIds?: string[];
   // Native folder ids selected for RECURSIVE KB sync (all nested pages).
   selectedFolderIds?: string[];
+  // Department visibility for synced pages (confidentiality scope):
+  //   undefined → legacy: leave existing scoping untouched.
+  //   []        → org-wide (every department's AI can cite these pages).
+  //   [a, b, …] → scoped to those departments only.
+  departmentIds?: number[];
 };
 
 export type ConfluenceSpace = { id: string; key: string; name: string };
