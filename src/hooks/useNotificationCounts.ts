@@ -74,11 +74,19 @@ export const useNotificationCounts = () => {
     // Without this the badge lingered until the 60s poll — the "I removed messages but
     // the count didn't clear" symptom.
     const handleRemoved = () => invalidate();
+    // A notification was marked read for this user — from the notification panel OR
+    // (server-side) when its conversation is marked read. The acting user is in their
+    // own `user-<id>` room so this fires for them too, decrementing the arrival badge
+    // live. Without it, "Mark as read" cleared the per-thread dot but the count stuck
+    // until the 60s poll (client-reported).
+    const handleRead = () => invalidate();
     subscribeToEvent('notification:new', handleNew);
     subscribeToEvent('notification:removed', handleRemoved);
+    subscribeToEvent('notification:read', handleRead);
     return () => {
       unsubscribeFromEvent('notification:new', handleNew);
       unsubscribeFromEvent('notification:removed', handleRemoved);
+      unsubscribeFromEvent('notification:read', handleRead);
       releaseSocket();
     };
   }, [queryClient, orgId, deptKey]);
