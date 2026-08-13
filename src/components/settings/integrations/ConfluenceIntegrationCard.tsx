@@ -58,11 +58,27 @@ export const ConfluenceIntegrationCard = ({
   // is, offer a no-credentials "use the server service account" flow (both options remain).
   const [envConfigured, setEnvConfigured] = useState(false);
   const [useServerAccount, setUseServerAccount] = useState(false);
+  // A FAILED status check is not the same as "no service account configured", but both leave
+  // envConfigured false and silently hide the toggle. Keep the error so the form can say which
+  // it is — a missing org context (platform scope strips X-Organization-Context) 400s here and
+  // is otherwise indistinguishable from an unconfigured backend.
+  const [envStatusError, setEnvStatusError] = useState<string | null>(null);
   useEffect(() => {
     integrationsService
       .getConfluenceEnvStatus()
-      .then((res) => setEnvConfigured(Boolean(res.data?.envConfigured)))
-      .catch(() => setEnvConfigured(false));
+      .then((res) => {
+        setEnvConfigured(Boolean(res.data?.envConfigured));
+        setEnvStatusError(null);
+      })
+      .catch((error: unknown) => {
+        setEnvConfigured(false);
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        setEnvStatusError(
+          status
+            ? `Could not check for a server service account (HTTP ${status}).`
+            : 'Could not check for a server service account.'
+        );
+      });
   }, []);
   const envMode = envConfigured && useServerAccount;
   // A one-shot timer to re-check status shortly after "Sync now": the worker sets
@@ -347,6 +363,14 @@ export const ConfluenceIntegrationCard = ({
               <h4 className="font-medium">
                 {editingId ? 'Edit Confluence Space' : 'Add Confluence Space'}
               </h4>
+
+              {envStatusError && (
+                <Alert variant="warning">
+                  {envStatusError} If this server has a shared Confluence service account, it
+                  cannot be offered right now — enter credentials below, or reload the page with a
+                  workspace selected and try again.
+                </Alert>
+              )}
 
               {envConfigured && (
                 <Toggle
