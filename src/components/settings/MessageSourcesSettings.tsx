@@ -5,6 +5,7 @@ import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIn
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
 import { TelegramIntegrationCard } from '@/components/settings/integrations/TelegramIntegrationCard';
 import type { AlertState } from '@/components/settings/integrations/types';
+import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
@@ -12,6 +13,9 @@ import { logger } from '@/lib/logger';
 export const MessageSourcesSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
+  // Gmail OAuth is Enterprise-only pre-CASA — hide its cards for regular clients (who use
+  // IMAP). null until known; only hide on an explicit false. The BE 403 is the real gate.
+  const gmailAvailable = useGmailOAuthAvailability();
   const [alertDialog, setAlertDialog] = useState<AlertState>({
     open: false,
     title: '',
@@ -66,12 +70,14 @@ export const MessageSourcesSettings = () => {
           defaultKB={false}
         />
 
-        <GmailIntegrationCard
-          integrations={integrations}
-          onRefresh={fetchIntegrations}
-          onShowAlert={setAlertDialog}
-          defaultKB={false}
-        />
+        {gmailAvailable !== false && (
+          <GmailIntegrationCard
+            integrations={integrations}
+            onRefresh={fetchIntegrations}
+            onShowAlert={setAlertDialog}
+            defaultKB={false}
+          />
+        )}
 
         <TelegramIntegrationCard
           integrations={integrations}
@@ -102,12 +108,14 @@ export const MessageSourcesSettings = () => {
           defaultKB={true}
         />
 
-        <GmailIntegrationCard
-          integrations={integrations}
-          onRefresh={fetchIntegrations}
-          onShowAlert={setAlertDialog}
-          defaultKB={true}
-        />
+        {gmailAvailable !== false && (
+          <GmailIntegrationCard
+            integrations={integrations}
+            onRefresh={fetchIntegrations}
+            onShowAlert={setAlertDialog}
+            defaultKB={true}
+          />
+        )}
 
         <ConfluenceIntegrationCard
           integrations={integrations}
