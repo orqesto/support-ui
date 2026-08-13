@@ -4,6 +4,13 @@ import { logger } from '@/lib/logger';
 export type GmailOAuthConfig = {
   hasConfig: boolean;
   redirectUri: string;
+  /**
+   * Whether Gmail OAuth is available to this org. Gmail OAuth (restricted scopes) is
+   * Enterprise-only pre-CASA — the BE gates the connect flow and reports this so the FE
+   * can hide the Add-Gmail card for regular clients (who use IMAP). Absent on older BE →
+   * treat as available (the BE 403 is the real enforcement).
+   */
+  available?: boolean;
 };
 
 export type GmailOAuthInitResponse = {

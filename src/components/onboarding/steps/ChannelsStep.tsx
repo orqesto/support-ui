@@ -8,6 +8,7 @@ import { TelegramIntegrationCard } from '@/components/settings/integrations/Tele
 import type { AlertState } from '@/components/settings/integrations/types';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -89,6 +90,12 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
     onShowAlert: setAlertDialog,
   };
 
+  // Gmail OAuth is Enterprise-only pre-CASA — drop it from onboarding for regular clients
+  // (who use IMAP). null until known; only hide on an explicit false.
+  const gmailAvailable = useGmailOAuthAvailability();
+  const visibleChannels =
+    gmailAvailable === false ? CHANNELS.filter((channel) => channel.key !== 'gmail') : CHANNELS;
+
   const renderCard = (key: ChannelKey) => {
     switch (key) {
       case 'gmail':
@@ -114,7 +121,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
       </p>
 
       <div className="divide-y divide-border overflow-hidden rounded-md border border-border">
-        {CHANNELS.map(({ key, label, description, icon: Icon }) => {
+        {visibleChannels.map(({ key, label, description, icon: Icon }) => {
           const count = countFor(key);
           const open = openKey === key;
           return (
