@@ -8,6 +8,7 @@ import { KBTableView } from '@/components/kb/KBTableView';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfluenceCatalogSection } from '@/components/knowledge-base/ConfluenceCatalogSection';
+import { MessageSourceFilter, ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -52,6 +53,8 @@ export const KnowledgeBasePage = () => {
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  // Source filter — 'all' = no source narrowing. Maps to kbService messageSourceId.
+  const [filterSource, setFilterSource] = useState<string>(ALL_SOURCES);
 
   // Handle tab change by updating URL hash via React Router
   const handleTabChange = (tabId: FilterType) => {
@@ -86,6 +89,7 @@ export const KnowledgeBasePage = () => {
           limit: pagination.limit,
           search: searchQuery || undefined,
           status: filterStatus === 'all' ? undefined : filterStatus,
+          messageSourceId: filterSource === ALL_SOURCES ? undefined : Number(filterSource),
         });
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
@@ -103,7 +107,7 @@ export const KnowledgeBasePage = () => {
     },
     // selectedDeptKey forces re-create on dept toggle; consumer useEffect re-runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterType, filterStatus, searchQuery, pagination.limit, selectedDeptKey]
+    [filterType, filterStatus, filterSource, searchQuery, pagination.limit, selectedDeptKey]
   );
 
   // Refetch when filters change (immediate, no debounce)
@@ -165,6 +169,7 @@ export const KnowledgeBasePage = () => {
   const clearFilters = () => {
     handleTabChange('all');
     setFilterStatus('all');
+    setFilterSource(ALL_SOURCES);
     setSearchQuery('');
     setPendingSearch('');
   };
@@ -172,6 +177,7 @@ export const KnowledgeBasePage = () => {
   const activeFilterCount =
     (filterType !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
+    (filterSource !== ALL_SOURCES ? 1 : 0) +
     (searchQuery?.trim() ? 1 : 0);
 
   const handleApprove = async (id: number) => {
@@ -415,6 +421,16 @@ export const KnowledgeBasePage = () => {
                         All
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Source Filter */}
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground">Source:</span>
+                    <MessageSourceFilter
+                      value={filterSource}
+                      onChange={setFilterSource}
+                      className="w-full sm:w-64"
+                    />
                   </div>
                 </div>
               </div>

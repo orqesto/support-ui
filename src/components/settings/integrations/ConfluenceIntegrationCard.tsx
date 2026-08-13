@@ -1,5 +1,6 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ConfluenceDepartmentScope } from '@/components/settings/integrations/ConfluenceDepartmentScope';
 import {
   parseSpaceKeys,
   syncMeta,
@@ -14,6 +15,7 @@ import {
   integrationsService,
   type ConfluenceConfig,
 } from '@/services/integrations.service';
+import { useAuthStore } from '@/stores/authStore';
 
 export const ConfluenceIntegrationCard = ({
   integrations,
@@ -51,6 +53,9 @@ export const ConfluenceIntegrationCard = ({
   });
 
   const confluenceIntegrations = integrations.filter((integ) => integ.type === 'confluence');
+
+  // The connecting admin's own department(s) — the default scope for a NEW source.
+  const userDeptIds = useAuthStore((state) => state.user?.departmentIds) ?? [];
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -475,6 +480,14 @@ export const ConfluenceIntegrationCard = ({
                   </div>
                 </>
               )}
+
+              {/* Confidentiality: which departments' AI may cite the synced pages. */}
+              <ConfluenceDepartmentScope
+                value={config.departmentIds}
+                onChange={(departmentIds) => setConfig({ ...config, departmentIds })}
+                seedDeptIds={userDeptIds}
+                isCreate={editingId === null}
+              />
 
               <div className="flex gap-2">
                 <Button
