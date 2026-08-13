@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Settings2, Network, Unlink } from 'lucide-react';
+import { Plus, Edit2, Trash2, Settings2, Network } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +16,6 @@ import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleCons
 import { formatMemberCount, formatPlanLabel } from '@/pages/console/platformOrganizations.format';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
-import { allianceAdminService } from '@/services/alliance-admin.service';
 import { organizationService } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
 import { logger } from '@/lib/logger';
@@ -47,14 +46,13 @@ export const PlatformOrganizations = () => {
   const [editTarget, setEditTarget] = useState<OrgRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
-  const [detachTarget, setDetachTarget] = useState<{ id: number; name: string; allianceId: number } | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  // Alliance id → name, to show WHICH alliance each in-an-alliance workspace belongs to (badge)
-  // and to label the per-row Detach action. Attach still lives in the alliance console; detach
-  // is also offered here for convenience (both go through the same A1-guarded BE route).
+  // Alliance id → name, to show WHICH alliance each in-an-alliance workspace belongs to (badge).
+  // Attach/detach are alliance-tenancy actions and live ONLY in the alliance console
+  // (Alliance → Workspaces); this platform list surfaces the membership as a read-only badge.
   const alliancesQuery = useMyAlliances();
   const allianceNameById = new Map(
     (alliancesQuery.data ?? []).map((alliance) => [alliance.id, alliance.name])
@@ -117,25 +115,6 @@ export const PlatformOrganizations = () => {
   const handleCreate = async (data: Parameters<typeof organizationService.create>[0]) => {
     await organizationService.create(data);
     await fetchOrgs();
-  };
-
-  // Detach this workspace from its alliance (global-admin). The workspace itself survives
-  // — only the alliance link is removed (A1-guarded per org on the BE). Mirrors the
-  // alliance console's per-org detach; offered here for convenience on the workspace list.
-  const handleDetach = async () => {
-    if (!detachTarget) {
-      return;
-    }
-    try {
-      await allianceAdminService.detachOrg(detachTarget.allianceId, detachTarget.id);
-      toast.success(`Detached ${detachTarget.name} from its alliance`);
-      setDetachTarget(null);
-      await fetchOrgs();
-    } catch (error) {
-      logger.error('Failed to detach organization from alliance', error);
-      toast.error(error instanceof Error ? error.message : 'Could not detach workspace');
-      setDetachTarget(null);
-    }
   };
 
   // B2: enter per-workspace management inside the console. Drop into the WorkspaceShell for
@@ -237,20 +216,6 @@ export const PlatformOrganizations = () => {
         <Settings2 className="mr-1 w-4 h-4" />
         Manage
       </Button>
-      {typeof org.allianceId === 'number' && (
-        <Tooltip content={`Detach ${org.name} from ${allianceLabel(org) ?? 'its alliance'}`}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setDetachTarget({ id: org.id, name: org.name, allianceId: org.allianceId as number })
-            }
-            aria-label={`Detach ${org.name} from alliance`}
-          >
-            <Unlink className="w-4 h-4" />
-          </Button>
-        </Tooltip>
-      )}
       <Tooltip content={`Edit ${org.name}`}>
         <Button variant="outline" size="sm" onClick={() => setEditTarget(org)} aria-label={`Edit ${org.name}`}>
           <Edit2 className="w-4 h-4" />
@@ -344,20 +309,6 @@ export const PlatformOrganizations = () => {
         confirmText="Delete workspace"
         title={`Delete ${deleteTarget?.name ?? 'this workspace'}?`}
         description="This permanently deletes the workspace and all its data. This cannot be undone."
-      />
-
-      <ConfirmDialog
-        open={detachTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetachTarget(null);
-          }
-        }}
-        onConfirm={() => void handleDetach()}
-        variant="warning"
-        confirmText="Detach"
-        title={`Detach ${detachTarget?.name ?? 'this workspace'} from its alliance?`}
-        description="The workspace and its data are kept — only its alliance membership is removed. Alliance admins will no longer manage it, and it won't share the alliance's SSO/SCIM."
       />
     </div>
   );
