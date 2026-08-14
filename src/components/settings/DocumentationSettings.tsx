@@ -30,12 +30,18 @@ type DocumentationSettingsProps = {
   // Report the current document count to a host (e.g. the onboarding KB step) so it
   // can reflect whether the KB has any content yet. Fires on load and after any change.
   onDocsCountChange?: (count: number) => void;
+  // Compact mode (onboarding KB step): render only the uploader — hide the header,
+  // the stats cards, and the full document manager list/dialogs. Doc-count reporting
+  // still fires, so the wizard's Skip/Next footer keeps working. Full management
+  // stays available later in Settings → Knowledge base.
+  compact?: boolean;
 };
 
 export const DocumentationSettings = ({
   refreshSignal = 0,
   onKbChange,
   onDocsCountChange,
+  compact = false,
 }: DocumentationSettingsProps = {}) => {
   const [docs, setDocs] = useState<Documentation[]>([]);
   const [stats, setStats] = useState<{
@@ -405,45 +411,47 @@ export const DocumentationSettings = ({
 
   return (
     <div className="space-y-6">
-      {/* Header with Stats */}
-      <div>
-        <h2 className="mb-2 text-2xl font-bold">Knowledge Base Documentation</h2>
-        <p className="mb-4 text-muted-foreground">
-          Upload documentation that AI will use to answer customer questions automatically.
-        </p>
+      {/* Header with Stats — hidden in compact (onboarding) mode */}
+      {!compact && (
+        <div>
+          <h2 className="mb-2 text-2xl font-bold">Knowledge Base Documentation</h2>
+          <p className="mb-4 text-muted-foreground">
+            Upload documentation that AI will use to answer customer questions automatically.
+          </p>
 
-        {stats && (
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="p-4">
-              <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
-                <BookOpen className="hidden w-8 h-8 text-blue-500 sm:block" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalDocs}</p>
-                  <p className="text-sm text-muted-foreground">Documents</p>
+          {stats && (
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="p-4">
+                <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
+                  <BookOpen className="hidden w-8 h-8 text-blue-500 sm:block" />
+                  <div>
+                    <p className="text-2xl font-bold">{stats.totalDocs}</p>
+                    <p className="text-sm text-muted-foreground">Documents</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="flex flex-col gap-3 text-center items-centersm:items-center sm:flex-row sm:text-left">
-                <FileText className="hidden w-8 h-8 text-green-500 sm:block" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalChunks}</p>
-                  <p className="text-sm text-muted-foreground">Chunks</p>
+              </Card>
+              <Card className="p-4">
+                <div className="flex flex-col gap-3 text-center items-centersm:items-center sm:flex-row sm:text-left">
+                  <FileText className="hidden w-8 h-8 text-green-500 sm:block" />
+                  <div>
+                    <p className="text-2xl font-bold">{stats.totalChunks}</p>
+                    <p className="text-sm text-muted-foreground">Chunks</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
-                <CheckCircle className="hidden w-8 h-8 text-purple-500 sm:block" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalReferences}</p>
-                  <p className="text-sm text-muted-foreground">Times Used</p>
+              </Card>
+              <Card className="p-4">
+                <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
+                  <CheckCircle className="hidden w-8 h-8 text-purple-500 sm:block" />
+                  <div>
+                    <p className="text-2xl font-bold">{stats.totalReferences}</p>
+                    <p className="text-sm text-muted-foreground">Times Used</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          </div>
-        )}
-      </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
 
       <DocumentationUploadForm
         selectedFiles={selectedFiles}
@@ -462,68 +470,76 @@ export const DocumentationSettings = ({
         onUpload={handleUpload}
       />
 
-      <DocumentationList
-        docs={docs}
-        selectedDocs={selectedDocs}
-        docProgress={docProgress}
-        highlightDocId={highlightDocId}
-        onToggleDoc={handleToggleDoc}
-        onToggleAll={handleToggleAll}
-        onBulkDelete={handleBulkDelete}
-        onViewContent={handleViewContent}
-        onToggleEnabled={handleToggleEnabled}
-        onDeleteClick={handleDeleteClick}
-      />
-
-      <ConfirmDialog
-        open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Documentation"
-        description="Are you sure you want to delete this documentation? This action cannot be undone and all associated chunks will be removed from the knowledge base."
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-      />
-
-      <Dialog
-        open={viewerDialog.open}
-        onOpenChange={(open) =>
-          !open && setViewerDialog({ open: false, doc: null, content: '', loading: false })
-        }
-        size="lg"
-      >
-        <DialogHeader>
-          <div className="flex-1 min-w-0 pr-4">
-            <DialogTitle>{viewerDialog.doc?.title}</DialogTitle>
-            <p className="text-sm text-muted-foreground truncate">
-              {viewerDialog.doc?.originalFilename} · {viewerDialog.doc?.chunkCount} chunks
-            </p>
-          </div>
-          <DialogClose
-            onClose={() => setViewerDialog({ open: false, doc: null, content: '', loading: false })}
+      {/* Full document manager (list + delete/viewer dialogs) — hidden in compact
+          (onboarding) mode; available later in Settings → Knowledge base. */}
+      {!compact && (
+        <>
+          <DocumentationList
+            docs={docs}
+            selectedDocs={selectedDocs}
+            docProgress={docProgress}
+            highlightDocId={highlightDocId}
+            onToggleDoc={handleToggleDoc}
+            onToggleAll={handleToggleAll}
+            onBulkDelete={handleBulkDelete}
+            onViewContent={handleViewContent}
+            onToggleEnabled={handleToggleEnabled}
+            onDeleteClick={handleDeleteClick}
           />
-        </DialogHeader>
-        <DialogContent className="overflow-auto max-h-[60vh] bg-gray-50 dark:bg-gray-900">
-          {viewerDialog.loading ? (
-            <div className="flex flex-col justify-center items-center py-12 text-center">
-              <Clock className="mb-4 w-12 h-12 text-primary animate-spin" />
-              <p className="text-muted-foreground">Loading content...</p>
-            </div>
-          ) : (
-            <div
-              className="p-4 bg-white rounded border font-mono text-sm leading-6 dark:bg-gray-800 dark:border-gray-700"
-              style={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {viewerDialog.content}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+
+          <ConfirmDialog
+            open={deleteDialog.open}
+            onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+            onConfirm={handleDeleteConfirm}
+            title="Delete Documentation"
+            description="Are you sure you want to delete this documentation? This action cannot be undone and all associated chunks will be removed from the knowledge base."
+            confirmText="Delete"
+            cancelText="Cancel"
+            variant="danger"
+          />
+
+          <Dialog
+            open={viewerDialog.open}
+            onOpenChange={(open) =>
+              !open && setViewerDialog({ open: false, doc: null, content: '', loading: false })
+            }
+            size="lg"
+          >
+            <DialogHeader>
+              <div className="flex-1 min-w-0 pr-4">
+                <DialogTitle>{viewerDialog.doc?.title}</DialogTitle>
+                <p className="text-sm text-muted-foreground truncate">
+                  {viewerDialog.doc?.originalFilename} · {viewerDialog.doc?.chunkCount} chunks
+                </p>
+              </div>
+              <DialogClose
+                onClose={() =>
+                  setViewerDialog({ open: false, doc: null, content: '', loading: false })
+                }
+              />
+            </DialogHeader>
+            <DialogContent className="overflow-auto max-h-[60vh] bg-gray-50 dark:bg-gray-900">
+              {viewerDialog.loading ? (
+                <div className="flex flex-col justify-center items-center py-12 text-center">
+                  <Clock className="mb-4 w-12 h-12 text-primary animate-spin" />
+                  <p className="text-muted-foreground">Loading content...</p>
+                </div>
+              ) : (
+                <div
+                  className="p-4 bg-white rounded border font-mono text-sm leading-6 dark:bg-gray-800 dark:border-gray-700"
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {viewerDialog.content}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 };

@@ -20,6 +20,6 @@ export const KbStep = ({ onDocsCountChange }: KbStepProps) => (
       Upload FAQs, policies, product docs, or past answers — your AI uses these to suggest and
       draft replies. Optional: skip for now and add documents anytime in Settings → Knowledge base.
     </p>
-    <DocumentationSettings onDocsCountChange={onDocsCountChange} />
+    <DocumentationSettings onDocsCountChange={onDocsCountChange} compact />
   </div>
 );

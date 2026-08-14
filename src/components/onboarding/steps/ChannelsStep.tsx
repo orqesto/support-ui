@@ -119,6 +119,10 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
         Connect the channels your customers reach you on — messages are fetched, analyzed and routed
         to your departments. Set up one or more now, or skip and add them anytime in Settings.
       </p>
+      <p className="text-xs text-muted-foreground">
+        Tip: when adding a mailbox, tick “Use as Knowledge Base source” to also learn answers from
+        its past emails — no cutoff to pick, we index history from the moment you enable it.
+      </p>
 
       <div className="divide-y divide-border overflow-hidden rounded-md border border-border">
         {visibleChannels.map(({ key, label, description, icon: Icon }) => {

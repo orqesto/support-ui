@@ -19,7 +19,9 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     if (typeof window === 'undefined') return 'light';
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    // Default to light. A stored preference (set on first mount and on every
+    // toggle) always wins, so existing users keep whatever they had — only
+    // genuinely first-time visitors are affected by this default.
     return 'light';
   });
 
