@@ -10,6 +10,7 @@ import { StorageStep } from './steps/StorageStep';
 import { StepIndicator, STEP_LABELS } from './StepIndicator';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useOnboardingStore } from '@/stores/onboardingStore';
@@ -17,13 +18,14 @@ import { logger } from '@/lib/logger';
 
 type StepNumber = OnboardingState['currentStep'];
 
+// Step order (KB moved to the LAST step — see STEP_LABELS in StepIndicator).
 const STEP_TITLES: Record<StepNumber, string> = {
   1: 'Review your departments',
   2: 'How should AI features work?',
-  3: 'Add knowledge for your AI',
-  4: 'Where should files be stored?',
-  5: 'Connect your message channels',
-  6: 'Invite your team',
+  3: 'Where should files be stored?',
+  4: 'Connect your message channels',
+  5: 'Invite your team',
+  6: 'Add knowledge for your AI',
 };
 
 /**
@@ -39,7 +41,9 @@ export const OnboardingWizard = () => {
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
   // Clamp a resumed step into range: the wizard dropped from 7 steps to 6 (the
   // read-only Routing step was removed), so an org persisted at the old step 7
-  // resumes on the last step instead of a blank screen.
+  // resumes on the last step instead of a blank screen. (Persisted step is a bare
+  // index, so an org mid-wizard when KB was reordered resumes at the same NUMBER,
+  // i.e. a possibly-different step — non-destructive; onboarding is a short one-off.)
   const [activeStep, setActiveStep] = useState<StepNumber>(
     Math.min(persisted?.currentStep ?? 1, STEP_LABELS.length) as StepNumber
   );
@@ -167,14 +171,15 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // No step blocks advancing. AI (2 — managed or BYO), KB (3), storage (4) and
-  // channels (5) are all optional — set up now or later.
+  // No step blocks advancing. AI (2 — managed or BYO), storage (3), channels (4)
+  // and KB (6) are all optional — set up now or later. KB is the last step, so its
+  // term only affects the (unshown) Next/Skip label there; the footer renders Finish.
   const nextDisabled = false;
   const optionalUnfinished =
     (activeStep === 2 && !aiChoice) ||
-    (activeStep === 3 && !kbHasDocs) ||
-    (activeStep === 4 && !storageChosen) ||
-    (activeStep === 5 && !channelsConnected);
+    (activeStep === 3 && !storageChosen) ||
+    (activeStep === 4 && !channelsConnected) ||
+    (activeStep === 6 && !kbHasDocs);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= STEP_LABELS.length;
@@ -198,9 +203,12 @@ export const OnboardingWizard = () => {
               A few quick steps. Finish setup to start your 14-day trial.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setSkipConfirmOpen(true)}>
-            Finish later
-          </Button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={() => setSkipConfirmOpen(true)}>
+              Finish later
+            </Button>
+          </div>
         </div>
         <StepIndicator activeStep={activeStep} />
       </div>
@@ -223,10 +231,10 @@ export const OnboardingWizard = () => {
             managedAvailable={managedAiAvailable}
           />
         )}
-        {activeStep === 3 && <KbStep onDocsCountChange={handleKbDocsCount} />}
-        {activeStep === 4 && <StorageStep onChoiceChange={handleStorageChoice} />}
-        {activeStep === 5 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
-        {activeStep === 6 && <InviteTeamStep />}
+        {activeStep === 3 && <StorageStep onChoiceChange={handleStorageChoice} />}
+        {activeStep === 4 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
+        {activeStep === 5 && <InviteTeamStep />}
+        {activeStep === 6 && <KbStep onDocsCountChange={handleKbDocsCount} />}
       </div>
 
       {exitError && (
@@ -267,7 +275,7 @@ export const OnboardingWizard = () => {
                 {missingChannel && (
                   <button
                     type="button"
-                    onClick={() => goTo(5)}
+                    onClick={() => goTo(4)}
                     className="font-medium text-primary underline"
                   >
                     connect a channel

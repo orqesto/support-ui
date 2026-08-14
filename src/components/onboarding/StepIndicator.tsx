@@ -1,13 +1,15 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Knowledge is intentionally LAST: get the core setup working (departments, AI,
+// storage, channels, team) first, then add KB as the final, optional step.
 export const STEP_LABELS = [
   'Departments',
   'AI setup',
-  'Knowledge',
   'Storage',
   'Channels',
   'Team',
+  'Knowledge',
 ] as const;
 
 type Props = {
