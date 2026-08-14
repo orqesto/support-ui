@@ -3,7 +3,6 @@
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import DOMPurify from 'dompurify';
 import {
   messageService,
   type MessageNote,
@@ -42,7 +41,7 @@ import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import {
   toGhostOption,
-  suggestedAnswerToHtml,
+  answerToEditorHtml,
   type GhostOption,
   type SuggestedAnswerMeta,
 } from './messageDetailConstants';
@@ -463,31 +462,11 @@ export function MessageDetail({
 
   const handleGhostClick = useCallback(
     (answer: string, _source: string, _attachments?: KBAttachment[]) => {
-      setComposer(
-        // Suggested answers arrive as plain text with markdown-ish syntax; turn
-        // them into HTML so the editor holds editable rich text and the customer
-        // receives formatted output instead of literal "**bold**" / "- " runs.
-        DOMPurify.sanitize(suggestedAnswerToHtml(answer), {
-          ALLOWED_TAGS: [
-            'p',
-            'br',
-            'b',
-            'i',
-            'u',
-            'strong',
-            'em',
-            'a',
-            'ul',
-            'ol',
-            'li',
-            'blockquote',
-            'pre',
-            'code',
-          ],
-          ALLOWED_ATTR: ['href', 'target', 'rel'],
-          ALLOWED_URI_REGEXP: /^https?:/i,
-        })
-      );
+      // Suggested answers arrive as plain text with markdown-ish syntax; turn
+      // them into HTML so the editor holds editable rich text and the customer
+      // receives formatted output instead of literal "**bold**" / "- " runs.
+      // Shared with the composer's AI actions via answerToEditorHtml.
+      setComposer(answerToEditorHtml(answer));
       setComposerMode('reply');
       // Expand the (initially collapsed) reply editor + focus it so the agent
       // sees the populated suggested answer immediately, instead of having to

@@ -368,6 +368,34 @@ export const messageService = {
     return response.data;
   },
 
+  /**
+   * Agent-facing draft assistant. One endpoint, three modes:
+   *   generate — KB-grounded draft
+   *   guided   — KB-grounded draft that also conveys the agent's own facts
+   *   polish   — rewrite the agent's rough draft into something sendable to a customer
+   *
+   * `text` is null when the KB had nothing usable and no draft could be written —
+   * a normal outcome, not an error; the caller should fall back to the KB dialog.
+   */
+  composeReply: async (
+    id: number,
+    payload: { mode: 'generate' | 'guided' | 'polish'; instructions?: string; draft?: string }
+  ) => {
+    const response = await apiClient.post<
+      ApiResponse<{
+        mode: 'generate' | 'guided' | 'polish';
+        text: string | null;
+        language?: string;
+        provider?: string;
+        confidence?: number;
+        /** false when a guided draft came from the agent's own facts, not the KB. */
+        groundedInKb?: boolean;
+        aiConfigured?: boolean;
+      }>
+    >(`/api/messages/${id}/compose-reply`, payload);
+    return response.data;
+  },
+
   reanalyze: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/analyze`, {});
     return response.data;

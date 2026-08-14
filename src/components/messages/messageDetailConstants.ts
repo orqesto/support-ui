@@ -1,4 +1,4 @@
-import type DOMPurifyType from 'dompurify';
+import DOMPurify, { type default as DOMPurifyType } from 'dompurify';
 import type React from 'react';
 import type { ThreadStatus, TicketPriority } from '@/types';
 
@@ -344,4 +344,31 @@ export function splitAtQuote(
   const idx = content.search(/\n-{3,}|\n_{3,}|\nOn .{5,}wrote:|\n-{2,} ?Forwarded|\nFrom: .{2,}\n|\n\s*>[ >]/);
   if (idx > 50) return { main: content.slice(0, idx).trimEnd(), quote: content.slice(idx) };
   return { main: content, quote: null };
+}
+
+// Convert an AI/suggested answer into sanitized HTML ready to drop into the reply
+// editor. Single source of truth for BOTH insertion paths — the ghost-bubble /
+// KB-dialog "use this answer" flow and the composer's AI actions — so the tag
+// allowlist can never drift between them.
+export function answerToEditorHtml(raw: string): string {
+  return DOMPurify.sanitize(suggestedAnswerToHtml(raw), {
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'b',
+      'i',
+      'u',
+      'strong',
+      'em',
+      'a',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'pre',
+      'code',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    ALLOWED_URI_REGEXP: /^https?:/i,
+  });
 }

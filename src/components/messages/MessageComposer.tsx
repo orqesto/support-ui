@@ -4,6 +4,7 @@ import { Send, Paperclip, BookOpen, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
+import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
 import type { Message } from '@/types';
@@ -59,8 +60,6 @@ export function MessageComposer({
     if (files.length) onFilesChange([...selectedFiles, ...files]);
   };
 
-  void message;
-
   return (
     <div
       className="flex-shrink-0 px-4 pt-2 pb-3 border-t border-border"
@@ -89,9 +88,9 @@ export function MessageComposer({
       }}
     >
 
-      {/* Input frame */}
+      {/* Input frame — `relative` anchors the AI panel, which opens upward. */}
       <div
-        className={`rounded border transition-colors ${
+        className={`relative rounded border transition-colors ${
           isDragging
             ? 'border-primary border-dashed ring-2 ring-primary/30'
             : composerMode === 'note'
@@ -142,6 +141,19 @@ export function MessageComposer({
               disabled={submitting}
             />
           </label>
+          {composerMode === 'reply' && (
+            <ComposerAiActions
+              // Keyed so switching conversations REMOUNTS it: the undo buffer holds
+              // the previous conversation's draft, and restoring that into a
+              // different customer's reply would be a cross-thread text leak.
+              key={message.id}
+              messageId={message.id}
+              composer={composer}
+              setComposer={setComposer}
+              disabled={submitting}
+              onApplied={() => setTimeout(() => richEditorRef.current?.focus(), 0)}
+            />
+          )}
           {composerMode === 'reply' && (
             <Button
               variant="ghost"

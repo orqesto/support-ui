@@ -159,7 +159,8 @@ export const ProfileSettings = () => {
           Email Signature
         </h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Appended to replies you send. Leave blank to send without a signature.
+          Appended to email replies and emails you compose. Chat channels (Telegram, Slack) are sent
+          without it. Leave blank to send without a signature.
         </p>
         <Textarea
           value={signature}
