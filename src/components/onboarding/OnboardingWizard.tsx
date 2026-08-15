@@ -9,7 +9,12 @@ import { KbStep } from './steps/KbStep';
 import { PaymentStep } from './steps/PaymentStep';
 import { StorageStep } from './steps/StorageStep';
 import { StepIndicator } from './StepIndicator';
-import { buildStepLabels, shouldShowPaymentStep } from './wizardSteps';
+import {
+  buildStepLabels,
+  initialWizardPlan,
+  PAID_PLANS,
+  shouldShowPaymentStep,
+} from './wizardSteps';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
@@ -48,7 +53,10 @@ export const OnboardingWizard = () => {
   // preselected, and only where a billing provider is actually configured — a
   // self-hosted or not-yet-activated box has no Stripe to talk to.
   const selectedPlan = persisted?.selectedPlan;
-  const showPaymentStep = shouldShowPaymentStep(billingEnabled, selectedPlan);
+  // A plan from the marketing site opens the step directly on that plan; anyone
+  // else gets a selector defaulted to the recommended tier.
+  const planWasPreselected = !!selectedPlan && PAID_PLANS.includes(selectedPlan);
+  const showPaymentStep = shouldShowPaymentStep(billingEnabled);
   const stepLabels = buildStepLabels(showPaymentStep);
   // Clamp a resumed step into range: the step COUNT varies (6 core, 7 with
   // payment), and it dropped from 7 to 6 once before when the read-only Routing
@@ -263,8 +271,12 @@ export const OnboardingWizard = () => {
         {activeStep === 4 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
         {activeStep === 5 && <InviteTeamStep />}
         {activeStep === 6 && <KbStep onDocsCountChange={handleKbDocsCount} />}
-        {activeStep === 7 && showPaymentStep && selectedPlan && (
-          <PaymentStep planName={selectedPlan} onPaidChange={setCardAdded} />
+        {activeStep === 7 && showPaymentStep && (
+          <PaymentStep
+            initialPlan={initialWizardPlan(selectedPlan)}
+            planWasPreselected={planWasPreselected}
+            onPaidChange={setCardAdded}
+          />
         )}
       </div>
 
