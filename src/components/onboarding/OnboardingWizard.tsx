@@ -344,7 +344,7 @@ export const OnboardingWizard = () => {
         onOpenChange={setSkipConfirmOpen}
         onConfirm={() => void handleSkip()}
         title="Finish setup later?"
-        description="You'll go to your dashboard. You can configure departments, AI, storage and channels anytime in Settings. Note: this won't start your 14-day trial — complete this setup to start it."
+        description="You'll go to your dashboard, and can pick this up again any time from the “Finish setup” banner. Heads up: your 14-day trial is already running from signup — finishing setup extends it to 14 days from today, so the sooner you finish, the more trial you keep."
         confirmText="Go to dashboard"
         cancelText="Keep setting up"
         variant="info"
