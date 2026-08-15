@@ -4,8 +4,15 @@ import type { ApiResponse } from '@/types';
 /** Mirrors BE OnboardingState (BE-service organizationDefaults.ts). */
 export type OnboardingState = {
   status: 'pending' | 'completed' | 'skipped';
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   aiChoice?: 'managed' | 'byo';
+  /**
+   * Plan picked on the marketing site before signup (landing `?plan=`), carried
+   * through POST /api/auth/signup. Intent only — the org is still on the free
+   * plan in `trialing`. A paid value is what makes the wizard show its payment
+   * step, so every partial write must preserve it (BE transitions do).
+   */
+  selectedPlan?: string;
   aiChoiceApplied?: boolean;
   startedAt: string;
   completedAt?: string;
