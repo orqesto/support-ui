@@ -1,38 +1,49 @@
 import { describe, it, expect } from 'vitest';
-import { buildStepLabels, shouldShowPaymentStep, STEP_LABELS } from '../wizardSteps';
+import {
+  buildStepLabels,
+  DEFAULT_WIZARD_PLAN,
+  initialWizardPlan,
+  shouldShowPaymentStep,
+  STEP_LABELS,
+} from '../wizardSteps';
 
 /**
  * The payment step is the one part of onboarding that can ask for money, so the
- * rule for showing it is worth pinning down: a card step must never appear for a
- * free/no-plan signup (the marketing site promises "no card required"), and never
- * on a deployment with no billing provider to talk to.
+ * rules around it are worth pinning down. It is OPTIONAL and charges nothing —
+ * that, not hiding it, is what keeps the site's "no card required" promise true.
  */
 
 describe('shouldShowPaymentStep', () => {
-  it('shows for a paid plan when billing is configured', () => {
-    expect(shouldShowPaymentStep(true, 'starter')).toBe(true);
-    expect(shouldShowPaymentStep(true, 'pro')).toBe(true);
+  it('shows wherever billing is configured', () => {
+    expect(shouldShowPaymentStep(true)).toBe(true);
   });
 
-  it('hides when the signup carried no plan', () => {
-    expect(shouldShowPaymentStep(true, undefined)).toBe(false);
+  it('hides where there is no billing provider to talk to', () => {
+    // Self-hosted / not-yet-activated boxes have no Stripe.
+    expect(shouldShowPaymentStep(false)).toBe(false);
+  });
+});
+
+describe('initialWizardPlan', () => {
+  it('opens on the plan picked on the marketing site', () => {
+    expect(initialWizardPlan('starter')).toBe('starter');
+    expect(initialWizardPlan('pro')).toBe('pro');
   });
 
-  it('hides for the free plan', () => {
-    expect(shouldShowPaymentStep(true, 'free')).toBe(false);
+  it('falls back to the recommended tier when no plan was carried', () => {
+    expect(initialWizardPlan(undefined)).toBe(DEFAULT_WIZARD_PLAN);
   });
 
-  it('hides for sales-assisted tiers', () => {
-    expect(shouldShowPaymentStep(true, 'enterprise-cloud')).toBe(false);
-    expect(shouldShowPaymentStep(true, 'self-hosted')).toBe(false);
+  it('never opens on free or a sales-assisted tier', () => {
+    // These are not sellable through self-serve checkout; the BE refuses them,
+    // so opening a session on one would only produce an error.
+    expect(initialWizardPlan('free')).toBe(DEFAULT_WIZARD_PLAN);
+    expect(initialWizardPlan('enterprise-cloud')).toBe(DEFAULT_WIZARD_PLAN);
+    expect(initialWizardPlan('self-hosted')).toBe(DEFAULT_WIZARD_PLAN);
   });
 
-  it('hides when billing is not configured, even for a paid plan', () => {
-    expect(shouldShowPaymentStep(false, 'pro')).toBe(false);
-  });
-
-  it('hides for an unknown plan slug', () => {
-    expect(shouldShowPaymentStep(true, 'not-a-plan')).toBe(false);
+  it('ignores an unknown plan slug', () => {
+    expect(initialWizardPlan('not-a-plan')).toBe(DEFAULT_WIZARD_PLAN);
   });
 });
 

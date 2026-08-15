@@ -74,9 +74,26 @@ const createWizardCheckoutSession = (planName: string) =>
     }>('/api/subscriptions/checkout-session', { planName })
     .then((res) => res.data.data);
 
+export type SubscriptionPlan = {
+  id: number;
+  name: string;
+  displayName: string;
+  planType: string;
+  price: number;
+  currency: string;
+  billingInterval: string;
+};
+
+/** Active, non-admin plans for the current org. */
+const getPlans = () =>
+  apiClient
+    .get<{ success: boolean; data: { plans: SubscriptionPlan[] } }>('/api/subscriptions/plans')
+    .then((res) => res.data.data.plans);
+
 export const subscriptionService = {
   getFeatures,
   openCustomerPortal,
   getUsage,
   createWizardCheckoutSession,
+  getPlans,
 };

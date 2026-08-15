@@ -28,15 +28,25 @@ export const PAYMENT_STEP_LABEL = 'Payment';
 export const PAID_PLANS = ['starter', 'pro'];
 
 /**
- * Show the payment step only when the signup carried a paid plan AND a billing
- * provider is actually configured. Self-hosted and not-yet-activated boxes have
- * no Stripe to talk to, and a free / no-plan signup must never see a card step —
- * that is what keeps the marketing site's "no card required" promise true.
+ * Show the payment step wherever billing is actually configured. Self-hosted and
+ * not-yet-activated boxes have no Stripe to talk to, so they never see it.
+ *
+ * It is shown even when the signup carried no plan: a visitor who came through
+ * the header "Start free" CTA still deserves the option to secure a plan at the
+ * end, and the step carries its own plan selector for that case. What keeps the
+ * marketing site's "no card required" promise true is that the step is OPTIONAL
+ * and nothing is charged — not that it's hidden.
  */
-export const shouldShowPaymentStep = (
-  billingEnabled: boolean,
-  selectedPlan: string | undefined
-): boolean => billingEnabled && !!selectedPlan && PAID_PLANS.includes(selectedPlan);
+export const shouldShowPaymentStep = (billingEnabled: boolean): boolean => billingEnabled;
+
+/**
+ * Which plan the payment step opens on. A plan picked on the marketing site wins;
+ * otherwise default to the recommended tier so the step is never a blank choice.
+ */
+export const DEFAULT_WIZARD_PLAN = 'pro';
+
+export const initialWizardPlan = (selectedPlan: string | undefined): string =>
+  selectedPlan && PAID_PLANS.includes(selectedPlan) ? selectedPlan : DEFAULT_WIZARD_PLAN;
 
 export const buildStepLabels = (includePayment: boolean): readonly string[] =>
   includePayment ? [...STEP_LABELS, PAYMENT_STEP_LABEL] : STEP_LABELS;
