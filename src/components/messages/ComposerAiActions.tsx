@@ -1,18 +1,32 @@
 import { useState } from 'react';
-import { Sparkles, Undo2, X } from 'lucide-react';
+import { Sparkles, Undo2, X, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { isBlankRichText } from '@/lib/stripHtml';
+import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
 import { messageService } from '@/services/message.service';
 import { answerToEditorHtml, MONO } from './messageDetailConstants';
 
-// The three variants the client asked for, mapped onto two buttons:
-//   "Write reply"          → generate (no instructions) | guided (with instructions)
-//   "Make it customer-ready" → polish (rewrites what is already in the composer)
+/**
+ * AI drafting for the reply composer.
+ *
+ * The panel is STATE-AWARE rather than mode-aware: it shows only the action that
+ * applies right now, so there is never a disabled button whose enabling condition
+ * lives in some other field. Empty composer → "write me one". Composer with your
+ * own text → "clean mine up", with starting fresh as an explicit secondary path.
+ * (The first version exposed the three backend modes directly and put the polish
+ * button's enabled state on the composer while its input box sat in the panel —
+ * agents typed their draft into the panel box and the button greyed out.)
+ *
+ * Nothing touches the agent's text until they accept: drafts are previewed inside
+ * the panel with Use it / Try again / Discard. Drafts come back in the CUSTOMER's
+ * language, so the preview labels that language and can show a translation.
+ */
 type Mode = 'generate' | 'guided' | 'polish';
+
+type Draft = { text: string; language?: string; mode: Mode };
 
 type Props = {
   messageId: number;
@@ -24,6 +38,9 @@ type Props = {
 };
 
 const MAX_INSTRUCTIONS = 2000;
+/** Language the agent reads; a draft in anything else offers a translation. */
+const AGENT_LANGUAGE = 'en';
+const OWN_TEXT_PREVIEW_CHARS = 160;
 
 export function ComposerAiActions({
   messageId,
@@ -34,22 +51,37 @@ export function ComposerAiActions({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [instructions, setInstructions] = useState('');
-  const [busy, setBusy] = useState<Mode | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  // Set when the agent picks "write a new reply instead" while their own text is
+  // still in the composer — that text is kept until they accept a draft.
+  const [startFresh, setStartFresh] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
   // The agent's text as it was BEFORE we replaced it. Undo must always be
-  // available — an AI rewrite that silently destroys what someone typed is
-  // the one failure that makes people stop trusting the feature.
+  // available — an AI rewrite that destroys what someone typed is the one
+  // failure that makes people stop trusting the feature.
   const [previous, setPrevious] = useState<string | null>(null);
-  // Orgs with no provider connected (staging, fresh self-hosted) get a 403 from the
-  // endpoint's requireAICapability guard. Hide the button rather than let an agent
-  // click into an error they cannot act on.
-  const { aiConfigured } = useAiConfigured();
 
-  const composerIsEmpty = isBlankRichText(composer);
+  const { aiConfigured } = useAiConfigured();
+  const ownText = stripHtml(composer).trim();
+  const hasOwnText = !isBlankRichText(composer);
+
+  const describeError = (err: unknown): string => {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 429) return 'AI limit reached for now — try again shortly.';
+    if (status === 403)
+      return 'No AI provider is connected for this workspace. An admin can add one in Settings.';
+    return 'The assistant is unavailable right now. Your text is unchanged.';
+  };
 
   const run = async (mode: Mode) => {
-    setBusy(mode);
+    setBusy(true);
     setError(null);
+    setTranslation(null);
+    setShowTranslation(false);
     try {
       const response = await messageService.composeReply(messageId, {
         mode,
@@ -62,30 +94,39 @@ export function ComposerAiActions({
         setError(
           mode === 'polish'
             ? 'Could not rewrite this draft. Your text is unchanged.'
-            : 'No answer could be drafted from the knowledge base. Try adding what it should say, or use the KB button.'
+            : 'Nothing could be drafted from the knowledge base. Try saying what the reply should cover.'
         );
         return;
       }
-
-      setPrevious(composer);
-      setComposer(answerToEditorHtml(text));
-      setOpen(false);
-      setInstructions('');
-      onApplied?.();
+      setDraft({ text, language: response.data?.language, mode });
     } catch (err) {
       logger.error('Compose-reply failed:', err);
-      // 429 = per-org AI cap or the per-minute limiter; both mean "not now".
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      setError(
-        status === 429
-          ? 'AI limit reached for now — try again shortly.'
-          : status === 403
-            ? 'No AI provider is connected for this workspace. An admin can add one in Settings.'
-            : 'The assistant is unavailable right now. Your text is unchanged.'
-      );
+      setError(describeError(err));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
+  };
+
+  /** Re-run whatever produced the draft currently on screen. */
+  const retry = () => {
+    if (draft) void run(draft.mode);
+  };
+
+  const useDraft = () => {
+    if (!draft) return;
+    setPrevious(composer);
+    setComposer(answerToEditorHtml(draft.text));
+    setDraft(null);
+    setInstructions('');
+    setStartFresh(false);
+    setOpen(false);
+    onApplied?.();
+  };
+
+  const discard = () => {
+    setDraft(null);
+    setTranslation(null);
+    setShowTranslation(false);
   };
 
   const undo = () => {
@@ -95,9 +136,48 @@ export function ComposerAiActions({
     onApplied?.();
   };
 
-  // Undo must survive the hook flipping to false mid-edit, so bail out only when
-  // there is nothing pending to restore.
+  const toggleTranslation = async () => {
+    if (!draft) return;
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+    if (translation) {
+      setShowTranslation(true);
+      return;
+    }
+    setTranslating(true);
+    try {
+      const response = await messageService.translateText(draft.text, AGENT_LANGUAGE);
+      const content = response.data?.translated?.content;
+      if (!content) {
+        setError('Could not translate this draft.');
+        return;
+      }
+      setTranslation(content);
+      setShowTranslation(true);
+    } catch (err) {
+      logger.error('Draft translation failed:', err);
+      setError(describeError(err));
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const closePanel = () => {
+    setOpen(false);
+    discard();
+    setError(null);
+    setStartFresh(false);
+  };
+
+  // No provider connected → the endpoint 403s, so offering the button is a dead
+  // end. Stay mounted only while an undo is still pending.
   if (!aiConfigured && previous === null) return null;
+
+  const canTranslate = !!draft?.language && draft.language !== AGENT_LANGUAGE;
+  const showOwnTextView = !busy && !draft && hasOwnText && !startFresh;
+  const showWriteView = !busy && !draft && (!hasOwnText || startFresh);
 
   return (
     <>
@@ -136,76 +216,122 @@ export function ComposerAiActions({
               variant="ghost"
               size="icon"
               aria-label="Close AI panel"
-              onClick={() => setOpen(false)}
+              onClick={closePanel}
               className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground"
             >
               <X className="w-3.5 h-3.5" />
             </Button>
           </div>
 
-          <Textarea
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value.slice(0, MAX_INSTRUCTIONS))}
-            rows={2}
-            disabled={busy !== null}
-            placeholder="Optional — what should the reply say? e.g. the parcel is held at the border, we're sending a replacement"
-            className="text-[13px]"
-          />
+          {busy && (
+            <div className="flex items-center gap-2 py-3 text-[13px] text-muted-foreground">
+              <Spinner size={14} />
+              Writing your draft…
+            </div>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => void run(instructions.trim() ? 'guided' : 'generate')}
-              disabled={busy !== null}
-              size="sm"
-            >
-              {busy === 'generate' || busy === 'guided' ? (
-                <span className="flex items-center gap-1.5">
-                  <Spinner size={12} />
-                  Writing…
+          {/* Preview — read it before it replaces anything. */}
+          {!busy && draft && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-muted-foreground">
+                  Draft
+                  {draft.language ? ` — ${draft.language.toUpperCase()} (customer's language)` : ''}
                 </span>
-              ) : instructions.trim() ? (
-                'Write reply with these points'
-              ) : (
-                'Write reply'
+                {canTranslate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void toggleTranslation()}
+                    disabled={translating}
+                    className="flex items-center gap-1 px-1.5 py-0.5 h-auto text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    {translating ? <Spinner size={11} /> : <Languages className="w-3 h-3" />}
+                    {showTranslation ? 'Show original' : 'Show in English'}
+                  </Button>
+                )}
+              </div>
+
+              <div className="overflow-y-auto p-2 max-h-44 text-[13px] leading-relaxed whitespace-pre-wrap rounded border border-border bg-muted/30">
+                {showTranslation && translation ? translation : draft.text}
+              </div>
+              {showTranslation && (
+                <p className="text-[11px] text-muted-foreground">
+                  Translation is for checking — the {draft.language?.toUpperCase()} version is what
+                  gets used.
+                </p>
               )}
-            </Button>
 
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void run('polish')}
-              disabled={busy !== null || composerIsEmpty}
-              title={
-                composerIsEmpty
-                  ? 'Type your rough version first — this rewrites it for the customer'
-                  : 'Rewrite what you typed so it can be sent to the customer'
-              }
-            >
-              {busy === 'polish' ? (
-                <span className="flex items-center gap-1.5">
-                  <Spinner size={12} />
-                  Rewriting…
-                </span>
-              ) : (
-                'Make it customer-ready'
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button size="sm" onClick={useDraft}>
+                  Use it
+                </Button>
+                <Button variant="ghost" size="sm" onClick={retry}>
+                  Try again
+                </Button>
+                <Button variant="ghost" size="sm" onClick={discard}>
+                  Discard
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Your text is already there → offer to clean it up. */}
+          {showOwnTextView && (
+            <div className="space-y-2">
+              <span className="text-[11px] text-muted-foreground">Your text:</span>
+              <div className="p-2 text-[13px] leading-relaxed rounded border text-muted-foreground border-border bg-muted/30">
+                {ownText.slice(0, OWN_TEXT_PREVIEW_CHARS)}
+                {ownText.length > OWN_TEXT_PREVIEW_CHARS ? '…' : ''}
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button size="sm" onClick={() => void run('polish')}>
+                  Make it customer-ready
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setStartFresh(true)}>
+                  Write a new reply instead →
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Rewrites what you typed into something sendable, in the customer&apos;s language.
+                Your facts are kept and nothing is invented.
+              </p>
+            </div>
+          )}
+
+          {/* Nothing to work from → write one. */}
+          {showWriteView && (
+            <div className="space-y-2">
+              <span className="text-[11px] text-muted-foreground">What should the reply say?</span>
+              <Textarea
+                value={instructions}
+                onChange={(event) => setInstructions(event.target.value.slice(0, MAX_INSTRUCTIONS))}
+                rows={2}
+                placeholder="Optional — leave empty and I'll answer from your knowledge base. e.g. the parcel is held at the border, we're sending a replacement"
+                className="text-[13px]"
+              />
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  size="sm"
+                  onClick={() => void run(instructions.trim() ? 'guided' : 'generate')}
+                >
+                  Write reply
+                </Button>
+                {startFresh && (
+                  <Button variant="ghost" size="sm" onClick={() => setStartFresh(false)}>
+                    ← Back to my text
+                  </Button>
+                )}
+              </div>
+              {startFresh && (
+                <p className="text-[11px] text-muted-foreground">
+                  Your current text is kept until you choose <strong>Use it</strong>.
+                </p>
               )}
-            </Button>
-
-            {previous !== null && (
-              <Button variant="ghost" size="sm" onClick={undo} disabled={busy !== null}>
-                <span className="flex items-center gap-1">
-                  <Undo2 className="w-3.5 h-3.5" />
-                  Undo
-                </span>
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {error && <p className="text-[12px] text-destructive">{error}</p>}
-
-          <p className="text-[11px] text-muted-foreground">
-            Drafts are written in the customer&apos;s language. Always read before sending.
-          </p>
         </div>
       )}
     </>

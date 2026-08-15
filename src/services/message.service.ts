@@ -396,6 +396,18 @@ export const messageService = {
     return response.data;
   },
 
+  /**
+   * Translate arbitrary text (not a stored message) — used to show an AI draft in
+   * the agent's own language before they send it. Drafts are written in the
+   * CUSTOMER's language, so an agent who doesn't read it needs a way to check.
+   */
+  translateText: async (text: string, targetLanguage: string) => {
+    const response = await apiClient.post<
+      ApiResponse<{ translated: { content: string } }>
+    >('/api/translation/text/translate', { text, targetLanguage });
+    return response.data;
+  },
+
   reanalyze: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/analyze`, {});
     return response.data;
