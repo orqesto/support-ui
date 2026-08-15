@@ -67,6 +67,18 @@ export const onboardingService = {
     return response.data.data?.onboarding ?? null;
   },
 
+  /**
+   * Reopens a wizard dismissed with "Finish later" (skipped → pending).
+   * 409 when the wizard was genuinely COMPLETED — that one is not resumable,
+   * because reopening it would re-arm the once-only trial restamp.
+   */
+  resume: async (): Promise<OnboardingState | null> => {
+    const response = await apiClient.post<ApiResponse<{ onboarding: OnboardingState | null }>>(
+      '/api/organizations/onboarding/resume'
+    );
+    return response.data.data?.onboarding ?? null;
+  },
+
   /** Marks skipped — trial keeps its original org-creation expiry. */
   skip: async (): Promise<OnboardingState | null> => {
     const response = await apiClient.post<ApiResponse<{ onboarding: OnboardingState | null }>>(
