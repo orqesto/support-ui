@@ -1,7 +1,9 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 
-const composeReply = vi.fn();
+// Typed so the mock's return isn't `any` — the repo lints tests too, and
+// @typescript-eslint/no-unsafe-return rejects an untyped vi.fn() passthrough.
+const composeReply = vi.fn<(...args: unknown[]) => Promise<{ data: { text: string | null } }>>();
 vi.mock('@/services/message.service', () => ({
   messageService: {
     composeReply: (...args: unknown[]) => composeReply(...args),
