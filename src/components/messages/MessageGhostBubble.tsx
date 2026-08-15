@@ -1,6 +1,7 @@
 import { Sparkles, BookOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
+import { stripHtml } from '@/lib/stripHtml';
 import type { GhostOption } from './messageDetailConstants';
 
 type Props = {
@@ -97,7 +98,10 @@ export function MessageGhostBubble({
           )}
         </div>
         <div className="rounded-lg px-3 py-2 border border-dashed border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/10 text-muted-foreground group-hover:text-foreground group-hover:border-violet-400/50 dark:group-hover:border-violet-600/50 text-[12px] leading-relaxed text-left transition-colors">
-          {ghostOption.answer}
+          {/* Preview only — suggestions are rich text, so the raw markup would
+              otherwise show as literal "<p>Hello…</p>". The click handler above
+              still passes the ORIGINAL html, which is what the composer wants. */}
+          {stripHtml(ghostOption.answer)}
         </div>
       </div>
     </div>
