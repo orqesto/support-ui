@@ -66,6 +66,8 @@ export const PaymentStep = ({
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  // Set when the BE reports the workspace is already subscribed (409).
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
 
   // Only needed for the selector; a preselected plan skips the round-trip.
   useEffect(() => {
@@ -93,6 +95,7 @@ export const PaymentStep = ({
     let cancelled = false;
     setSession(null);
     setError(null);
+    setAlreadySubscribed(false);
 
     subscriptionService
       .createWizardCheckoutSession(chosenPlan)
@@ -103,6 +106,18 @@ export const PaymentStep = ({
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+
+        // 409 = this workspace already has a live subscription, which is what
+        // the BE returns after a card has been added. Remounting the step (Back
+        // → Next, or a refresh) resets the local `paid` flag and re-requests a
+        // session, so without this branch a customer who JUST paid successfully
+        // is told the payment form failed.
+        if ((err as { status?: number } | null)?.status === 409) {
+          setAlreadySubscribed(true);
+          onPaidChange?.(true);
+          return;
+        }
+
         logger.error('Failed to create onboarding checkout session:', err);
         // Never block finishing setup on a billing failure — the step is
         // optional and the org already has a working trial.
@@ -114,12 +129,21 @@ export const PaymentStep = ({
     return () => {
       cancelled = true;
     };
-  }, [chosenPlan]);
+  }, [chosenPlan, onPaidChange]);
 
   const handleComplete = useCallback(() => {
     setPaid(true);
     onPaidChange?.(true);
   }, [onPaidChange]);
+
+  if (alreadySubscribed) {
+    return (
+      <Alert variant="success">
+        A payment method is already on file for this workspace — nothing more to do here. You can
+        review or change it any time from Billing.
+      </Alert>
+    );
+  }
 
   if (paid && session) {
     return (
