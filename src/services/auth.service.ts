@@ -9,12 +9,18 @@ export type SignupRequest = {
   password: string;
   lastName?: string;
   captchaToken?: string;
+  /**
+   * Plan preselected on the marketing site (`?plan=` on the landing CTA). The BE
+   * filters it against its self-serve allowlist and stores it as wizard intent;
+   * an unknown value is dropped, never rejected.
+   */
+  plan?: string;
 };
 
 export type SignupResponseData = {
   user: User;
   organization: { id: number; slug: string; name: string };
-  onboarding: { status: string; currentStep: number };
+  onboarding: { status: string; currentStep: number; selectedPlan?: string };
 };
 
 export const authService = {

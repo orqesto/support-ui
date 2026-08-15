@@ -38,8 +38,45 @@ export type OrgUsage = {
  */
 const getUsage = () => apiClient.get<OrgUsage>('/api/usage/current').then((res) => res.data);
 
+export type WizardCheckoutSession = {
+  /** Client secret for Stripe's embedded Checkout, mounted inline in the wizard. */
+  clientSecret: string;
+  /**
+   * Returned with the session rather than read from an FE env var, so it can
+   * never belong to a different Stripe account/mode than the secret key that
+   * created this session.
+   */
+  publishableKey: string;
+  plan: {
+    id: number;
+    name: string;
+    displayName: string;
+    price: number;
+    currency: string;
+    billingInterval: string;
+  };
+  trialPeriodDays: number;
+};
+
+/**
+ * Create an embedded Checkout session for the onboarding wizard's payment step.
+ *
+ * The subscription is created WITH a trial, so completing this collects a card
+ * without charging — the org keeps the trial it already has and converts at the
+ * end of it. Only the paid self-serve plans (starter, pro) are accepted; the BE
+ * refuses anything else.
+ */
+const createWizardCheckoutSession = (planName: string) =>
+  apiClient
+    .post<{
+      success: boolean;
+      data: WizardCheckoutSession;
+    }>('/api/subscriptions/checkout-session', { planName })
+    .then((res) => res.data.data);
+
 export const subscriptionService = {
   getFeatures,
   openCustomerPortal,
   getUsage,
+  createWizardCheckoutSession,
 };

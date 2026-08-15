@@ -1,25 +1,16 @@
 import { Check } from 'lucide-react';
+import { STEP_LABELS } from './wizardSteps';
 import { cn } from '@/lib/utils';
-
-// Knowledge is intentionally LAST: get the core setup working (departments, AI,
-// storage, channels, team) first, then add KB as the final, optional step.
-export const STEP_LABELS = [
-  'Departments',
-  'AI setup',
-  'Storage',
-  'Channels',
-  'Team',
-  'Knowledge',
-] as const;
 
 type Props = {
   activeStep: number; // 1-based
+  labels?: readonly string[];
 };
 
-export const StepIndicator = ({ activeStep }: Props) => (
+export const StepIndicator = ({ activeStep, labels = STEP_LABELS }: Props) => (
   <div className="space-y-2">
     <ol className="flex items-center justify-center gap-2 sm:gap-3">
-      {STEP_LABELS.map((label, index) => {
+      {labels.map((label, index) => {
         const step = index + 1;
         const done = step < activeStep;
         const current = step === activeStep;
@@ -52,7 +43,7 @@ export const StepIndicator = ({ activeStep }: Props) => (
     </ol>
     {/* Text cue for narrow screens where inline labels are hidden. */}
     <p className="text-center text-xs text-muted-foreground">
-      {`Step ${activeStep} of ${STEP_LABELS.length} — ${STEP_LABELS[activeStep - 1]}`}
+      {`Step ${activeStep} of ${labels.length} — ${labels[activeStep - 1]}`}
     </p>
   </div>
 );

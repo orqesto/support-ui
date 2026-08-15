@@ -1,6 +1,7 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -14,6 +15,29 @@ import { useAuthStore } from '@/stores/authStore';
 const PASSWORD_HINT = 'At least 8 characters, with one uppercase letter and one number.';
 const isPasswordStrong = (password: string) =>
   password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
+
+/**
+ * Paid plans the marketing site can preselect via `?plan=` on the signup link.
+ * Labels are display-only (for the "you picked X" confirmation); the BE
+ * re-validates the slug against its own allowlist and drops anything else, so a
+ * hand-edited URL can never break a signup or buy the wrong thing.
+ */
+const PRESELECTABLE_PLANS: Record<string, string> = {
+  starter: 'Starter',
+  pro: 'Pro',
+};
+
+/**
+ * Read the preselected plan once, at mount. Read here rather than in the wizard
+ * because this URL does not survive the handoff: signup navigates to /dashboard
+ * and Layout then redirects to /onboarding with `replace: true`, dropping the
+ * query string. We send it to the BE instead, which stores it on the org so the
+ * wizard can read it back from the onboarding status it already fetches.
+ */
+const readPreselectedPlan = (): string | undefined => {
+  const plan = new URLSearchParams(window.location.search).get('plan');
+  return plan && plan in PRESELECTABLE_PLANS ? plan : undefined;
+};
 
 /**
  * Public self-serve "create a workspace" signup. Distinct from the invite-only
@@ -36,6 +60,7 @@ export const CreateWorkspacePage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
+  const [selectedPlan] = useState<string | undefined>(readPreselectedPlan);
 
   const login = useAuthStore((state) => state.login);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
@@ -85,6 +110,7 @@ export const CreateWorkspacePage = () => {
         email: formData.email.trim(),
         password: formData.password,
         captchaToken: captchaToken ?? undefined,
+        plan: selectedPlan,
       });
 
       if (response.success && response.data) {
@@ -123,6 +149,17 @@ export const CreateWorkspacePage = () => {
           <CardDescription>
             Create a workspace and start your 14-day trial. No credit card required.
           </CardDescription>
+          {/* Confirms the plan picked on the marketing site actually carried
+              over — without it the handoff is invisible and the payment step
+              later in onboarding would come out of nowhere. */}
+          {selectedPlan && (
+            <div className="flex gap-2 items-center pt-1">
+              <Badge variant="secondary">{PRESELECTABLE_PLANS[selectedPlan]} plan</Badge>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                selected — you won&apos;t be charged during the trial
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,11 +1,19 @@
 /**
- * Strip HTML tags from text content
+ * Strip HTML tags for a plain-text preview.
+ *
+ * Tags collapse to a SPACE, not to nothing: rich-text bodies are made of block
+ * elements, so deleting the tags outright fused the last word of one paragraph
+ * onto the first of the next ("…your message.We can confirm…"). The final
+ * whitespace collapse puts that back to single spaces, which is what a
+ * single-line preview wants anyway.
+ *
+ * Entities are decoded before the collapse so `&nbsp;` runs don't survive it.
  */
 export const stripHtml = (html: string): string => {
   if (!html) return '';
-  
+
   return html
-    .replace(/<[^>]*>/g, '') // Remove all HTML tags
+    .replace(/<[^>]*>/g, ' ') // Tags → space, so block boundaries stay word boundaries
     .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -13,6 +21,7 @@ export const stripHtml = (html: string): string => {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
+    .replace(/\s+/g, ' ') // Collapse the separators (and any source formatting)
     .trim();
 };
 

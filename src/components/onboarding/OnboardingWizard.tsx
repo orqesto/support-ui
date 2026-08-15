@@ -6,19 +6,22 @@ import { ChannelsStep } from './steps/ChannelsStep';
 import { DepartmentsStep } from './steps/DepartmentsStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
 import { KbStep } from './steps/KbStep';
+import { PaymentStep } from './steps/PaymentStep';
 import { StorageStep } from './steps/StorageStep';
-import { StepIndicator, STEP_LABELS } from './StepIndicator';
+import { StepIndicator } from './StepIndicator';
+import { buildStepLabels, shouldShowPaymentStep } from './wizardSteps';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useOnboardingStore } from '@/stores/onboardingStore';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { logger } from '@/lib/logger';
 
 type StepNumber = OnboardingState['currentStep'];
 
-// Step order (KB moved to the LAST step — see STEP_LABELS in StepIndicator).
+// Step order (KB is the last CORE step — see STEP_LABELS in StepIndicator).
 const STEP_TITLES: Record<StepNumber, string> = {
   1: 'Review your departments',
   2: 'How should AI features work?',
@@ -26,6 +29,7 @@ const STEP_TITLES: Record<StepNumber, string> = {
   4: 'Connect your message channels',
   5: 'Invite your team',
   6: 'Add knowledge for your AI',
+  7: 'Add a payment method',
 };
 
 /**
@@ -39,14 +43,27 @@ export const OnboardingWizard = () => {
   const managedAiAvailable = useOnboardingStore((state) => state.managedAiAvailable);
   const markComplete = useOnboardingStore((state) => state.markComplete);
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
-  // Clamp a resumed step into range: the wizard dropped from 7 steps to 6 (the
-  // read-only Routing step was removed), so an org persisted at the old step 7
-  // resumes on the last step instead of a blank screen. (Persisted step is a bare
-  // index, so an org mid-wizard when KB was reordered resumes at the same NUMBER,
-  // i.e. a possibly-different step — non-destructive; onboarding is a short one-off.)
-  const [activeStep, setActiveStep] = useState<StepNumber>(
-    Math.min(persisted?.currentStep ?? 1, STEP_LABELS.length) as StepNumber
-  );
+  const billingEnabled = useBackendVersion().data?.billingEnabled ?? false;
+  // The payment step exists only for a signup that arrived with a paid plan
+  // preselected, and only where a billing provider is actually configured — a
+  // self-hosted or not-yet-activated box has no Stripe to talk to.
+  const selectedPlan = persisted?.selectedPlan;
+  const showPaymentStep = shouldShowPaymentStep(billingEnabled, selectedPlan);
+  const stepLabels = buildStepLabels(showPaymentStep);
+  // Clamp a resumed step into range: the step COUNT varies (6 core, 7 with
+  // payment), and it dropped from 7 to 6 once before when the read-only Routing
+  // step was removed. Clamping means an org that persisted step 7 — either as
+  // old-Routing, or as payment before dropping out of the paid path — resumes on
+  // the last step that exists instead of a blank screen. (Persisted step is a
+  // bare index, so a reordered wizard resumes at the same NUMBER, i.e. a
+  // possibly-different step — non-destructive; onboarding is a short one-off.)
+  //
+  // The raw resume point is kept unclamped and bounded at RENDER time, because
+  // `billingEnabled` arrives from a query that may still be loading on the first
+  // render: clamping in the initializer would permanently drop a resumed step 7
+  // to 6 in the moment before the payment step is known to exist.
+  const [rawStep, setRawStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
+  const activeStep = Math.min(rawStep, stepLabels.length) as StepNumber;
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [channelsConnected, setChannelsConnected] = useState(false);
   const [channelsKnown, setChannelsKnown] = useState(false);
@@ -54,6 +71,9 @@ export const OnboardingWizard = () => {
   // "Next" instead of "Skip this step" once they've added KB docs / picked storage.
   const [kbHasDocs, setKbHasDocs] = useState(false);
   const [storageChosen, setStorageChosen] = useState(false);
+  // Whether a card was actually saved on the payment step — only changes the
+  // finish-button wording, never whether the user is allowed to finish.
+  const [cardAdded, setCardAdded] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
   // Set when complete()/skip() fails — surfaced to the user instead of silently
@@ -110,7 +130,7 @@ export const OnboardingWizard = () => {
 
   const goTo = (step: StepNumber) => {
     setExitError(null);
-    setActiveStep(step);
+    setRawStep(step);
     persistStep(step);
   };
 
@@ -182,13 +202,21 @@ export const OnboardingWizard = () => {
     (activeStep === 6 && !kbHasDocs);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
-  const isLastStep = activeStep >= STEP_LABELS.length;
+  const isLastStep = activeStep >= stepLabels.length;
 
   // Finishing STARTS the 14-day trial, so require the org to be minimally usable
   // first: an explicit AI choice, and at least one connected channel (else no mail
   // can arrive). "Finish later" (header) stays the escape hatch — it doesn't start
   // the trial. The channel requirement is only enforced once we could verify it
   // (channelsKnown), so a failed check never traps the user on this screen.
+  // Payment is optional: finishing without a card is a supported outcome (the org
+  // keeps its trial), so say so on the button rather than leaving the user
+  // wondering whether they're about to skip something they needed.
+  const finishLabel =
+    showPaymentStep && activeStep === stepLabels.length && !cardAdded
+      ? 'Finish without a card'
+      : 'Finish setup';
+
   const missingAiChoice = !aiChoice;
   const missingChannel = channelsKnown && !channelsConnected;
   const readyToFinish = !missingAiChoice && !missingChannel;
@@ -210,7 +238,7 @@ export const OnboardingWizard = () => {
             </Button>
           </div>
         </div>
-        <StepIndicator activeStep={activeStep} />
+        <StepIndicator activeStep={activeStep} labels={stepLabels} />
       </div>
 
       <div className="space-y-6" style={{ minHeight: '22rem' }}>
@@ -219,7 +247,7 @@ export const OnboardingWizard = () => {
           tabIndex={-1}
           className="text-lg font-medium text-foreground outline-none"
         >
-          <span className="sr-only">{`Step ${activeStep} of ${STEP_LABELS.length}: `}</span>
+          <span className="sr-only">{`Step ${activeStep} of ${stepLabels.length}: `}</span>
           {STEP_TITLES[activeStep]}
         </h2>
 
@@ -235,6 +263,9 @@ export const OnboardingWizard = () => {
         {activeStep === 4 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
         {activeStep === 5 && <InviteTeamStep />}
         {activeStep === 6 && <KbStep onDocsCountChange={handleKbDocsCount} />}
+        {activeStep === 7 && showPaymentStep && selectedPlan && (
+          <PaymentStep planName={selectedPlan} onPaidChange={setCardAdded} />
+        )}
       </div>
 
       {exitError && (
@@ -290,7 +321,7 @@ export const OnboardingWizard = () => {
               onClick={() => void handleFinish()}
             >
               <CheckCircle className="mr-2 h-4 w-4" />
-              Finish setup
+              {finishLabel}
             </Button>
           </div>
         )}
