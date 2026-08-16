@@ -26,9 +26,16 @@ import { ComposerAiActions } from '@/components/messages/ComposerAiActions';
 
 const setComposer = vi.fn();
 
+const onApplied = vi.fn<(source: string | null) => void>();
+
 const openPanel = (composer = '') => {
   const utils = render(
-    <ComposerAiActions messageId={42} composer={composer} setComposer={setComposer} />
+    <ComposerAiActions
+      messageId={42}
+      composer={composer}
+      setComposer={setComposer}
+      onApplied={onApplied}
+    />
   );
   fireEvent.click(screen.getByTitle('Draft this reply with AI'));
   return utils;
@@ -156,6 +163,53 @@ describe('ComposerAiActions', () => {
 
       fireEvent.click(await screen.findByTitle('Restore what you had written'));
       expect(setComposer).toHaveBeenLastCalledWith('<p>my rough note</p>');
+    });
+  });
+
+  describe('reporting provenance so the send records its true author', () => {
+    // The reply that goes out is captured as training data a human may approve
+    // into the knowledge base. Until this existed the frontend hardcoded
+    // "not AI", so an AI-drafted reply reached that review queue looking exactly
+    // like something a colleague had written.
+
+    it.each([
+      ['Write reply', '', 'ai_compose_generate'],
+      ['Make it customer-ready', '<p>rough note</p>', 'ai_compose_polish'],
+    ])('%s → reports %s', async (button, composer, expected) => {
+      openPanel(composer);
+      fireEvent.click(screen.getByText(button));
+      fireEvent.click(await screen.findByText('Use it'));
+
+      expect(onApplied).toHaveBeenCalledWith(expected);
+    });
+
+    it('reports the guided mode when the agent supplied their own facts', async () => {
+      openPanel('');
+      fireEvent.change(screen.getByPlaceholderText(/answer from your knowledge base/i), {
+        target: { value: 'parcel is at the border' },
+      });
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('Use it'));
+
+      expect(onApplied).toHaveBeenCalledWith('ai_compose_guided');
+    });
+
+    it('reports null on undo — the agent\'s own text is back, so the reply is theirs', async () => {
+      openPanel('<p>my rough note</p>');
+      fireEvent.click(screen.getByText('Make it customer-ready'));
+      fireEvent.click(await screen.findByText('Use it'));
+      expect(onApplied).toHaveBeenLastCalledWith('ai_compose_polish');
+
+      fireEvent.click(await screen.findByTitle('Restore what you had written'));
+      expect(onApplied).toHaveBeenLastCalledWith(null);
+    });
+
+    it('says nothing when the draft is discarded rather than used', async () => {
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('Discard'));
+
+      expect(onApplied).not.toHaveBeenCalled();
     });
   });
 

@@ -25,6 +25,12 @@ export type MessageComposerProps = {
   onOpenSimilarMessages: () => void;
   selectedFiles: File[];
   onFilesChange: (files: File[]) => void;
+  /**
+   * Reports which AI mode produced the text now in the composer (null when the
+   * agent undoes back to their own text), so the send can be stamped with its
+   * true author.
+   */
+  onAiSourceChange?: (source: string | null) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -41,6 +47,7 @@ export function MessageComposer({
   onOpenSimilarMessages,
   selectedFiles,
   onFilesChange,
+  onAiSourceChange,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
   const [isDragging, setIsDragging] = useState(false);
@@ -151,7 +158,10 @@ export function MessageComposer({
               composer={composer}
               setComposer={setComposer}
               disabled={submitting}
-              onApplied={() => setTimeout(() => richEditorRef.current?.focus(), 0)}
+              onApplied={(source) => {
+                onAiSourceChange?.(source);
+                setTimeout(() => richEditorRef.current?.focus(), 0);
+              }}
             />
           )}
           {composerMode === 'reply' && (
