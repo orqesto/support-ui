@@ -26,6 +26,14 @@ import { answerToEditorHtml, MONO } from './messageDetailConstants';
  */
 type Mode = 'generate' | 'guided' | 'polish';
 
+/**
+ * Provenance stamp sent with the reply so the backend can record that this text
+ * was AI-drafted. Must stay in sync with COMPOSER_AI_SOURCE_PREFIX in the BE's
+ * messageReplyTrainingData — the BE branches on this prefix to avoid crediting
+ * an unrelated saved suggestion for a composer-written reply.
+ */
+export const composerAiSource = (mode: Mode): string => `ai_compose_${mode}`;
+
 type Draft = { text: string; language?: string; mode: Mode };
 
 type Props = {
@@ -33,8 +41,13 @@ type Props = {
   composer: string;
   setComposer: (html: string) => void;
   disabled?: boolean;
-  /** Focus the editor after text lands in it. */
-  onApplied?: () => void;
+  /**
+   * Focus the editor after text lands in it, and report WHICH AI mode produced
+   * the text now sitting in the composer so the send can be stamped as
+   * AI-drafted. Called with null on undo — the agent's own text is back, so the
+   * reply is no longer AI-authored.
+   */
+  onApplied?: (source: string | null) => void;
 };
 
 const MAX_INSTRUCTIONS = 2000;
@@ -116,11 +129,12 @@ export function ComposerAiActions({
     if (!draft) return;
     setPrevious(composer);
     setComposer(answerToEditorHtml(draft.text));
+    const appliedSource = composerAiSource(draft.mode);
     setDraft(null);
     setInstructions('');
     setStartFresh(false);
     setOpen(false);
-    onApplied?.();
+    onApplied?.(appliedSource);
   };
 
   const discard = () => {
@@ -133,7 +147,8 @@ export function ComposerAiActions({
     if (previous === null) return;
     setComposer(previous);
     setPrevious(null);
-    onApplied?.();
+    // The agent's own text is back in the composer — this reply is theirs again.
+    onApplied?.(null);
   };
 
   const toggleTranslation = async () => {

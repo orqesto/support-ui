@@ -157,6 +157,18 @@ export function MessageDetail({
 
   // ── Composer state ─────────────────────────────────────────────────────────
   const [composer, setComposer] = useState('');
+  // Which AI path produced the text currently in the composer — null when the
+  // agent wrote it themselves. Sent with the reply so captured training data
+  // records its true author instead of defaulting every reply to "human".
+  const [aiSource, setAiSource] = useState<string | null>(null);
+  // Clearing the composer discards the AI text, so whatever is typed next is the
+  // agent's own. Without this, wiping a draft and writing from scratch would
+  // still be reported as AI-drafted. (The inverse — editing a draft heavily —
+  // still counts as AI-drafted; telling those apart needs the draft text itself,
+  // which is deliberately out of scope here.)
+  useEffect(() => {
+    if (aiSource !== null && isBlankRichText(composer)) setAiSource(null);
+  }, [aiSource, composer]);
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -371,15 +383,23 @@ export function MessageDetail({
           composer,
           selectedFiles,
           false,
-          false,
-          undefined,
+          aiSource !== null,
+          aiSource ?? undefined,
           idempotencyKey
         );
       } else {
-        await messageService.reply(message.id, composer, false, false, undefined, idempotencyKey);
+        await messageService.reply(
+          message.id,
+          composer,
+          false,
+          aiSource !== null,
+          aiSource ?? undefined,
+          idempotencyKey
+        );
       }
       sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
       setComposer('');
+      setAiSource(null);
       setSelectedFiles([]);
       setThreadRefreshKey((key) => key + 1);
       // A sent reply (not an internal note) flips the conversation to Pending —
@@ -393,7 +413,7 @@ export function MessageDetail({
     } finally {
       setSubmitting(false);
     }
-  }, [composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
+  }, [aiSource, composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
 
   const handleResolveWithoutReply = useCallback(async () => {
     setResolving(true);
@@ -461,7 +481,7 @@ export function MessageDetail({
   }, [handleRequestClose, onRegisterRequestClose]);
 
   const handleGhostClick = useCallback(
-    (answer: string, _source: string, _attachments?: KBAttachment[]) => {
+    (answer: string, source: string, _attachments?: KBAttachment[]) => {
       // Suggested answers arrive as plain text with markdown-ish syntax; turn
       // them into HTML so the editor holds editable rich text and the customer
       // receives formatted output instead of literal "**bold**" / "- " runs.
@@ -474,6 +494,10 @@ export function MessageDetail({
       // React mounts the reply editor — if the user was in 'note' mode, the
       // reply ref is null until the conditional render swap settles.
       setTimeout(() => richEditorRef.current?.focus(), 0);
+      // Suggested answers arrive from the similar-messages dialog / KB. Record
+      // the source so the send is stamped as AI-drafted rather than reported as
+      // the agent's own writing.
+      setAiSource(source || 'suggested_answer');
     },
     []
   );
@@ -730,6 +754,7 @@ export function MessageDetail({
           onOpenSimilarMessages={() => setSimilarOpen(true)}
           selectedFiles={selectedFiles}
           onFilesChange={setSelectedFiles}
+          onAiSourceChange={setAiSource}
         />
       )}
 

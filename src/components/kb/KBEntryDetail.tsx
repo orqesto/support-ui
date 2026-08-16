@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, Eye, EyeOff, Trash2, Edit, Download, FileText, Image, Video, Volume2, Loader2 } from 'lucide-react';
+import { Bot, CheckCircle, Eye, EyeOff, Trash2, Edit, Download, FileText, Image, Video, Volume2, Loader2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -139,6 +139,19 @@ export const KBEntryDetail = ({
           <div className="flex gap-4 justify-between items-start mb-4">
             <h2 className="text-2xl font-semibold">{displayEntry.title}</h2>
             <div className="flex gap-2">
+              {/* Shown next to the approve action: approving makes this entry
+                  retrievable ground truth, so the reviewer must know when the
+                  answer was drafted by the model rather than written by a person. */}
+              {displayEntry.metadata?.authorProvenance === 'ai_drafted' && (
+                <Badge
+                  variant="secondary"
+                  className="gap-1"
+                  title="This answer was drafted by AI and sent by an agent — review it before approving."
+                >
+                  <Bot className="w-3 h-3" />
+                  AI-drafted
+                </Badge>
+              )}
               {displayEntry.hidden ? (
                 <Badge className="text-muted-foreground">Hidden</Badge>
               ) : displayEntry.approved ? (

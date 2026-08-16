@@ -1,4 +1,4 @@
-import { CheckCircle, Eye, EyeOff, FileText, Maximize2, MessageSquare, Trash2 } from 'lucide-react';
+import { Bot, CheckCircle, Eye, EyeOff, FileText, Maximize2, MessageSquare, Trash2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -115,13 +115,27 @@ export const KBTableView = ({
               </td>
               <td className="hidden px-3 py-3 text-center lg:table-cell">{entry.usageCount}</td>
               <td className="px-3 py-3 text-center">
-                {entry.hidden ? (
-                  <Badge className="text-muted-foreground">Hidden</Badge>
-                ) : entry.approved ? (
-                  <Badge className="bg-green-600">Approved</Badge>
-                ) : (
-                  <Badge>Pending</Badge>
-                )}
+                <div className="flex flex-wrap gap-1 justify-center items-center">
+                  {/* See KBEntryCard: a reviewer approving an AI-drafted answer is
+                      what would turn the model's own output into ground truth. */}
+                  {entry.metadata?.authorProvenance === 'ai_drafted' && (
+                    <Badge
+                      variant="secondary"
+                      className="gap-1"
+                      title="This answer was drafted by AI and sent by an agent — review it before approving."
+                    >
+                      <Bot className="w-3 h-3" />
+                      AI
+                    </Badge>
+                  )}
+                  {entry.hidden ? (
+                    <Badge className="text-muted-foreground">Hidden</Badge>
+                  ) : entry.approved ? (
+                    <Badge className="bg-green-600">Approved</Badge>
+                  ) : (
+                    <Badge>Pending</Badge>
+                  )}
+                </div>
               </td>
               <td className="px-2 py-3 text-right">
                 <div className="flex gap-1 justify-end">

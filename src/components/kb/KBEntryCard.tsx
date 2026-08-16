@@ -1,4 +1,13 @@
-import { CheckCircle, Eye, EyeOff, Maximize2, Trash2, MessageSquare, FileText } from 'lucide-react';
+import {
+  Bot,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Maximize2,
+  Trash2,
+  MessageSquare,
+  FileText,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -40,6 +49,19 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <h3 className="font-medium text-sm truncate">{entry.title}</h3>
+          {/* Approving an entry makes it retrievable ground truth for future AI
+              answers, so a reviewer must be told when the "expert answer" they
+              are about to bless was written by the model rather than a colleague. */}
+          {entry.metadata?.authorProvenance === 'ai_drafted' && (
+            <Badge
+              variant="secondary"
+              className="shrink-0 gap-1"
+              title="This answer was drafted by AI and sent by an agent — review it before approving."
+            >
+              <Bot className="w-3 h-3" />
+              AI-drafted
+            </Badge>
+          )}
           {entry.hidden ? (
             <Badge className="text-muted-foreground shrink-0">Hidden</Badge>
           ) : entry.approved ? (
