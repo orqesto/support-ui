@@ -10,10 +10,10 @@ import {
   Building2,
   MessageSquareReply,
 } from 'lucide-react';
-import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailForm } from '@/components/settings/integrations/GmailForm';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
+import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -369,9 +369,10 @@ export const GmailIntegrationCard = ({
                           <p className="font-medium">
                             {(integration.config as { user?: string }).user ?? integration.name}
                           </p>
-                          {typeof integration.departmentId === 'number' && (
-                            <DepartmentBadge departmentId={integration.departmentId} size="sm" />
-                          )}
+                          <SourceRowBadges
+                            departmentId={integration.departmentId}
+                            isKnowledgeBase={integration.isKnowledgeBase}
+                          />
                         </div>
                         <p className="text-xs text-muted-foreground">
                           OAuth2 •{' '}
