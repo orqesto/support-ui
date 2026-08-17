@@ -47,23 +47,23 @@ const primeCatalog = () => {
 };
 
 describe('ConfluenceCatalogSection — visible catalog with per-page process/remove', () => {
-  it('shows each page with the right action: unprocessed → Process, processed → Remove', async () => {
+  it('shows each page with the right action: unprocessed → Add to KB, processed → Remove from KB', async () => {
     primeCatalog();
     render(<ConfluenceCatalogSection />);
 
     expect(await screen.findByText('Alpha')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
     // Unprocessed page offers to add it; processed page offers to remove it.
-    expect(screen.getByRole('button', { name: /process as kb/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add to kb/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /remove from kb/i })).toBeInTheDocument();
   });
 
-  it('Process as KB queues the page (async) and optimistically shows it processing', async () => {
+  it('Add to KB queues the page (async) and optimistically shows it processing', async () => {
     primeCatalog();
     processConfluencePage.mockResolvedValue({ success: true, data: { queued: true, pageId: 'p1' } });
     render(<ConfluenceCatalogSection />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /process as kb/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /add to kb/i }));
 
     await waitFor(() => expect(processConfluencePage).toHaveBeenCalledWith(7, 'p1'));
     // Optimistic per-row state appears immediately — no full-list reload/blocking.
@@ -78,9 +78,9 @@ describe('ConfluenceCatalogSection — visible catalog with per-page process/rem
     fireEvent.click(await screen.findByRole('button', { name: /remove from kb/i }));
 
     await waitFor(() => expect(deleteDocumentation).toHaveBeenCalledWith(42));
-    // In-place: the removed page now shows a Process button (both rows unprocessed), no reload.
+    // In-place: the removed page now shows an Add to KB button (both rows unprocessed), no reload.
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /process as kb/i })).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: /add to kb/i })).toHaveLength(2)
     );
   });
 
