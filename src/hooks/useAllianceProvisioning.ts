@@ -10,6 +10,7 @@ import {
   type AllianceRole,
   type AllianceScimConfig,
   type AllianceScimConfigInput,
+  type WireTarget,
 } from '@/services/alliance-scim.service';
 
 /**
@@ -206,5 +207,60 @@ export const useDeleteAllianceRoleMap = (allianceId: number | null) => {
       toast.success('Role mapping removed');
     },
     onError: (error: unknown) => toast.error(errorMessage(error, 'Could not remove role mapping')),
+  });
+};
+
+// ─── Synced ("draft") IdP groups — visibility + wire-with-backfill + re-sync ──
+export const useAllianceSyncedGroups = (allianceId: number | null) =>
+  useQuery({
+    queryKey: ['alliance', allianceId, 'scim-synced-groups'],
+    queryFn: () => allianceScimService.listSyncedGroups(allianceId as number),
+    enabled: allianceId !== null,
+    refetchOnWindowFocus: false,
+  });
+
+/**
+ * Wiring or re-syncing touches memberships, role/group maps and the telemetry counts, so
+ * both mutations invalidate that whole cluster (plus the members/overview surfaces the
+ * backfill mutates).
+ */
+const useProvisioningWriteInvalidator = (allianceId: number | null) => {
+  const queryClient = useQueryClient();
+  return () => {
+    for (const surface of [
+      'scim-synced-groups',
+      'scim-groupmaps',
+      'scim-rolemaps',
+      'scim-telemetry',
+      'members',
+      'overview',
+    ]) {
+      void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, surface] });
+    }
+  };
+};
+
+export const useWireSyncedGroup = (allianceId: number | null) => {
+  const invalidate = useProvisioningWriteInvalidator(allianceId);
+  return useMutation({
+    mutationFn: (input: { idpGroupExternalId: string; target: WireTarget }) =>
+      allianceScimService.wireSyncedGroup(allianceId as number, input),
+    onSuccess: (result) => {
+      invalidate();
+      toast.success(`Access wired — ${result.usersReconciled} member(s) synced`);
+    },
+    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not wire access')),
+  });
+};
+
+export const useResyncAllianceProvisioning = (allianceId: number | null) => {
+  const invalidate = useProvisioningWriteInvalidator(allianceId);
+  return useMutation({
+    mutationFn: () => allianceScimService.resync(allianceId as number),
+    onSuccess: (result) => {
+      invalidate();
+      toast.success(`Re-synced ${result.usersReconciled} member(s)`);
+    },
+    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not re-sync provisioning')),
   });
 };
