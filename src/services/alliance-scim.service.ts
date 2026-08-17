@@ -81,6 +81,50 @@ export type AllianceScimTelemetry = {
   notes: string[];
 };
 
+/** A user synced into a SCIM group (member preview on a draft group). */
+export type SyncedGroupMember = {
+  userId: number;
+  name: string;
+  email: string;
+};
+
+/** A name-derived access suggestion — pre-fills the wire UI, never auto-applied. */
+export type AccessSuggestion = {
+  mappedRole: AllianceRole;
+  rationale: string;
+};
+
+/**
+ * A "draft" IdP group the connector has already pushed into the store, with its member
+ * preview, current wired state (group and/or role mapping matched on external id), and a
+ * name-derived suggestion. Timestamps serialize as ISO strings or null.
+ */
+export type SyncedGroup = {
+  id: number;
+  externalId: string | null;
+  displayName: string;
+  memberCount: number;
+  members: SyncedGroupMember[];
+  wiredGroup: { mappingId: number; groupId: number; groupName: string } | null;
+  wiredRole: { mappingId: number; mappedRole: AllianceRole } | null;
+  suggestion: AccessSuggestion | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+/** Where a synced IdP group's access is wired to (discriminated by `type`). */
+export type WireTarget =
+  | { type: 'role'; mappedRole: AllianceRole }
+  | { type: 'existingGroup'; groupId: number }
+  | { type: 'newGroup'; name: string; orgRole: string; orgIds?: number[] };
+
+/** Result of wiring a synced group — how many already-synced members were reconciled. */
+export type WireResult = {
+  externalId: string;
+  wired: WireTarget['type'];
+  usersReconciled: number;
+};
+
 const base = (allianceId: number): string => `/api/alliances/${allianceId}`;
 
 /** The bearer SCIM surface origin — matches the per-org connector (`<origin>/api/scim/v2`). */
@@ -181,6 +225,36 @@ export const allianceScimService = {
   deleteRoleMap: async (allianceId: number, mappingId: number): Promise<{ deleted: boolean }> => {
     const res = await apiClient.delete<{ data: { deleted: boolean } }>(
       `${base(allianceId)}/scim/role-maps/${mappingId}`
+    );
+    return res.data.data;
+  },
+
+  // ─── Synced ("draft") IdP groups — visibility + wire-with-backfill ───────────
+  /** The IdP groups already pushed into the store (member preview + wired state + suggestion). */
+  listSyncedGroups: async (allianceId: number): Promise<SyncedGroup[]> => {
+    const res = await apiClient.get<{ data: SyncedGroup[] }>(
+      `${base(allianceId)}/scim/synced-groups`
+    );
+    return res.data.data;
+  },
+
+  /** Wire a synced group's access and backfill its already-synced members in one shot. */
+  wireSyncedGroup: async (
+    allianceId: number,
+    input: { idpGroupExternalId: string; target: WireTarget }
+  ): Promise<WireResult> => {
+    const res = await apiClient.post<{ data: WireResult }>(
+      `${base(allianceId)}/scim/synced-groups/wire`,
+      input
+    );
+    return res.data.data;
+  },
+
+  /** Manual "Re-sync now": reconcile every currently-synced member (no cron exists). */
+  resync: async (allianceId: number): Promise<{ usersReconciled: number }> => {
+    const res = await apiClient.post<{ data: { usersReconciled: number } }>(
+      `${base(allianceId)}/scim/resync`,
+      {}
     );
     return res.data.data;
   },
