@@ -27,6 +27,7 @@ import {
 } from '@dnd-kit/core';
 import { RotateCcw, GripVertical, ArrowRightCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/Badge';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -400,6 +401,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     });
   }, []);
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
+  const [triageUnread, setTriageUnread] = useState(0);
   const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
   const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
 
@@ -474,6 +476,44 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     };
   }, []);
 
+  // Server-side UNREAD count across the triage queues, for the Triage tab badge.
+  // One count request per triage column with `limit=1` — we only read
+  // `pagination.total`, never the rows, so this stays cheap and is correct
+  // regardless of how deep a queue is (see the note by triageCount for why the
+  // loaded page cannot be counted instead).
+  //
+  // `read=unread` is the PER-USER read state (the same one the triage read/unread
+  // filter drives), which is what "unread" means to an agent here. Deliberately not
+  // useNotificationCounts() — those are arrival notifications for two kinds only,
+  // and they clear when a kind is marked reviewed, not when a thread is read.
+  const loadTriageUnread = useCallback(() => {
+    let cancelled = false;
+    const triageCols = COLUMNS.filter((col) => col.axis === 'triage');
+    void (async () => {
+      try {
+        const totals = await Promise.all(
+          triageCols.map(async (col) => {
+            const res = await messageService.getThreads(
+              { ...sharedFiltersRef.current, ...col.fixedFilters, read: 'unread' },
+              1,
+              1
+            );
+            return res.success ? res.pagination.total : 0;
+          })
+        );
+        if (!cancelled) setTriageUnread(totals.reduce((sum, num) => sum + num, 0));
+      } catch (err) {
+        // Non-fatal: the badge is informational. Leave the previous value rather
+        // than flashing 0, which would read as "nothing unread" — the one wrong
+        // answer this badge can give.
+        logger.error('Failed to fetch triage unread count:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Optimistic single-card move — pull the card out of whichever column currently
   // holds it and drop it into the destination column, all in local state. No column
   // refetch (unlike bumpKanban), so the acting agent sees the card jump the instant
@@ -526,8 +566,11 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     prevDeptKeyRef.current = selectedDeptKey;
     if (scopeChanged) setColStates(initialColStates);
     const cancels = COLUMNS.map((col) => loadColumn(col.id));
+    // Same triggers as the columns themselves, so the unread badge can never drift
+    // out of step with the totals beside it.
+    cancels.push(loadTriageUnread());
     return () => cancels.forEach((cancel) => cancel());
-  }, [filterKey, refreshKey, selectedDeptKey, loadColumn]);
+  }, [filterKey, refreshKey, selectedDeptKey, loadColumn, loadTriageUnread]);
 
   // When ONE column's sort changes, reload only that column (diff vs the previous
   // snapshot). Avoids refetching all seven columns on a single per-column change.
@@ -702,8 +745,14 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   const visibleColumns = COLUMNS.filter(
     (col) => col.axis === activeTab && !hiddenCols.has(col.id)
   );
-  // Triage-tab count badge: total across all triage queues (loaded even while the
-  // lifecycle board is showing, so the badge is always live).
+  // Triage-tab count badges: UNREAD first (what still needs a human's eyes), then
+  // the all-items total. Both loaded even while the lifecycle board is showing, so
+  // the badges stay live.
+  //
+  // The unread number cannot be derived from `colStates[].threads` — only the first
+  // page is loaded (PAGE_SIZE), so counting `isRead === false` there would silently
+  // undercount any queue deeper than one page and look plausible while being wrong.
+  // It has to be a server-side count; see loadTriageUnread.
   const triageCount = COLUMNS.filter((col) => col.axis === 'triage').reduce(
     (sum, col) => sum + (colStates[col.id]?.total ?? 0),
     0
@@ -745,17 +794,37 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                   )}
                 >
                   {axis === 'lifecycle' ? 'Board' : 'Triage'}
-                  {count > 0 && (
+                  {/* Triage carries TWO numbers: unread (amber — needs eyes) then
+                      the all-items total (muted). Order matters: the actionable
+                      number reads first. Both are hidden at zero, so a quiet queue
+                      shows "Triage" with no decoration at all. */}
+                  {axis === 'triage' && triageUnread > 0 && (
+                    <Badge
+                      variant="warning"
+                      size="sm"
+                      className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
+                      title={`${triageUnread} unread`}
+                    >
+                      {triageUnread}
+                    </Badge>
+                  )}
+                  {axis === 'triage' && count > 0 && (
+                    <Badge
+                      variant="secondary"
+                      size="sm"
+                      className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
+                      title={`${count} in triage in total`}
+                    >
+                      {count}
+                    </Badge>
+                  )}
+                  {axis === 'lifecycle' && count > 0 && (
                     <span
                       className={cn(
                         'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
-                        axis === 'triage'
-                          ? isActive
-                            ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                          : isActive
-                            ? 'bg-foreground/15 text-foreground'
-                            : 'bg-muted-foreground/15 text-muted-foreground'
+                        isActive
+                          ? 'bg-foreground/15 text-foreground'
+                          : 'bg-muted-foreground/15 text-muted-foreground'
                       )}
                     >
                       {count}
