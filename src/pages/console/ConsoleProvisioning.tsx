@@ -25,6 +25,7 @@ import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { ScimEventLedgerCard } from '@/components/console/ScimEventLedgerCard';
 import { ScimTelemetryCard } from '@/components/console/ScimTelemetryCard';
 import { SyncedGroupsCard } from '@/components/console/SyncedGroupsCard';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
@@ -290,6 +291,9 @@ export const ConsoleProvisioning = () => {
 
       {/* ─── Synced ("draft") IdP groups — visibility + one-click wire ─────── */}
       {numericId !== null && <SyncedGroupsCard allianceId={numericId} />}
+
+      {/* ─── Connector event ledger (read-only; 404-tolerant, hides on old BE) ─ */}
+      <ScimEventLedgerCard allianceId={numericId} telemetry={telemetryQuery.data} />
 
       {/* ─── Bearer tokens ───────────────────────────────────────────────── */}
       <Card>
