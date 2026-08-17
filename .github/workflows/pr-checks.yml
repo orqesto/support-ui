@@ -1,6 +1,6 @@
-name: PR Checks (type-check + lint)
+name: PR Checks (type-check + lint + tests)
 
-# Runs type-check and lint on PRs. Type-check is the guard for the generated
+# Runs type-check, lint and the vitest suite on PRs. Type-check is the guard for the generated
 # API-contract types (src/types/generated/api.ts, produced by `npm run gen:types`
 # from ../BE-service/openapi.json): if a service/component consumes a field the
 # contract does not provide, this fails.
@@ -10,6 +10,15 @@ name: PR Checks (type-check + lint)
 # contract changes, regenerate locally (`npm run gen:types`) and commit the updated
 # generated file alongside; the BE repo's jest-checks workflow guards openapi.json
 # freshness on its side.
+#
+# The vitest step runs in the SAME job as type-check/lint on purpose: it reuses that
+# job's `npm ci` and runner, so the marginal cost is only the suite's own runtime
+# (~4s) rather than a second checkout+install. Until then nothing ran the suite in
+# CI at all, and it silently went red for six days when a button's copy was renamed
+# ("Process as KB" -> "Add to KB", #124) — type-check and lint cannot see a changed
+# string. NOTE: neither `staging` nor `main` is a protected branch, so this reports
+# failures but does not BLOCK a merge; making it blocking needs branch protection
+# with "type-check + lint + tests" as a required status check.
 
 on:
   pull_request:
@@ -19,6 +28,7 @@ on:
       - "package-lock.json"
       - "tsconfig*.json"
       - "eslint.config.js"
+      - "vitest.config.ts"
       - ".github/workflows/pr-checks.yml"
 
 concurrency:
@@ -27,7 +37,7 @@ concurrency:
 
 jobs:
   checks:
-    name: type-check + lint
+    name: type-check + lint + tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,3 +58,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test
