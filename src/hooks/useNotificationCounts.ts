@@ -54,6 +54,15 @@ export const useNotificationCounts = () => {
     refetchInterval: 60_000,
     staleTime: 30_000,
     enabled: orgId !== null,
+    // Org/dept are part of the queryKey, so a switch otherwise drops every count back to
+    // `undefined`: badges blink out and the Needs Routing nav item (gated on
+    // `needs_routing > 0`) disappears and reappears. Holding the previous scope's values
+    // for the moment the new ones are in flight avoids that churn.
+    //
+    // Deliberately NOT persisted to localStorage, unlike the tickets *visibility* count:
+    // these numbers are rendered to the user, and a stale count is wrong information —
+    // worse than one that arrives a moment late.
+    placeholderData: (previous) => previous,
   });
 
   // Live refresh: when an arrival notification is created anywhere in the org, refetch
