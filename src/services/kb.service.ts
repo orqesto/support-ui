@@ -99,4 +99,24 @@ export const kbService = {
     const response = await apiClient.delete<ApiResponse<null>>(`/api/knowledge-base/entries/${id}`);
     return response.data;
   },
+
+  /**
+   * Re-mine an existing channel's already-ingested history for Q&A pairs.
+   *
+   * Fire-and-forget on the server: it returns 200 the moment the work is *scheduled*, so a
+   * success here means "accepted", never "finished" or even "will succeed". Progress shows
+   * up via the KB progress endpoints; the caller should say "started", not "done".
+   *
+   * Only re-reads history the channel already pulled — it does not fetch older mail from
+   * the provider, and it only considers conversations before the source's `kbMarkedAt`
+   * cutoff (spec §2a / Addendum A.8). So this is for picking up extraction improvements on
+   * existing data, not for importing more of it.
+   */
+  reprocessSource: async (messageSourceId: number) => {
+    const response = await apiClient.post<ApiResponse<{ messageSourceId: number }>>(
+      '/api/knowledge-base/process-source',
+      { messageSourceId }
+    );
+    return response.data;
+  },
 };

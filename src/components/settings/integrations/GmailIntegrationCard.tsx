@@ -13,6 +13,7 @@ import {
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailForm } from '@/components/settings/integrations/GmailForm';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
+import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
@@ -369,10 +370,7 @@ export const GmailIntegrationCard = ({
                           <p className="font-medium">
                             {(integration.config as { user?: string }).user ?? integration.name}
                           </p>
-                          <SourceRowBadges
-                            departmentId={integration.departmentId}
-                            isKnowledgeBase={integration.isKnowledgeBase}
-                          />
+                          <SourceRowBadges source={integration} />
                         </div>
                         <p className="text-xs text-muted-foreground">
                           OAuth2 •{' '}
@@ -510,6 +508,7 @@ export const GmailIntegrationCard = ({
                       </div>
                     </div>
                   </div>
+                  <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}

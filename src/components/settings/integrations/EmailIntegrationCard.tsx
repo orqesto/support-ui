@@ -3,6 +3,7 @@ import { Mail, Plus, TestTube2, Trash2, Edit, Calendar, Building2, MessageSquare
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
+import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
@@ -343,10 +344,7 @@ export const EmailIntegrationCard = ({
                             {(integration.config as { email?: EmailConfig }).email?.user ??
                               integration.name}
                           </p>
-                          <SourceRowBadges
-                            departmentId={integration.departmentId}
-                            isKnowledgeBase={integration.isKnowledgeBase}
-                          />
+                          <SourceRowBadges source={integration} />
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {(integration.config as { email?: EmailConfig }).email?.host ??
@@ -426,6 +424,7 @@ export const EmailIntegrationCard = ({
                       </Button>
                     </div>
                   </div>
+                  <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}

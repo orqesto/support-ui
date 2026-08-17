@@ -16,14 +16,14 @@ import { Badge } from '@/components/ui/Badge';
  * repo's max-lines cap.
  */
 export const SourceRowBadges = ({
-  departmentId,
-  isKnowledgeBase,
+  source,
 }: {
-  departmentId?: number | null;
-  isKnowledgeBase?: boolean;
+  source: { departmentId?: number | null; isKnowledgeBase?: boolean };
 }) => (
   <>
-    {typeof departmentId === 'number' && <DepartmentBadge departmentId={departmentId} size="sm" />}
-    {isKnowledgeBase === true && <Badge variant="secondary">Knowledge Base</Badge>}
+    {typeof source.departmentId === 'number' && (
+      <DepartmentBadge departmentId={source.departmentId} size="sm" />
+    )}
+    {source.isKnowledgeBase === true && <Badge variant="secondary">Knowledge Base</Badge>}
   </>
 );

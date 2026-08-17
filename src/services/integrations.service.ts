@@ -157,6 +157,10 @@ export type BaseIntegration = {
   departmentId?: number | null;
   isDefault?: boolean;
   isKnowledgeBase?: boolean; // If true, extract Q&A pairs for KB (email/gmail only)
+  // The KB cutoff: conversations received BEFORE this are mined, after it they are
+  // ordinary requests. Stamped server-side when KB is switched on and cleared when it
+  // is switched off — there is no client-settable cutoff, so treat this as read-only.
+  kbMarkedAt?: string | null;
   // Per-source acknowledgment auto-reply template (#19/#20). Only meaningful
   // on email/gmail sources; the runtime skips other channels. Body supports
   // {{customer_name}}, {{tracking_url}}, {{original_subject}} tokens.
