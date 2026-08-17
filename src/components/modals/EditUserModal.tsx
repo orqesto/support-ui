@@ -30,6 +30,7 @@ import { RoleInfoCard } from '../admin/RoleInfoCard';
 import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { departmentUnservedLabel, isDepartmentServed } from '@/utils/departmentReachability';
 
 type EditUserModalProps = {
   isOpen: boolean;
@@ -429,15 +430,19 @@ export const EditUserModal = ({
                             // Catch-all dept slug was renamed 'general' → 'info'; accept both for mixed-state envs.
                             const isGeneral = dept.slug === 'info' || dept.slug === 'general';
                             const isChecked = selectedDepartmentIds.includes(dept.id);
+                            const unservedLabel = departmentUnservedLabel(dept);
+                            // Block ADDING an unserved dept, but still allow UNCHECKING one the
+                            // user is already in (so an admin can clean up a stale assignment).
+                            const sourceDisabled = !isDepartmentServed(dept) && !isChecked;
                             return (
                               <label
                                 key={dept.id}
-                                className={`flex gap-2 items-center ${deptReadOnly ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                className={`flex gap-2 items-center ${deptReadOnly || sourceDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
-                                  disabled={deptReadOnly}
+                                  disabled={deptReadOnly || sourceDisabled}
                                   onChange={(event) => {
                                     if (event.target.checked) {
                                       setSelectedDepartmentIds([...selectedDepartmentIds, dept.id]);
@@ -459,6 +464,11 @@ export const EditUserModal = ({
                                 {isGeneral && (
                                   <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground">
                                     catch-all
+                                  </span>
+                                )}
+                                {unservedLabel && (
+                                  <span className="ml-auto text-xs text-muted-foreground">
+                                    — {unservedLabel}
                                   </span>
                                 )}
                               </label>
