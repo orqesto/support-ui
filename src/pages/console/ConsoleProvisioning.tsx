@@ -26,6 +26,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { ScimTelemetryCard } from '@/components/console/ScimTelemetryCard';
+import { SyncedGroupsCard } from '@/components/console/SyncedGroupsCard';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import {
   useAllianceScimConfig,
@@ -138,12 +139,6 @@ export const ConsoleProvisioning = () => {
   const [mintedToken, setMintedToken] = useState<string | null>(null);
   const [mintedCopied, setMintedCopied] = useState(false);
 
-  // "Add mapping" drafts.
-  const [newGroupExternalId, setNewGroupExternalId] = useState('');
-  const [newGroupTargetId, setNewGroupTargetId] = useState('');
-  const [newRoleExternalId, setNewRoleExternalId] = useState('');
-  const [newRoleValue, setNewRoleValue] = useState<AllianceRole>('alliance_agent');
-
   const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
 
   const scimBaseUrl = useMemo(() => allianceScimBaseUrl(), []);
@@ -192,38 +187,6 @@ export const ConsoleProvisioning = () => {
     } catch {
       /* clipboard blocked — the field is selectable */
     }
-  };
-
-  const handleAddGroupMap = () => {
-    const externalId = newGroupExternalId.trim();
-    if (!externalId || !newGroupTargetId) {
-      return;
-    }
-    setGroupMap.mutate(
-      { groupId: Number(newGroupTargetId), idpGroupExternalId: externalId },
-      {
-        onSuccess: () => {
-          setNewGroupExternalId('');
-          setNewGroupTargetId('');
-        },
-      }
-    );
-  };
-
-  const handleAddRoleMap = () => {
-    const externalId = newRoleExternalId.trim();
-    if (!externalId) {
-      return;
-    }
-    setRoleMap.mutate(
-      { idpGroupExternalId: externalId, mappedRole: newRoleValue },
-      {
-        onSuccess: () => {
-          setNewRoleExternalId('');
-          setNewRoleValue('alliance_agent');
-        },
-      }
-    );
   };
 
   const handleConfirm = () => {
@@ -275,7 +238,6 @@ export const ConsoleProvisioning = () => {
   const tokens = tokensQuery.data ?? [];
   const groupMaps = groupMapsQuery.data ?? [];
   const roleMaps = roleMapsQuery.data ?? [];
-  const newRoleIsAdmin = newRoleValue === 'alliance_admin';
   const anyAdminRoleMap = roleMaps.some((mapping) => mapping.mappedRole === 'alliance_admin');
 
   return (
@@ -325,6 +287,9 @@ export const ConsoleProvisioning = () => {
 
       {/* ─── Provisioning telemetry (read-only) ──────────────────────────── */}
       {telemetryQuery.data && <ScimTelemetryCard telemetry={telemetryQuery.data} />}
+
+      {/* ─── Synced ("draft") IdP groups — visibility + one-click wire ─────── */}
+      {numericId !== null && <SyncedGroupsCard allianceId={numericId} />}
 
       {/* ─── Bearer tokens ───────────────────────────────────────────────── */}
       <Card>
@@ -477,36 +442,12 @@ export const ConsoleProvisioning = () => {
             </div>
           )}
 
-          {/* Add a mapping. */}
-          <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-border">
-            <div className="flex-1 min-w-[12rem]">
-              <Input
-                label="IdP group external id"
-                type="text"
-                placeholder="e.g. eng-team or a group GUID"
-                value={newGroupExternalId}
-                onChange={(event) => setNewGroupExternalId(event.target.value)}
-              />
-            </div>
-            <div className="flex-1 min-w-[12rem]">
-              <Label className="mb-1">Alliance group</Label>
-              <ReactSelect
-                options={groupOptions}
-                value={newGroupTargetId}
-                onChange={setNewGroupTargetId}
-                placeholder="Select a group…"
-              />
-            </div>
-            <Button
-              type="button"
-              onClick={handleAddGroupMap}
-              isLoading={setGroupMap.isPending}
-              disabled={setGroupMap.isPending || !newGroupExternalId.trim() || !newGroupTargetId}
-            >
-              <Plus className="mr-2 w-4 h-4" />
-              Add
-            </Button>
-          </div>
+          {groupMaps.length === 0 && groupOptions.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              No IdP groups are mapped to an alliance group yet. Map them from{' '}
+              <strong>Synced IdP groups</strong> above.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -523,7 +464,7 @@ export const ConsoleProvisioning = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {(anyAdminRoleMap || newRoleIsAdmin) && (
+          {anyAdminRoleMap && (
             <Alert variant="warning">
               <div className="flex gap-2 items-start">
                 <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
@@ -599,43 +540,12 @@ export const ConsoleProvisioning = () => {
             </div>
           )}
 
-          {/* Add a mapping. */}
-          <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-border">
-            <div className="flex-1 min-w-[12rem]">
-              <Input
-                label="IdP group external id"
-                type="text"
-                placeholder="e.g. alliance-admins or a group GUID"
-                value={newRoleExternalId}
-                onChange={(event) => setNewRoleExternalId(event.target.value)}
-              />
-            </div>
-            <div className="flex-1 min-w-[12rem]">
-              <Label htmlFor="new-role" className="mb-1">
-                Alliance role
-              </Label>
-              <Select
-                id="new-role"
-                value={newRoleValue}
-                onChange={(event) => setNewRoleValue(event.target.value as AllianceRole)}
-              >
-                {ROLE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button
-              type="button"
-              onClick={handleAddRoleMap}
-              isLoading={setRoleMap.isPending}
-              disabled={setRoleMap.isPending || !newRoleExternalId.trim()}
-            >
-              <Plus className="mr-2 w-4 h-4" />
-              Add
-            </Button>
-          </div>
+          {roleMaps.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No IdP groups are mapped to an alliance role yet. Map them from{' '}
+              <strong>Synced IdP groups</strong> above.
+            </p>
+          )}
         </CardContent>
       </Card>
 
