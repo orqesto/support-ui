@@ -106,6 +106,30 @@ describe('ScimEventLedgerCard', () => {
     expect(screen.getByText('admin')).toBeInTheDocument();
   });
 
+  it('renders a provisioning rejection with its reason (not hidden silently)', () => {
+    eventsReturn = query([
+      {
+        available: true,
+        events: [
+          event({
+            id: 3,
+            eventType: 'provision_rejected',
+            severity: 'warning',
+            outcome: 'rejected',
+            afterRole: null,
+            targetEmail: 'smith@taconet.info',
+            detail: { reason: 'This account cannot be provisioned by SCIM.' },
+          }),
+        ],
+        nextCursor: null,
+      },
+    ]);
+    render(<ScimEventLedgerCard allianceId={1} />);
+    expect(screen.getByText('Provisioning rejected')).toBeInTheDocument();
+    expect(screen.getByText('smith@taconet.info')).toBeInTheDocument();
+    expect(screen.getByText(/cannot be provisioned by SCIM/i)).toBeInTheDocument();
+  });
+
   it('shows the empty state when the endpoint is available but has no events', () => {
     eventsReturn = query([{ available: true, events: [], nextCursor: null }]);
     render(<ScimEventLedgerCard allianceId={1} />);

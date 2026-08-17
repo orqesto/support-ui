@@ -25,6 +25,7 @@ const EVENT_LABEL: Record<string, string> = {
   role_de_elevated: 'Role lowered',
   group_wired: 'Group access wired',
   resync: 'Re-synced',
+  provision_rejected: 'Provisioning rejected',
   seat_cap_rejected: 'Seat cap reached',
   last_admin_removed: 'Last admin removed',
 };
@@ -41,29 +42,39 @@ const formatTime = (iso: string): string => new Date(iso).toLocaleString();
 const eventTarget = (event: AllianceScimEvent): string | null =>
   event.targetEmail ?? event.idpGroupExternalId ?? null;
 
+/** A human reason string the backend attached (e.g. why a provision was rejected). */
+const eventReason = (event: AllianceScimEvent): string | null => {
+  const reason = event.detail?.reason;
+  return typeof reason === 'string' ? reason : null;
+};
+
 const EventRow = ({ event }: { event: AllianceScimEvent }) => {
   const warn = event.severity === 'warning';
   const before = roleShort(event.beforeRole);
   const after = roleShort(event.afterRole);
   const showTransition = before !== null && after !== null && before !== after;
   const target = eventTarget(event);
+  const reason = eventReason(event);
   return (
-    <li className="flex flex-wrap gap-x-3 gap-y-1 items-center px-3 py-2 text-sm border-t border-border">
-      <Badge variant={warn ? 'warning' : 'secondary'}>{eventLabel(event.eventType)}</Badge>
-      {target && <span className="font-mono text-xs text-muted-foreground">{target}</span>}
-      {showTransition && (
-        <span className="inline-flex gap-1 items-center text-xs text-muted-foreground">
-          {before}
-          <ArrowRight className="w-3 h-3" />
-          <strong className="text-foreground">{after}</strong>
+    <li className="px-3 py-2 text-sm border-t border-border">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+        <Badge variant={warn ? 'warning' : 'secondary'}>{eventLabel(event.eventType)}</Badge>
+        {target && <span className="font-mono text-xs text-muted-foreground">{target}</span>}
+        {showTransition && (
+          <span className="inline-flex gap-1 items-center text-xs text-muted-foreground">
+            {before}
+            <ArrowRight className="w-3 h-3" />
+            <strong className="text-foreground">{after}</strong>
+          </span>
+        )}
+        {event.outcome !== 'success' && !reason && (
+          <span className="text-xs capitalize text-muted-foreground">{event.outcome}</span>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+          {actorLabel(event.actorType)} · {formatTime(event.createdAt)}
         </span>
-      )}
-      {event.outcome !== 'success' && (
-        <span className="text-xs capitalize text-muted-foreground">{event.outcome}</span>
-      )}
-      <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
-        {actorLabel(event.actorType)} · {formatTime(event.createdAt)}
-      </span>
+      </div>
+      {reason && <p className="mt-1 text-xs text-muted-foreground">{reason}</p>}
     </li>
   );
 };
