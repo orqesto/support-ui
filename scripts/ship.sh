@@ -38,6 +38,19 @@ die(){ echo "❌ $*" >&2; exit 1; }
 require_clean(){ [ -z "$(git status --porcelain --untracked-files=no)" ] || die "Uncommitted changes to tracked files — commit or stash first."; }
 confirm(){ read -r -p "$1 [y/N] " a; [ "$a" = "y" ] || [ "$a" = "Y" ] || die "Aborted."; }
 
+# `git pull` honours `pull.rebase`, which is set true in these repos. That turns what
+# should be a fast-forward into a rebase, and when the local branch is BEHIND the remote
+# git aborts with "fatal: Cannot rebase onto multiple branches" (the explicit refspec plus
+# branch.<name>.merge leave two branches marked for merge in FETCH_HEAD).
+#
+# It bit exactly once and cost real confusion: in `prod` the pull runs immediately AFTER
+# `git checkout main`, so the failure stranded the working tree on `main` mid-release. The
+# dev server rebuilt from the wrong branch and a just-verified fix appeared to vanish.
+# It only fires when the branch is behind, so an already-current checkout passes and hides it.
+#
+# Fetch + an explicit ff-only merge does the same job and ignores `pull.rebase` entirely.
+sync_ff(){ git fetch --quiet origin "$1" && git merge --ff-only "origin/$1"; }
+
 # Poll production until it serves the just-released build, or time out (~25 min).
 #   $1 = released version (package.json)   $2 = released commit sha
 verify_prod(){
@@ -76,7 +89,7 @@ case "$TARGET" in
     if [ "$br" != "staging" ]; then
       echo "→ merging '$br' into staging"
       git checkout staging
-      git pull --ff-only origin staging 2>/dev/null || true
+      sync_ff staging 2>/dev/null || true
       git merge --no-edit "$br"
     fi
     git push origin staging
@@ -88,7 +101,7 @@ case "$TARGET" in
     confirm "Cut a $LEVEL release candidate and deploy it to staging?"
     br="$(git branch --show-current)"
     git checkout staging
-    git pull --ff-only origin staging 2>/dev/null || true
+    sync_ff staging 2>/dev/null || true
     if [ "$br" != "staging" ]; then git merge --no-edit "$br"; fi
     npm version "$LEVEL" --no-git-tag-version >/dev/null
     ver="$(node -p "require('./package.json').version")"
@@ -102,10 +115,10 @@ case "$TARGET" in
 
   prod)
     require_clean
-    git checkout staging && git pull --ff-only origin staging
+    git checkout staging && sync_ff staging
     ver="$(node -p "require('./package.json').version")"
     confirm "Promote staging → main and RELEASE v$ver TO PRODUCTION (no bump)?"
-    git checkout main && git pull --ff-only origin main
+    git checkout main && sync_ff main
     git merge --no-edit staging
     rel_sha="$(git rev-parse HEAD)"
     ./scripts/release-current.sh      # FE: push main (deploy) · BE: tag v$ver (deploy). NO bump.
@@ -117,11 +130,11 @@ case "$TARGET" in
   hotfix)
     require_clean
     confirm "HOTFIX: bump $LEVEL and release straight from main to PRODUCTION?"
-    git checkout main && git pull --ff-only origin main
+    git checkout main && sync_ff main
     ./scripts/release.sh "$LEVEL"     # bumps + releases (hotfix skips the RC/staging step)
     rel_ver="$(node -p "require('./package.json').version")"
     rel_sha="$(git rev-parse HEAD)"
-    git checkout staging && git pull --ff-only origin staging && git merge --no-edit main && git push origin staging
+    git checkout staging && sync_ff staging && git merge --no-edit main && git push origin staging
     echo "🚀 Hotfix v$rel_ver released and merged back into staging."
     verify_prod "$rel_ver" "$rel_sha"
     ;;
