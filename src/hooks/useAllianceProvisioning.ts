@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   allianceScimService,
@@ -36,6 +41,27 @@ export const useAllianceScimTelemetry = (allianceId: number | null) =>
     queryFn: () => allianceScimService.getTelemetry(allianceId as number),
     enabled: allianceId !== null,
     refetchOnWindowFocus: false,
+  });
+
+/**
+ * The connector event ledger, cursor-paginated newest-first ("Load more" pages back).
+ * The service resolves a 404 (pre-ledger backend) to an `available:false` page, so this
+ * query never errors on an old BE — the panel hides itself instead. `retry:false` keeps
+ * a genuine failure from hammering the endpoint.
+ */
+export const useAllianceScimEvents = (allianceId: number | null) =>
+  useInfiniteQuery({
+    queryKey: ['alliance', allianceId, 'scim-events'],
+    queryFn: ({ pageParam }) =>
+      allianceScimService.listEvents(allianceId as number, {
+        limit: 25,
+        beforeId: pageParam ?? undefined,
+      }),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: allianceId !== null,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 
 export const useSaveAllianceScimConfig = (allianceId: number | null) => {

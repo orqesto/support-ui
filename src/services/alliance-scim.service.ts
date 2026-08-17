@@ -78,7 +78,42 @@ export type AllianceScimTelemetry = {
   config: { enabled: boolean; allowScimAccountLinking: boolean };
   tokens: { total: number; active: number; revoked: number; lastUsedAt: string | null };
   groups: { total: number; memberships: number; lastSyncedAt: string | null };
+  // OPTIONAL — only present on backends carrying the SCIM event ledger. A frontend on a
+  // newer version than the BE (e.g. FE prod ahead of BE prod) must treat these as absent.
+  admins?: { activeAdminCount: number; hasActiveAdmin: boolean };
+  events?: { total: number; lastEventAt: string | null };
   notes: string[];
+};
+
+/** One row of the SCIM connector event ledger. Timestamps serialize as ISO strings. */
+export type AllianceScimEvent = {
+  id: number;
+  eventType: string;
+  /** 'info' | 'warning' — free text so a new value never needs a FE change. */
+  severity: string;
+  /** 'idp' | 'admin' | 'system' — free text (see severity). */
+  actorType: string;
+  actorTokenId: number | null;
+  actorUserId: number | null;
+  targetUserId: number | null;
+  targetEmail: string | null;
+  idpGroupExternalId: string | null;
+  beforeRole: string | null;
+  afterRole: string | null;
+  outcome: string;
+  detail: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+/**
+ * A page of the event ledger. `available` is FALSE when the backend does not yet expose
+ * the `/scim/events` endpoint (404) — the panel then degrades silently instead of
+ * surfacing an error, so the FE can ship ahead of the BE reaching an environment.
+ */
+export type AllianceScimEventPage = {
+  available: boolean;
+  events: AllianceScimEvent[];
+  nextCursor: number | null;
 };
 
 const base = (allianceId: number): string => `/api/alliances/${allianceId}`;
@@ -107,6 +142,30 @@ export const allianceScimService = {
       `${base(allianceId)}/scim/telemetry`
     );
     return res.data.data;
+  },
+
+  /**
+   * Read-only connector event ledger (GET .../scim/events), newest-first, cursor-paginated.
+   * 404-TOLERANT: on a backend that predates the ledger endpoint, resolves to
+   * `{ available: false, events: [], nextCursor: null }` rather than throwing — the panel
+   * then hides itself. Any other error propagates so genuine failures still surface.
+   */
+  listEvents: async (
+    allianceId: number,
+    params: { limit?: number; beforeId?: number } = {}
+  ): Promise<AllianceScimEventPage> => {
+    try {
+      const res = await apiClient.get<{
+        data: { events: AllianceScimEvent[]; nextCursor: number | null };
+      }>(`${base(allianceId)}/scim/events`, { params });
+      return { available: true, events: res.data.data.events, nextCursor: res.data.data.nextCursor };
+    } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      if (status === 404) {
+        return { available: false, events: [], nextCursor: null };
+      }
+      throw error;
+    }
   },
 
   // ─── Bearer tokens ───────────────────────────────────────────────────────────

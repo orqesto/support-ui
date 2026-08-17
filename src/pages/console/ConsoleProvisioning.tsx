@@ -25,6 +25,7 @@ import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { ScimEventLedgerCard } from '@/components/console/ScimEventLedgerCard';
 import { ScimTelemetryCard } from '@/components/console/ScimTelemetryCard';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import {
@@ -325,6 +326,9 @@ export const ConsoleProvisioning = () => {
 
       {/* ─── Provisioning telemetry (read-only) ──────────────────────────── */}
       {telemetryQuery.data && <ScimTelemetryCard telemetry={telemetryQuery.data} />}
+
+      {/* ─── Connector event ledger (read-only; 404-tolerant, hides on old BE) ─ */}
+      <ScimEventLedgerCard allianceId={numericId} telemetry={telemetryQuery.data} />
 
       {/* ─── Bearer tokens ───────────────────────────────────────────────── */}
       <Card>
