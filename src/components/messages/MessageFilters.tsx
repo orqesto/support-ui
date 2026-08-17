@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartments } from '@/hooks/useDepartments';
+import { isDepartmentServed } from '@/utils/departmentReachability';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { labelService, type Label } from '@/services/settings.service';
@@ -146,7 +147,8 @@ export const MessageFilters = ({
   const [messageSources, setMessageSources] = useState<Integration[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const { data: depts = [] } = useDepartments();
-  const activeDepts = depts.filter((dept) => dept.active);
+  // Only depts a live message source routes to — an unserved dept never has mail to filter.
+  const activeDepts = depts.filter((dept) => dept.active && isDepartmentServed(dept));
 
   useEffect(() => {
     labelService

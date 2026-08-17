@@ -10,6 +10,7 @@ import { departmentService, type Department } from '@/services/department.servic
 import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { departmentUnservedLabel, isDepartmentServed } from '@/utils/departmentReachability';
 
 type EmailIntegrationOption = { id: number; name: string };
 
@@ -82,9 +83,11 @@ export const InviteUserModal = ({
         .getAll()
         .then((depts) => {
           setDepartments(depts);
-          // Preselect the first department so the form is valid by default.
-          if (depts.length > 0) {
-            setDepartmentIds((prev) => (prev.length > 0 ? prev : [depts[0].id]));
+          // Preselect the first SERVED department so the form is valid by default — never
+          // an unserved one (it's disabled and can't be handled).
+          const firstServed = depts.find(isDepartmentServed);
+          if (firstServed) {
+            setDepartmentIds((prev) => (prev.length > 0 ? prev : [firstServed.id]));
           }
         })
         .catch(() => setDepartments([]));
@@ -280,20 +283,33 @@ export const InviteUserModal = ({
                 <p className="text-sm text-muted-foreground">Loading departments…</p>
               ) : (
                 <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
-                  {departments.map((dept) => (
-                    <label
-                      key={dept.id}
-                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
-                    >
-                      <input
-                        type="checkbox"
-                        className="rounded border-border"
-                        checked={departmentIds.includes(dept.id)}
-                        onChange={() => toggleDepartment(dept.id)}
-                      />
-                      <span>{dept.name}</span>
-                    </label>
-                  ))}
+                  {departments.map((dept) => {
+                    const served = isDepartmentServed(dept);
+                    const unservedLabel = departmentUnservedLabel(dept);
+                    return (
+                      <label
+                        key={dept.id}
+                        className={`flex items-center gap-2 px-3 py-2 text-sm ${
+                          served ? 'cursor-pointer hover:bg-accent' : 'cursor-not-allowed opacity-60'
+                        }`}
+                        title={unservedLabel ? `Unavailable — ${unservedLabel}` : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="rounded border-border"
+                          checked={departmentIds.includes(dept.id)}
+                          onChange={() => toggleDepartment(dept.id)}
+                          disabled={!served}
+                        />
+                        <span>{dept.name}</span>
+                        {unservedLabel && (
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            — {unservedLabel}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               )}
               <p className="mt-1 text-sm text-muted-foreground">

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useDepartments } from '@/hooks/useDepartments';
+import { isDepartmentServed } from '@/utils/departmentReachability';
 import { useAuthStore } from '@/stores/authStore';
 import { assignmentService } from '@/services/assignment.service';
 import { logger } from '@/lib/logger';
@@ -89,6 +90,9 @@ export const MoveDepartmentDialog = ({
   const callerDeptIds = user?.departmentIds ?? [];
   const candidateDepts = departments.filter((dept) => {
     if (!dept.active) return false;
+    // Hide unserved depts as move targets — no message source routes there, so a ticket
+    // moved in would strand with no channel/agents behind it.
+    if (!isDepartmentServed(dept)) return false;
     if (dept.id === currentDepartmentId) return false;
     if (isAdmin) return true;
     return callerDeptIds.includes(dept.id);
