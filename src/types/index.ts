@@ -10,6 +10,13 @@ export type Department = {
   // Org-level fallback department: where messages land when no source/rule resolves one.
   // Exactly one per organization.
   isDefault: boolean;
+  // Derived source reachability (orthogonal to `active`). `hasMessageSource`: a live message
+  // channel routes here (in message_source_departments of an enabled, non-KB source) — i.e.
+  // it can receive tickets. `kbOnly`: no live channel, but a KB source is scoped to it.
+  // A dept with both false is unserved: disable+mark it in user-assignment, hide it in
+  // operational (queue/ticket-move) lists. Optional for back-compat with any cached payload.
+  hasMessageSource?: boolean;
+  kbOnly?: boolean;
 };
 
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';

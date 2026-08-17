@@ -322,8 +322,17 @@ export function ComposerAiActions({
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value.slice(0, MAX_INSTRUCTIONS))}
                 rows={2}
-                placeholder="Optional — leave empty and I'll answer from your knowledge base. e.g. the parcel is held at the border, we're sending a replacement"
-                className="text-[13px]"
+                // Example stays industry-neutral on purpose: tenants range from
+                // physical-product sellers to service businesses with nothing to
+                // ship, and a parcel/border example reads as "not for us" to half
+                // of them. What it has to convey is the SHAPE of a useful
+                // instruction — case facts the knowledge base cannot know.
+                placeholder="Optional — leave empty and I'll answer from your knowledge base. e.g. we've fixed it on our side, we'll follow up on Monday"
+                // The DS Textarea is resize-y by default, so width is already
+                // safe, but height was unbounded — dragging the handle could push
+                // the Write reply button off-screen inside this compact panel.
+                // max-h-44 matches the reply-preview block above it.
+                className="text-[13px] max-h-44"
               />
               <div className="flex flex-wrap gap-2 items-center">
                 <Button

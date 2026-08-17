@@ -54,12 +54,32 @@ export const MessageSourcesSettings = () => {
 
   return (
     <div className="space-y-10">
-      {/* Active Sources */}
+      {/*
+        Two sections, split along the seam the data model actually has (Addendum A.3 of
+        SOURCE-IMPORT-LIFECYCLE-SPEC): `message_sources` = live channels, everything else
+        (`content_source_integrations` + uploads) = Spaces.
+
+        This page used to render Email and Gmail TWICE — once under "Active Sources" and
+        again under "Knowledge Base Sources" next to Confluence — off the same components
+        with `defaultKB={false|true}`. That presented one mechanism as two unrelated
+        things: a "KB source" is not a different kind of entity, it is the same
+        `message_sources` row with `isKnowledgeBase` set. The duplication made a mailbox
+        look like it had to be either an inbox or a KB source, when it can be both, and it
+        filed Confluence — which never receives messages — beside mailboxes.
+
+        Omitting `defaultKB` is what merges them: the cards filter on it only when it is
+        defined, title themselves as channels, and reveal the "Use as Knowledge Base
+        Source" checkbox (`EmailForm`'s `!defaultKB`), so an existing inbox can be promoted
+        in place. Per-row KB state, which the section heading used to convey, is now a
+        badge on the row itself.
+      */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Active Sources</h2>
+          <h2 className="text-lg font-semibold text-foreground">Channels</h2>
           <p className="text-sm text-muted-foreground">
-            Inboxes that receive and process incoming messages.
+            Inboxes and chat connections that receive and process incoming messages. Any
+            channel can also be mined for Knowledge Base content — enable that on the
+            channel itself.
           </p>
         </div>
 
@@ -67,7 +87,6 @@ export const MessageSourcesSettings = () => {
           integrations={integrations}
           onRefresh={fetchIntegrations}
           onShowAlert={setAlertDialog}
-          defaultKB={false}
         />
 
         {gmailAvailable !== false && (
@@ -75,7 +94,6 @@ export const MessageSourcesSettings = () => {
             integrations={integrations}
             onRefresh={fetchIntegrations}
             onShowAlert={setAlertDialog}
-            defaultKB={false}
           />
         )}
 
@@ -92,30 +110,15 @@ export const MessageSourcesSettings = () => {
         />
       </div>
 
-      {/* Knowledge Base Sources */}
+      {/* Spaces — document sources, not channels. Notion/Google Docs and uploads join here. */}
       <div className="space-y-6">
         <div className="pt-4 border-t">
-          <h2 className="text-lg font-semibold text-foreground">Knowledge Base Sources</h2>
+          <h2 className="text-lg font-semibold text-foreground">Spaces</h2>
           <p className="text-sm text-muted-foreground">
-            Email accounts and content sources used to extract Q&amp;A pairs and documentation for AI-powered responses. These don't appear in the active inbox.
+            Document sources mined for Q&amp;A pairs and documentation used in AI-powered
+            responses. Unlike channels, these never receive messages.
           </p>
         </div>
-
-        <EmailIntegrationCard
-          integrations={integrations}
-          onRefresh={fetchIntegrations}
-          onShowAlert={setAlertDialog}
-          defaultKB={true}
-        />
-
-        {gmailAvailable !== false && (
-          <GmailIntegrationCard
-            integrations={integrations}
-            onRefresh={fetchIntegrations}
-            onShowAlert={setAlertDialog}
-            defaultKB={true}
-          />
-        )}
 
         <ConfluenceIntegrationCard
           integrations={integrations}

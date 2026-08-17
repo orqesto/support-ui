@@ -296,11 +296,19 @@ export const Layout = ({ children }: LayoutProps) => {
   // the sidebar and the Notification Center bell share one number.
   const { counts: notificationCounts } = useNotificationCounts();
   const needsRoutingCount = notificationCounts['needs_routing'] ?? 0;
-  // Tickets nav stays hidden until the org has its first ticket. `undefined` =
-  // still loading; treat as "show" to avoid a brief flash that hides the link
-  // for users who do have tickets.
+  // Tickets nav stays hidden until the org has its first ticket.
+  //
+  // This used to treat `undefined` (loading) as "show", to avoid a flash that hid the
+  // link from users who do have tickets. That traded one visible glitch for a worse one:
+  // orgs with NO tickets watched the item appear and then vanish on every cold load —
+  // and, because the count's queryKey carries org + dept, on every org/department switch
+  // too. `useTicketsCount` now seeds from the last known count for that exact scope, so
+  // the answer is normally already known at first render and neither flash occurs.
+  // `undefined` therefore means "never fetched for this scope on this device", where
+  // staying hidden is the honest default — it matches the feature's intent, and the link
+  // appears as soon as the count confirms it.
   const { data: ticketsCount } = useTicketsCount();
-  const hasTickets = ticketsCount === undefined || ticketsCount > 0;
+  const hasTickets = (ticketsCount ?? 0) > 0;
   const hasRoutingItems = needsRoutingCount > 0;
 
   // Join/leave organization-specific WebSocket rooms for targeted event delivery

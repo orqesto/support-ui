@@ -6,6 +6,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { departmentService, type Department } from '@/services/department.service';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { OrganizationRole } from '@/types/roles';
+import { departmentUnservedLabel, isDepartmentServed } from '@/utils/departmentReachability';
 
 type CreateUserModalProps = {
   isOpen: boolean;
@@ -52,8 +53,9 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           setDepartments(depts);
           setSelectedDeptIds((prev) => {
             if (prev.size > 0) return prev;
-            if (depts.length === 0) return prev;
-            return new Set([depts[0].id]);
+            // Seed the first SERVED dept — never pre-select an unserved one (it's disabled).
+            const firstServed = depts.find(isDepartmentServed);
+            return firstServed ? new Set([firstServed.id]) : new Set();
           });
         })
         .catch(() => setDepartments([]));
@@ -258,20 +260,33 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
                 </div>
               ) : (
                 <div className="overflow-y-auto p-2 max-h-40 rounded-md border">
-                  {departments.map((dept) => (
-                    <label
-                      key={dept.id}
-                      className="flex gap-2 items-center px-2 py-1.5 text-sm rounded cursor-pointer hover:bg-accent"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedDeptIds.has(dept.id)}
-                        onChange={() => toggleDept(dept.id)}
-                        className="w-4 h-4"
-                      />
-                      <span>{dept.name}</span>
-                    </label>
-                  ))}
+                  {departments.map((dept) => {
+                    const served = isDepartmentServed(dept);
+                    const unservedLabel = departmentUnservedLabel(dept);
+                    return (
+                      <label
+                        key={dept.id}
+                        className={`flex gap-2 items-center px-2 py-1.5 text-sm rounded ${
+                          served ? 'cursor-pointer hover:bg-accent' : 'cursor-not-allowed opacity-60'
+                        }`}
+                        title={unservedLabel ? `Unavailable — ${unservedLabel}` : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDeptIds.has(dept.id)}
+                          onChange={() => toggleDept(dept.id)}
+                          disabled={!served}
+                          className="w-4 h-4"
+                        />
+                        <span>{dept.name}</span>
+                        {unservedLabel && (
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            — {unservedLabel}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </div>
