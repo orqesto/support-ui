@@ -632,7 +632,21 @@ export const Layout = ({ children }: LayoutProps) => {
               <ThemeToggle />
             </div>
           </header>
-          <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
+          {/*
+            On desktop the shell is a fixed 100vh frame (root `h-screen`, row
+            `lg:overflow-hidden`) and THIS pane is the only thing that scrolls — the same
+            split AdminShell/WorkspaceShell use. It was missing `lg:overflow-y-auto`, so a
+            tall page had nowhere to scroll: the height leaked past the frame, the DOCUMENT
+            scrolled instead, and that dragged the sidebar up with it (its `lg:sticky` is
+            inert here — sticky does nothing when an ancestor is `overflow:hidden`). Hence
+            two scrollbars and dead space under the shell.
+            `lg:min-h-0` is load-bearing: a flex child defaults to `min-height:auto` and
+            refuses to shrink below its content, which keeps the overflow on the document
+            no matter what overflow you set here.
+            Scoped to `lg` so mobile keeps scrolling the document, which is what the
+            fixed mobile header and `pt-16` are built around.
+          */}
+          <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
             <LicenseExpiryBanner />
             <ResumeSetupBanner />
             <TrialBanner />

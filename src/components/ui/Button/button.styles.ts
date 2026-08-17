@@ -1,7 +1,20 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
+// `relative` is load-bearing, not cosmetic. Icon-only buttons carry an `sr-only` label,
+// and Tailwind's `sr-only` is `position: absolute`. Without a positioned ancestor its
+// containing block becomes the INITIAL containing block — the document — so it escapes any
+// `overflow: auto` scroll container it happens to live in and gets laid out at its static
+// position in DOCUMENT coordinates. A label deep inside a scrolled pane then stretches the
+// page's scroll height to reach it.
+//
+// That is what broke the app shell: a "Delete" label in a Confluence row sat at document-y
+// 1729 on a 1296px viewport, giving the document 433px of phantom scroll. Scrolling the
+// document dragged the sidebar off-screen (its `lg:sticky` can't help — sticky is inert
+// under the shell's `overflow:hidden` row), which read as "the sidebar scrolls" plus a
+// second scrollbar and dead space. It only reproduced at viewport heights where the label
+// fell below the fold, which is why it looked screen-size dependent.
 export const buttonVariants = cva(
-  'inline-flex justify-center items-center font-medium rounded-md transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex relative justify-center items-center font-medium rounded-md transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
