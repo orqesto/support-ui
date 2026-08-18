@@ -24,9 +24,10 @@ vi.mock('@/hooks/useAiConfigured', () => ({
 
 import { ComposerAiActions } from '@/components/messages/ComposerAiActions';
 
-const setComposer = vi.fn();
+const setComposer = vi.fn<(html: string) => void>();
 
-const onApplied = vi.fn<(source: string | null) => void>();
+const onApplied =
+  vi.fn<(source: string | null, draft?: { text: string; mode?: string; language?: string }) => void>();
 
 const openPanel = (composer = '') => {
   const utils = render(
@@ -180,7 +181,7 @@ describe('ComposerAiActions', () => {
       fireEvent.click(screen.getByText(button));
       fireEvent.click(await screen.findByText('Use it'));
 
-      expect(onApplied).toHaveBeenCalledWith(expected);
+      expect(onApplied.mock.calls[0]?.[0]).toBe(expected);
     });
 
     it('reports the guided mode when the agent supplied their own facts', async () => {
@@ -191,17 +192,57 @@ describe('ComposerAiActions', () => {
       fireEvent.click(screen.getByText('Write reply'));
       fireEvent.click(await screen.findByText('Use it'));
 
-      expect(onApplied).toHaveBeenCalledWith('ai_compose_guided');
+      expect(onApplied.mock.calls[0]?.[0]).toBe('ai_compose_guided');
     });
 
     it('reports null on undo — the agent\'s own text is back, so the reply is theirs', async () => {
       openPanel('<p>my rough note</p>');
       fireEvent.click(screen.getByText('Make it customer-ready'));
       fireEvent.click(await screen.findByText('Use it'));
-      expect(onApplied).toHaveBeenLastCalledWith('ai_compose_polish');
+      expect(onApplied.mock.lastCall?.[0]).toBe('ai_compose_polish');
 
       fireEvent.click(await screen.findByTitle('Restore what you had written'));
-      expect(onApplied).toHaveBeenLastCalledWith(null);
+      expect(onApplied.mock.lastCall?.[0]).toBeNull();
+    });
+
+    // reply_style (Phase 1) learns house voice from draft → sent. The draft must
+    // be handed back in the SAME form that lands in the composer (editor HTML):
+    // the backend compares it against the sent body verbatim to tell "accepted
+    // as-is" from "edited", and that body is composer HTML. Handing back the
+    // plain text the endpoint returned would mark every untouched draft edited.
+    it('hands back the applied draft as composer HTML, with its mode and language', async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'Ihr Paket ist im Zoll.', language: 'de' },
+      });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('Use it'));
+
+      const draft = onApplied.mock.calls[0]?.[1];
+      expect(draft).toEqual({
+        text: setComposer.mock.calls[0][0],
+        mode: 'generate',
+        language: 'de',
+      });
+      expect(draft?.text).toContain('<p>');
+    });
+
+    it('omits the language when the draft came back without one', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'All set.' } });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('Use it'));
+
+      expect(onApplied.mock.calls[0]?.[1]).not.toHaveProperty('language');
+    });
+
+    it('hands back no draft on undo — there is nothing left to learn from', async () => {
+      openPanel('<p>my rough note</p>');
+      fireEvent.click(screen.getByText('Make it customer-ready'));
+      fireEvent.click(await screen.findByText('Use it'));
+      fireEvent.click(await screen.findByTitle('Restore what you had written'));
+
+      expect(onApplied.mock.lastCall?.[1]).toBeUndefined();
     });
 
     it('says nothing when the draft is discarded rather than used', async () => {

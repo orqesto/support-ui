@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   messageService,
+  type AiDraft,
   type MessageNote,
   type MessageActivityEntry,
 } from '@/services/message.service';
@@ -161,13 +162,24 @@ export function MessageDetail({
   // agent wrote it themselves. Sent with the reply so captured training data
   // records its true author instead of defaulting every reply to "human".
   const [aiSource, setAiSource] = useState<string | null>(null);
+  // The AI draft exactly as it was applied to the composer. Sent alongside the
+  // reply so the reply_style domain can learn house voice from what the agent
+  // CHANGED — an AI-drafted stamp alone says who wrote it, not what was wrong
+  // with it.
+  const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  const handleAiSourceChange = useCallback((source: string | null, draft?: AiDraft) => {
+    setAiSource(source);
+    setAiDraft(draft ?? null);
+  }, []);
   // Clearing the composer discards the AI text, so whatever is typed next is the
   // agent's own. Without this, wiping a draft and writing from scratch would
-  // still be reported as AI-drafted. (The inverse — editing a draft heavily —
-  // still counts as AI-drafted; telling those apart needs the draft text itself,
-  // which is deliberately out of scope here.)
+  // still be reported as AI-drafted — and the discarded draft would be handed to
+  // reply_style as if the agent had rewritten it into whatever they type next.
   useEffect(() => {
-    if (aiSource !== null && isBlankRichText(composer)) setAiSource(null);
+    if (aiSource !== null && isBlankRichText(composer)) {
+      setAiSource(null);
+      setAiDraft(null);
+    }
   }, [aiSource, composer]);
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
   const [submitting, setSubmitting] = useState(false);
@@ -385,7 +397,8 @@ export function MessageDetail({
           false,
           aiSource !== null,
           aiSource ?? undefined,
-          idempotencyKey
+          idempotencyKey,
+          aiDraft ?? undefined
         );
       } else {
         await messageService.reply(
@@ -394,12 +407,14 @@ export function MessageDetail({
           false,
           aiSource !== null,
           aiSource ?? undefined,
-          idempotencyKey
+          idempotencyKey,
+          aiDraft ?? undefined
         );
       }
       sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
       setComposer('');
       setAiSource(null);
+      setAiDraft(null);
       setSelectedFiles([]);
       setThreadRefreshKey((key) => key + 1);
       // A sent reply (not an internal note) flips the conversation to Pending —
@@ -413,7 +428,7 @@ export function MessageDetail({
     } finally {
       setSubmitting(false);
     }
-  }, [aiSource, composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
+  }, [aiDraft, aiSource, composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
 
   const handleResolveWithoutReply = useCallback(async () => {
     setResolving(true);
@@ -754,7 +769,7 @@ export function MessageDetail({
           onOpenSimilarMessages={() => setSimilarOpen(true)}
           selectedFiles={selectedFiles}
           onFilesChange={setSelectedFiles}
-          onAiSourceChange={setAiSource}
+          onAiSourceChange={handleAiSourceChange}
         />
       )}
 

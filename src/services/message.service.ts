@@ -105,6 +105,17 @@ export type MessageThread = {
   latestIncomingMessage: Message | null;
 };
 
+/**
+ * The AI draft the agent started this reply from — sent with the send so the BE's
+ * reply_style domain can learn house voice from what they CHANGED (Phase 1).
+ *
+ * `text` must be the draft EXACTLY as it landed in the composer (editor HTML, not
+ * the plain text the compose endpoint returned): the BE compares it against the
+ * sent body verbatim to decide `accept` vs `edit`, and that body is composer HTML.
+ * Sending the plain form would mark every untouched draft as edited.
+ */
+export type AiDraft = { text: string; mode?: string; language?: string };
+
 export const messageService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
@@ -212,24 +223,29 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       content,
       resolve,
       usedSuggestedAnswer,
       ...(suggestedAnswerSource && { suggestedAnswerSource }),
       ...(idempotencyKey && { idempotencyKey }),
+      ...(aiDraft && { aiDraft }),
     });
     return response.data;
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string) => {
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft) => {
     const formData = new FormData();
     formData.append('content', content);
     formData.append('resolve', String(resolve));
     formData.append('usedSuggestedAnswer', String(usedSuggestedAnswer));
     if (suggestedAnswerSource) formData.append('suggestedAnswerSource', suggestedAnswerSource);
     if (idempotencyKey) formData.append('idempotencyKey', idempotencyKey);
+    // multipart carries no JSON types — the BE preprocesses this field back from
+    // a string, so the attachment path captures reply_style exactly like the
+    // JSON path does.
+    if (aiDraft) formData.append('aiDraft', JSON.stringify(aiDraft));
 
     files.forEach((file) => {
       formData.append('attachments', file);

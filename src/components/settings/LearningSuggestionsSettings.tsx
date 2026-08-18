@@ -11,6 +11,7 @@ import {
   type SuggestionEvidenceItem,
 } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
+import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -23,6 +24,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   kb_extraction: 'KB Extraction',
   kb_scope: 'KB Scope',
   kb_quality: 'KB Quality',
+  reply_style: 'Reply Style',
   sentiment: 'Sentiment',
   lead: 'Lead',
   multi_topic: 'Multi-Topic',
@@ -98,6 +100,19 @@ const summarizeSuggestion = (
       return `Adjust threshold ${Math.round(fromValue * 100)}% → ${Math.round(toValue * 100)}%`;
     }
     return 'Adjust threshold';
+  }
+  if (suggestion.suggestionType === 'reply_style.update') {
+    const signals =
+      typeof payload.signals === 'object' && payload.signals !== null
+        ? (payload.signals as Record<string, unknown>)
+        : {};
+    const convs = typeof signals.distinctConvs === 'number' ? signals.distinctConvs : null;
+    const agents = typeof signals.distinctAgents === 'number' ? signals.distinctAgents : null;
+    const from =
+      convs !== null && agents !== null
+        ? ` — from ${suggestion.evidenceCount} edited drafts across ${convs} conversation${convs === 1 ? '' : 's'}, ${agents} agent${agents === 1 ? '' : 's'}`
+        : '';
+    return `Update the house reply style${from}`;
   }
   if (suggestion.suggestionType === 'flag_low_quality') {
     return 'Flag low-quality output for review';
@@ -614,7 +629,11 @@ export const LearningSuggestionsSettings = () => {
                               size="sm"
                               onClick={() => void handleAccept(suggestion.id)}
                               disabled={isActing}
-                              title="Accept — disables the weaker rule"
+                              title={
+                                suggestion.domain === 'reply_style'
+                                  ? 'Accept — makes this the house style for AI-drafted replies'
+                                  : 'Accept — disables the weaker rule'
+                              }
                             >
                               <Check className="w-4 h-4" />
                             </Button>
@@ -622,7 +641,11 @@ export const LearningSuggestionsSettings = () => {
                         </div>
                         {expandedId === suggestion.id && (
                           <>
-                            <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
+                            {suggestion.domain === 'reply_style' ? (
+                              <ReplyStyleSuggestionDetail suggestion={suggestion} />
+                            ) : (
+                              <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
+                            )}
                             {(() => {
                               const refinement = readRefinement(suggestion);
                               if (!refinement) return null;

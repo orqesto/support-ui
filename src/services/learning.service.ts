@@ -18,6 +18,7 @@ export type LearningDomain =
   | 'contradiction' // planned
   | 'kb_quality' // planned
   | 'auto_reply' // planned
+  | 'reply_style' // capture (P1) + propose (P3, flag-gated); accept rewrites the house-style prompt (P4)
   // RESERVED — no producer/consumer today; never emits a suggestion:
   | 'category'
   | 'suggested_reply'
