@@ -9,7 +9,7 @@ import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
 import { twoFactorService } from '@/services/twoFactor.service';
-import { resolveOrgByEmail, startSsoUrl } from '@/services/sso.service';
+import { resolveOrgByEmail, startAllianceSsoUrl, startSsoUrl } from '@/services/sso.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 
@@ -192,6 +192,11 @@ export const LoginPage = () => {
       const resolved = await resolveOrgByEmail(email);
       if ('orgSlug' in resolved) {
         window.location.assign(startSsoUrl(resolved.orgSlug));
+        return; // leaving the SPA; keep the spinner up
+      }
+      if ('allianceSlug' in resolved) {
+        // Domain resolved to an ALLIANCE (multi-org SSO) — route to the alliance /start.
+        window.location.assign(startAllianceSsoUrl(resolved.allianceSlug));
         return; // leaving the SPA; keep the spinner up
       }
       if ('ambiguous' in resolved) {

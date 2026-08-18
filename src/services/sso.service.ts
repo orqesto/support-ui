@@ -41,9 +41,14 @@ export type SsoConfigInput = {
   allowSsoAccountLinking: boolean;
 };
 
-/** Discriminated result of the email-first resolve endpoint (D-01/D-02). */
+/**
+ * Discriminated result of the email-first resolve endpoint (D-01/D-02). The domain can
+ * resolve to a single ORG (`orgSlug`) or a single ALLIANCE (`allianceSlug`) — the login
+ * page routes each to its respective `/start`. `ambiguous` when >1 target matches.
+ */
 export type ResolveResult =
   | { orgSlug: string }
+  | { allianceSlug: string }
   | { ambiguous: true }
   | { found: false };
 
@@ -117,3 +122,7 @@ export const resolveOrgByEmail = async (email: string): Promise<ResolveResult> =
 /** The fixed SSO start redirect target for a given org slug. */
 export const startSsoUrl = (orgSlug: string): string =>
   `${API_BASE_URL}/api/auth/sso/${encodeURIComponent(orgSlug)}/start`;
+
+/** The fixed ALLIANCE SSO start redirect target for a given alliance slug. */
+export const startAllianceSsoUrl = (allianceSlug: string): string =>
+  `${API_BASE_URL}/api/auth/sso/alliance/${encodeURIComponent(allianceSlug)}/start`;
