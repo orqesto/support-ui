@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
+import type { DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
   useResyncAllianceProvisioning,
@@ -88,27 +90,34 @@ const wiredLabel = (group: SyncedGroup): string => {
 /** A single synced-group row: identity, members, and either its wired state or a wire control. */
 const SyncedGroupRow = ({
   group,
+  allianceId,
   targetOptions,
   selectedValue,
   onSelect,
   activeOrgs,
   selectedOrgIds,
   onToggleOrg,
+  deptsByOrg,
+  onDeptChange,
   onWire,
   wiring,
 }: {
   group: SyncedGroup;
+  allianceId: number;
   targetOptions: { value: string; label: string }[];
   selectedValue: string;
   onSelect: (value: string) => void;
   activeOrgs: AllianceOrg[];
   selectedOrgIds: number[];
   onToggleOrg: (orgId: number) => void;
+  deptsByOrg: DepartmentIdsByOrg;
+  onDeptChange: (orgId: number, deptIds: number[]) => void;
   onWire: () => void;
   wiring: boolean;
 }) => {
   const wired = group.wiredRole !== null || group.wiredGroup !== null;
-  const isOrgRole = orgRoleOf(selectedValue) !== null;
+  const selectedOrgRole = orgRoleOf(selectedValue);
+  const isOrgRole = selectedOrgRole !== null;
   const noWorkspaceSelected = isOrgRole && selectedOrgIds.length === 0;
   return (
     <Card padding="sm" className="space-y-3">
@@ -179,19 +188,33 @@ const SyncedGroupRow = ({
                 </p>
               ) : (
                 <>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <div className="space-y-2">
                     {activeOrgs.map((org) => (
-                      <Toggle
-                        key={org.id}
-                        checked={selectedOrgIds.includes(org.id)}
-                        onChange={() => onToggleOrg(org.id)}
-                        label={org.name}
-                      />
+                      <div key={org.id} className="space-y-1.5">
+                        <Toggle
+                          checked={selectedOrgIds.includes(org.id)}
+                          onChange={() => onToggleOrg(org.id)}
+                          label={org.name}
+                        />
+                        {selectedOrgIds.includes(org.id) && selectedOrgRole !== 'org_admin' && (
+                          <OrgDepartmentPicker
+                            allianceId={allianceId}
+                            orgId={org.id}
+                            orgLabel={org.name}
+                            selected={deptsByOrg[org.id] ?? []}
+                            onChange={(deptIds) => onDeptChange(org.id, deptIds)}
+                          />
+                        )}
+                      </div>
                     ))}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Members get this role in the selected workspaces ({selectedOrgIds.length}{' '}
-                    selected).{noWorkspaceSelected ? ' Select at least one to map.' : ''}
+                    selected).
+                    {selectedOrgRole === 'org_admin'
+                      ? ' Org admins get every department.'
+                      : ' Leave a workspace’s departments empty for the role default.'}
+                    {noWorkspaceSelected ? ' Select at least one to map.' : ''}
                   </p>
                 </>
               )}
@@ -223,6 +246,8 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
 
   const [selectedByGroup, setSelectedByGroup] = useState<Record<number, string>>({});
   const [orgIdsByGroup, setOrgIdsByGroup] = useState<Record<number, number[]>>({});
+  // Per synced group → per workspace → mapped department ids (org-role wires only).
+  const [deptsByGroup, setDeptsByGroup] = useState<Record<number, DepartmentIdsByOrg>>({});
   const [adminConfirm, setAdminConfirm] = useState<{
     group: SyncedGroup;
     target: WireTarget;
@@ -271,6 +296,23 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         : [...current, orgId];
       return { ...prev, [group.id]: next };
     });
+    // Drop a deselected workspace's dept mapping so it can't be wired for an unscoped org.
+    setDeptsByGroup((prev) => {
+      const forGroup = prev[group.id];
+      if (!forGroup || !(orgId in forGroup)) return prev;
+      const nextForGroup = { ...forGroup };
+      delete nextForGroup[orgId];
+      return { ...prev, [group.id]: nextForGroup };
+    });
+  };
+
+  const deptsFor = (group: SyncedGroup): DepartmentIdsByOrg => deptsByGroup[group.id] ?? {};
+
+  const setDeptsForGroupOrg = (group: SyncedGroup, orgId: number, deptIds: number[]) => {
+    setDeptsByGroup((prev) => ({
+      ...prev,
+      [group.id]: { ...(prev[group.id] ?? {}), [orgId]: deptIds },
+    }));
   };
 
   const submitWire = (group: SyncedGroup, target: WireTarget) => {
@@ -283,7 +325,24 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
     if (orgRole) {
       const orgIds = orgIdsFor(group);
       if (orgIds.length === 0) return null;
-      return { type: 'newGroup', name: backingGroupName(group.displayName, orgRole), orgRole, orgIds };
+      // Org admins get every department, so a dept mapping is meaningless for them —
+      // only carry it for scoped roles, and only for orgs still selected.
+      const groupDepts = deptsFor(group);
+      const departmentIdsByOrg =
+        orgRole === 'org_admin'
+          ? {}
+          : Object.fromEntries(
+              orgIds
+                .map((orgId) => [orgId, groupDepts[orgId] ?? []] as const)
+                .filter(([, deptIds]) => deptIds.length > 0)
+            );
+      return {
+        type: 'newGroup',
+        name: backingGroupName(group.displayName, orgRole),
+        orgRole,
+        orgIds,
+        departmentIdsByOrg,
+      };
     }
     return parseSimpleTarget(value);
   };
@@ -359,12 +418,15 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
             <SyncedGroupRow
               key={group.id}
               group={group}
+              allianceId={allianceId}
               targetOptions={targetOptions}
               selectedValue={selectedValueFor(group)}
               onSelect={(value) => setSelectedByGroup((prev) => ({ ...prev, [group.id]: value }))}
               activeOrgs={activeOrgs}
               selectedOrgIds={orgIdsFor(group)}
               onToggleOrg={(orgId) => toggleOrgFor(group, orgId)}
+              deptsByOrg={deptsFor(group)}
+              onDeptChange={(orgId, deptIds) => setDeptsForGroupOrg(group, orgId, deptIds)}
               onWire={() => handleWire(group)}
               wiring={wire.isPending}
             />

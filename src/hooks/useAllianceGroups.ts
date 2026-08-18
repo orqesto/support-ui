@@ -1,5 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { allianceGroupsService, type AllianceGroup, type GroupCreateInput } from '@/services/alliance-groups.service';
+import {
+  allianceGroupsService,
+  type AllianceGroup,
+  type DepartmentIdsByOrg,
+  type GroupCreateInput,
+} from '@/services/alliance-groups.service';
+
+/** The mappable departments of one org, for the dept pickers. Disabled until an org is chosen. */
+export const useOrgDepartments = (allianceId: number | null, orgId: number | null) =>
+  useQuery({
+    queryKey: ['alliance', allianceId, 'org', orgId, 'departments'],
+    queryFn: () => allianceGroupsService.listOrgDepartments(allianceId as number, orgId as number),
+    enabled: allianceId !== null && orgId !== null,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+/**
+ * Whether two per-org department maps differ. Only orgs present in `orgIds` count —
+ * a mapping left over for a now-removed org is irrelevant (setOrgs replaces the whole
+ * set). Order-insensitive within each org.
+ */
+const deptsChangedFor = (
+  orgIds: number[],
+  draft: DepartmentIdsByOrg,
+  original: DepartmentIdsByOrg
+): boolean =>
+  orgIds.some((orgId) => {
+    const left = [...(draft[orgId] ?? [])].sort((one, two) => one - two);
+    const right = [...(original[orgId] ?? [])].sort((one, two) => one - two);
+    return left.length !== right.length || left.some((id, idx) => id !== right[idx]);
+  });
 
 /**
  * Alliance groups query + save/delete mutations. A single `useSaveGroup` handles
@@ -50,8 +81,15 @@ export const useSaveGroup = (allianceId: number | null) => {
       const orgsChanged =
         draft.orgIds.length !== original.orgIds.length ||
         draft.orgIds.some((orgId) => !original.orgIds.includes(orgId));
-      if (orgsChanged) {
-        await allianceGroupsService.setOrgs(id, original.id, draft.orgIds);
+      // setOrgs writes BOTH the org set and the per-org dept mapping in one call, so
+      // re-issue it when either changed — a dept edit on an unchanged org set still saves.
+      const departmentsChanged = deptsChangedFor(
+        draft.orgIds,
+        draft.departmentIdsByOrg,
+        original.departmentIdsByOrg
+      );
+      if (orgsChanged || departmentsChanged) {
+        await allianceGroupsService.setOrgs(id, original.id, draft.orgIds, draft.departmentIdsByOrg);
       }
       const toAdd = draft.memberIds.filter((userId) => !original.memberIds.includes(userId));
       const toRemove = original.memberIds.filter((userId) => !draft.memberIds.includes(userId));

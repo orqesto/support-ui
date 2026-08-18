@@ -152,7 +152,14 @@ export type SyncedGroup = {
 export type WireTarget =
   | { type: 'role'; mappedRole: AllianceRole }
   | { type: 'existingGroup'; groupId: number }
-  | { type: 'newGroup'; name: string; orgRole: OrganizationRole; orgIds?: number[] };
+  | {
+      type: 'newGroup';
+      name: string;
+      orgRole: OrganizationRole;
+      orgIds?: number[];
+      /** Per-org department ids to map onto the backing group (scoped roles only). */
+      departmentIdsByOrg?: Record<number, number[]>;
+    };
 
 /** Result of wiring a synced group — how many already-synced members were reconciled. */
 export type WireResult = {
