@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, BookOpen, Inbox, Building2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import type { Department } from '@/services/department.service';
+import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
 
 type GmailConfig = {
   isKnowledgeBase?: boolean;
@@ -79,32 +80,11 @@ export const GmailForm = ({
         {defaultKB ? 'Add Gmail KB Source via OAuth2' : 'Add Gmail Account via OAuth2'}
       </h4>
 
-      {defaultKB === true && (
-        <div className="flex gap-2 items-start p-3 rounded-md border bg-amber-500/10 border-amber-500/20">
-          <BookOpen className="mt-0.5 w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div>
-            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Knowledge Base Source
-            </p>
-            <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
-              Extracts Q&amp;A pairs and documents for AI-powered responses. Won't appear in the
-              active inbox.
-            </p>
-          </div>
-        </div>
-      )}
-      {defaultKB === false && (
-        <div className="flex gap-2 items-start p-3 rounded-md border bg-blue-500/10 border-blue-500/20">
-          <Inbox className="mt-0.5 w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
-          <div>
-            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Active Inbox</p>
-            <p className="text-xs text-blue-600/80 dark:text-blue-400/80">
-              Incoming messages will appear in the inbox for review, assignment, and response. To
-              use Gmail as a Knowledge Base source instead, use the{' '}
-              <span className="font-medium">Knowledge Base Sources</span> section below.
-            </p>
-          </div>
-        </div>
+      {!defaultKB && (
+        <SourceKbToggle
+          checked={config.isKnowledgeBase ?? false}
+          onChange={(next) => onConfigChange({ ...config, isKnowledgeBase: next })}
+        />
       )}
 
       <div className="space-y-3">
