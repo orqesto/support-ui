@@ -48,16 +48,18 @@ describe('initialWizardPlan', () => {
 });
 
 describe('buildStepLabels', () => {
-  it('is the six core steps by default', () => {
+  it('is the five core steps by default (no standalone departments step)', () => {
     expect(buildStepLabels(false)).toEqual([...STEP_LABELS]);
-    expect(buildStepLabels(false)).toHaveLength(6);
+    expect(buildStepLabels(false)).toHaveLength(5);
+    // Departments are set up via Channels/routing, never as their own step.
+    expect(buildStepLabels(false)).not.toContain('Departments');
   });
 
   it('appends Payment as the last step when included', () => {
     const labels = buildStepLabels(true);
-    expect(labels).toHaveLength(7);
-    expect(labels[6]).toBe('Payment');
+    expect(labels).toHaveLength(6);
+    expect(labels[5]).toBe('Payment');
     // Core order is untouched, so a resumed step index still means the same step.
-    expect(labels.slice(0, 6)).toEqual([...STEP_LABELS]);
+    expect(labels.slice(0, 5)).toEqual([...STEP_LABELS]);
   });
 });

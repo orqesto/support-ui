@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { AiChoiceStep } from './steps/AiChoiceStep';
 import { ChannelsStep } from './steps/ChannelsStep';
-import { DepartmentsStep } from './steps/DepartmentsStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
 import { KbStep } from './steps/KbStep';
 import { PaymentStep } from './steps/PaymentStep';
@@ -27,15 +26,18 @@ import { logger } from '@/lib/logger';
 
 type StepNumber = OnboardingState['currentStep'];
 
-// Step order (KB is the last CORE step — see STEP_LABELS in StepIndicator).
-const STEP_TITLES: Record<StepNumber, string> = {
-  1: 'Review your departments',
-  2: 'How should AI features work?',
-  3: 'Where should files be stored?',
-  4: 'Connect your message channels',
-  5: 'Invite your team',
-  6: 'Add knowledge for your AI',
-  7: 'Add a payment method',
+// Step order (KB is the last CORE step — see STEP_LABELS in StepIndicator). There
+// is no standalone departments step: a department is only reachable once a message
+// source serves it, so departments are set up in Channels / Settings routing.
+// Keyed by number (not StepNumber) since the persisted `currentStep` type is a
+// loose 1-7 superset while only 1-6 are live here.
+const STEP_TITLES: Record<number, string> = {
+  1: 'How should AI features work?',
+  2: 'Where should files be stored?',
+  3: 'Connect your message channels',
+  4: 'Invite your team',
+  5: 'Add knowledge for your AI',
+  6: 'Add a payment method',
 };
 
 /**
@@ -205,15 +207,15 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // No step blocks advancing. AI (2 — managed or BYO), storage (3), channels (4)
-  // and KB (6) are all optional — set up now or later. KB is the last step, so its
-  // term only affects the (unshown) Next/Skip label there; the footer renders Finish.
+  // No step blocks advancing. AI (1 — managed or BYO), storage (2), channels (3)
+  // and KB (5) are all optional — set up now or later. KB is the last core step, so
+  // its term only affects the (unshown) Next/Skip label there; the footer renders Finish.
   const nextDisabled = false;
   const optionalUnfinished =
-    (activeStep === 2 && !aiChoice) ||
-    (activeStep === 3 && !storageChosen) ||
-    (activeStep === 4 && !channelsConnected) ||
-    (activeStep === 6 && !kbHasDocs);
+    (activeStep === 1 && !aiChoice) ||
+    (activeStep === 2 && !storageChosen) ||
+    (activeStep === 3 && !channelsConnected) ||
+    (activeStep === 5 && !kbHasDocs);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= stepLabels.length;
@@ -265,19 +267,18 @@ export const OnboardingWizard = () => {
           {STEP_TITLES[activeStep]}
         </h2>
 
-        {activeStep === 1 && <DepartmentsStep />}
-        {activeStep === 2 && (
+        {activeStep === 1 && (
           <AiChoiceStep
             value={aiChoice}
             onChoose={handleChooseAi}
             managedAvailable={managedAiAvailable}
           />
         )}
-        {activeStep === 3 && <StorageStep onChoiceChange={handleStorageChoice} />}
-        {activeStep === 4 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
-        {activeStep === 5 && <InviteTeamStep />}
-        {activeStep === 6 && <KbStep onDocsCountChange={handleKbDocsCount} />}
-        {activeStep === 7 && showPaymentStep && (
+        {activeStep === 2 && <StorageStep onChoiceChange={handleStorageChoice} />}
+        {activeStep === 3 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
+        {activeStep === 4 && <InviteTeamStep />}
+        {activeStep === 5 && <KbStep onDocsCountChange={handleKbDocsCount} />}
+        {activeStep === 6 && showPaymentStep && (
           <PaymentStep
             initialPlan={initialWizardPlan(selectedPlan)}
             planWasPreselected={planWasPreselected}
@@ -314,7 +315,7 @@ export const OnboardingWizard = () => {
                 {missingAiChoice && (
                   <button
                     type="button"
-                    onClick={() => goTo(2)}
+                    onClick={() => goTo(1)}
                     className="font-medium text-primary underline"
                   >
                     choose how AI works
@@ -324,7 +325,7 @@ export const OnboardingWizard = () => {
                 {missingChannel && (
                   <button
                     type="button"
-                    onClick={() => goTo(4)}
+                    onClick={() => goTo(3)}
                     className="font-medium text-primary underline"
                   >
                     connect a channel
