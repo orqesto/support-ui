@@ -2,6 +2,7 @@ import { Check } from 'lucide-react';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
+import { isDepartmentServed } from '@/utils/departmentReachability';
 
 type Props = {
   /** Current config value: undefined = unset, [] = org-wide, [ids] = scoped. */
@@ -43,6 +44,13 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
   const selected = value ?? (isCreate ? seedDeptIds : []);
   const orgWide = selected.length === 0;
 
+  // Only departments with a live message source can meaningfully use these KB pages,
+  // so hide the rest. Keep any already-selected dept visible so a stale scope stays
+  // editable (removable) rather than stranded.
+  const visibleDepartments = departments.filter(
+    (dept) => isDepartmentServed(dept) || selected.includes(dept.id)
+  );
+
   const toggleDept = (id: number) => {
     onChange(selected.includes(id) ? selected.filter((deptId) => deptId !== id) : [...selected, id]);
   };
@@ -51,7 +59,11 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
     // Pre-select the admin's depts (or all, if they have none) so scoped mode is never
     // empty on entry — an empty selection collapses back to org-wide.
     if (selected.length > 0) return;
-    onChange(seedDeptIds.length > 0 ? seedDeptIds : departments.map((dept) => dept.id));
+    onChange(
+      seedDeptIds.length > 0
+        ? seedDeptIds
+        : departments.filter(isDepartmentServed).map((dept) => dept.id)
+    );
   };
 
   return (
@@ -87,7 +99,7 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
       ) : (
         <>
           <div className="flex flex-wrap gap-1.5">
-            {departments.map((dept) => {
+            {visibleDepartments.map((dept) => {
               const isSelected = selected.includes(dept.id);
               return (
                 <Button

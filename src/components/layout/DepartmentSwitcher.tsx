@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useDepartments } from '@/hooks/useDepartments';
+import { isDepartmentServed } from '@/utils/departmentReachability';
 
 export const DepartmentSwitcher = () => {
   const user = useAuthStore((state) => state.user);
@@ -41,6 +42,13 @@ export const DepartmentSwitcher = () => {
 
   const selectedIds = getSelectedDeptIds().filter((id) => accessibleDeptIds.includes(id));
 
+  // Hide departments with no live message source — you can't receive tickets for
+  // them, so filtering the inbox by one shows nothing. Keep any already-selected
+  // dept visible so a stale selection stays removable.
+  const visibleDepts = accessibleDepts.filter(
+    (dept) => isDepartmentServed(dept) || selectedIds.includes(dept.id)
+  );
+
   const toggleDept = useCallback(
     (id: number) => {
       const next = selectedIds.includes(id)
@@ -61,7 +69,7 @@ export const DepartmentSwitcher = () => {
   }, [clear]);
 
   // Only show for multi-dept users
-  if (isLoading || accessibleDepts.length <= 1) return null;
+  if (isLoading || visibleDepts.length <= 1) return null;
 
   // Label for the trigger button
   const isAll = selectedIds.length === 0;
@@ -123,7 +131,7 @@ export const DepartmentSwitcher = () => {
               </Button>
 
               {/* Individual dept rows */}
-              {accessibleDepts.map((dept) => {
+              {visibleDepts.map((dept) => {
                 const checked = selectedIds.includes(dept.id);
                 return (
                   <Button
