@@ -8,9 +8,13 @@
  */
 
 // Knowledge is intentionally LAST of the core steps: get the setup working
-// (departments, AI, storage, channels, team) first, then add KB.
+// (AI, storage, channels, team) first, then add KB.
+//
+// There is deliberately NO standalone "departments" step: a department only
+// becomes reachable once a message source serves it (message_source_departments),
+// so departments are set up in the Channels step / Settings routing, never picked
+// in the abstract here.
 export const STEP_LABELS = [
-  'Departments',
   'AI setup',
   'Storage',
   'Channels',
