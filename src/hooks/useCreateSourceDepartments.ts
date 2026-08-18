@@ -11,9 +11,16 @@ import { logger } from '@/lib/logger';
  * Admin can uncheck before save if they want a narrower scope. (Pre-rename orgs
  * may still have the slug 'general' — both are accepted as the catch-all default.)
  *
- * Exposes `assignToNewSource(id)` which persists the current selection to the
- * messageSourceDepartments M:N table. Failures are logged but not thrown — the
- * integration itself is already created at that point.
+ * Exposes `assignToNewSource(id)` for the one path that cannot link atomically:
+ * Gmail, whose source is created by the BE's OAuth callback rather than by
+ * `POST /api/integrations`. Everywhere else the selection now rides along with the
+ * create request (`useIntegrationCard.createDepartments` / the email card's upsert),
+ * which removes the window where a source was committed enabled-but-unlinked.
+ *
+ * Even on the Gmail path that window is closed server-side: `linkNewSourceDepartments`
+ * links every active department inside the insert transaction, so this call narrows an
+ * already-valid set rather than being the only thing standing between the source and
+ * zero links. Failures are logged but not thrown — the integration already exists.
  */
 export const useCreateSourceDepartments = () => {
   const [departments, setDepartments] = useState<Department[]>([]);

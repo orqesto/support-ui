@@ -16,6 +16,12 @@ type UseIntegrationCardOptions<T> = {
    * already created successfully).
    */
   onCreated?: (newIntegrationId: number) => Promise<void> | void;
+  /**
+   * CREATE only: departments to link atomically with the insert. Prefer this over
+   * doing the assignment in `onCreated` — a follow-up call leaves the source enabled
+   * and ingesting with no department links until it lands (or forever, if it fails).
+   */
+  createDepartments?: { departmentIds: number[]; defaultDepartmentId?: number };
 };
 
 export const useIntegrationCard = <T extends Record<string, unknown>>({
@@ -25,6 +31,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
   onRefresh,
   onShowAlert,
   onCreated,
+  createDepartments,
 }: UseIntegrationCardOptions<T>) => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,6 +62,12 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
           type: integrationType,
           enabled: true,
           config: config as Record<string, unknown>,
+          ...(createDepartments?.departmentIds.length
+            ? {
+                departmentIds: createDepartments.departmentIds,
+                defaultDepartmentId: createDepartments.defaultDepartmentId,
+              }
+            : {}),
         });
 
         if (response.success) {
@@ -85,7 +98,16 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         setSaving(false);
       }
     },
-    [config, integrationType, integrationDisplayName, onRefresh, onShowAlert, onCreated, resetForm]
+    [
+      config,
+      integrationType,
+      integrationDisplayName,
+      onRefresh,
+      onShowAlert,
+      onCreated,
+      createDepartments,
+      resetForm,
+    ]
   );
 
   const testConnection = useCallback(
