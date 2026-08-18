@@ -1,4 +1,6 @@
+import { Bot } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
+import { AiProviderModeSwitch } from '@/components/settings/AiProviderModeSwitch';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
@@ -14,12 +16,14 @@ import { OllamaProviderCard } from '@/components/settings/providers/OllamaProvid
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { aiService } from '@/services/ai.service';
+import { onboardingService } from '@/services/onboarding.service';
+import { organizationService } from '@/services/organization.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { isAIProviderType, type AIModel, type AIProvider } from '@/types/aiProviders';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 
-export const AIProvidersSettings = () => {
+export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch?: boolean }) => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -28,6 +32,12 @@ export const AIProvidersSettings = () => {
   const [toggling, setToggling] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
+
+  // AI-mode switch (org_admin, Settings only — omitted in the onboarding wizard, which has
+  // its own intent-based AiChoiceStep). Reflects the org's live settings.aiMode.
+  const [aiMode, setAiMode] = useState<'byo' | 'managed'>('byo');
+  const [managedAvailable, setManagedAvailable] = useState(false);
+  const [modeSaving, setModeSaving] = useState(false);
 
   const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
   const [anthropicModels, setAnthropicModels] = useState<AIModel[]>([]);
@@ -54,6 +64,16 @@ export const AIProvidersSettings = () => {
       logger.error('Failed to initialize:', error);
     });
   }, []);
+
+  useEffect(() => {
+    if (!showModeSwitch) return;
+    Promise.all([organizationService.getAiMode(), onboardingService.getStatus()])
+      .then(([mode, status]) => {
+        setAiMode(mode);
+        setManagedAvailable(status.managedAiAvailable ?? false);
+      })
+      .catch((error) => logger.error('Failed to load AI mode:', error));
+  }, [showModeSwitch]);
 
   const handleProviderDisabled = useCallback((data: unknown) => {
     const event = data as { name?: string; provider?: string; reason?: string };
@@ -109,6 +129,37 @@ export const AIProvidersSettings = () => {
       if (ollamaRes.success) setOllamaModels(ollamaRes.data.all);
     } catch (error) {
       logger.error('Failed to load AI models:', error);
+    }
+  };
+
+  const handleSelectMode = async (next: 'byo' | 'managed') => {
+    if (next === aiMode || modeSaving) return;
+    setModeSaving(true);
+    try {
+      await organizationService.setAiModeSelf(next);
+      setAiMode(next);
+      setAlertDialog({
+        open: true,
+        title: next === 'managed' ? 'Managed AI enabled' : 'Your own provider enabled',
+        description:
+          next === 'managed'
+            ? 'We now handle the AI for this workspace. Your own provider keys are kept but not used while managed AI is on.'
+            : 'AI now uses your own provider. Configure a provider below to turn AI features on.',
+        variant: 'success',
+      });
+    } catch (error) {
+      // apiClient rejects with an Error carrying `.data` (the 403 body incl. `code`).
+      const err = error as { data?: { code?: string; message?: string }; message?: string };
+      const code = err.data?.code;
+      const description =
+        code === 'managed_ai_not_entitled'
+          ? 'Managed AI is not available on your current plan. Upgrade your plan, or connect your own provider.'
+          : code === 'managed_ai_requires_verified_admin'
+            ? 'A verified-email admin is required before enabling managed AI. Verify an admin email, then try again.'
+            : (err.data?.message ?? err.message ?? 'Failed to change AI mode.');
+      setAlertDialog({ open: true, title: 'Could not switch AI mode', description, variant: 'error' });
+    } finally {
+      setModeSaving(false);
     }
   };
 
@@ -338,9 +389,36 @@ export const AIProvidersSettings = () => {
     onCancel: () => setEditingId(null),
   };
 
+  const isManaged = showModeSwitch && aiMode === 'managed';
+
   return (
     <div className="space-y-6">
-      {hasAnyProvider && <AIProviderHealthCheck />}
+      {showModeSwitch && (
+        <AiProviderModeSwitch
+          mode={aiMode}
+          managedAvailable={managedAvailable}
+          saving={modeSaving}
+          onSelect={handleSelectMode}
+        />
+      )}
+
+      {isManaged && (
+        <>
+          <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Managed AI is on — we handle model access for this workspace, so there&apos;s nothing
+              to configure here. Switch to <strong>Bring your own keys</strong> above to use your
+              own provider.
+            </p>
+          </div>
+          <AckReplyPerSourceList onShowAlert={setAlertDialog} />
+        </>
+      )}
+
+      {!isManaged && (
+        <>
+          {hasAnyProvider && <AIProviderHealthCheck />}
 
       {/* Orientation banner: two auto-reply mechanisms exist, but only ack-reply
           is configured here. AI Auto-Reply behaviour moved to /settings#ai →
@@ -480,6 +558,9 @@ export const AIProvidersSettings = () => {
           )
         }
       />
+
+        </>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
