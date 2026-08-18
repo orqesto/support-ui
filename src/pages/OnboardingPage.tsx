@@ -31,10 +31,17 @@ export const OnboardingPage = () => {
     // non-admin who isn't org_admin is still bounced.
     const isOrgAdmin = user.role !== 'admin' && user.organizationRole === 'org_admin';
     const isGlobalAdmin = user.role === 'admin';
-    if ((!isOrgAdmin && !isGlobalAdmin) || status === 'complete' || gated) {
+    // A global admin with no selected org has nothing to onboard — fetchOnce(null) is a
+    // no-op so status never leaves 'unknown', which would otherwise hang on the spinner.
+    if (
+      (!isOrgAdmin && !isGlobalAdmin) ||
+      status === 'complete' ||
+      gated ||
+      (isGlobalAdmin && !selectedOrganizationId)
+    ) {
       navigate('/dashboard', { replace: true });
     }
-  }, [user, status, gated, navigate]);
+  }, [user, status, gated, navigate, selectedOrganizationId]);
 
   // Blocked-popup Gmail OAuth does a full-page redirect; this flag tells
   // OAuthCallbackPage to return to /onboarding instead of the settings page.

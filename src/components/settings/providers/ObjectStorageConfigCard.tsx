@@ -228,10 +228,17 @@ export const ObjectStorageConfigCard = () => {
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : mode === 'managed' ? (
           <div className="space-y-3 rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
-            <p>
-              Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store them
-              in your own bucket instead.
-            </p>
+            {configured ? (
+              <p>
+                You still have a saved S3 config, so files still go to your own bucket. Remove it to
+                switch to Odly's managed storage.
+              </p>
+            ) : (
+              <p>
+                Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store
+                them in your own bucket instead.
+              </p>
+            )}
             {configured && canManage && (
               <Button variant="destructive" size="sm" onClick={handleRemove} isLoading={removing}>
                 <Trash2 className="mr-2 w-4 h-4" />
