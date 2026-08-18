@@ -471,6 +471,16 @@ export const integrationsService = {
     enabled?: boolean;
     isKnowledgeBase?: boolean;
     config: Record<string, unknown>;
+    /**
+     * CREATE only: link the new source to these departments in the SAME transaction
+     * as the insert (BE `linkNewSourceDepartments`). Sending them here instead of via
+     * a follow-up PUT closes the window where an enabled source is already ingesting
+     * with zero links — everything it receives in that gap lands in needs_routing
+     * under an arbitrary department. Ignored on update; later edits go through
+     * `setSourceDepartments`, which diffs links instead of replacing them.
+     */
+    departmentIds?: number[];
+    defaultDepartmentId?: number;
   }): Promise<ApiResponse<Integration>> => {
     const response = await apiClient.post<{
       success: boolean;

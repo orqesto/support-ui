@@ -45,17 +45,12 @@ export const TelegramIntegrationCard = ({
     initialConfig: { botToken: '' },
     onRefresh,
     onShowAlert,
-    onCreated: async (newIntegrationId) => {
-      const assigned = await deptPicker.assignToNewSource(newIntegrationId);
-      if (!assigned) {
-        onShowAlert({
-          open: true,
-          title: 'Department assignment failed',
-          description:
-            'The Telegram bot was created, but department assignment failed. Edit departments from the source list.',
-          variant: 'warning',
-        });
-      }
+    // Departments ride along with the insert (see useIntegrationCard.createDepartments)
+    // rather than being assigned by a follow-up call, so the bot can never be committed
+    // enabled-but-unlinked if that second call fails or never runs.
+    createDepartments: {
+      departmentIds: deptPicker.selectedIds,
+      defaultDepartmentId: deptPicker.defaultId,
     },
   });
 

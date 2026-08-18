@@ -189,32 +189,28 @@ export const EmailIntegrationCard = ({
         editingId !== null && editingName ? editingName : `Email-${config.user}`;
       const { isKnowledgeBase, ...emailConfigOnly } = config;
 
+      // On CREATE, departments ride along with the insert so the BE links them in the
+      // same transaction. Previously this was a second call made after the source was
+      // already created and ENABLED, so anything arriving in between — or a failure of
+      // that call — left a live source with zero links, sending everything it ingested
+      // to needs_routing under an arbitrary department. Updates omit them: link edits go
+      // through the per-source editor, which diffs instead of replacing.
+      const isCreate = editingId === null;
       const response = await integrationsService.upsert({
         name: integrationName,
         type: 'email',
         enabled: true,
         isKnowledgeBase: isKnowledgeBase ?? false,
         config: { email: emailConfigOnly },
+        ...(isCreate
+          ? {
+              departmentIds: deptPicker.selectedIds,
+              defaultDepartmentId: deptPicker.defaultId,
+            }
+          : {}),
       });
 
       if (response.success) {
-        // On CREATE only: assign departments via the M:N table. Updates leave them alone
-        // — those are managed via the per-source editor.
-        const isCreate = response.action !== 'updated';
-        const newIntegrationId = response.data?.id;
-        if (isCreate && newIntegrationId) {
-          const assigned = await deptPicker.assignToNewSource(newIntegrationId);
-          if (!assigned) {
-            onShowAlert({
-              open: true,
-              title: 'Department assignment failed',
-              description:
-                'The email account was created, but department assignment failed. Edit departments from the source list.',
-              variant: 'warning',
-            });
-          }
-        }
-
         await onRefresh();
         resetForm();
 
