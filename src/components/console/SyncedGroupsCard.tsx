@@ -8,28 +8,44 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
+import { Toggle } from '@/components/ui/Toggle';
+import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
+import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
+import type { DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
   useResyncAllianceProvisioning,
   useWireSyncedGroup,
 } from '@/hooks/useAllianceProvisioning';
+import type { AllianceOrg } from '@/services/alliance-admin.service';
 import type { SyncedGroup, WireTarget } from '@/services/alliance-scim.service';
+import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
 
 /**
  * Synced IdP groups card — the single Approach-1 surface for the alliance Provisioning
  * section. The IdP pushes its groups; this lists them (member preview + current wired
- * state + a name-derived suggestion) and maps each, in place, to EITHER an alliance role
- * OR an alliance group (the groups authored on the Groups page). Wiring applies to the
- * already-synced members immediately (backfill), and "Re-sync now" reconciles all synced
- * members on demand — SCIM is push-driven with no reconcile cron.
+ * state + a name-derived suggestion) and maps each, in place, to one of:
+ *   - an alliance role (alliance_admin/alliance_agent — the elevation surface), OR
+ *   - a specific ORG ROLE (org_admin/moderator/support/associate) scoped to chosen
+ *     WORKSPACES — materialized as a backing alliance group via the `newGroup` wire, OR
+ *   - an existing authored alliance group.
+ * Wiring applies to the already-synced members immediately (backfill); "Re-sync now"
+ * reconciles all synced members on demand — SCIM is push-driven with no reconcile cron.
  *
- * SECURITY: the suggestion only pre-selects the target; granting alliance-admin still
- * requires an explicit, confirmed action.
+ * SECURITY: the suggestion only pre-selects the target; granting alliance-admin or
+ * org-admin still requires an explicit, confirmed action.
  */
 
-/** The target select encodes both kinds as `role:<role>` or `group:<groupId>` strings. */
-const parseTargetValue = (value: string): WireTarget | null => {
+const ORG_ROLE_LABELS: Record<OrganizationRole, string> = {
+  org_admin: 'Org admin',
+  moderator: 'Moderator',
+  support: 'Support',
+  associate: 'Associate',
+};
+
+/** The target select encodes each kind as `role:<role>`, `orgrole:<role>` or `group:<id>`. */
+const parseSimpleTarget = (value: string): WireTarget | null => {
   if (value.startsWith('role:')) {
     const role = value.slice('role:'.length);
     if (role === 'alliance_admin' || role === 'alliance_agent') {
@@ -44,7 +60,24 @@ const parseTargetValue = (value: string): WireTarget | null => {
   return null;
 };
 
-const isAdminTarget = (value: string): boolean => value === 'role:alliance_admin';
+const orgRoleOf = (value: string): OrganizationRole | null => {
+  if (!value.startsWith('orgrole:')) return null;
+  const role = value.slice('orgrole:'.length);
+  return (ORGANIZATION_ROLES as readonly string[]).includes(role)
+    ? (role as OrganizationRole)
+    : null;
+};
+
+/** A grant that needs an explicit confirm before it lands. */
+const privilegedKind = (value: string): 'alliance_admin' | 'org_admin' | null => {
+  if (value === 'role:alliance_admin') return 'alliance_admin';
+  if (value === 'orgrole:org_admin') return 'org_admin';
+  return null;
+};
+
+/** Backing-group name for an org-role wire — kept within the 120-char API limit. */
+const backingGroupName = (displayName: string, role: OrganizationRole): string =>
+  `${displayName} — ${ORG_ROLE_LABELS[role]}`.slice(0, 120);
 
 const wiredLabel = (group: SyncedGroup): string => {
   if (group.wiredRole) {
@@ -57,20 +90,35 @@ const wiredLabel = (group: SyncedGroup): string => {
 /** A single synced-group row: identity, members, and either its wired state or a wire control. */
 const SyncedGroupRow = ({
   group,
+  allianceId,
   targetOptions,
   selectedValue,
   onSelect,
+  activeOrgs,
+  selectedOrgIds,
+  onToggleOrg,
+  deptsByOrg,
+  onDeptChange,
   onWire,
   wiring,
 }: {
   group: SyncedGroup;
+  allianceId: number;
   targetOptions: { value: string; label: string }[];
   selectedValue: string;
   onSelect: (value: string) => void;
+  activeOrgs: AllianceOrg[];
+  selectedOrgIds: number[];
+  onToggleOrg: (orgId: number) => void;
+  deptsByOrg: DepartmentIdsByOrg;
+  onDeptChange: (orgId: number, deptIds: number[]) => void;
   onWire: () => void;
   wiring: boolean;
 }) => {
   const wired = group.wiredRole !== null || group.wiredGroup !== null;
+  const selectedOrgRole = orgRoleOf(selectedValue);
+  const isOrgRole = selectedOrgRole !== null;
+  const noWorkspaceSelected = isOrgRole && selectedOrgIds.length === 0;
   return (
     <Card padding="sm" className="space-y-3">
       <div className="flex flex-wrap gap-2 justify-between items-start">
@@ -120,11 +168,59 @@ const SyncedGroupRow = ({
                 ))}
               </Select>
             </div>
-            <Button type="button" onClick={onWire} isLoading={wiring} disabled={wiring}>
+            <Button
+              type="button"
+              onClick={onWire}
+              isLoading={wiring}
+              disabled={wiring || noWorkspaceSelected}
+            >
               <ShieldCheck className="mr-2 w-4 h-4" />
               Map access
             </Button>
           </div>
+
+          {isOrgRole && (
+            <div className="pt-1">
+              <Label className="mb-1">Workspaces</Label>
+              {activeOrgs.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  This alliance has no active workspaces yet.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {activeOrgs.map((org) => (
+                      <div key={org.id} className="space-y-1.5">
+                        <Toggle
+                          checked={selectedOrgIds.includes(org.id)}
+                          onChange={() => onToggleOrg(org.id)}
+                          label={org.name}
+                        />
+                        {selectedOrgIds.includes(org.id) && selectedOrgRole !== 'org_admin' && (
+                          <OrgDepartmentPicker
+                            allianceId={allianceId}
+                            orgId={org.id}
+                            orgLabel={org.name}
+                            selected={deptsByOrg[org.id] ?? []}
+                            onChange={(deptIds) => onDeptChange(org.id, deptIds)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Members get this role in the selected workspaces ({selectedOrgIds.length}{' '}
+                    selected).
+                    {selectedOrgRole === 'org_admin'
+                      ? ' Org admins get every department.'
+                      : ' Leave a workspace’s departments empty for the role default.'}
+                    {noWorkspaceSelected ? ' Select at least one to map.' : ''}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           {group.suggestion && (
             <p className="flex gap-1 items-center text-xs text-muted-foreground">
               <Sparkles className="w-3 h-3 shrink-0" />
@@ -144,21 +240,37 @@ const SyncedGroupRow = ({
 export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const groupsQuery = useAllianceSyncedGroups(allianceId);
   const allianceGroupsQuery = useAllianceGroups(allianceId);
+  const orgsQuery = useAllianceOrgs(allianceId);
   const wire = useWireSyncedGroup(allianceId);
   const resync = useResyncAllianceProvisioning(allianceId);
 
   const [selectedByGroup, setSelectedByGroup] = useState<Record<number, string>>({});
-  const [adminConfirm, setAdminConfirm] = useState<{ group: SyncedGroup; target: WireTarget } | null>(
-    null
-  );
+  const [orgIdsByGroup, setOrgIdsByGroup] = useState<Record<number, number[]>>({});
+  // Per synced group → per workspace → mapped department ids (org-role wires only).
+  const [deptsByGroup, setDeptsByGroup] = useState<Record<number, DepartmentIdsByOrg>>({});
+  const [adminConfirm, setAdminConfirm] = useState<{
+    group: SyncedGroup;
+    target: WireTarget;
+    kind: 'alliance_admin' | 'org_admin';
+  } | null>(null);
 
   const synced = groupsQuery.data ?? [];
+  const activeOrgs = useMemo(
+    () => (orgsQuery.data ?? []).filter((org) => org.active),
+    [orgsQuery.data]
+  );
+  const activeOrgIds = useMemo(() => activeOrgs.map((org) => org.id), [activeOrgs]);
 
-  // Unified target options: the two alliance roles + every authored alliance group.
+  // Target options: the two alliance roles, the four org roles (scoped to workspaces
+  // below), then every authored alliance group.
   const targetOptions = useMemo(
     () => [
       { value: 'role:alliance_admin', label: 'Role — Alliance admin (elevated)' },
       { value: 'role:alliance_agent', label: 'Role — Alliance agent' },
+      ...ORGANIZATION_ROLES.map((role) => ({
+        value: `orgrole:${role}`,
+        label: `Org role — ${ORG_ROLE_LABELS[role]}`,
+      })),
       ...(allianceGroupsQuery.data ?? []).map((group) => ({
         value: `group:${group.id}`,
         label: `Group — ${group.name}`,
@@ -173,22 +285,92 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const selectedValueFor = (group: SyncedGroup): string =>
     selectedByGroup[group.id] ?? defaultValueFor(group);
 
+  // Default an org-role wire to every active workspace until the admin narrows it.
+  const orgIdsFor = (group: SyncedGroup): number[] => orgIdsByGroup[group.id] ?? activeOrgIds;
+
+  const toggleOrgFor = (group: SyncedGroup, orgId: number) => {
+    setOrgIdsByGroup((prev) => {
+      const current = prev[group.id] ?? activeOrgIds;
+      const next = current.includes(orgId)
+        ? current.filter((id) => id !== orgId)
+        : [...current, orgId];
+      return { ...prev, [group.id]: next };
+    });
+    // Drop a deselected workspace's dept mapping so it can't be wired for an unscoped org.
+    setDeptsByGroup((prev) => {
+      const forGroup = prev[group.id];
+      if (!forGroup || !(orgId in forGroup)) return prev;
+      const nextForGroup = { ...forGroup };
+      delete nextForGroup[orgId];
+      return { ...prev, [group.id]: nextForGroup };
+    });
+  };
+
+  const deptsFor = (group: SyncedGroup): DepartmentIdsByOrg => deptsByGroup[group.id] ?? {};
+
+  const setDeptsForGroupOrg = (group: SyncedGroup, orgId: number, deptIds: number[]) => {
+    setDeptsByGroup((prev) => ({
+      ...prev,
+      [group.id]: { ...(prev[group.id] ?? {}), [orgId]: deptIds },
+    }));
+  };
+
   const submitWire = (group: SyncedGroup, target: WireTarget) => {
     if (!group.externalId) return;
     wire.mutate({ idpGroupExternalId: group.externalId, target });
   };
 
+  const buildTarget = (group: SyncedGroup, value: string): WireTarget | null => {
+    const orgRole = orgRoleOf(value);
+    if (orgRole) {
+      const orgIds = orgIdsFor(group);
+      if (orgIds.length === 0) return null;
+      // Org admins get every department, so a dept mapping is meaningless for them —
+      // only carry it for scoped roles, and only for orgs still selected.
+      const groupDepts = deptsFor(group);
+      const departmentIdsByOrg =
+        orgRole === 'org_admin'
+          ? {}
+          : Object.fromEntries(
+              orgIds
+                .map((orgId) => [orgId, groupDepts[orgId] ?? []] as const)
+                .filter(([, deptIds]) => deptIds.length > 0)
+            );
+      return {
+        type: 'newGroup',
+        name: backingGroupName(group.displayName, orgRole),
+        orgRole,
+        orgIds,
+        departmentIdsByOrg,
+      };
+    }
+    return parseSimpleTarget(value);
+  };
+
   const handleWire = (group: SyncedGroup) => {
     const value = selectedValueFor(group);
-    const target = parseTargetValue(value);
+    const target = buildTarget(group, value);
     if (!target) return;
-    // Elevating to alliance-admin is a deliberate, confirmed action.
-    if (isAdminTarget(value)) {
-      setAdminConfirm({ group, target });
+    const kind = privilegedKind(value);
+    if (kind) {
+      setAdminConfirm({ group, target, kind });
       return;
     }
     submitWire(group, target);
   };
+
+  const confirmText =
+    adminConfirm?.kind === 'alliance_admin' ? 'Grant alliance admin' : 'Grant org admin';
+  const confirmTitle =
+    adminConfirm === null
+      ? ''
+      : adminConfirm.kind === 'alliance_admin'
+        ? `Grant alliance admin to ${adminConfirm.group.displayName}?`
+        : `Grant org admin to ${adminConfirm.group.displayName}?`;
+  const confirmDescription =
+    adminConfirm?.kind === 'alliance_admin'
+      ? 'Every current and future member of this IdP group will gain alliance-admin rights across all workspaces in this alliance. Already-synced members are updated immediately. Only confirm if you intend to elevate them.'
+      : 'Every current and future member of this IdP group will gain org-admin rights in the selected workspaces. Already-synced members are updated immediately. Only confirm if you intend to grant workspace administration.';
 
   return (
     <Card>
@@ -200,9 +382,9 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               Synced IdP groups
             </CardTitle>
             <CardDescription>
-              Groups your identity provider has pushed. Map one to an alliance role or group and its
-              already-synced members update immediately — no re-push needed. Create the alliance groups
-              you map to on the Groups page.
+              Groups your identity provider has pushed. Map one to an alliance role, an org role in
+              specific workspaces, or an authored alliance group — its already-synced members update
+              immediately, no re-push needed.
             </CardDescription>
           </div>
           <Button
@@ -236,9 +418,15 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
             <SyncedGroupRow
               key={group.id}
               group={group}
+              allianceId={allianceId}
               targetOptions={targetOptions}
               selectedValue={selectedValueFor(group)}
               onSelect={(value) => setSelectedByGroup((prev) => ({ ...prev, [group.id]: value }))}
+              activeOrgs={activeOrgs}
+              selectedOrgIds={orgIdsFor(group)}
+              onToggleOrg={(orgId) => toggleOrgFor(group, orgId)}
+              deptsByOrg={deptsFor(group)}
+              onDeptChange={(orgId, deptIds) => setDeptsForGroupOrg(group, orgId, deptIds)}
               onWire={() => handleWire(group)}
               wiring={wire.isPending}
             />
@@ -254,9 +442,9 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
           setAdminConfirm(null);
         }}
         variant="danger"
-        confirmText="Grant alliance admin"
-        title={`Grant alliance admin to ${adminConfirm?.group.displayName ?? ''}?`}
-        description="Every current and future member of this IdP group will gain alliance-admin rights across all workspaces in this alliance. Already-synced members are updated immediately. Only confirm if you intend to elevate them."
+        confirmText={confirmText}
+        title={confirmTitle}
+        description={confirmDescription}
       />
     </Card>
   );

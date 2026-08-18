@@ -10,7 +10,7 @@ import { departmentService, type Department } from '@/services/department.servic
 import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
-import { departmentUnservedLabel, isDepartmentServed } from '@/utils/departmentReachability';
+import { isDepartmentServed } from '@/utils/departmentReachability';
 
 type EmailIntegrationOption = { id: number; name: string };
 
@@ -281,35 +281,26 @@ export const InviteUserModal = ({
               </span>
               {departments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Loading departments…</p>
+              ) : departments.filter(isDepartmentServed).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No departments have a connected message source yet.
+                </p>
               ) : (
                 <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
-                  {departments.map((dept) => {
-                    const served = isDepartmentServed(dept);
-                    const unservedLabel = departmentUnservedLabel(dept);
-                    return (
-                      <label
-                        key={dept.id}
-                        className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                          served ? 'cursor-pointer hover:bg-accent' : 'cursor-not-allowed opacity-60'
-                        }`}
-                        title={unservedLabel ? `Unavailable — ${unservedLabel}` : undefined}
-                      >
-                        <input
-                          type="checkbox"
-                          className="rounded border-border"
-                          checked={departmentIds.includes(dept.id)}
-                          onChange={() => toggleDepartment(dept.id)}
-                          disabled={!served}
-                        />
-                        <span>{dept.name}</span>
-                        {unservedLabel && (
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            — {unservedLabel}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
+                  {departments.filter(isDepartmentServed).map((dept) => (
+                    <label
+                      key={dept.id}
+                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-border"
+                        checked={departmentIds.includes(dept.id)}
+                        onChange={() => toggleDepartment(dept.id)}
+                      />
+                      <span>{dept.name}</span>
+                    </label>
+                  ))}
                 </div>
               )}
               <p className="mt-1 text-sm text-muted-foreground">
