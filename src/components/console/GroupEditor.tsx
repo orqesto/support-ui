@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
-import type { AllianceGroup } from '@/services/alliance-groups.service';
+import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import type { AllianceOrg, AllianceMember } from '@/services/alliance-admin.service';
 import { roleDisplayNames, type OrganizationRole } from '@/types/roles';
 
@@ -42,6 +43,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   const [description, setDescription] = useState('');
   const [orgRole, setOrgRole] = useState<OrganizationRole>('support');
   const [selectedOrgIds, setSelectedOrgIds] = useState<number[]>([]);
+  const [departmentIdsByOrg, setDepartmentIdsByOrg] = useState<DepartmentIdsByOrg>({});
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
 
   const save = useSaveGroup(allianceId);
@@ -55,6 +57,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
     setDescription(group?.description ?? '');
     setOrgRole(group?.orgRole ?? 'support');
     setSelectedOrgIds(group?.orgIds ?? []);
+    setDepartmentIdsByOrg(group?.departmentIdsByOrg ?? {});
     setSelectedMemberIds(group?.memberIds ?? []);
   }, [open, group]);
 
@@ -91,6 +94,19 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
     setSelectedOrgIds((current) =>
       checked ? [...current, orgId] : current.filter((existing) => existing !== orgId)
     );
+    // Drop a deselected org's dept mapping so it can't be re-sent for an org no longer scoped.
+    if (!checked) {
+      setDepartmentIdsByOrg((current) => {
+        if (!(orgId in current)) return current;
+        const next = { ...current };
+        delete next[orgId];
+        return next;
+      });
+    }
+  };
+
+  const setDeptsForOrg = (orgId: number, deptIds: number[]) => {
+    setDepartmentIdsByOrg((current) => ({ ...current, [orgId]: deptIds }));
   };
 
   const roleLabel = ROLE_OPTIONS.find((option) => option.value === orgRole)?.label ?? orgRole;
@@ -108,6 +124,12 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           description: description.trim() || null,
           orgRole,
           orgIds: selectedOrgIds,
+          // Only carry dept mappings for orgs still selected.
+          departmentIdsByOrg: Object.fromEntries(
+            selectedOrgIds
+              .map((orgId) => [orgId, departmentIdsByOrg[orgId] ?? []] as const)
+              .filter(([, deptIds]) => deptIds.length > 0)
+          ),
           memberIds: selectedMemberIds,
         },
       },
@@ -151,16 +173,31 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           {orgs.length === 0 ? (
             <p className="text-sm text-muted-foreground">This alliance has no workspaces yet.</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               {orgs.map((org) => (
-                <Toggle
-                  key={org.id}
-                  label={`${org.name} (/${org.slug})`}
-                  checked={selectedOrgIds.includes(org.id)}
-                  onChange={(checked) => toggleOrg(org.id, checked)}
-                />
+                <div key={org.id} className="space-y-1.5">
+                  <Toggle
+                    label={`${org.name} (/${org.slug})`}
+                    checked={selectedOrgIds.includes(org.id)}
+                    onChange={(checked) => toggleOrg(org.id, checked)}
+                  />
+                  {selectedOrgIds.includes(org.id) && orgRole !== 'org_admin' && (
+                    <OrgDepartmentPicker
+                      allianceId={allianceId}
+                      orgId={org.id}
+                      orgLabel={`${org.name} (/${org.slug})`}
+                      selected={departmentIdsByOrg[org.id] ?? []}
+                      onChange={(deptIds) => setDeptsForOrg(org.id, deptIds)}
+                    />
+                  )}
+                </div>
               ))}
             </div>
+          )}
+          {orgRole === 'org_admin' && selectedOrgIds.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Org admins get every department — department mapping doesn&apos;t apply.
+            </p>
           )}
         </div>
 
