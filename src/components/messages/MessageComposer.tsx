@@ -7,6 +7,7 @@ import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextE
 import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
+import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
 import { MONO } from './messageDetailConstants';
 
@@ -28,9 +29,10 @@ export type MessageComposerProps = {
   /**
    * Reports which AI mode produced the text now in the composer (null when the
    * agent undoes back to their own text), so the send can be stamped with its
-   * true author.
+   * true author. The second argument is that draft as applied, carried on the
+   * send for reply_style capture (undefined on undo).
    */
-  onAiSourceChange?: (source: string | null) => void;
+  onAiSourceChange?: (source: string | null, draft?: AiDraft) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -158,8 +160,8 @@ export function MessageComposer({
               composer={composer}
               setComposer={setComposer}
               disabled={submitting}
-              onApplied={(source) => {
-                onAiSourceChange?.(source);
+              onApplied={(source, draft) => {
+                onAiSourceChange?.(source, draft);
                 setTimeout(() => richEditorRef.current?.focus(), 0);
               }}
             />

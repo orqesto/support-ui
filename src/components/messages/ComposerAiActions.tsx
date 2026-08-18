@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
-import { messageService } from '@/services/message.service';
+import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, MONO } from './messageDetailConstants';
 
 /**
@@ -46,8 +46,13 @@ type Props = {
    * the text now sitting in the composer so the send can be stamped as
    * AI-drafted. Called with null on undo — the agent's own text is back, so the
    * reply is no longer AI-authored.
+   *
+   * The second argument is the draft AS APPLIED (editor HTML, not the plain text
+   * the endpoint returned) so the send can carry it for reply_style capture: the
+   * BE diffs it against the sent body verbatim, and that body is composer HTML.
+   * Undefined on undo, for the same reason `source` is null there.
    */
-  onApplied?: (source: string | null) => void;
+  onApplied?: (source: string | null, draft?: AiDraft) => void;
 };
 
 const MAX_INSTRUCTIONS = 2000;
@@ -127,14 +132,19 @@ export function ComposerAiActions({
 
   const useDraft = () => {
     if (!draft) return;
+    const appliedHtml = answerToEditorHtml(draft.text);
     setPrevious(composer);
-    setComposer(answerToEditorHtml(draft.text));
+    setComposer(appliedHtml);
     const appliedSource = composerAiSource(draft.mode);
     setDraft(null);
     setInstructions('');
     setStartFresh(false);
     setOpen(false);
-    onApplied?.(appliedSource);
+    onApplied?.(appliedSource, {
+      text: appliedHtml,
+      mode: draft.mode,
+      ...(draft.language && { language: draft.language }),
+    });
   };
 
   const discard = () => {
