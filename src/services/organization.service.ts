@@ -103,6 +103,30 @@ export const organizationService = {
     return response.data.data;
   },
 
+  /** The workspace's live AI mode: 'managed' = platform AI, 'byo' = tenant's own keys. */
+  getAiMode: async (): Promise<'byo' | 'managed'> => {
+    const org = await organizationService.getCurrent();
+    const settings = (org.settings ?? {}) as { aiMode?: unknown };
+    // Managed AI is platform spend, so read it closed: only the literal 'managed' opts in.
+    // Anything else — a stray casing, a number, an absent key — resolves to BYO.
+    return settings.aiMode === 'managed' ? 'managed' : 'byo';
+  },
+
+  /**
+   * Tenant-facing AI-mode switch (org_admin). Switching to BYO is always allowed; switching to
+   * MANAGED is platform spend, so the BE requires the org to be entitled AND have a
+   * verified-email admin — otherwise it returns 403 and the thrown error carries a `code` on
+   * `.data` ('managed_ai_not_entitled' | 'managed_ai_requires_verified_admin').
+   * PATCH /api/organizations/ai-mode/self.
+   */
+  setAiModeSelf: async (aiMode: 'byo' | 'managed'): Promise<{ aiMode: 'byo' | 'managed' }> => {
+    const response = await apiClient.patch<ApiResponse<{ aiMode: 'byo' | 'managed' }>>(
+      '/api/organizations/ai-mode/self',
+      { aiMode }
+    );
+    return response.data.data ?? { aiMode };
+  },
+
   update: async (data: { name?: string; description?: string | null; active?: boolean }) => {
     const response = await apiClient.patch<ApiResponse<Organization>>(
       '/api/organizations/current',

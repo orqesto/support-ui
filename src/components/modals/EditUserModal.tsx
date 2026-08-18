@@ -426,7 +426,12 @@ export const EditUserModal = ({
                     ) : (
                       <>
                         <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
-                          {availableDepartments.map((dept) => {
+                          {availableDepartments
+                            .filter(
+                              (dept) =>
+                                isDepartmentServed(dept) || selectedDepartmentIds.includes(dept.id)
+                            )
+                            .map((dept) => {
                             // Catch-all dept slug was renamed 'general' → 'info'; accept both for mixed-state envs.
                             const isGeneral = dept.slug === 'info' || dept.slug === 'general';
                             const isChecked = selectedDepartmentIds.includes(dept.id);

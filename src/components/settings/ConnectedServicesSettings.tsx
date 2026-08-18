@@ -24,7 +24,7 @@ type Props = {
 
 export const ConnectedServicesSettings = ({ section }: Props) => {
   const navigate = useNavigate();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isOrgAdmin } = usePermissions();
   // AI Providers, Object Storage, and Chat Widgets are per-workspace config an org admin
   // can own — gate them on MANAGE_INTEGRATIONS (which the save endpoints require anyway)
   // so the onboarding wizard's "set this up in Settings" promises are actually reachable.
@@ -93,7 +93,9 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
       >
         {active === 'message-sources' && <MessageSourcesSettings />}
         {active === 'ticket-automation' && <TicketAutomationSettings />}
-        {canManageIntegrations && active === 'ai-providers' && <AIProvidersSettings />}
+        {canManageIntegrations && active === 'ai-providers' && (
+          <AIProvidersSettings showModeSwitch={isOrgAdmin} />
+        )}
         {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
         {canManageIntegrations && active === 'chat-widgets' && <ChatWidgetSettings />}
       </Tabs>
