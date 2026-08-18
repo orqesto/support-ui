@@ -76,6 +76,7 @@ export const ObjectStorageConfigCard = () => {
 
   const [form, setForm] = useState<StorageForm>(EMPTY_FORM);
   const [configured, setConfigured] = useState(false);
+  const [mode, setMode] = useState<'managed' | 'byo'>('managed');
   const [hasSecret, setHasSecret] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,6 +93,7 @@ export const ObjectStorageConfigCard = () => {
       const data = res.data.data;
       if (data) {
         setConfigured(true);
+        setMode('byo');
         setHasSecret(data.hasSecret);
         setForm({
           endpoint: data.endpoint ?? '',
@@ -106,6 +108,7 @@ export const ObjectStorageConfigCard = () => {
         });
       } else {
         setConfigured(false);
+        setMode('managed');
         setHasSecret(false);
         setForm(EMPTY_FORM);
       }
@@ -198,8 +201,44 @@ export const ObjectStorageConfigCard = () => {
           config here, files use Odly's managed storage.
         </p>
 
+        {!loading && (
+          <div
+            className="inline-flex rounded-lg border p-0.5 bg-muted/40"
+            role="group"
+            aria-label="Storage mode"
+          >
+            <button
+              type="button"
+              onClick={() => setMode('managed')}
+              className={`rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+            >
+              Odly-managed
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('byo')}
+              className={`rounded-md px-3 py-1.5 text-sm ${mode === 'byo' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+            >
+              Bring your own S3
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : mode === 'managed' ? (
+          <div className="space-y-3 rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
+            <p>
+              Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store them
+              in your own bucket instead.
+            </p>
+            {configured && canManage && (
+              <Button variant="destructive" size="sm" onClick={handleRemove} isLoading={removing}>
+                <Trash2 className="mr-2 w-4 h-4" />
+                Remove saved S3 config
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
             <div>

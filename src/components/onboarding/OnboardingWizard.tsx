@@ -20,6 +20,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
 import { integrationsService } from '@/services/integrations.service';
+import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { logger } from '@/lib/logger';
@@ -44,6 +45,10 @@ const STEP_TITLES: Record<StepNumber, string> = {
  */
 export const OnboardingWizard = () => {
   const navigate = useNavigate();
+  const currentUser = useAuthStore((state) => state.user);
+  // A global admin can reach the wizard on demand (opt-in banner) to set up a client
+  // workspace; finishing on their behalf starts that org's trial, so it's confirmed.
+  const isGlobalAdmin = currentUser?.role === 'admin';
   const persisted = useOnboardingStore((state) => state.onboarding);
   const managedAiAvailable = useOnboardingStore((state) => state.managedAiAvailable);
   const markComplete = useOnboardingStore((state) => state.markComplete);
@@ -84,6 +89,7 @@ export const OnboardingWizard = () => {
   const [cardAdded, setCardAdded] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   // Set when complete()/skip() fails — surfaced to the user instead of silently
   // navigating to /dashboard (where the still-pending status would bounce them
   // right back into the wizard, an invisible loop).
@@ -330,7 +336,15 @@ export const OnboardingWizard = () => {
             <Button
               isLoading={finishing}
               disabled={!readyToFinish}
-              onClick={() => void handleFinish()}
+              onClick={() => {
+                // A global admin finishing on behalf of a client workspace STARTS
+                // (and restamps) that workspace's trial — confirm before doing so.
+                if (isGlobalAdmin) {
+                  setFinishConfirmOpen(true);
+                } else {
+                  void handleFinish();
+                }
+              }}
             >
               <CheckCircle className="mr-2 h-4 w-4" />
               {finishLabel}
@@ -347,6 +361,17 @@ export const OnboardingWizard = () => {
         description="You'll go to your dashboard, and can pick this up again any time from the “Finish setup” banner. Heads up: your 14-day trial is already running from signup — finishing setup extends it to 14 days from today, so the sooner you finish, the more trial you keep."
         confirmText="Go to dashboard"
         cancelText="Keep setting up"
+        variant="info"
+      />
+
+      <ConfirmDialog
+        open={finishConfirmOpen}
+        onOpenChange={setFinishConfirmOpen}
+        onConfirm={() => void handleFinish()}
+        title="Start this workspace's 14-day trial?"
+        description="Finishing setup as a platform admin STARTS (and restamps) this workspace's 14-day trial. Only continue if you're intentionally activating the workspace on its behalf."
+        confirmText="Start trial & finish"
+        cancelText="Cancel"
         variant="info"
       />
     </div>

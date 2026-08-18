@@ -25,10 +25,13 @@ export const OnboardingPage = () => {
 
   useEffect(() => {
     if (!user?.role) return; // profile still restoring — don't bounce on unknown role
-    // Global admins are never onboarding subjects (their org_admin role is for the
-    // system org, not the org they're viewing) — bounce them out too.
+    // Org admins are the primary subjects. Global admins may ALSO open the wizard on
+    // demand (opt-in via the setup banner) to configure a workspace they manage — so
+    // don't bounce them; only the Finish step is guarded (it starts the trial). A
+    // non-admin who isn't org_admin is still bounced.
     const isOrgAdmin = user.role !== 'admin' && user.organizationRole === 'org_admin';
-    if (!isOrgAdmin || status === 'complete' || gated) {
+    const isGlobalAdmin = user.role === 'admin';
+    if ((!isOrgAdmin && !isGlobalAdmin) || status === 'complete' || gated) {
       navigate('/dashboard', { replace: true });
     }
   }, [user, status, gated, navigate]);
