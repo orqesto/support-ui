@@ -2,6 +2,7 @@ import { TestTube2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
+import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import type { Department } from '@/services/department.service';
 
@@ -344,29 +345,13 @@ export const EmailForm = ({
         </label>
       </div>
 
-      {/* The KB toggle is hidden when this form was opened from the
-          dedicated "Knowledge Base Sources" section — the section choice
-          already encodes isKnowledgeBase=true (set on initial config in
-          the parent card), so a second toggle just looks like a
-          conflicting selector. Shown in the "Active Sources" section so an
-          active inbox can be promoted to KB without re-adding. */}
+      {/* Same control as Gmail — see SourceKbToggle. Hidden only when a caller still
+          passes defaultKB, which no live caller does since the KB section was merged away. */}
       {!defaultKB && (
-        <>
-          <div className="flex gap-2 items-center">
-            <input
-              type="checkbox"
-              checked={config.isKnowledgeBase ?? false}
-              onChange={(event) => onConfigChange({ ...config, isKnowledgeBase: event.target.checked })}
-              className="rounded"
-            />
-            <label htmlFor="isKnowledgeBase" className="text-sm font-medium">
-              📚 Use as Knowledge Base Source
-            </label>
-          </div>
-          <p className="-mt-2 ml-6 text-xs text-muted-foreground">
-            Extract Q&A pairs and documents from conversations for AI-powered support responses
-          </p>
-        </>
+        <SourceKbToggle
+          checked={config.isKnowledgeBase ?? false}
+          onChange={(next) => onConfigChange({ ...config, isKnowledgeBase: next })}
+        />
       )}
 
       {/* Message Count Display */}
