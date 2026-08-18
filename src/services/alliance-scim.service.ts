@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL } from '@/lib/config';
+import type { OrganizationRole } from '@/types/roles';
 
 /**
  * Thin API layer for the per-ALLIANCE SCIM provisioning surface (05-07, D-05).
@@ -151,7 +152,7 @@ export type SyncedGroup = {
 export type WireTarget =
   | { type: 'role'; mappedRole: AllianceRole }
   | { type: 'existingGroup'; groupId: number }
-  | { type: 'newGroup'; name: string; orgRole: string; orgIds?: number[] };
+  | { type: 'newGroup'; name: string; orgRole: OrganizationRole; orgIds?: number[] };
 
 /** Result of wiring a synced group — how many already-synced members were reconciled. */
 export type WireResult = {
