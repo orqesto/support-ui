@@ -14,7 +14,8 @@ import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
 import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import type { AllianceOrg, AllianceMember } from '@/services/alliance-admin.service';
-import { roleDisplayNames, type OrganizationRole } from '@/types/roles';
+import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
+import { roleDisplayNames, type OrganizationRole, type PermissionOverrides } from '@/types/roles';
 
 const ROLE_OPTIONS: { value: OrganizationRole; label: string }[] = [
   { value: 'associate', label: roleDisplayNames.associate },
@@ -45,6 +46,11 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   const [selectedOrgIds, setSelectedOrgIds] = useState<number[]>([]);
   const [departmentIdsByOrg, setDepartmentIdsByOrg] = useState<DepartmentIdsByOrg>({});
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const [permissionOverrides, setPermissionOverrides] = useState<PermissionOverrides>({});
+  // A backend that predates group overrides omits the field entirely. Sending {} back
+  // would be indistinguishable from "the admin cleared it", so an untouched editor on an
+  // old backend must not write the key at all.
+  const [overridesSupported, setOverridesSupported] = useState(false);
 
   const save = useSaveGroup(allianceId);
 
@@ -59,6 +65,10 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
     setSelectedOrgIds(group?.orgIds ?? []);
     setDepartmentIdsByOrg(group?.departmentIdsByOrg ?? {});
     setSelectedMemberIds(group?.memberIds ?? []);
+    setPermissionOverrides(group?.permissionOverrides ?? {});
+    // A NEW group is always authored against this build, so the control is available;
+    // for an existing one, only if the API actually returned the field.
+    setOverridesSupported(!group || group.permissionOverrides !== undefined);
   }, [open, group]);
 
   const memberName = useMemo(() => {
@@ -123,6 +133,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           name: name.trim(),
           description: description.trim() || null,
           orgRole,
+          ...(overridesSupported && { permissionOverrides }),
           orgIds: selectedOrgIds,
           // Only carry dept mappings for orgs still selected.
           departmentIdsByOrg: Object.fromEntries(
@@ -167,6 +178,16 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
             ))}
           </Select>
         </div>
+
+        {/* Same control the workspace users page uses for one member — a group is just a
+            larger blast radius for the same decision, so it should look identical. */}
+        {overridesSupported && (
+          <PermissionOverridesSection
+            role={orgRole}
+            value={permissionOverrides}
+            onChange={setPermissionOverrides}
+          />
+        )}
 
         <div className="space-y-2">
           <Label>Applies to workspaces</Label>

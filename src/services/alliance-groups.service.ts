@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { OrganizationRole } from '@/types/roles';
+import type { OrganizationRole, PermissionOverrides } from '@/types/roles';
 
 /** Per-org department mapping: workspace id → the department ids this group grants there. */
 export type DepartmentIdsByOrg = Record<number, number[]>;
@@ -13,6 +13,15 @@ export type AllianceGroup = {
   name: string;
   description: string | null;
   orgRole: OrganizationRole | null;
+  /**
+   * Permissions the group grants on top of its role, in the same { added, removed } shape
+   * a single member already supports.
+   *
+   * Optional because the backend that returns it ships separately from this app: until it
+   * is deployed the key is ABSENT, and the editor must not read that as "customizes
+   * nothing" and then SAVE that emptiness back over a real grant.
+   */
+  permissionOverrides?: PermissionOverrides;
   orgIds: number[];
   departmentIdsByOrg: DepartmentIdsByOrg;
   memberIds: number[];
@@ -23,6 +32,7 @@ export type GroupCreateInput = {
   name: string;
   description?: string | null;
   orgRole: OrganizationRole;
+  permissionOverrides?: PermissionOverrides;
   orgIds: number[];
   departmentIdsByOrg: DepartmentIdsByOrg;
   memberIds: number[];
@@ -51,7 +61,12 @@ export const allianceGroupsService = {
   update: async (
     allianceId: number,
     groupId: number,
-    patch: { name?: string; description?: string | null; orgRole?: OrganizationRole }
+    patch: {
+      name?: string;
+      description?: string | null;
+      orgRole?: OrganizationRole;
+      permissionOverrides?: PermissionOverrides;
+    }
   ): Promise<void> => {
     await apiClient.patch(`${base(allianceId)}/${groupId}`, patch);
   },
