@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { FeatureGate } from './components/common/FeatureGate';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Button } from './components/ui/Button';
@@ -603,9 +604,11 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_BILLING}>
-              <Suspense fallback={<LoadingFallback />}>
-                <BillingDashboardPage />
-              </Suspense>
+              <FeatureGate flag="ui.billing_intelligence" title="Billing Intelligence">
+                <Suspense fallback={<LoadingFallback />}>
+                  <BillingDashboardPage />
+                </Suspense>
+              </FeatureGate>
             </ProtectedRoute>
           </PrivateRoute>
         }

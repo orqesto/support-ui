@@ -24,6 +24,7 @@ import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useFeatures } from '@/hooks/useFeatures';
+import { useUiFlags } from '@/hooks/useUiFlags';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
@@ -73,6 +74,11 @@ const allNavigation: Array<{
   permission?: Permission;
   adminOnly?: boolean;
   featureRequired?: string;
+  /**
+   * A `ui.` feature-flag key. Hides the item until the surface is finished. Use this for
+   * "not built yet"; use `featureRequired` for "your plan does not include it".
+   */
+  flagRequired?: string;
   showBadge?: boolean;
   // Hidden whenever the BE reports billing is off (deployment.billingEnabled=false):
   // self-hosted boxes AND managed boxes where a billing provider isn't configured
@@ -139,6 +145,7 @@ const allNavigation: Array<{
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
     featureRequired: 'billingIntelligence',
+    flagRequired: 'ui.billing_intelligence',
     hideWhenBillingOff: true,
   },
 
@@ -279,6 +286,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { data: myAlliances } = useMyAlliances(canSeeAllianceConsole);
   const showAllianceConsole = canSeeAllianceConsole && (myAlliances?.length ?? 0) > 0;
   const { hasFeature } = useFeatures();
+  const { isSurfaceEnabled } = useUiFlags();
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
 
@@ -465,6 +473,12 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.featureRequired && !hasFeature(item.featureRequired)) {
           return false;
         }
+        // Surface availability — is this screen BUILT? Separate from featureRequired,
+        // which asks whether the plan includes it. An unfinished page must not appear
+        // as an upsell, so this check is independent and either one hides the item.
+        if (item.flagRequired && !isSurfaceEnabled(item.flagRequired)) {
+          return false;
+        }
         // Hide Tickets until the org actually has one. Cuts noise for inbox-only
         // teams; the link reappears the moment a ticket is created (60s polling).
         if (item.href === '/tickets' && !hasTickets) {
@@ -479,7 +493,16 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled, showAllianceConsole]
+    [
+      hasPermission,
+      hasFeature,
+      isSurfaceEnabled,
+      user?.role,
+      hasTickets,
+      hasRoutingItems,
+      billingEnabled,
+      showAllianceConsole,
+    ]
   );
 
   const handleLogout = () => {
