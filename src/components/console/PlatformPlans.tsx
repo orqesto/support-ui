@@ -155,8 +155,18 @@ export const PlatformPlans = () => {
     setCreateErrors({});
     setCreateGeneralError(null);
     try {
-      await createPlan.mutateAsync(validation.input);
+      const created = await createPlan.mutateAsync(validation.input);
       closeCreate();
+      // The Stripe leg is non-fatal server-side: the plan exists either way. Saying so is
+      // the point — "created" alone would imply it is sellable when it is not, and the
+      // per-card "Create Stripe price" button is the retry.
+      if (created.stripe && !created.stripe.linked) {
+        setActionError(
+          `'${created.name}' was created, but its Stripe price was not: ${
+            created.stripe.error ?? 'Stripe did not respond.'
+          } It cannot be purchased until you create one.`
+        );
+      }
     } catch (error) {
       // A duplicate slug is a field-level error surfaced under the name input; anything
       // else is a generic top-of-form message.
@@ -531,18 +541,34 @@ export const PlatformPlans = () => {
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Input
                 label="Stripe price id (optional)"
                 placeholder="price_…"
                 value={createDraft.stripePriceId}
                 onChange={(event) => patchCreate({ stripePriceId: event.target.value })}
                 className="font-mono text-sm"
+                disabled={createDraft.createStripePrice}
               />
               {createErrors.stripePriceId && (
                 <p className="text-xs text-red-600 dark:text-red-400">
                   {createErrors.stripePriceId}
                 </p>
+              )}
+              {/* Offered only for a paid plan: a free plan has nothing to bill, which is
+                  also the BE's own guard. Pasting an id and asking us to create one are
+                  alternatives, so choosing this disables the field above. */}
+              {Number(createDraft.priceEuros) > 0 && (
+                <Toggle
+                  checked={createDraft.createStripePrice}
+                  onChange={() =>
+                    patchCreate({
+                      createStripePrice: !createDraft.createStripePrice,
+                      ...(createDraft.createStripePrice ? {} : { stripePriceId: '' }),
+                    })
+                  }
+                  label="Create the Stripe product & price for me"
+                />
               )}
             </div>
 
