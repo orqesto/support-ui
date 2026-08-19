@@ -124,10 +124,20 @@ export const useChangeMemberRole = (allianceId: number | null) => {
   });
 };
 
-export const useRemoveMember = (allianceId: number | null) => {
+export const useDeactivateMember = (allianceId: number | null) => {
   const invalidate = useAllianceListInvalidator(allianceId, 'members');
   return useMutation({
-    mutationFn: (userId: number) => allianceAdminService.removeMember(allianceId as number, userId),
+    mutationFn: (userId: number) =>
+      allianceAdminService.deactivateMember(allianceId as number, userId),
+    onSuccess: invalidate,
+  });
+};
+
+export const useReactivateMember = (allianceId: number | null) => {
+  const invalidate = useAllianceListInvalidator(allianceId, 'members');
+  return useMutation({
+    mutationFn: (userId: number) =>
+      allianceAdminService.reactivateMember(allianceId as number, userId),
     onSuccess: invalidate,
   });
 };

@@ -35,6 +35,11 @@ export type AllianceMember = {
   email: string | null;
   allianceRole: AllianceRole;
   effectiveRoles: EffectiveRole[];
+  /** false ⇒ deactivated (no active workspace access, cannot log in). Optional for
+   *  backward-compat with a backend that predates the field — treat absent as active. */
+  active?: boolean;
+  /** true ⇒ an alliance admin placed a durable in-Odly hold that survives IdP sync. */
+  heldByAdmin?: boolean;
 };
 
 const BASE = '/api/alliances';
@@ -104,7 +109,17 @@ export const allianceAdminService = {
     await apiClient.patch(`${BASE}/${allianceId}/members/${userId}`, { allianceRole });
   },
 
-  removeMember: async (allianceId: number, userId: number): Promise<void> => {
+  /**
+   * DURABLE deactivate ("hold"): blocks this member from logging in to every workspace
+   * in the alliance, and survives IdP sync until reactivated. NOT a hard removal — full
+   * offboarding stays the IdP's job. (DELETE is repurposed; the BE soft-deactivates.)
+   */
+  deactivateMember: async (allianceId: number, userId: number): Promise<void> => {
     await apiClient.delete(`${BASE}/${allianceId}/members/${userId}`);
+  },
+
+  /** Lift the hold and hand the member back to normal IdP-driven reconciliation. */
+  reactivateMember: async (allianceId: number, userId: number): Promise<void> => {
+    await apiClient.post(`${BASE}/${allianceId}/members/${userId}/reactivate`, {});
   },
 };
