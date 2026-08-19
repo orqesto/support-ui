@@ -61,6 +61,12 @@ export type AllianceGroupMapping = {
   groupId: number;
   groupName: string;
   idpGroupExternalId: string;
+  /**
+   * Human-readable IdP group name resolved from the SCIM group store, or `null` when the
+   * IdP hasn't pushed that group yet — render "name (external id)" with an id-only
+   * fallback. May be absent on a backend older than this field; treat undefined as null.
+   */
+  idpGroupDisplayName?: string | null;
 };
 
 /** An IdP-group → alliance_role (D-05 elevation) mapping row. */
@@ -68,6 +74,11 @@ export type AllianceRoleMapping = {
   id: number;
   idpGroupExternalId: string;
   mappedRole: AllianceRole;
+  /**
+   * Human-readable IdP group name resolved from the SCIM group store, or `null` when the
+   * IdP hasn't pushed that group yet. May be absent on an older backend; treat as null.
+   */
+  idpGroupDisplayName?: string | null;
 };
 
 /**

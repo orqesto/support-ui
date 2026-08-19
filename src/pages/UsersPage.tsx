@@ -558,50 +558,6 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
           </CardContent>
         </Card>
 
-        {/* Role Reference Card */}
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="mb-4 text-lg font-semibold">Available Roles</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="p-4 rounded-lg border">
-                <div className="flex gap-2 items-center mb-2">
-                  <Badge variant="default">org_admin</Badge>
-                </div>
-                <p className="mb-1 text-sm font-medium">{roleDisplayNames.org_admin}</p>
-                <p className="text-xs text-muted-foreground">
-                  Full control within workspace. Can manage users, settings, and all resources.
-                </p>
-              </div>
-              <div className="p-4 rounded-lg border">
-                <div className="flex gap-2 items-center mb-2">
-                  <Badge variant="secondary">moderator</Badge>
-                </div>
-                <p className="mb-1 text-sm font-medium">{roleDisplayNames.moderator}</p>
-                <p className="text-xs text-muted-foreground">
-                  Manages integrations, categories, AI settings, tickets, and messages.
-                </p>
-              </div>
-              <div className="p-4 rounded-lg border">
-                <div className="flex gap-2 items-center mb-2">
-                  <Badge variant="secondary">support</Badge>
-                </div>
-                <p className="mb-1 text-sm font-medium">{roleDisplayNames.support}</p>
-                <p className="text-xs text-muted-foreground">
-                  Can manage tickets and messages, view statistics. No access to settings.
-                </p>
-              </div>
-              <div className="p-4 rounded-lg border">
-                <div className="flex gap-2 items-center mb-2">
-                  <Badge variant="secondary">associate</Badge>
-                </div>
-                <p className="mb-1 text-sm font-medium">{roleDisplayNames.associate}</p>
-                <p className="text-xs text-muted-foreground">
-                  Read-only access. Can view tickets and messages, request changes.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Create User Modal */}
