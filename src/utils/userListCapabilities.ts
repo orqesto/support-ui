@@ -51,6 +51,12 @@ export interface CapabilityTarget {
   userId: number;
   /** The target's GLOBAL role (`users.role`), used to protect global admins. */
   globalRole: GlobalRole;
+  /**
+   * IdP-managed member (SCIM / alliance-provisioned) in this workspace. Such a member
+   * must NOT be hard-removed from Odly — removal is the IdP's job (the BE 409s on it);
+   * they are deactivated via the alliance console or in the IdP instead.
+   */
+  scimManaged?: boolean;
 }
 
 export interface RowCapabilities {
@@ -99,6 +105,12 @@ const workspaceCapabilities = (
     canRemove = false;
   } else {
     canRemove = actor.canManageUsers;
+  }
+
+  // IdP-managed members must not be hard-removed here — removal is the IdP's job and the
+  // BE 409s on it. Deactivate them via the alliance console (or in the IdP) instead.
+  if (target.scimManaged) {
+    canRemove = false;
   }
 
   // What "Remove" destroys mirrors the BE (userController.deleteUser): the decision keys
