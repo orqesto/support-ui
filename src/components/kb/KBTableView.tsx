@@ -1,5 +1,6 @@
 import { Bot, CheckCircle, Eye, EyeOff, FileText, Maximize2, MessageSquare, Trash2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { KBApprovalBadge } from './KBApprovalProvenance';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { KBEntry } from '@/services/kb.service';
@@ -131,7 +132,12 @@ export const KBTableView = ({
                   {entry.hidden ? (
                     <Badge className="text-muted-foreground">Hidden</Badge>
                   ) : entry.approved ? (
-                    <Badge className="bg-green-600">Approved</Badge>
+                    <>
+                      <Badge className="bg-green-600">Approved</Badge>
+                      {/* "Approved" alone hides whether anyone looked. Renders nothing
+                          until the backend carrying the fields is deployed. */}
+                      <KBApprovalBadge entry={entry} />
+                    </>
                   ) : (
                     <Badge>Pending</Badge>
                   )}
