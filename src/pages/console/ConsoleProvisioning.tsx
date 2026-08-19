@@ -408,7 +408,12 @@ export const ConsoleProvisioning = () => {
               {groupMaps.map((mapping: AllianceGroupMapping) => (
                 <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
                   <div className="flex-1 min-w-[12rem]">
-                    <Label className="mb-1">IdP group external id</Label>
+                    <Label className="mb-1">IdP group</Label>
+                    {mapping.idpGroupDisplayName ? (
+                      <p className="mb-1 text-sm font-medium truncate text-foreground">
+                        {mapping.idpGroupDisplayName}
+                      </p>
+                    ) : null}
                     <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
                   </div>
                   <div className="flex-1 min-w-[12rem]">
@@ -486,7 +491,12 @@ export const ConsoleProvisioning = () => {
               {roleMaps.map((mapping: AllianceRoleMapping) => (
                 <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
                   <div className="flex-1 min-w-[12rem]">
-                    <Label className="mb-1">IdP group external id</Label>
+                    <Label className="mb-1">IdP group</Label>
+                    {mapping.idpGroupDisplayName ? (
+                      <p className="mb-1 text-sm font-medium truncate text-foreground">
+                        {mapping.idpGroupDisplayName}
+                      </p>
+                    ) : null}
                     <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
                   </div>
                   <div className="flex-1 min-w-[12rem]">
