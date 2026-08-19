@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, UserMinus, Users } from 'lucide-react';
+import { Ban, Plus, RotateCcw, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +21,8 @@ import {
   useAllianceMemberCandidates,
   useAddMember,
   useChangeMemberRole,
-  useRemoveMember,
+  useDeactivateMember,
+  useReactivateMember,
 } from '@/hooks/useAllianceAdmin';
 import { ALLIANCE_ROLES, roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
 import type { AllianceCandidateUser, AllianceMember } from '@/services/alliance-admin.service';
@@ -49,9 +50,11 @@ const ROLE_LABEL: Record<AllianceRole, string> = {
 
 /**
  * Members screen (SPEC §8.3): each member's alliance_role (editable) and the
- * per-org roles the reconciler materialized for them (chips). Removal surfaces
- * the C2 offboarding side-effects (session revoke + ticket reassign) before
- * confirming.
+ * per-org roles the reconciler materialized for them (chips). Members are
+ * DEACTIVATED (a durable, IdP-sync-proof hold that blocks login), never hard-
+ * removed — full offboarding stays the IdP's job. Deactivated members show a
+ * badge + a Reactivate action; the deactivate confirm surfaces the C2 offboarding
+ * side-effects (session revoke + ticket reassign).
  */
 export const ConsoleMembers = () => {
   const { allianceId } = useParams();
@@ -59,10 +62,12 @@ export const ConsoleMembers = () => {
 
   const { data: members, isLoading, isError, refetch } = useAllianceMembers(numericId);
   const changeRole = useChangeMemberRole(numericId);
-  const removeMember = useRemoveMember(numericId);
+  const deactivateMember = useDeactivateMember(numericId);
+  const reactivateMember = useReactivateMember(numericId);
   const addMember = useAddMember(numericId);
 
-  const [removeTarget, setRemoveTarget] = useState<AllianceMember | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<AllianceMember | null>(null);
+  const [reactivateTarget, setReactivateTarget] = useState<AllianceMember | null>(null);
   const [roleChange, setRoleChange] = useState<{ member: AllianceMember; newRole: AllianceRole } | null>(
     null
   );
@@ -108,17 +113,31 @@ export const ConsoleMembers = () => {
     );
   };
 
-  const handleRemove = () => {
-    if (!removeTarget) {
+  const handleDeactivate = () => {
+    if (!deactivateTarget) {
       return;
     }
-    removeMember.mutate(removeTarget.userId, {
+    deactivateMember.mutate(deactivateTarget.userId, {
       onSuccess: () => {
-        toast.success(`Removed ${removeTarget.name || 'member'}`);
-        setRemoveTarget(null);
+        toast.success(`Deactivated ${deactivateTarget.name || 'member'}`);
+        setDeactivateTarget(null);
       },
       onError: (error: unknown) =>
-        toast.error(error instanceof Error ? error.message : 'Could not remove member'),
+        toast.error(error instanceof Error ? error.message : 'Could not deactivate member'),
+    });
+  };
+
+  const handleReactivate = () => {
+    if (!reactivateTarget) {
+      return;
+    }
+    reactivateMember.mutate(reactivateTarget.userId, {
+      onSuccess: () => {
+        toast.success(`Reactivated ${reactivateTarget.name || 'member'}`);
+        setReactivateTarget(null);
+      },
+      onError: (error: unknown) =>
+        toast.error(error instanceof Error ? error.message : 'Could not reactivate member'),
     });
   };
 
@@ -167,8 +186,15 @@ export const ConsoleMembers = () => {
       header: 'Member',
       cell: (member) => (
         <div>
-          <div className="font-medium text-foreground">
-            {member.name || `User #${member.userId}`}
+          <div className="flex gap-2 items-center">
+            <span className="font-medium text-foreground">
+              {member.name || `User #${member.userId}`}
+            </span>
+            {member.active === false && (
+              <Badge variant={member.heldByAdmin ? 'warning' : 'secondary'}>
+                {member.heldByAdmin ? 'Deactivated' : 'Inactive'}
+              </Badge>
+            )}
           </div>
           {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
         </div>
@@ -214,17 +240,30 @@ export const ConsoleMembers = () => {
     },
   ];
 
-  const memberActions = (member: AllianceMember) => (
-    <Tooltip content={`Remove ${member.name || `User #${member.userId}`} from this alliance`}>
-      <Button
-        variant="ghost"
-        onClick={() => setRemoveTarget(member)}
-        aria-label={`Remove ${member.name || member.userId}`}
-      >
-        <UserMinus className="w-4 h-4" />
-      </Button>
-    </Tooltip>
-  );
+  const memberActions = (member: AllianceMember) => {
+    const label = member.name || `User #${member.userId}`;
+    return member.active === false ? (
+      <Tooltip content={`Reactivate ${label}`}>
+        <Button
+          variant="ghost"
+          onClick={() => setReactivateTarget(member)}
+          aria-label={`Reactivate ${label}`}
+        >
+          <RotateCcw className="w-4 h-4" />
+        </Button>
+      </Tooltip>
+    ) : (
+      <Tooltip content={`Deactivate ${label} — blocks their Odly login`}>
+        <Button
+          variant="ghost"
+          onClick={() => setDeactivateTarget(member)}
+          aria-label={`Deactivate ${label}`}
+        >
+          <Ban className="w-4 h-4" />
+        </Button>
+      </Tooltip>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
@@ -335,17 +374,31 @@ export const ConsoleMembers = () => {
       </Dialog>
 
       <ConfirmDialog
-        open={removeTarget !== null}
+        open={deactivateTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setRemoveTarget(null);
+            setDeactivateTarget(null);
           }
         }}
-        onConfirm={handleRemove}
+        onConfirm={handleDeactivate}
         variant="danger"
-        confirmText="Remove member"
-        title={`Remove ${removeTarget?.name || 'this member'}?`}
-        description="This revokes the member's sessions and reassigns their open tickets across every workspace in the alliance. Their alliance-managed roles are removed (any direct grant is preserved)."
+        confirmText="Deactivate member"
+        title={`Deactivate ${deactivateTarget?.name || 'this member'}?`}
+        description="They will be blocked from logging in to every workspace in this alliance — their sessions are revoked and open tickets reassigned. This stays in effect even if your identity provider still lists them as active, until you reactivate them here. Full removal is done in your IdP."
+      />
+
+      <ConfirmDialog
+        open={reactivateTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivateTarget(null);
+          }
+        }}
+        onConfirm={handleReactivate}
+        variant="warning"
+        confirmText="Reactivate member"
+        title={`Reactivate ${reactivateTarget?.name || 'this member'}?`}
+        description="This lifts the hold and restores the member's access from their current identity-provider groups and alliance role, on the next reconcile."
       />
 
       <ConfirmDialog
