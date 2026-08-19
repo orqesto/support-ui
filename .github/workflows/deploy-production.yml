@@ -17,21 +17,57 @@ on:
         - production
 
 env:
-  # Determine environment: manual input takes precedence, then branch-based
-  TARGET_ENV: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  deploy-frontend:
-    name: Deploy Frontend (${{ github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }})
+  plan:
+    name: Resolve deploy targets
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }}
+    outputs:
+      envs: ${{ steps.pick.outputs.envs }}
+    steps:
+      - name: Pick environments for this trigger
+        id: pick
+        run: |
+          # `main` IS production, and staging.odly.ai is meant to MIRROR it — the same
+          # code, pointed at the staging backend. So a push to main deploys BOTH sites
+          # from that one commit.
+          #
+          # Why: previously only the pushed branch deployed, so every merge to main left
+          # staging.odly.ai serving OLDER code than production. It drifted twice inside a
+          # single day (2026-08-18/19); once a smoke test ran against a build that
+          # predated the feature under test. Building both from the same commit removes
+          # the drift by construction, instead of relying on someone remembering to
+          # re-sync the branch afterwards.
+          #
+          # Pushing the `staging` BRANCH still deploys staging only, so a throwaway branch
+          # can still be tried out on staging.odly.ai.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'envs=["${{ github.event.inputs.environment }}"]' >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo 'envs=["production","staging"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'envs=["staging"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-frontend:
+    name: Deploy Frontend (${{ matrix.environment }})
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      # Production first, one at a time: prod must not queue behind staging, and two
+      # concurrent `nginx -t && systemctl reload nginx` against the same host would race.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJson(needs.plan.outputs.envs) }}
+    environment: ${{ matrix.environment }}
 
     steps:
       - name: Set Environment Variables
         id: env
         run: |
-          if [ "${{ env.TARGET_ENV }}" = "staging" ]; then
+          if [ "${{ matrix.environment }}" = "staging" ]; then
             echo "VITE_API_URL=https://staging.odly.ai" >> $GITHUB_OUTPUT
             echo "VITE_APP_URL=https://staging.odly.ai" >> $GITHUB_OUTPUT
             echo "DEPLOY_PATH=/var/www/frontend-staging" >> $GITHUB_OUTPUT
@@ -60,7 +96,14 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: rm -f package-lock.json && npm install
+        # `npm ci` — installs exactly what package-lock.json pins. The previous
+        # `rm -f package-lock.json && npm install` threw the lockfile away and re-resolved
+        # every range on each deploy, which meant (a) builds were not reproducible — the
+        # same commit produced different chunk hashes — and (b) the versions we audit in
+        # the lockfile were NOT the versions we shipped. Transitive-only packages
+        # (brace-expansion, linkify-it, socket.io-parser) have no entry in package.json,
+        # so nothing in the repo pinned them at build time.
+        run: npm ci
 
       - name: Build frontend
         env:
