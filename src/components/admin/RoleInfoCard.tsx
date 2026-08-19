@@ -1,170 +1,105 @@
 import { Info, Check, X, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ORGANIZATION_ROLES } from '@/types/roles';
+import { ORGANIZATION_ROLES, Permission, rolePermissions } from '@/types/roles';
 import type { OrganizationRole } from '@/types/roles';
 
-type RoleCapability = {
+/**
+ * Presentational catalog: the human label + grouping for each permission. This is the
+ * ONLY hand-maintained part of the guide — whether a role HAS a permission is derived
+ * from `rolePermissions` (the single RBAC source of truth), so the ✓/✗ column can never
+ * drift from what the app actually enforces. Keyed on the `Permission` enum, so renaming
+ * or removing a permission is a compile error here rather than a silently-stale card.
+ */
+type PermissionGroup = {
   category: string;
-  permissions: Array<{
-    name: string;
-    granted: boolean;
-  }>;
+  permissions: Array<{ permission: Permission; label: string }>;
 };
 
-const roleCapabilities: Record<OrganizationRole, RoleCapability[]> = {
-  org_admin: [
-    {
-      category: 'User Management',
-      permissions: [
-        { name: 'Create users (except other org admins)', granted: true },
-        { name: 'Edit users', granted: true },
-        { name: 'Delete users', granted: true },
-        { name: 'View users', granted: true },
-      ],
-    },
-    {
-      category: 'Integrations & Message Sources',
-      permissions: [
-        { name: 'Manage integrations (Email, Telegram, Slack, Jira)', granted: true },
-        { name: 'Configure AI providers', granted: true },
-      ],
-    },
-    {
-      category: 'AI & Automation',
-      permissions: [
-        { name: 'Configure AI prompts', granted: true },
-        { name: 'Manage spam rules', granted: true },
-        { name: 'Manage categories', granted: true },
-        { name: 'Configure ticket automation', granted: true },
-      ],
-    },
-    {
-      category: 'Tickets & Messages',
-      permissions: [
-        { name: 'Full ticket management', granted: true },
-        { name: 'Full message management', granted: true },
-        { name: 'Delete tickets/messages', granted: true },
-      ],
-    },
-    {
-      category: 'Subscription & Billing',
-      permissions: [
-        { name: 'Manage subscription plan', granted: true },
-        { name: 'Enable/disable AI modules', granted: true },
-        { name: 'View usage statistics', granted: true },
-        { name: 'Manage billing', granted: true },
-      ],
-    },
-    {
-      category: 'Analytics & Audit',
-      permissions: [
-        { name: 'View statistics & reports', granted: true },
-        { name: 'View audit logs', granted: true },
-      ],
-    },
-  ],
-  moderator: [
-    {
-      category: 'User Management',
-      permissions: [
-        { name: 'View users', granted: true },
-        { name: 'Create/edit/delete users', granted: false },
-      ],
-    },
-    {
-      category: 'Integrations & Message Sources',
-      permissions: [
-        { name: 'Manage integrations (Email, Telegram, Slack, Jira)', granted: true },
-        { name: 'Configure message sources', granted: true },
-      ],
-    },
-    {
-      category: 'AI & Automation',
-      permissions: [
-        { name: 'Configure AI prompts', granted: true },
-        { name: 'Manage spam rules', granted: true },
-        { name: 'Manage categories', granted: true },
-        { name: 'Configure AI providers', granted: false },
-      ],
-    },
-    {
-      category: 'Tickets & Messages',
-      permissions: [
-        { name: 'Manage tickets', granted: true },
-        { name: 'Manage messages', granted: true },
-        { name: 'Process & assign tickets', granted: true },
-        { name: 'Delete tickets/messages', granted: false },
-      ],
-    },
-    {
-      category: 'Subscription & Billing',
-      permissions: [
-        { name: 'View subscription & usage', granted: true },
-        { name: 'Manage subscription', granted: false },
-        { name: 'Enable/disable AI modules', granted: false },
-      ],
-    },
-    {
-      category: 'Analytics',
-      permissions: [
-        { name: 'View statistics', granted: true },
-        { name: 'View audit logs', granted: false },
-      ],
-    },
-  ],
-  support: [
-    {
-      category: 'User Management',
-      permissions: [
-        { name: 'View users', granted: true },
-        { name: 'Manage users', granted: false },
-      ],
-    },
-    {
-      category: 'Integrations & Settings',
-      permissions: [
-        { name: 'Manage integrations', granted: false },
-        { name: 'Configure AI/automation', granted: false },
-      ],
-    },
-    {
-      category: 'Tickets & Messages',
-      permissions: [
-        { name: 'Manage tickets', granted: true },
-        { name: 'Manage messages', granted: true },
-        { name: 'Process & assign tickets', granted: true },
-        { name: 'Delete tickets/messages', granted: false },
-      ],
-    },
-    {
-      category: 'Analytics',
-      permissions: [
-        { name: 'View statistics', granted: true },
-        { name: 'View subscription & usage', granted: true },
-      ],
-    },
-  ],
-  associate: [
-    {
-      category: 'Access Level',
-      permissions: [
-        { name: 'View tickets (read-only)', granted: true },
-        { name: 'View messages (read-only)', granted: true },
-        { name: 'Request ticket changes', granted: true },
-        { name: 'Request message changes', granted: true },
-      ],
-    },
-    {
-      category: 'Restrictions',
-      permissions: [
-        { name: 'Cannot manage tickets directly', granted: false },
-        { name: 'Cannot manage users', granted: false },
-        { name: 'Cannot access settings', granted: false },
-        { name: 'Cannot view analytics', granted: false },
-      ],
-    },
-  ],
-};
+export const PERMISSION_CATALOG: PermissionGroup[] = [
+  {
+    category: 'User Management',
+    permissions: [
+      { permission: Permission.VIEW_USERS, label: 'View users' },
+      { permission: Permission.CREATE_USERS, label: 'Create users' },
+      { permission: Permission.MANAGE_USERS, label: 'Edit users' },
+      { permission: Permission.DELETE_USERS, label: 'Delete users' },
+    ],
+  },
+  {
+    category: 'Organization & Settings',
+    permissions: [
+      { permission: Permission.MANAGE_ORGANIZATION, label: 'Manage workspace settings' },
+      { permission: Permission.VIEW_ORGANIZATION_SETTINGS, label: 'View workspace settings' },
+    ],
+  },
+  {
+    category: 'Integrations & Message Sources',
+    permissions: [
+      {
+        permission: Permission.MANAGE_INTEGRATIONS,
+        label: 'Manage integrations (Email, Telegram, Slack, Jira)',
+      },
+      { permission: Permission.VIEW_INTEGRATIONS, label: 'View integrations' },
+    ],
+  },
+  {
+    category: 'Categories & Labels',
+    permissions: [
+      { permission: Permission.MANAGE_CATEGORIES, label: 'Manage categories' },
+      { permission: Permission.VIEW_CATEGORIES, label: 'View categories' },
+      { permission: Permission.MANAGE_LABELS, label: 'Manage labels' },
+      { permission: Permission.VIEW_LABELS, label: 'View labels' },
+    ],
+  },
+  {
+    category: 'AI & Automation',
+    permissions: [
+      { permission: Permission.MANAGE_AI_PROMPTS, label: 'Configure AI prompts' },
+      { permission: Permission.MANAGE_SPAM_RULES, label: 'Manage spam rules' },
+      { permission: Permission.VIEW_AI_SETTINGS, label: 'View AI settings' },
+    ],
+  },
+  {
+    category: 'Tickets',
+    permissions: [
+      { permission: Permission.VIEW_TICKETS, label: 'View tickets' },
+      { permission: Permission.CREATE_TICKETS, label: 'Create tickets' },
+      { permission: Permission.MANAGE_TICKETS, label: 'Manage tickets' },
+      { permission: Permission.ASSIGN_TICKETS, label: 'Assign tickets' },
+      { permission: Permission.DELETE_TICKETS, label: 'Delete tickets' },
+      { permission: Permission.REQUEST_TICKET_CHANGE, label: 'Request ticket changes' },
+    ],
+  },
+  {
+    category: 'Messages',
+    permissions: [
+      { permission: Permission.VIEW_MESSAGES, label: 'View messages' },
+      { permission: Permission.MANAGE_MESSAGES, label: 'Manage messages' },
+      { permission: Permission.PROCESS_MESSAGES, label: 'Process & assign messages' },
+      { permission: Permission.DELETE_MESSAGES, label: 'Delete messages' },
+      { permission: Permission.REQUEST_MESSAGE_CHANGE, label: 'Request message changes' },
+    ],
+  },
+  {
+    category: 'Analytics & Audit',
+    permissions: [
+      { permission: Permission.VIEW_STATISTICS, label: 'View statistics' },
+      { permission: Permission.VIEW_REPORTS, label: 'View reports' },
+      { permission: Permission.VIEW_AUDIT_LOGS, label: 'View audit logs' },
+    ],
+  },
+  {
+    category: 'Subscription & Billing',
+    permissions: [
+      { permission: Permission.VIEW_SUBSCRIPTION, label: 'View subscription' },
+      { permission: Permission.MANAGE_SUBSCRIPTION, label: 'Manage subscription' },
+      { permission: Permission.VIEW_USAGE_STATS, label: 'View usage statistics' },
+      { permission: Permission.MANAGE_AI_MODULES, label: 'Enable/disable AI modules' },
+      { permission: Permission.VIEW_BILLING, label: 'View billing' },
+      { permission: Permission.MANAGE_BILLING, label: 'Manage billing' },
+    ],
+  },
+];
 
 const roleDescriptions: Record<OrganizationRole, string> = {
   org_admin:
@@ -177,49 +112,70 @@ const roleDescriptions: Record<OrganizationRole, string> = {
     'Read-only access with ability to request changes. Ideal for trainees or external consultants who need visibility without direct control.',
 };
 
+/** Does the role's effective permission set include this permission? (source of truth). */
+const roleHasPermission = (role: OrganizationRole, permission: Permission): boolean =>
+  rolePermissions[role].includes(permission);
+
+const titleCase = (role: OrganizationRole): string =>
+  role.replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+type Size = 'sm' | 'md';
+
+/** The grouped ✓/✗ permission matrix for one role — shared by the compact and full views. */
+const RolePermissionMatrix = ({ role, size }: { role: OrganizationRole; size: Size }) => {
+  const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
+  const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
+  const headingSize = size === 'sm' ? 'text-xs mb-1.5' : 'text-sm mb-2';
+  return (
+    <div className={size === 'sm' ? 'grid gap-3 mt-3' : 'grid md:grid-cols-2 gap-4'}>
+      {PERMISSION_CATALOG.map((group) => (
+        <div key={group.category}>
+          <h4 className={`font-semibold text-foreground ${headingSize}`}>{group.category}</h4>
+          <ul className={size === 'sm' ? 'space-y-0.5' : 'space-y-1'}>
+            {group.permissions.map(({ permission, label }) => {
+              const granted = roleHasPermission(role, permission);
+              return (
+                <li key={permission} className={`flex items-start gap-1.5 ${textSize}`}>
+                  {granted ? (
+                    <Check
+                      className={`${iconSize} text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5`}
+                    />
+                  ) : (
+                    <X
+                      className={`${iconSize} text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5`}
+                    />
+                  )}
+                  <span className={granted ? '' : 'text-muted-foreground'}>{label}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 type RoleInfoCardProps = {
   role?: OrganizationRole;
   compact?: boolean;
 };
 
 export const RoleInfoCard = ({ role, compact = false }: RoleInfoCardProps) => {
-  const roles: OrganizationRole[] = role
-    ? [role]
-    : [...ORGANIZATION_ROLES];
+  const roles: OrganizationRole[] = role ? [role] : [...ORGANIZATION_ROLES];
 
   if (compact && role) {
-    const capabilities = roleCapabilities[role];
     return (
       <Card className="bg-muted/30">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Info className="w-4 h-4" />
-            {role.replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())} Role
+            {titleCase(role)} Role
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted-foreground">{roleDescriptions[role]}</p>
-          <div className="grid gap-3 mt-3">
-            {capabilities.map((cat) => (
-              <div key={cat.category}>
-                <h4 className="text-xs font-semibold text-foreground mb-1.5">{cat.category}</h4>
-                <ul className="space-y-0.5">
-                  {cat.permissions.map((perm) => (
-                    <li key={perm.name} className="flex items-start gap-1.5 text-xs">
-                      {perm.granted ? (
-                        <Check className="w-3 h-3 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <X className="w-3 h-3 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                      )}
-                      <span className={perm.granted ? '' : 'text-muted-foreground'}>
-                        {perm.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <RolePermissionMatrix role={role} size="sm" />
         </CardContent>
       </Card>
     );
@@ -227,45 +183,20 @@ export const RoleInfoCard = ({ role, compact = false }: RoleInfoCardProps) => {
 
   return (
     <div className="space-y-4">
-      {roles.map((role) => {
-        const capabilities = roleCapabilities[role];
-        return (
-          <Card key={role} className="border-l-4 border-l-primary">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                {role.replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())} Role
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">{roleDescriptions[role]}</p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {capabilities.map((cat) => (
-                  <div key={cat.category}>
-                    <h4 className="text-sm font-semibold text-foreground mb-2">{cat.category}</h4>
-                    <ul className="space-y-1">
-                      {cat.permissions.map((perm) => (
-                        <li key={perm.name} className="flex items-start gap-2 text-sm">
-                          {perm.granted ? (
-                            <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                          ) : (
-                            <X className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                          )}
-                          <span
-                            className={perm.granted ? '' : 'text-muted-foreground line-through'}
-                          >
-                            {perm.name}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+      {roles.map((currentRole) => (
+        <Card key={currentRole} className="border-l-4 border-l-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              {titleCase(currentRole)} Role
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">{roleDescriptions[currentRole]}</p>
+          </CardHeader>
+          <CardContent>
+            <RolePermissionMatrix role={currentRole} size="md" />
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 };
