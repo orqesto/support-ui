@@ -43,6 +43,7 @@ import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMe
 import { logger } from '@/lib/logger';
 import {
   type SimilarMessage,
+  toSimilarMessages,
   getSimilarityColor,
   getSimilarityBadge,
 } from './similarMessagesTypes';
@@ -105,21 +106,7 @@ export const SimilarMessagesDialog = ({
           setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
           // Convert sources to similar messages format for backward compatibility
           const sources = response.data?.sources ?? [];
-          const converted: SimilarMessage[] = sources.map((source) => ({
-            messageId: source.type === 'message' ? source.id : undefined,
-            content: source.content,
-            subject: source.title ?? null,
-            sender: source.metadata?.sender as string | undefined,
-            directReply: source.answer ?? source.content,
-            similarity: source.similarity,
-            repliedAt: source.metadata?.repliedAt as string | null | undefined,
-            source: source.type === 'documentation' ? 'documentation' : 'message',
-            documentationId: source.type === 'documentation' ? source.id : undefined,
-            parentDocId: source.type === 'documentation' ? source.parentDocId : undefined,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            chunkIndex: source.type === 'documentation' ? source.chunkIndex : undefined,
-            documentTitle: source.type === 'documentation' ? source.title : undefined,
-          }));
+          const converted: SimilarMessage[] = toSimilarMessages(sources);
 
           setSimilarMessages(converted);
         } catch (error) {
@@ -458,6 +445,18 @@ export const SimilarMessagesDialog = ({
                         >
                           {msg.source === 'documentation' ? 'Doc' : `ID: ${msg.messageId}`}
                         </Badge>
+                        {/* The backend widened past this conversation's department to find
+                            anything at all — say so, because the answer may come from a
+                            department this agent does not work in. */}
+                        {msg.viaOrgWideFallback && (
+                          <Badge
+                            variant="warning"
+                            className="text-xs"
+                            title="No knowledge in this conversation's department — found elsewhere in the workspace"
+                          >
+                            Other department
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex gap-3 items-center text-xs text-muted-foreground">
                         {msg.source === 'message' && msg.sender && (
