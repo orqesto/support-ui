@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AtSign, Check, ChevronDown, Hash, Mail, Send } from 'lucide-react';
+import { AtSign, Check, ChevronDown, Hash, Mail, MessageCircle, Send } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
 import { TelegramIntegrationCard } from '@/components/settings/integrations/TelegramIntegrationCard';
+import { WhatsAppIntegrationCard } from '@/components/settings/integrations/WhatsAppIntegrationCard';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +19,7 @@ type Props = {
   onConnectedChange: (connected: boolean) => void;
 };
 
-type ChannelKey = 'gmail' | 'email' | 'telegram' | 'slack';
+type ChannelKey = 'gmail' | 'email' | 'telegram' | 'slack' | 'whatsapp';
 
 const CHANNELS: {
   key: ChannelKey;
@@ -30,6 +31,7 @@ const CHANNELS: {
   { key: 'email', label: 'Email (IMAP)', description: 'Any mailbox via IMAP/SMTP', icon: AtSign },
   { key: 'telegram', label: 'Telegram', description: 'Receive messages from a Telegram bot', icon: Send },
   { key: 'slack', label: 'Slack', description: 'Connect a Slack workspace', icon: Hash },
+  { key: 'whatsapp', label: 'WhatsApp', description: 'Connect a WhatsApp Business number', icon: MessageCircle },
 ];
 
 /**
@@ -106,6 +108,8 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
         return <TelegramIntegrationCard {...cardProps} />;
       case 'slack':
         return <SlackIntegrationCard {...cardProps} />;
+      case 'whatsapp':
+        return <WhatsAppIntegrationCard {...cardProps} />;
     }
   };
 
