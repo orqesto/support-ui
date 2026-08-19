@@ -4,6 +4,7 @@ import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIn
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
 import { TelegramIntegrationCard } from '@/components/settings/integrations/TelegramIntegrationCard';
+import { WhatsAppIntegrationCard } from '@/components/settings/integrations/WhatsAppIntegrationCard';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -104,6 +105,12 @@ export const MessageSourcesSettings = () => {
         />
 
         <SlackIntegrationCard
+          integrations={integrations}
+          onRefresh={fetchIntegrations}
+          onShowAlert={setAlertDialog}
+        />
+
+        <WhatsAppIntegrationCard
           integrations={integrations}
           onRefresh={fetchIntegrations}
           onShowAlert={setAlertDialog}

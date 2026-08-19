@@ -37,6 +37,7 @@ import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificat
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
+import { resolveSendFailureMessage } from '@/components/messages/sendErrorMessage';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -424,7 +425,9 @@ export function MessageDetail({
     } catch (err) {
       // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
       logger.error('Failed to send:', err);
-      setSendFailedError('Failed to send. Please try again.');
+      // Surface the server's own explanation for client errors — see
+      // resolveSendFailureMessage for why "please try again" is wrong for some of them.
+      setSendFailedError(resolveSendFailureMessage(err));
     } finally {
       setSubmitting(false);
     }

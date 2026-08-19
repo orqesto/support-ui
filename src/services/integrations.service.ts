@@ -79,6 +79,19 @@ export type SlackConfig = {
   signingSecret: string;
 };
 
+/**
+ * WhatsApp Business (Meta Cloud API), BYO per tenant. Three of these are secrets and the
+ * BE returns them masked (`first4••••••••last4`); re-saving the mask is safe because the
+ * BE restores the stored value for any field still carrying the mask character.
+ */
+export type WhatsAppConfig = {
+  phoneNumberId: string;
+  wabaId?: string;
+  accessToken: string;
+  appSecret: string;
+  verifyToken: string;
+};
+
 export type OpenAIConfig = {
   apiKey: string;
   baseUrl?: string;
@@ -143,6 +156,7 @@ export type BaseIntegration = {
     | 'jira'
     | 'telegram'
     | 'slack'
+    | 'whatsapp'
     | 'openai'
     | 'anthropic'
     | 'deepseek'
@@ -201,6 +215,11 @@ export type ConfluenceIntegration = BaseIntegration & {
 export type TelegramIntegration = BaseIntegration & {
   type: 'telegram';
   config: TelegramConfig;
+};
+
+export type WhatsAppIntegration = BaseIntegration & {
+  type: 'whatsapp';
+  config: WhatsAppConfig;
 };
 
 export type SlackIntegration = BaseIntegration & {
@@ -270,6 +289,7 @@ export type Integration =
   | JiraIntegration
   | TelegramIntegration
   | SlackIntegration
+  | WhatsAppIntegration
   | OpenAIIntegration
   | AnthropicIntegration
   | DeepSeekIntegration
