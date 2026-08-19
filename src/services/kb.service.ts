@@ -9,6 +9,17 @@ export type KBEntry = {
   departmentId: number | null;
   qualityScore: number;
   approved: boolean;
+  /**
+   * WHO approved, and WHEN (BE #373). On an approved entry `approvedBy: null` means the
+   * entry cleared the auto-approve score and NO PERSON EVER LOOKED AT IT.
+   *
+   * Optional because the backend that sends them ships separately from this app: until it
+   * is deployed the keys are ABSENT, which is not the same as `null`. Absent means "we
+   * cannot tell"; null means "auto-approved". Rendering absent as auto-approved would be
+   * asserting something the API never said. Read them through `approvalProvenance`.
+   */
+  approvedBy?: number | null;
+  approvedAt?: string | null;
   hidden: boolean;
   usageCount: number;
   createdAt: string;
@@ -41,6 +52,26 @@ export type PaginatedResponse<T> = {
     entries: T[];
     pagination: PaginationMeta;
   };
+};
+
+/**
+ * 'unreviewed' — approved by score alone; nobody vetted it.
+ * 'reviewed'   — a person approved it (`approvedBy` carries their user id).
+ * 'pending'    — not approved.
+ * 'unknown'    — the backend did not send the fields (pre-#373 deployment). Say nothing
+ *                rather than guess: an approved entry looks identical either way.
+ */
+export type ApprovalProvenance = 'reviewed' | 'unreviewed' | 'pending' | 'unknown';
+
+export const approvalProvenance = (entry: {
+  approved: boolean;
+  approvedBy?: number | null;
+}): ApprovalProvenance => {
+  if (!entry.approved) return 'pending';
+  // `in` rather than a truthiness check: `approvedBy: null` is a real answer from the API
+  // and must not collapse into the same branch as a missing key.
+  if (!('approvedBy' in entry) || entry.approvedBy === undefined) return 'unknown';
+  return entry.approvedBy === null ? 'unreviewed' : 'reviewed';
 };
 
 export const kbService = {

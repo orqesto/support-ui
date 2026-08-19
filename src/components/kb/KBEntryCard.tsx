@@ -9,6 +9,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { KBApprovalBadge } from './KBApprovalProvenance';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { KBEntry } from '@/services/kb.service';
@@ -65,7 +66,10 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
           {entry.hidden ? (
             <Badge className="text-muted-foreground shrink-0">Hidden</Badge>
           ) : entry.approved ? (
-            <Badge className="bg-green-600 shrink-0">Approved</Badge>
+            <>
+              <Badge className="bg-green-600 shrink-0">Approved</Badge>
+              <KBApprovalBadge entry={entry} />
+            </>
           ) : (
             <Badge className="shrink-0">Pending</Badge>
           )}

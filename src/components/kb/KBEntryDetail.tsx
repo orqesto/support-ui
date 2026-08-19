@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { kbService, type KBEntry } from '@/services/kb.service';
+import { KBApprovalProvenance } from './KBApprovalProvenance';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 import { logger } from '@/lib/logger';
 
@@ -186,6 +187,10 @@ export const KBEntryDetail = ({
               <span className="text-muted-foreground">Type:</span>
               <div className="font-medium capitalize">{displayEntry.type.replace('_', ' ')}</div>
             </div>
+
+            {/* Whether a person ever vetted this, or only a score did. An approved entry is
+                quotable by the AI as ground truth, so the difference is worth the row. */}
+            <KBApprovalProvenance entry={displayEntry} />
 
             {/* Source Messages for Q&A pairs */}
             {displayEntry.type === 'qa_pair' &&
