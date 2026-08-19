@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Message, MessageEvent, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
+import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import type { MessageListItem, MessageDetail } from '@/types/api';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
@@ -116,6 +117,9 @@ export type MessageThread = {
  */
 export type AiDraft = { text: string; mode?: string; language?: string };
 
+/** An agent's template choice. Positional parameters, matching Meta's {{1}}, {{2}}… */
+export type WhatsAppTemplateSend = { templateId: number; parameters: string[] };
+
 export const messageService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
@@ -223,16 +227,38 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, whatsappTemplate?: WhatsAppTemplateSend) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
-      content,
+      // Omitted entirely for a template send: the server renders the body from the
+      // approved template, and a body we invented here would not be what Meta delivers.
+      ...(!whatsappTemplate && { content }),
       resolve,
       usedSuggestedAnswer,
       ...(suggestedAnswerSource && { suggestedAnswerSource }),
       ...(idempotencyKey && { idempotencyKey }),
       ...(aiDraft && { aiDraft }),
+      ...(whatsappTemplate && { whatsappTemplate }),
     });
     return response.data;
+  },
+
+  /**
+   * Approved templates this conversation can be continued with.
+   *
+   * Returns [] rather than throwing when the endpoint is absent. The frontend deploys on
+   * merge to `main` while the backend ships on its own cadence, so there is a window
+   * where this route 404s in production — and during it the composer must simply not
+   * offer templates, not break the thread view around them.
+   */
+  listWhatsAppTemplates: async (id: number): Promise<WhatsAppTemplate[]> => {
+    try {
+      const response = await apiClient.get<ApiResponse<WhatsAppTemplate[]>>(
+        `/api/messages/${id}/whatsapp-templates`
+      );
+      return response.data.data ?? [];
+    } catch {
+      return [];
+    }
   },
 
   replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft) => {

@@ -20,8 +20,11 @@ export type Department = {
   kbOnly?: boolean;
 };
 
-export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'other';
-export const MESSAGE_SOURCE_TYPES = ['email', 'gmail', 'telegram', 'slack', 'chat'] as const;
+export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'whatsapp' | 'other';
+// Drives which integrations count as message sources in the inbox filter, the spam-log
+// filter and the dashboard. 'whatsapp' was missed when the channel shipped, so WhatsApp
+// sources existed but were filtered out of all three.
+export const MESSAGE_SOURCE_TYPES = ['email', 'gmail', 'telegram', 'slack', 'chat', 'whatsapp'] as const;
 export type MessageSourceType = (typeof MESSAGE_SOURCE_TYPES)[number];
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';

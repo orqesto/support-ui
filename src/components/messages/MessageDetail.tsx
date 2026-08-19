@@ -39,6 +39,8 @@ import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
 import { resolveSendFailureMessage } from '@/components/messages/sendErrorMessage';
 import { resolveComposerWindow } from '@/components/messages/whatsappWindowState';
+import { WhatsAppTemplatePicker } from '@/components/messages/WhatsAppTemplatePicker';
+import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -204,6 +206,13 @@ export function MessageDetail({
   // composer on its own. Without this the agent keeps a stale "open" composer and writes
   // a reply that can no longer be delivered — the failure this feature exists to remove.
   const [windowTick, setWindowTick] = useState(0);
+  // Approved-template send, reached only when the 24-hour window has closed. Templates are
+  // fetched when the picker OPENS rather than with the conversation: most threads never
+  // need them, and a request per opened conversation would buy nothing.
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const richEditorRef = useRef<RichTextEditorHandle>(null);
   const noteEditorRef = useRef<RichTextEditorHandle>(null);
   // M06: idempotency token for the in-flight reply. Minted per logical send, REUSED on a
@@ -450,6 +459,54 @@ export function MessageDetail({
       setSubmitting(false);
     }
   }, [aiDraft, aiSource, composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
+
+  const handleOpenTemplates = useCallback(async () => {
+    setTemplateError(null);
+    setTemplatesOpen(true);
+    setTemplatesLoading(true);
+    try {
+      setTemplates(await messageService.listWhatsAppTemplates(message.id));
+    } finally {
+      // The service already swallows a missing endpoint into an empty list, so the picker
+      // shows its "nothing approved yet" state rather than an error the agent cannot act on.
+      setTemplatesLoading(false);
+    }
+  }, [message.id]);
+
+  const handleSendTemplate = useCallback(
+    async (templateId: number, parameters: string[]) => {
+      setSubmitting(true);
+      setTemplateError(null);
+      // Same idempotency contract as a normal reply: reuse the token on a retry so a
+      // success-but-timeout cannot bill the tenant for a second template.
+      sendIdempotencyKeyRef.current ??= crypto.randomUUID();
+      try {
+        await messageService.reply(
+          message.id,
+          '',
+          false,
+          false,
+          undefined,
+          sendIdempotencyKeyRef.current,
+          undefined,
+          { templateId, parameters }
+        );
+        sendIdempotencyKeyRef.current = null;
+        setTemplatesOpen(false);
+        setThreadRefreshKey((key) => key + 1);
+        onReplied?.();
+        onRefresh?.();
+      } catch (err) {
+        logger.error('Failed to send WhatsApp template:', err);
+        // Shown inside the picker, not as a toast: every refusal here names something the
+        // agent can fix in the dialog they are already looking at.
+        setTemplateError(resolveSendFailureMessage(err));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [message.id, onRefresh, onReplied]
+  );
 
   const handleResolveWithoutReply = useCallback(async () => {
     setResolving(true);
@@ -794,8 +851,26 @@ export function MessageDetail({
           sendBlockedReason={composerWindow.blocked ? composerWindow.notice : null}
           windowRemaining={composerWindow.remaining}
           windowTone={composerWindow.tone}
+          onUseTemplate={
+            // Offered only on a blocked WhatsApp conversation — that is the one state in
+            // which a billable template send is the right move rather than an expensive
+            // way to say something a free reply could have carried.
+            composerWindow.blocked && message.channel === 'whatsapp'
+              ? () => void handleOpenTemplates()
+              : null
+          }
         />
       )}
+
+      <WhatsAppTemplatePicker
+        open={templatesOpen}
+        onOpenChange={setTemplatesOpen}
+        templates={templates}
+        loading={templatesLoading}
+        sending={submitting}
+        error={templateError}
+        onSend={(templateId, parameters) => void handleSendTemplate(templateId, parameters)}
+      />
 
       {/* Action strip */}
       <MessageActionStrip

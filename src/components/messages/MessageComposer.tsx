@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState } from 'react';
-import { Send, Paperclip, BookOpen, X } from 'lucide-react';
+import { Send, Paperclip, BookOpen, FileText, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
@@ -36,6 +36,13 @@ export type MessageComposerProps = {
   windowRemaining?: string | null;
   windowTone?: 'none' | 'info' | 'warning' | 'blocked';
   /**
+   * Opens the approved-template picker. Offered ONLY from the blocked notice: a template
+   * is what the agent needs precisely when free-form is refused, and putting it in the
+   * toolbar would invite a billable send on conversations where a free reply was legal.
+   * Absent when the channel has no templates to offer.
+   */
+  onUseTemplate?: (() => void) | null;
+  /**
    * Reports which AI mode produced the text now in the composer (null when the
    * agent undoes back to their own text), so the send can be stamped with its
    * true author. The second argument is that draft as applied, carried on the
@@ -61,6 +68,7 @@ export function MessageComposer({
   sendBlockedReason = null,
   windowRemaining = null,
   windowTone = 'none',
+  onUseTemplate = null,
   onAiSourceChange,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
@@ -123,6 +131,16 @@ export function MessageComposer({
           {sendBlockedReason}
           {windowRemaining && !sendBlockedReason && (
             <span> Closes in <strong>{windowRemaining}</strong>.</span>
+          )}
+          {sendBlockedReason && onUseTemplate && (
+            <Button
+              variant="ghost"
+              onClick={onUseTemplate}
+              className="mt-1.5 flex items-center gap-1.5 px-2 py-0.5 h-auto rounded border border-current text-[11px] font-semibold"
+            >
+              <FileText className="w-3 h-3" />
+              Use an approved template
+            </Button>
           )}
         </div>
       )}
