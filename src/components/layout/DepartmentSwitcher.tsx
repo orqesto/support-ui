@@ -42,10 +42,13 @@ export const DepartmentSwitcher = () => {
 
   const selectedIds = getSelectedDeptIds().filter((id) => accessibleDeptIds.includes(id));
 
-  // Hide departments with no live message source — you can't receive tickets for
-  // them, so filtering the inbox by one shows nothing. Keep any already-selected
-  // dept visible so a stale selection stays removable.
-  const visibleDepts = accessibleDepts.filter(
+  // Narrow the LIST to departments a live message source serves — you can't receive
+  // tickets for the others, so filtering the inbox by one shows nothing. Keep any
+  // already-selected dept visible so a stale selection stays removable.
+  //
+  // This narrows the options only; it must never decide whether the switcher renders
+  // (see the visibility guard below).
+  const servedDepts = accessibleDepts.filter(
     (dept) => isDepartmentServed(dept) || selectedIds.includes(dept.id)
   );
 
@@ -54,13 +57,16 @@ export const DepartmentSwitcher = () => {
       const next = selectedIds.includes(id)
         ? selectedIds.filter((sid) => sid !== id)
         : [...selectedIds, id];
-      if (next.length === 0 || next.length === accessibleDepts.length) {
+      // Collapse to "All" once every row the menu actually offers is checked. Compare
+      // against the served list, not every accessible dept — with an unserved dept in
+      // the org the accessible count is unreachable, and the filter would stick.
+      if (next.length === 0 || next.length === servedDepts.length) {
         clear(); // "All" state
       } else {
         setSelected(next);
       }
     },
-    [selectedIds, accessibleDepts.length, clear, setSelected]
+    [selectedIds, servedDepts.length, clear, setSelected]
   );
 
   const handleSelectAll = useCallback(() => {
@@ -68,8 +74,12 @@ export const DepartmentSwitcher = () => {
     setIsOpen(false);
   }, [clear]);
 
-  // Only show for multi-dept users
-  if (isLoading || visibleDepts.length <= 1) return null;
+  // Only show for multi-dept users. Gate on what the user can ACCESS, not on what a
+  // message source currently serves: an org whose departments aren't wired to a
+  // channel yet would otherwise lose the control altogether, with nothing on screen
+  // to explain where it went. Source-reachability narrows the list inside, and the
+  // empty state below says why it's empty.
+  if (isLoading || accessibleDepts.length <= 1) return null;
 
   // Label for the trigger button
   const isAll = selectedIds.length === 0;
@@ -130,8 +140,16 @@ export const DepartmentSwitcher = () => {
                 {isAll && <X className="w-3.5 h-3.5 opacity-50" />}
               </Button>
 
+              {/* No department is reachable yet — say so instead of showing a bare list */}
+              {servedDepts.length === 0 && (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  No department is served by a message channel yet. Connect a channel and route
+                  it to a department in Settings › Channels.
+                </p>
+              )}
+
               {/* Individual dept rows */}
-              {visibleDepts.map((dept) => {
+              {servedDepts.map((dept) => {
                 const checked = selectedIds.includes(dept.id);
                 return (
                   <Button
