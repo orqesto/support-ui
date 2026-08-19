@@ -27,6 +27,15 @@ export type MessageComposerProps = {
   selectedFiles: File[];
   onFilesChange: (files: File[]) => void;
   /**
+   * Set when the channel forbids sending right now (WhatsApp's 24-hour window). Disables
+   * send and is shown above the composer. Never set for internal notes — those are not
+   * delivered to the customer, so no channel rule applies.
+   */
+  sendBlockedReason?: string | null;
+  /** e.g. "2h 30m" — how long a WhatsApp reply window has left. */
+  windowRemaining?: string | null;
+  windowTone?: 'none' | 'info' | 'warning' | 'blocked';
+  /**
    * Reports which AI mode produced the text now in the composer (null when the
    * agent undoes back to their own text), so the send can be stamped with its
    * true author. The second argument is that draft as applied, carried on the
@@ -49,6 +58,9 @@ export function MessageComposer({
   onOpenSimilarMessages,
   selectedFiles,
   onFilesChange,
+  sendBlockedReason = null,
+  windowRemaining = null,
+  windowTone = 'none',
   onAiSourceChange,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
@@ -96,6 +108,24 @@ export function MessageComposer({
         if (images.length) addImageFiles(images);
       }}
     >
+      {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
+          typing, not after pressing send. Only rendered when there is something to say —
+          a permanent banner would train people to ignore this space. */}
+      {(sendBlockedReason || windowRemaining) && windowTone !== 'info' && (
+        <div
+          role={windowTone === 'blocked' ? 'alert' : 'status'}
+          className={`mb-2 px-3 py-2 text-xs rounded-md border ${
+            windowTone === 'blocked'
+              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+              : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          }`}
+        >
+          {sendBlockedReason}
+          {windowRemaining && !sendBlockedReason && (
+            <span> Closes in <strong>{windowRemaining}</strong>.</span>
+          )}
+        </div>
+      )}
 
       {/* Input frame — `relative` anchors the AI panel, which opens upward. */}
       <div
@@ -184,8 +214,15 @@ export function MessageComposer({
             variant="ghost"
             onClick={onSend}
             // Require text even when files are attached — no attachment-only sends.
-            disabled={isBlankRichText(composer) || submitting}
-            title={isBlankRichText(composer) ? 'Add a message — attachments alone can’t be sent' : undefined}
+            disabled={isBlankRichText(composer) || submitting || Boolean(sendBlockedReason)}
+            title={
+              // The channel block outranks the blank-text hint: if the window is shut,
+              // filling the box in changes nothing and saying so would mislead.
+              sendBlockedReason ??
+              (isBlankRichText(composer)
+                ? 'Add a message — attachments alone can’t be sent'
+                : undefined)
+            }
             className={`ml-auto flex items-center gap-1 px-2.5 py-1 h-auto rounded ${MONO} transition-colors disabled:opacity-50 ${
               composerMode === 'note'
                 ? 'bg-amber-800 hover:bg-amber-700 text-primary-foreground'

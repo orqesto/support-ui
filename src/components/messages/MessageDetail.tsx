@@ -38,6 +38,7 @@ import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
 import { resolveSendFailureMessage } from '@/components/messages/sendErrorMessage';
+import { resolveComposerWindow } from '@/components/messages/whatsappWindowState';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -199,11 +200,28 @@ export function MessageDetail({
   }, [message.id, message.isRead]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [sendFailedError, setSendFailedError] = useState<string | null>(null);
+  // Re-render each minute so a window that lapses while the thread is open disables the
+  // composer on its own. Without this the agent keeps a stale "open" composer and writes
+  // a reply that can no longer be delivered — the failure this feature exists to remove.
+  const [windowTick, setWindowTick] = useState(0);
   const richEditorRef = useRef<RichTextEditorHandle>(null);
   const noteEditorRef = useRef<RichTextEditorHandle>(null);
   // M06: idempotency token for the in-flight reply. Minted per logical send, REUSED on a
   // retry after failure (so the BE dedups a duplicate), cleared on success.
   const sendIdempotencyKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!message.whatsappWindow) return;
+    const timer = setInterval(() => setWindowTick((tick) => tick + 1), 60_000);
+    return () => clearInterval(timer);
+  }, [message.whatsappWindow]);
+
+  const composerWindow = useMemo(
+    () => resolveComposerWindow(message.whatsappWindow, composerMode),
+    // windowTick is a deliberate dependency: it is what makes the countdown advance and
+    // the block engage when the window lapses with the view already open.
+    [message.whatsappWindow, composerMode, windowTick]
+  );
 
   // ── Real-time reply events ─────────────────────────────────────────────────
   useEffect(() => {
@@ -773,6 +791,9 @@ export function MessageDetail({
           selectedFiles={selectedFiles}
           onFilesChange={setSelectedFiles}
           onAiSourceChange={handleAiSourceChange}
+          sendBlockedReason={composerWindow.blocked ? composerWindow.notice : null}
+          windowRemaining={composerWindow.remaining}
+          windowTone={composerWindow.tone}
         />
       )}
 

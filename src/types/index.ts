@@ -1,3 +1,4 @@
+import type { WhatsAppWindow } from '@/components/messages/whatsappWindowState';
 import type { GlobalRole, OrganizationRole, AllianceRole, PermissionOverrides } from './roles';
 
 export type Department = {
@@ -111,6 +112,11 @@ export type Message = {
   botHandled?: boolean;
   // sparse: only present on spam_log fake entries
   content?: string | null;
+  /**
+   * WhatsApp's 24-hour send window. Present ONLY on WhatsApp conversations — absent
+   * means the rule does not apply, not that it is unknown.
+   */
+  whatsappWindow?: WhatsAppWindow | null;
 };
 
 export type MessageEvent = {
