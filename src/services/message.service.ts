@@ -387,7 +387,10 @@ export const messageService = {
           provider: string;
         };
         sources: Array<{
-          type: 'documentation' | 'ticket' | 'message';
+          // 'knowledge_base' = a mined KB entry (qa_pair / manual_entry / document). Until
+          // support-service#367 these could never be returned — the scope resolver read a
+          // junction table nothing writes, so every source-linked entry fell out of scope.
+          type: 'documentation' | 'ticket' | 'message' | 'knowledge_base';
           id: number;
           parentDocId?: number;
           chunkIndex?: number;
@@ -398,9 +401,16 @@ export const messageService = {
           metadata?: Record<string, unknown>;
         }>;
         searchPerformed: {
+          /** False when the short-query gate skipped the documentation search. */
           documentation: boolean;
           tickets: boolean;
           messages: boolean;
+          /**
+           * How the mined KB was consulted. 'org-wide-fallback' means the conversation's own
+           * department had nothing, so the whole org was searched — results may come from a
+           * department this agent doesn't serve. Optional: older backends omit it.
+           */
+          knowledgeBase?: 'scoped' | 'org-wide-fallback' | false;
         };
         // false when the org has no AI/LLM provider — the endpoint still returns
         // 200 with search-results so the FE can show the similar-message fallback.
