@@ -13,9 +13,19 @@ const VARIANTS: Record<FieldSource, 'success' | 'secondary'> = {
   default: 'secondary',
 };
 
-// StorageFieldSource ('db' | 'env') is a subset of FieldSource, so this covers both.
-export const SourceBadge = ({ source }: { source: FieldSource }) => (
+/**
+ * `unsetLabel` overrides the `default` label for fields that have no built-in
+ * fallback — storage has no code default, so "Default" there read as though
+ * something were configured when in fact nothing was.
+ */
+export const SourceBadge = ({
+  source,
+  unsetLabel,
+}: {
+  source: FieldSource;
+  unsetLabel?: string;
+}) => (
   <Badge variant={VARIANTS[source] ?? 'secondary'} size="sm">
-    {LABELS[source] ?? source}
+    {source === 'default' && unsetLabel ? unsetLabel : (LABELS[source] ?? source)}
   </Badge>
 );
