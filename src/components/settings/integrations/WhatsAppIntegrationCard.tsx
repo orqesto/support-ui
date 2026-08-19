@@ -91,6 +91,11 @@ export const WhatsAppIntegrationCard = ({
   // Every field except wabaId is required to receive or send anything: phoneNumberId
   // routes inbound deliveries, appSecret authenticates them, verifyToken completes Meta's
   // subscription handshake, and accessToken is needed to reply.
+  //
+  // wabaId stays OUT of this gate deliberately. A number without one still receives and
+  // replies perfectly well inside the 24-hour window, and demanding it up front would
+  // block a setup that works. It is only templates that cannot function without it, which
+  // is what the field's own copy now says.
   const requiredFilled =
     Boolean(config.phoneNumberId) &&
     Boolean(config.accessToken) &&
@@ -255,7 +260,8 @@ export const WhatsAppIntegrationCard = ({
 
                 <div>
                   <label htmlFor="wa-waba-id" className="text-sm font-medium">
-                    WhatsApp Business Account ID <span className="text-muted-foreground">(optional)</span>
+                    WhatsApp Business Account ID{' '}
+                    <span className="text-muted-foreground">(required for templates)</span>
                   </label>
                   <input
                     id="wa-waba-id"
@@ -265,7 +271,11 @@ export const WhatsAppIntegrationCard = ({
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="987654321098765"
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">Used for diagnostics.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    WhatsApp &rarr; API Setup, next to the phone number id. Without it,
+                    approved templates cannot be synced &mdash; so a conversation whose
+                    24-hour reply window has closed cannot be continued at all.
+                  </p>
                 </div>
               </div>
 
