@@ -44,9 +44,13 @@ export type SLAStatistics = {
     to: string;
   };
   messages: {
+    // The server keys these off whatever channels actually have traffic, so a channel
+    // missing here is invisible in the UI rather than merely untyped.
     email?: ChannelStats;
     telegram?: ChannelStats;
     slack?: ChannelStats;
+    chat?: ChannelStats;
+    whatsapp?: ChannelStats;
     compliance: {
       total: number;
       breached: number;

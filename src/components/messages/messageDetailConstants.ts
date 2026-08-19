@@ -121,6 +121,7 @@ export const CHANNEL_ICONS: Record<string, string> = {
   telegram: '✈',
   slack: '◆',
   chat: '◉',
+  whatsapp: '✆',
   other: '◌',
 };
 

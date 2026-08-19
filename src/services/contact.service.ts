@@ -26,7 +26,12 @@ export type {
   ContactListItem,
 };
 
-export type ContactProfileType = 'email' | 'telegram_username' | 'telegram_phone' | 'slack';
+export type ContactProfileType =
+  | 'email'
+  | 'telegram_username'
+  | 'telegram_phone'
+  | 'slack'
+  | 'whatsapp_phone';
 
 export type ContactListResponse = {
   data: ContactListItem[];

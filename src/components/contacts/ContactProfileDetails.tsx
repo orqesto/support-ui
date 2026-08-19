@@ -26,6 +26,7 @@ const profileIcon = (type: ContactProfileType) => {
   if (type === 'telegram_username') return <Hash className="w-3.5 h-3.5 shrink-0 text-sky-500" />;
   if (type === 'telegram_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-sky-500" />;
   if (type === 'slack') return <MessageSquare className="w-3.5 h-3.5 shrink-0 text-violet-500" />;
+  if (type === 'whatsapp_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-emerald-500" />;
   return <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
 };
 
@@ -33,6 +34,9 @@ const profilePlaceholder = (type: ContactProfileType) => {
   if (type === 'telegram_username') return '@username';
   if (type === 'telegram_phone') return '+1234567890';
   if (type === 'slack') return 'U12345678 or workspace/user';
+  // E.164 without the '+', exactly as Meta delivers wa_id — a placeholder showing '+' would
+  // teach the wrong format for the one field that has to match Meta's.
+  if (type === 'whatsapp_phone') return '447700900000';
   return 'alias@example.com';
 };
 
