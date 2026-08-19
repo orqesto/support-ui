@@ -7,12 +7,25 @@ import {
 } from '@/services/platformSettings.service';
 
 const KEY = ['platform', 'settings'] as const;
+const MODELS_KEY = ['platform', 'settings', 'ai-models'] as const;
 
 export const usePlatformSettings = () =>
   useQuery({
     queryKey: KEY,
     queryFn: () => platformSettingsService.get(),
     staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+/**
+ * The per-provider model catalog for the tier pickers. Static server-side, so it
+ * is cached hard — switching provider re-reads from cache, never re-fetches.
+ */
+export const usePlatformAiModels = () =>
+  useQuery({
+    queryKey: MODELS_KEY,
+    queryFn: () => platformSettingsService.models(),
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
 

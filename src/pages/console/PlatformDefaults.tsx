@@ -35,7 +35,7 @@ export const PlatformDefaults = () => {
         </Alert>
       ) : (
         <div className="space-y-6">
-          <ManagedAiDefaultsCard ai={query.data.ai} />
+          <ManagedAiDefaultsCard ai={query.data.ai} secrets={query.data.secrets} />
           <DefaultStorageCard storage={query.data.storage} />
         </div>
       )}

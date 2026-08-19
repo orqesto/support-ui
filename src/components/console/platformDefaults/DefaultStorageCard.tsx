@@ -22,22 +22,63 @@ import { SecretField } from './SecretField';
 import { SourceBadge } from './SourceBadge';
 
 type Storage = PlatformSettings['storage'];
-type TextKey = 'endpoint' | 'region' | 'bucket' | 'prefix';
+type TextKey = 'endpoint' | 'region' | 'bucket' | 'prefix' | 'roleArn' | 'externalId';
 
-const TEXT_FIELDS: { key: TextKey; label: string; placeholder: string }[] = [
+/**
+ * Three modes, ordered by how a managed platform should actually store files:
+ *  - `s3-env`   use the S3 target the environment already provides (only offered
+ *               when it does), so an operator who filled in S3_* doesn't have to
+ *               retype it here.
+ *  - `s3`       configure an S3 target in the console. The primary option when
+ *               the environment has none; the second when it does.
+ *  - `local`    single-node disk. Last, and labelled as the fallback it is —
+ *               it does not survive a container rebuild and can't be shared
+ *               across replicas.
+ */
+type Mode = 's3-env' | 's3' | 'local';
+
+const TEXT_FIELDS: { key: TextKey; label: string; placeholder: string; hint?: string }[] = [
   { key: 'bucket', label: 'Bucket', placeholder: 'my-bucket' },
-  { key: 'endpoint', label: 'Endpoint', placeholder: 'https://s3.provider.com' },
+  {
+    key: 'endpoint',
+    label: 'Endpoint',
+    placeholder: 'https://fsn1.your-objectstorage.com (blank = AWS)',
+  },
   { key: 'region', label: 'Region', placeholder: 'eu-central-1' },
   { key: 'prefix', label: 'Key prefix', placeholder: 'optional/' },
+  {
+    key: 'roleArn',
+    label: 'AssumeRole ARN (optional)',
+    placeholder: 'arn:aws:iam::123456789012:role/OdlyS3',
+    hint: 'Assume a cross-account IAM role via STS instead of static keys. Leave both keys below blank when using this.',
+  },
+  {
+    key: 'externalId',
+    label: 'External ID (optional)',
+    placeholder: 'confused-deputy guard — must match the role trust policy',
+  },
 ];
 
+/** Which mode the saved/resolved config corresponds to. */
+const initialMode = (storage: Storage): Mode => {
+  if (storage.driver.value === 'local') return 'local';
+  // Any console-set S3 field means the target was configured here, not inherited.
+  const consoleConfigured = (['bucket', 'endpoint', 'region', 'prefix', 'roleArn'] as const).some(
+    (key) => storage[key].source === 'db'
+  );
+  if (!consoleConfigured && storage.envS3Configured) return 's3-env';
+  return 's3';
+};
+
 export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
-  const [driver, setDriver] = useState<'local' | 's3'>(storage.driver.value ?? 'local');
+  const [mode, setMode] = useState<Mode>(() => initialMode(storage));
   const [text, setText] = useState<Record<TextKey, string>>(() => ({
     endpoint: storage.endpoint.value ?? '',
     region: storage.region.value ?? '',
     bucket: storage.bucket.value ?? '',
     prefix: storage.prefix.value ?? '',
+    roleArn: storage.roleArn.value ?? '',
+    externalId: storage.externalId.value ?? '',
   }));
   const [forcePathStyle, setForcePathStyle] = useState<boolean>(storage.forcePathStyle.value ?? false);
   // A successful test is required before Save can persist an S3 target; any edit
@@ -55,17 +96,26 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
     invalidateTest();
   };
 
-  const s3Payload = (): DefaultStorageInput => ({
-    driver: 's3',
-    endpoint: text.endpoint.trim() || undefined,
-    region: text.region.trim() || undefined,
-    bucket: text.bucket.trim() || undefined,
-    prefix: text.prefix.trim() || undefined,
-    forcePathStyle,
-  });
+  // `s3-env` deliberately sends NO field overrides: the row records the driver
+  // choice only, so every value keeps resolving from the environment and stays
+  // in sync when an operator edits it there.
+  const payload = (): DefaultStorageInput => {
+    if (mode === 'local') return { driver: 'local' };
+    if (mode === 's3-env') return { driver: 's3' };
+    return {
+      driver: 's3',
+      endpoint: text.endpoint.trim() || undefined,
+      region: text.region.trim() || undefined,
+      bucket: text.bucket.trim() || undefined,
+      prefix: text.prefix.trim() || undefined,
+      roleArn: text.roleArn.trim() || undefined,
+      externalId: text.externalId.trim() || undefined,
+      forcePathStyle,
+    };
+  };
 
   const runTest = () => {
-    test.mutate(s3Payload(), {
+    test.mutate(payload(), {
       onSuccess: (result) => setTestResult(result),
       onError: (err) =>
         setTestResult({
@@ -76,10 +126,15 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
     });
   };
 
-  const save = () => update.mutate(driver === 'local' ? { driver: 'local' } : s3Payload());
+  const save = () => update.mutate(payload());
 
-  const isS3 = driver === 's3';
+  const isS3 = mode !== 'local';
   const saveDisabled = isS3 && !testResult?.ok;
+  // The console pre-selects S3 as soon as the environment carries a usable
+  // bucket, but nothing moves until it's saved — say so rather than letting the
+  // dropdown imply files are already going there.
+  const envS3NotYetEffective =
+    storage.envS3Configured && storage.effectiveDriver === 'local' && storage.driver.source !== 'db';
 
   return (
     <Card>
@@ -96,35 +151,71 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
       <CardContent className="space-y-5">
         <div>
           <div className="flex gap-2 items-center mb-2">
-            <Label className="mb-0">Driver</Label>
-            <SourceBadge source={storage.driver.source} />
+            <Label className="mb-0">Storage backend</Label>
+            <SourceBadge source={storage.driver.source} unsetLabel="Not set" />
           </div>
           <Select
-            value={driver}
+            value={mode}
             onChange={(event) => {
-              setDriver(event.target.value as 'local' | 's3');
+              setMode(event.target.value as Mode);
               invalidateTest();
             }}
           >
-            <option value="local">Local disk</option>
-            <option value="s3">S3 / compatible</option>
+            {storage.envS3Configured && (
+              <option value="s3-env">
+                S3 — use the environment&apos;s configuration
+                {storage.bucket.value ? ` (${storage.bucket.value})` : ''}
+              </option>
+            )}
+            <option value="s3">S3 / compatible — configure here</option>
+            <option value="local">Local disk — fallback, single node only</option>
           </Select>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Local disk keeps files on the container&apos;s own filesystem: it is lost on a rebuild
+            and cannot be shared across replicas. Use it only for local development or a
+            single-node self-hosted install.
+          </p>
         </div>
 
-        {isS3 && (
+        {envS3NotYetEffective && (
+          <Alert variant="info">
+            S3 settings were found in the environment, but attachments are still being written to
+            local disk. Test the connection and save to switch the platform over.
+          </Alert>
+        )}
+
+        {mode === 's3-env' && (
+          <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
+            <p className="text-sm text-muted-foreground">
+              These values resolve from the environment and stay in sync when it changes. Pick
+              &ldquo;configure here&rdquo; to override them in the console instead.
+            </p>
+            <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              {TEXT_FIELDS.filter(({ key }) => storage[key].value).map(({ key, label }) => (
+                <div key={key} className="flex gap-2 justify-between">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="font-medium">{storage[key].value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+
+        {mode === 's3' && (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
-              {TEXT_FIELDS.map(({ key, label, placeholder }) => (
+              {TEXT_FIELDS.map(({ key, label, placeholder, hint }) => (
                 <div key={key}>
                   <div className="flex gap-2 items-center mb-2">
                     <Label className="mb-0">{label}</Label>
-                    <SourceBadge source={storage[key].source} />
+                    <SourceBadge source={storage[key].source} unsetLabel="Not set" />
                   </div>
                   <Input
                     value={text[key]}
                     onChange={(event) => setTextField(key, event.target.value)}
-                    placeholder={storage[key].value ?? placeholder}
+                    placeholder={placeholder}
                   />
+                  {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
                 </div>
               ))}
             </div>
@@ -138,9 +229,13 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
                 }}
                 label="Force path-style addressing (MinIO / non-AWS)"
               />
-              <SourceBadge source={storage.forcePathStyle.source} />
+              <SourceBadge source={storage.forcePathStyle.source} unsetLabel="Not set" />
             </div>
+          </>
+        )}
 
+        {isS3 && (
+          <>
             <div className="pt-4 space-y-4 border-t border-border">
               <SecretField
                 label="Access key ID"
@@ -158,6 +253,11 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
                 saving={setSecret.isPending}
                 clearing={clearSecret.isPending}
               />
+              <p className="text-xs text-muted-foreground">
+                Leave both blank to use an assumed role (above) or the server&apos;s own AWS
+                identity — an EC2 instance profile, ECS task role, or IRSA. A custom endpoint has
+                no ambient identity to fall back on, so it always needs keys.
+              </p>
             </div>
 
             <div className="flex gap-3 items-center">
@@ -177,7 +277,10 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
         )}
 
         {saveDisabled && (
-          <Alert variant="info">Run a successful connection test before saving an S3 target.</Alert>
+          <Alert variant="info">
+            Run a successful connection test before saving an S3 target — the probe writes, reads
+            back, and deletes a small object, so a passing test means uploads will work.
+          </Alert>
         )}
 
         <div className="flex justify-end">
