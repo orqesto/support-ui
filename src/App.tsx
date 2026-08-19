@@ -42,6 +42,9 @@ const CreateTicketPage = lazy(() =>
 const EditTicketPage = lazy(() =>
   import('./pages/EditTicketPage').then((mod) => ({ default: mod.EditTicketPage }))
 );
+const EditUserPage = lazy(() =>
+  import('./pages/EditUserPage').then((mod) => ({ default: mod.EditUserPage }))
+);
 const StatisticsPage = lazy(() =>
   import('./pages/StatisticsPage').then((mod) => ({ default: mod.StatisticsPage }))
 );
@@ -466,6 +469,18 @@ const AppRoutes = () => {
             </Suspense>
           }
         />
+        {/* Editing a member stays INSIDE the shell. The top-level /users/:id/edit route
+            would leave it, and with it the org context WorkspaceShell points at :orgId
+            and the WorkspaceScope that lets usePermissions evaluate against the target
+            workspace — so the form would silently act on the caller's home org. */}
+        <Route
+          path="users/:id/edit"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <EditUserPage embedded />
+            </Suspense>
+          }
+        />
         <Route
           path="settings"
           element={
@@ -485,6 +500,20 @@ const AppRoutes = () => {
           }
         />
       </Route>
+      <Route
+        path="/users/:id/edit"
+        element={
+          <PrivateRoute>
+            {/* Same gate as /users, its only entry point — editing a member is one of the
+                actions that page offers, not a wider capability. */}
+            <ProtectedRoute requiredPermission={Permission.VIEW_USERS}>
+              <Suspense fallback={<LoadingFallback />}>
+                <EditUserPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/users"
         element={
