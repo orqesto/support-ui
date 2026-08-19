@@ -6,12 +6,18 @@ import { MemoryRouter } from 'react-router-dom';
  * The gate is what catches a direct hit on a switched-off surface — a bookmark, a shared
  * link, a restored tab. Hiding the nav entry does nothing for any of those.
  *
- * The ordering property matters most: while the flag request is in flight the gate must
- * render NEITHER outcome. Showing the page would flash unfinished work; showing the
- * unavailable state would flash "not available yet" at every legitimate user on every
- * navigation.
+ * Two orderings matter:
+ *   - While the flag request is in flight it must render NEITHER outcome. Showing the page
+ *     would flash unfinished work; showing the unavailable state would flash "not available
+ *     yet" at every legitimate user on every navigation.
+ *   - A global admin previewing an unfinished surface must be TOLD they are, or staff will
+ *     demo a page believing customers see the same thing.
  */
-type UiFlagsResult = { isSurfaceEnabled: (key: string) => boolean; loading: boolean };
+type UiFlagsResult = {
+  isSurfaceVisibleToMe: (key: string) => boolean;
+  isPreviewing: (key: string) => boolean;
+  loading: boolean;
+};
 const useUiFlags = vi.fn<() => UiFlagsResult>();
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => useUiFlags() }));
 
@@ -26,17 +32,28 @@ const renderGate = () =>
     </MemoryRouter>
   );
 
+const STAFF_NOTE = /visible to Odly staff only/;
+
 afterEach(cleanup);
 
 describe('FeatureGate', () => {
-  it('renders the page when the surface is on', () => {
-    useUiFlags.mockReturnValue({ isSurfaceEnabled: () => true, loading: false });
+  it('renders the page, unmarked, when the surface is on', () => {
+    useUiFlags.mockReturnValue({
+      isSurfaceVisibleToMe: () => true,
+      isPreviewing: () => false,
+      loading: false,
+    });
     renderGate();
     expect(screen.getByText('the real page')).toBeInTheDocument();
+    expect(screen.queryByText(STAFF_NOTE)).not.toBeInTheDocument();
   });
 
-  it('renders the under-construction state when the surface is off', () => {
-    useUiFlags.mockReturnValue({ isSurfaceEnabled: () => false, loading: false });
+  it('renders the under-construction state when the surface is off for this viewer', () => {
+    useUiFlags.mockReturnValue({
+      isSurfaceVisibleToMe: () => false,
+      isPreviewing: () => false,
+      loading: false,
+    });
     renderGate();
     expect(screen.queryByText('the real page')).not.toBeInTheDocument();
     expect(screen.getByText(/isn’t available yet/)).toBeInTheDocument();
@@ -44,8 +61,23 @@ describe('FeatureGate', () => {
     expect(screen.getByText(/Billing Intelligence/)).toBeInTheDocument();
   });
 
+  it('shows a global admin the page WITH a staff-only marker', () => {
+    useUiFlags.mockReturnValue({
+      isSurfaceVisibleToMe: () => true,
+      isPreviewing: () => true,
+      loading: false,
+    });
+    renderGate();
+    expect(screen.getByText('the real page')).toBeInTheDocument();
+    expect(screen.getByText(STAFF_NOTE)).toBeInTheDocument();
+  });
+
   it('renders neither outcome while the flags are still loading', () => {
-    useUiFlags.mockReturnValue({ isSurfaceEnabled: () => false, loading: true });
+    useUiFlags.mockReturnValue({
+      isSurfaceVisibleToMe: () => false,
+      isPreviewing: () => false,
+      loading: true,
+    });
     renderGate();
     expect(screen.queryByText('the real page')).not.toBeInTheDocument();
     expect(screen.queryByText(/isn’t available yet/)).not.toBeInTheDocument();
@@ -53,9 +85,13 @@ describe('FeatureGate', () => {
   });
 
   it('passes the flag key through to the hook', () => {
-    const isSurfaceEnabled = vi.fn(() => true);
-    useUiFlags.mockReturnValue({ isSurfaceEnabled, loading: false });
+    const isSurfaceVisibleToMe = vi.fn(() => true);
+    useUiFlags.mockReturnValue({
+      isSurfaceVisibleToMe,
+      isPreviewing: () => false,
+      loading: false,
+    });
     renderGate();
-    expect(isSurfaceEnabled).toHaveBeenCalledWith('ui.billing_intelligence');
+    expect(isSurfaceVisibleToMe).toHaveBeenCalledWith('ui.billing_intelligence');
   });
 });

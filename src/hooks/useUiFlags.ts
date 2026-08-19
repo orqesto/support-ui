@@ -18,6 +18,21 @@ type UiFlagState = {
  * never shown during the request. That means callers should gate NAVIGATION on it freely,
  * but should not use it to decide whether to redirect a user away from a URL they are
  * already on until `loading` is false — see `FeatureGate`, which waits.
+ *
+ * ## Global-admin preview
+ *
+ * A switched-off surface stays reachable for global admins, so staff can watch a feature
+ * come together against real data while customers see nothing. That makes the two
+ * questions distinct, and the distinction lives HERE rather than at each call site so the
+ * nav and the route gate cannot drift apart:
+ *
+ *   - `isSurfaceEnabled(key)` — is it actually on? (what the flag says)
+ *   - `isSurfaceVisibleToMe(key)` — should *this* viewer see it? (flag OR global admin)
+ *   - `isPreviewing(key)` — am I seeing it only because I am staff? (drives the marker)
+ *
+ * The preview is a VISIBILITY concession only. It never implies the feature works, and it
+ * must never be mistaken for the flag being on — anything deciding whether a surface is
+ * launched has to ask `isSurfaceEnabled`.
  */
 export const useUiFlags = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -51,8 +66,16 @@ export const useUiFlags = () => {
     };
   }, [isAuthenticated, selectedOrganizationId, user?.organizationId]);
 
+  const isSurfaceEnabled = (key: string) => state.flags[key] === true;
+  // Staff preview. Global admin is the same signal the rest of the app uses for
+  // Odly-staff-only surfaces (see Layout's `adminOnly`).
+  const canPreviewUnfinished = user?.role === 'admin';
+
   return {
-    isSurfaceEnabled: (key: string) => state.flags[key] === true,
+    isSurfaceEnabled,
+    canPreviewUnfinished,
+    isSurfaceVisibleToMe: (key: string) => isSurfaceEnabled(key) || canPreviewUnfinished,
+    isPreviewing: (key: string) => !isSurfaceEnabled(key) && canPreviewUnfinished,
     loading: state.loading,
   };
 };

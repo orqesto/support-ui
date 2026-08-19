@@ -286,7 +286,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { data: myAlliances } = useMyAlliances(canSeeAllianceConsole);
   const showAllianceConsole = canSeeAllianceConsole && (myAlliances?.length ?? 0) > 0;
   const { hasFeature } = useFeatures();
-  const { isSurfaceEnabled } = useUiFlags();
+  const { isSurfaceVisibleToMe, isPreviewing } = useUiFlags();
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
 
@@ -476,7 +476,10 @@ export const Layout = ({ children }: LayoutProps) => {
         // Surface availability — is this screen BUILT? Separate from featureRequired,
         // which asks whether the plan includes it. An unfinished page must not appear
         // as an upsell, so this check is independent and either one hides the item.
-        if (item.flagRequired && !isSurfaceEnabled(item.flagRequired)) {
+        // Global admins keep the entry (marked) so staff can follow a feature against
+        // real data; `isSurfaceVisibleToMe` owns that rule so it cannot drift from the
+        // route gate.
+        if (item.flagRequired && !isSurfaceVisibleToMe(item.flagRequired)) {
           return false;
         }
         // Hide Tickets until the org actually has one. Cuts noise for inbox-only
@@ -496,7 +499,7 @@ export const Layout = ({ children }: LayoutProps) => {
     [
       hasPermission,
       hasFeature,
-      isSurfaceEnabled,
+      isSurfaceVisibleToMe,
       user?.role,
       hasTickets,
       hasRoutingItems,
@@ -587,6 +590,16 @@ export const Layout = ({ children }: LayoutProps) => {
                           >
                             <Icon className="w-5 h-5 flex-shrink-0" />
                             <span className="flex-1">{item.name}</span>
+                            {item.flagRequired && isPreviewing(item.flagRequired) && (
+                              // Staff-only entry for an unfinished surface. Marked so nobody
+                              // demos it believing a customer sees the same sidebar.
+                              <span
+                                title="Unfinished — visible to Odly staff only"
+                                className="flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                              >
+                                WIP
+                              </span>
+                            )}
                             {badge > 0 && (
                               <span className="flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground">
                                 {badge > 99 ? '99+' : badge}
