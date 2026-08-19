@@ -44,11 +44,18 @@ const ACTION_LABEL: Record<string, string> = {
   'ticket.update': 'Ticket updated',
   'ticket.delete': 'Ticket deleted',
   'ticket.dept_moved': 'Moved department',
+  // System-authored transitions — nobody clicked these, so they carry a NULL userId and
+  // render with "System" as the actor. Phrased as what the system observed, not as a
+  // command, so the feed reads as an explanation for a status the agent did not set.
+  'message.auto_client_replied': 'Customer replied — reopened for response',
+  'message.auto_route': 'Routed automatically',
 };
 
 const ACTION_DOT: Record<string, string> = {
   'ticket.resolve': 'bg-green-500/60',
   'ticket.reopen': 'bg-yellow-500/60',
+  'message.auto_reopen': 'bg-yellow-500/60',
+  'message.auto_client_replied': 'bg-blue-500/60',
 };
 
 function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
@@ -63,6 +70,11 @@ function auditEntryLabel(action: string, details: Record<string, unknown> | null
   }
   if (action === 'message.category_change') {
     return details?.['to'] ? 'Category assigned' : 'Category removed';
+  }
+  if (action === 'message.auto_reopen') {
+    const from = details?.['fromStatus'] as string | undefined;
+    if (details?.['reason'] === 'promoted_from_orphan') return 'Surfaced — real customer reply';
+    return `Customer replied — reopened${from ? ` from ${from}` : ''}`;
   }
   if (action === 'message.update') {
     const detail = typeof details?.['action'] === 'string' ? details['action'] : '';
