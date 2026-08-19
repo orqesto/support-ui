@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useScopeStore, type AdminScope } from '@/stores/scopeStore';
 import { ConsoleLoading } from './ConsoleLoading';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS, type ConsoleScopeCtx } from './consoleSections';
@@ -36,6 +37,7 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
   const clearScope = useScopeStore((state) => state.clearScope);
   const { isAdmin } = usePermissions();
   const { data: alliances = [], isLoading: alliancesLoading } = useMyAlliances();
+  const selfHostedDeployment = useBackendVersion().data?.selfHostedDeployment ?? false;
 
   useEffect(() => {
     setScope({ scope, allianceId: isPlatform ? null : numericId });
@@ -44,9 +46,14 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
 
   const registry = isPlatform ? PLATFORM_SECTIONS : CONSOLE_SECTIONS;
   const sections = useMemo(() => {
-    const ctx: ConsoleScopeCtx = { scope, isGlobalAdmin: isAdmin, allianceId: numericId };
+    const ctx: ConsoleScopeCtx = {
+      scope,
+      isGlobalAdmin: isAdmin,
+      allianceId: numericId,
+      selfHostedDeployment,
+    };
     return registry.filter((section) => (section.visible ? section.visible(ctx) : true));
-  }, [registry, scope, isAdmin, numericId]);
+  }, [registry, scope, isAdmin, numericId, selfHostedDeployment]);
 
   // Access. Platform: global admin only. Alliance: a global admin may view any VALID
   // alliance; everyone else must administer THIS specific alliance. Render an explicit

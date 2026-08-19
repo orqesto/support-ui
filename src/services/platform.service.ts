@@ -18,7 +18,19 @@ export type PlatformOverview = {
     users: number;
   };
   subscriptions: { status: string; count: number }[];
-  plans: { id: number; name: string; displayName: string; price: number; orgCount: number }[];
+  plans: {
+    id: number;
+    name: string;
+    displayName: string;
+    price: number;
+    orgCount: number;
+    /**
+     * Optional on purpose: a BE that has not shipped this field yet omits it, and the
+     * card must not start calling every plan inactive during that window. Absent is
+     * read as active.
+     */
+    isActive?: boolean;
+  }[];
 };
 
 // ─── Users (global directory) ────────────────────────────────────────────────
@@ -149,6 +161,16 @@ export type AdminPlan = {
   limits: PlanLimits;
 };
 
+/**
+ * POST /api/admin/plans response. `stripe` is present only when `createStripePrice` was
+ * requested, and reports the outcome of that leg separately — the plan itself is created
+ * whether or not Stripe answered, so the console can say "created, but not billable yet"
+ * instead of implying either total success or total failure.
+ */
+export type CreatedPlan = AdminPlan & {
+  stripe?: { linked: boolean; priceId?: string; error?: string };
+};
+
 /** Map of planId → active-workspace count, from GET /api/admin/plans/stats. */
 export type PlanStats = Record<number, number>;
 
@@ -161,6 +183,14 @@ export type UpdatePlanInput = {
     maxMessagesPerMonth?: number;
     maxIntegrations?: number;
   };
+  /** `null`/`''` unlinks the plan from Stripe. Verified against Stripe server-side. */
+  stripePriceId?: string | null;
+  /**
+   * Required when changing `price` on a plan that IS linked to Stripe, otherwise the BE
+   * refuses with 409. A Stripe Price is immutable, so re-pricing means minting a new one
+   * and archiving the old — an explicit act, not a side effect of editing a number.
+   */
+  syncStripePrice?: boolean;
 };
 
 export type PlanType = 'base' | 'bundle' | 'enterprise';
@@ -185,6 +215,13 @@ export type CreatePlanInput = {
   };
   features: Record<string, boolean>;
   isActive?: boolean;
+  /**
+   * Build the Stripe Product + Price for this plan during creation, instead of pasting an
+   * id from the Stripe dashboard. Ignored when `stripePriceId` is given, or when the plan
+   * is free. Non-fatal server-side: the plan is created either way and the response says
+   * whether the Stripe leg succeeded.
+   */
+  createStripePrice?: boolean;
 };
 
 // ─── Workspace departments (plan-budgeted lever) ─────────────────────────────
@@ -330,8 +367,32 @@ export const platformService = {
   },
 
   /** Create a new plan (POST /api/admin/plans, requireGlobalAdmin). 409 on duplicate name. */
-  createPlan: async (input: CreatePlanInput): Promise<AdminPlan> => {
-    const res = await apiClient.post<{ data: AdminPlan }>(`${ADMIN}/plans`, input);
+  createPlan: async (input: CreatePlanInput): Promise<CreatedPlan> => {
+    const res = await apiClient.post<{ data: CreatedPlan }>(`${ADMIN}/plans`, input);
+    return res.data.data;
+  },
+
+  /**
+   * DELETE /api/admin/plans/:id. 409 when the plan has ever had a subscription (its
+   * billing history depends on the row — deactivate instead) or when it is part of the
+   * seeded catalog that every deploy recreates; 502 when its Stripe price could not be
+   * archived. The message is written to be shown to the admin verbatim.
+   */
+  deletePlan: async (id: number): Promise<{ id: number; name: string }> => {
+    const res = await apiClient.delete<{ data: { id: number; name: string } }>(
+      `${ADMIN}/plans/${id}`
+    );
+    return res.data.data;
+  },
+
+  /** POST /api/admin/plans/:id/stripe-price — make a plan billable without leaving the console. */
+  createPlanStripePrice: async (
+    id: number
+  ): Promise<{ plan: AdminPlan; archivedPriceId: string | null }> => {
+    const res = await apiClient.post<{ data: { plan: AdminPlan; archivedPriceId: string | null } }>(
+      `${ADMIN}/plans/${id}/stripe-price`,
+      {}
+    );
     return res.data.data;
   },
 

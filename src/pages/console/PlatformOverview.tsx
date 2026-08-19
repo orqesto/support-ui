@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { usePlatformOverview } from '@/hooks/usePlatformAdmin';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 
 /**
  * Platform console → Overview. Cross-platform KPIs (alliances / orgs / users) plus the
@@ -27,6 +28,7 @@ const formatPrice = (cents: number): string => `€${Math.round(cents / 100).toL
 
 export const PlatformOverview = () => {
   const overviewQuery = usePlatformOverview();
+  const selfHostedDeployment = useBackendVersion().data?.selfHostedDeployment ?? false;
 
   if (overviewQuery.isLoading) {
     return <ConsoleLoading />;
@@ -139,14 +141,21 @@ export const PlatformOverview = () => {
               <p className="py-4 text-sm text-muted-foreground">No plans configured.</p>
             ) : (
               <ul className="space-y-2">
-                {plans.map((plan) => (
+                {plans.map((plan) => {
+                  // Absent isActive means the BE predates the field — read it as active
+                  // rather than labelling the whole catalog inactive during a deploy.
+                  const inactive = plan.isActive === false;
+                  return (
                   <li key={plan.id} className="flex justify-between items-center">
-                    <div>
-                      <div>
+                    <div className={inactive ? 'opacity-60' : undefined}>
+                      <div className="flex flex-wrap gap-2 items-center">
                         <span className="text-sm font-medium text-foreground">{plan.displayName}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {formatPrice(plan.price)}/mo
                         </span>
+                        {/* Without this the card showed deactivated plans exactly like
+                            live ones, so the catalog read as far bigger than it is. */}
+                        {inactive && <Badge variant="secondary">Inactive</Badge>}
                       </div>
                       {/* Slug disambiguates same-named plans (e.g. two "Enterprise Cloud"). */}
                       <code className="text-xs text-muted-foreground">{plan.name}</code>
@@ -162,7 +171,8 @@ export const PlatformOverview = () => {
                       <span className="text-sm text-muted-foreground">0 workspaces</span>
                     )}
                   </li>
-                ))}
+                  );
+                })}
                 {workspacesWithoutPlan > 0 && (
                   <li className="flex justify-between items-center pt-2 border-t border-border">
                     <span className="text-sm font-medium text-muted-foreground">No plan</span>
@@ -177,11 +187,18 @@ export const PlatformOverview = () => {
                 )}
               </ul>
             )}
-            <div className="pt-3 mt-3 border-t border-border">
-              <Link to="/console/platform/billing" className="text-sm text-primary hover:underline">
-                Edit plans &amp; pricing →
-              </Link>
-            </div>
+            {/* A licensed box has no catalog to sell from — the page it links to redirects
+                away there, so the link would be a dead end. */}
+            {!selfHostedDeployment && (
+              <div className="pt-3 mt-3 border-t border-border">
+                <Link
+                  to="/console/platform/billing"
+                  className="text-sm text-primary hover:underline"
+                >
+                  Edit plans &amp; pricing →
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

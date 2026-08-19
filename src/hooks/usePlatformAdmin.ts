@@ -234,6 +234,35 @@ export const useCreatePlatformPlan = () => {
   });
 };
 
+/**
+ * Remove a plan from the catalog. The BE refuses with 409 when the plan has ever had a
+ * subscription or is part of the seeded catalog, and 502 when its Stripe price cannot be
+ * archived — all three carry a message written for the admin, so callers should surface
+ * `error.response.data.error` rather than a generic failure string.
+ */
+export const useDeletePlatformPlan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => platformService.deletePlan(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'plans'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'plan-stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+    },
+  });
+};
+
+/** Create + link a Stripe price matching the plan's current amount (archives the old one). */
+export const useCreatePlanStripePrice = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => platformService.createPlanStripePrice(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'plans'] });
+    },
+  });
+};
+
 export const useUpdatePlatformPlan = () => {
   const queryClient = useQueryClient();
   return useMutation({
