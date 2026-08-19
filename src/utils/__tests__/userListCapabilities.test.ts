@@ -62,6 +62,13 @@ describe('getUserRowCapabilities — workspace scope', () => {
     expect(caps.canRemove).toBe(true);
   });
 
+  it('forbids removing an IdP-managed member (removal is the IdP’s job; deactivate instead)', () => {
+    const managedTarget: CapabilityTarget = { userId: 70, globalRole: 'user', scimManaged: true };
+    const caps = getUserRowCapabilities('workspace', orgAdmin, managedTarget);
+    expect(caps.canRemove).toBe(false); // managed → not hard-removable
+    expect(caps.canEdit).toBe(true); // still openable (role/dept are locked in the modal)
+  });
+
   it('forbids an org admin from managing or removing a GLOBAL admin', () => {
     const caps = getUserRowCapabilities('workspace', orgAdmin, globalAdminTarget);
     expect(caps.canEdit).toBe(false);

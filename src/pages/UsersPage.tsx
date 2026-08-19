@@ -193,7 +193,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         canManageUsers,
         canDeleteUsers: hasPermission(Permission.DELETE_USERS),
       },
-      { userId: user.id, globalRole: user.role }
+      { userId: user.id, globalRole: user.role, scimManaged: user.scimManaged }
     );
 
   const canManageUser = (user: User) => rowCapabilities(user).canEdit;
