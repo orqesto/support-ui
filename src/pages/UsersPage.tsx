@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 import {
   Users,
@@ -36,7 +37,6 @@ import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
-import { EditUserModal } from '@/components/modals/EditUserModal';
 import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */
@@ -46,14 +46,14 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   // When embedded in the WorkspaceShell (which supplies its own chrome), render
   // straight into it via a Fragment; standalone, wrap in the org-scoped Layout.
   const Wrap = embedded ? Fragment : Layout;
+  const navigate = useNavigate();
+  const { orgId } = useParams<{ orgId: string }>();
   const { canManageUsers, isAdmin, hasPermission } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: User | null }>({
     open: false,
     user: null,
@@ -176,9 +176,14 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     });
   };
 
+  // Editing is a page — the form covers profile, role, departments, permission overrides
+  // and routing skills, which outgrew a dialog. Inside the per-workspace console shell it
+  // must stay under /console/workspace/:orgId, or the edit would leave the org context
+  // WorkspaceShell established and act on the caller's home workspace instead.
   const handleEditUser = (user: User) => {
-    setSelectedUser(user);
-    setIsEditModalOpen(true);
+    navigate(
+      embedded && orgId ? `/console/workspace/${orgId}/users/${user.id}/edit` : `/users/${user.id}/edit`
+    );
   };
 
   // Who can edit/remove a given row — delegated to the shared capability model so the
@@ -225,12 +230,6 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   };
 
   const canDeleteUser = (user: User) => rowCapabilities(user).canRemove;
-
-  const handleUpdateUser = async (userId: number, data: Partial<User>) => {
-    await userService.update(userId, data);
-    // Refresh users list
-    await fetchUsers();
-  };
 
   if (!canViewUsers) {
     return (
@@ -572,18 +571,6 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
         onInvite={handleInviteUser}
-      />
-
-      {/* Edit User Modal */}
-      <EditUserModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedUser(null);
-        }}
-        onUpdate={handleUpdateUser}
-        user={selectedUser}
-        allUsers={users}
       />
 
       {/* Delete Confirmation Dialog */}
