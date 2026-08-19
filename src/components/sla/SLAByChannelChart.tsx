@@ -77,6 +77,20 @@ export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChart
       responded: data.messages.slack?.responded ?? 0,
       breached: data.messages.slack?.breached ?? 0,
     },
+    {
+      channel: 'Chat',
+      total: data.messages.chat?.total ?? 0,
+      responded: data.messages.chat?.responded ?? 0,
+      breached: data.messages.chat?.breached ?? 0,
+    },
+    {
+      channel: 'WhatsApp',
+      total: data.messages.whatsapp?.total ?? 0,
+      responded: data.messages.whatsapp?.responded ?? 0,
+      breached: data.messages.whatsapp?.breached ?? 0,
+    },
+    // Rows with no traffic are dropped, so listing a channel costs nothing until it has
+    // messages — which is why omitting one is a silent hole rather than a visible gap.
   ].filter((item) => item.total > 0);
 
   if (chartData.length === 0) {

@@ -1,9 +1,13 @@
-import { Mail, MessageSquare } from 'lucide-react';
+import { Mail, MessageCircle, MessageSquare } from 'lucide-react';
 
 export const getChannelIcon = (channel: string | null | undefined) => {
   switch (channel) {
     case 'email':
       return <Mail className="w-4 h-4" />;
+    // Distinct from the other chat channels: WhatsApp is the only one that can refuse a
+    // send, so an agent scanning a list benefits from telling it apart at a glance.
+    case 'whatsapp':
+      return <MessageCircle className="w-4 h-4" />;
     case 'slack':
     case 'telegram':
     case 'chat':
