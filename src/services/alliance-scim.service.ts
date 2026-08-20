@@ -135,9 +135,16 @@ export type SyncedGroupMember = {
   email: string;
 };
 
-/** A name-derived access suggestion — pre-fills the wire UI, never auto-applied. */
+/**
+ * A name-derived access suggestion — pre-fills the wire UI, never auto-applied.
+ *
+ * Carries an ORG role: an IdP group maps to a workspace role, never to an alliance role
+ * (Role-Model v2 §0.2). Optional because the backend that renames the field ships
+ * separately — an older payload has `mappedRole` instead, and the UI falls back to the
+ * least-privileged default rather than reading a field that isn't there.
+ */
 export type AccessSuggestion = {
-  mappedRole: AllianceRole;
+  orgRole?: OrganizationRole;
   rationale: string;
 };
 
@@ -159,9 +166,14 @@ export type SyncedGroup = {
   updatedAt: string | null;
 };
 
-/** Where a synced IdP group's access is wired to (discriminated by `type`). */
+/**
+ * Where a synced IdP group's access is wired to (discriminated by `type`).
+ *
+ * The `role` variant — wiring straight to an alliance role — was retired with Role-Model
+ * v2 §0.2. `wiredRole` above still exists because a PRE-EXISTING mapping is still read
+ * and shown; it just can't be created any more.
+ */
 export type WireTarget =
-  | { type: 'role'; mappedRole: AllianceRole }
   | { type: 'existingGroup'; groupId: number }
   | {
       type: 'newGroup';
