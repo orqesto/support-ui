@@ -24,7 +24,7 @@ import {
   useDeactivateMember,
   useReactivateMember,
 } from '@/hooks/useAllianceAdmin';
-import { ALLIANCE_ROLES, roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
+import { roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
 import type { AllianceCandidateUser, AllianceMember } from '@/services/alliance-admin.service';
 
 /** "Jane Doe — jane@acme.com" (falls back to email when no name is set). */
@@ -33,20 +33,32 @@ const userOptionLabel = (user: AllianceCandidateUser): string => {
   return name ? `${name} — ${user.email}` : user.email;
 };
 
-const ROLE_HELP: Record<AllianceRole, string> = {
+// The alliance axis is a POWER, not a ladder: a member either administers the alliance or does
+// not. '' is the select's stand-in for null, since a DOM option value cannot be null.
+const NO_POWER = '' as const;
+type AlliancePowerValue = typeof NO_POWER | 'alliance_admin';
+
+const ROLE_HELP: Record<AlliancePowerValue, string> = {
   alliance_admin:
     'Alliance admin — manages the alliance and gets workspace-admin access in every workspace.',
-  alliance_agent:
-    'Alliance agent — a support agent (associate) in every workspace, with no admin rights.',
+  [NO_POWER]:
+    'Member — belongs to the alliance with no alliance powers. Workspace access comes from the groups they are in.',
 };
 
 /** Friendly label for an org-role enum surfaced in the effective-roles chips. */
 const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole] ?? role;
 
-const ROLE_LABEL: Record<AllianceRole, string> = {
+const ROLE_LABEL: Record<AlliancePowerValue, string> = {
   alliance_admin: 'Alliance admin',
-  alliance_agent: 'Alliance agent',
+  [NO_POWER]: 'Member',
 };
+
+/** Select value ⇄ stored power. */
+const toPower = (value: string): AllianceRole | null =>
+  value === 'alliance_admin' ? 'alliance_admin' : null;
+const toValue = (power: AllianceRole | null): AlliancePowerValue =>
+  power === 'alliance_admin' ? 'alliance_admin' : NO_POWER;
+const POWER_OPTIONS: AlliancePowerValue[] = [NO_POWER, 'alliance_admin'];
 
 /**
  * Members screen (SPEC §8.3): each member's alliance_role (editable) and the
@@ -68,13 +80,13 @@ export const ConsoleMembers = () => {
 
   const [deactivateTarget, setDeactivateTarget] = useState<AllianceMember | null>(null);
   const [reactivateTarget, setReactivateTarget] = useState<AllianceMember | null>(null);
-  const [roleChange, setRoleChange] = useState<{ member: AllianceMember; newRole: AllianceRole } | null>(
+  const [roleChange, setRoleChange] = useState<{ member: AllianceMember; newRole: AllianceRole | null } | null>(
     null
   );
   const [addOpen, setAddOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userSearch, setUserSearch] = useState('');
-  const [newRole, setNewRole] = useState<AllianceRole>('alliance_agent');
+  const [newRole, setNewRole] = useState<AllianceRole | null>(null);
   const [query, setQuery] = useState('');
 
   // Searchable user picker for "Add member" — alliance-scoped: candidates are people already
@@ -205,18 +217,18 @@ export const ConsoleMembers = () => {
       header: 'Alliance role',
       cell: (member) => (
         <Select
-          value={member.allianceRole}
+          value={toValue(member.allianceRole)}
           disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
           onChange={(event) => {
-            const next = event.target.value as AllianceRole;
+            const next = toPower(event.target.value);
             if (next !== member.allianceRole) {
               setRoleChange({ member, newRole: next });
             }
           }}
         >
-          {ALLIANCE_ROLES.map((role) => (
-            <option key={role} value={role}>
-              {ROLE_LABEL[role]}
+          {POWER_OPTIONS.map((value) => (
+            <option key={value || 'member'} value={value}>
+              {ROLE_LABEL[value]}
             </option>
           ))}
         </Select>
@@ -346,16 +358,16 @@ export const ConsoleMembers = () => {
               <Label htmlFor="alliance-add-role">Alliance role</Label>
               <Select
                 id="alliance-add-role"
-                value={newRole}
-                onChange={(event) => setNewRole(event.target.value as AllianceRole)}
+                value={toValue(newRole)}
+                onChange={(event) => setNewRole(toPower(event.target.value))}
               >
-                {ALLIANCE_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {ROLE_LABEL[role]}
+                {POWER_OPTIONS.map((value) => (
+                  <option key={value || 'member'} value={value}>
+                    {ROLE_LABEL[value]}
                   </option>
                 ))}
               </Select>
-              <p className="text-xs text-muted-foreground">{ROLE_HELP[newRole]}</p>
+              <p className="text-xs text-muted-foreground">{ROLE_HELP[toValue(newRole)]}</p>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setAddOpen(false)}>

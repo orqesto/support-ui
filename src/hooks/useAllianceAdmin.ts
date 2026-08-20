@@ -106,10 +106,18 @@ export const useAllianceMembers = (allianceId: number | null) =>
     refetchOnWindowFocus: false,
   });
 
+export const useAllianceAdminProposals = (allianceId: number | null) =>
+  useQuery({
+    queryKey: ['alliance', allianceId, 'admin-proposals'],
+    queryFn: () => allianceAdminService.listAdminProposals(allianceId as number),
+    enabled: allianceId !== null,
+    refetchOnWindowFocus: false,
+  });
+
 export const useAddMember = (allianceId: number | null) => {
   const invalidate = useAllianceListInvalidator(allianceId, 'members');
   return useMutation({
-    mutationFn: (input: { userId: number; allianceRole: AllianceRole }) =>
+    mutationFn: (input: { userId: number; allianceRole: AllianceRole | null }) =>
       allianceAdminService.addMember(allianceId as number, input.userId, input.allianceRole),
     onSuccess: invalidate,
   });
@@ -118,7 +126,7 @@ export const useAddMember = (allianceId: number | null) => {
 export const useChangeMemberRole = (allianceId: number | null) => {
   const invalidate = useAllianceListInvalidator(allianceId, 'members');
   return useMutation({
-    mutationFn: (input: { userId: number; allianceRole: AllianceRole }) =>
+    mutationFn: (input: { userId: number; allianceRole: AllianceRole | null }) =>
       allianceAdminService.changeMemberRole(allianceId as number, input.userId, input.allianceRole),
     onSuccess: invalidate,
   });
