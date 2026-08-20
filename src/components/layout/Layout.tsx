@@ -24,6 +24,7 @@ import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useFeatures } from '@/hooks/useFeatures';
+import { useUiFlags } from '@/hooks/useUiFlags';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
@@ -73,6 +74,11 @@ const allNavigation: Array<{
   permission?: Permission;
   adminOnly?: boolean;
   featureRequired?: string;
+  /**
+   * A `ui.` feature-flag key. Hides the item until the surface is finished. Use this for
+   * "not built yet"; use `featureRequired` for "your plan does not include it".
+   */
+  flagRequired?: string;
   showBadge?: boolean;
   // Hidden whenever the BE reports billing is off (deployment.billingEnabled=false):
   // self-hosted boxes AND managed boxes where a billing provider isn't configured
@@ -139,6 +145,7 @@ const allNavigation: Array<{
     icon: Receipt,
     permission: Permission.VIEW_BILLING,
     featureRequired: 'billingIntelligence',
+    flagRequired: 'ui.billing_intelligence',
     hideWhenBillingOff: true,
   },
 
@@ -279,6 +286,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { data: myAlliances } = useMyAlliances(canSeeAllianceConsole);
   const showAllianceConsole = canSeeAllianceConsole && (myAlliances?.length ?? 0) > 0;
   const { hasFeature } = useFeatures();
+  const { isSurfaceVisibleToMe, isPreviewing } = useUiFlags();
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
 
@@ -465,6 +473,15 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.featureRequired && !hasFeature(item.featureRequired)) {
           return false;
         }
+        // Surface availability — is this screen BUILT? Separate from featureRequired,
+        // which asks whether the plan includes it. An unfinished page must not appear
+        // as an upsell, so this check is independent and either one hides the item.
+        // Global admins keep the entry (marked) so staff can follow a feature against
+        // real data; `isSurfaceVisibleToMe` owns that rule so it cannot drift from the
+        // route gate.
+        if (item.flagRequired && !isSurfaceVisibleToMe(item.flagRequired)) {
+          return false;
+        }
         // Hide Tickets until the org actually has one. Cuts noise for inbox-only
         // teams; the link reappears the moment a ticket is created (60s polling).
         if (item.href === '/tickets' && !hasTickets) {
@@ -479,7 +496,16 @@ export const Layout = ({ children }: LayoutProps) => {
         } // No permission required (like Dashboard)
         return hasPermission(item.permission);
       }),
-    [hasPermission, hasFeature, user?.role, hasTickets, hasRoutingItems, billingEnabled, showAllianceConsole]
+    [
+      hasPermission,
+      hasFeature,
+      isSurfaceVisibleToMe,
+      user?.role,
+      hasTickets,
+      hasRoutingItems,
+      billingEnabled,
+      showAllianceConsole,
+    ]
   );
 
   const handleLogout = () => {
@@ -564,6 +590,16 @@ export const Layout = ({ children }: LayoutProps) => {
                           >
                             <Icon className="w-5 h-5 flex-shrink-0" />
                             <span className="flex-1">{item.name}</span>
+                            {item.flagRequired && isPreviewing(item.flagRequired) && (
+                              // Staff-only entry for an unfinished surface. Marked so nobody
+                              // demos it believing a customer sees the same sidebar.
+                              <span
+                                title="Unfinished — visible to Odly staff only"
+                                className="flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                              >
+                                WIP
+                              </span>
+                            )}
                             {badge > 0 && (
                               <span className="flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground">
                                 {badge > 99 ? '99+' : badge}
