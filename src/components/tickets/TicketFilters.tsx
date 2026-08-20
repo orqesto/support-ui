@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FilterCell } from '@/components/filters/FilterCell';
 import {
   Filter,
   X,
@@ -310,22 +311,3 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
   );
 }
 
-function FilterCell({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 min-w-0">
-      <div className="flex items-center gap-1">
-        {icon && <span className="shrink-0">{icon}</span>}
-        <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
-      </div>
-      <div className="w-full">{children}</div>
-    </div>
-  );
-}

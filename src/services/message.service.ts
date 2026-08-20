@@ -309,6 +309,26 @@ export const messageService = {
     return response.data;
   },
 
+  /**
+   * The addresses this workspace has actually received mail at, for the
+   * "Received at" filter.
+   *
+   * Returns [] rather than throwing when the endpoint is absent. The frontend
+   * deploys on merge while the backend ships on its own cadence, so this route
+   * 404s in production during that window — and while it does, the filter must
+   * simply not offer itself rather than break the filters bar around it.
+   */
+  getReceivedAtOptions: async (): Promise<string[]> => {
+    try {
+      const response = await apiClient.get<ApiResponse<string[]>>(
+        '/api/messages/received-at-options'
+      );
+      return response.data.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
   // Compose a brand-new outbound email (#18). Creates a new conversation
   // and dispatches via the chosen integration's email channel. Attachments
   // are optional.

@@ -56,6 +56,7 @@ function buildSharedFilters(filters: FilterState): Record<string, string> {
   const api: Record<string, string> = {};
   if (filters.messageSourceId && filters.messageSourceId !== 'all')
     api.messageSourceId = filters.messageSourceId;
+  if (filters.receivedAt && filters.receivedAt !== 'all') api.receivedAt = filters.receivedAt;
   // 'needs_routing' sentinel is a view override, not a dept filter — handled at
   // the column level (a future 'needs_routing' column). For now, treat it as a
   // pass-through dept selector and rely on the column's fixedFilters.
