@@ -28,7 +28,7 @@ import {
 } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
 import { stripHtml } from '@/lib/stripHtml';
-import { formatAge, safeCssColor } from '@/lib/utils';
+import { formatDate, formatWhen, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { DepartmentBadge } from './DepartmentBadge';
@@ -106,6 +106,10 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
     : undefined;
   const needsRouting = msg.status === 'needs_routing';
   const receivedAt = (msg.metadata as { receivedAt?: string })?.receivedAt ?? msg.createdAt;
+  // What the row is sorted by, so the timestamp shown and the ordering agree: when the
+  // LAST message in the thread was sent. `lastMessageAt` used to be the conversation's
+  // own created/received time (its FIRST message) despite the name — fixed server-side.
+  const activityAt = thread.lastMessageAt ?? receivedAt;
 
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
@@ -267,7 +271,9 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               </Button>
             </Tooltip>
           )}
-          <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
+          <span className="whitespace-nowrap shrink-0" title={formatDate(activityAt)}>
+            {formatWhen(activityAt)}
+          </span>
         </div>
 
         {/* Sender — unread (triage) shows a dot + bold; read is muted */}

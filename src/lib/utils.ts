@@ -8,6 +8,28 @@ export const safeCssColor = (color: string): string =>
 
 export const formatDate = (date: string | Date) => new Date(date).toLocaleString();
 
+/**
+ * Absolute timestamp plus the relative age — e.g. `18 Aug 17:50 · 2d`.
+ *
+ * A bare "2d ago" is fine for spotting recency but useless for the two things agents
+ * actually do with a timestamp: filtering to a period, and matching a thread against
+ * something outside the app (a customer saying "I wrote on Tuesday morning"). The year
+ * is shown only when it is not the current one, so the common case stays short enough
+ * for a narrow list row.
+ */
+export const formatWhen = (date: string | Date): string => {
+  const when = new Date(date);
+  if (Number.isNaN(when.getTime())) return '—';
+  const stamp = when.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    ...(when.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${stamp} · ${formatAge(when)}`;
+};
+
 export const formatAge = (date: string | Date): string => {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return `${seconds}s`;

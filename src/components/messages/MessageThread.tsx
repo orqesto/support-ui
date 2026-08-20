@@ -14,7 +14,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { LinkifiedText } from '@/lib/linkify';
-import { formatDate } from '@/lib/utils';
+import { formatWhen } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import type { MessageEvent } from '@/types';
 
@@ -264,10 +264,12 @@ export const MessageThread = ({
                         </div>
                         <div className="flex flex-col gap-1 items-end">
                           <div className="text-xs whitespace-nowrap text-muted-foreground">
-                            {formatDate(
+                            {formatWhen(
                               new Date(
+                                pair.customerEmail.sentAt ??
                                 (pair.customerEmail.metadata as { receivedAt?: string })
-                                  ?.receivedAt ?? pair.customerEmail.createdAt
+                                  ?.receivedAt ??
+                                pair.customerEmail.createdAt
                               )
                             )}
                           </div>
@@ -354,7 +356,7 @@ export const MessageThread = ({
                               </div>
                             </div>
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
-                              {formatDate(
+                              {formatWhen(
                                 new Date(
                                   reply.sentAt ??
                                   (reply.metadata as { receivedAt?: string })?.receivedAt ??
