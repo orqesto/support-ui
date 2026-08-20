@@ -16,10 +16,12 @@ import type { SyncedGroup } from '@/services/alliance-scim.service';
 
 const syncedGroups: SyncedGroup[] = [];
 
+const unwireMutate = vi.fn();
 vi.mock('@/hooks/useAllianceProvisioning', () => ({
   useAllianceSyncedGroups: () => ({ data: syncedGroups, isLoading: false }),
   useWireSyncedGroup: () => ({ mutate: vi.fn(), isPending: false }),
   useResyncAllianceProvisioning: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteAllianceGroupMap: () => ({ mutate: unwireMutate, isPending: false }),
 }));
 
 vi.mock('@/hooks/useAllianceGroups', () => ({
@@ -89,6 +91,40 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.getByText(/Wired → Alliance admin \(legacy\)/)).toBeInTheDocument();
+  });
+
+  // A wired group used to render nothing at all, so the mapping was one-shot: the only
+  // way to change it was through the API. Both edits have to be reachable.
+  it('offers re-point and unwire once wired', () => {
+    syncedGroups.push(
+      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
+    );
+    renderCard();
+
+    expect(screen.getByRole('button', { name: 'Re-point' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unwire' })).toBeInTheDocument();
+  });
+
+  // Re-pointing at a NEW group would mint a second backing group and orphan the current
+  // one; the backend 409s on it, so the picker must not offer it either.
+  it('offers only existing groups when re-pointing', () => {
+    syncedGroups.push(
+      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
+    );
+    renderCard();
+
+    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    expect(options.some((label) => label.includes('Support EU'))).toBe(true);
+    expect(options.some((label) => label.startsWith('Org role'))).toBe(false);
+  });
+
+  // A legacy alliance-role wiring has no group mapping to delete, so Unwire would have
+  // nothing to act on — offering it would be a button that silently does nothing.
+  it('does not offer unwire for a legacy alliance-role wiring', () => {
+    syncedGroups.push(baseGroup({ wiredRole: { mappingId: 4, mappedRole: 'alliance_agent' } }));
+    renderCard();
+
+    expect(screen.queryByRole('button', { name: 'Unwire' })).not.toBeInTheDocument();
   });
 
   it('shows a group wiring without the legacy marker', () => {

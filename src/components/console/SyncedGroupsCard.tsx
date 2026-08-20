@@ -15,6 +15,7 @@ import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
 import type { DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
+  useDeleteAllianceGroupMap,
   useResyncAllianceProvisioning,
   useWireSyncedGroup,
 } from '@/hooks/useAllianceProvisioning';
@@ -99,6 +100,7 @@ const SyncedGroupRow = ({
   deptsByOrg,
   onDeptChange,
   onWire,
+  onUnwire,
   wiring,
 }: {
   group: SyncedGroup;
@@ -112,6 +114,7 @@ const SyncedGroupRow = ({
   deptsByOrg: DepartmentIdsByOrg;
   onDeptChange: (orgId: number, deptIds: number[]) => void;
   onWire: () => void;
+  onUnwire: () => void;
   wiring: boolean;
 }) => {
   const wired = group.wiredRole !== null || group.wiredGroup !== null;
@@ -148,7 +151,45 @@ const SyncedGroupRow = ({
             IdP with a stable external id to enable mapping.
           </span>
         </Alert>
-      ) : wired ? null : (
+      ) : wired ? (
+        <div className="flex flex-wrap gap-3 items-end pt-1">
+          <div className="flex-1 min-w-[14rem]">
+            <Label htmlFor={`rewire-target-${group.id}`} className="mb-1">
+              Change mapping
+            </Label>
+            {/* Existing groups only. Re-pointing at a NEW group would mint a second
+                backing group and leave the current one behind, still holding its grant
+                and members — the backend refuses it (409); the UI shouldn't offer it. */}
+            <Select
+              id={`rewire-target-${group.id}`}
+              value={selectedValue.startsWith('group:') ? selectedValue : ''}
+              onChange={(event) => onSelect(event.target.value)}
+            >
+              <option value="">Select a group…</option>
+              {targetOptions
+                .filter((option) => option.value.startsWith('group:'))
+                .map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+            </Select>
+          </div>
+          <Button
+            type="button"
+            onClick={onWire}
+            isLoading={wiring}
+            disabled={wiring || !selectedValue.startsWith('group:')}
+          >
+            Re-point
+          </Button>
+          {group.wiredGroup && (
+            <Button type="button" variant="outline" onClick={onUnwire} disabled={wiring}>
+              Unwire
+            </Button>
+          )}
+        </div>
+      ) : (
         <>
           <div className="flex flex-wrap gap-3 items-end pt-1">
             <div className="flex-1 min-w-[14rem]">
@@ -241,6 +282,8 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const allianceGroupsQuery = useAllianceGroups(allianceId);
   const orgsQuery = useAllianceOrgs(allianceId);
   const wire = useWireSyncedGroup(allianceId);
+  const unwire = useDeleteAllianceGroupMap(allianceId);
+  const [unwireConfirm, setUnwireConfirm] = useState<SyncedGroup | null>(null);
   const resync = useResyncAllianceProvisioning(allianceId);
 
   const [selectedByGroup, setSelectedByGroup] = useState<Record<number, string>>({});
@@ -419,7 +462,8 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               deptsByOrg={deptsFor(group)}
               onDeptChange={(orgId, deptIds) => setDeptsForGroupOrg(group, orgId, deptIds)}
               onWire={() => handleWire(group)}
-              wiring={wire.isPending}
+              onUnwire={() => setUnwireConfirm(group)}
+              wiring={wire.isPending || unwire.isPending}
             />
           ))
         )}
@@ -436,6 +480,23 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         confirmText={confirmText}
         title={confirmTitle}
         description={confirmDescription}
+      />
+
+      {/* Unwiring removes only the MAPPING. The backing group keeps its role, workspaces
+          and any hand-added members — so nobody loses access at the moment you unwire. */}
+      <ConfirmDialog
+        open={unwireConfirm !== null}
+        onOpenChange={(open) => !open && setUnwireConfirm(null)}
+        onConfirm={() => {
+          const mappingId = unwireConfirm?.wiredGroup?.mappingId;
+          setUnwireConfirm(null);
+          if (mappingId !== undefined) unwire.mutate(mappingId);
+        }}
+        variant="warning"
+        confirmText="Unwire"
+        cancelText="Keep wired"
+        title={unwireConfirm ? `Unwire ${unwireConfirm.displayName}?` : ''}
+        description="New members will stop arriving from this IdP group. The group it was wired to keeps its role, workspaces and any members added by hand — nobody loses access right now."
       />
     </Card>
   );
