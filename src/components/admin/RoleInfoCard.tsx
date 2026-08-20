@@ -30,6 +30,10 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     permissions: [
       { permission: Permission.MANAGE_ORGANIZATION, label: 'Manage workspace settings' },
       { permission: Permission.VIEW_ORGANIZATION_SETTINGS, label: 'View workspace settings' },
+      {
+        permission: Permission.MANAGE_MEMBER_DEPARTMENTS,
+        label: 'Assign members to departments',
+      },
     ],
   },
   {
@@ -40,6 +44,19 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
         label: 'Manage integrations (Email, Telegram, Slack, Jira)',
       },
       { permission: Permission.VIEW_INTEGRATIONS, label: 'View integrations' },
+      // Distinct from the two above: `integrations` is the connector config, `message
+      // sources` are the mailboxes/channels themselves. All four org roles can view them
+      // server-side, which is why an Associate card showing only "View integrations ✗"
+      // read as more restrictive than the role actually is.
+      {
+        permission: Permission.MANAGE_MESSAGE_SOURCES,
+        label: 'Manage message sources (mailboxes, channels)',
+      },
+      { permission: Permission.VIEW_MESSAGE_SOURCES, label: 'View message sources' },
+      {
+        permission: Permission.ASSIGN_USERS_TO_SOURCES,
+        label: 'Assign members to message sources',
+      },
     ],
   },
   {

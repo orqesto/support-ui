@@ -5,6 +5,7 @@ import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { FeatureGate } from './components/common/FeatureGate';
+import { useRolePermissionMatrix } from '@/hooks/useRolePermissionMatrix';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Button } from './components/ui/Button';
@@ -144,6 +145,9 @@ const BillingRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 const AppRoutes = () => {
+  // Adopt the server's role → permission table, once, here. Everything that renders from
+  // permissions reads it via usePermissions; this is the only place that fetches it.
+  useRolePermissionMatrix();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
