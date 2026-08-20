@@ -31,6 +31,34 @@ export const MessageDetailPage = () => {
     if (message) navigate(`/tickets/create?messageId=${message.id}`);
   }, [message, navigate]);
 
+  /**
+   * Reclassify a filtered message — "this isn't junk, put it back".
+   *
+   * MessageDetail gates the whole filtered action block on `isFiltered &&
+   * onClassify`, so omitting this prop did not disable one button: it removed
+   * Approve and Move to Spam from the page entirely. The inbox slide-over passed
+   * it and the full page did not, so the same message offered different actions
+   * depending on how it was opened — and the Orphaned Outbound list links HERE,
+   * which left an orphan with no way out of the orphan lens at all.
+   *
+   * `onApprove` above is a different thing despite the name: it starts a ticket.
+   */
+  const handleClassify = useCallback(
+    async (
+      action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+      createDetectionRule?: boolean,
+      trainSpamFilter?: boolean
+    ) => {
+      if (!message) return;
+      await messageService.classify(message.id, action, createDetectionRule, trainSpamFilter);
+      // Re-read rather than patch locally: approve moves the status server-side
+      // (filtered → new) and the action strip renders off that status, so a stale
+      // copy would keep offering the action that has already been taken.
+      await fetchMessage(message.id);
+    },
+    [message]
+  );
+
   const fetchMessage = async (messageId: number | string, fullLoad = false) => {
     try {
       if (fullLoad) setLoading(true);
@@ -112,6 +140,7 @@ export const MessageDetailPage = () => {
               onReadChanged={() => fetchMessage(message.id)}
               onRefresh={() => fetchMessage(message.id)}
               onApprove={handleApprove}
+              onClassify={handleClassify}
               onReject={() => fetchMessage(message.id)}
               onReopen={() => fetchMessage(message.id)}
               onDelete={goBack}
