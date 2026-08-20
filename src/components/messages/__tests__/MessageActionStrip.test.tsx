@@ -81,3 +81,73 @@ describe('MessageActionStrip — action set per status', () => {
     expect(screen.queryByText('Resolve & Save to KB')).toBeNull();
   });
 });
+
+/**
+ * Orphaned outbound: our own sent mail with no inbound parent, saved as
+ * `status='filtered'` + `metadata.orphanOutgoing`. It is never spam-classified,
+ * so it carries no `spamCheck.category` and falls to the default filtered
+ * metadata — whose button is literally "Approve — Move to Open", the only way
+ * out of the orphan lens.
+ */
+describe('MessageActionStrip — orphaned outbound', () => {
+  const orphan = makeMessage({
+    status: 'filtered',
+    metadata: { orphanOutgoing: true, orphanReason: 'no_parent_match' },
+  });
+
+  it('offers "Approve — Move to Open" for an orphan', () => {
+    render(
+      <MessageActionStrip
+        message={orphan}
+        isFiltered
+        isSuspicious={false}
+        isActive={false}
+        resolving={false}
+        onClassify={vi.fn()}
+        onResolveWithoutReply={vi.fn()}
+        setRejectDialogOpen={vi.fn()}
+        setReopenDialogOpen={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Approve — Move to Open')).toBeTruthy();
+  });
+
+  it('renders NOTHING actionable when onClassify is missing', () => {
+    // The regression: the whole block is gated on `isFiltered && onClassify`, so a
+    // caller that omits the handler does not grey the button out — it removes the
+    // only exit from the orphan lens, silently.
+    render(
+      <MessageActionStrip
+        message={orphan}
+        isFiltered
+        isSuspicious={false}
+        isActive={false}
+        resolving={false}
+        onResolveWithoutReply={vi.fn()}
+        setRejectDialogOpen={vi.fn()}
+        setReopenDialogOpen={vi.fn()}
+      />
+    );
+    expect(screen.queryByText('Approve — Move to Open')).toBeNull();
+  });
+
+  it('calls classify with approve when clicked', () => {
+    const onClassify = vi.fn<(action: string) => Promise<void>>();
+    onClassify.mockResolvedValue(undefined);
+    render(
+      <MessageActionStrip
+        message={orphan}
+        isFiltered
+        isSuspicious={false}
+        isActive={false}
+        resolving={false}
+        onClassify={onClassify}
+        onResolveWithoutReply={vi.fn()}
+        setRejectDialogOpen={vi.fn()}
+        setReopenDialogOpen={vi.fn()}
+      />
+    );
+    screen.getByText('Approve — Move to Open').click();
+    expect(onClassify).toHaveBeenCalledWith('approve', undefined, undefined);
+  });
+});
