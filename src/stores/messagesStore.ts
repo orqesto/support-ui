@@ -50,6 +50,12 @@ export type LinkedTicketStatusFilter = 'all' | 'pending' | 'open' | 'in_progress
 
 export type FilterState = {
   messageSourceId?: string;
+  /**
+   * Show only threads that arrived at this address of ours. Distinct from
+   * messageSourceId: one source answers to several aliases, so the source
+   * picker cannot separate them.
+   */
+  receivedAt?: string;
   departmentId?: string;
   status?: MessageViewStatus;
   threadStatus?: ThreadStatusFilter;

@@ -20,6 +20,8 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartments } from '@/hooks/useDepartments';
+import { FilterCell } from '@/components/filters/FilterCell';
+import { ReceivedAtFilter } from './ReceivedAtFilter';
 import { isDepartmentServed } from '@/utils/departmentReachability';
 import { useFilterPanel } from '@/hooks/useFilterPanel';
 import { integrationsService, type Integration } from '@/services/integrations.service';
@@ -196,6 +198,13 @@ export const MessageFilters = ({
   if (filters.messageSourceId && filters.messageSourceId !== 'all') {
     const name = messageSources.find((src) => String(src.id) === filters.messageSourceId)?.name;
     activeChips.push({ key: 'messageSourceId', label: `Source: ${name ?? '—'}`, onRemove: () => onFilterChange('messageSourceId', 'all') });
+  }
+  if (filters.receivedAt && filters.receivedAt !== 'all') {
+    activeChips.push({
+      key: 'receivedAt',
+      label: `Received at: ${filters.receivedAt}`,
+      onRemove: () => onFilterChange('receivedAt', 'all'),
+    });
   }
   if (filters.departmentId && filters.departmentId !== 'all') {
     const name = activeDepts.find((dept) => String(dept.id) === filters.departmentId)?.name;
@@ -382,6 +391,17 @@ export const MessageFilters = ({
                     </FilterCell>
                   );
                 })}
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <ReceivedAtFilter
+                  value={filters.receivedAt}
+                  onChange={(value) => onFilterChange('receivedAt', value)}
+                  renderCell={(label, icon, control) => (
+                    <FilterCell label={label} icon={icon}>
+                      {control}
+                    </FilterCell>
+                  )}
+                />
               </div>
             </FilterSection>
           )}
@@ -691,22 +711,3 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
   );
 }
 
-function FilterCell({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 min-w-0">
-      <div className="flex gap-1 items-center">
-        {icon && <span className="shrink-0">{icon}</span>}
-        <span className="text-xs font-medium truncate text-muted-foreground">{label}</span>
-      </div>
-      <div className="w-full">{children}</div>
-    </div>
-  );
-}

@@ -86,6 +86,11 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
 
+        // RECEIVED AT — the alias cut the source picker can't make.
+        if (currentFilters.receivedAt && currentFilters.receivedAt !== 'all') {
+          apiFilters.receivedAt = currentFilters.receivedAt;
+        }
+
         // LIFECYCLE + QUEUE (new LIST-view dropdowns) — additive params. The BE
         // handles them independently of view/processed; they're mutually exclusive
         // in the FE (picking one resets the other to 'all'). When either is active

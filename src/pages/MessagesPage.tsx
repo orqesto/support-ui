@@ -688,6 +688,8 @@ export const MessagesPage = () => {
                       filterObj.processed = filters.threadStatus as string;
                     if (filters.messageSourceId && filters.messageSourceId !== 'all')
                       filterObj.messageSourceId = filters.messageSourceId;
+                    if (filters.receivedAt && filters.receivedAt !== 'all')
+                      filterObj.receivedAt = filters.receivedAt;
                     if (filters.departmentId && filters.departmentId !== 'all') {
                       if (filters.departmentId === 'needs_routing') {
                         filterObj.view = 'needs_routing';
