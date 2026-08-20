@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useWorkspaceScope } from '@/contexts/WorkspaceScopeContext';
+import { useRoleMatrixStore } from '@/stores/roleMatrixStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
   hasPermission,
@@ -28,6 +29,15 @@ export const usePermissions = () => {
   // The scope's org_admin comes from D-04 (alliance_admin→org_admin); home-org
   // permissionOverrides do not apply to a different org, so they are dropped here.
   const workspaceScope = useWorkspaceScope();
+  // The role table itself comes from the server (see useRolePermissionMatrix, fetched once
+  // at the app root). This SUBSCRIPTION is the whole reason the line exists:
+  // `applyServerRolePermissions` swaps a module-level constant, which React cannot observe,
+  // so without it consumers would keep rendering the baked-in table for the entire session.
+  //
+  // The value is deliberately unused. The functions returned below read the table at CALL
+  // time, so they are already current once a re-render happens — subscribing forces that
+  // re-render, and adding `revision` to the memo deps below would buy nothing.
+  useRoleMatrixStore((state) => state.revision);
 
   const userRole: GlobalRole = user?.role ?? 'user';
   const orgRole: OrganizationRole | undefined =

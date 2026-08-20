@@ -78,6 +78,13 @@ export const Permission = {
   MANAGE_AI_MODULES: 'manage_ai_modules',
   VIEW_BILLING: 'view_billing',
   MANAGE_BILLING: 'manage_billing',
+
+  // Message sources, and the department-assignment lever. These four exist server-side
+  // but were never declared here, so no role could be shown as holding them.
+  ASSIGN_USERS_TO_SOURCES: 'assign_users_to_sources',
+  MANAGE_MEMBER_DEPARTMENTS: 'manage_member_departments',
+  MANAGE_MESSAGE_SOURCES: 'manage_message_sources',
+  VIEW_MESSAGE_SOURCES: 'view_message_sources',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -94,14 +101,17 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
   org_admin: [
     Permission.VIEW_USERS,
     Permission.CREATE_USERS,
-    Permission.DELETE_USERS,
     Permission.MANAGE_USERS,
+    Permission.DELETE_USERS,
+    Permission.MANAGE_MEMBER_DEPARTMENTS,
     Permission.MANAGE_ORGANIZATION,
     Permission.VIEW_ORGANIZATION_SETTINGS,
     Permission.MANAGE_INTEGRATIONS,
     Permission.VIEW_INTEGRATIONS,
     Permission.MANAGE_CATEGORIES,
     Permission.VIEW_CATEGORIES,
+    Permission.MANAGE_LABELS,
+    Permission.VIEW_LABELS,
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
     Permission.VIEW_AI_SETTINGS,
@@ -114,12 +124,15 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_MESSAGES,
     Permission.DELETE_MESSAGES,
     Permission.PROCESS_MESSAGES,
+    Permission.MANAGE_MESSAGE_SOURCES,
+    Permission.VIEW_MESSAGE_SOURCES,
+    Permission.ASSIGN_USERS_TO_SOURCES,
     Permission.VIEW_STATISTICS,
     Permission.VIEW_REPORTS,
-    Permission.MANAGE_LABELS,
-    Permission.VIEW_LABELS,
+    Permission.VIEW_AUDIT_LOGS,
     Permission.VIEW_SUBSCRIPTION,
     Permission.MANAGE_SUBSCRIPTION,
+    Permission.VIEW_USAGE_STATS,
     Permission.MANAGE_AI_MODULES,
     Permission.VIEW_BILLING,
     Permission.MANAGE_BILLING,
@@ -128,11 +141,14 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
   // Moderator
   moderator: [
     Permission.VIEW_USERS,
+    Permission.MANAGE_MEMBER_DEPARTMENTS,
     Permission.VIEW_ORGANIZATION_SETTINGS,
     Permission.MANAGE_INTEGRATIONS,
     Permission.VIEW_INTEGRATIONS,
     Permission.MANAGE_CATEGORIES,
     Permission.VIEW_CATEGORIES,
+    Permission.MANAGE_LABELS,
+    Permission.VIEW_LABELS,
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
     Permission.VIEW_AI_SETTINGS,
@@ -143,10 +159,13 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_MESSAGES,
     Permission.VIEW_MESSAGES,
     Permission.PROCESS_MESSAGES,
-    Permission.MANAGE_LABELS,
-    Permission.VIEW_LABELS,
+    Permission.MANAGE_MESSAGE_SOURCES,
+    Permission.VIEW_MESSAGE_SOURCES,
+    Permission.ASSIGN_USERS_TO_SOURCES,
     Permission.VIEW_STATISTICS,
+    Permission.VIEW_AUDIT_LOGS,
     Permission.VIEW_SUBSCRIPTION,
+    Permission.VIEW_USAGE_STATS,
   ],
 
   // Support
@@ -159,19 +178,68 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_MESSAGES,
     Permission.VIEW_MESSAGES,
     Permission.PROCESS_MESSAGES,
+    Permission.VIEW_MESSAGE_SOURCES,
     Permission.VIEW_LABELS,
     Permission.VIEW_STATISTICS,
     Permission.VIEW_SUBSCRIPTION,
+    Permission.VIEW_USAGE_STATS,
   ],
 
   // Associate
   associate: [
     Permission.VIEW_TICKETS,
     Permission.VIEW_MESSAGES,
+    Permission.VIEW_MESSAGE_SOURCES,
     Permission.VIEW_STATISTICS,
     Permission.REQUEST_TICKET_CHANGE,
     Permission.REQUEST_MESSAGE_CHANGE,
   ],
+};
+
+/**
+ * The table actually used to compute permissions.
+ *
+ * Starts as the baked-in `rolePermissions` above and is replaced once the server's own
+ * table arrives (`GET /api/roles/permission-matrix`, applied by `useRolePermissionMatrix`).
+ *
+ * 🔑 This exists because the baked-in copy is a SECOND copy. On 2026-08-20 it was short
+ * six permissions across all four org roles — `view_message_sources`, `view_usage_stats`,
+ * `view_audit_logs`, `manage_message_sources`, `assign_users_to_sources`,
+ * `manage_member_departments` — and since navigation is gated on `hasPermission`, an
+ * org_admin was shown no Audit Logs and no Usage Stats entry while the API served both
+ * perfectly well. The algorithm had never drifted; only the data had. So the algorithm
+ * stays here and the data comes from the server.
+ *
+ * The local copy remains as the first-paint value (and the offline fallback), which is why
+ * it is still kept correct rather than emptied — a wrong fallback would flash the wrong
+ * navigation before the matrix lands.
+ */
+let activeRolePermissions: Record<UserRole, Permission[]> = rolePermissions;
+
+/**
+ * Adopt the server's role table. Ignores anything malformed rather than throwing: a bad
+ * payload must degrade to the baked-in defaults, never blank the UI.
+ */
+export const applyServerRolePermissions = (
+  matrix: Partial<Record<UserRole, string[]>> | null | undefined
+): void => {
+  if (!matrix || typeof matrix !== 'object') return;
+  const next = { ...rolePermissions };
+  let applied = false;
+  for (const [role, perms] of Object.entries(matrix)) {
+    if (!Array.isArray(perms)) continue;
+    if (!(role in rolePermissions)) continue; // a role this build does not know about
+    next[role as UserRole] = perms.filter(
+      (perm): perm is Permission => typeof perm === 'string'
+    );
+    applied = true;
+  }
+  if (applied) activeRolePermissions = next;
+};
+
+/** Test seam — drop back to the baked-in table between cases. */
+export const resetRolePermissionsForTests = (): void => {
+  activeRolePermissions = rolePermissions;
 };
 
 /**
@@ -220,11 +288,11 @@ export const computeEffectivePermissions = (
   overrides?: PermissionOverrides | null
 ): Set<Permission> => {
   if (userRole === 'admin' || orgRole === 'org_admin') {
-    return new Set(rolePermissions[userRole === 'admin' ? 'admin' : 'org_admin']);
+    return new Set(activeRolePermissions[userRole === 'admin' ? 'admin' : 'org_admin']);
   }
   const base = new Set<Permission>();
-  if (orgRole) for (const perm of rolePermissions[orgRole] ?? []) base.add(perm);
-  for (const perm of rolePermissions[userRole] ?? []) base.add(perm);
+  if (orgRole) for (const perm of activeRolePermissions[orgRole] ?? []) base.add(perm);
+  for (const perm of activeRolePermissions[userRole] ?? []) base.add(perm);
   if (!overrides) return base;
   const addedList = Array.isArray(overrides.added) ? overrides.added : [];
   const removedList = Array.isArray(overrides.removed) ? overrides.removed : [];
