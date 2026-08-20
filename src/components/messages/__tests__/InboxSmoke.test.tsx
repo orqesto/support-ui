@@ -24,6 +24,7 @@ vi.mock('@/lib/messageHelpers', () => ({
 vi.mock('@/lib/utils', () => ({
   formatDate: vi.fn().mockReturnValue('Jan 1, 2026'),
   formatAge: vi.fn().mockReturnValue('1d ago'),
+  formatWhen: vi.fn().mockReturnValue('01 Jan 10:00 · 1d'),
   formatDuration: vi.fn().mockReturnValue('0m'),
   safeCssColor: (color: string) => color,
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
