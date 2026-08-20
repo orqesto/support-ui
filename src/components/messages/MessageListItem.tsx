@@ -117,7 +117,8 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
   const statusBadge = getStatusBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
 
-  // Per-user read/unread (triage queues only): unread = dot + bold; read = muted.
+  // Shared org-wide read/unread (triage queues only): unread = dot + bold; read =
+  // muted. Another agent reading the thread mutes it here too, on the next fetch.
   const isTriage = isTriageMessage(msg);
   const serverIsRead = thread.isRead ?? false;
   const effectiveIsRead =

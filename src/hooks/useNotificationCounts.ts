@@ -34,8 +34,9 @@ const ARRIVAL_KINDS = new Set<string>(['suspicious_arrival', 'spam_arrival']);
  * (dept-scoped server-side via the X-Department-Context header). Live-refreshes on the
  * `notification:new` WS ping and polls every 60s as a fallback.
  *
- * `clearKind` marks that kind read for the current user (`PATCH /read-all?kind=`) — the
- * per-user "reviewed → badge clears" action.
+ * `clearKind` marks that kind read (`PATCH /read-all?kind=`) — the "reviewed → badge
+ * clears" action. For the two ARRIVAL kinds the server treats that read as shared, so
+ * it clears the badge for the whole team, not just the clicking agent.
  */
 export const useNotificationCounts = () => {
   const orgId = useAuthStore(
@@ -83,19 +84,25 @@ export const useNotificationCounts = () => {
     // Without this the badge lingered until the 60s poll — the "I removed messages but
     // the count didn't clear" symptom.
     const handleRemoved = () => invalidate();
-    // A notification was marked read for this user — from the notification panel OR
-    // (server-side) when its conversation is marked read. The acting user is in their
-    // own `user-<id>` room so this fires for them too, decrementing the arrival badge
-    // live. Without it, "Mark as read" cleared the per-thread dot but the count stuck
-    // until the 60s poll (client-reported).
+    // A notification was marked read — from the notification panel OR (server-side)
+    // when its conversation is marked read. Arrival reads are SHARED: the server
+    // broadcasts them to the whole `org-<id>` room, so one agent handling a thread
+    // drops the badge for every agent, not just their own sessions. Without this,
+    // "Mark as read" cleared the per-thread dot but the count stuck until the 60s
+    // poll (client-reported).
     const handleRead = () => invalidate();
+    // The mirror image: marking a thread unread restores its arrival notification for
+    // the team, so the badge has to come back just as promptly as it went away.
+    const handleUnread = () => invalidate();
     subscribeToEvent('notification:new', handleNew);
     subscribeToEvent('notification:removed', handleRemoved);
     subscribeToEvent('notification:read', handleRead);
+    subscribeToEvent('notification:unread', handleUnread);
     return () => {
       unsubscribeFromEvent('notification:new', handleNew);
       unsubscribeFromEvent('notification:removed', handleRemoved);
       unsubscribeFromEvent('notification:read', handleRead);
+      unsubscribeFromEvent('notification:unread', handleUnread);
       releaseSocket();
     };
   }, [queryClient, orgId, deptKey]);
