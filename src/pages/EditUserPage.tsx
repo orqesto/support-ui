@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Lock } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
@@ -75,6 +75,8 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
+  // The role permission matrix is dense; keep it collapsed by default and reveal on demand.
+  const [showRolePermissions, setShowRolePermissions] = useState(false);
   const [orgChangeDialog, setOrgChangeDialog] = useState({ open: false, newOrgId: 0 });
   const [generalDeptUnlinkConfirm, setGeneralDeptUnlinkConfirm] = useState({ open: false, deptId: 0 });
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
@@ -220,20 +222,34 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
     goBack();
   };
 
-  const buildUpdatePayload = () => ({
-    firstName: firstName.trim() ?? undefined,
-    lastName: lastName.trim() ?? undefined,
-    position: canEditPosition ? (position.trim() ?? undefined) : undefined,
-    telegram: telegram.trim() ?? undefined,
-    slack: slack.trim() ?? undefined,
-    phone: phone.trim() ?? undefined,
-    // Global role is managed in the platform console (Platform › Users), not here.
-    // IdP-owned fields are skipped for SCIM-managed members (D2-01) so an in-app save
-    // can never fight the IdP's derivation.
-    organizationRole: canEditRoles && !roleReadOnly ? organizationRole : undefined,
-    departmentIds: canEditRoles && !deptReadOnly ? selectedDepartmentIds : undefined,
-    permissionOverrides: canEditRoles ? permissionOverrides : undefined,
-  });
+  const buildUpdatePayload = () => {
+    // Send role / departments / overrides ONLY when they actually changed from the loaded member.
+    // Sending them unconditionally is how a stale or fallback-seeded form could silently downgrade
+    // a role or wipe departments on Save (the server replaces on any provided value — an empty
+    // departmentIds array clears all rows). Gating on a real change makes an untouched field a no-op.
+    const roleChanged = organizationRole !== (user?.organizationRole ?? 'associate');
+    const deptsChanged =
+      JSON.stringify([...selectedDepartmentIds].sort()) !==
+      JSON.stringify([...(user?.departmentIds ?? [])].sort());
+    const overridesChanged =
+      JSON.stringify(permissionOverrides) !== JSON.stringify(user?.permissionOverrides ?? {});
+    return {
+      firstName: firstName.trim() ?? undefined,
+      lastName: lastName.trim() ?? undefined,
+      position: canEditPosition ? (position.trim() ?? undefined) : undefined,
+      telegram: telegram.trim() ?? undefined,
+      slack: slack.trim() ?? undefined,
+      phone: phone.trim() ?? undefined,
+      // Global role is managed in the platform console (Platform › Users), not here.
+      // IdP-owned fields are skipped for SCIM-managed members (D2-01) so an in-app save
+      // can never fight the IdP's derivation.
+      organizationRole:
+        canEditRoles && !roleReadOnly && roleChanged ? organizationRole : undefined,
+      departmentIds:
+        canEditRoles && !deptReadOnly && deptsChanged ? selectedDepartmentIds : undefined,
+      permissionOverrides: canEditRoles && overridesChanged ? permissionOverrides : undefined,
+    };
+  };
 
   const performUpdate = async () => {
     if (!user) return;
@@ -465,7 +481,24 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                   )}
                 </div>
 
-                <RoleInfoCard role={organizationRole} compact />
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRolePermissions((prev) => !prev)}
+                    aria-expanded={showRolePermissions}
+                    className="flex gap-1 items-center text-sm font-medium transition-colors text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronRight
+                      className={`w-4 h-4 transition-transform ${showRolePermissions ? 'rotate-90' : ''}`}
+                    />
+                    {showRolePermissions ? 'Hide role permissions' : 'View role permissions'}
+                  </button>
+                  {showRolePermissions && (
+                    <div className="mt-2">
+                      <RoleInfoCard role={organizationRole} compact />
+                    </div>
+                  )}
+                </div>
 
                 <UserDepartmentsField
                   departments={availableDepartments}
