@@ -14,6 +14,7 @@ import {
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
+import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
@@ -279,6 +280,11 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
           )}
           <p className={`text-sm truncate ${senderClass}`}>{thread.sender}</p>
         </div>
+
+        {/* Which of our addresses this arrived at. A mailbox answers to several
+            aliases, so the source's name doesn't answer it. Renders nothing at
+            all for mail ingested before the BE recorded it. */}
+        <ReceivedAtAddresses recipients={msg.recipients} />
 
         {/* Subject (muted) */}
         {msg.subject && <p className="text-xs text-muted-foreground truncate">{msg.subject}</p>}

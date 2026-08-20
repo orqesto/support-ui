@@ -68,6 +68,21 @@ export type User = {
   updatedAt?: string;
 };
 
+/**
+ * The addresses a message was delivered to.
+ *
+ * One mailbox answers to several — info@, sales@ and support@ can all land in
+ * the same integration — so this is what tells an agent which of our addresses
+ * a customer actually wrote to. Undefined on every message ingested before the
+ * BE started recording it, so every render site must tolerate its absence
+ * rather than reach into the lists.
+ */
+export type MessageRecipients = {
+  to: string[];
+  cc: string[];
+  bcc: string[];
+};
+
 export type Message = {
   id: number;
   // Jira-style human-readable ID (e.g. 'SUP-42'). Set once routing settles;
@@ -120,6 +135,10 @@ export type Message = {
    * means the rule does not apply, not that it is unknown.
    */
   whatsappWindow?: WhatsAppWindow | null;
+  // Which of our addresses this thread arrived at. Thread-level: the BE
+  // denormalises it from the message that opened the conversation. Absent on
+  // pre-existing mail and on channels with no addressing.
+  recipients?: MessageRecipients | null;
 };
 
 export type MessageEvent = {
@@ -136,6 +155,9 @@ export type MessageEvent = {
   createdAt: string;
   updatedAt?: string;
   metadata?: Record<string, unknown> | null;
+  // Per-message: a reply can be addressed differently from the message that
+  // opened the thread, so this is not the same value as Message.recipients.
+  recipients?: MessageRecipients | null;
   assigneeName?: string | null;
 };
 

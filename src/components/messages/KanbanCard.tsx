@@ -9,6 +9,7 @@ import {
   Plus,
   Ticket,
 } from 'lucide-react';
+import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -237,6 +238,9 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
         </span>
         <span className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{customer}</span>
       </div>
+
+      {/* Which of our addresses this arrived at — see MessageListItem. */}
+      <ReceivedAtAddresses recipients={msg.recipients} />
 
       {/* Subject row — muted, separate from sender for breathing room */}
       {msg.subject && (

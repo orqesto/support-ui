@@ -4,6 +4,11 @@
 /* eslint-disable max-lines */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
+  draftToRecipients,
+  emptyRecipientDraft,
+  type RecipientDraft,
+} from './RecipientFields';
+import {
   messageService,
   type AiDraft,
   type MessageNote,
@@ -402,6 +407,12 @@ export function MessageDetail({
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  // Email-only: addressing is meaningless on channels whose transport has no
+  // concept of a second recipient, and offering it there would promise something
+  // the send path cannot honour.
+  const supportsRecipients = message.channel === 'email';
+  const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
+
   const handleSend = useCallback(async () => {
     // Require real text — blocks Ctrl+Enter attachment-only sends the disabled
     // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
@@ -414,6 +425,9 @@ export function MessageDetail({
       sendIdempotencyKeyRef.current = crypto.randomUUID();
     }
     const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
+    // Undefined unless the agent actually addressed this reply somewhere, which
+    // the BE reads as "the requester and nobody else".
+    const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
     try {
       if (composerMode === 'note') {
         await messageService.addNote(message.id, composer);
@@ -426,7 +440,8 @@ export function MessageDetail({
           aiSource !== null,
           aiSource ?? undefined,
           idempotencyKey,
-          aiDraft ?? undefined
+          aiDraft ?? undefined,
+          recipients
         );
       } else {
         await messageService.reply(
@@ -436,7 +451,9 @@ export function MessageDetail({
           aiSource !== null,
           aiSource ?? undefined,
           idempotencyKey,
-          aiDraft ?? undefined
+          aiDraft ?? undefined,
+          undefined,
+          recipients
         );
       }
       sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
@@ -444,6 +461,7 @@ export function MessageDetail({
       setAiSource(null);
       setAiDraft(null);
       setSelectedFiles([]);
+      setRecipientDraft(emptyRecipientDraft());
       setThreadRefreshKey((key) => key + 1);
       // A sent reply (not an internal note) flips the conversation to Pending —
       // move the board card optimistically before the heavier onRefresh reconcile.
@@ -458,7 +476,7 @@ export function MessageDetail({
     } finally {
       setSubmitting(false);
     }
-  }, [aiDraft, aiSource, composer, composerMode, message.id, onRefresh, onReplied, selectedFiles]);
+  }, [aiDraft, aiSource, composer, composerMode, message.id, onRefresh, onReplied, recipientDraft, selectedFiles, supportsRecipients]);
 
   const handleOpenTemplates = useCallback(async () => {
     setTemplateError(null);
@@ -859,6 +877,8 @@ export function MessageDetail({
               ? () => void handleOpenTemplates()
               : null
           }
+          recipientDraft={supportsRecipients ? recipientDraft : undefined}
+          onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
         />
       )}
 
