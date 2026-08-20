@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
+import { parseTypedAddresses } from './RecipientFields';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { messageService } from '@/services/message.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
@@ -40,6 +41,11 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
 
   const [messageSourceId, setMessageSourceId] = useState<number | null>(null);
   const [to, setTo] = useState('');
+  // Comma/space separated, parsed on submit. Revealed on demand — most outbound
+  // mail is to one person and a permanently-open pair of empty fields is noise.
+  const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
+  const [showCcBcc, setShowCcBcc] = useState(false);
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -56,6 +62,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   useEffect(() => {
     if (!open) return;
     setTo('');
+    setCc('');
+    setBcc('');
+    setShowCcBcc(false);
     setSubject('');
     setContent('');
     setFiles([]);
@@ -130,6 +139,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       const response = await messageService.composeNew({
         messageSourceId,
         to: to.trim(),
+        cc: parseTypedAddresses(cc),
+        bcc: parseTypedAddresses(bcc),
         subject: subject.trim(),
         content: content.trim(),
         attachments: files.length > 0 ? files : undefined,
@@ -202,6 +213,40 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
             disabled={submitting}
             required
           />
+
+          {!showCcBcc && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCcBcc(true)}
+              disabled={submitting}
+              className="h-auto self-start px-1 py-0 text-xs"
+            >
+              Add Cc / Bcc
+            </Button>
+          )}
+
+          {showCcBcc && (
+            <>
+              <Input
+                label="Cc"
+                type="text"
+                placeholder="one@example.com, two@example.com"
+                value={cc}
+                onChange={(event) => setCc(event.target.value)}
+                disabled={submitting}
+              />
+              <Input
+                label="Bcc"
+                type="text"
+                placeholder="Hidden from the other recipients"
+                value={bcc}
+                onChange={(event) => setBcc(event.target.value)}
+                disabled={submitting}
+              />
+            </>
+          )}
 
           <Input
             label="Subject"

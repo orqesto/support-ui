@@ -58,6 +58,7 @@ import {
   type InboxBadge,
 } from './messageDetailConstants';
 import { HeaderMetaStrip } from './HeaderMetaStrip';
+import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -773,6 +774,14 @@ export function MessageDetailHeader({
             History
           </Link>
         </div>
+        {/* Which of our addresses the customer wrote to, listed To/Cc/Bcc the way
+            a mail client does. The integration answers to several aliases, so
+            this is the only thing that distinguishes them. */}
+        <ReceivedAtAddresses
+          recipients={message.recipients}
+          variant="detail"
+          className="mt-1.5 pl-[26px]"
+        />
       </div>
 
       {/* Ticket bar */}

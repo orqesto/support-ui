@@ -86,6 +86,20 @@ export type MessageContactSubject = {
   hasTicket: boolean;
 };
 
+/**
+ * Who an outbound reply is addressed to.
+ *
+ * All three are optional and an empty list is never sent: the BE reads an absent
+ * `to` as "the thread's requester and nobody else". Reply-all is something the
+ * agent does on purpose — on a shared support inbox the accidental version
+ * discloses the thread to whoever the customer happened to cc.
+ */
+export type ReplyRecipients = {
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
+};
+
 export type MessageThread = {
   threadId: string;
   messageCount: number;
@@ -227,7 +241,7 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, whatsappTemplate?: WhatsAppTemplateSend) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, whatsappTemplate?: WhatsAppTemplateSend, recipients?: ReplyRecipients) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       // Omitted entirely for a template send: the server renders the body from the
       // approved template, and a body we invented here would not be what Meta delivers.
@@ -238,6 +252,12 @@ export const messageService = {
       ...(idempotencyKey && { idempotencyKey }),
       ...(aiDraft && { aiDraft }),
       ...(whatsappTemplate && { whatsappTemplate }),
+      // Omitted entirely when the agent left the fields alone. The BE reads an
+      // absent `to` as "the requester, nobody else" — sending `[]` would be a
+      // different statement, and reply-all must stay an explicit act.
+      ...(recipients?.to?.length && { to: recipients.to }),
+      ...(recipients?.cc?.length && { cc: recipients.cc }),
+      ...(recipients?.bcc?.length && { bcc: recipients.bcc }),
     });
     return response.data;
   },
@@ -261,7 +281,7 @@ export const messageService = {
     }
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft) => {
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, recipients?: ReplyRecipients) => {
     const formData = new FormData();
     formData.append('content', content);
     formData.append('resolve', String(resolve));
@@ -272,6 +292,11 @@ export const messageService = {
     // a string, so the attachment path captures reply_style exactly like the
     // JSON path does.
     if (aiDraft) formData.append('aiDraft', JSON.stringify(aiDraft));
+    // Same JSON-string trick as aiDraft: multipart carries no arrays, and the BE
+    // preprocesses these fields back from a string on this path.
+    if (recipients?.to?.length) formData.append('to', JSON.stringify(recipients.to));
+    if (recipients?.cc?.length) formData.append('cc', JSON.stringify(recipients.cc));
+    if (recipients?.bcc?.length) formData.append('bcc', JSON.stringify(recipients.bcc));
 
     files.forEach((file) => {
       formData.append('attachments', file);
@@ -290,6 +315,8 @@ export const messageService = {
   composeNew: async (input: {
     messageSourceId: number;
     to: string;
+    cc?: string[];
+    bcc?: string[];
     subject: string;
     content: string;
     attachments?: File[];
@@ -297,6 +324,12 @@ export const messageService = {
     const formData = new FormData();
     formData.append('messageSourceId', String(input.messageSourceId));
     formData.append('to', input.to);
+    // JSON-encoded, like aiDraft on the reply path: multipart has no array type,
+    // and multer would hand the BE a bare string for one address and an array for
+    // two — a shape that changes with the input is a validation bug waiting to
+    // happen. The BE preprocesses these back.
+    if (input.cc?.length) formData.append('cc', JSON.stringify(input.cc));
+    if (input.bcc?.length) formData.append('bcc', JSON.stringify(input.bcc));
     formData.append('subject', input.subject);
     formData.append('content', input.content);
     input.attachments?.forEach((file) => formData.append('attachments', file));

@@ -7,6 +7,7 @@ import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextE
 import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { RecipientFields, type RecipientDraft } from './RecipientFields';
 import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
 import { MONO } from './messageDetailConstants';
@@ -43,6 +44,13 @@ export type MessageComposerProps = {
    */
   onUseTemplate?: (() => void) | null;
   /**
+   * To/Cc/Bcc for this reply. Absent for channels with no addressing — the
+   * fields are only meaningful on email, and a Cc box on a Telegram thread
+   * would be a promise the transport can't keep.
+   */
+  recipientDraft?: RecipientDraft;
+  onRecipientDraftChange?: (draft: RecipientDraft) => void;
+  /**
    * Reports which AI mode produced the text now in the composer (null when the
    * agent undoes back to their own text), so the send can be stamped with its
    * true author. The second argument is that draft as applied, carried on the
@@ -58,6 +66,8 @@ export function MessageComposer({
   composer,
   setComposer,
   composerMode,
+  recipientDraft,
+  onRecipientDraftChange,
   submitting,
   onSend,
   richEditorRef,
@@ -155,6 +165,16 @@ export function MessageComposer({
               : 'border-border bg-card'
         }`}
       >
+        {/* Addressing, above the editor as in any mail client. Reply-only: an
+            internal note is not delivered to anyone. */}
+        {composerMode === 'reply' && recipientDraft && onRecipientDraftChange && (
+          <RecipientFields
+            draft={recipientDraft}
+            onChange={onRecipientDraftChange}
+            defaultTo={message.sender}
+            disabled={submitting}
+          />
+        )}
         {composerMode === 'reply' ? (
           <RichTextEditor
             ref={richEditorRef}

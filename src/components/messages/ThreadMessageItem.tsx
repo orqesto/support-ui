@@ -6,6 +6,7 @@ import type { MessageEvent } from '@/types';
 import { ThreadBubble } from './ThreadBubble';
 import { relativeTime, getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
+import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 
 type Props = {
   msg: MessageEvent;
@@ -43,6 +44,12 @@ export function ThreadMessageItem({
             <span>{msg.authorEmail ?? 'Support'}</span>
             <span>{relativeTime(msgTime)}</span>
           </div>
+          {/* Who this particular reply went to. Per-message, not per-thread: a
+              reply can be addressed differently from the message that opened the
+              conversation. This is also the ONLY place a bcc is ever visible —
+              it cannot be recovered from the mail itself, so if the shared inbox
+              doesn't show it here, nobody can answer "who else got this". */}
+          <ReceivedAtAddresses recipients={msg.recipients} variant="detail" className="mb-0.5" />
           <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed">
             <div className="flex items-start gap-1.5">
               <div className="flex-1 min-w-0 break-words">
