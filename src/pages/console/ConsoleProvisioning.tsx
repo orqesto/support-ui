@@ -15,7 +15,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Toggle } from '@/components/ui/Toggle';
 import { Badge } from '@/components/ui/Badge';
@@ -27,6 +26,7 @@ import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { ScimEventLedgerCard } from '@/components/console/ScimEventLedgerCard';
 import { ScimTelemetryCard } from '@/components/console/ScimTelemetryCard';
+import { AllianceAdminProposalsCard } from '@/components/console/AllianceAdminProposalsCard';
 import { SyncedGroupsCard } from '@/components/console/SyncedGroupsCard';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import {
@@ -45,7 +45,6 @@ import {
 } from '@/hooks/useAllianceProvisioning';
 import {
   allianceScimBaseUrl,
-  type AllianceRole,
   type AllianceGroupMapping,
   type AllianceRoleMapping,
 } from '@/services/alliance-scim.service';
@@ -68,11 +67,6 @@ import {
  */
 
 /** Alliance-role options for the role-map Select. */
-const ROLE_OPTIONS: { value: AllianceRole; label: string }[] = [
-  { value: 'alliance_agent', label: 'Alliance agent' },
-  { value: 'alliance_admin', label: 'Alliance admin (elevated)' },
-];
-
 /** A read-only, monospace, copy-able value (the SCIM base URL). */
 const CopyField = ({ label, value }: { label: string; value: string }) => {
   const [copied, setCopied] = useState(false);
@@ -292,6 +286,8 @@ export const ConsoleProvisioning = () => {
       {/* ─── Synced ("draft") IdP groups — visibility + one-click wire ─────── */}
       {numericId !== null && <SyncedGroupsCard allianceId={numericId} />}
 
+      {numericId !== null && <AllianceAdminProposalsCard allianceId={numericId} />}
+
       {/* ─── Connector event ledger (read-only; 404-tolerant, hides on old BE) ─ */}
       <ScimEventLedgerCard allianceId={numericId} telemetry={telemetryQuery.data} />
 
@@ -468,8 +464,9 @@ export const ConsoleProvisioning = () => {
             IdP group → alliance role
           </CardTitle>
           <CardDescription>
-            Grant an alliance role to members of an IdP group. This is the only way IdP sync can raise
-            a member above the default alliance-agent floor.
+            Legacy mappings that still grant an alliance role to members of an IdP group. New ones
+            are no longer created here — the alliance power now follows from the workspaces a
+            member administers, proposed above. Remove a mapping to retire it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -500,39 +497,14 @@ export const ConsoleProvisioning = () => {
                     <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
                   </div>
                   <div className="flex-1 min-w-[12rem]">
-                    <Label htmlFor={`role-${mapping.id}`} className="mb-1">
-                      Alliance role
-                    </Label>
-                    <Select
-                      id={`role-${mapping.id}`}
-                      value={mapping.mappedRole}
-                      onChange={(event) => {
-                        const next = event.target.value as AllianceRole;
-                        if (next === mapping.mappedRole) {
-                          return;
-                        }
-                        // Elevating an existing mapping to alliance_admin must be a
-                        // deliberate, confirmed action (grants admin across every org).
-                        if (next === 'alliance_admin') {
-                          setConfirm({
-                            kind: 'elevate',
-                            idpGroupExternalId: mapping.idpGroupExternalId,
-                            label: mapping.idpGroupExternalId,
-                          });
-                          return;
-                        }
-                        setRoleMap.mutate({
-                          idpGroupExternalId: mapping.idpGroupExternalId,
-                          mappedRole: next,
-                        });
-                      }}
-                    >
-                      {ROLE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
+                    <Label className="mb-1">Alliance role</Label>
+                    {/* Read-out, not a control. The alliance power is derived from workspace
+                        grants and confirmed in "Suggested alliance admins" — wiring an IdP group
+                        straight to an alliance role is the layer that collapsed. Existing
+                        mappings stay visible and removable so nothing grants invisibly. */}
+                    <p className="py-2 text-sm font-medium text-foreground">
+                      {mapping.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Member'}
+                    </p>
                   </div>
                   <Tooltip content={`Remove role mapping for ${mapping.idpGroupExternalId}`}>
                     <Button

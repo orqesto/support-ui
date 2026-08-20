@@ -33,7 +33,8 @@ export type AllianceMember = {
   userId: number;
   name: string;
   email: string | null;
-  allianceRole: AllianceRole;
+  // null = an alliance member holding no alliance power (BE mig 0089).
+  allianceRole: AllianceRole | null;
   effectiveRoles: EffectiveRole[];
   /** false ⇒ deactivated (no active workspace access, cannot log in). Optional for
    *  backward-compat with a backend that predates the field — treat absent as active. */
@@ -43,6 +44,15 @@ export type AllianceMember = {
 };
 
 const BASE = '/api/alliances';
+
+/** A member the workspace grants already describe as an alliance administrator. */
+export type AllianceAdminProposal = {
+  userId: number;
+  name: string;
+  email: string;
+  /** The workspaces they already administer — the argument for the grant. */
+  adminOf: Array<{ orgId: number; orgName: string }>;
+};
 
 export const allianceAdminService = {
   /** Real orgs/members/groups counts + connection status for one alliance. */
@@ -93,6 +103,28 @@ export const allianceAdminService = {
   },
 
   // ─── Members ───────────────────────────────────────────────────────────────
+  /**
+   * Members whose WORKSPACE grants already describe an alliance administrator — org-admin on
+   * more than one workspace of this alliance — but who hold no alliance power.
+   *
+   * A proposal, never a grant: confirming goes through `changeMemberRole`, so a human owns it.
+   *
+   * Returns [] rather than throwing when the endpoint is absent. The frontend deploys on merge
+   * while the backend ships on its own cadence, so this route 404s in production until the
+   * alliance-axis PR lands — and while it does, the card must simply not appear rather than
+   * break the Provisioning page around it.
+   */
+  listAdminProposals: async (allianceId: number): Promise<AllianceAdminProposal[]> => {
+    try {
+      const res = await apiClient.get<{ data: AllianceAdminProposal[] }>(
+        `${BASE}/${allianceId}/members/admin-proposals`
+      );
+      return res.data.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
   listMembersEffective: async (allianceId: number): Promise<AllianceMember[]> => {
     const res = await apiClient.get<{ data: AllianceMember[] }>(
       `${BASE}/${allianceId}/members`,
@@ -101,11 +133,19 @@ export const allianceAdminService = {
     return res.data.data;
   },
 
-  addMember: async (allianceId: number, userId: number, allianceRole: AllianceRole): Promise<void> => {
+  addMember: async (
+    allianceId: number,
+    userId: number,
+    allianceRole: AllianceRole | null
+  ): Promise<void> => {
     await apiClient.post(`${BASE}/${allianceId}/members`, { userId, allianceRole });
   },
 
-  changeMemberRole: async (allianceId: number, userId: number, allianceRole: AllianceRole): Promise<void> => {
+  changeMemberRole: async (
+    allianceId: number,
+    userId: number,
+    allianceRole: AllianceRole | null
+  ): Promise<void> => {
     await apiClient.patch(`${BASE}/${allianceId}/members/${userId}`, { allianceRole });
   },
 
