@@ -5,6 +5,7 @@ import {
   type DepartmentIdsByOrg,
   type GroupCreateInput,
 } from '@/services/alliance-groups.service';
+import { overridesEqual } from '@/types/roles';
 
 /** The mappable departments of one org, for the dept pickers. Disabled until an org is chosen. */
 export const useOrgDepartments = (allianceId: number | null, orgId: number | null) =>
@@ -71,11 +72,21 @@ export const useSaveGroup = (allianceId: number | null) => {
       const nameChanged = draft.name !== original.name;
       const descChanged = (draft.description ?? null) !== (original.description ?? null);
       const roleChanged = draft.orgRole !== original.orgRole;
-      if (nameChanged || descChanged || roleChanged) {
+      // Overrides ride on the same grant row as the role, so they patch together. The
+      // draft omits the key entirely against a backend that does not return it (see
+      // GroupEditor) — `undefined` must stay out of the request rather than be sent as
+      // an empty object, which the BE would read as "clear the overrides".
+      const overridesChanged =
+        draft.permissionOverrides !== undefined &&
+        !overridesEqual(draft.permissionOverrides, original.permissionOverrides);
+      if (nameChanged || descChanged || roleChanged || overridesChanged) {
         await allianceGroupsService.update(id, original.id, {
           name: draft.name,
           description: draft.description ?? null,
           orgRole: draft.orgRole,
+          ...(draft.permissionOverrides !== undefined && {
+            permissionOverrides: draft.permissionOverrides,
+          }),
         });
       }
       const orgsChanged =

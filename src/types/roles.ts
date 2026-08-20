@@ -186,6 +186,29 @@ export type PermissionOverrides = {
 };
 
 /**
+ * Structural equality on two override sets, order-independent — so a UI that
+ * serializes in a different order does not look like an edit. Mirrors the BE
+ * `overridesEqual`, and is defensive against malformed shapes for the same reason.
+ */
+export const overridesEqual = (
+  left: PermissionOverrides | null | undefined,
+  right: PermissionOverrides | null | undefined
+): boolean => {
+  const normalize = (val: PermissionOverrides | null | undefined) => ({
+    added: Array.isArray(val?.added) ? [...val.added].sort() : [],
+    removed: Array.isArray(val?.removed) ? [...val.removed].sort() : [],
+  });
+  const one = normalize(left);
+  const two = normalize(right);
+  return (
+    one.added.length === two.added.length &&
+    one.removed.length === two.removed.length &&
+    one.added.every((perm, index) => perm === two.added[index]) &&
+    one.removed.every((perm, index) => perm === two.removed[index])
+  );
+};
+
+/**
  * Compute the effective permission set (role defaults + added − removed).
  * Mirrors the BE computeEffectivePermissions: global admin and org_admin are
  * unconditionally bypassed (prevents self-lockout); malformed JSONB shapes
