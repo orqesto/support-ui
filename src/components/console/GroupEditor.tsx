@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -12,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
+import { useDeleteAllianceGroupMap } from '@/hooks/useAllianceProvisioning';
 import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import type { AllianceOrg, AllianceMember } from '@/services/alliance-admin.service';
 import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
@@ -53,6 +56,11 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   const [overridesSupported, setOverridesSupported] = useState(false);
 
   const save = useSaveGroup(allianceId);
+  const unwire = useDeleteAllianceGroupMap(allianceId);
+  const [unwireConfirm, setUnwireConfirm] = useState(false);
+  // Absent (old backend) is not the same as empty: with no field we simply can't tell who
+  // is IdP-managed, and marking nobody is the honest answer — never marking everybody.
+  const idpManagedMemberIds = group?.idpManagedMemberIds ?? [];
 
   // (Re)initialise the form whenever the drawer opens or the edited group changes.
   useEffect(() => {
@@ -189,6 +197,33 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           />
         )}
 
+        {group?.idpGroup && (
+          <Alert variant="info">
+            <div className="flex flex-wrap gap-2 justify-between items-center">
+              <span className="text-sm">
+                Members are synced from IdP group{' '}
+                <strong>{group.idpGroup.displayName ?? group.idpGroup.externalId}</strong>
+                {group.idpGroup.displayName && (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {' '}
+                    ({group.idpGroup.externalId})
+                  </span>
+                )}
+                .
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                isLoading={unwire.isPending}
+                onClick={() => setUnwireConfirm(true)}
+              >
+                Unwire
+              </Button>
+            </div>
+          </Alert>
+        )}
+
         <div className="space-y-2">
           <Label>Applies to workspaces</Label>
           {orgs.length === 0 ? (
@@ -234,21 +269,40 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
             <>
               {selectedMemberIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedMemberIds.map((userId) => (
-                    <Badge key={userId} variant="secondary" className="flex gap-1 items-center">
-                      {memberName(userId)}
-                      <span className="text-muted-foreground">· {memberSecondary(userId)}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Remove ${memberName(userId)}`}
-                        onClick={() => setSelectedMemberIds((current) => current.filter((existing) => existing !== userId))}
-                        className="p-0 ml-1 w-4 h-4"
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  ))}
+                  {selectedMemberIds.map((userId) => {
+                    // An IdP-managed member has no remove control: the identity provider
+                    // owns that membership and the next sync would restore them, so the
+                    // button would be a lie about what the admin can decide here.
+                    const managedByIdp = idpManagedMemberIds.includes(userId);
+                    return (
+                      <Badge key={userId} variant="secondary" className="flex gap-1 items-center">
+                        {memberName(userId)}
+                        <span className="text-muted-foreground">· {memberSecondary(userId)}</span>
+                        {managedByIdp ? (
+                          <span
+                            className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                            title="Membership comes from the wired IdP group — change it in your identity provider."
+                          >
+                            IdP
+                          </span>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Remove ${memberName(userId)}`}
+                            onClick={() =>
+                              setSelectedMemberIds((current) =>
+                                current.filter((existing) => existing !== userId)
+                              )
+                            }
+                            className="p-0 ml-1 w-4 h-4"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </Badge>
+                    );
+                  })}
                 </div>
               )}
               <ReactSelect
@@ -297,6 +351,23 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           </Button>
         </div>
       </div>
+
+      {/* Unwiring only removes the MAPPING. The group keeps its role, workspaces, and any
+          members added by hand — revoking all of that would be a side effect nobody asked
+          for when editing a mapping. */}
+      <ConfirmDialog
+        open={unwireConfirm}
+        onOpenChange={setUnwireConfirm}
+        onConfirm={() => {
+          setUnwireConfirm(false);
+          if (group?.idpGroup) unwire.mutate(group.idpGroup.mappingId);
+        }}
+        title="Unwire this IdP group?"
+        description="New members will stop arriving from the identity provider. This group keeps its role, workspaces and any members added by hand — nobody loses access right now."
+        confirmText="Unwire"
+        cancelText="Keep wired"
+        variant="warning"
+      />
     </Drawer>
   );
 };

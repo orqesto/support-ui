@@ -135,8 +135,14 @@ export const useAllianceGroupMaps = (allianceId: number | null) =>
 
 const useGroupMapsInvalidator = (allianceId: number | null) => {
   const queryClient = useQueryClient();
-  return () =>
-    queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'scim-groupmaps'] });
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'scim-groupmaps'] });
+    // Groups carry their own wiring now (`idpGroup`), and the synced-groups screen shows
+    // the same mapping from the other side. Both go stale on a mapping change, and a
+    // group editor still claiming "Synced from …" after an unwire is worse than a refetch.
+    void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'groups'] });
+    void queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'scim-synced-groups'] });
+  };
 };
 
 export const useSetAllianceGroupMap = (allianceId: number | null) => {

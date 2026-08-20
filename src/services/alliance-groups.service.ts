@@ -22,6 +22,20 @@ export type AllianceGroup = {
    * nothing" and then SAVE that emptiness back over a real grant.
    */
   permissionOverrides?: PermissionOverrides;
+  /**
+   * The IdP group wired to this alliance group, if any — the same mapping the synced-groups
+   * screen authors, seen from the group's side. `mappingId` is what unwires it.
+   *
+   * Optional: the backend that returns it ships separately, and an absent field means
+   * "this build can't tell", not "not wired".
+   */
+  idpGroup?: { mappingId: number; externalId: string; displayName: string | null } | null;
+  /**
+   * Members present because the IdP put them in the wired group. Both they and hand-added
+   * members live in the same list, so without this the editor invites an admin to remove
+   * someone the next sync restores.
+   */
+  idpManagedMemberIds?: number[];
   orgIds: number[];
   departmentIdsByOrg: DepartmentIdsByOrg;
   memberIds: number[];
