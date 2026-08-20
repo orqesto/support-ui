@@ -160,3 +160,45 @@ describe('SyncedGroupsCard wire targets', () => {
     expect(screen.getByRole('combobox')).toHaveValue('orgrole:associate');
   });
 });
+
+/**
+ * A group wired ONLY to a legacy alliance role was locked out of workspace mapping: the card
+ * branched on `wiredRole || wiredGroup`, so it rendered the re-point-only control — whose picker
+ * lists existing alliance groups. On an alliance with none authored (taco, 2026-08-20) that select
+ * is empty and Re-point never enables, leaving five real groups with members and no way to map
+ * them to a workspace at all.
+ *
+ * The 409 that branch avoids is checked against GROUP mappings (`listGroupMappings`), so it never
+ * fires for a role wire — the backend would have accepted the mapping the whole time.
+ */
+describe('a group wired only to a legacy alliance role', () => {
+  it('offers the full workspace mapping UI, not just Re-point', () => {
+    syncedGroups.push(
+      baseGroup({ wiredRole: { mappingId: 4, mappedRole: 'alliance_agent' }, wiredGroup: null })
+    );
+    renderCard();
+
+    expect(screen.getByLabelText('Map to')).toBeInTheDocument();
+    expect(screen.getByText('Workspaces')).toBeInTheDocument();
+    expect(screen.queryByText('Re-point')).not.toBeInTheDocument();
+  });
+
+  it('warns that mapping replaces the legacy wire', () => {
+    syncedGroups.push(
+      baseGroup({ wiredRole: { mappingId: 4, mappedRole: 'alliance_agent' }, wiredGroup: null })
+    );
+    renderCard();
+
+    expect(screen.getByText(/legacy alliance-role wire/)).toBeInTheDocument();
+  });
+
+  it('CONTROL: a group wired to a real group keeps the re-point-only branch', () => {
+    syncedGroups.push(
+      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
+    );
+    renderCard();
+
+    expect(screen.getByText('Re-point')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Map to')).not.toBeInTheDocument();
+  });
+});

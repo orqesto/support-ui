@@ -151,7 +151,11 @@ const SyncedGroupRow = ({
             IdP with a stable external id to enable mapping.
           </span>
         </Alert>
-      ) : wired ? (
+      ) : group.wiredGroup !== null ? (
+        /* Re-point-only, and deliberately so: this group already has a BACKING GROUP, and
+           minting a second one would strand the first (still granting, still holding members).
+           A group wired only to a legacy alliance ROLE has no backing group, so it takes the
+           full mapping branch below — the backend's 409 checks group mappings, not role maps. */
         <div className="flex flex-wrap gap-3 items-end pt-1">
           <div className="flex-1 min-w-[14rem]">
             <Label htmlFor={`rewire-target-${group.id}`} className="mb-1">
@@ -191,6 +195,18 @@ const SyncedGroupRow = ({
         </div>
       ) : (
         <>
+          {group.wiredRole && (
+            <Alert variant="info">
+              <span className="text-sm">
+                This group currently grants{' '}
+                <strong>
+                  {group.wiredRole.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent'}
+                </strong>{' '}
+                through a legacy alliance-role wire. Mapping it to a workspace role replaces that
+                wire — members keep arriving, but their access comes from the group you choose here.
+              </span>
+            </Alert>
+          )}
           <div className="flex flex-wrap gap-3 items-end pt-1">
             <div className="flex-1 min-w-[14rem]">
               <Label htmlFor={`wire-target-${group.id}`} className="mb-1">
