@@ -44,15 +44,14 @@ const ORG_ROLE_LABELS: Record<OrganizationRole, string> = {
   associate: 'Associate',
 };
 
-/** The target select encodes each kind as `role:<role>`, `orgrole:<role>` or `group:<id>`. */
+/**
+ * The target select encodes each kind as `orgrole:<role>` or `group:<id>`.
+ *
+ * `role:<alliance role>` — wiring an IdP group straight to an alliance role — is gone
+ * (Role-Model v2 §0.2: the two group-mapping layers collapse into one). An IdP group now
+ * always maps to a workspace role, via a group.
+ */
 const parseSimpleTarget = (value: string): WireTarget | null => {
-  if (value.startsWith('role:')) {
-    const role = value.slice('role:'.length);
-    if (role === 'alliance_admin' || role === 'alliance_agent') {
-      return { type: 'role', mappedRole: role };
-    }
-    return null;
-  }
   if (value.startsWith('group:')) {
     const groupId = Number(value.slice('group:'.length));
     return Number.isFinite(groupId) ? { type: 'existingGroup', groupId } : null;
@@ -69,19 +68,19 @@ const orgRoleOf = (value: string): OrganizationRole | null => {
 };
 
 /** A grant that needs an explicit confirm before it lands. */
-const privilegedKind = (value: string): 'alliance_admin' | 'org_admin' | null => {
-  if (value === 'role:alliance_admin') return 'alliance_admin';
-  if (value === 'orgrole:org_admin') return 'org_admin';
-  return null;
-};
+const privilegedKind = (value: string): 'org_admin' | null =>
+  value === 'orgrole:org_admin' ? 'org_admin' : null;
 
 /** Backing-group name for an org-role wire — kept within the 120-char API limit. */
 const backingGroupName = (displayName: string, role: OrganizationRole): string =>
   `${displayName} — ${ORG_ROLE_LABELS[role]}`.slice(0, 120);
 
 const wiredLabel = (group: SyncedGroup): string => {
+  // A pre-existing alliance-role wiring still WORKS and is still shown — new ones just
+  // can't be created. Labelled as legacy so an admin knows to move it onto a group.
   if (group.wiredRole) {
-    return `Wired → ${group.wiredRole.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent'}`;
+    const role = group.wiredRole.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent';
+    return `Wired → ${role} (legacy)`;
   }
   if (group.wiredGroup) return `Wired → group ${group.wiredGroup.groupName}`;
   return 'Not wired';
@@ -221,14 +220,14 @@ const SyncedGroupRow = ({
             </div>
           )}
 
-          {group.suggestion && (
+          {/* Hidden against a backend that still returns the old alliance-role shape —
+              showing "Associate" for a suggestion the server never made would be a
+              guess dressed as advice. */}
+          {group.suggestion?.orgRole && (
             <p className="flex gap-1 items-center text-xs text-muted-foreground">
               <Sparkles className="w-3 h-3 shrink-0" />
-              Suggested:{' '}
-              <strong>
-                {group.suggestion.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent'}
-              </strong>{' '}
-              — {group.suggestion.rationale}
+              Suggested: <strong>{ORG_ROLE_LABELS[group.suggestion.orgRole]}</strong> —{' '}
+              {group.suggestion.rationale}
             </p>
           )}
         </>
@@ -251,7 +250,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const [adminConfirm, setAdminConfirm] = useState<{
     group: SyncedGroup;
     target: WireTarget;
-    kind: 'alliance_admin' | 'org_admin';
+    kind: 'org_admin';
   } | null>(null);
 
   const synced = groupsQuery.data ?? [];
@@ -261,12 +260,11 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   );
   const activeOrgIds = useMemo(() => activeOrgs.map((org) => org.id), [activeOrgs]);
 
-  // Target options: the two alliance roles, the four org roles (scoped to workspaces
-  // below), then every authored alliance group.
+  // Target options: the four workspace roles (scoped to workspaces below), then every
+  // authored alliance group. The two alliance-role entries were removed — an IdP group
+  // maps to a workspace role, never to an alliance role.
   const targetOptions = useMemo(
     () => [
-      { value: 'role:alliance_admin', label: 'Role — Alliance admin (elevated)' },
-      { value: 'role:alliance_agent', label: 'Role — Alliance agent' },
       ...ORGANIZATION_ROLES.map((role) => ({
         value: `orgrole:${role}`,
         label: `Org role — ${ORG_ROLE_LABELS[role]}`,
@@ -280,7 +278,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   );
 
   const defaultValueFor = (group: SyncedGroup): string =>
-    `role:${group.suggestion?.mappedRole ?? 'alliance_agent'}`;
+    `orgrole:${group.suggestion?.orgRole ?? 'associate'}`;
 
   const selectedValueFor = (group: SyncedGroup): string =>
     selectedByGroup[group.id] ?? defaultValueFor(group);
@@ -359,18 +357,11 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
     submitWire(group, target);
   };
 
-  const confirmText =
-    adminConfirm?.kind === 'alliance_admin' ? 'Grant alliance admin' : 'Grant org admin';
+  const confirmText = 'Grant org admin';
   const confirmTitle =
-    adminConfirm === null
-      ? ''
-      : adminConfirm.kind === 'alliance_admin'
-        ? `Grant alliance admin to ${adminConfirm.group.displayName}?`
-        : `Grant org admin to ${adminConfirm.group.displayName}?`;
+    adminConfirm === null ? '' : `Grant org admin to ${adminConfirm.group.displayName}?`;
   const confirmDescription =
-    adminConfirm?.kind === 'alliance_admin'
-      ? 'Every current and future member of this IdP group will gain alliance-admin rights across all workspaces in this alliance. Already-synced members are updated immediately. Only confirm if you intend to elevate them.'
-      : 'Every current and future member of this IdP group will gain org-admin rights in the selected workspaces. Already-synced members are updated immediately. Only confirm if you intend to grant workspace administration.';
+    'Every current and future member of this IdP group will gain org-admin rights in the selected workspaces. Already-synced members are updated immediately. Only confirm if you intend to grant workspace administration.';
 
   return (
     <Card>
