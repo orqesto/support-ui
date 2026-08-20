@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { authService } from '@/services/auth.service';
 import { organizationService, type Organization } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
+import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
 
 export const OrganizationSwitcher = () => {
@@ -27,12 +29,17 @@ export const OrganizationSwitcher = () => {
     loadingRef.current = true;
     setLoading(true);
     try {
-      const result = await organizationService.getAll('', 1, 100);
-      setOrganizations(result.data);
+      // A global admin browses ALL workspaces (admin-only endpoint) and switches by
+      // context header. A member may only see their OWN memberships — `getAll` would
+      // 403 for them — and switches by re-minting the token.
+      const data = isGlobalAdmin
+        ? (await organizationService.getAll('', 1, 100)).data
+        : await authService.myOrganizations();
+      setOrganizations(data as Organization[]);
 
       // Auto-select first organization if none selected
-      if (!selectedOrganizationId && result.data.length > 0) {
-        setSelectedOrganization(result.data[0].id);
+      if (!selectedOrganizationId && data.length > 0) {
+        setSelectedOrganization(data[0].id);
       }
     } catch (error) {
       logger.error('Failed to load organizations:', error);
@@ -40,35 +47,51 @@ export const OrganizationSwitcher = () => {
       setLoading(false);
       loadingRef.current = false;
     }
-  }, []); // Remove dependencies to prevent recreation on every org change
+  }, [isGlobalAdmin]); // Recreate only when the admin/member data source changes
 
   useEffect(() => {
-    if (isGlobalAdmin) {
-      loadOrganizations().catch((error) => {
-        logger.error('Failed to load organizations:', error);
-      });
-    }
-  }, [isGlobalAdmin]); // Only run when admin status changes
+    loadOrganizations().catch((error) => {
+      logger.error('Failed to load organizations:', error);
+    });
+  }, [isGlobalAdmin, loadOrganizations]);
 
   // Refresh organizations when dropdown opens to show newly created ones
   useEffect(() => {
-    if (isOpen && isGlobalAdmin) {
+    if (isOpen) {
       loadOrganizations().catch((error) => {
         logger.error('Failed to load organizations:', error);
       });
     }
-  }, [isOpen]);
+  }, [isOpen, loadOrganizations]);
 
-  const handleSelectOrganization = (orgId: number) => {
-    setSelectedOrganization(orgId);
+  const handleSelectOrganization = async (orgId: number) => {
     setIsOpen(false);
+
+    // A member's JWT is bound to one organization, so switching means asking the server
+    // for a new token. A global admin needs no such call — the backend accepts their
+    // org-context header — and must NOT make one: this endpoint only accepts orgs you
+    // are a member of, which a global admin frequently is not.
+    if (!isGlobalAdmin) {
+      try {
+        await authService.switchOrganization(orgId);
+      } catch (error) {
+        logger.error('Failed to switch workspace:', error);
+        toast.error('Could not switch workspace');
+        return; // Stay put rather than reloading into a workspace we were refused.
+      }
+    }
+
+    setSelectedOrganization(orgId);
 
     // Clear URL parameters (closes any open message/ticket) and reload
     const baseUrl = window.location.pathname; // e.g., /messages or /tickets
     window.location.href = baseUrl; // Navigate to base URL without params, triggering reload
   };
 
-  if (!isGlobalAdmin) {
+  // A member with a single workspace has nothing to switch to; showing a dead control
+  // would just be noise. Global admins keep the card even at one, since it doubles as
+  // the indicator of which workspace they are acting in.
+  if (!isGlobalAdmin && organizations.length < 2) {
     return null;
   }
 
