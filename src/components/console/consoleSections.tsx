@@ -27,6 +27,8 @@ export type ConsoleScopeCtx = {
   scope: 'alliance' | 'platform' | null;
   isGlobalAdmin: boolean;
   allianceId: number | null;
+  /** Licensed single-tenant box — see useBackendVersion. False while the health call is in flight. */
+  selfHostedDeployment: boolean;
 };
 
 export type ConsoleSection = {
@@ -123,7 +125,16 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: PlatformOrganizations },
   { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformUsers },
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
-  { id: 'billing', label: 'Plans & Pricing', icon: Package, path: 'billing', element: PlatformBilling },
+  {
+    id: 'billing',
+    label: 'Plans & Pricing',
+    icon: Package,
+    path: 'billing',
+    element: PlatformBilling,
+    // A licensed box has no catalog to sell from. Nav only — PlatformBilling guards the
+    // URL itself, since the routes are generated from this array unconditionally.
+    visible: (ctx) => !ctx.selfHostedDeployment,
+  },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
   { id: 'defaults', label: 'Platform Defaults', icon: SlidersHorizontal, path: 'defaults', element: PlatformDefaults },
   { id: 'email-templates', label: 'Email Templates', icon: MailOpen, path: 'email-templates', element: PlatformEmailTemplates },

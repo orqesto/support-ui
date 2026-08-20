@@ -20,6 +20,12 @@ export const PLAN_TYPE_OPTIONS: { value: PlanType; label: string }[] = [
 
 /** Draft strings — kept as strings so partial input doesn't fight the number fields. */
 export type CreatePlanDraft = {
+  /**
+   * Build the Stripe Product + Price during creation instead of pasting an id. Mutually
+   * exclusive with `stripePriceId` in practice — an explicit id wins server-side — and
+   * meaningless on a free plan, so the form hides it in both cases.
+   */
+  createStripePrice: boolean;
   name: string;
   displayName: string;
   planType: PlanType;
@@ -45,6 +51,7 @@ export const emptyCreatePlanDraft = (): CreatePlanDraft => ({
   planType: 'base',
   priceEuros: '',
   stripePriceId: '',
+  createStripePrice: false,
   maxUsers: '',
   maxMessagesPerMonth: '',
   maxIntegrations: '',
@@ -104,6 +111,11 @@ export const validateCreatePlanDraft = (draft: CreatePlanDraft): CreatePlanValid
       planType: draft.planType,
       price: priceCents,
       ...(stripePriceId ? { stripePriceId } : {}),
+      // Only meaningful for a paid plan with no explicit id — matches the BE's own guard,
+      // so the flag is never sent in a shape the BE would silently ignore.
+      ...(!stripePriceId && draft.createStripePrice && priceCents > 0
+        ? { createStripePrice: true }
+        : {}),
       limits: {
         maxUsers,
         maxIntegrations,

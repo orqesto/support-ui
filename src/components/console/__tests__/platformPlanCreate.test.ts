@@ -17,6 +17,40 @@ const validDraft = (): CreatePlanDraft => ({
   maxIntegrations: '5',
 });
 
+describe('validateCreatePlanDraft — createStripePrice', () => {
+  it('asks the BE to build the price when the plan is paid and no id was pasted', () => {
+    const result = validateCreatePlanDraft({ ...validDraft(), createStripePrice: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.input.createStripePrice).toBe(true);
+  });
+
+  it('omits the flag when an explicit price id was given — the id wins server-side', () => {
+    const result = validateCreatePlanDraft({
+      ...validDraft(),
+      createStripePrice: true,
+      stripePriceId: 'price_1Abc',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.input.stripePriceId).toBe('price_1Abc');
+      expect(result.input.createStripePrice).toBeUndefined();
+    }
+  });
+
+  it('omits the flag on a free plan — there is nothing to bill', () => {
+    const result = validateCreatePlanDraft({
+      ...validDraft(),
+      priceEuros: '0',
+      createStripePrice: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.input.createStripePrice).toBeUndefined();
+  });
+});
+
 describe('validateCreatePlanDraft', () => {
   it('accepts a well-formed draft and converts euros to cents', () => {
     const result = validateCreatePlanDraft(validDraft());

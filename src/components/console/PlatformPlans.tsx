@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { CreditCard, Plus, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -17,8 +17,11 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
+  useCreatePlanStripePrice,
   useCreatePlatformPlan,
+  useDeletePlatformPlan,
   usePlatformPlanStats,
   usePlatformPlans,
   useTogglePlatformPlan,
@@ -78,6 +81,43 @@ export const PlatformPlans = () => {
   const togglePlan = useTogglePlatformPlan();
   const updatePlan = useUpdatePlatformPlan();
   const createPlan = useCreatePlatformPlan();
+  const deletePlan = useDeletePlatformPlan();
+  const createStripePrice = useCreatePlanStripePrice();
+
+  // Delete + Stripe-price state. Both surface the SERVER's message rather than a generic
+  // one: every refusal here (in use, seeded, Stripe unreachable) is a different problem
+  // with a different fix, and only the BE knows which one applies.
+  const [pendingDelete, setPendingDelete] = useState<AdminPlan | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    const plan = pendingDelete;
+    setPendingDelete(null);
+    if (!plan) return;
+    setActionError(null);
+    try {
+      await deletePlan.mutateAsync(plan.id);
+    } catch (error) {
+      logger.error('Failed to delete plan', error);
+      setActionError(
+        error instanceof Error ? error.message : `Could not delete '${plan.name}'.`
+      );
+    }
+  };
+
+  const handleStripePrice = async (plan: AdminPlan) => {
+    setActionError(null);
+    try {
+      await createStripePrice.mutateAsync(plan.id);
+    } catch (error) {
+      logger.error('Failed to create Stripe price', error);
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : `Could not create a Stripe price for '${plan.name}'.`
+      );
+    }
+  };
 
   const [editing, setEditing] = useState<AdminPlan | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
@@ -115,8 +155,18 @@ export const PlatformPlans = () => {
     setCreateErrors({});
     setCreateGeneralError(null);
     try {
-      await createPlan.mutateAsync(validation.input);
+      const created = await createPlan.mutateAsync(validation.input);
       closeCreate();
+      // The Stripe leg is non-fatal server-side: the plan exists either way. Saying so is
+      // the point — "created" alone would imply it is sellable when it is not, and the
+      // per-card "Create Stripe price" button is the retry.
+      if (created.stripe && !created.stripe.linked) {
+        setActionError(
+          `'${created.name}' was created, but its Stripe price was not: ${
+            created.stripe.error ?? 'Stripe did not respond.'
+          } It cannot be purchased until you create one.`
+        );
+      }
     } catch (error) {
       // A duplicate slug is a field-level error surfaced under the name input; anything
       // else is a generic top-of-form message.
@@ -211,6 +261,11 @@ export const PlatformPlans = () => {
   const renderPlanCard = (plan: AdminPlan) => {
     const adoption = stats[plan.id] ?? 0;
     const isToggling = togglePlan.isPending && togglePlan.variables === plan.id;
+    const isDeleting = deletePlan.isPending && deletePlan.variables === plan.id;
+    const isPricing = createStripePrice.isPending && createStripePrice.variables === plan.id;
+    // Adoption counts ACTIVE workspaces; a plan can still hold cancelled subscriptions,
+    // so a zero here is a hint that delete will work, not a promise. The BE decides.
+    const deletable = adoption === 0;
 
     return (
       <Card key={plan.id} className={plan.isActive ? undefined : 'opacity-70'}>
@@ -248,6 +303,20 @@ export const PlatformPlans = () => {
             {adoption === 1 ? 'workspace' : 'workspaces'}
           </p>
 
+          {/* Stripe state, spelled out. A paid plan with no price cannot be bought — that
+              used to be invisible until a customer reached Checkout and it threw. */}
+          {plan.price > 0 && (
+            <p className="text-xs">
+              {plan.stripePriceId ? (
+                <span className="text-muted-foreground">
+                  Stripe <code>{plan.stripePriceId}</code>
+                </span>
+              ) : (
+                <span className="text-warning">Not billable — no Stripe price</span>
+              )}
+            </p>
+          )}
+
           <div className="flex justify-between items-center pt-1">
             <Toggle
               checked={plan.isActive}
@@ -255,9 +324,37 @@ export const PlatformPlans = () => {
               onChange={() => togglePlan.mutate(plan.id)}
               label={plan.isActive ? 'Active' : 'Inactive'}
             />
-            <Button size="sm" variant="outline" onClick={() => openEdit(plan)}>
-              Edit
-            </Button>
+            <div className="flex gap-2 items-center">
+              {plan.price > 0 && !plan.stripePriceId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  isLoading={isPricing}
+                  onClick={() => void handleStripePrice(plan)}
+                >
+                  <CreditCard className="mr-1 w-4 h-4" />
+                  Create Stripe price
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => openEdit(plan)}>
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={`Delete ${plan.displayName}`}
+                title={
+                  deletable
+                    ? `Delete ${plan.displayName}`
+                    : 'In use by a workspace — deactivate it instead'
+                }
+                disabled={!deletable || isDeleting}
+                isLoading={isDeleting}
+                onClick={() => setPendingDelete(plan)}
+              >
+                <Trash2 className="w-4 h-4 text-danger" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -280,6 +377,10 @@ export const PlatformPlans = () => {
 
   return (
     <div className="space-y-8">
+      {actionError && (
+        <Alert variant="danger">{actionError}</Alert>
+      )}
+
       <div className="flex justify-end">
         <Button onClick={openCreate}>
           <Plus className="mr-2 w-4 h-4" />
@@ -440,18 +541,34 @@ export const PlatformPlans = () => {
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Input
                 label="Stripe price id (optional)"
                 placeholder="price_…"
                 value={createDraft.stripePriceId}
                 onChange={(event) => patchCreate({ stripePriceId: event.target.value })}
                 className="font-mono text-sm"
+                disabled={createDraft.createStripePrice}
               />
               {createErrors.stripePriceId && (
                 <p className="text-xs text-red-600 dark:text-red-400">
                   {createErrors.stripePriceId}
                 </p>
+              )}
+              {/* Offered only for a paid plan: a free plan has nothing to bill, which is
+                  also the BE's own guard. Pasting an id and asking us to create one are
+                  alternatives, so choosing this disables the field above. */}
+              {Number(createDraft.priceEuros) > 0 && (
+                <Toggle
+                  checked={createDraft.createStripePrice}
+                  onChange={() =>
+                    patchCreate({
+                      createStripePrice: !createDraft.createStripePrice,
+                      ...(createDraft.createStripePrice ? {} : { stripePriceId: '' }),
+                    })
+                  }
+                  label="Create the Stripe product & price for me"
+                />
               )}
             </div>
 
@@ -494,6 +611,20 @@ export const PlatformPlans = () => {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onConfirm={() => void confirmDelete()}
+        variant="danger"
+        confirmText="Delete plan"
+        title={`Delete ${pendingDelete?.displayName ?? 'this plan'}?`}
+        description={
+          pendingDelete?.stripePriceId
+            ? `This removes the plan from the catalog and archives its Stripe price (${pendingDelete.stripePriceId}) so nobody can buy it. Existing invoices are unaffected. If any workspace has ever been on this plan the deletion is refused — deactivate it instead.`
+            : 'This removes the plan from the catalog for good. If any workspace has ever been on it the deletion is refused — deactivate it instead.'
+        }
+      />
     </div>
   );
 };
