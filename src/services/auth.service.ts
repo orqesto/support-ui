@@ -59,6 +59,32 @@ export const authService = {
     return response.data;
   },
 
+  /**
+   * The workspaces this session may switch to — the caller's own active memberships,
+   * the same set the multi-org login picker offers.
+   */
+  myOrganizations: async () => {
+    const response = await apiClient.get<
+      ApiResponse<{ organizations: { id: number; name: string; slug: string }[] }>
+    >('/api/auth/my-organizations');
+    return response.data.data?.organizations ?? [];
+  },
+
+  /**
+   * Move this session to another of the user's workspaces.
+   *
+   * A member's JWT is bound to one organization, so the backend re-mints it and sets a
+   * fresh cookie; this is not a client-side context flip. The caller should reload
+   * afterwards so every cached query refetches under the new workspace.
+   */
+  switchOrganization: async (organizationId: number) => {
+    const response = await apiClient.post<ApiResponse<LoginResponse>>(
+      '/api/auth/switch-organization',
+      { organizationId }
+    );
+    return response.data;
+  },
+
   // Public, unauthenticated self-serve signup. On 201 the BE sets the httpOnly
   // `jwt` cookie (auto-login, exactly like a password login) and returns the new
   // user + organization + onboarding state (status 'pending', step 1).
