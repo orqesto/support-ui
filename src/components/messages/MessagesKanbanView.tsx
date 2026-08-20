@@ -483,10 +483,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // regardless of how deep a queue is (see the note by triageCount for why the
   // loaded page cannot be counted instead).
   //
-  // `read=unread` is the PER-USER read state (the same one the triage read/unread
-  // filter drives), which is what "unread" means to an agent here. Deliberately not
-  // useNotificationCounts() — those are arrival notifications for two kinds only,
-  // and they clear when a kind is marked reviewed, not when a thread is read.
+  // `read=unread` is the SHARED org-wide read state (the same one the triage
+  // read/unread filter drives): a thread any agent has read is read for the team, so
+  // this number is "what the team has not looked at yet", not "what I have not looked
+  // at yet". Deliberately not useNotificationCounts() — those are arrival
+  // notifications for two kinds only, and they clear when a kind is marked reviewed,
+  // not when a thread is read.
   const loadTriageUnread = useCallback(() => {
     let cancelled = false;
     const triageCols = COLUMNS.filter((col) => col.axis === 'triage');

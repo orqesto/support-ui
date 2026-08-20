@@ -11,6 +11,7 @@ import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
 import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
+import { buildTimeline } from './messageActivityTimeline';
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
@@ -25,94 +26,6 @@ import DOMPurify from 'dompurify';
 import { MONO, relativeTime, getInitials } from './messageDetailConstants';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
-
-// ─── Activity helpers ─────────────────────────────────────────────────────────
-
-type TimelineItem = { label: string; time: string; who: string; dot: string | undefined };
-
-const ACTION_LABEL: Record<string, string> = {
-  'message.reply': 'Reply sent',
-  'message.assign': 'Assigned',
-  'message.create': 'Message received',
-  'message.delete': 'Message deleted',
-  'message.compose_new': 'New message composed',
-  'message.manual_route': 'Manually routed',
-  'ticket.create': 'Ticket created',
-  'ticket.resolve': 'Resolved',
-  'ticket.reopen': 'Reopened',
-  'ticket.assign': 'Ticket assigned',
-  'ticket.update': 'Ticket updated',
-  'ticket.delete': 'Ticket deleted',
-  'ticket.dept_moved': 'Moved department',
-  // System-authored transitions — nobody clicked these, so they carry a NULL userId and
-  // render with "System" as the actor. Phrased as what the system observed, not as a
-  // command, so the feed reads as an explanation for a status the agent did not set.
-  'message.auto_client_replied': 'Customer replied — reopened for response',
-  'message.auto_route': 'Routed automatically',
-};
-
-const ACTION_DOT: Record<string, string> = {
-  'ticket.resolve': 'bg-green-500/60',
-  'ticket.reopen': 'bg-yellow-500/60',
-  'message.auto_reopen': 'bg-yellow-500/60',
-  'message.auto_client_replied': 'bg-blue-500/60',
-};
-
-function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
-  if (action === 'message.status_change') {
-    const from = details?.['from'] as string | undefined;
-    const to = details?.['to'] as string | undefined;
-    return to ? `Status changed${from ? ` from ${from}` : ''} to ${to}` : 'Status changed';
-  }
-  if (action === 'message.priority_change') {
-    const to = details?.['to'] as string | undefined;
-    return to ? `Priority set to ${to}` : 'Priority changed';
-  }
-  if (action === 'message.category_change') {
-    return details?.['to'] ? 'Category assigned' : 'Category removed';
-  }
-  if (action === 'message.auto_reopen') {
-    const from = details?.['fromStatus'] as string | undefined;
-    if (details?.['reason'] === 'promoted_from_orphan') return 'Surfaced — real customer reply';
-    return `Customer replied — reopened${from ? ` from ${from}` : ''}`;
-  }
-  if (action === 'message.update') {
-    const detail = typeof details?.['action'] === 'string' ? details['action'] : '';
-    if (detail === 'mark_processed') return 'Marked as processed';
-    if (detail === 'mark_suspicious') return 'Marked as suspicious';
-    if (detail === 'move_to_spam') return 'Moved to spam';
-    if (detail === 'mark_unprocessed') return 'Marked as unprocessed';
-    if (detail === 'approve') return 'Approved';
-    return 'Message updated';
-  }
-  return ACTION_LABEL[action] ?? action;
-}
-
-function buildTimeline(
-  activity: MessageActivityEntry[],
-  notes: MessageNote[],
-  inSession: { label: string; who: string; time: string }[]
-): TimelineItem[] {
-  const fromAudit: TimelineItem[] = activity.map((entry) => ({
-    label: auditEntryLabel(entry.action, entry.details),
-    time: entry.createdAt,
-    who: entry.userEmail ?? 'System',
-    dot: ACTION_DOT[entry.action],
-  }));
-
-  const fromNotes: TimelineItem[] = notes.map((note) => ({
-    label: 'Internal note',
-    time: note.createdAt,
-    who: note.user ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim() : note.authorName,
-    dot: 'bg-amber-400/70',
-  }));
-
-  const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, dot: undefined }));
-
-  return [...fromAudit, ...fromNotes, ...ephemeral].sort(
-    (itemA, itemB) => new Date(itemA.time).getTime() - new Date(itemB.time).getTime()
-  );
-}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
