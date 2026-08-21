@@ -7,6 +7,7 @@ import { InviteTeamStep } from './steps/InviteTeamStep';
 import { KbStep } from './steps/KbStep';
 import { PaymentStep } from './steps/PaymentStep';
 import { StorageStep } from './steps/StorageStep';
+import { SetupReconcileNotice } from './SetupReconcileNotice';
 import { StepIndicator } from './StepIndicator';
 import {
   buildStepLabels,
@@ -17,7 +18,11 @@ import {
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { onboardingService, type OnboardingState } from '@/services/onboarding.service';
+import {
+  onboardingService,
+  type OnboardingState,
+  type WorkspaceSetupStatus,
+} from '@/services/onboarding.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
@@ -77,6 +82,15 @@ export const OnboardingWizard = () => {
   // `billingEnabled` arrives from a query that may still be loading on the first
   // render: clamping in the initializer would permanently drop a resumed step 7
   // to 6 in the moment before the payment step is known to exist.
+  // What the workspace ALREADY has, read from the backend rather than from wizard
+  // progress. null while the check is in flight; a failed check resolves to null
+  // and the wizard simply renders as it always did (fail open — a broken
+  // reconciliation must never block setup).
+  const [setup, setSetup] = useState<WorkspaceSetupStatus | null>(null);
+  // Blocks the first paint: a workspace that is already fully configured should
+  // bounce straight past the wizard rather than flash step 1 on its way out.
+  const [checkingSetup, setCheckingSetup] = useState(true);
+
   const [rawStep, setRawStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
   const activeStep = Math.min(rawStep, stepLabels.length) as StepNumber;
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
@@ -237,6 +251,60 @@ export const OnboardingWizard = () => {
   const missingChannel = channelsKnown && !channelsConnected;
   const readyToFinish = !missingAiChoice && !missingChannel;
 
+  // Reconcile against what already exists, once, on mount.
+  //
+  // Workspaces are sometimes built by hand in Settings and never touched the
+  // wizard, which left `onboarding.status` pending forever and kept redirecting
+  // the admin into a wizard with nothing left to do. `reconcile` finishes the
+  // wizard when — and only when — the backend agrees every step is satisfied
+  // (it re-derives that itself, so this cannot be used to skip setup).
+  useEffect(() => {
+    let cancelled = false;
+    onboardingService
+      .getSetupStatus()
+      .then(async (status) => {
+        if (cancelled) return;
+        setSetup(status);
+        // Only ask to finish when the read says there is nothing left; the POST
+        // re-derives satisfaction server-side anyway, so this is an optimisation
+        // (no write-path call on an ordinary mount), not the security boundary.
+        if (!status.allSatisfied) {
+          setCheckingSetup(false);
+          return;
+        }
+        const result = await onboardingService.reconcile();
+        if (cancelled) return;
+        if (result.isComplete) {
+          // Nothing left to configure — leave without ever showing a step.
+          markComplete();
+          navigate('/', { replace: true });
+          return;
+        }
+        setCheckingSetup(false);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        // Fail open: render the wizard exactly as before rather than trapping
+        // the admin behind a failed reconciliation.
+        logger.error('Failed to reconcile existing workspace setup:', error);
+        setCheckingSetup(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Mount-only: re-running would re-check on every keystroke-driven rerender.
+  }, [markComplete, navigate]);
+
+  if (checkingSetup) {
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-10">
+        <p className="text-sm text-muted-foreground" role="status">
+          Checking what your workspace already has…
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-10">
       <div className="space-y-6">
@@ -266,6 +334,8 @@ export const OnboardingWizard = () => {
           <span className="sr-only">{`Step ${activeStep} of ${stepLabels.length}: `}</span>
           {STEP_TITLES[activeStep]}
         </h2>
+
+        <SetupReconcileNotice setup={setup} activeStep={activeStep} />
 
         {activeStep === 1 && (
           <AiChoiceStep

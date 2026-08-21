@@ -34,6 +34,30 @@ export type OnboardingStatus = {
   managedAiAvailable?: boolean;
 };
 
+/** Mirrors BE `SetupStepKey` (workspaceSetupState.ts), in wizard order. */
+export type SetupStepKey = 'ai' | 'storage' | 'channels' | 'team' | 'knowledge';
+
+export type SetupStepStatus = {
+  key: SetupStepKey;
+  satisfied: boolean;
+  /** Short evidence, e.g. "2 channels connected" — rendered next to the step. */
+  detail: string;
+};
+
+export type WorkspaceSetupStatus = {
+  steps: SetupStepStatus[];
+  allSatisfied: boolean;
+  missing: SetupStepKey[];
+};
+
+export type ReconcileResult = {
+  /** True only when THIS call moved the wizard to completed. */
+  reconciled: boolean;
+  setup: WorkspaceSetupStatus;
+  onboarding: OnboardingState | null;
+  isComplete: boolean;
+};
+
 export type OnboardingPatch = {
   currentStep?: OnboardingState['currentStep'];
   aiChoice?: 'managed' | 'byo';
@@ -77,6 +101,33 @@ export const onboardingService = {
       '/api/organizations/onboarding/resume'
     );
     return response.data.data?.onboarding ?? null;
+  },
+
+  /**
+   * What the workspace already has, step by step, derived from the DATABASE
+   * rather than from wizard progress — so a step counts as done however it was
+   * done (wizard, Settings, API, seed). org_admin only; read-only.
+   */
+  getSetupStatus: async (): Promise<WorkspaceSetupStatus> => {
+    const response = await apiClient.get<ApiResponse<WorkspaceSetupStatus>>(
+      '/api/organizations/onboarding/setup'
+    );
+    if (!response.data.data) throw new Error('Setup status not available');
+    return response.data.data;
+  },
+
+  /**
+   * For workspaces configured by hand: finish the wizard if — and only if —
+   * every step is already satisfied. The server re-derives satisfaction itself,
+   * so this cannot be used to skip setup. Idempotent, and a plain 200 with
+   * `reconciled: false` when something is still missing.
+   */
+  reconcile: async (): Promise<ReconcileResult> => {
+    const response = await apiClient.post<ApiResponse<ReconcileResult>>(
+      '/api/organizations/onboarding/reconcile'
+    );
+    if (!response.data.data) throw new Error('Reconcile failed');
+    return response.data.data;
   },
 
   /** Marks skipped — trial keeps its original org-creation expiry. */
