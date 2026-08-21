@@ -4,8 +4,18 @@
  * makes a visibly-active control feel broken — it toggles off instead.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import type { FilterState } from '@/stores/messagesStore';
+
+// The user's own views come from the API now. Mocked so these tests are about the pills
+// rather than about what a request does in jsdom.
+const service = vi.hoisted(() => ({
+  list: vi.fn(),
+  save: vi.fn(),
+  remove: vi.fn(),
+  rename: vi.fn(),
+}));
+vi.mock('@/services/savedView.service', () => ({ savedViewService: service }));
 
 // Mutable so a test can reproduce the pre-fetch state, where a filter has no options
 // and is therefore absent from the schema entirely.
@@ -27,6 +37,9 @@ const { MessageFilterBar } = await import('../MessageFilterBar');
 
 beforeEach(() => {
   localStorage.clear();
+  service.list.mockReset().mockResolvedValue([]);
+  service.save.mockReset();
+  service.remove.mockReset().mockResolvedValue(undefined);
   options.current = [
     { value: 'me', label: 'Me' },
     { value: 'unassigned', label: 'Unassigned' },
@@ -166,5 +179,90 @@ describe('saved view pills', () => {
     const { patched } = setup({ assigneeId: 'me' } as FilterState);
     fireEvent.click(screen.getByText('Unassigned'));
     expect(patched()).toEqual({ assigneeId: 'unassigned' });
+  });
+});
+
+// ── the user's own views, on the account ─────────────────────────────────────
+describe('saved views belong to the person, not the browser', () => {
+  const openNameField = () => fireEvent.click(screen.getByText('Save as view'));
+
+  const nameAndSave = (name: string) => {
+    openNameField();
+    fireEvent.change(screen.getByLabelText('Name this view'), { target: { value: name } });
+    fireEvent.click(screen.getByText('Save'));
+  };
+
+  it('saves a named view through the API', async () => {
+    service.save.mockResolvedValue({
+      id: 3,
+      name: 'VIP',
+      filters: { priority: 'critical' },
+      createdAt: '',
+      updatedAt: '',
+    });
+    setup({ priority: 'critical' } as FilterState);
+    await waitFor(() => expect(service.list).toHaveBeenCalled());
+
+    nameAndSave('VIP');
+
+    expect(service.save).toHaveBeenCalledWith('VIP', { priority: 'critical' });
+    expect(await screen.findByText('VIP')).toBeTruthy();
+  });
+
+  it('deletes one through the API', async () => {
+    service.list.mockResolvedValue([
+      { id: 3, name: 'VIP', filters: { priority: 'critical' }, createdAt: '', updatedAt: '' },
+    ]);
+    setup({ priority: 'critical' } as FilterState);
+    await screen.findByText('VIP');
+
+    fireEvent.click(screen.getByLabelText('Delete view VIP'));
+
+    await waitFor(() => expect(service.remove).toHaveBeenCalledWith(3));
+    await waitFor(() => expect(screen.queryByText('VIP')).toBeNull());
+  });
+
+  it('keeps the pill when the delete failed', async () => {
+    // The row is still there. Removing the pill would show a delete that did not happen
+    // and bring it back on the next load.
+    service.list.mockResolvedValue([
+      { id: 3, name: 'VIP', filters: { priority: 'critical' }, createdAt: '', updatedAt: '' },
+    ]);
+    service.remove.mockRejectedValue(new Error('500'));
+    setup({ priority: 'critical' } as FilterState);
+    await screen.findByText('VIP');
+
+    fireEvent.click(screen.getByLabelText('Delete view VIP'));
+
+    expect(await screen.findByText(/could not be deleted/)).toBeTruthy();
+    expect(screen.getByText('VIP')).toBeTruthy();
+  });
+
+  it('says so when it is falling back to this browser', async () => {
+    // The window where this frontend is live and the endpoint is not. The views still
+    // work; they just will not be on the next machine, and that is worth saying.
+    service.list.mockRejectedValue(new Error('404'));
+    localStorage.setItem(
+      'odly-inbox-saved-views',
+      JSON.stringify([{ name: 'Local', filters: { priority: 'high' } }])
+    );
+    setup({ priority: 'high' } as FilterState);
+
+    expect(await screen.findByText(/on this device only/)).toBeTruthy();
+    expect(screen.getByText('Local')).toBeTruthy();
+  });
+
+  it('writes to this browser when there is no endpoint', async () => {
+    service.list.mockRejectedValue(new Error('404'));
+    setup({ priority: 'high' } as FilterState);
+    await waitFor(() => expect(service.list).toHaveBeenCalled());
+
+    nameAndSave('Local only');
+
+    expect(service.save).not.toHaveBeenCalled();
+    const stored = JSON.parse(localStorage.getItem('odly-inbox-saved-views') ?? '[]') as {
+      name: string;
+    }[];
+    expect(stored.map((view) => view.name)).toEqual(['Local only']);
   });
 });

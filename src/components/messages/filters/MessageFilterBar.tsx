@@ -8,14 +8,8 @@ import { FilterTokenBar } from './FilterTokenBar';
 import { RECEIVED_KEYS, buildFilterDefs } from './filterSchema';
 import { clearPatch, tokensOf } from './filterTokens';
 import { useFilterOptions } from './useFilterOptions';
-import {
-  BUILT_IN_VIEWS,
-  loadSavedViews,
-  persistSavedViews,
-  viewAppliesTo,
-  viewIsActive,
-  type SavedView,
-} from './savedViews';
+import { BUILT_IN_VIEWS, viewAppliesTo, viewIsActive, type SavedView } from './savedViews';
+import { useSavedViews } from './useSavedViews';
 import type { FilterState } from '@/stores/messagesStore';
 
 /**
@@ -53,7 +47,13 @@ export const MessageFilterBar = ({
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [userViews, setUserViews] = useState<SavedView[]>(() => loadSavedViews());
+  const {
+    views: userViews,
+    source: viewSource,
+    error: viewError,
+    saveView,
+    removeView,
+  } = useSavedViews();
   const [namingView, setNamingView] = useState(false);
   const [viewName, setViewName] = useState('');
 
@@ -122,20 +122,9 @@ export const MessageFilterBar = ({
     // apply the moment someone set that filter.
     const negated = tokens.filter((token) => token.negated).map((token) => token.def.key);
     if (negated.length > 0) snapshot.negate = negated.join(',');
-    const next = [
-      ...userViews.filter((view) => view.name !== name),
-      { name, filters: snapshot as Partial<FilterState> },
-    ];
-    setUserViews(next);
-    persistSavedViews(next);
+    void saveView(name, snapshot as Partial<FilterState>);
     setNamingView(false);
     setViewName('');
-  };
-
-  const removeView = (name: string) => {
-    const next = userViews.filter((view) => view.name !== name);
-    setUserViews(next);
-    persistSavedViews(next);
   };
 
   const { total } = pagination;
@@ -171,7 +160,7 @@ export const MessageFilterBar = ({
                 {!view.builtIn && (
                   <Button
                     variant="ghost"
-                    onClick={() => removeView(view.name)}
+                    onClick={() => void removeView(view)}
                     aria-label={`Delete view ${view.name}`}
                     className="grid absolute -top-1 -right-1 place-items-center p-0 w-4 h-4 rounded-full opacity-0 transition-opacity bg-muted text-muted-foreground group-hover/view:opacity-100 hover:text-red-600"
                   >
@@ -181,8 +170,17 @@ export const MessageFilterBar = ({
               </span>
             );
           })}
-          <span className="text-[11.5px] text-muted-foreground/70">saved views</span>
+          <span className="text-[11.5px] text-muted-foreground/70">
+            saved views
+            {/* Worth saying out loud: in this mode the views are on THIS machine, and the
+                next browser will not have them. It is a transient state — the window
+                where this frontend is live and the endpoint is not — not a setting. */}
+            {viewSource === 'local' && userViews.length > 0 && ' · on this device only'}
+          </span>
         </div>
+        {viewError && (
+          <p className="text-[12px] text-amber-600 dark:text-amber-400">{viewError}</p>
+        )}
 
         {/* ── desktop: the token bar ──────────────────────────────────── */}
         <div className="hidden md:block">

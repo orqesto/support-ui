@@ -1,12 +1,15 @@
 /**
- * Saved views live in localStorage, which means the data can be anything — written by
- * an older build, hand-edited, or truncated. None of that may take the inbox down.
+ * The localStorage half of saved views: the fallback for a frontend that is live before
+ * the endpoint is, and the source for the one-time upload of what a browser already had.
+ *
+ * The data can be anything — written by an older build, hand-edited, or truncated — and
+ * none of it may take the inbox down.
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   BUILT_IN_VIEWS,
-  loadSavedViews,
   persistSavedViews,
+  readLocalSavedViews,
   viewIsActive,
   type SavedView,
 } from '../savedViews';
@@ -17,19 +20,19 @@ const KEY = 'odly-inbox-saved-views';
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 
-describe('loadSavedViews — tolerates whatever is in storage', () => {
+describe('readLocalSavedViews — tolerates whatever is in storage', () => {
   it('returns [] when nothing has been saved', () => {
-    expect(loadSavedViews()).toEqual([]);
+    expect(readLocalSavedViews()).toEqual([]);
   });
 
   it('returns [] rather than throwing on malformed JSON', () => {
     localStorage.setItem(KEY, '{not json');
-    expect(loadSavedViews()).toEqual([]);
+    expect(readLocalSavedViews()).toEqual([]);
   });
 
   it('returns [] when the payload is not an array', () => {
     localStorage.setItem(KEY, '{"name":"Mine"}');
-    expect(loadSavedViews()).toEqual([]);
+    expect(readLocalSavedViews()).toEqual([]);
   });
 
   it('keeps the well-formed entries and drops the rest', () => {
@@ -42,7 +45,7 @@ describe('loadSavedViews — tolerates whatever is in storage', () => {
         'nonsense',
       ])
     );
-    expect(loadSavedViews().map((view) => view.name)).toEqual(['Good']);
+    expect(readLocalSavedViews().map((view) => view.name)).toEqual(['Good']);
   });
 });
 
