@@ -16,6 +16,7 @@ import {
   Eye,
   CheckSquare,
   Power,
+  PowerOff,
   Square,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -124,6 +125,10 @@ export const DocumentationList = ({
   // "visible" docs, which drive both the list and the bulk Select-All (so bulk works on any
   // facet, not just All).
   const [sourceFilter, setSourceFilter] = useState<'all' | 'uploaded' | 'confluence'>('all');
+  // Serving facet. A disabled doc is excluded from AI answers but otherwise looks identical
+  // in this list, which is how four stale documents kept serving a customer-facing KB
+  // unnoticed. Being able to ask "what is actually serving?" is the point.
+  const [servingFilter, setServingFilter] = useState<'all' | 'serving' | 'disabled'>('all');
   const [search, setSearch] = useState('');
   const isConfluenceDoc = (doc: Documentation) =>
     doc.externalSource?.split(':')[0] === 'confluence';
@@ -133,9 +138,12 @@ export const DocumentationList = ({
   const filteredDocs = docs.filter((doc) => {
     if (sourceFilter === 'confluence' && !isConfluenceDoc(doc)) return false;
     if (sourceFilter === 'uploaded' && isConfluenceDoc(doc)) return false;
+    if (servingFilter === 'serving' && !doc.enabled) return false;
+    if (servingFilter === 'disabled' && doc.enabled) return false;
     if (needle && !doc.title.toLowerCase().includes(needle)) return false;
     return true;
   });
+  const disabledCount = docs.filter((doc) => !doc.enabled).length;
   const visibleIds = filteredDocs.map((doc) => doc.id);
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedDocs.has(id));
@@ -212,6 +220,37 @@ export const DocumentationList = ({
         </div>
       )}
 
+      {disabledCount > 0 && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {(['all', 'serving', 'disabled'] as const).map((mode) => {
+            const count =
+              mode === 'all'
+                ? docs.length
+                : mode === 'disabled'
+                  ? disabledCount
+                  : docs.length - disabledCount;
+            const label =
+              mode === 'all' ? 'Any state' : mode === 'serving' ? 'Serving' : 'Disabled';
+            return (
+              <Button
+                key={mode}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setServingFilter(mode)}
+                className={`px-3 py-1 h-auto text-xs font-medium rounded-full ${
+                  servingFilter === mode
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {label} ({count})
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
       {filteredDocs.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
           <BookOpen className="mx-auto mb-4 w-12 h-12 opacity-50" />
@@ -236,6 +275,8 @@ export const DocumentationList = ({
               key={doc.id}
               id={`doc-${doc.id}`}
               className={`flex justify-between items-start p-4 rounded-lg border transition-colors dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                doc.enabled ? '' : 'opacity-60 '
+              }${
                 highlightDocId === doc.id
                   ? 'ring-2 ring-primary bg-primary/5 border-primary/40'
                   : selectedDocs.has(doc.id)
@@ -280,6 +321,12 @@ export const DocumentationList = ({
                       ))
                     )}
                     {getStatusBadge(doc.status)}
+                    {!doc.enabled && (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-amber-800 bg-amber-100 rounded-full dark:bg-amber-900 dark:text-amber-200">
+                        <PowerOff className="w-3 h-3" />
+                        Disabled
+                      </span>
+                    )}
                   </div>
 
                   {doc.description && (
