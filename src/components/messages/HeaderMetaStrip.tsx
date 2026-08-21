@@ -58,6 +58,10 @@ export function HeaderMetaStrip({
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
   const [labelQuery, setLabelQuery] = useState('');
+  // Inline create needs BOTH the permission and a handler — `hasManageLabels` alone
+  // would render a picker whose only useful action is absent.
+  const canCreateLabel = hasManageLabels && !!onCreateLabel;
+  const showLabelRow = allLabels.length > 0 || messageLabels.length > 0 || canCreateLabel;
   // Reset the search input each time the picker opens so it starts fresh.
   useEffect(() => {
     if (!showLabelPicker) setLabelQuery('');
@@ -258,8 +262,11 @@ export function HeaderMetaStrip({
         </>
       )}
 
-      {/* Labels */}
-      {allLabels.length > 0 && (
+      {/* Labels — shown when there is something to SEE or something to DO. Gating this
+          on `allLabels.length > 0` alone hid the only inline path to the FIRST label:
+          the "Create …" affordance lives inside the picker, behind the button below, so
+          a workspace with no labels could never create one from a message. */}
+      {showLabelRow && (
         <>
           <span className="text-border/60 select-none px-1">·</span>
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
@@ -356,7 +363,11 @@ export function HeaderMetaStrip({
                         )}
                         {filtered.length === 0 && !showCreate && (
                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            No labels match.
+                            {allLabels.length === 0
+                              ? onCreateLabel
+                                ? 'No labels yet — type a name to create one.'
+                                : 'No labels yet.'
+                              : 'No labels match.'}
                           </div>
                         )}
                       </div>
