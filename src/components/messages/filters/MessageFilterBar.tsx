@@ -57,30 +57,37 @@ export const MessageFilterBar = ({
     () => [...BUILT_IN_VIEWS, ...userViews].filter((view) => viewAppliesTo(view, isKanban)),
     [userViews, isKanban]
   );
-  const activeKeys = useMemo(() => tokens.map((token) => token.def.key), [tokens]);
 
   /**
-   * Applying a view REPLACES the filter state rather than merging into it — a view is
-   * "show me this", not "and also this". Cleared explicitly key by key, because the
-   * page's clearFilters is async and racing it would leave whichever write lost.
+   * A view MERGES into the current filters — it does not replace them.
+   *
+   * Replacing meant Mine followed by Breached silently dropped Mine, while the same two
+   * filters picked from the menu combined fine. Two ways to set a filter that disagree
+   * is worse than either rule on its own. Two views naming the SAME key (Mine and
+   * Unassigned) still swap it, because the second write simply overwrites the first.
+   *
+   * Read from the VIEW, not from the schema: a select with no options is dropped from
+   * the schema, and Assignee has none until its fetch returns, so driving this off
+   * `defs` skipped the assignee half of Mine on first paint.
    */
   const applyView = useCallback(
     (view: SavedView) => {
-      // Clear what is on and the view does not name.
-      for (const token of tokens) {
-        if ((view.filters as Record<string, unknown>)[token.def.key] === undefined) {
-          onFilterChange(token.def.key, clearedValue(token.def));
-        }
-      }
-      // Then set the view's own keys — read from the VIEW, not from the schema. Driving
-      // this off `defs` dropped any key whose filter was absent, and a filter is absent
-      // until its options arrive: click "Mine" before the assignee list has loaded and
-      // only the lifecycle half applied, silently.
       for (const [key, value] of Object.entries(view.filters)) {
         if (value !== undefined) onFilterChange(key, value);
       }
     },
-    [tokens, onFilterChange]
+    [onFilterChange]
+  );
+
+  /** Clicking a lit pill removes exactly that view's filters and leaves the rest. */
+  const unapplyView = useCallback(
+    (view: SavedView) => {
+      for (const key of Object.keys(view.filters)) {
+        const def = defs.find((row) => row.key === key);
+        onFilterChange(key, def ? clearedValue(def) : 'all');
+      }
+    },
+    [defs, onFilterChange]
   );
 
   const saveCurrentView = () => {
@@ -117,7 +124,7 @@ export const MessageFilterBar = ({
         {/* ── saved views ─────────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-1.5 items-center">
           {views.map((view) => {
-            const on = viewIsActive(view, filters, activeKeys);
+            const on = viewIsActive(view, filters);
             return (
               <span key={view.name} className="inline-flex relative items-center group/view">
                 <Button
@@ -126,7 +133,7 @@ export const MessageFilterBar = ({
                   // A lit pill toggles OFF. `viewIsActive` is an exact match, so when it
                   // is lit the active filters ARE the view — clearing everything and
                   // clearing "just the view" are the same set.
-                  onClick={() => (on ? onClearFilters() : applyView(view))}
+                  onClick={() => (on ? unapplyView(view) : applyView(view))}
                   className={`h-7 px-2.5 rounded-full border text-[12.5px] ${
                     on
                       ? 'bg-primary border-primary text-primary-foreground font-semibold'

@@ -59,10 +59,34 @@ describe('saved view pills', () => {
     expect(onClearFilters).not.toHaveBeenCalled();
   });
 
-  it('clears when the SAME view is clicked again', () => {
-    const { onClearFilters } = setup({ lifecycle: 'open' } as FilterState);
+  it('removes only its OWN filters when the same view is clicked again', () => {
+    const { onFilterChange, onClearFilters } = setup({
+      lifecycle: 'open',
+      slaBreached: true,
+    } as FilterState);
     fireEvent.click(screen.getByText('Inbox'));
-    expect(onClearFilters).toHaveBeenCalledTimes(1);
+    expect(onFilterChange).toHaveBeenCalledWith('lifecycle', 'all');
+    // Breached was on too and is nobody else's business — a blanket clear would take it.
+    expect(onFilterChange).not.toHaveBeenCalledWith('slaBreached', false);
+    expect(onClearFilters).not.toHaveBeenCalled();
+  });
+
+  it('combines with what is already on instead of replacing it', () => {
+    const { onFilterChange } = setup({ assigneeId: 'me' } as FilterState);
+    fireEvent.click(screen.getByText('Breached'));
+    expect(onFilterChange).toHaveBeenCalledWith('slaBreached', true);
+    // The whole point: Mine survives. Replacing is what made the pills disagree with
+    // the same two filters applied from the menu.
+    expect(onFilterChange).not.toHaveBeenCalledWith('assigneeId', 'all');
+  });
+
+  it('lights every view whose filters are present', () => {
+    setup({ assigneeId: 'me', slaBreached: true } as FilterState);
+    const pressed = (name: string) =>
+      screen.getByText(name).closest('button')?.getAttribute('aria-pressed');
+    expect(pressed('Mine')).toBe('true');
+    expect(pressed('Breached')).toBe('true');
+    expect(pressed('Unassigned')).toBe('false');
   });
 
   it('marks the active pill as pressed', () => {
@@ -130,12 +154,11 @@ describe('saved view pills', () => {
     expect(onFilterChange).not.toHaveBeenCalledWith('lifecycle', 'open');
   });
 
-  it('clears the keys a view does not name when switching to it', () => {
-    // Breached is only slaBreached — the lifecycle carried over from Inbox has to go,
-    // or the pill would light up for a state it does not describe.
-    const { onFilterChange } = setup({ lifecycle: 'open' } as FilterState);
-    fireEvent.click(screen.getByText('Breached'));
-    expect(onFilterChange).toHaveBeenCalledWith('slaBreached', true);
-    expect(onFilterChange).toHaveBeenCalledWith('lifecycle', 'all');
+  it('swaps rather than stacks when two views name the same filter', () => {
+    // Mine and Unassigned are both assigneeId. The second write overwrites the first,
+    // so they exchange rather than fighting.
+    const { onFilterChange } = setup({ assigneeId: 'me' } as FilterState);
+    fireEvent.click(screen.getByText('Unassigned'));
+    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'unassigned');
   });
 });

@@ -8,6 +8,7 @@ import {
   loadSavedViews,
   persistSavedViews,
   viewIsActive,
+  type SavedView,
 } from '../savedViews';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -60,30 +61,43 @@ describe('persistSavedViews', () => {
   });
 });
 
-describe('viewIsActive — exact, not a subset', () => {
+describe('viewIsActive — a subset test, so views can combine', () => {
   const inbox = BUILT_IN_VIEWS[0];
+  const mine = BUILT_IN_VIEWS[1];
+  const breached = BUILT_IN_VIEWS[3];
 
   it('lights up on exactly the view', () => {
-    expect(viewIsActive(inbox, { lifecycle: 'open' } as FilterState, ['lifecycle'])).toBe(true);
+    expect(viewIsActive(inbox, { lifecycle: 'open' } as FilterState)).toBe(true);
   });
 
-  it('does NOT light up when extra filters are piled on top', () => {
-    // Looking at open threads assigned to me is a different thing from "Inbox", and a
-    // pill claiming otherwise would misdescribe what is on screen.
-    const filters = { lifecycle: 'open', priority: 'high' } as FilterState;
-    expect(viewIsActive(inbox, filters, ['lifecycle', 'priority'])).toBe(false);
+  it('STAYS lit when other filters are added alongside', () => {
+    // The pills merge rather than replace, so Mine and Breached are both on at once.
+    // An exact match would leave both dark the moment you combined them.
+    const filters = { assigneeId: 'me', slaBreached: true } as FilterState;
+    expect(viewIsActive(mine, filters)).toBe(true);
+    expect(viewIsActive(breached, filters)).toBe(true);
   });
 
   it('does not light up when the value differs', () => {
-    expect(viewIsActive(inbox, { lifecycle: 'resolved' } as FilterState, ['lifecycle'])).toBe(
-      false
-    );
+    expect(viewIsActive(inbox, { lifecycle: 'resolved' } as FilterState)).toBe(false);
+  });
+
+  it('does not light up when only some of its keys match', () => {
+    const twoKeyView: SavedView = {
+      name: 'Both',
+      filters: { assigneeId: 'me', priority: 'high' },
+    };
+    expect(viewIsActive(twoKeyView, { assigneeId: 'me' } as FilterState)).toBe(false);
+  });
+
+  it('two views naming the same key are never lit together', () => {
+    const unassigned = BUILT_IN_VIEWS[2];
+    const filters = { assigneeId: 'me' } as FilterState;
+    expect(viewIsActive(mine, filters)).toBe(true);
+    expect(viewIsActive(unassigned, filters)).toBe(false);
   });
 
   it('compares across types, since flags arrive as booleans', () => {
-    const breached = BUILT_IN_VIEWS[3];
-    expect(viewIsActive(breached, { slaBreached: true } as FilterState, ['slaBreached'])).toBe(
-      true
-    );
+    expect(viewIsActive(breached, { slaBreached: true } as FilterState)).toBe(true);
   });
 });

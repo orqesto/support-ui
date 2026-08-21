@@ -9,7 +9,7 @@
  */
 import { logger } from '@/lib/logger';
 import type { FilterState } from '@/stores/messagesStore';
-import { keyAppliesInMode, type FilterKey } from './filterSchema';
+import { keyAppliesInMode } from './filterSchema';
 
 export type SavedView = {
   name: string;
@@ -76,22 +76,16 @@ export const viewAppliesTo = (view: SavedView, isKanban: boolean): boolean =>
   Object.keys(view.filters).every((key) => keyAppliesInMode(key, isKanban));
 
 /**
- * Does the current filter state ARE this view?
+ * Is this view's filter set currently applied?
  *
- * Compared on the keys the view names plus the keys currently set, so "Inbox" only
- * lights up on exactly `lifecycle: open` — not on `lifecycle: open` with three more
- * filters piled on, which is a different thing to be looking at.
+ * A SUBSET test, not an exact one: the pills add to what is already on rather than
+ * replacing it, so Mine and Breached can both be lit at once. Requiring an exact match
+ * would leave both dark the moment you combined them — which read as the pills being
+ * broken, since the same pair applied from the menu worked fine.
  */
-export const viewIsActive = (
-  view: SavedView,
-  filters: FilterState,
-  activeKeys: FilterKey[]
-): boolean => {
-  const viewKeys = Object.keys(view.filters);
-  if (viewKeys.length !== activeKeys.length) return false;
-  return viewKeys.every((key) => {
+export const viewIsActive = (view: SavedView, filters: FilterState): boolean =>
+  Object.keys(view.filters).every((key) => {
     const want = (view.filters as Record<string, unknown>)[key];
     const got = (filters as Record<string, unknown>)[key];
     return String(want) === String(got);
   });
-};
