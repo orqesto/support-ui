@@ -1,5 +1,13 @@
 # Releasing
 
+<!-- docs-status
+verified-on: 2026-08-21
+verified-against: FE main e270f0b
+status: point-in-time
+-->
+
+> 📌 ⚠️ Not re-verified. Key hazard to know regardless: **a push to `main` deploys production here** — there is no tag gate, unlike `BE-service`. See `BE-service/RELEASING.md` for the verified backend flow and its `ship:prod` pitfalls.
+
 Ship a change: **your branch → staging (test) → production**. Three commands. Run them
 in the repo you changed (`FE-app` or `BE-service`). The version you test on staging is
 exactly what ships to prod.

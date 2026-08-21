@@ -1,5 +1,13 @@
 # Odly — Frontend (`support-ticket-ui`)
 
+<!-- docs-status
+verified-on: 2026-08-21
+verified-against: FE main e270f0b
+status: point-in-time
+-->
+
+> 📌 Not claim-verified. `CLAUDE.md` in this repo is the authority on conventions; `docs/UI_CONVENTIONS.md` on component usage.
+
 Modern React + TypeScript frontend for **Odly**, the AI-driven intelligent requests
 hub with multi-channel ingestion (email, Telegram, Slack, embedded chat widget).
 
