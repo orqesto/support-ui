@@ -7,7 +7,6 @@ import {
 import { toast } from 'sonner';
 import {
   allianceScimService,
-  type AllianceRole,
   type AllianceScimConfig,
   type AllianceScimConfigInput,
   type WireTarget,
@@ -186,23 +185,9 @@ const useRoleMapsInvalidator = (allianceId: number | null) => {
     queryClient.invalidateQueries({ queryKey: ['alliance', allianceId, 'scim-rolemaps'] });
 };
 
-export const useSetAllianceRoleMap = (allianceId: number | null) => {
-  const invalidate = useRoleMapsInvalidator(allianceId);
-  return useMutation({
-    mutationFn: (input: { idpGroupExternalId: string; mappedRole: AllianceRole }) =>
-      allianceScimService.setRoleMap(allianceId as number, input),
-    onSuccess: (row) => {
-      void invalidate();
-      toast.success(
-        row.mappedRole === 'alliance_admin'
-          ? 'Role mapping saved — this IdP group will gain alliance-admin on next sync'
-          : 'Role mapping saved'
-      );
-    },
-    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not save role mapping')),
-  });
-};
-
+// No useSetAllianceRoleMap. The IdP-group → alliance-role wire cannot be created any
+// more (Role-Model v2 §0.2) and the backend has no writer route; only listing and
+// deleting remain, so the legacy rows can drain.
 export const useDeleteAllianceRoleMap = (allianceId: number | null) => {
   const invalidate = useRoleMapsInvalidator(allianceId);
   return useMutation({

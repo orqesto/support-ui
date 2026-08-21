@@ -40,7 +40,6 @@ import {
   useSetAllianceGroupMap,
   useDeleteAllianceGroupMap,
   useAllianceRoleMaps,
-  useSetAllianceRoleMap,
   useDeleteAllianceRoleMap,
 } from '@/hooks/useAllianceProvisioning';
 import {
@@ -60,13 +59,13 @@ import {
  *    re-fetchable (T-05-28); a list with revoke (ConfirmDialog).
  *  - IdP-group → alliance-group maps — one IdP group external id → one alliance
  *    group (feeds the reconciler's group-grant union).
- *  - IdP-group → alliance_role maps (D-05) — the ONLY surface that can raise a
- *    member above alliance_agent. The alliance_admin option carries an explicit
- *    elevation warning (T-05-29): mapped members gain alliance-admin across all
- *    alliance orgs on the next SCIM sync (opt-in).
+ *  - IdP-group → alliance_role maps — LEGACY, read-only, remove-only. New ones cannot
+ *    be created from anywhere: the layer collapsed (Role-Model v2 §0.2) and the alliance
+ *    power is now derived from the workspaces a member administers, surfaced as proposals
+ *    above. Existing mappings stay listed so nothing grants invisibly, and stay removable
+ *    so they can drain to zero. Migration 0089 already deleted the agent rows.
  */
 
-/** Alliance-role options for the role-map Select. */
 /** A read-only, monospace, copy-able value (the SCIM base URL). */
 const CopyField = ({ label, value }: { label: string; value: string }) => {
   const [copied, setCopied] = useState(false);
@@ -103,10 +102,7 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
 type ConfirmTarget =
   | { kind: 'token'; id: number; label: string }
   | { kind: 'groupmap'; id: number; label: string }
-  | { kind: 'rolemap'; id: number; label: string }
-  // Elevating an EXISTING role map to alliance_admin — gated behind the same confirm as
-  // deletes because it grants admin across every org in the alliance (T-05-29).
-  | { kind: 'elevate'; idpGroupExternalId: string; label: string };
+  | { kind: 'rolemap'; id: number; label: string };
 
 export const ConsoleProvisioning = () => {
   const { allianceId } = useParams();
@@ -125,7 +121,6 @@ export const ConsoleProvisioning = () => {
   const deleteGroupMap = useDeleteAllianceGroupMap(numericId);
 
   const roleMapsQuery = useAllianceRoleMaps(numericId);
-  const setRoleMap = useSetAllianceRoleMap(numericId);
   const deleteRoleMap = useDeleteAllianceRoleMap(numericId);
 
   // Token mint UI.
@@ -190,17 +185,14 @@ export const ConsoleProvisioning = () => {
     }
     if (confirm.kind === 'token') {
       revokeToken.mutate(confirm.id);
-    } else if (confirm.kind === 'groupmap') {
-      deleteGroupMap.mutate(confirm.id);
     } else if (confirm.kind === 'rolemap') {
       deleteRoleMap.mutate(confirm.id);
-    } else {
-      // Confirmed elevation of an existing mapping to alliance_admin.
-      setRoleMap.mutate({
-        idpGroupExternalId: confirm.idpGroupExternalId,
-        mappedRole: 'alliance_admin',
-      });
+    } else if (confirm.kind === 'groupmap') {
+      deleteGroupMap.mutate(confirm.id);
     }
+    // Every arm is explicit on purpose. This used to end in a bare `else` that granted
+    // alliance-admin, so a confirm kind added later and left unhandled would have
+    // silently elevated an IdP group.
     setConfirm(null);
   };
 
@@ -475,9 +467,10 @@ export const ConsoleProvisioning = () => {
               <div className="flex gap-2 items-start">
                 <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
                 <span className="text-sm">
-                  Members of an IdP group mapped to <strong>alliance admin</strong> will gain
-                  alliance-admin rights across <strong>all workspaces in this alliance</strong> on
-                  the next SCIM sync. Only map groups you intend to elevate.
+                  A mapping below still grants <strong>alliance admin</strong> across{' '}
+                  <strong>all workspaces in this alliance</strong> on every SCIM sync. Nothing
+                  creates these any more — remove it once its members are confirmed from the
+                  proposals above.
                 </span>
               </div>
             </Alert>
@@ -528,8 +521,8 @@ export const ConsoleProvisioning = () => {
 
           {roleMaps.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No IdP groups are mapped to an alliance role yet. Map them from{' '}
-              <strong>Synced IdP groups</strong> above.
+              No IdP group is mapped to an alliance role. Nothing to retire here — alliance
+              admin now comes from <strong>Suggested alliance admins</strong> above.
             </p>
           )}
         </CardContent>
@@ -574,28 +567,18 @@ export const ConsoleProvisioning = () => {
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={handleConfirm}
         variant="danger"
-        confirmText={
-          confirm?.kind === 'token'
-            ? 'Revoke token'
-            : confirm?.kind === 'elevate'
-              ? 'Grant alliance admin'
-              : 'Remove mapping'
-        }
+        confirmText={confirm?.kind === 'token' ? 'Revoke token' : 'Remove mapping'}
         title={
           confirm?.kind === 'token'
             ? `Revoke ${confirm.label}?`
-            : confirm?.kind === 'elevate'
-              ? `Elevate ${confirm.label} to alliance admin?`
-              : `Remove mapping for ${confirm?.label ?? ''}?`
+            : `Remove mapping for ${confirm?.label ?? ''}?`
         }
         description={
           confirm?.kind === 'token'
             ? 'Any IdP connection using this token will stop syncing immediately. This cannot be undone.'
-            : confirm?.kind === 'elevate'
-              ? 'Members of this IdP group will gain alliance-admin rights across every workspace in this alliance on the next SCIM sync. Only confirm if you intend to elevate them.'
-              : confirm?.kind === 'rolemap'
-                ? 'Members of this IdP group will no longer be granted this alliance role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
-                : 'Members of this IdP group will no longer be added to the alliance group on future syncs.'
+            : confirm?.kind === 'rolemap'
+              ? 'Members of this IdP group will no longer be granted this alliance role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
+              : 'Members of this IdP group will no longer be added to the alliance group on future syncs.'
         }
       />
     </div>
