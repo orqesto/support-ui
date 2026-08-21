@@ -202,3 +202,27 @@ describe('a group wired only to a legacy alliance role', () => {
     expect(screen.queryByLabelText('Map to')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The workspace picker is opt-IN.
+ *
+ * It defaulted to every active workspace, so an admin who mapped a group and never touched the
+ * list granted that role across the whole alliance — including workspaces attached later. For a
+ * control that can hand out ORG ADMIN, the broadest possible grant should not be what happens
+ * when you don't look. The wire button already refuses an empty selection, so the failure mode
+ * is a visible "select at least one" rather than a silent sweep.
+ */
+describe('workspace selection defaults', () => {
+  it('selects NO workspace until the admin picks one', () => {
+    syncedGroups.push(baseGroup());
+    renderCard();
+    expect(screen.getByText(/\(0 selected\)/)).toBeInTheDocument();
+  });
+
+  it('refuses to wire while nothing is selected, and says so', () => {
+    syncedGroups.push(baseGroup());
+    renderCard();
+    expect(screen.getByRole('button', { name: /Map access/ })).toBeDisabled();
+    expect(screen.getByText(/Select at least one to map/)).toBeInTheDocument();
+  });
+});
