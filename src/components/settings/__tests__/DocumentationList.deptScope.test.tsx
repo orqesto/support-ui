@@ -62,6 +62,31 @@ const renderList = (docs: Documentation[]) =>
     </QueryClientProvider>
   );
 
+describe('DocumentationList — serving state is visible', () => {
+  it('marks a disabled document so you can see what is NOT serving', () => {
+    // The gap that let four stale documents keep answering a customer-facing KB:
+    // a disabled doc rendered identically to an enabled one, green `Ready` badge and all.
+    renderList([doc({ id: 33, title: 'pricing', enabled: false })]);
+
+    expect(screen.getByText('Disabled')).toBeInTheDocument();
+    // Control: the processing-status badge is a separate axis and must still show.
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+  });
+
+  it('says nothing about serving state when everything is enabled', () => {
+    renderList([doc({ enabled: true })]);
+    expect(screen.queryByText('Disabled')).toBeNull();
+    // The facet only appears when there is something to filter for.
+    expect(screen.queryByText(/^Serving/)).toBeNull();
+  });
+
+  it('offers a Serving/Disabled filter once any doc is disabled', () => {
+    renderList([doc({ id: 1, enabled: true }), doc({ id: 33, title: 'stale', enabled: false })]);
+    expect(screen.getByText('Serving (1)')).toBeInTheDocument();
+    expect(screen.getByText('Disabled (1)')).toBeInTheDocument();
+  });
+});
+
 describe('DocumentationList — dept scope rendering', () => {
   it('renders a row whose departmentIds is missing entirely', () => {
     // Exactly the shape an older backend returns from the toggle endpoint.
