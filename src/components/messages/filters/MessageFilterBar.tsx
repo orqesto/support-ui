@@ -113,7 +113,11 @@ export const MessageFilterBar = ({
               <span key={view.name} className="inline-flex relative items-center group/view">
                 <Button
                   variant="ghost"
-                  onClick={() => applyView(view)}
+                  aria-pressed={on}
+                  // A lit pill toggles OFF. `viewIsActive` is an exact match, so when it
+                  // is lit the active filters ARE the view — clearing everything and
+                  // clearing "just the view" are the same set.
+                  onClick={() => (on ? onClearFilters() : applyView(view))}
                   className={`h-7 px-2.5 rounded-full border text-[12.5px] ${
                     on
                       ? 'bg-primary border-primary text-primary-foreground font-semibold'
