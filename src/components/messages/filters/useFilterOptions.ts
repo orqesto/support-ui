@@ -27,9 +27,18 @@ const CHANNEL_SECTION: Record<string, string> = {
 
 const MESSAGE_SOURCE_TYPES = Object.keys(CHANNEL_SECTION);
 
+/** Resolved server-side, so they are available before any request completes. */
+const STATIC_ASSIGNEES: FilterOption[] = [
+  { value: 'me', label: 'Me' },
+  { value: 'unassigned', label: 'Unassigned' },
+];
+
 export const useFilterOptions = (): DynamicOptions => {
   const { data: departments = [] } = useDepartments();
-  const [assignees, setAssignees] = useState<FilterOption[]>([]);
+  // Seeded, not empty: 'Me' and 'Unassigned' need no lookup, and a filter with zero
+  // options is dropped from the schema entirely — so an empty initial value made the
+  // whole Assignee filter blink out of existence until the fetch returned.
+  const [assignees, setAssignees] = useState<FilterOption[]>(STATIC_ASSIGNEES);
   const [sources, setSources] = useState<FilterOption[]>([]);
   const [labels, setLabels] = useState<FilterOption[]>([]);
   const [aliases, setAliases] = useState<FilterOption[]>([]);
@@ -45,8 +54,7 @@ export const useFilterOptions = (): DynamicOptions => {
       .then((users) => {
         if (cancelled) return;
         setAssignees([
-          { value: 'me', label: 'Me' },
-          { value: 'unassigned', label: 'Unassigned' },
+          ...STATIC_ASSIGNEES,
           ...users.map((user) => ({
             value: String(user.id),
             label: `${user.firstName} ${user.lastName}`.trim() || user.email,

@@ -7,9 +7,14 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { FilterState } from '@/stores/messagesStore';
 
+// Mutable so a test can reproduce the pre-fetch state, where a filter has no options
+// and is therefore absent from the schema entirely.
+const options = vi.hoisted(() => ({
+  current: [{ value: 'me', label: 'Me' }, { value: 'unassigned', label: 'Unassigned' }],
+}));
 vi.mock('../useFilterOptions', () => ({
   useFilterOptions: () => ({
-    assignees: [{ value: 'me', label: 'Me' }],
+    assignees: options.current,
     departments: [],
     sources: [],
     labels: [],
@@ -20,7 +25,13 @@ vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' })
 
 const { MessageFilterBar } = await import('../MessageFilterBar');
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  options.current = [
+    { value: 'me', label: 'Me' },
+    { value: 'unassigned', label: 'Unassigned' },
+  ];
+});
 afterEach(cleanup);
 
 const setup = (filters: FilterState) => {
@@ -65,6 +76,17 @@ describe('saved view pills', () => {
     fireEvent.click(screen.getByText('Mine'));
     expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
     expect(onClearFilters).not.toHaveBeenCalled();
+  });
+
+  it('applies a view key even when that filter has NO options yet', () => {
+    // Regression: applyView iterated the SCHEMA, and a select filter with zero options
+    // is dropped from the schema — so clicking "Mine" before the assignee list returned
+    // applied the lifecycle half and dropped the assignee half, silently.
+    options.current = [];
+    const { onFilterChange } = setup({} as FilterState);
+    fireEvent.click(screen.getByText('Unassigned'));
+    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'unassigned');
+    expect(onFilterChange).toHaveBeenCalledWith('lifecycle', 'open');
   });
 
   it('clears the keys a view does not name when switching to it', () => {

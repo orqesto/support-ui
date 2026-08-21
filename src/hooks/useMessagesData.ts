@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { assigneeApiParams } from './assigneeApiParams';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -170,11 +171,8 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.priority = currentFilters.priority;
         }
 
-        // ASSIGNEE
-        if (currentFilters.assigneeId && currentFilters.assigneeId !== 'all') {
-          apiFilters.assigneeId =
-            currentFilters.assigneeId === 'unassigned' ? '0' : currentFilters.assigneeId;
-        }
+        // ASSIGNEE — see assigneeApiParams for why 'me' is not an id.
+        Object.assign(apiFilters, assigneeApiParams(currentFilters.assigneeId));
 
         // AI STATE
         const aiState = currentFilters.aiState ?? 'all';

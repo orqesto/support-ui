@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { FilterSheet } from './FilterSheet';
 import { FilterToken } from './FilterToken';
 import { FilterTokenBar } from './FilterTokenBar';
-import { buildFilterDefs, visibleDefs } from './filterSchema';
+import { buildFilterDefs } from './filterSchema';
 import { clearedValue, tokensOf } from './filterTokens';
 import { useFilterOptions } from './useFilterOptions';
 import {
@@ -62,16 +62,21 @@ export const MessageFilterBar = ({
    */
   const applyView = useCallback(
     (view: SavedView) => {
-      for (const def of visibleDefs(defs, isKanban)) {
-        const wanted = (view.filters as Record<string, unknown>)[def.key];
-        if (wanted === undefined) {
-          if (activeKeys.includes(def.key)) onFilterChange(def.key, clearedValue(def));
-        } else {
-          onFilterChange(def.key, wanted as string | boolean);
+      // Clear what is on and the view does not name.
+      for (const token of tokens) {
+        if ((view.filters as Record<string, unknown>)[token.def.key] === undefined) {
+          onFilterChange(token.def.key, clearedValue(token.def));
         }
       }
+      // Then set the view's own keys — read from the VIEW, not from the schema. Driving
+      // this off `defs` dropped any key whose filter was absent, and a filter is absent
+      // until its options arrive: click "Mine" before the assignee list has loaded and
+      // only the lifecycle half applied, silently.
+      for (const [key, value] of Object.entries(view.filters)) {
+        if (value !== undefined) onFilterChange(key, value);
+      }
     },
-    [defs, isKanban, activeKeys, onFilterChange]
+    [tokens, onFilterChange]
   );
 
   const saveCurrentView = () => {
