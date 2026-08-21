@@ -317,7 +317,6 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
     () => (orgsQuery.data ?? []).filter((org) => org.active),
     [orgsQuery.data]
   );
-  const activeOrgIds = useMemo(() => activeOrgs.map((org) => org.id), [activeOrgs]);
 
   // Target options: the four workspace roles (scoped to workspaces below), then every
   // authored alliance group. The two alliance-role entries were removed — an IdP group
@@ -342,12 +341,16 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const selectedValueFor = (group: SyncedGroup): string =>
     selectedByGroup[group.id] ?? defaultValueFor(group);
 
-  // Default an org-role wire to every active workspace until the admin narrows it.
-  const orgIdsFor = (group: SyncedGroup): number[] => orgIdsByGroup[group.id] ?? activeOrgIds;
+  // Nothing selected until an admin chooses. This control can hand out ORG ADMIN across every
+  // workspace in the alliance — including ones attached later — so defaulting to all-active made
+  // the broadest possible grant the thing that happens when you don't look. The wire button
+  // already refuses an empty selection, so the failure mode is a visible "select at least one",
+  // not a silent sweep. Opt in, not opt out.
+  const orgIdsFor = (group: SyncedGroup): number[] => orgIdsByGroup[group.id] ?? [];
 
   const toggleOrgFor = (group: SyncedGroup, orgId: number) => {
     setOrgIdsByGroup((prev) => {
-      const current = prev[group.id] ?? activeOrgIds;
+      const current = prev[group.id] ?? [];
       const next = current.includes(orgId)
         ? current.filter((id) => id !== orgId)
         : [...current, orgId];
