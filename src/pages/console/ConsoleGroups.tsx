@@ -24,6 +24,22 @@ const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole
  * Groups list (SPEC §8.3): each group's name, scoped-org count, granted role, and
  * member count, with edit/delete. The editor drawer handles create + edit.
  */
+/**
+ * A group fed by an IdP is deleted with its wire: `alliance_group_idp_map.group_id` is
+ * ON DELETE CASCADE, so provisioning from that IdP group stops too. On taco (2026-08-20) five
+ * groups were wired and later deleted, and nothing said the wire went with them — the synced
+ * groups fell back to an older legacy display, so the mapping work looked like it had never
+ * happened. Say it before the click, not after.
+ */
+export const deleteDescription = (group: AllianceGroup | null): string => {
+  const base =
+    'Members lose the roles this group granted across its scoped workspaces (highest-wins means any role from another source is kept). This cannot be undone.';
+  const idp = group?.idpGroup;
+  if (!idp) return base;
+  const name = idp.displayName ?? idp.externalId;
+  return `${name} feeds this group from your identity provider. Deleting it also removes that mapping, so new members will stop arriving from ${name} — you would need to wire it again. ${base}`;
+};
+
 export const ConsoleGroups = () => {
   const { allianceId } = useParams();
   const numericId = allianceId ? Number(allianceId) : null;
@@ -171,7 +187,7 @@ export const ConsoleGroups = () => {
         variant="danger"
         confirmText="Delete group"
         title={`Delete ${deleteTarget?.name ?? 'group'}?`}
-        description="Members lose the roles this group granted across its scoped workspaces (highest-wins means any role from another source is kept). This cannot be undone."
+        description={deleteDescription(deleteTarget)}
       />
     </div>
   );
