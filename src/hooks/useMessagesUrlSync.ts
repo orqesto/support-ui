@@ -6,7 +6,7 @@ import { messageService } from '@/services/message.service';
 import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 
-const VALID_STATUSES = [
+export const VALID_STATUSES = [
   'all',
   'active',
   'awaiting_response',
@@ -17,9 +17,14 @@ const VALID_STATUSES = [
   'spam',
   'resolved',
 ] as const;
-const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
-const VALID_LIFECYCLES = [
+export const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
+// 'open' is what the Status control actually SENDS (unreviewed + replied fold into it)
+// and it was missing here, so `?lifecycle=open` failed the whitelist and was dropped on
+// every URL read. The dropdown has had this bug all along — it only became obvious once
+// the saved views leaned on it, since Inbox / Mine / Unassigned all set lifecycle=open.
+export const VALID_LIFECYCLES = [
   'all',
+  'open',
   'unreviewed',
   'in_progress',
   'awaiting',
@@ -28,9 +33,9 @@ const VALID_LIFECYCLES = [
   'resolved',
   'closed',
 ] as const;
-const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
-const VALID_READ = ['all', 'read', 'unread'] as const;
-const VALID_AI_STATES = [
+export const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
+export const VALID_READ = ['all', 'read', 'unread'] as const;
+export const VALID_AI_STATES = [
   'all',
   'needs_review',
   'needs_info',
@@ -40,8 +45,8 @@ const VALID_AI_STATES = [
   'lead',
   'contradiction',
 ] as const;
-const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
-const VALID_LINKED_TICKET_STATUSES = [
+export const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
+export const VALID_LINKED_TICKET_STATUSES = [
   'all',
   'pending',
   'open',
@@ -49,7 +54,7 @@ const VALID_LINKED_TICKET_STATUSES = [
   'resolved',
   'closed',
 ] as const;
-const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
+export const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
 
 interface UseMessagesUrlSyncProps {
   urlSyncedRef: MutableRefObject<boolean>;

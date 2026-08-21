@@ -75,11 +75,16 @@ const LIFECYCLE: FilterOption[] = [
   { value: 'resolved', label: 'Resolved' },
 ];
 
+/**
+ * Kanban's own status filter. NO 'resolved' — the prototype offers one, but
+ * `ThreadStatusFilter` has never had it and the URL layer would drop it, so the option
+ * would look available and quietly do nothing. Kanban's Resolved COLUMN is a different
+ * mechanism; this is the filter.
+ */
 const THREAD_STATUS: FilterOption[] = [
   { value: 'open', label: 'Open', dot: '#0ea5e9' },
   { value: 'in_progress', label: 'In Progress', dot: '#3b82f6' },
   { value: 'pending', label: 'On-hold', dot: '#fbbf24' },
-  { value: 'resolved', label: 'Resolved', dot: '#10b981' },
   { value: 'closed', label: 'Closed' },
 ];
 
