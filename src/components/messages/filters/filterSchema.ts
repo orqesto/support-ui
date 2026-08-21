@@ -260,9 +260,27 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
   return defs.filter((def) => def.kind !== 'select' || (def.options?.length ?? 0) > 0);
 };
 
+/**
+ * Which filters belong to which board mode — the single source for both the schema
+ * flags below and `viewAppliesTo`.
+ *
+ * LIST_ONLY exists because every kanban column hard-sets its own `lifecycle` (and uses
+ * `view` for the queue axis) and a column's own filters win over the shared ones. Those
+ * three cannot move a card on the board no matter what the bar sends.
+ */
+export const LIST_ONLY_KEYS: FilterKey[] = ['lifecycle', 'queue', 'read'];
+export const KANBAN_ONLY_KEYS: FilterKey[] = ['threadStatus'];
+
+/** Does a filter key do anything in this mode? Independent of whether its OPTIONS have
+ *  loaded — that is a separate, temporary condition. */
+export const keyAppliesInMode = (key: string, isKanban: boolean): boolean =>
+  isKanban
+    ? !(LIST_ONLY_KEYS as string[]).includes(key)
+    : !(KANBAN_ONLY_KEYS as string[]).includes(key);
+
 /** Filters usable in the current board mode. */
 export const visibleDefs = (defs: FilterDef[], isKanban: boolean): FilterDef[] =>
-  defs.filter((def) => (isKanban ? !def.listOnly : !def.kanbanOnly));
+  defs.filter((def) => keyAppliesInMode(def.key, isKanban));
 
 export const GROUP_ORDER: FilterGroup[] = ['Queue', 'Routing', 'AI & links', 'Flags'];
 

@@ -12,6 +12,7 @@ import {
   BUILT_IN_VIEWS,
   loadSavedViews,
   persistSavedViews,
+  viewAppliesTo,
   viewIsActive,
   type SavedView,
 } from './savedViews';
@@ -52,7 +53,10 @@ export const MessageFilterBar = ({
   const [namingView, setNamingView] = useState(false);
   const [viewName, setViewName] = useState('');
 
-  const views = useMemo(() => [...BUILT_IN_VIEWS, ...userViews], [userViews]);
+  const views = useMemo(
+    () => [...BUILT_IN_VIEWS, ...userViews].filter((view) => viewAppliesTo(view, isKanban)),
+    [userViews, isKanban]
+  );
   const activeKeys = useMemo(() => tokens.map((token) => token.def.key), [tokens]);
 
   /**

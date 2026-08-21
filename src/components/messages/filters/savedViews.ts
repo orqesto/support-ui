@@ -9,7 +9,7 @@
  */
 import { logger } from '@/lib/logger';
 import type { FilterState } from '@/stores/messagesStore';
-import type { FilterKey } from './filterSchema';
+import { keyAppliesInMode, type FilterKey } from './filterSchema';
 
 export type SavedView = {
   name: string;
@@ -20,10 +20,17 @@ export type SavedView = {
 
 const STORAGE_KEY = 'odly-inbox-saved-views';
 
+/**
+ * Mine and Unassigned carry no lifecycle. They answer "whose is it", and pinning them to
+ * open threads was an extra assumption that also made them useless on the kanban board,
+ * where every column hard-sets its own lifecycle and overrides anything shared.
+ *
+ * Inbox is lifecycle-only, so it is inherently a list-view idea — see `viewAppliesTo`.
+ */
 export const BUILT_IN_VIEWS: SavedView[] = [
   { name: 'Inbox', filters: { lifecycle: 'open' }, builtIn: true },
-  { name: 'Mine', filters: { assigneeId: 'me', lifecycle: 'open' }, builtIn: true },
-  { name: 'Unassigned', filters: { assigneeId: 'unassigned', lifecycle: 'open' }, builtIn: true },
+  { name: 'Mine', filters: { assigneeId: 'me' }, builtIn: true },
+  { name: 'Unassigned', filters: { assigneeId: 'unassigned' }, builtIn: true },
   { name: 'Breached', filters: { slaBreached: true }, builtIn: true },
 ];
 
@@ -55,6 +62,18 @@ export const persistSavedViews = (views: SavedView[]): void => {
     logger.error('Saved views: could not write storage', err);
   }
 };
+
+/**
+ * Can this view do anything in the current board mode?
+ *
+ * The kanban columns each hard-set `lifecycle` (and use `view` for the queue axis), and
+ * a column's own filters win over the shared ones — so a lifecycle or queue filter
+ * cannot move a single card no matter what the bar sends. A view built only from those
+ * would light up, change the header count, and leave the board untouched. Better not to
+ * offer it there at all.
+ */
+export const viewAppliesTo = (view: SavedView, isKanban: boolean): boolean =>
+  Object.keys(view.filters).every((key) => keyAppliesInMode(key, isKanban));
 
 /**
  * Does the current filter state ARE this view?

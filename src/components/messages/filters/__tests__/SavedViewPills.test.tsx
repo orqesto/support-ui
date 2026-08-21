@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-const setup = (filters: FilterState) => {
+const setup = (filters: FilterState, isKanban = false) => {
   const onFilterChange = vi.fn();
   const onClearFilters = vi.fn();
   render(
@@ -45,6 +45,7 @@ const setup = (filters: FilterState) => {
       onFilterChange={onFilterChange}
       onCommitSearch={vi.fn()}
       onClearFilters={onClearFilters}
+      isKanban={isKanban}
     />
   );
   return { onFilterChange, onClearFilters };
@@ -86,7 +87,47 @@ describe('saved view pills', () => {
     const { onFilterChange } = setup({} as FilterState);
     fireEvent.click(screen.getByText('Unassigned'));
     expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'unassigned');
-    expect(onFilterChange).toHaveBeenCalledWith('lifecycle', 'open');
+  });
+
+  it('keeps offering a view while its options are still loading', () => {
+    // Applicability is a question about the MODE, not about load state. Keying it on
+    // "is this filter in the schema" would make Mine and Unassigned vanish on first
+    // paint and pop back in when the assignee fetch returned.
+    options.current = [];
+    setup({} as FilterState);
+    expect(screen.getByText('Mine')).toBeTruthy();
+    expect(screen.getByText('Unassigned')).toBeTruthy();
+  });
+
+  // ── kanban ───────────────────────────────────────────────────────────────
+  //
+  // Every kanban column hard-sets its own `lifecycle`, and a column's filters win over
+  // the shared ones — so a lifecycle filter cannot move a card. Offering "Inbox" there
+  // lit the pill and changed the header count while the board stayed put.
+  it('does not offer a lifecycle-only view on the kanban board', () => {
+    setup({} as FilterState, true);
+    expect(screen.queryByText('Inbox')).toBeNull();
+  });
+
+  it('still offers the views that CAN act on the board', () => {
+    setup({} as FilterState, true);
+    expect(screen.getByText('Mine')).toBeTruthy();
+    expect(screen.getByText('Unassigned')).toBeTruthy();
+    expect(screen.getByText('Breached')).toBeTruthy();
+  });
+
+  it('offers every view in list mode', () => {
+    setup({} as FilterState);
+    for (const name of ['Inbox', 'Mine', 'Unassigned', 'Breached']) {
+      expect(screen.getByText(name)).toBeTruthy();
+    }
+  });
+
+  it('Mine and Unassigned filter by WHO, without pinning a status', () => {
+    const { onFilterChange } = setup({} as FilterState);
+    fireEvent.click(screen.getByText('Mine'));
+    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
+    expect(onFilterChange).not.toHaveBeenCalledWith('lifecycle', 'open');
   });
 
   it('clears the keys a view does not name when switching to it', () => {
