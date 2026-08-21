@@ -24,6 +24,10 @@ export type ThreadStatusFilter =
 // in list mode). Mutually exclusive with `queue` in the FE.
 export type LifecycleFilter =
   | 'all'
+  // The dropdown has always SENT 'open' (unreviewed+replied fold into it) — the union
+  // just never listed it, because the select casts its options through `as unknown`
+  // and the mismatch had nowhere to surface.
+  | 'open'
   | 'unreviewed'
   | 'in_progress'
   | 'awaiting'
@@ -56,6 +60,13 @@ export type FilterState = {
    * picker cannot separate them.
    */
   receivedAt?: string;
+  /**
+   * Age bucket — how long ago the thread arrived. Maps to the API's `ageRange`.
+   *
+   * Distinct from `receivedAt` above, which is an ADDRESS, not a time. The design
+   * prototype used one name for both; the API has always had two params.
+   */
+  ageRange?: 'all' | 'lt24h' | '1to7d' | '1to4w' | 'gt1mo';
   departmentId?: string;
   status?: MessageViewStatus;
   threadStatus?: ThreadStatusFilter;
@@ -126,6 +137,7 @@ export const defaultFilters: FilterState = {
   labelId: 'all',
   linked: 'all',
   linkedTicketStatus: 'all',
+  ageRange: 'all',
   search: undefined,
   slaBreached: false,
   slaAtRisk: false,

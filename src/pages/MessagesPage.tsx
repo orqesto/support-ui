@@ -33,7 +33,7 @@ import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
-import { MessageFilters } from '@/components/messages/MessageFilters';
+import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
@@ -178,7 +178,6 @@ export const MessagesPage = () => {
   // string or a publicId like 'SUP-42') — see useMessagesUrlSync for the dedup
   // contract. Stays in sync with what's written to the URL via getConvUrlId.
   const fetchedMessageIdRef = useRef<string | null>(null);
-  const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
 
   const {
     threads: rawThreads,
@@ -212,10 +211,10 @@ export const MessagesPage = () => {
 
   const handleFilterChange = (key: string, value: string | boolean) => {
     if (key === 'search') {
-      setPendingSearch(value as string);
-      if (!(value as string).trim()) {
-        updateFilter('search', '');
-      }
+      // Setting and clearing are the same write now. The old two-step (stage into
+      // pendingSearch, commit on Enter/blur) existed for a controlled text input; the
+      // bar hands over a finished term or an empty string.
+      updateFilter('search', value as string);
     } else {
       updateFilter(key as keyof typeof filters, value as FilterState[keyof FilterState]);
       if (key === 'linked' && value === 'all') {
@@ -224,19 +223,20 @@ export const MessagesPage = () => {
     }
   };
 
-  const handleSearch = () => {
-    updateFilter('search', pendingSearch);
-  };
-
-  const handleSearchBlur = () => {
-    if (!pendingSearch.trim() && filters.search) {
-      updateFilter('search', '');
-    }
+  /**
+   * Commit a search term in ONE step.
+   *
+   * The old panel typed into a controlled input and committed on Enter/blur, so it
+   * needed the pendingSearch/onSearch pair. The token bar turns a term into a token in
+   * a single action — and calling setPendingSearch then onSearch would not work, since
+   * onSearch reads pendingSearch from its closure and would still see the old value.
+   */
+  const handleCommitSearch = (text: string) => {
+    updateFilter('search', text);
   };
 
   const clearFilters = async () => {
     clearFiltersStore();
-    setPendingSearch('');
     await fetchMessages(messagesPagination.page, true);
   };
 
@@ -534,6 +534,8 @@ export const MessagesPage = () => {
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
+    (filters.receivedAt && filters.receivedAt !== 'all' ? 1 : 0) +
+    (filters.ageRange && filters.ageRange !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
     (filters.slaBreached ? 1 : 0) +
     (filters.slaAtRisk ? 1 : 0) +
@@ -553,6 +555,8 @@ export const MessagesPage = () => {
     (filters.aiState && filters.aiState !== 'all' ? 1 : 0) +
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
+    (filters.receivedAt && filters.receivedAt !== 'all' ? 1 : 0) +
+    (filters.ageRange && filters.ageRange !== 'all' ? 1 : 0) +
     (filters.search?.trim() ? 1 : 0) +
     (filters.slaBreached ? 1 : 0) +
     (filters.slaAtRisk ? 1 : 0) +
@@ -614,17 +618,14 @@ export const MessagesPage = () => {
 
             <>
               <div className="mb-6">
-                <MessageFilters
+                <MessageFilterBar
                   filters={filters}
-                  pendingSearch={pendingSearch}
                   activeFilterCount={activeFilterCount}
                   clearableFilterCount={clearableFilterCount}
                   pagination={displayMode === 'contacts' ? contactsPagination : pagination}
                   onFilterChange={handleFilterChange}
-                  onSearch={handleSearch}
-                  onSearchBlur={handleSearchBlur}
-                  onClearFilters={clearFilters}
-                  setPendingSearch={setPendingSearch}
+                  onCommitSearch={handleCommitSearch}
+                  onClearFilters={() => void clearFilters()}
                   isKanban={isKanban}
                 />
               </div>

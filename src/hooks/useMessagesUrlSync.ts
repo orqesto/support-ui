@@ -136,6 +136,9 @@ export const useMessagesUrlSync = ({
       const urlReceivedAt = searchParams.get('receivedAt');
       if (urlReceivedAt) urlFilters.receivedAt = urlReceivedAt;
 
+      const urlAgeRange = searchParams.get('ageRange');
+      if (urlAgeRange) urlFilters.ageRange = urlAgeRange as FilterState['ageRange'];
+
       const urlDepartmentId = searchParams.get('departmentId');
       if (urlDepartmentId) urlFilters.departmentId = urlDepartmentId;
 
@@ -238,6 +241,7 @@ export const useMessagesUrlSync = ({
       params.set('source', filters.messageSourceId);
     if (filters.receivedAt && filters.receivedAt !== 'all')
       params.set('receivedAt', filters.receivedAt);
+    if (filters.ageRange && filters.ageRange !== 'all') params.set('ageRange', filters.ageRange);
     if (filters.departmentId && filters.departmentId !== 'all')
       params.set('departmentId', filters.departmentId);
     if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);

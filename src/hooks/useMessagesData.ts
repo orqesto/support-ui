@@ -87,6 +87,10 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         }
 
         // RECEIVED AT — the alias cut the source picker can't make.
+        if (currentFilters.ageRange && currentFilters.ageRange !== 'all') {
+          apiFilters.ageRange = currentFilters.ageRange;
+        }
+
         if (currentFilters.receivedAt && currentFilters.receivedAt !== 'all') {
           apiFilters.receivedAt = currentFilters.receivedAt;
         }
@@ -274,6 +278,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.assigneeId,
     filters.aiState,
     filters.labelId,
+    filters.ageRange,
     filters.linked,
     filters.linkedTicketStatus,
     filters.search,

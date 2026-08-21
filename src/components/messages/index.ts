@@ -1,6 +1,6 @@
 export { MessageAttachments } from './MessageAttachments';
 export { MessageDetail } from './MessageDetail';
-export { MessageFilters } from './MessageFilters';
+export { MessageFilterBar } from './filters/MessageFilterBar';
 export { MessageKBReferences } from './MessageKBReferences';
 export { KanbanCard } from './KanbanCard';
 export { MessagesKanbanView } from './MessagesKanbanView';
