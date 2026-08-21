@@ -13,8 +13,9 @@ import type { OrganizationRole } from '@/types/roles';
  *                 `mintToken` EXACTLY ONCE (T-05-28) and never fetched again.
  *  - group-maps — IdP-group external id → alliance group (feeds the reconciler's
  *                 group-grant union; the grant stays org-role, admin-ceilinged).
- *  - role-maps  — IdP-group external id → alliance_role (the D-05 elevation surface;
- *                 the ONLY thing that can raise a member above alliance_agent).
+ *  - role-maps  — IdP-group external id → alliance_role. LEGACY: list + delete only.
+ *                 Nothing creates these any more (Role-Model v2 §0.2) and the backend
+ *                 exposes no writer; alliance admin is derived from workspace grants.
  *
  * The SCIM Base URL to paste into the IdP is DERIVED client-side (the BE serves the
  * bearer SCIM surface at `<backend-origin>/api/scim/v2`, same as the per-org
@@ -293,21 +294,10 @@ export const allianceScimService = {
     return res.data.data;
   },
 
-  // ─── IdP-group → alliance_role maps (D-05 elevation) ─────────────────────────
+  // ─── IdP-group → alliance_role maps — legacy, read + retire only ────────────
   listRoleMaps: async (allianceId: number): Promise<AllianceRoleMapping[]> => {
     const res = await apiClient.get<{ data: AllianceRoleMapping[] }>(
       `${base(allianceId)}/scim/role-maps`
-    );
-    return res.data.data;
-  },
-
-  setRoleMap: async (
-    allianceId: number,
-    input: { idpGroupExternalId: string; mappedRole: AllianceRole }
-  ): Promise<AllianceRoleMapping> => {
-    const res = await apiClient.put<{ data: AllianceRoleMapping }>(
-      `${base(allianceId)}/scim/role-maps`,
-      input
     );
     return res.data.data;
   },
