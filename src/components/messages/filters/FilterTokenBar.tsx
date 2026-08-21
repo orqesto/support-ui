@@ -174,8 +174,12 @@ export const FilterTokenBar = ({
           if ((event.target as HTMLElement).closest('button')) return;
           openBar();
         }}
-        className={`flex flex-wrap gap-1.5 items-center p-1.5 rounded-md border cursor-text min-h-[46px] bg-input transition-colors ${
-          open ? 'border-primary ring-2 ring-primary/10' : 'border-border hover:border-accent-foreground'
+        // Dark mode drops to --background rather than --input: the bar sits ON a card,
+        // and --input there is barely distinguishable from it.
+        className={`flex flex-wrap gap-1.5 items-center p-1.5 rounded-md border cursor-text min-h-[46px] transition-colors bg-input dark:bg-background ${
+          open
+            ? 'border-primary ring-2 ring-primary/10'
+            : 'border-border hover:border-accent-foreground dark:hover:border-primary/50'
         }`}
       >
         <Search className="ml-1.5 w-4 h-4 text-muted-foreground shrink-0" />

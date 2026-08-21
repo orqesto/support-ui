@@ -97,9 +97,10 @@ export const MessageFilterBar = ({
   };
 
   const { total } = pagination;
-  const countLabel = activeFilterCount
-    ? `${total} matching · ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''}`
-    : `${total} messages · no filters`;
+  // The range, not a match count: it answers "where am I in this list", which a count
+  // cannot, and deep paging is exactly when that matters.
+  const rangeStart = (pagination.page - 1) * pagination.limit + 1;
+  const rangeEnd = Math.min(pagination.page * pagination.limit, total);
 
   return (
     <Card>
@@ -190,7 +191,18 @@ export const MessageFilterBar = ({
 
         {/* ── count + actions ─────────────────────────────────────────── */}
         <div className="flex gap-3 justify-between items-center">
-          <span className="text-[12.5px] text-muted-foreground tabular-nums">{countLabel}</span>
+          <span className="text-[12.5px] text-muted-foreground tabular-nums">
+            {total > 0 ? (
+              <>
+                <b className="font-semibold text-foreground/70">
+                  {rangeStart}–{rangeEnd}
+                </b>{' '}
+                of {total}
+              </>
+            ) : (
+              'No messages'
+            )}
+          </span>
           <div className="flex gap-2 items-center">
             {namingView ? (
               <span className="flex gap-1 items-center">

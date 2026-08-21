@@ -31,10 +31,10 @@ export const FilterToken = ({
 
   return (
     <span
-      className={`flex overflow-hidden items-stretch h-7 rounded-md border shrink-0 bg-background text-[12.5px] group ${tone}`}
+      className={`flex overflow-hidden items-stretch h-7 rounded-md border shrink-0 text-[12.5px] group bg-card dark:bg-accent ${tone}`}
     >
       {def.kind !== 'flag' && (
-        <span className="grid place-items-center px-2 font-medium border-r bg-muted text-muted-foreground border-border">
+        <span className="grid place-items-center px-2 font-medium border-r text-muted-foreground border-border bg-muted dark:bg-input">
           {def.label.toLowerCase()}
         </span>
       )}
@@ -53,7 +53,7 @@ export const FilterToken = ({
         variant="ghost"
         onClick={onRemove}
         aria-label={`Remove ${def.label} filter`}
-        className={`grid place-items-center px-1.5 h-auto rounded-none border-l text-muted-foreground border-border hover:text-red-600 dark:hover:text-red-400 hover:bg-destructive/10 ${
+        className={`grid place-items-center px-1.5 h-auto rounded-none border-l text-muted-foreground border-border hover:text-red-600 dark:hover:text-red-400 hover:bg-destructive/10 dark:hover:bg-destructive/20 ${
           alwaysShowRemove ? '' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
         }`}
       >

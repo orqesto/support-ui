@@ -140,8 +140,10 @@ const CommonRow = ({
   return (
     <div className="flex gap-2.5 items-center px-3 py-1">
       <span className="w-14 text-[11.5px] shrink-0 text-muted-foreground">{def.label}</span>
+      {/* Dark mode makes the track a bordered well on --background instead of a raised
+          --muted block: on a dark card, --muted reads as another button, not a groove. */}
       <div
-        className="grid flex-1 gap-0.5 p-0.5 rounded-md bg-muted"
+        className="grid flex-1 gap-0.5 p-0.5 rounded-md bg-muted dark:bg-background dark:border dark:border-border/60 dark:p-px"
         style={{ gridTemplateColumns: `repeat(${def.options?.length ?? 1}, minmax(0, 1fr))` }}
       >
         {(def.options ?? []).map((option) => {
@@ -154,8 +156,8 @@ const CommonRow = ({
               onClick={() => onPick(option.value)}
               className={`flex gap-1 justify-center items-center px-1 h-[26px] rounded text-[11px] min-w-0 ${
                 on
-                  ? 'bg-background text-foreground font-semibold shadow-sm'
-                  : 'font-medium text-muted-foreground hover:text-foreground'
+                  ? 'bg-card text-foreground font-semibold shadow-sm ring-1 ring-border/70 dark:bg-accent dark:shadow-none dark:ring-0'
+                  : 'font-medium text-muted-foreground hover:text-foreground dark:hover:bg-secondary'
               }`}
             >
               {option.dot && (
@@ -187,19 +189,23 @@ const FlagsRow = ({
     <div className="flex flex-1 gap-1">
       {defs.map((def) => {
         const on = filterValue(filters, def.key) !== undefined;
+        // Each tone carries its own dark pair — a single translucent fill that works on
+        // white goes muddy on a dark card, so the dark side lifts both alpha and hue.
         const onTone =
           def.tone === 'red'
-            ? 'bg-destructive/10 text-red-600 dark:text-red-400'
+            ? 'bg-destructive/[0.12] text-red-600 dark:bg-destructive/[0.18] dark:text-red-400'
             : def.tone === 'amber'
-              ? 'bg-warning/15 text-amber-600 dark:text-amber-400'
-              : 'bg-primary/10 text-primary';
+              ? 'bg-warning/15 text-amber-600 dark:bg-warning/[0.18] dark:text-amber-400'
+              : 'bg-primary/[0.12] text-primary dark:bg-primary/[0.22] dark:text-foreground';
         return (
           <Button
             key={def.key}
             variant="ghost"
             onClick={() => onToggle(def)}
             className={`h-[26px] px-2.5 rounded-md text-[11.5px] ${
-              on ? `${onTone} font-semibold` : 'bg-muted font-medium text-muted-foreground hover:text-foreground'
+              on
+                ? `${onTone} font-semibold border border-transparent`
+                : 'font-medium text-muted-foreground hover:text-foreground bg-muted border border-transparent dark:bg-background dark:border-border/60'
             }`}
           >
             {def.label}
