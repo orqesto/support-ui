@@ -349,13 +349,9 @@ export const MessageFilters = ({
             ))}
           </div>
         ) : (
-          // Only worth saying while the panel is shut. Expanded, a dozen controls
-          // all reading "All" say it louder, and this line costs a whole row.
-          !expanded && (
-            <p className="text-[12.5px] text-muted-foreground">
-              No filters applied — showing all messages.
-            </p>
-          )
+          <p className="text-[12.5px] text-muted-foreground">
+            No filters applied — showing all messages.
+          </p>
         )}
 
         {/* Collapsible body — animated open/close (single source: `expanded`). */}
@@ -367,11 +363,11 @@ export const MessageFilters = ({
               : { maxHeight: 0, opacity: 0, marginTop: '-1rem' }
           }
         >
-          <div className="flex flex-col gap-1 pt-1">
+          <div className="flex flex-col gap-0 pt-1 divide-y divide-border/40">
           {/* ── Channel ───────────────────────────────────────────── */}
           {activeGroups.length > 0 && (
-            <FilterRow>
-              <div className="contents">
+            <FilterSection label="Channel">
+              <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {activeGroups.map((group) => {
                   const groupSources = messageSources.filter((src) => group.types.includes(src.type));
                   const options = [
@@ -385,7 +381,7 @@ export const MessageFilters = ({
                     ? (filters.messageSourceId ?? 'all')
                     : 'all';
                   return (
-                    <FilterCell inline key={group.key} label={group.label} icon={group.icon}>
+                    <FilterCell key={group.key} label={group.label} icon={group.icon}>
                       <ReactSelect
                         value={selectValue}
                         onChange={(value) => onFilterChange('messageSourceId', value)}
@@ -396,25 +392,25 @@ export const MessageFilters = ({
                   );
                 })}
               </div>
-              <div className="contents">
+              <div className="mt-3 grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <ReceivedAtFilter
                   value={filters.receivedAt}
                   onChange={(value) => onFilterChange('receivedAt', value)}
                   renderCell={(label, icon, control) => (
-                    <FilterCell inline label={label} icon={icon}>
+                    <FilterCell label={label} icon={icon}>
                       {control}
                     </FilterCell>
                   )}
                 />
               </div>
-            </FilterRow>
+            </FilterSection>
           )}
 
           {/* ── Queue ─────────────────────────────────────────────── */}
-          <FilterRow>
-            <div className="contents">
+          <FilterSection label="Queue">
+            <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-4">
               {!isKanban && (
-                <FilterCell inline label="Status">
+                <FilterCell label="Status">
                   <ReactSelect
                     value={filters.lifecycle ?? 'all'}
                     onChange={(value) => {
@@ -430,7 +426,7 @@ export const MessageFilters = ({
               )}
 
               {!isKanban && (
-                <FilterCell inline label="Queue">
+                <FilterCell label="Queue">
                   <ReactSelect
                     value={filters.queue ?? 'all'}
                     onChange={(value) => {
@@ -444,7 +440,7 @@ export const MessageFilters = ({
               )}
 
               {!isKanban && (
-                <FilterCell inline label="Read">
+                <FilterCell label="Read">
                   <ReactSelect
                     value={filters.read ?? 'all'}
                     onChange={(value) => onFilterChange('read', value)}
@@ -454,7 +450,7 @@ export const MessageFilters = ({
                 </FilterCell>
               )}
 
-              <FilterCell inline label="Priority">
+              <FilterCell label="Priority">
                 <ReactSelect
                   value={filters.priority ?? 'all'}
                   onChange={(value) => onFilterChange('priority', value)}
@@ -481,7 +477,7 @@ export const MessageFilters = ({
                 />
               </FilterCell>
 
-              <FilterCell inline label="Assignee">
+              <FilterCell label="Assignee">
                 <AssigneeFilter
                   value={filters.assigneeId ?? 'all'}
                   onChange={(value) => onFilterChange('assigneeId', value)}
@@ -491,7 +487,7 @@ export const MessageFilters = ({
               </FilterCell>
 
               {activeDepts.length > 0 && (
-                <FilterCell inline label="Department">
+                <FilterCell label="Department">
                   <ReactSelect
                     value={filters.departmentId ?? 'all'}
                     onChange={(value) => onFilterChange('departmentId', value)}
@@ -525,7 +521,7 @@ export const MessageFilters = ({
 
             {/* SLA toggle pills — shown in both list and kanban; they map to the
                 same slaBreached/slaAtRisk params every kanban column already sends. */}
-            <div className="flex basis-full flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center pt-1">
                 <span className="text-xs font-medium text-muted-foreground shrink-0">SLA:</span>
                 <Button
                   type="button"
@@ -571,12 +567,12 @@ export const MessageFilters = ({
                   Has Attachments
                 </Button>
             </div>
-          </FilterRow>
+          </FilterSection>
 
           {/* ── Tags ──────────────────────────────────────────────── */}
-          <FilterRow>
-            <div className="contents">
-              <FilterCell inline label="AI State" icon={<Brain className="w-3 h-3 text-purple-500" />}>
+          <FilterSection label="Tags">
+            <div className="grid grid-cols-1 gap-y-3 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
+              <FilterCell label="AI State" icon={<Brain className="w-3 h-3 text-purple-500" />}>
                 <ReactSelect
                   value={filters.aiState ?? 'all'}
                   onChange={(value) => onFilterChange('aiState', value)}
@@ -586,7 +582,7 @@ export const MessageFilters = ({
               </FilterCell>
 
               {labels.length > 0 && (
-                <FilterCell inline label="Label">
+                <FilterCell label="Label">
                   <ReactSelect
                     value={filters.labelId ?? 'all'}
                     onChange={(value) => onFilterChange('labelId', value)}
@@ -614,7 +610,7 @@ export const MessageFilters = ({
                 </FilterCell>
               )}
 
-              <FilterCell inline label="Linked" icon={<Link className="w-3 h-3 text-blue-500" />}>
+              <FilterCell label="Linked" icon={<Link className="w-3 h-3 text-blue-500" />}>
                 <ReactSelect
                   value={filters.linked ?? 'all'}
                   onChange={(value) => onFilterChange('linked', value)}
@@ -633,17 +629,19 @@ export const MessageFilters = ({
                 )}
               </FilterCell>
             </div>
-            {/* The guide rides along on this row rather than owning a footer of its
-                own — it explains the AI State cell a few inches to its left. */}
+          </FilterSection>
+
+          {/* ── Footer ────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-2 pt-3 pb-1 sm:flex-row sm:items-center sm:justify-end">
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleAdvancedFilters}
-              className="ml-auto h-7 text-xs text-muted-foreground"
+              className="self-start h-7 text-xs text-muted-foreground sm:self-auto"
             >
               {showAdvancedFilters ? 'Hide guide' : 'AI State guide'}
             </Button>
-          </FilterRow>
+          </div>
 
           {/* AI State legend */}
           {showAdvancedFilters && (
@@ -678,19 +676,38 @@ export const MessageFilters = ({
         {/* end collapsible body */}
       </CardContent>
 
+      {/* Convenience collapse — sits flush at the CARD's bottom edge. It's
+          OUTSIDE CardContent and the wrapper's -mx-4/-mb-4 cancel the Card's own
+          p-4 (auto-width div full-bleeds correctly where a w-full button would
+          just shift). Only shown when open, so there's no competing second
+          toggle when collapsed — the header is the single entry point. */}
+      {expanded && (
+        <div className="-mx-4 -mb-4">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setExpanded(false)}
+            aria-expanded={true}
+            aria-label="Collapse filters"
+            className="flex gap-1.5 justify-center items-center py-2.5 h-auto w-full border-t transition-colors cursor-pointer rounded-b-lg text-[11px] font-semibold tracking-wider uppercase border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+            Collapse
+          </Button>
+        </div>
+      )}
     </Card>
   );
 };
 
-/**
- * One wrapping line of filter controls.
- *
- * Replaces the old labelled section (an uppercase CHANNEL/QUEUE/TAGS header above a
- * 4-column grid). The headers plus stacked labels plus rigid grid rows pushed the open
- * panel to ~730px — a full viewport — so the thread list started below the fold. Grouping
- * survives as the line break between rows, which is all the header was really conveying.
- */
-function FilterRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-wrap gap-x-3 gap-y-2 items-center py-1.5">{children}</div>;
+function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="py-3 space-y-3">
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/60">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
 }
 
