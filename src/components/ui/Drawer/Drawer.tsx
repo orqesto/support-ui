@@ -19,7 +19,7 @@ export const Drawer = ({
     <>
       <div
         className={getDrawerBackdropClasses(blur)}
-        style={{ zIndex: 40 }}
+        style={{ zIndex: 68 }}
         onClick={onClose}
         aria-hidden="true"
       />

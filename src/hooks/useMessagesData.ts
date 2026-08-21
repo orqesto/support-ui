@@ -26,11 +26,23 @@ type MessagesDataReturn = {
 
 interface UseMessagesDataProps {
   urlSyncedRef: MutableRefObject<boolean>;
+  /**
+   * On the kanban board, `lifecycle` / `queue` / `read` are dropped from this query.
+   *
+   * Each column requests `{ ...shared, ...col.fixedFilters }` and hard-sets its own
+   * lifecycle, so those three cannot move a card there. This query still runs — it feeds
+   * the header's "1–17 of 17" — and honouring a filter the board ignores made the two
+   * disagree: the number said 7 while seventeen cards sat on screen.
+   */
+  isKanban?: boolean;
 }
 
 const DEFAULT_LIMIT = 50;
 
-export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): MessagesDataReturn => {
+export const useMessagesData = ({
+  urlSyncedRef,
+  isKanban = false,
+}: UseMessagesDataProps): MessagesDataReturn => {
   const [threads, setThreadsLocal] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,15 +114,15 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         // it fully defines the row set, so we suppress the legacy status→view and
         // threadStatus→processed derivation below (those two dropdowns are replaced
         // by Status+Queue in the list, and their store fields stay at 'all' there).
-        const lifecycle = currentFilters.lifecycle ?? 'all';
+        const lifecycle = isKanban ? 'all' : (currentFilters.lifecycle ?? 'all');
         if (lifecycle !== 'all') {
           apiFilters.lifecycle = lifecycle;
         }
-        const queue = currentFilters.queue ?? 'all';
+        const queue = isKanban ? 'all' : (currentFilters.queue ?? 'all');
         if (queue !== 'all') {
           apiFilters.queue = queue;
         }
-        const read = currentFilters.read ?? 'all';
+        const read = isKanban ? 'all' : (currentFilters.read ?? 'all');
         if (read !== 'all') {
           apiFilters.read = read;
         }
@@ -254,7 +266,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         messagesFetchingRef.current = false;
       }
     },
-    [getCached, setMessages]
+    [getCached, setMessages, isKanban]
   );
 
   // Fetch on filter/sorting change — resets to page 1.

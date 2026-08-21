@@ -173,6 +173,10 @@ export const MessagesPage = () => {
   const setSorting = useMessagesStore((state) => state.setSorting);
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
 
+  // Derived up here, not next to the filter counts, because useMessagesData needs it:
+  // the list query drops the filters the board cannot honour.
+  const isKanban = displayMode === 'kanban';
+
   const urlSyncedRef = useRef(false);
   // Holds the URL form of the last-fetched conv id (either the numeric id as a
   // string or a publicId like 'SUP-42') — see useMessagesUrlSync for the dedup
@@ -189,7 +193,7 @@ export const MessagesPage = () => {
     handlePageChange,
     handleRefresh,
     clearCache,
-  } = useMessagesData({ urlSyncedRef });
+  } = useMessagesData({ urlSyncedRef, isKanban });
   const threads: MessageThread[] = rawThreads;
 
   const pagination = messagesPagination;
@@ -517,7 +521,6 @@ export const MessagesPage = () => {
     return () => unsubscribeFromEvent('message:replied', handleMessageReplied);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
-  const isKanban = displayMode === 'kanban';
   // Visible badge count: kanban-hidden filters (status/sla) excluded
   const activeFilterCount =
     (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +

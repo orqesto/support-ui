@@ -54,18 +54,18 @@ const setup = (filters: FilterState, isKanban = false) => {
 describe('saved view pills', () => {
   it('applies a view when it is not the current one', () => {
     const { onFilterChange, onClearFilters } = setup({} as FilterState);
-    fireEvent.click(screen.getByText('Inbox'));
-    expect(onFilterChange).toHaveBeenCalledWith('lifecycle', 'open');
+    fireEvent.click(screen.getByText('Mine'));
+    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
     expect(onClearFilters).not.toHaveBeenCalled();
   });
 
   it('removes only its OWN filters when the same view is clicked again', () => {
     const { onFilterChange, onClearFilters } = setup({
-      lifecycle: 'open',
+      assigneeId: 'me',
       slaBreached: true,
     } as FilterState);
-    fireEvent.click(screen.getByText('Inbox'));
-    expect(onFilterChange).toHaveBeenCalledWith('lifecycle', 'all');
+    fireEvent.click(screen.getByText('Mine'));
+    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'all');
     // Breached was on too and is nobody else's business — a blanket clear would take it.
     expect(onFilterChange).not.toHaveBeenCalledWith('slaBreached', false);
     expect(onClearFilters).not.toHaveBeenCalled();
@@ -90,14 +90,16 @@ describe('saved view pills', () => {
   });
 
   it('marks the active pill as pressed', () => {
-    setup({ lifecycle: 'open' } as FilterState);
-    expect(screen.getByText('Inbox').closest('button')?.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('Mine').closest('button')?.getAttribute('aria-pressed')).toBe('false');
+    setup({ assigneeId: 'me' } as FilterState);
+    expect(screen.getByText('Mine').closest('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('Breached').closest('button')?.getAttribute('aria-pressed')).toBe(
+      'false'
+    );
   });
 
   it('switches between views rather than clearing', () => {
-    // Inbox is lit; clicking Mine must APPLY Mine, not toggle Inbox off.
-    const { onFilterChange, onClearFilters } = setup({ lifecycle: 'open' } as FilterState);
+    // Breached is lit; clicking Mine must APPLY Mine, not toggle Breached off.
+    const { onFilterChange, onClearFilters } = setup({ slaBreached: true } as FilterState);
     fireEvent.click(screen.getByText('Mine'));
     expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
     expect(onClearFilters).not.toHaveBeenCalled();
@@ -128,11 +130,6 @@ describe('saved view pills', () => {
   // Every kanban column hard-sets its own `lifecycle`, and a column's filters win over
   // the shared ones — so a lifecycle filter cannot move a card. Offering "Inbox" there
   // lit the pill and changed the header count while the board stayed put.
-  it('does not offer a lifecycle-only view on the kanban board', () => {
-    setup({} as FilterState, true);
-    expect(screen.queryByText('Inbox')).toBeNull();
-  });
-
   it('still offers the views that CAN act on the board', () => {
     setup({} as FilterState, true);
     expect(screen.getByText('Mine')).toBeTruthy();
@@ -142,7 +139,7 @@ describe('saved view pills', () => {
 
   it('offers every view in list mode', () => {
     setup({} as FilterState);
-    for (const name of ['Inbox', 'Mine', 'Unassigned', 'Breached']) {
+    for (const name of ['Mine', 'Unassigned', 'Breached']) {
       expect(screen.getByText(name)).toBeTruthy();
     }
   });

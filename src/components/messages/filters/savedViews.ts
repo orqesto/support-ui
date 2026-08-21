@@ -28,7 +28,10 @@ const STORAGE_KEY = 'odly-inbox-saved-views';
  * Inbox is lifecycle-only, so it is inherently a list-view idea — see `viewAppliesTo`.
  */
 export const BUILT_IN_VIEWS: SavedView[] = [
-  { name: 'Inbox', filters: { lifecycle: 'open' }, builtIn: true },
+  // No "Inbox"/"Open" preset: it was `lifecycle: 'open'` and nothing else, which the
+  // Status filter already offers by that name. A pill that duplicates one click of an
+  // existing control is a second way to reach the same place, and it was the only view
+  // that could not work on the kanban board.
   { name: 'Mine', filters: { assigneeId: 'me' }, builtIn: true },
   { name: 'Unassigned', filters: { assigneeId: 'unassigned' }, builtIn: true },
   { name: 'Breached', filters: { slaBreached: true }, builtIn: true },

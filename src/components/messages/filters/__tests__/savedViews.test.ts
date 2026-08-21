@@ -61,13 +61,26 @@ describe('persistSavedViews', () => {
   });
 });
 
+// By NAME, not position — an index broke every one of these the moment a view was
+// removed from the list.
+const view = (name: string): SavedView => {
+  const found = BUILT_IN_VIEWS.find((row) => row.name === name);
+  if (!found) throw new Error(`no built-in view named ${name}`);
+  return found;
+};
+
+describe('the built-in set', () => {
+  it('has no Open/Inbox preset — the Status filter already offers that value', () => {
+    expect(BUILT_IN_VIEWS.map((row) => row.name)).toEqual(['Mine', 'Unassigned', 'Breached']);
+  });
+});
+
 describe('viewIsActive — a subset test, so views can combine', () => {
-  const inbox = BUILT_IN_VIEWS[0];
-  const mine = BUILT_IN_VIEWS[1];
-  const breached = BUILT_IN_VIEWS[3];
+  const mine = view('Mine');
+  const breached = view('Breached');
 
   it('lights up on exactly the view', () => {
-    expect(viewIsActive(inbox, { lifecycle: 'open' } as FilterState)).toBe(true);
+    expect(viewIsActive(mine, { assigneeId: 'me' } as FilterState)).toBe(true);
   });
 
   it('STAYS lit when other filters are added alongside', () => {
@@ -79,7 +92,7 @@ describe('viewIsActive — a subset test, so views can combine', () => {
   });
 
   it('does not light up when the value differs', () => {
-    expect(viewIsActive(inbox, { lifecycle: 'resolved' } as FilterState)).toBe(false);
+    expect(viewIsActive(mine, { assigneeId: 'unassigned' } as FilterState)).toBe(false);
   });
 
   it('does not light up when only some of its keys match', () => {
@@ -91,7 +104,7 @@ describe('viewIsActive — a subset test, so views can combine', () => {
   });
 
   it('two views naming the same key are never lit together', () => {
-    const unassigned = BUILT_IN_VIEWS[2];
+    const unassigned = view('Unassigned');
     const filters = { assigneeId: 'me' } as FilterState;
     expect(viewIsActive(mine, filters)).toBe(true);
     expect(viewIsActive(unassigned, filters)).toBe(false);
