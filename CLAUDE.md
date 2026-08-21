@@ -41,10 +41,10 @@ visual and behavioural drift.
 | Text / headings | `Typography` where it fits | — |
 | External link | `ExternalLink` | `<a target=_blank>` |
 
-Full inventory: `Alert, AlertDialog, Badge, Button, Card, ConfirmDialog, Dialog, Drawer,
-DataTable, Dialog, Drawer, ExternalLink, Input, Label, ListCard, Pagination, Progress, ReactSelect,
-SearchInput, Select, Spinner, Tabs, Textarea, Toggle, Tooltip, Typography`.
-(Verified against `src/components/ui/` on 2026-08-21 — `DataTable` was missing from this list.)
+Full inventory: `Alert, AlertDialog, Badge, Button, Card, ConfirmDialog, DataTable, Dialog, Drawer,
+ExternalLink, Input, Label, ListCard, Pagination, Progress, ReactSelect, SearchInput, Select,
+Spinner, Tabs, Textarea, Toggle, Tooltip, Typography`.
+(Generated from `src/components/ui/` on 2026-08-21.)
 
 **If a needed component doesn't exist, extend an existing one or add a new one to
 `src/components/ui/`** (following the folder pattern: `Component.tsx`, `component.styles.ts`,

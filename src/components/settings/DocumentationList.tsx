@@ -269,13 +269,13 @@ export const DocumentationList = ({
                         Confluence
                       </span>
                     )}
-                    {doc.departmentIds.length === 0 ? (
+                    {(doc.departmentIds ?? []).length === 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         <Globe className="w-3 h-3" />
                         All departments
                       </span>
                     ) : (
-                      doc.departmentIds.map((deptId) => (
+                      (doc.departmentIds ?? []).map((deptId) => (
                         <DepartmentBadge key={deptId} departmentId={deptId} size="sm" />
                       ))
                     )}

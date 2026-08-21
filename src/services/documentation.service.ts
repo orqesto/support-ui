@@ -123,8 +123,18 @@ const deleteDocumentation = async (id: number): Promise<void> => {
   await apiClient.delete(`/api/documentation/${id}`);
 };
 
-const toggleEnabled = async (id: number, enabled: boolean): Promise<Documentation> => {
-  const response = await apiClient.patch<Documentation>(`/api/documentation/${id}/enabled`, { enabled });
+// The toggle endpoint returns the raw documentation row. `departmentIds` is assembled
+// from the junction table by the LIST endpoint, so older backends omit it here — hence
+// the partial type. Callers must merge this over the row they already hold rather than
+// replacing it; replacing dropped the dept scope and crashed the Knowledge Base page.
+export type ToggledDocumentation = Omit<Documentation, 'departmentIds'> &
+  Partial<Pick<Documentation, 'departmentIds'>>;
+
+const toggleEnabled = async (id: number, enabled: boolean): Promise<ToggledDocumentation> => {
+  const response = await apiClient.patch<ToggledDocumentation>(
+    `/api/documentation/${id}/enabled`,
+    { enabled }
+  );
   return response.data;
 };
 

@@ -393,8 +393,16 @@ export const DocumentationSettings = ({
   const handleToggleEnabled = async (doc: Documentation) => {
     try {
       const updatedDoc = await documentationService.toggleEnabled(doc.id, !doc.enabled);
+      // MERGE, don't replace. The toggle endpoint returns the raw documentation row,
+      // which historically omitted `departmentIds` — that field is assembled from the
+      // junction table by the list endpoint. Swapping a complete row for a partial one
+      // dropped the dept scope and white-screened this page on every toggle.
       setDocs((prev: Documentation[]) =>
-        prev.map((docItem: Documentation) => (docItem.id === doc.id ? updatedDoc : docItem))
+        prev.map((docItem: Documentation) =>
+          docItem.id === doc.id
+            ? { ...docItem, ...updatedDoc, departmentIds: updatedDoc.departmentIds ?? docItem.departmentIds }
+            : docItem
+        )
       );
     } catch (error) {
       logger.error('Failed to toggle documentation enabled status:', error);
