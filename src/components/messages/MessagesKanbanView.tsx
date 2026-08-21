@@ -29,6 +29,8 @@ import { RotateCcw, GripVertical, ArrowRightCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/Badge';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { legacyAiStateParam } from '@/hooks/legacyAiStateParam';
+import { negateApiParam } from '@/hooks/negateApiParam';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
@@ -69,12 +71,22 @@ function buildSharedFilters(filters: FilterState): Record<string, string> {
   if (filters.priority && filters.priority !== 'all') api.priority = filters.priority;
   if (filters.assigneeId && filters.assigneeId !== 'all')
     api.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-  if (filters.aiState === 'needs_review') api.needsHumanReview = 'true';
-  else if (filters.aiState === 'needs_info') api.showNeedsInfo = 'true';
-  else if (filters.aiState === 'ai_suggested') api.aiSuggested = 'true';
-  else if (filters.aiState === 'bot_handled') api.botHandled = 'true';
-  else if (filters.aiState === 'lead') api.isLead = 'true';
-  else if (filters.aiState === 'contradiction') api.hasContradiction = 'true';
+  // One param, so it can be inverted — the booleans it replaces had no "not" to send.
+  if (filters.aiState && filters.aiState !== 'all') {
+    api.aiState = filters.aiState;
+    // Only aiState: the board hard-sets its own lifecycle per column and uses `view`
+    // for the queue axis, so an inversion of either could not reach a card here.
+    const negate = negateApiParam(filters.negate, ['aiState']);
+    if (negate) api.negate = negate;
+    // The legacy boolean as a fallback for an older API — see the note in
+    // useMessagesData. Dropped when inverting, where the two would contradict.
+    else Object.assign(api, legacyAiStateParam(filters.aiState));
+  }
+  // The Received filter is offered on the board and was never sent from it — the token
+  // sat there looking applied while every column ignored it.
+  if (filters.ageRange && filters.ageRange !== 'all') api.ageRange = filters.ageRange;
+  if (filters.receivedFrom) api.receivedFrom = filters.receivedFrom;
+  if (filters.receivedTo) api.receivedTo = filters.receivedTo;
   if (filters.labelId && filters.labelId !== 'all') api.labelId = filters.labelId;
   // SLA toggles — same params the list view sends; every column spreads these.
   if (filters.slaBreached) api.slaBreached = 'true';

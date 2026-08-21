@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { assigneeApiParams } from './assigneeApiParams';
+import { legacyAiStateParam } from './legacyAiStateParam';
+import { negateApiParam } from './negateApiParam';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -25,11 +28,23 @@ type MessagesDataReturn = {
 
 interface UseMessagesDataProps {
   urlSyncedRef: MutableRefObject<boolean>;
+  /**
+   * On the kanban board, `lifecycle` / `queue` / `read` are dropped from this query.
+   *
+   * Each column requests `{ ...shared, ...col.fixedFilters }` and hard-sets its own
+   * lifecycle, so those three cannot move a card there. This query still runs — it feeds
+   * the header's "1–17 of 17" — and honouring a filter the board ignores made the two
+   * disagree: the number said 7 while seventeen cards sat on screen.
+   */
+  isKanban?: boolean;
 }
 
 const DEFAULT_LIMIT = 50;
 
-export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): MessagesDataReturn => {
+export const useMessagesData = ({
+  urlSyncedRef,
+  isKanban = false,
+}: UseMessagesDataProps): MessagesDataReturn => {
   const [threads, setThreadsLocal] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,7 +101,15 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
 
-        // RECEIVED AT — the alias cut the source picker can't make.
+        // RECEIVED — a bucket or an explicit window. The UI clears one when setting the
+        // other, so only one of these three is ever populated; the API would honour both
+        // (as an intersection) if they were.
+        if (currentFilters.ageRange && currentFilters.ageRange !== 'all') {
+          apiFilters.ageRange = currentFilters.ageRange;
+        }
+        if (currentFilters.receivedFrom) apiFilters.receivedFrom = currentFilters.receivedFrom;
+        if (currentFilters.receivedTo) apiFilters.receivedTo = currentFilters.receivedTo;
+
         if (currentFilters.receivedAt && currentFilters.receivedAt !== 'all') {
           apiFilters.receivedAt = currentFilters.receivedAt;
         }
@@ -97,15 +120,15 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         // it fully defines the row set, so we suppress the legacy status→view and
         // threadStatus→processed derivation below (those two dropdowns are replaced
         // by Status+Queue in the list, and their store fields stay at 'all' there).
-        const lifecycle = currentFilters.lifecycle ?? 'all';
+        const lifecycle = isKanban ? 'all' : (currentFilters.lifecycle ?? 'all');
         if (lifecycle !== 'all') {
           apiFilters.lifecycle = lifecycle;
         }
-        const queue = currentFilters.queue ?? 'all';
+        const queue = isKanban ? 'all' : (currentFilters.queue ?? 'all');
         if (queue !== 'all') {
           apiFilters.queue = queue;
         }
-        const read = currentFilters.read ?? 'all';
+        const read = isKanban ? 'all' : (currentFilters.read ?? 'all');
         if (read !== 'all') {
           apiFilters.read = read;
         }
@@ -166,26 +189,33 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
           apiFilters.priority = currentFilters.priority;
         }
 
-        // ASSIGNEE
-        if (currentFilters.assigneeId && currentFilters.assigneeId !== 'all') {
-          apiFilters.assigneeId =
-            currentFilters.assigneeId === 'unassigned' ? '0' : currentFilters.assigneeId;
-        }
+        // ASSIGNEE — see assigneeApiParams for why 'me' is not an id.
+        Object.assign(apiFilters, assigneeApiParams(currentFilters.assigneeId));
 
-        // AI STATE
+        // NEGATION — only for the filters this query is actually sending. In kanban
+        // `lifecycle` and `queue` are dropped above, so their inversions go with them.
         const aiState = currentFilters.aiState ?? 'all';
-        if (aiState === 'needs_review') {
-          apiFilters.needsHumanReview = 'true';
-        } else if (aiState === 'needs_info') {
-          apiFilters.showNeedsInfo = 'true';
-        } else if (aiState === 'ai_suggested') {
-          apiFilters.aiSuggested = 'true';
-        } else if (aiState === 'bot_handled') {
-          apiFilters.botHandled = 'true';
-        } else if (aiState === 'lead') {
-          apiFilters.isLead = 'true';
-        } else if (aiState === 'contradiction') {
-          apiFilters.hasContradiction = 'true';
+        const negate = negateApiParam(currentFilters.negate, [
+          ...(lifecycle !== 'all' ? ['lifecycle'] : []),
+          ...(queue !== 'all' ? ['queue'] : []),
+          ...(aiState !== 'all' ? ['aiState'] : []),
+        ]);
+        if (negate) apiFilters.negate = negate;
+
+        // AI STATE — one param now, not six booleans translated from one control. The
+        // booleans still exist server-side for their other callers, but they cannot be
+        // negated: `aiSuggested=false` means "do not filter", not "not AI-suggested".
+        if (aiState !== 'all') {
+          apiFilters.aiState = aiState;
+          // Send the legacy boolean alongside it, so the filter still works against a
+          // backend that predates `aiState` — the frontend ships from main and can be
+          // live before the API is. NEVER when inverted: the boolean is a positive test,
+          // and a backend old enough to need it drops the negation, so the two would
+          // contradict and match nothing. On a backend that has both, the boolean simply
+          // repeats what `aiState` already says.
+          if (!negate?.includes('aiState')) {
+            Object.assign(apiFilters, legacyAiStateParam(aiState));
+          }
         }
 
         // LABEL
@@ -252,7 +282,7 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
         messagesFetchingRef.current = false;
       }
     },
-    [getCached, setMessages]
+    [getCached, setMessages, isKanban]
   );
 
   // Fetch on filter/sorting change — resets to page 1.
@@ -274,6 +304,10 @@ export const useMessagesData = ({ urlSyncedRef }: UseMessagesDataProps): Message
     filters.assigneeId,
     filters.aiState,
     filters.labelId,
+    filters.ageRange,
+    filters.receivedFrom,
+    filters.receivedTo,
+    filters.negate,
     filters.linked,
     filters.linkedTicketStatus,
     filters.search,

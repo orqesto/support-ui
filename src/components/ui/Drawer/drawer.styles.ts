@@ -13,8 +13,11 @@ export const drawerBackdropVariants = cva('fixed inset-0 transition-opacity curs
   },
 });
 
+// z-[70], above the mobile top bar's z-[65]. At z-50 the bar covered the drawer's own
+// header — title and close button both — so on a narrow screen a Drawer had no visible
+// way out. A modal surface has to sit above the page chrome it is covering.
 export const drawerContentVariants = cva(
-  'flex fixed inset-y-0 z-50 flex-col shadow-xl bg-background animate-slide-in',
+  'flex fixed inset-y-0 z-[70] flex-col shadow-xl bg-background animate-slide-in',
   {
     variants: {
       side: {

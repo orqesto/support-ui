@@ -6,7 +6,7 @@ import { messageService } from '@/services/message.service';
 import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
 
-const VALID_STATUSES = [
+export const VALID_STATUSES = [
   'all',
   'active',
   'awaiting_response',
@@ -17,9 +17,14 @@ const VALID_STATUSES = [
   'spam',
   'resolved',
 ] as const;
-const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
-const VALID_LIFECYCLES = [
+export const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
+// 'open' is what the Status control actually SENDS (unreviewed + replied fold into it)
+// and it was missing here, so `?lifecycle=open` failed the whitelist and was dropped on
+// every URL read. The dropdown has had this bug all along — it only became obvious once
+// the saved views leaned on it, since Inbox / Mine / Unassigned all set lifecycle=open.
+export const VALID_LIFECYCLES = [
   'all',
+  'open',
   'unreviewed',
   'in_progress',
   'awaiting',
@@ -28,9 +33,9 @@ const VALID_LIFECYCLES = [
   'resolved',
   'closed',
 ] as const;
-const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
-const VALID_READ = ['all', 'read', 'unread'] as const;
-const VALID_AI_STATES = [
+export const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
+export const VALID_READ = ['all', 'read', 'unread'] as const;
+export const VALID_AI_STATES = [
   'all',
   'needs_review',
   'needs_info',
@@ -40,8 +45,8 @@ const VALID_AI_STATES = [
   'lead',
   'contradiction',
 ] as const;
-const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
-const VALID_LINKED_TICKET_STATUSES = [
+export const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
+export const VALID_LINKED_TICKET_STATUSES = [
   'all',
   'pending',
   'open',
@@ -49,7 +54,29 @@ const VALID_LINKED_TICKET_STATUSES = [
   'resolved',
   'closed',
 ] as const;
-const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
+export const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
+/** The three filters the API can invert — `NEGATABLE_FILTERS` server-side. Anything
+ *  else in the param is dropped there, so it is dropped here too rather than round-tripping
+ *  a name that will never do anything. */
+export const VALID_NEGATE_KEYS = ['lifecycle', 'queue', 'aiState'] as const;
+/** The API's four arrival buckets. Read unvalidated before, so `?ageRange=today` was
+ *  stored and drew a token reading "today" over a list it was not filtering. */
+export const VALID_AGE_RANGES = ['all', 'lt24h', '1to7d', '1to4w', 'gt1mo'] as const;
+
+/** Keep the values a whitelist recognises, drop the rest. A CSV filter is several values
+ *  in one param, and one bad entry must not cost the others. */
+const validCsv = (raw: string | null, whitelist: readonly string[]): string | undefined => {
+  if (!raw) return undefined;
+  const kept = [...new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))].filter(
+    (value) => whitelist.includes(value)
+  );
+  return kept.length > 0 ? kept.join(',') : undefined;
+};
+
+/** A date param is only kept if it is one. `NaN` reaching the API as a timestamp is a
+ *  500, and a silently wrong window is worse than no window. */
+const validIso = (raw: string | null): string | undefined =>
+  raw && !Number.isNaN(Date.parse(raw)) ? raw : undefined;
 
 interface UseMessagesUrlSyncProps {
   urlSyncedRef: MutableRefObject<boolean>;
@@ -136,13 +163,25 @@ export const useMessagesUrlSync = ({
       const urlReceivedAt = searchParams.get('receivedAt');
       if (urlReceivedAt) urlFilters.receivedAt = urlReceivedAt;
 
+      const urlAgeRange = searchParams.get('ageRange');
+      if (urlAgeRange && (VALID_AGE_RANGES as readonly string[]).includes(urlAgeRange)) {
+        urlFilters.ageRange = urlAgeRange as FilterState['ageRange'];
+      }
+
       const urlDepartmentId = searchParams.get('departmentId');
       if (urlDepartmentId) urlFilters.departmentId = urlDepartmentId;
 
-      const urlPriority = searchParams.get('priority');
-      if (urlPriority && (VALID_PRIORITIES as readonly string[]).includes(urlPriority)) {
-        urlFilters.priority = urlPriority as FilterState['priority'];
-      }
+      // CSV: `?priority=high,critical` is one filter with two values.
+      const urlPriority = validCsv(searchParams.get('priority'), VALID_PRIORITIES);
+      if (urlPriority) urlFilters.priority = urlPriority;
+
+      const urlNegate = validCsv(searchParams.get('negate'), VALID_NEGATE_KEYS);
+      if (urlNegate) urlFilters.negate = urlNegate;
+
+      const urlReceivedFrom = validIso(searchParams.get('receivedFrom'));
+      if (urlReceivedFrom) urlFilters.receivedFrom = urlReceivedFrom;
+      const urlReceivedTo = validIso(searchParams.get('receivedTo'));
+      if (urlReceivedTo) urlFilters.receivedTo = urlReceivedTo;
 
       const urlAssigneeId = searchParams.get('assigneeId');
       if (urlAssigneeId) {
@@ -238,6 +277,10 @@ export const useMessagesUrlSync = ({
       params.set('source', filters.messageSourceId);
     if (filters.receivedAt && filters.receivedAt !== 'all')
       params.set('receivedAt', filters.receivedAt);
+    if (filters.ageRange && filters.ageRange !== 'all') params.set('ageRange', filters.ageRange);
+    if (filters.receivedFrom) params.set('receivedFrom', filters.receivedFrom);
+    if (filters.receivedTo) params.set('receivedTo', filters.receivedTo);
+    if (filters.negate) params.set('negate', filters.negate);
     if (filters.departmentId && filters.departmentId !== 'all')
       params.set('departmentId', filters.departmentId);
     if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);

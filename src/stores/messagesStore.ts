@@ -24,6 +24,10 @@ export type ThreadStatusFilter =
 // in list mode). Mutually exclusive with `queue` in the FE.
 export type LifecycleFilter =
   | 'all'
+  // The dropdown has always SENT 'open' (unreviewed+replied fold into it) — the union
+  // just never listed it, because the select casts its options through `as unknown`
+  // and the mismatch had nowhere to surface.
+  | 'open'
   | 'unreviewed'
   | 'in_progress'
   | 'awaiting'
@@ -56,6 +60,20 @@ export type FilterState = {
    * picker cannot separate them.
    */
   receivedAt?: string;
+  /**
+   * Age bucket — how long ago the thread arrived. Maps to the API's `ageRange`.
+   *
+   * Distinct from `receivedAt` above, which is an ADDRESS, not a time. The design
+   * prototype used one name for both; the API has always had two params.
+   */
+  ageRange?: 'all' | 'lt24h' | '1to7d' | '1to4w' | 'gt1mo';
+  /**
+   * Explicit arrival window, as ISO instants — the range the four `ageRange` buckets
+   * cannot express. The two are alternatives, not layers: setting one clears the other,
+   * so exactly one notion of "received" is ever in play.
+   */
+  receivedFrom?: string;
+  receivedTo?: string;
   departmentId?: string;
   status?: MessageViewStatus;
   threadStatus?: ThreadStatusFilter;
@@ -65,10 +83,26 @@ export type FilterState = {
   queue?: QueueFilter;
   /** Per-user read/unread filter (triage queues). 'all' = no filter. */
   read?: 'all' | 'read' | 'unread';
-  priority?: 'all' | 'low' | 'medium' | 'high' | 'critical';
+  /**
+   * One priority or several, comma-separated (`high,critical`) — the API turns a list
+   * into an `IN (…)`. Typed as a plain string rather than the four-value union because
+   * a CSV of them is no longer one of the four; `'all'` is still how it spells "off",
+   * and a single value still reads `high`, so every existing caller is unaffected.
+   */
+  priority?: string;
   assigneeId?: string;
   aiState?: AiStateFilter;
+  /** One label id or several, comma-separated. Same CSV contract as `priority`. */
   labelId?: string;
+  /**
+   * Which filters are inverted, comma-separated (`lifecycle,aiState`) — "everything
+   * except Resolved". Only `lifecycle`, `queue` and `aiState` can be negated; the API
+   * ignores any other name, and so does the UI.
+   *
+   * A modifier, not a filter: it changes what an existing filter means and counts for
+   * nothing on its own. An entry whose filter is unset is inert.
+   */
+  negate?: string;
   linked?: LinkedFilter;
   linkedTicketStatus?: LinkedTicketStatusFilter;
   search?: string;
@@ -126,6 +160,10 @@ export const defaultFilters: FilterState = {
   labelId: 'all',
   linked: 'all',
   linkedTicketStatus: 'all',
+  ageRange: 'all',
+  receivedFrom: undefined,
+  receivedTo: undefined,
+  negate: '',
   search: undefined,
   slaBreached: false,
   slaAtRisk: false,
