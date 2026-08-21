@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Paperclip, User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
+import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
 import { ThreadBubble } from './ThreadBubble';
-import { relativeTime, getInitials } from './messageDetailConstants';
+import { getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 
@@ -42,7 +43,9 @@ export function ThreadMessageItem({
         <div className="flex flex-col items-end max-w-[88%]">
           <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-muted-foreground mb-0.5">
             <span>{msg.authorEmail ?? 'Support'}</span>
-            <span>{relativeTime(msgTime)}</span>
+            <span className="whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
+              {formatWhen(msgTime)}
+            </span>
           </div>
           {/* Who this particular reply went to. Per-message, not per-thread: a
               reply can be addressed differently from the message that opened the
@@ -99,7 +102,9 @@ export function ThreadMessageItem({
       <div className="flex flex-col max-w-[88%]">
         <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-foreground/55 mb-0.5">
           <span>{msg.authorEmail ?? 'Customer'}</span>
-          <span>{relativeTime(msgTime)}</span>
+          <span className="whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
+            {formatWhen(msgTime)}
+          </span>
         </div>
         {/* 2026-06-17: customer bubbles are no longer clickable. The previous
             implementation called `onMessageNavigate(msg.id)` with a
