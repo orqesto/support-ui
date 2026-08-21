@@ -1,5 +1,13 @@
 # UI conventions
 
+<!-- docs-status
+verified-on: 2026-08-21
+verified-against: FE main e270f0b
+status: point-in-time
+-->
+
+> 📌 Not claim-verified in detail, but the component inventory in `../CLAUDE.md` was: it was missing `DataTable`. Check any inventory here against `src/components/ui/`.
+
 The app has a design system in **`src/components/ui/`**. Build all UI from it. This keeps the
 product visually consistent, correct in light **and** dark themes, and accessible — none of which
 raw HTML elements give you for free.

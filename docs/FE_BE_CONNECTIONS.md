@@ -1,4 +1,12 @@
 > ⚠️ **MAY BE STALE — RE-VERIFY (moved into FE-app/docs 2026-07).** This is a
+
+<!-- docs-status
+verified-on: 2026-08-21
+verified-against: FE main e270f0b
+status: point-in-time
+-->
+
+> 📌 Not claim-verified. ⚠️ The backend surface it maps has moved: 449 routes are registered today and `BE-service/docs/API.md` documents only 214 of them, so treat any endpoint list here as partial.
 > structural FE↔BE reference; the BE has shipped through v1.1.106 and the FE through
 > v1.1.39 since it was last fully walked. Trust the shape (auth flow, WS events, route
 > groups), but verify specific endpoints against `BE-service/src/routes/` before relying on them.

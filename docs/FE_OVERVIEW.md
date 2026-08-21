@@ -1,4 +1,12 @@
 <!-- generated-by: gsd-doc-writer -->
+
+<!-- docs-status
+verified-on: 2026-08-21
+verified-against: FE main e270f0b
+status: point-in-time
+-->
+
+> 📌 Not claim-verified. Expect counts (pages, stores, components) to have drifted — that is the reliable failure mode across this corpus. FE `.tsx` files grew from 228 to 328 and pages from 33 to 57 between 2026-06-15 and 2026-08-21.
 # Frontend Overview — Odly (email-service FE)
 
 > Updated: 2026-06-04 (Wave 5 D commits 1-3: all 4 rule tables use shared RuleEditor + useRuleManagement; prettifyRulePattern utility; RoutingRulesSettings source/dept picker in renderBanners; two-tier routing rules model planned). Covers FE structure, pages, state, API layer, and real-time subscriptions.
