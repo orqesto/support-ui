@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/Button';
 import {
   GROUP_ORDER,
   filterValue,
+  isNegated,
+  isPicked,
   visibleDefs,
   type FilterDef,
   type FilterGroup,
@@ -10,6 +12,8 @@ import {
   type FilterOption,
 } from './filterSchema';
 import { tokenText, type Suggestion } from './filterTokens';
+import { isRangeValue, rangeFromValue } from './receivedRange';
+import { DateRangeFields, NegateSwitch } from './ValueControls';
 import type { FilterState } from '@/stores/messagesStore';
 
 /**
@@ -53,6 +57,24 @@ const OptionRow = ({
   </Button>
 );
 
+/**
+ * Is this option currently chosen?
+ *
+ * Three answers, because a value means three different things depending on the filter:
+ * one of a set for a multi, the bucket half for a date (a range selects no bucket), and
+ * plain equality for everything else.
+ */
+export const optionSelected = (
+  def: FilterDef,
+  current: string | undefined,
+  value: string
+): boolean => {
+  if (current === undefined) return false;
+  if (def.multi) return isPicked(current, value);
+  if (def.kind === 'date') return !isRangeValue(current) && current === value;
+  return current === value;
+};
+
 /** One filter's values, plus the sub-choice when the parent has one. */
 const ValuePanel = ({
   def,
@@ -60,17 +82,22 @@ const ValuePanel = ({
   onBack,
   onPick,
   onPickSub,
+  onSetNegated,
+  onSetRange,
 }: {
   def: FilterDef;
   filters: FilterState;
   onBack: () => void;
   onPick: (value: string) => void;
   onPickSub: (value: string) => void;
+  onSetNegated: (negated: boolean) => void;
+  onSetRange: (next: { from?: string; to?: string }) => void;
 }) => {
   const current = filterValue(filters, def.key);
   const subCurrent = def.sub
     ? (filters as Record<string, unknown>)[def.sub.key]
     : undefined;
+  const range = current && isRangeValue(current) ? rangeFromValue(current) : {};
 
   return (
     <>
@@ -84,11 +111,20 @@ const ValuePanel = ({
           <ChevronLeft className="w-4 h-4" />
         </Button>
         <span className="flex-1 text-[13px] font-semibold">{def.label}</span>
+        {def.negatable && (
+          <NegateSwitch negated={isNegated(filters, def.key)} onChange={onSetNegated} />
+        )}
       </div>
 
       {def.help && (
         <p className="px-3 py-2 border-b text-[11.5px] leading-relaxed text-muted-foreground border-border/60 bg-muted/40">
           {def.help}
+        </p>
+      )}
+
+      {def.multi && (
+        <p className="px-3 py-1.5 border-b text-[11px] text-muted-foreground border-border/60">
+          Pick as many as you like — the list matches any of them.
         </p>
       )}
 
@@ -101,12 +137,19 @@ const ValuePanel = ({
               {showSection && <div className={HEADING}>{option.section}</div>}
               <OptionRow
                 option={option}
-                selected={current === option.value}
+                selected={optionSelected(def, current, option.value)}
                 onPick={() => onPick(option.value)}
               />
             </div>
           );
         })}
+
+        {def.kind === 'date' && (
+          <>
+            <div className={HEADING}>Or an exact range</div>
+            <DateRangeFields from={range.from} to={range.to} onChange={onSetRange} />
+          </>
+        )}
 
         {def.sub && current && (
           <>
@@ -131,12 +174,15 @@ const CommonRow = ({
   def,
   filters,
   onPick,
+  onSetNegated,
 }: {
   def: FilterDef;
   filters: FilterState;
   onPick: (value: string) => void;
+  onSetNegated: (negated: boolean) => void;
 }) => {
   const current = filterValue(filters, def.key);
+  const negated = isNegated(filters, def.key);
   return (
     <div className="flex gap-2.5 items-center px-3 py-1">
       <span className="w-14 text-[11.5px] shrink-0 text-muted-foreground">{def.label}</span>
@@ -147,7 +193,7 @@ const CommonRow = ({
         style={{ gridTemplateColumns: `repeat(${def.options?.length ?? 1}, minmax(0, 1fr))` }}
       >
         {(def.options ?? []).map((option) => {
-          const on = current === option.value;
+          const on = optionSelected(def, current, option.value);
           return (
             <Button
               key={option.value}
@@ -171,6 +217,23 @@ const CommonRow = ({
           );
         })}
       </div>
+      {/* Inverting from the track, without a trip into the panel. Only offered once the
+          filter has a value: "is not <nothing>" is not a set. */}
+      {def.negatable && current !== undefined && (
+        <Button
+          variant="ghost"
+          aria-pressed={negated}
+          title={negated ? 'Matching everything except this' : 'Exclude this instead'}
+          onClick={() => onSetNegated(!negated)}
+          className={`grid place-items-center p-0 w-6 h-[26px] rounded shrink-0 text-[13px] ${
+            negated
+              ? 'bg-destructive/[0.12] text-red-600 dark:bg-destructive/[0.18] dark:text-red-400 font-semibold'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+          }`}
+        >
+          ≠
+        </Button>
+      )}
     </div>
   );
 };
@@ -230,6 +293,8 @@ export const FilterMenu = ({
   onPickSub,
   onToggleFlag,
   onPickSuggestion,
+  onSetNegated,
+  onSetRange,
 }: {
   defs: FilterDef[];
   filters: FilterState;
@@ -244,6 +309,8 @@ export const FilterMenu = ({
   onPickSub: (def: FilterDef, value: string) => void;
   onToggleFlag: (def: FilterDef) => void;
   onPickSuggestion: (index: number) => void;
+  onSetNegated: (def: FilterDef, negated: boolean) => void;
+  onSetRange: (next: { from?: string; to?: string }) => void;
 }) => {
   const panelDef = panelKey ? defs.find((def) => def.key === panelKey) : undefined;
 
@@ -255,6 +322,8 @@ export const FilterMenu = ({
         onBack={onBack}
         onPick={(value) => onPick(panelDef, value)}
         onPickSub={(value) => onPickSub(panelDef, value)}
+        onSetNegated={(negated) => onSetNegated(panelDef, negated)}
+        onSetRange={onSetRange}
       />
     );
   }
@@ -336,14 +405,22 @@ export const FilterMenu = ({
     .filter((def): def is FilterDef => Boolean(def));
   const flags = usable.filter((def) => def.kind === 'flag');
   const rest = usable.filter(
-    (def) => def.kind === 'select' && !common.some((row) => row.key === def.key)
+    (def) =>
+      (def.kind === 'select' || def.kind === 'date') &&
+      !common.some((row) => row.key === def.key)
   );
 
   return (
     <div className="overflow-y-auto pb-1 max-h-[340px]">
       <div className={HEADING}>Common</div>
       {common.map((def) => (
-        <CommonRow key={def.key} def={def} filters={filters} onPick={(value) => onPick(def, value)} />
+        <CommonRow
+          key={def.key}
+          def={def}
+          filters={filters}
+          onPick={(value) => onPick(def, value)}
+          onSetNegated={(negated) => onSetNegated(def, negated)}
+        />
       ))}
       {flags.length > 0 && <FlagsRow defs={flags} filters={filters} onToggle={onToggleFlag} />}
       <div className="h-1.5" />

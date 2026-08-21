@@ -21,7 +21,7 @@ export const FilterToken = ({
   onRemove: () => void;
   alwaysShowRemove?: boolean;
 }) => {
-  const { def, text, dot } = token;
+  const { def, text, dot, negated } = token;
   const tone =
     def.tone === 'red'
       ? 'border-destructive/40 text-red-600 dark:text-red-400'
@@ -34,8 +34,13 @@ export const FilterToken = ({
       className={`flex overflow-hidden items-stretch h-7 rounded-md border shrink-0 text-[12.5px] group bg-card dark:bg-accent ${tone}`}
     >
       {def.kind !== 'flag' && (
-        <span className="grid place-items-center px-2 font-medium border-r text-muted-foreground border-border bg-muted dark:bg-input">
+        <span className="flex gap-1 items-center px-2 font-medium border-r text-muted-foreground border-border bg-muted dark:bg-input">
           {def.label.toLowerCase()}
+          {/* An inverted filter has to be unmissable at a glance: "status Resolved" and
+              "status is not Resolved" are opposite sets and the difference is two words. */}
+          {negated && (
+            <span className="font-semibold text-red-600 dark:text-red-400">is not</span>
+          )}
         </span>
       )}
       <Button

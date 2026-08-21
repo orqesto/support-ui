@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { assigneeApiParams } from './assigneeApiParams';
+import { legacyAiStateParam } from './legacyAiStateParam';
+import { negateApiParam } from './negateApiParam';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -99,10 +101,14 @@ export const useMessagesData = ({
           apiFilters.messageSourceId = currentFilters.messageSourceId;
         }
 
-        // RECEIVED AT — the alias cut the source picker can't make.
+        // RECEIVED — a bucket or an explicit window. The UI clears one when setting the
+        // other, so only one of these three is ever populated; the API would honour both
+        // (as an intersection) if they were.
         if (currentFilters.ageRange && currentFilters.ageRange !== 'all') {
           apiFilters.ageRange = currentFilters.ageRange;
         }
+        if (currentFilters.receivedFrom) apiFilters.receivedFrom = currentFilters.receivedFrom;
+        if (currentFilters.receivedTo) apiFilters.receivedTo = currentFilters.receivedTo;
 
         if (currentFilters.receivedAt && currentFilters.receivedAt !== 'all') {
           apiFilters.receivedAt = currentFilters.receivedAt;
@@ -186,20 +192,30 @@ export const useMessagesData = ({
         // ASSIGNEE — see assigneeApiParams for why 'me' is not an id.
         Object.assign(apiFilters, assigneeApiParams(currentFilters.assigneeId));
 
-        // AI STATE
+        // NEGATION — only for the filters this query is actually sending. In kanban
+        // `lifecycle` and `queue` are dropped above, so their inversions go with them.
         const aiState = currentFilters.aiState ?? 'all';
-        if (aiState === 'needs_review') {
-          apiFilters.needsHumanReview = 'true';
-        } else if (aiState === 'needs_info') {
-          apiFilters.showNeedsInfo = 'true';
-        } else if (aiState === 'ai_suggested') {
-          apiFilters.aiSuggested = 'true';
-        } else if (aiState === 'bot_handled') {
-          apiFilters.botHandled = 'true';
-        } else if (aiState === 'lead') {
-          apiFilters.isLead = 'true';
-        } else if (aiState === 'contradiction') {
-          apiFilters.hasContradiction = 'true';
+        const negate = negateApiParam(currentFilters.negate, [
+          ...(lifecycle !== 'all' ? ['lifecycle'] : []),
+          ...(queue !== 'all' ? ['queue'] : []),
+          ...(aiState !== 'all' ? ['aiState'] : []),
+        ]);
+        if (negate) apiFilters.negate = negate;
+
+        // AI STATE — one param now, not six booleans translated from one control. The
+        // booleans still exist server-side for their other callers, but they cannot be
+        // negated: `aiSuggested=false` means "do not filter", not "not AI-suggested".
+        if (aiState !== 'all') {
+          apiFilters.aiState = aiState;
+          // Send the legacy boolean alongside it, so the filter still works against a
+          // backend that predates `aiState` — the frontend ships from main and can be
+          // live before the API is. NEVER when inverted: the boolean is a positive test,
+          // and a backend old enough to need it drops the negation, so the two would
+          // contradict and match nothing. On a backend that has both, the boolean simply
+          // repeats what `aiState` already says.
+          if (!negate?.includes('aiState')) {
+            Object.assign(apiFilters, legacyAiStateParam(aiState));
+          }
         }
 
         // LABEL
@@ -289,6 +305,9 @@ export const useMessagesData = ({
     filters.aiState,
     filters.labelId,
     filters.ageRange,
+    filters.receivedFrom,
+    filters.receivedTo,
+    filters.negate,
     filters.linked,
     filters.linkedTicketStatus,
     filters.search,

@@ -2,8 +2,14 @@ import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FilterMenu } from './FilterMenu';
 import { FilterToken } from './FilterToken';
-import { clearedValue, suggestionsFor, tokensOf } from './filterTokens';
-import { filterValue, type FilterDef, type FilterKey } from './filterSchema';
+import { clearPatch, clearedValue, suggestionsFor, tokensOf } from './filterTokens';
+import {
+  filterValue,
+  toggleCsvValue,
+  withNegation,
+  type FilterDef,
+  type FilterKey,
+} from './filterSchema';
 import type { FilterState } from '@/stores/messagesStore';
 
 /**
@@ -19,12 +25,17 @@ export const FilterTokenBar = ({
   filters,
   isKanban,
   onFilterChange,
+  onFilterPatch,
   onCommitSearch,
 }: {
   defs: FilterDef[];
   filters: FilterState;
   isKanban: boolean;
   onFilterChange: (key: string, value: string | boolean) => void;
+  /** Several keys in ONE write. The date range and clearing a negated filter each touch
+   *  more than one field, and doing that as two writes fetches the list twice — once
+   *  for a state nobody asked for. */
+  onFilterPatch: (patch: Partial<FilterState>) => void;
   onCommitSearch: (text: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
@@ -85,8 +96,17 @@ export const FilterTokenBar = ({
   }, [openBar]);
 
   const setValue = useCallback(
-    (def: FilterDef, value: string) => {
-      onFilterChange(def.key, value);
+    (def: FilterDef, value: string, options?: { keepOpen?: boolean }) => {
+      if (def.kind === 'date') {
+        // A bucket and an explicit range are alternatives, so choosing one drops the
+        // other. Both would be honoured by the API — as an intersection nobody asked for.
+        onFilterPatch({ ageRange: value as FilterState['ageRange'], receivedFrom: undefined, receivedTo: undefined });
+      } else if (def.multi) {
+        // Toggle, not replace: a second pick on a multi means "and this one too".
+        onFilterChange(def.key, toggleCsvValue((filters as Record<string, unknown>)[def.key], value));
+      } else {
+        onFilterChange(def.key, value);
+      }
       // Status and Queue partition disjoint sets — together they always match nothing.
       // Say so, rather than quietly resetting the other one.
       if (def.exclusiveWith && filterValue(filters, def.exclusiveWith) !== undefined) {
@@ -98,9 +118,28 @@ export const FilterTokenBar = ({
       } else {
         setNotice('');
       }
-      if (!def.sub) close();
+      // A multi stays open so the next value is one click away, not a reopen. Picking
+      // one off the suggestion list is a finished action, so that path passes keepOpen.
+      const stayOpen = Boolean(def.sub) || (Boolean(def.multi) && options?.keepOpen === true);
+      if (!stayOpen) close();
     },
-    [defs, filters, onFilterChange, close]
+    [defs, filters, onFilterChange, onFilterPatch, close]
+  );
+
+  /** The explicit range half of Received — clears the bucket for the same reason. */
+  const setRange = useCallback(
+    (next: { from?: string; to?: string }) => {
+      onFilterPatch({ ageRange: 'all', receivedFrom: next.from, receivedTo: next.to });
+      setNotice('');
+    },
+    [onFilterPatch]
+  );
+
+  const setNegated = useCallback(
+    (def: FilterDef, negated: boolean) => {
+      onFilterChange('negate', withNegation(filters, def.key, negated));
+    },
+    [filters, onFilterChange]
   );
 
   const toggleFlag = useCallback(
@@ -126,7 +165,7 @@ export const FilterTokenBar = ({
         return;
       }
       if (suggestion.kind === 'value') {
-        setValue(suggestion.def, suggestion.option.value);
+        setValue(suggestion.def, suggestion.option.value, { keepOpen: false });
         return;
       }
       setPanelKey(suggestion.def.key);
@@ -137,11 +176,10 @@ export const FilterTokenBar = ({
 
   const removeToken = useCallback(
     (def: FilterDef) => {
-      onFilterChange(def.key, clearedValue(def));
-      if (def.sub) onFilterChange(def.sub.key, 'all');
+      onFilterPatch(clearPatch(def, filters));
       setNotice('');
     },
-    [onFilterChange]
+    [filters, onFilterPatch]
   );
 
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -231,13 +269,15 @@ export const FilterTokenBar = ({
             panelKey={panelKey}
             onOpenPanel={(key) => setPanelKey(key)}
             onBack={() => setPanelKey(null)}
-            onPick={setValue}
+            onPick={(def, value) => setValue(def, value, { keepOpen: true })}
             onPickSub={(def, value) => {
               if (def.sub) onFilterChange(def.sub.key, value);
               close();
             }}
             onToggleFlag={toggleFlag}
             onPickSuggestion={pickSuggestion}
+            onSetNegated={setNegated}
+            onSetRange={setRange}
           />
         </div>
       )}

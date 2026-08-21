@@ -19,6 +19,7 @@ const defs = buildFilterDefs({
 
 const setup = (filters: FilterState = {} as FilterState) => {
   const onFilterChange = vi.fn();
+  const onFilterPatch = vi.fn();
   const onCommitSearch = vi.fn();
   render(
     <FilterTokenBar
@@ -26,10 +27,16 @@ const setup = (filters: FilterState = {} as FilterState) => {
       filters={filters}
       isKanban={false}
       onFilterChange={onFilterChange}
+      onFilterPatch={onFilterPatch}
       onCommitSearch={onCommitSearch}
     />
   );
-  return { onFilterChange, onCommitSearch, input: screen.getByLabelText(/filter or search/i) };
+  return {
+    onFilterChange,
+    onFilterPatch,
+    onCommitSearch,
+    input: screen.getByLabelText(/filter or search/i),
+  };
 };
 
 describe('FilterTokenBar', () => {
@@ -58,6 +65,7 @@ describe('FilterTokenBar', () => {
         filters={{} as FilterState}
         isKanban={false}
         onFilterChange={vi.fn()}
+        onFilterPatch={vi.fn()}
         onCommitSearch={vi.fn()}
       />
     );
@@ -102,13 +110,14 @@ describe('FilterTokenBar', () => {
   });
 
   it('drops the last token on Backspace in an empty field', () => {
-    const { input, onFilterChange } = setup({
+    const { input, onFilterPatch } = setup({
       lifecycle: 'open',
       priority: 'high',
     } as FilterState);
     fireEvent.keyDown(input, { key: 'Backspace' });
-    // Schema order puts priority last, so that is the one that goes.
-    expect(onFilterChange).toHaveBeenCalledWith('priority', 'all');
+    // Schema order puts priority last, so that is the one that goes. Removal is a patch
+    // because some filters are more than one field — see `clearPatch`.
+    expect(onFilterPatch).toHaveBeenCalledWith({ priority: 'all' });
   });
 
   it('does NOT drop a token when the field has text to delete', () => {
@@ -119,14 +128,14 @@ describe('FilterTokenBar', () => {
   });
 
   it('clears a filter from its token', () => {
-    const { onFilterChange } = setup({ priority: 'high' } as FilterState);
+    const { onFilterPatch } = setup({ priority: 'high' } as FilterState);
     fireEvent.click(screen.getByLabelText('Remove Priority filter'));
-    expect(onFilterChange).toHaveBeenCalledWith('priority', 'all');
+    expect(onFilterPatch).toHaveBeenCalledWith({ priority: 'all' });
   });
 
   it('turns a flag off with false, not with "all"', () => {
-    const { onFilterChange } = setup({ slaBreached: true } as FilterState);
+    const { onFilterPatch } = setup({ slaBreached: true } as FilterState);
     fireEvent.click(screen.getByLabelText('Remove SLA Breach filter'));
-    expect(onFilterChange).toHaveBeenCalledWith('slaBreached', false);
+    expect(onFilterPatch).toHaveBeenCalledWith({ slaBreached: false });
   });
 });

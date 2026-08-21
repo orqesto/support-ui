@@ -3,8 +3,19 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { FilterToken } from './FilterToken';
-import { clearedValue, suggestionsFor, tokenText, tokensOf } from './filterTokens';
-import { filterValue, visibleDefs, GROUP_ORDER, type FilterDef } from './filterSchema';
+import { clearPatch, clearedValue, suggestionsFor, tokenText, tokensOf } from './filterTokens';
+import {
+  filterValue,
+  isNegated,
+  toggleCsvValue,
+  visibleDefs,
+  withNegation,
+  GROUP_ORDER,
+  type FilterDef,
+} from './filterSchema';
+import { optionSelected } from './FilterMenu';
+import { isRangeValue, rangeFromValue } from './receivedRange';
+import { DateRangeFields, NegateSwitch } from './ValueControls';
 import type { FilterState } from '@/stores/messagesStore';
 
 /**
@@ -26,6 +37,7 @@ export const FilterSheet = ({
   isKanban,
   resultCount,
   onFilterChange,
+  onFilterPatch,
   onCommitSearch,
   onClearAll,
 }: {
@@ -36,6 +48,8 @@ export const FilterSheet = ({
   isKanban: boolean;
   resultCount: number;
   onFilterChange: (key: string, value: string | boolean) => void;
+  /** Several keys in one write — see the same prop on `FilterTokenBar`. */
+  onFilterPatch: (patch: Partial<FilterState>) => void;
   onCommitSearch: (text: string) => void;
   onClearAll: () => void;
 }) => {
@@ -57,17 +71,34 @@ export const FilterSheet = ({
   };
 
   const pick = (def: FilterDef, value: string) => {
-    onFilterChange(def.key, value);
+    if (def.kind === 'date') {
+      onFilterPatch({
+        ageRange: value as FilterState['ageRange'],
+        receivedFrom: undefined,
+        receivedTo: undefined,
+      });
+    } else if (def.multi) {
+      onFilterChange(def.key, toggleCsvValue((filters as Record<string, unknown>)[def.key], value));
+    } else {
+      onFilterChange(def.key, value);
+    }
     if (def.exclusiveWith && filterValue(filters, def.exclusiveWith) !== undefined) {
       const other = defs.find((row) => row.key === def.exclusiveWith);
       onFilterChange(def.exclusiveWith, clearedValue(other ?? def));
     }
-    setPanelKey(null);
+    // A multi keeps its drill-down open — the whole point is picking more than one, and
+    // bouncing back to the filter list after each would make that four taps a value.
+    if (!def.multi) setPanelKey(null);
   };
+
+  /** One token off — a patch, because Received is three fields and an inversion goes
+   *  with the filter it inverted. Same rule as the bar, same helper. */
+  const remove = (def: FilterDef) => onFilterPatch(clearPatch(def, filters));
 
   // ── one filter's values ───────────────────────────────────────────────────
   if (panelDef) {
     const current = filterValue(filters, panelDef.key);
+    const range = current && isRangeValue(current) ? rangeFromValue(current) : {};
     return (
       <Drawer open={open} onClose={close} title={panelDef.label}>
         <div className="flex flex-col h-full">
@@ -79,14 +110,31 @@ export const FilterSheet = ({
             <ChevronLeft className="w-4 h-4" />
             All filters
           </Button>
+          {panelDef.negatable && (
+            <div className="flex gap-3 justify-between items-center px-4 py-2.5 border-b shrink-0 border-border/60">
+              <span className="text-[13px] text-muted-foreground">Match or exclude</span>
+              <NegateSwitch
+                size="touch"
+                negated={isNegated(filters, panelDef.key)}
+                onChange={(negated) =>
+                  onFilterChange('negate', withNegation(filters, panelDef.key, negated))
+                }
+              />
+            </div>
+          )}
           {panelDef.help && (
             <p className="px-4 py-2.5 border-b text-[12px] leading-relaxed text-muted-foreground bg-muted/50 border-border/60 shrink-0">
               {panelDef.help}
             </p>
           )}
+          {panelDef.multi && (
+            <p className="px-4 py-2 border-b text-[12px] text-muted-foreground border-border/60 shrink-0">
+              Pick as many as you like — the list matches any of them.
+            </p>
+          )}
           <div className="overflow-y-auto flex-1">
             {(panelDef.options ?? []).map((option) => {
-              const on = current === option.value;
+              const on = optionSelected(panelDef, current, option.value);
               return (
                 <Button
                   key={option.value}
@@ -107,6 +155,21 @@ export const FilterSheet = ({
                 </Button>
               );
             })}
+            {panelDef.kind === 'date' && (
+              <>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/80">
+                  Or an exact range
+                </div>
+                <DateRangeFields
+                  size="touch"
+                  from={range.from}
+                  to={range.to}
+                  onChange={(next) =>
+                    onFilterPatch({ ageRange: 'all', receivedFrom: next.from, receivedTo: next.to })
+                  }
+                />
+              </>
+            )}
           </div>
         </div>
       </Drawer>
@@ -148,8 +211,11 @@ export const FilterSheet = ({
                 key={token.def.key}
                 token={token}
                 alwaysShowRemove
-                onEdit={() => token.def.kind === 'select' && setPanelKey(token.def.key)}
-                onRemove={() => onFilterChange(token.def.key, clearedValue(token.def))}
+                onEdit={() =>
+                  (token.def.kind === 'select' || token.def.kind === 'date') &&
+                  setPanelKey(token.def.key)
+                }
+                onRemove={() => remove(token.def)}
               />
             ))}
             <Button

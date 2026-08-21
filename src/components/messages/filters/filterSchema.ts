@@ -11,13 +11,19 @@
  * here invents a param the API cannot honour — see the notes on `ageRange` and
  * `receivedAt`, which are two DIFFERENT filters that the design prototype conflated.
  */
+import { rangeValue } from './receivedRange';
 import type { FilterState } from '@/stores/messagesStore';
 
 export type FilterGroup = 'Queue' | 'Routing' | 'AI & links' | 'Flags';
 
 /** Keys the token bar drives. A subset of FilterState — `status` and
  *  `excludeAwaitingResponse` stay on their own controls (they are view-level toggles,
- *  not user-chosen filters). */
+ *  not user-chosen filters).
+ *
+ *  `received` is the one key here that is not a single `FilterState` field: it stands
+ *  for the three that answer "when did this arrive" (`ageRange` plus the two range
+ *  bounds), which are one control and one token to the user. `receivedValue` reads it
+ *  and `RECEIVED_KEYS` clears it. */
 export type FilterKey =
   | 'search'
   | 'threadStatus'
@@ -26,7 +32,7 @@ export type FilterKey =
   | 'read'
   | 'priority'
   | 'assigneeId'
-  | 'ageRange'
+  | 'received'
   | 'receivedAt'
   | 'messageSourceId'
   | 'departmentId'
@@ -50,8 +56,15 @@ export type FilterDef = {
   key: FilterKey;
   label: string;
   group: FilterGroup;
-  /** `select` picks one option · `flag` is an on/off pill · `free` is the search text. */
-  kind: 'select' | 'flag' | 'free';
+  /** `select` picks one option · `flag` is an on/off pill · `free` is the search text ·
+   *  `date` is a bucket OR an explicit range. */
+  kind: 'select' | 'flag' | 'free' | 'date';
+  /** Several values at once, sent as a CSV the API turns into an `IN (…)`. Picking is a
+   *  toggle rather than a replace, and the panel stays open. */
+  multi?: boolean;
+  /** Offers `is` / `is not`. Only three filters can be inverted server-side — see
+   *  `NEGATABLE_KEYS`, which is the list the API honours. */
+  negatable?: boolean;
   /** Hidden in kanban mode — the board's columns ARE these filters. */
   listOnly?: boolean;
   /** Only meaningful in kanban mode. */
@@ -110,11 +123,11 @@ const PRIORITY: FilterOption[] = [
 /**
  * Age buckets, mapped to the API's `ageRange` enum.
  *
- * The prototype called this "Received" with Today / 24h / 7d / 30d. The API's buckets
- * are the ones below and there is no "today", so these are the real four rather than
- * four that would need a new param to mean anything.
+ * These four are the API's own, which is why there is no "Today" among them. Anything
+ * they cannot express — a single day, a week in March — is now the explicit range that
+ * shares this control; see `receivedRange.ts`.
  */
-const AGE_RANGE: FilterOption[] = [
+export const AGE_RANGE: FilterOption[] = [
   { value: 'lt24h', label: 'Last 24 hours' },
   { value: '1to7d', label: '1–7 days' },
   { value: '1to4w', label: '1–4 weeks' },
@@ -190,6 +203,7 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       group: 'Queue',
       kind: 'select',
       listOnly: true,
+      negatable: true,
       options: LIFECYCLE,
     },
     {
@@ -198,11 +212,19 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       group: 'Queue',
       kind: 'select',
       listOnly: true,
+      negatable: true,
       exclusiveWith: 'lifecycle',
       options: QUEUE,
     },
     { key: 'read', label: 'Read', group: 'Queue', kind: 'select', listOnly: true, options: READ },
-    { key: 'priority', label: 'Priority', group: 'Queue', kind: 'select', options: PRIORITY },
+    {
+      key: 'priority',
+      label: 'Priority',
+      group: 'Queue',
+      kind: 'select',
+      multi: true,
+      options: PRIORITY,
+    },
     {
       key: 'assigneeId',
       label: 'Assignee',
@@ -210,7 +232,9 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       kind: 'select',
       options: dynamic.assignees,
     },
-    { key: 'ageRange', label: 'Received', group: 'Queue', kind: 'select', options: AGE_RANGE },
+    // Buckets AND an explicit range, one control. `kind: 'date'` is what tells the
+    // panels to render the second half; the four buckets are still the quick path.
+    { key: 'received', label: 'Received', group: 'Queue', kind: 'date', options: AGE_RANGE },
     {
       key: 'messageSourceId',
       label: 'Source',
@@ -240,6 +264,7 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       label: 'AI State',
       group: 'AI & links',
       kind: 'select',
+      negatable: true,
       help: AI_STATE_HELP,
       options: AI_STATE,
     },
@@ -251,7 +276,14 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       options: LINKED,
       sub: { key: 'linkedTicketStatus', label: 'Ticket status', options: LINKED_TICKET_STATUS },
     },
-    { key: 'labelId', label: 'Label', group: 'AI & links', kind: 'select', options: dynamic.labels },
+    {
+      key: 'labelId',
+      label: 'Label',
+      group: 'AI & links',
+      kind: 'select',
+      multi: true,
+      options: dynamic.labels,
+    },
     { key: 'slaBreached', label: 'SLA Breach', group: 'Flags', kind: 'flag', tone: 'red' },
     { key: 'slaAtRisk', label: 'SLA At Risk', group: 'Flags', kind: 'flag', tone: 'amber' },
     { key: 'hasAttachments', label: 'Attachments', group: 'Flags', kind: 'flag' },
@@ -288,8 +320,65 @@ export const GROUP_ORDER: FilterGroup[] = ['Queue', 'Routing', 'AI & links', 'Fl
 export const isUnset = (value: unknown): boolean =>
   value === undefined || value === null || value === '' || value === 'all' || value === false;
 
+/** The three `FilterState` fields behind the one `received` control. */
+export const RECEIVED_KEYS = ['ageRange', 'receivedFrom', 'receivedTo'] as const;
+
+/**
+ * "When did it arrive", as one value: the bucket if a bucket is set, otherwise the
+ * explicit range. Never both — the panels clear one when setting the other, so this
+ * preferring the bucket is a tiebreak that should not come up.
+ */
+export const receivedValue = (filters: FilterState): string | undefined => {
+  if (filters.ageRange && filters.ageRange !== 'all') return filters.ageRange;
+  if (filters.receivedFrom || filters.receivedTo)
+    return rangeValue(filters.receivedFrom, filters.receivedTo);
+  return undefined;
+};
+
 export const filterValue = (filters: FilterState, key: FilterKey): string | undefined => {
+  if (key === 'received') return receivedValue(filters);
   const raw = (filters as Record<string, unknown>)[key];
   if (isUnset(raw)) return undefined;
   return raw === true ? 'true' : String(raw);
+};
+
+// ── multi-value ─────────────────────────────────────────────────────────────
+
+/** A CSV field's values. `'all'` and `''` both mean none, so both come back empty. */
+export const csvValues = (raw: unknown): string[] =>
+  typeof raw === 'string' && !isUnset(raw)
+    ? [...new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))]
+    : [];
+
+/** Add or remove one value, back in the CSV form the API reads. Empty clears to `'all'`. */
+export const toggleCsvValue = (raw: unknown, value: string): string => {
+  const values = csvValues(raw);
+  const next = values.includes(value)
+    ? values.filter((entry) => entry !== value)
+    : [...values, value];
+  return next.length > 0 ? next.join(',') : 'all';
+};
+
+/** Is this one of the picked values? Works for single-valued filters too, where the CSV
+ *  happens to have one entry. */
+export const isPicked = (raw: unknown, value: string): boolean => csvValues(raw).includes(value);
+
+// ── negation ────────────────────────────────────────────────────────────────
+
+/**
+ * The filters the API can invert — `NEGATABLE_FILTERS` in `filterPredicates.ts`.
+ * Anything else in `negate` is dropped server-side, so offering it would be a control
+ * that visibly does nothing.
+ */
+export const NEGATABLE_KEYS = ['lifecycle', 'queue', 'aiState'] as const;
+export type NegatableKey = (typeof NEGATABLE_KEYS)[number];
+
+export const isNegated = (filters: FilterState, key: string): boolean =>
+  csvValues(filters.negate).includes(key);
+
+/** The `negate` CSV with one key switched on or off. Empty is `''`, not `'all'` — this
+ *  is a list of names, and `'all'` would name a filter that does not exist. */
+export const withNegation = (filters: FilterState, key: string, on: boolean): string => {
+  const current = csvValues(filters.negate).filter((entry) => entry !== key);
+  return (on ? [...current, key] : current).join(',');
 };

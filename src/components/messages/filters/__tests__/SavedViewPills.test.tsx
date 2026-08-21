@@ -36,6 +36,7 @@ afterEach(cleanup);
 
 const setup = (filters: FilterState, isKanban = false) => {
   const onFilterChange = vi.fn();
+  const onFilterPatch = vi.fn();
   const onClearFilters = vi.fn();
   render(
     <MessageFilterBar
@@ -43,41 +44,49 @@ const setup = (filters: FilterState, isKanban = false) => {
       pagination={{ page: 1, limit: 20, total: 17 }}
       activeFilterCount={Object.keys(filters).length}
       onFilterChange={onFilterChange}
+      onFilterPatch={onFilterPatch}
       onCommitSearch={vi.fn()}
       onClearFilters={onClearFilters}
       isKanban={isKanban}
     />
   );
-  return { onFilterChange, onClearFilters };
+  // A view is applied and unapplied as ONE write now — several filters arriving one at a
+  // time walked the list through states nobody picked.
+  const patched = (): Record<string, unknown> =>
+    (onFilterPatch.mock.calls as [Partial<FilterState>][]).reduce<Record<string, unknown>>(
+      (acc, [patch]) => ({ ...acc, ...patch }),
+      {}
+    );
+  return { onFilterChange, onFilterPatch, patched, onClearFilters };
 };
 
 describe('saved view pills', () => {
   it('applies a view when it is not the current one', () => {
-    const { onFilterChange, onClearFilters } = setup({} as FilterState);
+    const { patched, onClearFilters } = setup({} as FilterState);
     fireEvent.click(screen.getByText('Mine'));
-    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
+    expect(patched()).toEqual({ assigneeId: 'me' });
     expect(onClearFilters).not.toHaveBeenCalled();
   });
 
   it('removes only its OWN filters when the same view is clicked again', () => {
-    const { onFilterChange, onClearFilters } = setup({
+    const { patched, onClearFilters } = setup({
       assigneeId: 'me',
       slaBreached: true,
     } as FilterState);
     fireEvent.click(screen.getByText('Mine'));
-    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'all');
+    expect(patched()).toEqual({ assigneeId: 'all' });
     // Breached was on too and is nobody else's business — a blanket clear would take it.
-    expect(onFilterChange).not.toHaveBeenCalledWith('slaBreached', false);
+    expect(patched()).not.toHaveProperty('slaBreached');
     expect(onClearFilters).not.toHaveBeenCalled();
   });
 
   it('combines with what is already on instead of replacing it', () => {
-    const { onFilterChange } = setup({ assigneeId: 'me' } as FilterState);
+    const { patched } = setup({ assigneeId: 'me' } as FilterState);
     fireEvent.click(screen.getByText('Breached'));
-    expect(onFilterChange).toHaveBeenCalledWith('slaBreached', true);
+    expect(patched()).toEqual({ slaBreached: true });
     // The whole point: Mine survives. Replacing is what made the pills disagree with
     // the same two filters applied from the menu.
-    expect(onFilterChange).not.toHaveBeenCalledWith('assigneeId', 'all');
+    expect(patched()).not.toHaveProperty('assigneeId');
   });
 
   it('lights every view whose filters are present', () => {
@@ -99,9 +108,9 @@ describe('saved view pills', () => {
 
   it('switches between views rather than clearing', () => {
     // Breached is lit; clicking Mine must APPLY Mine, not toggle Breached off.
-    const { onFilterChange, onClearFilters } = setup({ slaBreached: true } as FilterState);
+    const { patched, onClearFilters } = setup({ slaBreached: true } as FilterState);
     fireEvent.click(screen.getByText('Mine'));
-    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
+    expect(patched()).toEqual({ assigneeId: 'me' });
     expect(onClearFilters).not.toHaveBeenCalled();
   });
 
@@ -110,9 +119,9 @@ describe('saved view pills', () => {
     // is dropped from the schema — so clicking "Mine" before the assignee list returned
     // applied the lifecycle half and dropped the assignee half, silently.
     options.current = [];
-    const { onFilterChange } = setup({} as FilterState);
+    const { patched } = setup({} as FilterState);
     fireEvent.click(screen.getByText('Unassigned'));
-    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'unassigned');
+    expect(patched()).toEqual({ assigneeId: 'unassigned' });
   });
 
   it('keeps offering a view while its options are still loading', () => {
@@ -145,17 +154,17 @@ describe('saved view pills', () => {
   });
 
   it('Mine and Unassigned filter by WHO, without pinning a status', () => {
-    const { onFilterChange } = setup({} as FilterState);
+    const { patched } = setup({} as FilterState);
     fireEvent.click(screen.getByText('Mine'));
-    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'me');
-    expect(onFilterChange).not.toHaveBeenCalledWith('lifecycle', 'open');
+    expect(patched()).toEqual({ assigneeId: 'me' });
+    expect(patched()).not.toHaveProperty('lifecycle');
   });
 
   it('swaps rather than stacks when two views name the same filter', () => {
     // Mine and Unassigned are both assigneeId. The second write overwrites the first,
     // so they exchange rather than fighting.
-    const { onFilterChange } = setup({ assigneeId: 'me' } as FilterState);
+    const { patched } = setup({ assigneeId: 'me' } as FilterState);
     fireEvent.click(screen.getByText('Unassigned'));
-    expect(onFilterChange).toHaveBeenCalledWith('assigneeId', 'unassigned');
+    expect(patched()).toEqual({ assigneeId: 'unassigned' });
   });
 });

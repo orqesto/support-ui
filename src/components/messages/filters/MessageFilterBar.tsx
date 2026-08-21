@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { FilterSheet } from './FilterSheet';
 import { FilterToken } from './FilterToken';
 import { FilterTokenBar } from './FilterTokenBar';
-import { buildFilterDefs } from './filterSchema';
-import { clearedValue, tokensOf } from './filterTokens';
+import { RECEIVED_KEYS, buildFilterDefs } from './filterSchema';
+import { clearPatch, tokensOf } from './filterTokens';
 import { useFilterOptions } from './useFilterOptions';
 import {
   BUILT_IN_VIEWS,
@@ -32,6 +32,7 @@ export const MessageFilterBar = ({
   clearableFilterCount = activeFilterCount,
   isKanban = false,
   onFilterChange,
+  onFilterPatch,
   onCommitSearch,
   onClearFilters,
 }: {
@@ -41,6 +42,9 @@ export const MessageFilterBar = ({
   clearableFilterCount?: number;
   isKanban?: boolean;
   onFilterChange: (key: string, value: string | boolean) => void;
+  /** A several-key write. Applying a view, the date range and clearing a negated filter
+   *  all move more than one field, and each should be one change to the list. */
+  onFilterPatch: (patch: Partial<FilterState>) => void;
   onCommitSearch: (text: string) => void;
   onClearFilters: () => void;
 }) => {
@@ -72,34 +76,56 @@ export const MessageFilterBar = ({
    */
   const applyView = useCallback(
     (view: SavedView) => {
-      for (const [key, value] of Object.entries(view.filters)) {
-        if (value !== undefined) onFilterChange(key, value);
-      }
+      onFilterPatch(view.filters);
     },
-    [onFilterChange]
+    [onFilterPatch]
   );
 
   /** Clicking a lit pill removes exactly that view's filters and leaves the rest. */
   const unapplyView = useCallback(
     (view: SavedView) => {
+      const patch: Record<string, unknown> = {};
       for (const key of Object.keys(view.filters)) {
         const def = defs.find((row) => row.key === key);
-        onFilterChange(key, def ? clearedValue(def) : 'all');
+        if (def) {
+          Object.assign(patch, clearPatch(def, filters));
+        } else if ((RECEIVED_KEYS as readonly string[]).includes(key)) {
+          // Not schema keys — the Received control owns all three, and a date bound
+          // clears to absent rather than to the string 'all'.
+          patch[key] = undefined;
+        } else if (key === 'negate') {
+          patch.negate = '';
+        } else {
+          patch[key] = 'all';
+        }
       }
+      onFilterPatch(patch as Partial<FilterState>);
     },
-    [defs, onFilterChange]
+    [defs, filters, onFilterPatch]
   );
 
   const saveCurrentView = () => {
     const name = viewName.trim();
     if (!name) return;
-    const snapshot: Partial<FilterState> = {};
+    const snapshot: Record<string, unknown> = {};
     for (const token of tokens) {
-      (snapshot as Record<string, unknown>)[token.def.key] = (
-        filters as Record<string, unknown>
-      )[token.def.key];
+      // `received` is a control, not a field — snapshot the three it stands for. Reading
+      // filters['received'] would have stored `undefined` and saved a view with a
+      // Received token that does nothing.
+      const keys: string[] =
+        token.def.kind === 'date' ? [...RECEIVED_KEYS] : [token.def.key];
+      if (token.def.sub) keys.push(token.def.sub.key);
+      for (const key of keys) snapshot[key] = (filters as Record<string, unknown>)[key];
     }
-    const next = [...userViews.filter((view) => view.name !== name), { name, filters: snapshot }];
+    // Only the inversions this view actually carries. Copying the whole `negate` CSV
+    // would smuggle in an inversion for a filter the view does not set, and it would
+    // apply the moment someone set that filter.
+    const negated = tokens.filter((token) => token.negated).map((token) => token.def.key);
+    if (negated.length > 0) snapshot.negate = negated.join(',');
+    const next = [
+      ...userViews.filter((view) => view.name !== name),
+      { name, filters: snapshot as Partial<FilterState> },
+    ];
     setUserViews(next);
     persistSavedViews(next);
     setNamingView(false);
@@ -165,6 +191,7 @@ export const MessageFilterBar = ({
             filters={filters}
             isKanban={isKanban}
             onFilterChange={onFilterChange}
+            onFilterPatch={onFilterPatch}
             onCommitSearch={onCommitSearch}
           />
         </div>
@@ -202,7 +229,7 @@ export const MessageFilterBar = ({
                   token={token}
                   alwaysShowRemove
                   onEdit={() => setSheetOpen(true)}
-                  onRemove={() => onFilterChange(token.def.key, clearedValue(token.def))}
+                  onRemove={() => onFilterPatch(clearPatch(token.def, filters))}
                 />
               ))}
             </div>
@@ -274,6 +301,7 @@ export const MessageFilterBar = ({
         isKanban={isKanban}
         resultCount={total}
         onFilterChange={onFilterChange}
+        onFilterPatch={onFilterPatch}
         onCommitSearch={onCommitSearch}
         onClearAll={onClearFilters}
       />

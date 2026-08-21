@@ -172,6 +172,8 @@ export const MessagesPage = () => {
   const updateFilter = useMessagesStore((state) => state.updateFilter);
   const setSorting = useMessagesStore((state) => state.setSorting);
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
+  // Merges, so it is the several-key write the filter bar needs — see handleFilterPatch.
+  const patchFilters = useMessagesStore((state) => state.setFilters);
 
   // Derived up here, not next to the filter counts, because useMessagesData needs it:
   // the list query drops the filters the board cannot honour.
@@ -225,6 +227,18 @@ export const MessagesPage = () => {
         updateFilter('linkedTicketStatus', 'all');
       }
     }
+  };
+
+  /**
+   * Several filter keys in one write.
+   *
+   * The Received control owns three fields (`ageRange` and the two bounds), turning a
+   * negated filter off touches two, and applying a saved view touches as many as it has.
+   * Sending those one at a time walks through states nobody chose — a range with only a
+   * `from`, a filter that is briefly still inverted — and each is a distinct cache key.
+   */
+  const handleFilterPatch = (patch: Partial<FilterState>) => {
+    patchFilters(patch);
   };
 
   /**
@@ -538,7 +552,10 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.receivedAt && filters.receivedAt !== 'all' ? 1 : 0) +
-    (filters.ageRange && filters.ageRange !== 'all' ? 1 : 0) +
+    // Received is one filter whether it is a bucket or an explicit range.
+    ((filters.ageRange && filters.ageRange !== 'all') || filters.receivedFrom || filters.receivedTo
+      ? 1
+      : 0) +
     (filters.search?.trim() ? 1 : 0) +
     (filters.slaBreached ? 1 : 0) +
     (filters.slaAtRisk ? 1 : 0) +
@@ -559,7 +576,10 @@ export const MessagesPage = () => {
     (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
     (filters.linked && filters.linked !== 'all' ? 1 : 0) +
     (filters.receivedAt && filters.receivedAt !== 'all' ? 1 : 0) +
-    (filters.ageRange && filters.ageRange !== 'all' ? 1 : 0) +
+    // Received is one filter whether it is a bucket or an explicit range.
+    ((filters.ageRange && filters.ageRange !== 'all') || filters.receivedFrom || filters.receivedTo
+      ? 1
+      : 0) +
     (filters.search?.trim() ? 1 : 0) +
     (filters.slaBreached ? 1 : 0) +
     (filters.slaAtRisk ? 1 : 0) +
@@ -627,6 +647,7 @@ export const MessagesPage = () => {
                   clearableFilterCount={clearableFilterCount}
                   pagination={displayMode === 'contacts' ? contactsPagination : pagination}
                   onFilterChange={handleFilterChange}
+                  onFilterPatch={handleFilterPatch}
                   onCommitSearch={handleCommitSearch}
                   onClearFilters={() => void clearFilters()}
                   isKanban={isKanban}

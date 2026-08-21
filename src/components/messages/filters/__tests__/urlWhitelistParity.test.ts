@@ -12,15 +12,22 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  VALID_AGE_RANGES,
   VALID_AI_STATES,
   VALID_LIFECYCLES,
   VALID_LINKED,
+  VALID_NEGATE_KEYS,
   VALID_PRIORITIES,
   VALID_QUEUES,
   VALID_READ,
   VALID_THREAD_STATUSES,
 } from '@/hooks/useMessagesUrlSync';
-import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS, type FilterKey } from '../filterSchema';
+import {
+  NEGATABLE_KEYS,
+  buildFilterDefs,
+  EMPTY_DYNAMIC_OPTIONS,
+  type FilterKey,
+} from '../filterSchema';
 import { BUILT_IN_VIEWS } from '../savedViews';
 
 const defs = buildFilterDefs(EMPTY_DYNAMIC_OPTIONS);
@@ -35,6 +42,7 @@ const CASES: [FilterKey, readonly string[]][] = [
   ['priority', VALID_PRIORITIES],
   ['aiState', VALID_AI_STATES],
   ['linked', VALID_LINKED],
+  ['received', VALID_AGE_RANGES],
 ];
 
 describe('filter schema ↔ URL whitelist parity', () => {
@@ -49,6 +57,24 @@ describe('filter schema ↔ URL whitelist parity', () => {
     // Named separately from the sweep above: this is the regression itself, and a
     // reader should not have to work out which row of the table it was.
     expect(VALID_LIFECYCLES).toContain('open');
+  });
+});
+
+describe('the negatable set has one definition, spelled in three places', () => {
+  // The API drops an unknown name from `negate`; the URL layer drops one too. If the
+  // schema ever marks a fourth filter negatable, the switch renders, the token says
+  // "is not", and the list comes back unfiltered — with nothing anywhere saying why.
+  const negatable = buildFilterDefs(EMPTY_DYNAMIC_OPTIONS)
+    .filter((def) => def.negatable)
+    .map((def) => def.key)
+    .sort();
+
+  it('schema defs agree with NEGATABLE_KEYS', () => {
+    expect(negatable).toEqual([...NEGATABLE_KEYS].sort());
+  });
+
+  it('NEGATABLE_KEYS agrees with the URL whitelist', () => {
+    expect([...VALID_NEGATE_KEYS].sort()).toEqual([...NEGATABLE_KEYS].sort());
   });
 });
 
