@@ -97,6 +97,8 @@ export const SourceAliasEditor = ({
   const [coverage, setCoverage] = useState({ conversations: 0, withDeliveryAddress: 0 });
   /** The route is absent — which is not the same as "no addresses". */
   const [unavailable, setUnavailable] = useState(false);
+  /** The read failed — which is not the same as the route being absent. */
+  const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'volume' | 'address'>('volume');
@@ -108,39 +110,50 @@ export const SourceAliasEditor = ({
   useEffect(() => {
     let ignore = false;
     const load = async () => {
-      const result = await messageService.getReceivedAddresses();
-      if (ignore) return;
-      if (!result) {
-        setUnavailable(true);
-      } else {
-        setDelivery(
-          result.addresses.map((row) => ({
-            address: row.address,
-            origin: 'delivery' as const,
-            conversations: row.conversations,
-            lastSeenAt: row.lastSeenAt,
-            configured: row.configured,
-            attachedElsewhere:
-              row.attachedToSourceId !== null && row.attachedToSourceId !== sourceId,
-            likelyOurs: false,
-          }))
-        );
-        setSenders(
-          result.senderCandidates.map((row) => ({
-            address: row.address,
-            origin: 'sender' as const,
-            conversations: row.conversations,
-            lastSeenAt: row.lastSeenAt,
-            configured: false,
-            attachedElsewhere: false,
-            likelyOurs: row.likelyOurs,
-          }))
-        );
-        setCoverage(result.coverage);
+      try {
+        const result = await messageService.getReceivedAddresses();
+        if (ignore) return;
+        if (!result) {
+          setUnavailable(true);
+        } else {
+          setDelivery(
+            result.addresses.map((row) => ({
+              address: row.address,
+              origin: 'delivery' as const,
+              conversations: row.conversations,
+              lastSeenAt: row.lastSeenAt,
+              configured: row.configured,
+              attachedElsewhere:
+                row.attachedToSourceId !== null && row.attachedToSourceId !== sourceId,
+              likelyOurs: false,
+            }))
+          );
+          setSenders(
+            result.senderCandidates.map((row) => ({
+              address: row.address,
+              origin: 'sender' as const,
+              conversations: row.conversations,
+              lastSeenAt: row.lastSeenAt,
+              configured: false,
+              attachedElsewhere: false,
+              likelyOurs: row.likelyOurs,
+            }))
+          );
+          setCoverage(result.coverage);
+        }
+      } catch (error) {
+        if (ignore) return;
+        // Manual entry needs no backend, so a failed read must not take the panel
+        // down with it — but it must not pass for an absent capability either.
+        logger.error('Could not read the addresses this mailbox receives on', error);
+        setFailed(true);
+      } finally {
+        if (!ignore) {
+          // Seeded from what is already declared, never from what was merely observed.
+          setSelected(declared.map(normalise));
+          setLoading(false);
+        }
       }
-      // Seeded from what is already declared, never from what was merely observed.
-      setSelected(declared.map(normalise));
-      setLoading(false);
     };
     void load();
     return () => {
@@ -288,6 +301,15 @@ export const SourceAliasEditor = ({
               This workspace&apos;s backend cannot suggest addresses yet, so nothing is listed
               below. You can still add addresses by hand, and aliases already declared keep
               working.
+            </p>
+          )}
+
+          {failed && (
+            <p className="py-2 text-xs text-muted-foreground">
+              We couldn&apos;t read this mailbox&apos;s history just now, so nothing is listed
+              below — this is a temporary failure, not a mailbox with no addresses. Close and
+              reopen to try again. You can still add addresses by hand, and aliases already
+              declared keep working.
             </p>
           )}
 
