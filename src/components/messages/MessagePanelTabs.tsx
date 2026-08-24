@@ -97,6 +97,17 @@ export function MessagePanelTabs({
   const [checkingContradiction, setCheckingContradiction] = useState(false);
   const [kbResultCount, setKbResultCount] = useState<number | null>(null);
 
+  // Memoised so the identity handed to AiTabPanel is stable across renders. Inlined, this
+  // re-wrapped the parent's callback on every render and defeated the stable setter it was
+  // given, which is what forced AiTabPanel's fetch effect to key on message.id alone.
+  const handleOptionsLoaded = useCallback(
+    (total: number) => {
+      setKbResultCount(total);
+      onOptionsLoaded?.(total);
+    },
+    [onOptionsLoaded]
+  );
+
   // Full contact profile for the CUSTOMER tab — the same editable component
   // (assigned manager, labels, channel profiles, linked contacts, notes) used by
   // the standalone Contact drawer, via the shared hook. Resolved by the
@@ -437,7 +448,7 @@ export function MessagePanelTabs({
               message={message}
               onGhostClick={onGhostClick}
               onOptionSelect={onOptionSelect}
-              onOptionsLoaded={(total) => { setKbResultCount(total); onOptionsLoaded?.(total); }}
+              onOptionsLoaded={handleOptionsLoaded}
               onLoadingChange={onAiLoadingChange}
               section="suggested"
             />
