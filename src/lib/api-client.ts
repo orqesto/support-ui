@@ -47,7 +47,17 @@ export const applyRequestContext = (
   } else {
     // Add selected organization context — read directly from Zustand store to avoid
     // JSON.parse(localStorage) on every request (avoids parsing cost and stale-parse issues).
-    const selectedOrgId = useAuthStore.getState().selectedOrganizationId;
+    //
+    // Falls back to the user's home org when nothing is explicitly selected. Every data
+    // hook already resolves the org this way (useTicketsCount, useSLANotifications,
+    // useNotificationCounts, useCurrentOrgCode, useLearningNotifications all use
+    // `selectedOrganizationId ?? user?.organizationId`). Without the same fallback here the
+    // UI renders counts for the home org while the request carries NO org header at all —
+    // and getOrganizationContext returns null (400 "Organization context required") in
+    // exactly one case: a global admin with no header. `organizationId` survives a reload;
+    // authStore's partialize persists it.
+    const { selectedOrganizationId, user } = useAuthStore.getState();
+    const selectedOrgId = selectedOrganizationId ?? user?.organizationId ?? null;
     if (selectedOrgId) {
       config.headers['X-Organization-Context'] = String(selectedOrgId);
       logger.debug(
