@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { logger } from '@/lib/logger';
+import { stripGreetingName } from '@/lib/depersonalise';
 
 type Analysis = {
   isTicketWorthy?: boolean;
@@ -74,6 +75,16 @@ export type SimilarResult = {
   attachments?: KBAttachment[];
 };
 
+/**
+ * The bare address from a `Name <addr@host>` sender string, for attributing a past reply
+ * to the person it was written to. Falls back to the raw value rather than hiding it —
+ * an unattributed past reply is exactly what this change exists to prevent.
+ */
+const senderAddress = (sender?: string): string => {
+  if (!sender) return 'unknown recipient';
+  return sender.match(/<([^>]+)>/)?.[1] ?? sender.trim();
+};
+
 type ReplyOption = {
   id: string;
   label: string;
@@ -99,7 +110,6 @@ type Props = {
   onOptionsLoaded?: (total: number) => void;
   onLoadingChange?: (loading: boolean) => void;
   /** Called once after load when no metadata suggestedAnswer exists and KB results are available. */
-  onAutoSuggest?: (answer: string, label: string, type: ReplyOption['type']) => void;
   /** 'suggested' = reply block only; 'analysis' = stats/flags only; default = both */
   section?: 'suggested' | 'analysis';
 };
@@ -145,7 +155,6 @@ export function AiTabPanel({
   onOptionSelect,
   onOptionsLoaded,
   onLoadingChange,
-  onAutoSuggest,
   section,
 }: Props) {
   const spamCheck = getSpamCheck(message);
@@ -199,14 +208,18 @@ export function AiTabPanel({
       onOptionsLoaded?.((hasSuggested ? 1 : 0) + deduped.length);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).
       onLoadingChange?.(false);
-      if (!hasSuggested && data.length > 0) {
-        const first = data[0];
-        onAutoSuggest?.(
-          first.directReply,
-          first.source === 'documentation' ? 'KB' : 'MSG',
-          first.source === 'documentation' ? 'documentation' : 'similar'
-        );
-      }
+      // NO auto-suggest from a past reply.
+      //
+      // This used to drop `data[0].directReply` straight into the ghost bubble, labelled
+      // "AI" like a generated draft. It is not generated: it is the verbatim reply sent to
+      // whichever customer matched best, greeting and account claims included. A cold pitch
+      // selling fake reviews was handed "Hello Joy, … your subscription has now been
+      // cancelled" as its one-click answer — another customer's name, and a statement about
+      // her account, one tap from being sent to a stranger.
+      //
+      // Past replies remain available below as options the agent picks deliberately, tagged
+      // with the address they were written to. Only a genuinely generated answer
+      // (`suggestedAnswer`, computed for THIS message) may pre-fill the composer.
     };
 
     const cached = similarResultsCache.get(message.id);
@@ -285,11 +298,18 @@ export function AiTabPanel({
   }
 
   similarResults.forEach((result, idx) => {
+    const isPastReply = result.source !== 'documentation';
     options.push({
       id: `sim-${idx}`,
-      label: result.source === 'documentation' ? 'KB' : 'MSG',
-      sublabel: `${Math.round(result.similarity * 100)}%`,
-      answer: result.directReply,
+      // "MSG" said nothing about whose words these are. "PAST REPLY" plus the address it
+      // was sent to makes reuse a decision rather than an accident.
+      label: isPastReply ? 'PAST REPLY' : 'KB',
+      sublabel: isPastReply
+        ? `${Math.round(result.similarity * 100)}% → ${senderAddress(result.sender)}`
+        : `${Math.round(result.similarity * 100)}%`,
+      // De-personalised at the point it becomes insertable text, not at render, so the
+      // preview an agent reads is the same text that reaches the composer.
+      answer: isPastReply ? stripGreetingName(result.directReply) : result.directReply,
       type: result.source === 'documentation' ? 'documentation' : 'similar',
       documentationId: result.documentationId,
       documentTitle: result.documentTitle,

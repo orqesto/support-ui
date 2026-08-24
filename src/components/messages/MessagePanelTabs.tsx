@@ -53,7 +53,6 @@ export type MessagePanelTabsProps = {
   onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
   onOptionSelect?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
   onOptionsLoaded?: (total: number) => void;
-  onAutoSuggest?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
   onAiLoadingChange?: (loading: boolean) => void;
   setComposerMode: React.Dispatch<React.SetStateAction<'reply' | 'note'>>;
   noteEditorRef: React.RefObject<RichTextEditorHandle>;
@@ -86,7 +85,6 @@ export function MessagePanelTabs({
   onGhostClick,
   onOptionSelect,
   onOptionsLoaded,
-  onAutoSuggest,
   onAiLoadingChange,
   setComposerMode,
   noteEditorRef,
@@ -441,7 +439,6 @@ export function MessagePanelTabs({
               onOptionSelect={onOptionSelect}
               onOptionsLoaded={(total) => { setKbResultCount(total); onOptionsLoaded?.(total); }}
               onLoadingChange={onAiLoadingChange}
-              onAutoSuggest={onAutoSuggest}
               section="suggested"
             />
             <MessageKBReferences messageId={message.id} />
