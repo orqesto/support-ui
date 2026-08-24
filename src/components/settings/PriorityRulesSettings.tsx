@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { RuleEditor } from '@/components/shared/RuleEditor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { Select } from '@/components/ui/Select';
-import { Spinner } from '@/components/ui/Spinner';
+import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
+import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { logger } from '@/lib/logger';
 import {
   PRIORITY_LEVELS,
@@ -20,6 +17,23 @@ import {
   type PriorityRule,
 } from '@/services/priorityRule.service';
 
+/**
+ * Priority rules have no `pattern` — a message is matched against `exampleText` by
+ * embedding similarity, and the `pattern` column on the table is never consulted by
+ * detection. The view type maps exampleText onto `pattern` so the shared RuleEditor
+ * table shows the text that actually decides the tier, rather than a blank column.
+ * Same shape trick RoutingRulesSettings uses for its own view model.
+ */
+type PriorityRuleView = PriorityRule & { pattern: string };
+
+type PriorityRuleFormData = {
+  priority: PriorityLevel;
+  name: string;
+  description: string;
+  exampleText: string;
+  active: boolean;
+};
+
 const PRIORITY_VARIANT: Record<PriorityLevel, 'danger' | 'warning' | 'default' | 'secondary'> = {
   critical: 'danger',
   high: 'warning',
@@ -27,294 +41,167 @@ const PRIORITY_VARIANT: Record<PriorityLevel, 'danger' | 'warning' | 'default' |
   low: 'secondary',
 };
 
-const EMPTY_DRAFT = {
-  priority: 'medium' as PriorityLevel,
-  name: '',
-  description: '',
-  exampleText: '',
-};
+const PRIORITY_OPTIONS = PRIORITY_LEVELS.map((level) => ({
+  value: level,
+  label: level.charAt(0).toUpperCase() + level.slice(1),
+}));
 
-const isUnchanged = (rule: PriorityRule, draft: PriorityRule): boolean =>
-  rule.name === draft.name &&
-  rule.description === draft.description &&
-  rule.exampleText === draft.exampleText &&
-  rule.active === draft.active;
+const toView = (rule: PriorityRule): PriorityRuleView => ({ ...rule, pattern: rule.exampleText });
 
 export const PriorityRulesSettings = () => {
-  const [rules, setRules] = useState<PriorityRule[]>([]);
-  const [drafts, setDrafts] = useState<Record<number, PriorityRule>>({});
-  const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
-  const [savingId, setSavingId] = useState<number | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<PriorityRule | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
-  const [creating, setCreating] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const ruleManagement = useRuleManagementForPriority(setUnavailable);
+
+  const toggleActive = async (rule: PriorityRuleView) => {
     try {
-      const loaded = await priorityRuleService.list();
-      setRules(loaded);
-      setDrafts(Object.fromEntries(loaded.map((rule) => [rule.id, { ...rule }])));
-      setUnavailable(false);
+      await priorityRuleService.update(rule.id, { active: !rule.active });
+      await ruleManagement.loadRules();
     } catch (error) {
-      if (error instanceof PriorityRulesUnavailableError) {
-        setUnavailable(true);
-      } else {
-        logger.error('Failed to load priority rules:', error);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const patchDraft = (ruleId: number, changes: Partial<PriorityRule>) => {
-    setDrafts((current) => {
-      const existing = current[ruleId];
-      if (!existing) return current;
-      return { ...current, [ruleId]: { ...existing, ...changes } };
-    });
-  };
-
-  const save = async (ruleId: number) => {
-    const next = drafts[ruleId];
-    if (!next) return;
-    setSavingId(ruleId);
-    try {
-      await priorityRuleService.update(ruleId, {
-        name: next.name,
-        description: next.description,
-        exampleText: next.exampleText,
-        active: next.active,
-      });
-      await load();
-    } catch (error) {
-      logger.error('Failed to save priority rule:', error);
-    } finally {
-      setSavingId(null);
+      logger.error('Error toggling priority rule:', error);
     }
   };
-
-  const create = async () => {
-    setCreating(true);
-    try {
-      await priorityRuleService.create(draft);
-      setDraft(EMPTY_DRAFT);
-      setShowCreate(false);
-      await load();
-    } catch (error) {
-      logger.error('Failed to create priority rule:', error);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!pendingDelete) return;
-    try {
-      await priorityRuleService.delete(pendingDelete.id);
-      await load();
-    } catch (error) {
-      logger.error('Failed to delete priority rule:', error);
-    } finally {
-      setPendingDelete(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (unavailable) {
-    return (
-      <Alert variant="info">
-        <AlertTitle>Not available on this backend version</AlertTitle>
-        <AlertDescription>
-          Priority rules need a newer backend than the one this workspace is running. The
-          screen will start working once the backend is updated — nothing else is required.
-        </AlertDescription>
-      </Alert>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <Alert variant="info">
-        <AlertTitle>Write these as sentences, not keyword lists</AlertTitle>
-        <AlertDescription>
-          A message is matched against the example text by meaning, not by keyword. Write a
-          few sentences that read like the real messages belonging in this tier — a
-          pipe-separated list of keywords matches poorly. Priority also drives SLA timers, so
-          moving a tier changes response deadlines.
-        </AlertDescription>
-      </Alert>
-
-      {rules.length === 0 && (
-        <Alert variant="warning">
-          <AlertTitle>No priority rules configured</AlertTitle>
-          <AlertDescription>
-            Every incoming message will be treated as medium priority until at least one rule
-            exists.
-          </AlertDescription>
-        </Alert>
+    <RuleEditor<PriorityRuleView, PriorityRuleFormData>
+      {...ruleManagement}
+      title="Priority Rules"
+      description="Decide which messages are critical, high, medium, or low"
+      dialogTitle="Priority Rule"
+      emptyMessage="No priority rules configured. Every message will be treated as medium priority until one exists."
+      placeholder={
+        unavailable ? (
+          <Alert variant="info">
+            <AlertTitle>Not available on this backend version</AlertTitle>
+            <AlertDescription>
+              Priority rules need a newer backend than the one this workspace is running. This
+              screen will start working once the backend is updated — nothing else is required.
+            </AlertDescription>
+          </Alert>
+        ) : undefined
+      }
+      renderBanners={() => (
+        <div className="p-4 rounded-lg border bg-blue-500/10 border-blue-500/20">
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            <strong>Written as sentences, not keywords:</strong> a message is matched against the
+            example text by meaning, so write a few sentences that read like the real messages
+            belonging in this tier. A pipe-separated keyword list matches poorly here. Priority
+            also drives SLA timers, so moving a tier changes response deadlines.
+          </p>
+        </div>
       )}
-
-      <div className="space-y-4">
-        {rules.map((rule) => {
-          const current = drafts[rule.id] ?? rule;
-          const dirty = !isUnchanged(rule, current);
-
-          return (
-            <Card key={rule.id} padding="md">
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-3 justify-between items-center">
-                  <div className="flex gap-3 items-center">
-                    <Badge variant={PRIORITY_VARIANT[rule.priority]}>{rule.priority}</Badge>
-                    {!current.active && <Badge variant="secondary">inactive</Badge>}
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    <Toggle
-                      checked={current.active}
-                      onChange={(next) => patchDraft(rule.id, { active: next })}
-                      label="Active"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPendingDelete(rule)}
-                      aria-label={`Delete ${rule.name}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <Input
-                  label="Name"
-                  value={current.name}
-                  onChange={(event) => patchDraft(rule.id, { name: event.target.value })}
-                />
-                <Input
-                  label="Description"
-                  value={current.description}
-                  onChange={(event) => patchDraft(rule.id, { description: event.target.value })}
-                />
-                <Textarea
-                  label="Example text (this is what messages are compared against)"
-                  rows={6}
-                  value={current.exampleText}
-                  onChange={(event) => patchDraft(rule.id, { exampleText: event.target.value })}
-                />
-
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={!dirty || savingId === rule.id}
-                    onClick={() => patchDraft(rule.id, { ...rule })}
-                  >
-                    Reset
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={!dirty}
-                    isLoading={savingId === rule.id}
-                    onClick={() => void save(rule.id)}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {showCreate ? (
-        <Card padding="md">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="new-priority">Priority</Label>
-              <Select
-                id="new-priority"
-                value={draft.priority}
-                onChange={(event) =>
-                  setDraft({ ...draft, priority: event.target.value as PriorityLevel })
-                }
-              >
-                {PRIORITY_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Input
-              label="Name"
-              value={draft.name}
-              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-            />
-            <Input
-              label="Description"
-              value={draft.description}
-              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-            />
+      renderPattern={(pattern) => (pattern.length > 120 ? `${pattern.slice(0, 120)}…` : pattern)}
+      prefixColumns={[
+        {
+          header: 'Priority',
+          render: (rule) => (
+            <Badge variant={PRIORITY_VARIANT[rule.priority]} className="capitalize">
+              {rule.priority}
+            </Badge>
+          ),
+        },
+      ]}
+      renderMobileExtra={(rule) => (
+        <Badge variant={PRIORITY_VARIANT[rule.priority]} className="capitalize">
+          {rule.priority}
+        </Badge>
+      )}
+      renderFormFields={(formData, setFormData) => (
+        <>
+          <ReactSelect
+            label="Priority"
+            value={formData.priority}
+            onChange={(value) => setFormData({ ...formData, priority: value as PriorityLevel })}
+            options={PRIORITY_OPTIONS}
+          />
+          <Input
+            label="Name"
+            value={formData.name}
+            onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+            placeholder="e.g., priority_critical"
+          />
+          <div>
+            <Label htmlFor="priority-description">Description</Label>
             <Textarea
-              label="Example text"
-              rows={6}
-              value={draft.exampleText}
-              onChange={(event) => setDraft({ ...draft, exampleText: event.target.value })}
+              id="priority-description"
+              value={formData.description}
+              onChange={(event) => setFormData({ ...formData, description: event.target.value })}
+              placeholder="What belongs in this tier"
+              rows={2}
             />
-            <div className="flex gap-2 justify-end">
-              <Button variant="secondary" size="sm" onClick={() => setShowCreate(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                isLoading={creating}
-                disabled={!draft.name || !draft.description || !draft.exampleText}
-                onClick={() => void create()}
-              >
-                Add rule
-              </Button>
-            </div>
           </div>
-        </Card>
-      ) : (
-        <Button variant="secondary" size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="mr-2 w-4 h-4" />
-          Add priority rule
-        </Button>
+          <div>
+            <Label htmlFor="priority-example">
+              Example text (this is what messages are compared against)
+            </Label>
+            <Textarea
+              id="priority-example"
+              value={formData.exampleText}
+              onChange={(event) => setFormData({ ...formData, exampleText: event.target.value })}
+              placeholder="Several sentences that read like real messages in this tier — not a keyword list"
+              rows={6}
+              maxLength={4000}
+            />
+          </div>
+          <Toggle
+            checked={formData.active}
+            onChange={(next) => setFormData({ ...formData, active: next })}
+            label="Active"
+          />
+        </>
       )}
-
-      <ConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-        onConfirm={() => void confirmDelete()}
-        title="Delete priority rule?"
-        description={
-          pendingDelete
-            ? `"${pendingDelete.name}" will be removed. Messages that would have matched it fall back to medium priority.`
-            : ''
-        }
-        confirmText="Delete"
-        variant="danger"
-      />
-
-      <p className="flex gap-2 items-start text-xs text-muted-foreground">
-        <AlertTriangle className="mt-0.5 w-3.5 h-3.5 shrink-0" />
-        Changes take effect for messages received after saving. Existing conversations keep the
-        priority they were given when they arrived.
-      </p>
-    </div>
+      isSaveDisabled={(formData) =>
+        !formData.name || !formData.description || !formData.exampleText
+      }
+      onToggleActive={toggleActive}
+    />
   );
 };
+
+/** Extracted so the component body stays readable; behaviour is the standard rule CRUD. */
+const useRuleManagementForPriority = (setUnavailable: (next: boolean) => void) =>
+  useRuleManagement<PriorityRuleView, PriorityRuleFormData>({
+    fetchRules: async () => {
+      try {
+        const rules = await priorityRuleService.list();
+        setUnavailable(false);
+        return rules.map(toView);
+      } catch (error) {
+        // A backend without the endpoint is an expected state, not a failure: this repo
+        // deploys on push while the backend ships on a tag. Surface it as the placeholder
+        // rather than an empty table that looks like "no rules configured".
+        if (error instanceof PriorityRulesUnavailableError) {
+          setUnavailable(true);
+          return [];
+        }
+        throw error;
+      }
+    },
+    createRule: async (data) => {
+      const response = await priorityRuleService.create(data);
+      if (!response.data) throw new Error('Create failed');
+      return toView(response.data);
+    },
+    updateRule: async (id, data) => {
+      const response = await priorityRuleService.update(id, data);
+      if (!response.data) throw new Error('Update failed');
+      return toView(response.data);
+    },
+    deleteRule: async (id) => {
+      await priorityRuleService.delete(id);
+    },
+    getInitialFormData: () => ({
+      priority: 'medium',
+      name: '',
+      description: '',
+      exampleText: '',
+      active: true,
+    }),
+    getFormDataFromRule: (rule) => ({
+      priority: rule.priority,
+      name: rule.name,
+      description: rule.description,
+      exampleText: rule.exampleText,
+      active: rule.active,
+    }),
+  });
