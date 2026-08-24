@@ -27,8 +27,23 @@ export type AddressCoverage = {
   withDeliveryAddress: number;
 };
 
+/**
+ * An address seen as the SENDER of conversations, offered because delivery data may
+ * not exist at all: `recipients` is written only from the release that introduced it
+ * and the backfill needs host access. Most of these are customers — it is a ranked
+ * prompt, never a claim of ownership.
+ */
+export type SenderCandidate = {
+  address: string;
+  conversations: number;
+  lastSeenAt: string | null;
+  /** Shares a local part with an address already owned. A hint for sorting, not a verdict. */
+  likelyOurs: boolean;
+};
+
 export type ReceivedAddresses = {
   addresses: ReceivedAddressRow[];
+  senderCandidates: SenderCandidate[];
   coverage: AddressCoverage;
 };
 
@@ -379,9 +394,13 @@ export const messageService = {
   getReceivedAddresses: async (): Promise<ReceivedAddresses | null> => {
     try {
       const response = await apiClient.get<
-        ApiResponse<ReceivedAddressRow[]> & { coverage?: Partial<AddressCoverage> }
+        ApiResponse<ReceivedAddressRow[]> & {
+          coverage?: Partial<AddressCoverage>;
+          senderCandidates?: Partial<SenderCandidate>[];
+        }
       >('/api/messages/received-addresses');
       const rows = response.data.data ?? [];
+      const candidates = response.data.senderCandidates ?? [];
       // Normalised here rather than at the render site: a field this service does
       // not defend becomes a white screen the first time an older backend omits it.
       return {
@@ -394,6 +413,16 @@ export const messageService = {
           declared: row.declared === true,
           attachedToSourceId: row.attachedToSourceId ?? null,
         })).filter((row) => row.address.length > 0),
+        // Absent on a backend that predates sender candidates — an empty list, not a
+        // crash, so the panel simply offers one source instead of two.
+        senderCandidates: candidates
+          .map((row) => ({
+            address: String(row.address ?? ''),
+            conversations: Number(row.conversations ?? 0),
+            lastSeenAt: row.lastSeenAt ?? null,
+            likelyOurs: row.likelyOurs === true,
+          }))
+          .filter((row) => row.address.length > 0),
         coverage: {
           conversations: Number(response.data.coverage?.conversations ?? 0),
           withDeliveryAddress: Number(response.data.coverage?.withDeliveryAddress ?? 0),
