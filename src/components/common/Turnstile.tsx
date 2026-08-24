@@ -8,6 +8,17 @@ type TurnstileProps = {
   onError?: () => void;
 };
 
+/**
+ * Whether a widget can actually be rendered.
+ *
+ * Without a site key `Turnstile` renders nothing, so `onSuccess` never fires and
+ * any caller gating on a token waits forever. Callers must ask this before making
+ * a token mandatory — the backend already treats captcha as verify-if-sent for the
+ * same reason.
+ */
+export const isTurnstileConfigured = (): boolean =>
+  Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
+
 export const Turnstile = forwardRef<TurnstileInstance, TurnstileProps>(
   ({ onSuccess, onError }, ref) => {
     const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;

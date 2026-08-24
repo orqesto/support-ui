@@ -16,6 +16,20 @@ import { logger } from '@/lib/logger';
 type Step = 'email' | 'password' | 'selectOrg' | 'ssoSlug' | 'totp' | 'setup2fa';
 
 // Friendly copy for the `?ssoError=<code>` codes the BE redirects back with.
+/**
+ * Did the backend reject this login because the address is unverified?
+ *
+ * Matched on the 403 plus the message, because the API returns no machine-readable
+ * code for it. Kept deliberately narrow: any other failure must still read as
+ * "invalid credentials" rather than inviting someone to resend a verification mail
+ * for an account they cannot log into.
+ */
+const isUnverifiedEmailError = (err: unknown): boolean => {
+  const response = (err as { response?: { status?: number; data?: { error?: string } } })?.response;
+  if (response?.status !== 403) return false;
+  return /verify your email/i.test(response?.data?.error ?? '');
+};
+
 const SSO_ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Your account is not permitted to sign in via SSO for this workspace.',
   sso_failed: 'Single sign-on failed. Please try again or use your password.',
@@ -40,6 +54,8 @@ export const LoginPage = () => {
   const [ssoSlug, setSsoSlug] = useState('');
 
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -225,11 +241,32 @@ export const LoginPage = () => {
         captchaToken: captchaToken ?? undefined,
       });
       await handleLoginResponse(response);
-    } catch {
-      setError('Invalid credentials. Please try again.');
+    } catch (err) {
+      // An unverified account answers 403 AFTER the password has been checked —
+      // the backend orders it that way deliberately ("do not consume a fail slot
+      // for unverified email; password was correct"). Collapsing it into "invalid
+      // credentials" told people their password was wrong when it was right, and
+      // left them with no way forward. Saying so here leaks nothing: whoever sees
+      // it has already proved the password.
+      if (isUnverifiedEmailError(err)) {
+        setNeedsVerification(true);
+        setResendState('idle');
+      } else {
+        setError('Invalid credentials. Please try again.');
+      }
       resetCaptcha();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendState('sending');
+    try {
+      await authService.resendVerification(email);
+      setResendState('sent');
+    } catch {
+      setResendState('failed');
     }
   };
 
@@ -490,6 +527,33 @@ export const LoginPage = () => {
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
                 {error}
+              </div>
+            )}
+
+            {needsVerification && (
+              <div className="p-3 space-y-2 text-sm rounded-md bg-amber-50 text-amber-800">
+                <p>
+                  Your password is correct, but this address has not been verified yet. Check
+                  your inbox for the verification link.
+                </p>
+                {resendState === 'sent' ? (
+                  <p className="font-medium">
+                    Sent. If the address is registered, a new link is on its way.
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleResendVerification()}
+                    isLoading={resendState === 'sending'}
+                  >
+                    Resend verification email
+                  </Button>
+                )}
+                {resendState === 'failed' && (
+                  <p>Could not send it just now. Please try again in a moment.</p>
+                )}
               </div>
             )}
 
