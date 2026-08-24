@@ -317,6 +317,25 @@ describe('SourceAliasEditor — search and sort', () => {
     });
   });
 
+  it('floats a quiet mailbox sibling above louder strangers', async () => {
+    // Measured on a real workspace: the `.pl` storefront had ONE conversation and
+    // ranked 187th of 286 by volume, below every newsletter, while its nine siblings
+    // sat near the top. Volume alone hides exactly what is being looked for.
+    getReceivedAddresses.mockResolvedValue({
+      addresses: [],
+      senderCandidates: [
+        senderRow('newsletter@vendor.com', { conversations: 37 }),
+        senderRow('info@coresarms.pl', { conversations: 1, likelyOurs: true }),
+      ],
+      coverage: { conversations: 931, withDeliveryAddress: 0 },
+    });
+    renderPanel([]);
+    await screen.findByText('info@coresarms.pl');
+
+    const first = screen.getAllByRole('switch')[0]?.closest('label')?.textContent ?? '';
+    expect(first).toMatch(/info@coresarms\.pl/);
+  });
+
   it('orders by volume by default and alphabetically on request', async () => {
     getReceivedAddresses.mockResolvedValue(many);
     renderPanel([]);

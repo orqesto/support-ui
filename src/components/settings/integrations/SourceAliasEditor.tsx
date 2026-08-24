@@ -189,12 +189,15 @@ export const SourceAliasEditor = ({
       : candidates;
     return [...filtered].sort((left, right) => {
       if (sort === 'address') return left.address.localeCompare(right.address);
-      // Volume first, with a shared local part breaking ties upward — that is the
-      // shape of a mailbox family and the most likely thing being looked for.
+      // A shared local part leads, THEN volume. Ranking by volume alone buries the
+      // quiet members of a mailbox family: on one real workspace the `.pl` storefront
+      // had a single conversation and sat 187th of 286 senders, below every noisy
+      // newsletter, while its nine siblings were near the top. Flagged-first puts the
+      // whole family together where it can be recognised in one pass.
+      if (left.likelyOurs !== right.likelyOurs) return left.likelyOurs ? -1 : 1;
       if (right.conversations !== left.conversations) {
         return right.conversations - left.conversations;
       }
-      if (left.likelyOurs !== right.likelyOurs) return left.likelyOurs ? -1 : 1;
       return left.address.localeCompare(right.address);
     });
   }, [candidates, search, sort]);
