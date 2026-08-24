@@ -2,7 +2,7 @@ import { TestTube2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ReactSelect } from '@/components/ui/ReactSelect';
-import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
+import { detectImapConfig, deriveSmtpDefaults, isProviderSupported } from '@/utils/imapProviders';
 import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import type { Department } from '@/services/department.service';
@@ -94,6 +94,17 @@ export const EmailForm = ({
 }: EmailFormProps) => {
   const isCreating = editingId === null;
   const deptsValid = !isCreating || selectedDepartmentIds.length > 0;
+  // What the server will use for replies when the SMTP block below is left empty: this
+  // mailbox's own credentials, submitted to the matching host. Shown rather than written
+  // into the fields on purpose — an empty block stays a *derived* config, which the backend
+  // is allowed to fall back on if the provider refuses it. Typing values in makes them an
+  // explicit instruction that is never second-guessed.
+  const smtpPreview = deriveSmtpDefaults(config.host);
+  // An empty string means "not set" for these fields, so the preview has to win over it —
+  // spelled out rather than leaning on `||`, which the nullish-coalescing rule flags.
+  const sendingHost = config.smtp?.host?.trim() ? config.smtp.host : smtpPreview?.host;
+  const sendingPort = config.smtp?.port ?? smtpPreview?.port;
+
   const setSmtpField = (field: Partial<NonNullable<EmailConfig['smtp']>>) => {
     onConfigChange({
       ...config,
@@ -265,10 +276,21 @@ export const EmailForm = ({
           {/* SMTP Configuration for Sending Replies */}
           <div className="col-span-2 pt-4 border-t">
             <h5 className="mb-3 text-sm font-semibold">📤 SMTP Settings (For Sending Replies)</h5>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Configure SMTP to send replies from this email address. Leave empty to use global SMTP
-              settings.
+            <p className="mb-2 text-xs text-muted-foreground">
+              Replies go out from this mailbox using its own credentials — customers reply to the
+              address they wrote to. Fill these in only if your provider needs different settings
+              for sending than for receiving.
             </p>
+            {smtpPreview && config.user && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                Currently sending as{' '}
+                <span className="font-medium text-foreground">{config.user}</span> via{' '}
+                <span className="font-medium text-foreground">
+                  {sendingHost}:{sendingPort}
+                </span>
+                .
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">SMTP Host</label>
@@ -277,7 +299,7 @@ export const EmailForm = ({
                   value={config.smtp?.host ?? ''}
                   onChange={(event) => setSmtpField({ host: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                  placeholder="smtp.gmail.com or mail.privateemail.com"
+                  placeholder={smtpPreview?.host ?? 'smtp.gmail.com or mail.privateemail.com'}
                 />
               </div>
               <div>
@@ -297,7 +319,7 @@ export const EmailForm = ({
                   value={config.smtp?.user ?? ''}
                   onChange={(event) => setSmtpField({ user: event.target.value })}
                   className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                  placeholder="Same as email above"
+                  placeholder={config.user || 'Same as email above'}
                 />
               </div>
               <div>
