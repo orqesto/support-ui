@@ -48,16 +48,14 @@ export const applyRequestContext = (
     // Add selected organization context — read directly from Zustand store to avoid
     // JSON.parse(localStorage) on every request (avoids parsing cost and stale-parse issues).
     //
-    // Falls back to the user's home org when nothing is explicitly selected. Every data
-    // hook already resolves the org this way (useTicketsCount, useSLANotifications,
-    // useNotificationCounts, useCurrentOrgCode, useLearningNotifications all use
-    // `selectedOrganizationId ?? user?.organizationId`). Without the same fallback here the
-    // UI renders counts for the home org while the request carries NO org header at all —
-    // and getOrganizationContext returns null (400 "Organization context required") in
-    // exactly one case: a global admin with no header. `organizationId` survives a reload;
-    // authStore's partialize persists it.
-    const { selectedOrganizationId, user } = useAuthStore.getState();
-    const selectedOrgId = selectedOrganizationId ?? user?.organizationId ?? null;
+    // ⚠ Do NOT fall back to `user.organizationId` here. It was tried and reverted: a
+    // transport-level fallback cannot tell a read from a destructive write, and it
+    // defeats deliberate fail-closed guards. deleteUser (userController.ts:1288) returns
+    // 400 asking a global admin to pick a workspace before removing a user who belongs to
+    // MULTIPLE workspaces — supplying a default silently removes them from the admin's own
+    // workspace instead. Where a default is safe, do it per-endpoint on the server, the way
+    // skillLabelController.ts:46 already does.
+    const selectedOrgId = useAuthStore.getState().selectedOrganizationId;
     if (selectedOrgId) {
       config.headers['X-Organization-Context'] = String(selectedOrgId);
       logger.debug(

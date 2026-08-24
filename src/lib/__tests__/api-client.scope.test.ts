@@ -41,21 +41,7 @@ describe('api-client request interceptor — D-ADM-1 scope headers', () => {
     expect(config.headers['X-Alliance-Context']).toBeUndefined();
   });
 
-  it('falls back to the home org when nothing is explicitly selected', () => {
-    // getOrganizationContext returns null -- 400 "Organization context required" -- in
-    // exactly one case: a global admin whose request carries no org header. Every data
-    // hook already resolves `selectedOrganizationId ?? user.organizationId`, so without
-    // the same fallback here the UI renders counts for the home org while the request
-    // carries no org at all.
-    useAuthStore.setState({
-      selectedOrganizationId: null,
-      user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin', organizationId: 7 } as User,
-    });
-    const config = applyRequestContext(makeConfig('/api/audit-logs'));
-    expect(config.headers['X-Organization-Context']).toBe('7');
-  });
-
-  it('prefers an explicit selection over the home org', () => {
+  it('uses the explicit selection when one is set', () => {
     useAuthStore.setState({
       selectedOrganizationId: 5,
       user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin', organizationId: 7 } as User,
