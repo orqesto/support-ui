@@ -173,9 +173,21 @@ const AppRoutes = () => {
           // Only a genuine auth failure (401/403) should end the session. A transient
           // network error or 5xx during profile restore must NOT log the user out
           // (W2-M28) — retry with backoff instead of dropping the session on a blip.
-          const status = (err as { response?: { status?: number } } | null)?.response?.status;
+          //
+          // 🪤 Read `status`, NOT `err.response.status`. The api-client interceptor
+          // rebuilds the error and copies `status`/`data` onto it, so `.response` is
+          // always undefined here. That made this whole ladder collapse into its
+          // retry arm: a real 401 never logged out, and a 402 was retried four times
+          // and then reported as "check your connection".
+          const status = (err as { status?: number } | null)?.status;
           if (status === 401 || status === 403) {
             logout();
+          } else if (status === 402) {
+            // Subscription inactive. Retrying cannot help — payment state will not
+            // change between backoffs — and the interceptor has already armed the
+            // subscription gate, which explains the situation properly. Falling
+            // through to the generic failure would bury that behind a connection
+            // error the user cannot act on.
           } else if (attempt < MAX_RETRIES) {
             attempt += 1;
             timer = setTimeout(run, 1000 * attempt);
