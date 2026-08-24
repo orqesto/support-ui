@@ -15,6 +15,7 @@ import { isDepartmentServed } from '@/utils/departmentReachability';
 import { useAuthStore } from '@/stores/authStore';
 import { assignmentService } from '@/services/assignment.service';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type MoveDepartmentDialogProps = {
   isOpen: boolean;
@@ -115,9 +116,7 @@ export const MoveDepartmentDialog = ({
       }
     } catch (err) {
       logger.error('Failed to move ticket dept:', err);
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Failed to move the ticket. Please try again.';
+      const message = getApiErrorMessage(err) ?? 'Failed to move the ticket. Please try again.';
       setError(message);
     } finally {
       setSubmitting(false);

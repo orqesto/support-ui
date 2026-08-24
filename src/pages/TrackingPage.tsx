@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 
 type TrackingPayload = {
   organization: { name: string | null };
@@ -247,6 +248,23 @@ const buildPreviewData = (): TrackingPayload => {
   };
 };
 
+/**
+ * Copy for a failed customer reply. Exported so it can be tested against the error
+ * the api-client actually throws: this ladder read `err.response.status`, which the
+ * interceptor never produces, so a closed request and a rate limit both rendered as
+ * "Something went wrong… please try again" — and a customer with a closed request
+ * has no reason not to keep retrying.
+ */
+export const describeReplyFailure = (err: unknown): string => {
+  // The server already shapes 4xx error envelopes with safe copy, so prefer its own.
+  const apiError = getApiErrorMessage(err);
+  if (apiError) return apiError;
+  const status = getErrorStatus(err);
+  if (status === 429) return "You've sent quite a few replies recently. Wait a bit and try again.";
+  if (status === 409) return 'This request is closed. Email us back to start a new one.';
+  return 'Something went wrong sending your reply. Please try again.';
+};
+
 export const TrackingPage = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [searchParams] = useSearchParams();
@@ -331,17 +349,7 @@ export const TrackingPage = () => {
       );
     } catch (err: unknown) {
       logger.warn('[TrackingPage] reply submit failed', err);
-      // The server already shapes 4xx error envelopes with safe copy.
-      const errObj = err as { response?: { data?: { error?: string }; status?: number } };
-      const apiError = errObj?.response?.data?.error;
-      const status = errObj?.response?.status;
-      const fallback =
-        status === 429
-          ? "You've sent quite a few replies recently. Wait a bit and try again."
-          : status === 409
-            ? 'This request is closed. Email us back to start a new one.'
-            : 'Something went wrong sending your reply. Please try again.';
-      setReplyState({ kind: 'error', message: apiError ?? fallback });
+      setReplyState({ kind: 'error', message: describeReplyFailure(err) });
     }
   };
 
