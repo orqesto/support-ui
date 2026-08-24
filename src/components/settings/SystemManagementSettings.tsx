@@ -119,6 +119,17 @@ export const SystemManagementSettings = () => {
     );
   };
 
+  const handleStartQueues = () => {
+    handleAction(
+      'Start All Queues',
+      'This will resume all background processing and restart email polling. Use this after stopping queues, or if processing appears frozen.',
+      async () => {
+        const res = await systemService.startQueues();
+        if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
+      }
+    );
+  };
+
   const handleClearQueues = () => {
     handleAction(
       'Clear All Queues',
@@ -246,6 +257,24 @@ export const SystemManagementSettings = () => {
             </div>
             <Button variant="outline" size="sm" onClick={handleStopQueues} className="ml-4">
               Stop Queues
+            </Button>
+          </div>
+
+          {/*
+            Deliberately adjacent to Stop. A paused queue is invisible from the
+            outside — jobs simply accumulate — so the way back has to sit where
+            someone looks when processing seems frozen, not on another page.
+          */}
+          <div className="flex justify-between items-start pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div>
+              <p className="font-medium">Start All Queues</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Resume background processing and restart email polling. Queues stay paused
+                across restarts and releases until this is run.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleStartQueues} className="ml-4">
+              Start Queues
             </Button>
           </div>
 

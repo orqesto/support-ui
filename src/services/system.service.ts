@@ -27,6 +27,18 @@ const systemService = {
   },
 
   /**
+   * Resume all processing queues.
+   *
+   * The undo for stopQueues. BullMQ persists the paused flag in Redis, so a
+   * stopped queue stays stopped across restarts and releases — without this the
+   * Stop control is a one-way door that only redis-cli on the host can reopen.
+   */
+  startQueues: async () => {
+    const response = await apiClient.post<ApiResponse<QueueInfo>>('/api/system/start-queues');
+    return response.data;
+  },
+
+  /**
    * Clear all Redis queues
    */
   clearQueues: async () => {
