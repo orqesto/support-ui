@@ -64,6 +64,29 @@ afterEach(() => {
 });
 
 describe('SourceAliasEditor', () => {
+  it('leaves the search box room to exist beside the sort control', async () => {
+    // The search field rendered as a ~30px sliver on staging: `Select` is `w-full`
+    // by default, so in this flex row its `flex-basis: auto` took the whole line and
+    // the search wrapper — `flex: 1 1 0%` — collapsed. Typing still filtered, and the
+    // markup reads correctly, which is exactly why it shipped.
+    //
+    // jsdom computes no layout, so this cannot assert a rendered width. It asserts
+    // the mechanism instead: the conflicting `w-full` must not survive on the sort
+    // control. Confirm the actual appearance in a browser — that is where it broke.
+    getReceivedAddresses.mockResolvedValue({
+      addresses: [row('a@shop.es'), row('b@shop.es'), row('c@shop.es'), row('d@shop.es')],
+      senderCandidates: [],
+      coverage: { conversations: 10, withDeliveryAddress: 10 },
+    });
+    renderPanel([]);
+
+    // Search only renders past 3 candidates — below that there is nothing to fix.
+    const sort = await screen.findByRole('combobox', { name: 'Sort addresses' });
+    expect(sort.className).not.toMatch(/\bw-full\b/);
+    expect(sort.className).toMatch(/\bw-48\b/);
+    expect(screen.getByPlaceholderText('Search addresses')).toBeInTheDocument();
+  });
+
   it('does not pre-select an address that was merely observed', async () => {
     getReceivedAddresses.mockResolvedValue({
       addresses: [row('info@shop.es'), row('supplier@other.com')],

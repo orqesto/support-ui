@@ -343,7 +343,20 @@ export const SourceAliasEditor = ({
               <div className="flex-1">
                 <SearchInput value={search} onChange={setSearch} placeholder="Search addresses" />
               </div>
+              {/*
+                🪤 Bound the width. `Select` is `w-full` by default, which is right in a
+                column but ruinous here: in a flex row its `flex-basis: auto` claims the
+                whole line, and the search box beside it — `flex: 1 1 0%`, so basis 0 —
+                collapses to a ~30px sliver with no visible text or placeholder. The
+                search still FILTERED correctly, which is why it survived review: the
+                bug is invisible to jsdom and to anyone reading the markup, where the
+                `flex-1` wrapper looks entirely correct. `cn` is twMerge, so `w-48`
+                resolves the conflict rather than fighting it.
+                This only renders past 3 candidates; on the client mailbox this list was
+                286 senders, where an unusable search is the whole feature.
+              */}
               <Select
+                className="w-48 shrink-0"
                 value={sort}
                 onChange={(event) =>
                   setSort(event.target.value === 'address' ? 'address' : 'volume')
