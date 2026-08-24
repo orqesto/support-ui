@@ -9,9 +9,15 @@ import {
   Save,
   Building2,
   MessageSquareReply,
+  AtSign,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailForm } from '@/components/settings/integrations/GmailForm';
+import {
+  SourceAliasEditor,
+  declaredAliases,
+} from '@/components/settings/integrations/SourceAliasEditor';
+import { SourceMenuItem } from '@/components/settings/integrations/SourceMenuItem';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
@@ -70,6 +76,7 @@ export const GmailIntegrationCard = ({
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [showMenu, setShowMenu] = useState<number | null>(null);
   const [editDepts, setEditDepts] = useState<number | null>(null);
+  const [editAliases, setEditAliases] = useState<number | null>(null);
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
   const [config, setConfig] = useState<GmailConfig>(defaultConfig);
   const [popupBlocked, setPopupBlocked] = useState(false);
@@ -434,59 +441,31 @@ export const GmailIntegrationCard = ({
                             />
                             <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md border shadow-lg dark:bg-gray-800">
                               <div className="py-1">
-                                <Button
-                                  variant="ghost"
-                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
-                                  onClick={() => {
-                                    const gmailConfig = (
-                                      integration.config as { gmail?: { bulkImportDays?: number } }
-                                    ).gmail;
-                                    const bulkDays = gmailConfig?.bulkImportDays ?? 0;
-                                    setEditBulkImport({
-                                      id: integration.id,
-                                      name: integration.name,
-                                      currentDays: bulkDays,
-                                    });
-                                    setBulkImportDaysInput(bulkDays.toString());
-                                    setShowMenu(null);
-                                  }}
-                                >
-                                  <Calendar className="mr-2 w-4 h-4" />
-                                  Initial Sync Range
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
-                                  onClick={() => {
-                                    void testConnection(integration.id, integration.name);
-                                    setShowMenu(null);
-                                  }}
-                                >
-                                  <TestTube2 className="mr-2 w-4 h-4" />
-                                  Test Connection
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
-                                  onClick={() => {
-                                    setEditDepts(integration.id);
-                                    setShowMenu(null);
-                                  }}
-                                >
-                                  <Building2 className="mr-2 w-4 h-4" />
-                                  Assign Departments
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm hover:bg-accent"
-                                  onClick={() => {
-                                    setEditAckReply(integration.id);
-                                    setShowMenu(null);
-                                  }}
-                                >
-                                  <MessageSquareReply className="mr-2 w-4 h-4" />
-                                  Auto-reply Template
-                                </Button>
+                                <SourceMenuItem
+                                  icon={Calendar}
+                                  label="Initial Sync Range"
+                                  onClick={() => { const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 0; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, }); setBulkImportDaysInput(bulkDays.toString()); setShowMenu(null); }}
+                                />
+                                <SourceMenuItem
+                                  icon={TestTube2}
+                                  label="Test Connection"
+                                  onClick={() => { void testConnection(integration.id, integration.name); setShowMenu(null); }}
+                                />
+                                <SourceMenuItem
+                                  icon={AtSign}
+                                  label="Mailbox Addresses"
+                                  onClick={() => { setEditAliases(integration.id); setShowMenu(null); }}
+                                />
+                                <SourceMenuItem
+                                  icon={Building2}
+                                  label="Assign Departments"
+                                  onClick={() => { setEditDepts(integration.id); setShowMenu(null); }}
+                                />
+                                <SourceMenuItem
+                                  icon={MessageSquareReply}
+                                  label="Auto-reply Template"
+                                  onClick={() => { setEditAckReply(integration.id); setShowMenu(null); }}
+                                />
                                 <Button
                                   variant="ghost"
                                   className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm text-red-600 hover:bg-accent"
@@ -509,6 +488,18 @@ export const GmailIntegrationCard = ({
                     </div>
                   </div>
                   <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
+                  {editAliases === integration.id && (
+                    <SourceAliasEditor
+                      sourceId={integration.id}
+                      sourceType={integration.type}
+                      declared={declaredAliases(integration.config)}
+                      onClose={() => setEditAliases(null)}
+                      onSaved={() => {
+                        setEditAliases(null);
+                        void onRefresh();
+                      }}
+                    />
+                  )}
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}

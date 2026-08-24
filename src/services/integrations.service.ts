@@ -8,6 +8,13 @@ export type EmailConfig = {
   user: string;
   password: string;
   secure: boolean;
+  /**
+   * Extra addresses this same mailbox takes delivery on, e.g. per-country
+   * storefronts all routing into one inbox. Declaring one tells direction
+   * detection that mail from it is OURS — see `SourceAliasEditor` for why that
+   * is a consequential switch and not a label.
+   */
+  aliases?: string[];
 };
 
 export type GmailConfig = {
@@ -15,6 +22,13 @@ export type GmailConfig = {
   clientSecret: string;
   searchQuery: string;
   maxResults: number;
+  /**
+   * Extra addresses this same mailbox takes delivery on, e.g. per-country
+   * storefronts all routing into one inbox. Declaring one tells direction
+   * detection that mail from it is OURS — see `SourceAliasEditor` for why that
+   * is a consequential switch and not a label.
+   */
+  aliases?: string[];
 };
 
 export type JiraConfig = {
