@@ -405,7 +405,19 @@ export const SourceAliasEditor = ({
             ))}
           </div>
 
-          {visible.length === 0 && (
+          {/*
+            "No addresses suggested yet" is a statement about the MAILBOX, and the
+            two paragraphs above are statements about the BACKEND. Render both and
+            the panel contradicts itself: "this is a temporary failure, not a
+            mailbox with no addresses" directly above "No addresses suggested yet".
+            Telling those two states apart is the whole point of that copy, so the
+            empty-state stays out of the way whenever the read did not happen.
+
+            An active search still gets its answer: with 4+ declared aliases the
+            search box renders even on a failed read, and silence there would look
+            like the filter had broken.
+          */}
+          {visible.length === 0 && (search !== '' || !(failed || unavailable)) && (
             <p className="py-2 text-xs text-muted-foreground">
               {search
                 ? 'No address matches that search.'

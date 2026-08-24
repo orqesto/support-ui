@@ -116,6 +116,42 @@ describe('SourceAliasEditor', () => {
     expect(screen.getByText('already@shop.es')).toBeInTheDocument();
   });
 
+  it('does not contradict itself when the read fails and nothing is declared yet', async () => {
+    // The case a first-time admin actually hits: no aliases yet, and the read
+    // fails. The failure copy says "not a mailbox with no addresses"; the list
+    // empty-state says "No addresses suggested yet". Rendering both makes the
+    // panel argue with itself about the exact distinction it exists to draw.
+    // 🪤 Declaring an alias here hides the bug — it makes `visible.length` 1.
+    getReceivedAddresses.mockRejectedValue(new Error('boom'));
+    renderPanel([]);
+
+    await screen.findByText(/temporary failure/i);
+    expect(screen.queryByText(/No addresses suggested yet/i)).not.toBeInTheDocument();
+  });
+
+  it('says nothing about an empty mailbox when the route is absent either', async () => {
+    // Same contradiction, inherited from the older `unavailable` branch.
+    getReceivedAddresses.mockResolvedValue(null);
+    renderPanel([]);
+
+    await screen.findByText(/cannot suggest addresses yet/i);
+    expect(screen.queryByText(/No addresses suggested yet/i)).not.toBeInTheDocument();
+  });
+
+  it('still answers a search that matches nothing, even after a failed read', async () => {
+    // The search box needs 4+ candidates, which declared aliases supply on their
+    // own — so this combination is reachable, and silence would read as a broken
+    // filter rather than an empty result.
+    getReceivedAddresses.mockRejectedValue(new Error('boom'));
+    renderPanel(['a@shop.es', 'b@shop.de', 'c@shop.se', 'd@shop.pl']);
+
+    await screen.findByText(/temporary failure/i);
+    fireEvent.change(screen.getByPlaceholderText('Search addresses'), {
+      target: { value: 'zzz-nothing-matches' },
+    });
+    expect(await screen.findByText(/No address matches that search/i)).toBeInTheDocument();
+  });
+
   it('lets you add by hand even when the backend cannot suggest anything', async () => {
     // Save must stay ENABLED here. This is the deployment where suggestions are
     // impossible — no route, or no delivery data — and it is exactly the one where
