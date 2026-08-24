@@ -379,6 +379,24 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
+  /**
+   * Pull the WABA's message templates from Meta and refresh the local cache.
+   *
+   * A cache refresh, not a merge: Meta owns approval, so whatever it returns replaces what
+   * we hold. Returns 400 naming `wabaId` when the source was saved without a WhatsApp
+   * Business Account ID — the usual reason a sync appears to do nothing.
+   */
+  syncWhatsAppTemplates: async (
+    id: number
+  ): Promise<ApiResponse<{ synced: number; approved: number }>> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { synced: number; approved: number };
+      message?: string;
+    }>(`/api/integrations/${id}/whatsapp-templates/sync`);
+    return { success: response.data.success, data: response.data.data };
+  },
+
   /** Whether the backend has a shared Confluence service account (self-hosted no-creds flow). */
   getConfluenceEnvStatus: async (): Promise<ApiResponse<{ envConfigured: boolean }>> => {
     const response = await apiClient.get<{ success: boolean; data: { envConfigured: boolean } }>(
