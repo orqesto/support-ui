@@ -1,7 +1,7 @@
 import { useState, useRef, type FormEvent } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -57,7 +57,6 @@ export const CreateWorkspacePage = () => {
   const [error, setError] = useState('');
   const [emailExists, setEmailExists] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
   const [selectedPlan] = useState<string | undefined>(readPreselectedPlan);
@@ -200,28 +199,14 @@ export const CreateWorkspacePage = () => {
               required
             />
 
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Create a password"
-                value={formData.password}
-                onChange={(event) => handleChange('password', event.target.value)}
-                required
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] w-auto h-auto p-0 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </Button>
-              <p className="mt-1 text-xs text-muted-foreground">{PASSWORD_HINT}</p>
-            </div>
+            <PasswordInput
+              label="Password"
+              autoComplete="new-password"
+              placeholder="Create a password"
+              value={formData.password}
+              onChange={(event) => handleChange('password', event.target.value)}
+              required
+            />
 
             {emailExists && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
