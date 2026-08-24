@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Check, Copy, Edit, Plus, Save, TestTube2, Trash2 } from 'lucide-react';
+import { Building2, Check, Copy, Edit, Plus, RefreshCw, Save, TestTube2, Trash2 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import { API_BASE_URL } from '@/lib/config';
-import type { WhatsAppConfig } from '@/services/integrations.service';
+import { integrationsService, type WhatsAppConfig } from '@/services/integrations.service';
 
 /**
  * Form state mirrors the service's WhatsAppConfig, but with every field present: a
@@ -46,8 +46,47 @@ export const WhatsAppIntegrationCard = ({
 }: IntegrationCardProps) => {
   const [editDepts, setEditDepts] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [syncing, setSyncing] = useState<number | null>(null);
 
   const deptPicker = useCreateSourceDepartments();
+
+  /**
+   * Refresh the approved-template cache from Meta.
+   *
+   * This shipped as an API-only endpoint with no way to call it from the app, which made
+   * the composer's template picker permanently empty: agents saw "nothing approved yet"
+   * on a WABA full of approved templates, and the only remedy was an admin with curl.
+   * Outside the 24-hour window a template is the ONLY thing that can be sent, so an empty
+   * cache is not cosmetic — it is a conversation that cannot be continued.
+   */
+  const syncTemplates = async (id: number, name: string) => {
+    setSyncing(id);
+    try {
+      const response = await integrationsService.syncWhatsAppTemplates(id);
+      const { synced = 0, approved = 0 } = response.data ?? {};
+      onShowAlert({
+        open: true,
+        title: 'Templates synced',
+        description:
+          approved > 0
+            ? `${name}: ${synced} template(s) from Meta, ${approved} approved and ready to send.`
+            : `${name}: ${synced} template(s) from Meta, but none are approved yet — until Meta ` +
+              'approves one, agents cannot reply outside the 24-hour window.',
+        variant: approved > 0 ? 'success' : 'error',
+      });
+    } catch (error) {
+      // Surface the server's own copy on a 4xx. It names the actual cause — most often a
+      // missing WhatsApp Business Account ID — which a generic "sync failed" would hide.
+      onShowAlert({
+        open: true,
+        title: 'Sync failed',
+        description: error instanceof Error ? error.message : `Could not sync templates for ${name}.`,
+        variant: 'error',
+      });
+    } finally {
+      setSyncing(null);
+    }
+  };
 
   const {
     showForm,
@@ -173,6 +212,23 @@ export const WhatsAppIntegrationCard = ({
                       >
                         <TestTube2 className="w-4 h-4" />
                         Test
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => syncTemplates(integration.id, integration.name)}
+                        isLoading={syncing === integration.id}
+                        // Meta lists templates per WhatsApp Business Account, so without the
+                        // WABA id the sync can only 400. Disable rather than let it fail.
+                        disabled={!(integration.config as Partial<WhatsAppFormConfig>)?.wabaId}
+                        title={
+                          (integration.config as Partial<WhatsAppFormConfig>)?.wabaId
+                            ? 'Pull approved message templates from Meta'
+                            : 'Add the WhatsApp Business Account ID to sync templates'
+                        }
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Templates
                       </Button>
                       <Button
                         variant="outline"
