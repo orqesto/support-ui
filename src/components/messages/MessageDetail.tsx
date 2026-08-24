@@ -761,11 +761,6 @@ export function MessageDetail({
         leadFieldDefs={leadFieldDefs}
         onGhostClick={handleGhostClick}
         onOptionsLoaded={(total: number) => setAlternativeCount(total)}
-        onAutoSuggest={(
-          answer: string,
-          label: string,
-          type: 'lead' | 'documentation' | 'similar'
-        ) => setGhostOption({ answer, label, type })}
         onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
         setComposerMode={setComposerMode}
         noteEditorRef={noteEditorRef}
