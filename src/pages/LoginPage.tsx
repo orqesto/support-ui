@@ -24,10 +24,14 @@ type Step = 'email' | 'password' | 'selectOrg' | 'ssoSlug' | 'totp' | 'setup2fa'
  * "invalid credentials" rather than inviting someone to resend a verification mail
  * for an account they cannot log into.
  */
-const isUnverifiedEmailError = (err: unknown): boolean => {
-  const response = (err as { response?: { status?: number; data?: { error?: string } } })?.response;
-  if (response?.status !== 403) return false;
-  return /verify your email/i.test(response?.data?.error ?? '');
+export const isUnverifiedEmailError = (err: unknown): boolean => {
+  // 🪤 Read `status`/`data`, NOT `err.response`. The api-client interceptor does not
+  // rethrow the axios error — it builds a fresh Error and copies the status and body
+  // onto it, so `.response` is always undefined by the time a caller sees it. Reading
+  // the axios shape here compiled, passed review, and silently never matched.
+  const enhanced = err as { status?: number; data?: { error?: string } } | null | undefined;
+  if (enhanced?.status !== 403) return false;
+  return /verify your email/i.test(enhanced.data?.error ?? '');
 };
 
 const SSO_ERROR_MESSAGES: Record<string, string> = {
