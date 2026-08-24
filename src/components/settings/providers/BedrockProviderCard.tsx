@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useBedrockModels } from '@/hooks/useBedrockModels';
@@ -515,15 +516,14 @@ export const BedrockProviderCard = ({
                     <label htmlFor="bedrock-secret-key" className="text-sm font-medium">
                       AWS Secret Access Key
                     </label>
-                    <input
+                    <PasswordInput
                       id="bedrock-secret-key"
-                      type="password"
                       autoComplete="off"
                       value={config.secretAccessKey ?? ''}
                       onChange={(event) =>
                         setConfig({ ...config, secretAccessKey: event.target.value })
                       }
-                      className="px-3 py-2 w-full font-mono text-xs rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                      className="font-mono text-xs"
                       placeholder="••••••••"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">

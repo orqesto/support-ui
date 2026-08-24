@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Brain, Plus, Save, Trash2, Edit, TestTube2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import type { Integration } from '@/services/integrations.service';
@@ -223,11 +224,9 @@ export const QwenProviderCard = ({
                 <label htmlFor="apiKey" className="text-sm font-medium">
                   API Key *
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={config.apiKey}
                   onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="sk-..."
                 />
               </div>
@@ -256,11 +255,7 @@ export const QwenProviderCard = ({
               </div>
             </div>
             <div className="flex gap-2">
-              <Button
-                onClick={handleSave}
-                isLoading={saving === 'qwen'}
-                disabled={!config.apiKey}
-              >
+              <Button onClick={handleSave} isLoading={saving === 'qwen'} disabled={!config.apiKey}>
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} Qwen
               </Button>
@@ -272,9 +267,7 @@ export const QwenProviderCard = ({
         )}
 
         {integrations.length === 0 && !showForm && (
-          <p className="py-2 text-sm text-center text-muted-foreground">
-            No Qwen configuration
-          </p>
+          <p className="py-2 text-sm text-center text-muted-foreground">No Qwen configuration</p>
         )}
       </CardContent>
     </Card>

@@ -3,6 +3,7 @@ import { ExternalLink, Plus, Save, TestTube2, Trash2, Edit, Star } from 'lucide-
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import { integrationsService } from '@/services/integrations.service';
@@ -237,11 +238,9 @@ export const JiraIntegrationCard = ({
                   <label htmlFor="apiToken" className="text-sm font-medium">
                     API Token
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={config.apiToken}
                     onChange={(event) => setConfig({ ...config, apiToken: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="•••••••••"
                   />
                 </div>

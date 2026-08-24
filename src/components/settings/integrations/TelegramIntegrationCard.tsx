@@ -5,6 +5,7 @@ import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
@@ -154,7 +155,10 @@ export const TelegramIntegrationCard = ({
                     <SourceDepartmentEditor
                       sourceId={integration.id}
                       onClose={() => setEditDepts(null)}
-                      onSaved={() => { setEditDepts(null); void onRefresh(); }}
+                      onSaved={() => {
+                        setEditDepts(null);
+                        void onRefresh();
+                      }}
                     />
                   )}
                 </div>
@@ -171,11 +175,9 @@ export const TelegramIntegrationCard = ({
                 <label htmlFor="botToken" className="text-sm font-medium">
                   Bot Token
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={config.botToken}
                   onChange={(event) => setConfig({ ...config, botToken: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="123456789:ABCdefGhiJklMnoPqrsTuvWxyZ"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -223,9 +225,7 @@ export const TelegramIntegrationCard = ({
                 <Button
                   onClick={() => saveIntegration()}
                   isLoading={saving}
-                  disabled={
-                    !config.botToken || (editingId === null && !deptPicker.isValid)
-                  }
+                  disabled={!config.botToken || (editingId === null && !deptPicker.isValid)}
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Telegram

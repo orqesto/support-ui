@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { Boxes, ChevronDown, ChevronUp, Edit, Plus, Save, TestTube2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useCustomProviderModels } from '@/hooks/useCustomProviderModels';
@@ -249,12 +250,11 @@ export const CustomProviderCard = ({
               <label htmlFor="custom-apikey" className="text-sm font-medium">
                 API Key (optional)
               </label>
-              <input
+              <PasswordInput
                 id="custom-apikey"
-                type="password"
                 value={config.apiKey ?? ''}
                 onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
-                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-xs"
+                className="font-mono text-xs"
                 placeholder="sk-… (leave empty for unauthenticated endpoints)"
                 autoComplete="off"
               />

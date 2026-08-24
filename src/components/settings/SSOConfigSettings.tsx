@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -270,8 +271,8 @@ export const SSOConfigSettings = () => {
           <Alert variant="info">
             <div className="space-y-2">
               <p className="text-sm">
-                Identity for this workspace is managed by your alliance. Configure it in the Alliance
-                console.
+                Identity for this workspace is managed by your alliance. Configure it in the
+                Alliance console.
               </p>
               <Link
                 to={`/console/alliance/${allianceId}/identity`}
@@ -312,7 +313,9 @@ export const SSOConfigSettings = () => {
                 onChange={(event) => setEnabled(event.target.checked)}
                 className="w-4 h-4"
               />
-              <span className="text-sm font-medium text-foreground">Enable SSO for this workspace</span>
+              <span className="text-sm font-medium text-foreground">
+                Enable SSO for this workspace
+              </span>
             </label>
 
             {/* Redirect URI to register at the IdP — authoritative (derived server-side). */}
@@ -336,7 +339,11 @@ export const SSOConfigSettings = () => {
                   aria-label="Copy"
                   className="flex shrink-0 gap-1 items-center px-3 py-2 h-auto text-sm"
                 >
-                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -383,9 +390,8 @@ export const SSOConfigSettings = () => {
               required
             />
 
-            <Input
+            <PasswordInput
               label="Client Secret"
-              type="password"
               autoComplete="new-password"
               placeholder={hasClientSecret ? '•••• (unchanged)' : 'Enter the client secret'}
               value={clientSecret}
@@ -448,8 +454,8 @@ export const SSOConfigSettings = () => {
               </label>
               <p className="pl-7 text-xs text-muted-foreground">
                 When on, a member who already has a password login can sign in through your provider
-                (matched by verified email) and their account is linked on first SSO login. Leave off
-                unless you trust your IdP to authenticate existing accounts.
+                (matched by verified email) and their account is linked on first SSO login. Leave
+                off unless you trust your IdP to authenticate existing accounts.
               </p>
             </div>
 
@@ -483,7 +489,9 @@ export const SSOConfigSettings = () => {
             </div>
 
             {error && (
-              <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
+              <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
+                {error}
+              </div>
             )}
             {saved && !error && (
               <div className="p-3 text-sm text-green-700 rounded-md bg-green-50">
