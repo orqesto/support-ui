@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
 
 export const PricingPage = () => {
@@ -43,13 +44,8 @@ export const PricingPage = () => {
     void fetchPricing();
   }, []);
 
-  const extractApiError = (error: unknown, fallback: string): string => {
-    if (error instanceof Error && 'response' in error) {
-      const resp = (error as { response?: { data?: { error?: string } } }).response;
-      if (typeof resp?.data?.error === 'string') return resp.data.error;
-    }
-    return fallback;
-  };
+  const extractApiError = (error: unknown, fallback: string): string =>
+    getApiErrorMessage(error) ?? fallback;
 
   const handleSelectPlan = (planName: string) => {
     if (planName === 'admin' && !isGlobalAdmin) {

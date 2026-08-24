@@ -10,6 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import {
   integrationsService,
@@ -77,7 +78,7 @@ export const ConfluenceIntegrationCard = ({
       })
       .catch((error: unknown) => {
         setEnvConfigured(false);
-        const status = (error as { response?: { status?: number } })?.response?.status;
+        const status = getErrorStatus(error);
         setEnvStatusError(
           status
             ? `Could not check for a server service account (HTTP ${status}).`

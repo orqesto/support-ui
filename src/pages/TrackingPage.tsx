@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 
 type TrackingPayload = {
   organization: { name: string | null };
@@ -332,9 +333,8 @@ export const TrackingPage = () => {
     } catch (err: unknown) {
       logger.warn('[TrackingPage] reply submit failed', err);
       // The server already shapes 4xx error envelopes with safe copy.
-      const errObj = err as { response?: { data?: { error?: string }; status?: number } };
-      const apiError = errObj?.response?.data?.error;
-      const status = errObj?.response?.status;
+      const apiError = getApiErrorMessage(err);
+      const status = getErrorStatus(err);
       const fallback =
         status === 429
           ? "You've sent quite a few replies recently. Wait a bit and try again."

@@ -20,9 +20,38 @@ const STATUS_MESSAGES: Record<number, string> = {
   504: 'The request timed out. Check your connection and try again.',
 };
 
-type AxiosLike = {
-  response?: { status?: number; data?: { error?: string; message?: string } };
-  message?: string;
+/** The envelope the BE returns on a failure, in either transport shape. */
+export type ApiErrorBody = { error?: string; message?: string; code?: string };
+
+/**
+ * Status of a caught API error, read from whichever shape it arrived in.
+ *
+ * 🪤 The api-client response interceptor does NOT rethrow the axios error. Whenever
+ * the BE sends a body it builds a fresh `Error` and copies `status`/`data` onto it,
+ * so `.response` is undefined for essentially every error a call site sees. It only
+ * survives for bodiless failures (network drop, empty response). Reading just
+ * `.response.status` compiles, type-checks and silently never matches — that is how
+ * a 402 came to be retried four times and reported as a connection problem.
+ */
+export const getErrorStatus = (err: unknown): number | undefined => {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const shape = err as { status?: number; response?: { status?: number } };
+  return typeof shape.status === 'number' ? shape.status : shape.response?.status;
+};
+
+/** Parsed BE error envelope, from either the interceptor shape or a raw axios error. */
+export const getErrorBody = (err: unknown): ApiErrorBody | undefined => {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const shape = err as { data?: unknown; response?: { data?: unknown } };
+  const body = shape.data ?? shape.response?.data;
+  return typeof body === 'object' && body !== null ? (body as ApiErrorBody) : undefined;
+};
+
+/** The BE's own user-facing string (`error`, then `message`), when it sent one. */
+export const getApiErrorMessage = (err: unknown): string | undefined => {
+  const body = getErrorBody(err);
+  const message = body?.error ?? body?.message;
+  return typeof message === 'string' && message.trim().length > 0 ? message.trim() : undefined;
 };
 
 /**
@@ -32,27 +61,13 @@ type AxiosLike = {
 export const AI_NOT_CONFIGURED_MESSAGE =
   'AI not configured — connect a provider in Settings.';
 
-type AiErrorLike = {
-  // Shape thrown by api-client's response interceptor (it masks 5xx messages
-  // but preserves `data`, so we detect the contract via the code, not the text).
-  data?: { code?: string };
-  // Raw axios error shape, in case a call site bypasses the interceptor.
-  response?: { data?: { code?: string } };
-};
-
 /**
  * True when an error matches the BE's no-provider contract: an AI feature that
  * can't degrade returns HTTP 503 with body `{ code: 'AI_NOT_CONFIGURED', ... }`.
  * Reuse this in catch blocks so each AI trigger can show the same message.
  */
-export const isAiNotConfiguredError = (err: unknown): boolean => {
-  if (typeof err !== 'object' || err === null) return false;
-  const axiosErr = err as AiErrorLike;
-  return (
-    axiosErr.data?.code === 'AI_NOT_CONFIGURED' ||
-    axiosErr.response?.data?.code === 'AI_NOT_CONFIGURED'
-  );
-};
+export const isAiNotConfiguredError = (err: unknown): boolean =>
+  getErrorBody(err)?.code === 'AI_NOT_CONFIGURED';
 
 /**
  * Best-effort extraction of a useful message from an unknown error.
@@ -62,20 +77,23 @@ export const isAiNotConfiguredError = (err: unknown): boolean => {
  * as the leading "Couldn't {scope}" — keep it lowercase verb + noun.
  */
 export const formatError = (scope: string, err: unknown): string => {
-  const axiosLike = err as AxiosLike;
-  const beMessage = axiosLike.response?.data?.error ?? axiosLike.response?.data?.message;
-  if (typeof beMessage === 'string' && beMessage.trim().length > 0) {
-    return `Couldn't ${scope}: ${beMessage.trim()}`;
+  const status = getErrorStatus(err);
+  // A 5xx body can carry internal detail — the api-client interceptor masks those
+  // messages for exactly that reason, so never promote one into user-facing copy.
+  // Below 500 the body is the BE's own deliberate copy and is the best thing to show.
+  const beMessage = status !== undefined && status >= 500 ? undefined : getApiErrorMessage(err);
+  if (beMessage) {
+    return `Couldn't ${scope}: ${beMessage}`;
   }
-  const status = axiosLike.response?.status;
   if (status && STATUS_MESSAGES[status]) {
     return `Couldn't ${scope}. ${STATUS_MESSAGES[status]}`;
   }
   if (err instanceof Error && err.message) {
     return `Couldn't ${scope}: ${err.message}`;
   }
-  if (typeof axiosLike.message === 'string' && axiosLike.message.trim().length > 0) {
-    return `Couldn't ${scope}: ${axiosLike.message.trim()}`;
+  const looseMessage = (err as { message?: string } | null)?.message;
+  if (typeof looseMessage === 'string' && looseMessage.trim().length > 0) {
+    return `Couldn't ${scope}: ${looseMessage.trim()}`;
   }
   return `Couldn't ${scope}. The error has been logged.`;
 };

@@ -22,6 +22,7 @@ import type { BedrockConfig, Integration } from '@/services/integrations.service
 import type { AIModel } from '@/types/aiProviders';
 import { BEDROCK_MODELS, BEDROCK_REGIONS } from '@/types/aiProviders';
 import { apiClient } from '@/lib/api-client';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type BedrockTestResult = {
   assumeRole: 'ok' | 'error' | 'skipped';
@@ -265,12 +266,11 @@ export const BedrockProviderCard = ({
       setTestResult(response.data.data);
     } catch (err) {
       logger.warn('Bedrock test failed', err);
-      const errObj = err as { response?: { data?: { error?: string } } };
       setTestResult({
         assumeRole: 'error',
         invoke: 'skipped',
         latencyMs: 0,
-        errorMessage: errObj?.response?.data?.error ?? 'Test request failed',
+        errorMessage: getApiErrorMessage(err) ?? 'Test request failed',
         errorStep: 'assumeRole',
       });
     } finally {

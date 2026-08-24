@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL } from '@/lib/config';
+import { getErrorStatus } from '@/lib/errorMessages';
 import type { OrganizationRole } from '@/types/roles';
 
 /**
@@ -236,7 +237,7 @@ export const allianceScimService = {
       }>(`${base(allianceId)}/scim/events`, { params });
       return { available: true, events: res.data.data.events, nextCursor: res.data.data.nextCursor };
     } catch (error) {
-      const status = (error as { response?: { status?: number } }).response?.status;
+      const status = getErrorStatus(error);
       if (status === 404) {
         return { available: false, events: [], nextCursor: null };
       }

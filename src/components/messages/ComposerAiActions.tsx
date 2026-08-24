@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, MONO } from './messageDetailConstants';
 
@@ -88,7 +89,7 @@ export function ComposerAiActions({
   const hasOwnText = !isBlankRichText(composer);
 
   const describeError = (err: unknown): string => {
-    const status = (err as { response?: { status?: number } })?.response?.status;
+    const status = getErrorStatus(err);
     if (status === 429) return 'AI limit reached for now — try again shortly.';
     if (status === 403)
       return 'No AI provider is connected for this workspace. An admin can add one in Settings.';

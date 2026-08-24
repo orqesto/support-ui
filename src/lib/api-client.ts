@@ -77,64 +77,69 @@ apiClient.interceptors.request.use(
   (error: unknown) => Promise.reject(error instanceof Error ? error : new Error(String(error)))
 );
 
-// Response interceptor to handle errors
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error: unknown) => {
-    // Type guard for axios error
-    const isAxiosError = (
-      err: unknown
-    ): err is { response?: { status?: number; data?: unknown } } =>
-      typeof err === 'object' && err !== null && 'response' in err;
+/**
+ * Response error handler. Exported so tests can drive the REAL transformation
+ * instead of hand-mirroring it: everything downstream depends on the fact that a
+ * failure with a body arrives as a fresh `Error` carrying `status`/`data` and no
+ * `.response`, and a hand-written fixture cannot fail when that changes.
+ */
+export const handleResponseError = (error: unknown): Promise<never> => {
+  // Type guard for axios error
+  const isAxiosError = (
+    err: unknown
+  ): err is { response?: { status?: number; data?: unknown } } =>
+    typeof err === 'object' && err !== null && 'response' in err;
 
-    if (isAxiosError(error) && error.response?.status === 401) {
-      // Only redirect to login if not already there
-      const currentPath = window.location.pathname;
-      const isOnAuthPage =
-        currentPath === '/login' ||
-        currentPath === '/signup' ||
-        currentPath === '/forgot-password' ||
-        currentPath === '/reset-password';
+  if (isAxiosError(error) && error.response?.status === 401) {
+    // Only redirect to login if not already there
+    const currentPath = window.location.pathname;
+    const isOnAuthPage =
+      currentPath === '/login' ||
+      currentPath === '/signup' ||
+      currentPath === '/forgot-password' ||
+      currentPath === '/reset-password';
 
-      if (!isOnAuthPage) {
-        useAuthStore.getState().logout();
-        sessionStorage.clear();
-        window.location.href = '/login';
-      }
+    if (!isOnAuthPage) {
+      useAuthStore.getState().logout();
+      sessionStorage.clear();
+      window.location.href = '/login';
     }
-
-    // 402 = subscription inactive/expired (requireActiveSubscription). Surface a
-    // global gate overlay explaining why the app is unavailable + how to renew,
-    // instead of leaving the user with silently-failing blank screens. Global
-    // admins never receive a 402, so this only gates regular users in an expired org.
-    if (isAxiosError(error) && error.response?.status === 402) {
-      const data = error.response.data as { error?: string; message?: string } | undefined;
-      useSubscriptionGateStore
-        .getState()
-        .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.');
-    }
-
-    // Extract error message from response
-    if (isAxiosError(error) && error.response?.data) {
-      const errorData = error.response.data as { error?: string; message?: string };
-      const baseError = error as { message?: string };
-      const rawMessage =
-        errorData.error ?? errorData.message ?? baseError.message ?? 'Unknown error';
-      const status = error.response.status ?? 0;
-
-      // 5xx errors hide internal details; client errors pass through user-facing messages
-      const errorMessage =
-        status >= 500
-          ? 'A server error occurred. Please try again later.'
-          : rawMessage;
-
-      const enhancedError = new Error(errorMessage) as Error & { status?: number; data?: unknown };
-      enhancedError.status = status;
-      enhancedError.data = errorData;
-
-      return Promise.reject(enhancedError);
-    }
-
-    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
   }
-);
+
+  // 402 = subscription inactive/expired (requireActiveSubscription). Surface a
+  // global gate overlay explaining why the app is unavailable + how to renew,
+  // instead of leaving the user with silently-failing blank screens. Global
+  // admins never receive a 402, so this only gates regular users in an expired org.
+  if (isAxiosError(error) && error.response?.status === 402) {
+    const data = error.response.data as { error?: string; message?: string } | undefined;
+    useSubscriptionGateStore
+      .getState()
+      .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.');
+  }
+
+  // Extract error message from response
+  if (isAxiosError(error) && error.response?.data) {
+    const errorData = error.response.data as { error?: string; message?: string };
+    const baseError = error as { message?: string };
+    const rawMessage =
+      errorData.error ?? errorData.message ?? baseError.message ?? 'Unknown error';
+    const status = error.response.status ?? 0;
+
+    // 5xx errors hide internal details; client errors pass through user-facing messages
+    const errorMessage =
+      status >= 500
+        ? 'A server error occurred. Please try again later.'
+        : rawMessage;
+
+    const enhancedError = new Error(errorMessage) as Error & { status?: number; data?: unknown };
+    enhancedError.status = status;
+    enhancedError.data = errorData;
+
+    return Promise.reject(enhancedError);
+  }
+
+  return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+};
+
+// Response interceptor to handle errors
+apiClient.interceptors.response.use((response) => response, handleResponseError);

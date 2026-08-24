@@ -51,6 +51,7 @@ import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 // URL params that are list-view-only filters. Kanban groups by status itself and
 // ignores these, so arriving via a filter-bearing link (dashboard cards, or the
@@ -349,11 +350,7 @@ export const MessagesPage = () => {
       }
     } catch (error: unknown) {
       logger.error('Failed to reopen message:', error);
-      const errorMsg =
-        error && typeof error === 'object' && 'response' in error
-          ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error ??
-            'Failed to reopen message')
-          : 'Failed to reopen message';
+      const errorMsg = getApiErrorMessage(error) ?? 'Failed to reopen message';
       setAlertDialog({
         open: true,
         title: 'Reopen Failed',
