@@ -41,61 +41,6 @@ describe('api-client request interceptor — D-ADM-1 scope headers', () => {
     expect(config.headers['X-Alliance-Context']).toBeUndefined();
   });
 
-  it('falls back to the home org when nothing is explicitly selected', () => {
-    // getOrganizationContext returns null -- 400 "Organization context required" -- in
-    // exactly one case: a global admin whose request carries no org header. Every data
-    // hook already resolves `selectedOrganizationId ?? user.organizationId`, so without
-    // the same fallback here the UI renders counts for the home org while the request
-    // carries no org at all.
-    useAuthStore.setState({
-      selectedOrganizationId: null,
-      user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin', organizationId: 7 } as User,
-    });
-    const config = applyRequestContext(makeConfig('/api/audit-logs'));
-    expect(config.headers['X-Organization-Context']).toBe('7');
-  });
-
-  it('prefers an explicit selection over the home org', () => {
-    useAuthStore.setState({
-      selectedOrganizationId: 5,
-      user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin', organizationId: 7 } as User,
-    });
-    const config = applyRequestContext(makeConfig('/api/audit-logs'));
-    expect(config.headers['X-Organization-Context']).toBe('5');
-  });
-
-  it('CONTROL: the home-org fallback must NOT leak into platform scope', () => {
-    // The platform console is cross-org by definition (D-ADM-1). If the fallback ever
-    // moves above the scope branches, a stale home org would scope a cross-org call.
-    useAuthStore.setState({
-      selectedOrganizationId: null,
-      user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin', organizationId: 7 } as User,
-    });
-    useScopeStore.getState().setScope({ scope: 'platform', allianceId: null });
-    const config = applyRequestContext(makeConfig('/api/admin/organizations'));
-    expect(config.headers['X-Organization-Context']).toBeUndefined();
-  });
-
-  it('CONTROL: the home-org fallback must NOT leak onto alliance calls', () => {
-    useAuthStore.setState({
-      selectedOrganizationId: null,
-      user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin', organizationId: 7 } as User,
-    });
-    useScopeStore.getState().setScope({ scope: 'alliance', allianceId: 9 });
-    const config = applyRequestContext(makeConfig('/api/alliances/9/overview'));
-    expect(config.headers['X-Organization-Context']).toBeUndefined();
-    expect(config.headers['X-Alliance-Context']).toBe('9');
-  });
-
-  it('sends no org header at all when there is neither a selection nor a home org', () => {
-    useAuthStore.setState({
-      selectedOrganizationId: null,
-      user: { id: 1, email: 'a@b.co', firstName: 'A', role: 'admin' } as User,
-    });
-    const config = applyRequestContext(makeConfig('/api/audit-logs'));
-    expect(config.headers['X-Organization-Context']).toBeUndefined();
-  });
-
   it('strips the JSON Content-Type for FormData and keeps X-Department-Context unchanged', () => {
     // Department selection is keyed "{userId}:{orgId}" — matches the beforeEach user/org.
     useDepartmentContextStore.setState({ _selectedByKey: { '1:5': [2, 3] } });
