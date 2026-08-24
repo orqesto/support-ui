@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
 import type { Message, MessageEvent, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
 
@@ -428,8 +429,19 @@ export const messageService = {
           withDeliveryAddress: Number(response.data.coverage?.withDeliveryAddress ?? 0),
         },
       };
-    } catch {
-      return null;
+    } catch (err) {
+      // 404 is the ONE failure that means "this backend predates the route". The
+      // endpoint takes no id, so a not-found cannot be a missing record — an older
+      // deploy simply has nothing mounted here and falls through to
+      // `GET /api/messages/:id`, which answers "Message not found".
+      //
+      // Everything else — 401, 403, a 500, a dropped connection — is a fault, and
+      // returning null for it told the panel to say "this backend cannot suggest
+      // addresses yet". That sentence is a claim about the DEPLOYMENT, and it read
+      // identically whether the route was absent or the request had just failed,
+      // so a transient error looked like a permanent capability gap.
+      if (getErrorStatus(err) === 404) return null;
+      throw err;
     }
   },
 

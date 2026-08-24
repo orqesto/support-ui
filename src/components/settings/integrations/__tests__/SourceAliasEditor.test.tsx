@@ -102,6 +102,20 @@ describe('SourceAliasEditor', () => {
     });
   });
 
+  it('tells a failed read apart from a backend that cannot suggest', async () => {
+    // "This backend cannot suggest addresses yet" is a claim about the DEPLOYMENT.
+    // A bare catch made it the answer to every failure too, so a 500 or a dropped
+    // connection told the admin to upgrade a backend that was already new enough.
+    getReceivedAddresses.mockRejectedValue(new Error('boom'));
+    renderPanel(['already@shop.es']);
+
+    await screen.findByText(/temporary failure/i);
+    expect(screen.queryByText(/cannot suggest addresses yet/i)).not.toBeInTheDocument();
+    // Manual entry needs no backend, so the panel stays usable either way.
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(screen.getByText('already@shop.es')).toBeInTheDocument();
+  });
+
   it('lets you add by hand even when the backend cannot suggest anything', async () => {
     // Save must stay ENABLED here. This is the deployment where suggestions are
     // impossible — no route, or no delivery data — and it is exactly the one where
