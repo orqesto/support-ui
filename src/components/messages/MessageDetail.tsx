@@ -233,7 +233,11 @@ export function MessageDetail({
   const composerWindow = useMemo(
     () => resolveComposerWindow(message.whatsappWindow, composerMode),
     // windowTick is a deliberate dependency: it is what makes the countdown advance and
-    // the block engage when the window lapses with the view already open.
+    // the block engage when the window lapses with the view already open. ESLint calls it
+    // "unnecessary" precisely BECAUSE the body does not reference it — the 60s tick is the
+    // whole point, and removing it freezes the countdown on an open thread. Suppressed
+    // rather than left as prose, so the next lint sweep cannot quietly "clean it up".
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
     [message.whatsappWindow, composerMode, windowTick]
   );
 
@@ -760,8 +764,12 @@ export function MessageDetail({
         setLeadState={setLeadState}
         leadFieldDefs={leadFieldDefs}
         onGhostClick={handleGhostClick}
-        onOptionsLoaded={(total: number) => setAlternativeCount(total)}
-        onAiLoadingChange={(loading: boolean) => setAiLoading(loading)}
+        // Passed as the setters themselves: React guarantees a stable identity for a
+        // useState setter, while the inline arrows they replace were a NEW function on
+        // every render. AiTabPanel's fetch effect can only declare these as honest
+        // dependencies if they hold still.
+        onOptionsLoaded={setAlternativeCount}
+        onAiLoadingChange={setAiLoading}
         setComposerMode={setComposerMode}
         noteEditorRef={noteEditorRef}
         onCheckContradiction={handleCheckContradiction}

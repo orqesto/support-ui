@@ -109,7 +109,6 @@ type Props = {
   onOptionSelect?: (answer: string, label: string, type: ReplyOption['type']) => void;
   onOptionsLoaded?: (total: number) => void;
   onLoadingChange?: (loading: boolean) => void;
-  /** Called once after load when no metadata suggestedAnswer exists and KB results are available. */
   /** 'suggested' = reply block only; 'analysis' = stats/flags only; default = both */
   section?: 'suggested' | 'analysis';
 };
@@ -263,7 +262,25 @@ export function AiTabPanel({
     return () => {
       cancelled = true;
     };
-  }, [message.id]); // intentionally keyed on message.id only — callbacks are stable refs
+    // Keyed on the conversation alone, on purpose. This is a suppression rather than the
+    // bare prose comment that used to sit here, because a comment does not stop the next
+    // person "fixing" the warning by pasting the missing names in.
+    //
+    // It fetches similar-resolved matches for a conversation, so the conversation changing
+    // is its only real trigger. Everything ESLint wants added makes it worse:
+    //
+    //  • `suggestedAnswer.*` is read off `message.metadata`, a fresh object identity on
+    //    every message update. The effect opens by clearing `selectedId` and three viewer
+    //    states, so re-running when the AI answer lands — seconds after open, the common
+    //    case — wipes an option the agent had already selected while reading it. Not
+    //    re-running costs at worst a duplicate row in a list.
+    //  • `onOptionsLoaded` / `onLoadingChange` are parent callbacks. They ARE stable today
+    //    (MessageDetail passes the useState setters, MessagePanelTabs memoises its
+    //    wrapper), but declaring them would put this network call at the mercy of every
+    //    future parent's render hygiene: one inline arrow upstream and it refetches on
+    //    every render. Stability is worth having and NOT worth depending on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see the note above
+  }, [message.id]);
 
   const options: ReplyOption[] = [];
 
