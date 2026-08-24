@@ -1,7 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Check, Eye, EyeOff } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { apiClient } from '@/lib/api-client';
@@ -37,8 +38,6 @@ export const SignupPage = () => {
   const [organizationName, setOrganizationName] = useState('');
   const [invitationRole, setInvitationRole] = useState('');
   const [success, setSuccess] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -244,49 +243,23 @@ export const SignupPage = () => {
               onChange={(event) => handleChange('position', event.target.value)}
             />
 
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="At least 8 characters"
-                value={formData.password}
-                onChange={(event) => handleChange('password', event.target.value)}
-                required
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] w-auto h-auto p-0 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </Button>
-            </div>
+            <PasswordInput
+              label="Password"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={formData.password}
+              onChange={(event) => handleChange('password', event.target.value)}
+              required
+            />
 
-            <div className="relative">
-              <Input
-                label="Confirm Password"
-                type={showConfirmPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Re-enter your password"
-                value={formData.confirmPassword}
-                onChange={(event) => handleChange('confirmPassword', event.target.value)}
-                required
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[38px] w-auto h-auto p-0 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-              >
-                {showConfirmPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </Button>
-            </div>
+            <PasswordInput
+              label="Confirm Password"
+              autoComplete="new-password"
+              placeholder="Re-enter your password"
+              value={formData.confirmPassword}
+              onChange={(event) => handleChange('confirmPassword', event.target.value)}
+              required
+            />
 
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">

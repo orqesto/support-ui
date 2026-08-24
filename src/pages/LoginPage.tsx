@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -62,7 +63,6 @@ export const LoginPage = () => {
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [info, setInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
@@ -138,7 +138,9 @@ export const LoginPage = () => {
         setSetup2faQr(setupData.qrCodeDataUrl);
         setSetup2faSecret(setupData.secret);
         setStep('setup2fa');
-        setInfo('Your workspace requires two-factor authentication. Scan the QR code and enter the code to complete login.');
+        setInfo(
+          'Your workspace requires two-factor authentication. Scan the QR code and enter the code to complete login.'
+        );
       } catch {
         setError('Failed to initialize 2FA setup. Please try again.');
       } finally {
@@ -221,7 +223,9 @@ export const LoginPage = () => {
       }
       if ('ambiguous' in resolved) {
         setStep('ssoSlug');
-        setInfo('Multiple workspaces use this email domain. Enter your workspace slug to continue with SSO.');
+        setInfo(
+          'Multiple workspaces use this email domain. Enter your workspace slug to continue with SSO.'
+        );
         return;
       }
       setInfo('No SSO is configured for this email domain — sign in with your password.');
@@ -408,27 +412,14 @@ export const LoginPage = () => {
 
             {step === 'password' && (
               <div>
-                <div className="relative">
-                  <Input
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    placeholder="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-[38px] w-auto h-auto p-0 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </Button>
-                </div>
+                <PasswordInput
+                  label="Password"
+                  autoComplete="current-password"
+                  placeholder="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
                 <div className="mt-2 text-right">
                   <Link
                     to="/forgot-password"
@@ -537,8 +528,8 @@ export const LoginPage = () => {
             {needsVerification && (
               <div className="p-3 space-y-2 text-sm rounded-md bg-amber-50 text-amber-800">
                 <p>
-                  Your password is correct, but this address has not been verified yet. Check
-                  your inbox for the verification link.
+                  Your password is correct, but this address has not been verified yet. Check your
+                  inbox for the verification link.
                 </p>
                 {resendState === 'sent' ? (
                   <p className="font-medium">
