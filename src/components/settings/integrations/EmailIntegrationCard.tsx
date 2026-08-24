@@ -1,7 +1,21 @@
 import { useState } from 'react';
-import { Mail, Plus, TestTube2, Trash2, Edit, Calendar, Building2, MessageSquareReply } from 'lucide-react';
+import {
+  Mail,
+  Plus,
+  TestTube2,
+  Trash2,
+  Edit,
+  Calendar,
+  Building2,
+  MessageSquareReply,
+  AtSign,
+} from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
+import {
+  SourceAliasEditor,
+  declaredAliases,
+} from '@/components/settings/integrations/SourceAliasEditor';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
@@ -72,6 +86,7 @@ export const EmailIntegrationCard = ({
   } | null>(null);
   const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [editDepts, setEditDepts] = useState<number | null>(null);
+  const [editAliases, setEditAliases] = useState<number | null>(null);
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
 
   // Centralized create-form department picker state.
@@ -394,6 +409,14 @@ export const EmailIntegrationCard = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setEditAliases(integration.id)}
+                        title="Mailbox addresses"
+                      >
+                        <AtSign className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setEditDepts(integration.id)}
                         title="Assign departments"
                       >
@@ -421,6 +444,18 @@ export const EmailIntegrationCard = ({
                     </div>
                   </div>
                   <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
+                  {editAliases === integration.id && (
+                    <SourceAliasEditor
+                      sourceId={integration.id}
+                      sourceType={integration.type}
+                      declared={declaredAliases(integration.config)}
+                      onClose={() => setEditAliases(null)}
+                      onSaved={() => {
+                        setEditAliases(null);
+                        void onRefresh();
+                      }}
+                    />
+                  )}
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}

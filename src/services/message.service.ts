@@ -1,6 +1,37 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Message, MessageEvent, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
+
+/** One address this workspace has received mail at. See `getReceivedAddresses`. */
+export type ReceivedAddressRow = {
+  address: string;
+  conversations: number;
+  lastSeenAt: string | null;
+  messageSourceIds: number[];
+  /** This is the address a source is configured with. */
+  configured: boolean;
+  /** Declared on a source config as an alias of that mailbox. */
+  declared: boolean;
+  /** Attached to a source by either route — the set that drives direction detection. */
+  attachedToSourceId: number | null;
+};
+
+/**
+ * How much of the archive the answer rests on. `recipients` is only recorded from
+ * the release that started writing it and the backfill for older mail is a manual
+ * step, so a short list means either "few aliases" or "few rows carry the data".
+ * Saying which is the difference between a useful answer and a misleading one.
+ */
+export type AddressCoverage = {
+  conversations: number;
+  withDeliveryAddress: number;
+};
+
+export type ReceivedAddresses = {
+  addresses: ReceivedAddressRow[];
+  coverage: AddressCoverage;
+};
+
 import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import type { MessageListItem, MessageDetail } from '@/types/api';
 
@@ -326,6 +357,50 @@ export const messageService = {
       return response.data.data ?? [];
     } catch {
       return [];
+    }
+  },
+
+  /**
+   * Every address this workspace has taken delivery on, with provenance: how many
+   * conversations, when it was last seen, and whether it is already attached to a
+   * message source (as its configured address or a declared alias).
+   *
+   * 🔑 OBSERVED IS NOT OURS. A cc'd colleague or a supplier on a thread lands in
+   * this list too. Adopting one as a mailbox alias tells direction detection that
+   * mail FROM that person is our own outgoing — and outgoing mail with no
+   * recoverable correspondent leaves the inbox entirely. So this reports and a
+   * human adopts; the UI must never pre-select.
+   *
+   * Returns `null` — not an empty list — when the route is absent, so the caller
+   * can say "this backend cannot answer yet" instead of "you receive on nothing".
+   * The frontend deploys on merge while the backend ships on its own cadence, so
+   * that window is real and the two states are not interchangeable here.
+   */
+  getReceivedAddresses: async (): Promise<ReceivedAddresses | null> => {
+    try {
+      const response = await apiClient.get<
+        ApiResponse<ReceivedAddressRow[]> & { coverage?: Partial<AddressCoverage> }
+      >('/api/messages/received-addresses');
+      const rows = response.data.data ?? [];
+      // Normalised here rather than at the render site: a field this service does
+      // not defend becomes a white screen the first time an older backend omits it.
+      return {
+        addresses: rows.map((row) => ({
+          address: String(row.address ?? ''),
+          conversations: Number(row.conversations ?? 0),
+          lastSeenAt: row.lastSeenAt ?? null,
+          messageSourceIds: Array.isArray(row.messageSourceIds) ? row.messageSourceIds : [],
+          configured: row.configured === true,
+          declared: row.declared === true,
+          attachedToSourceId: row.attachedToSourceId ?? null,
+        })).filter((row) => row.address.length > 0),
+        coverage: {
+          conversations: Number(response.data.coverage?.conversations ?? 0),
+          withDeliveryAddress: Number(response.data.coverage?.withDeliveryAddress ?? 0),
+        },
+      };
+    } catch {
+      return null;
     }
   },
 
