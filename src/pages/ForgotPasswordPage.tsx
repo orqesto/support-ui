@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Turnstile } from '@/components/common/Turnstile';
+import { Turnstile, isTurnstileConfigured } from '@/components/common/Turnstile';
 import { authService } from '@/services/auth.service';
 
 export const ForgotPasswordPage = () => {
@@ -37,8 +37,14 @@ export const ForgotPasswordPage = () => {
       return;
     }
 
-    // Validate captcha
-    if (!captchaToken) {
+    // Only require a token when a widget can actually produce one. Without a site
+    // key `Turnstile` renders nothing, so this gate never opened: the button stayed
+    // disabled, the request was never sent, and "Send reset link" did nothing on
+    // every deployment without Turnstile configured. This page was the only one in
+    // the app that hard-gated on the token — LoginPage passes `?? undefined` and
+    // never blocks, which is why login worked and this did not. The backend
+    // verifies the token if sent and rate-limits regardless, so nothing is lost.
+    if (isTurnstileConfigured() && !captchaToken) {
       setError('Please complete the security check');
       return;
     }
@@ -114,7 +120,12 @@ export const ForgotPasswordPage = () => {
                 onError={() => setError('Security check failed. Please try again.')}
               />
             </div>
-            <Button type="submit" className="w-full" isLoading={isLoading} disabled={!captchaToken}>
+            <Button
+              type="submit"
+              className="w-full"
+              isLoading={isLoading}
+              disabled={isTurnstileConfigured() && !captchaToken}
+            >
               Send reset link
             </Button>
             <Link to="/login">
