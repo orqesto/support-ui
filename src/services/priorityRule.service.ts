@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorStatus } from '@/lib/errorMessages';
 import type { ApiResponse } from '@/types';
 
 export const PRIORITY_LEVELS = ['critical', 'high', 'medium', 'low'] as const;
@@ -46,10 +47,11 @@ export class PriorityRulesUnavailableError extends Error {
   }
 }
 
-const isNotFound = (error: unknown): boolean =>
-  typeof error === 'object' &&
-  error !== null &&
-  (error as { response?: { status?: number } }).response?.status === 404;
+// Read the status via getErrorStatus, never off `.response`: the api-client
+// interceptor rejects with a FRESH Error carrying `status`/`data` and no
+// `.response` at all, so an axios-shaped check type-checks, reads correctly, and
+// silently never matches. See src/lib/__tests__/errorShape.test.ts.
+const isNotFound = (error: unknown): boolean => getErrorStatus(error) === 404;
 
 export const priorityRuleService = {
   list: async (): Promise<PriorityRule[]> => {
