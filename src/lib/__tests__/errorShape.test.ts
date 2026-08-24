@@ -80,6 +80,18 @@ describe('getErrorStatus / getErrorBody / getApiErrorMessage', () => {
     expect(getApiErrorMessage({ data: { error: '   ' } })).toBeUndefined();
   });
 
+  it('withholds a 5xx body — every display site depends on this, not on its own guard', async () => {
+    const leaky = await asCaught(500, { error: 'ECONNREFUSED 10.0.0.4:5432 at /srv/app/dist/db.js' });
+    expect(getApiErrorMessage(leaky)).toBeUndefined();
+    expect(await asCaught(503, { error: 'upstream pod odly-backend-7f4 not ready' }).then(getApiErrorMessage)).toBeUndefined();
+    // ...but the raw body stays available for machine checks like `code`.
+    expect(getErrorBody(leaky)?.error).toContain('ECONNREFUSED');
+    // 4xx copy is written for a human and must still come through.
+    expect(await asCaught(422, { error: 'Subject is required' }).then(getApiErrorMessage)).toBe(
+      'Subject is required'
+    );
+  });
+
   it('detects the AI_NOT_CONFIGURED contract in both shapes', async () => {
     expect(isAiNotConfiguredError(await asCaught(503, { code: 'AI_NOT_CONFIGURED' }))).toBe(true);
     expect(isAiNotConfiguredError({ response: { data: { code: 'AI_NOT_CONFIGURED' } } })).toBe(true);

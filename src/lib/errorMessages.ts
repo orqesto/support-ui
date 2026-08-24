@@ -47,8 +47,18 @@ export const getErrorBody = (err: unknown): ApiErrorBody | undefined => {
   return typeof body === 'object' && body !== null ? (body as ApiErrorBody) : undefined;
 };
 
-/** The BE's own user-facing string (`error`, then `message`), when it sent one. */
+/**
+ * The BE's own message (`error`, then `message`) when it is SAFE TO DISPLAY.
+ *
+ * Deliberately returns nothing for a 5xx: the api-client interceptor masks those
+ * messages precisely because a server error body can carry a stack frame, a SQL
+ * fragment or a file path, and `data` still holds the unmasked original. Only 4xx
+ * envelopes are copy the backend wrote for a human to read. Use `getErrorBody` if
+ * you need the raw payload for a machine check (a `code`, say) rather than display.
+ */
 export const getApiErrorMessage = (err: unknown): string | undefined => {
+  const status = getErrorStatus(err);
+  if (status !== undefined && status >= 500) return undefined;
   const body = getErrorBody(err);
   const message = body?.error ?? body?.message;
   return typeof message === 'string' && message.trim().length > 0 ? message.trim() : undefined;
@@ -78,10 +88,7 @@ export const isAiNotConfiguredError = (err: unknown): boolean =>
  */
 export const formatError = (scope: string, err: unknown): string => {
   const status = getErrorStatus(err);
-  // A 5xx body can carry internal detail — the api-client interceptor masks those
-  // messages for exactly that reason, so never promote one into user-facing copy.
-  // Below 500 the body is the BE's own deliberate copy and is the best thing to show.
-  const beMessage = status !== undefined && status >= 500 ? undefined : getApiErrorMessage(err);
+  const beMessage = getApiErrorMessage(err);
   if (beMessage) {
     return `Couldn't ${scope}: ${beMessage}`;
   }

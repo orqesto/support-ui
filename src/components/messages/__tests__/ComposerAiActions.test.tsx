@@ -23,6 +23,7 @@ vi.mock('@/hooks/useAiConfigured', () => ({
 }));
 
 import { ComposerAiActions } from '@/components/messages/ComposerAiActions';
+import { apiError } from '@/test/apiError';
 
 const setComposer = vi.fn<(html: string) => void>();
 
@@ -291,15 +292,20 @@ describe('ComposerAiActions', () => {
       expect(setComposer).not.toHaveBeenCalled();
     });
 
+    // 🪤 These two fed `{ response: { status } }` and passed for months while both
+    // branches were dead in production: the api-client interceptor strips `.response`,
+    // so the component's status read never matched and every agent saw the generic
+    // "assistant is unavailable" line instead. The fixture must come from the real
+    // interceptor or the test only proves itself.
     it('429 is reported as a limit, not a generic failure', async () => {
-      composeReply.mockRejectedValue({ response: { status: 429 } });
+      composeReply.mockRejectedValue(await apiError(429, { error: 'Rate limit exceeded' }));
       openPanel('<p>note</p>');
       fireEvent.click(screen.getByText('Make it customer-ready'));
       expect(await screen.findByText(/AI limit reached/i)).toBeInTheDocument();
     });
 
     it('403 names the missing provider', async () => {
-      composeReply.mockRejectedValue({ response: { status: 403 } });
+      composeReply.mockRejectedValue(await apiError(403, { error: 'No AI provider configured' }));
       openPanel('<p>note</p>');
       fireEvent.click(screen.getByText('Make it customer-ready'));
       expect(await screen.findByText(/No AI provider is connected/i)).toBeInTheDocument();
