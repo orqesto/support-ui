@@ -45,9 +45,15 @@ export const AlertDialog = ({
               {cancelText}
             </Button>
             <Button
-              onClick={async () => {
-                await onConfirm();
+              onClick={() => {
+                // 🪤 Close FIRST, then run the handler. Awaiting and closing afterwards
+                // clobbers whatever the handler opened in the meantime: PricingPage's
+                // `confirmUpgrade` shows an error dialog from its catch, and this line
+                // closed it again the instant it appeared — a failed plan upgrade told
+                // the user nothing at all. `ConfirmDialog` already invokes without
+                // awaiting, which is why it never had this.
                 onOpenChange(false);
+                void onConfirm();
               }}
             >
               {confirmText}
