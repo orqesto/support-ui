@@ -1,10 +1,21 @@
 import { useState } from 'react';
-import { Building2, Check, Copy, Edit, Plus, RefreshCw, Save, TestTube2, Trash2 } from 'lucide-react';
+import {
+  Building2,
+  Check,
+  Copy,
+  Edit,
+  Plus,
+  RefreshCw,
+  Save,
+  TestTube2,
+  Trash2,
+} from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
@@ -80,7 +91,8 @@ export const WhatsAppIntegrationCard = ({
       onShowAlert({
         open: true,
         title: 'Sync failed',
-        description: error instanceof Error ? error.message : `Could not sync templates for ${name}.`,
+        description:
+          error instanceof Error ? error.message : `Could not sync templates for ${name}.`,
         variant: 'error',
       });
     } finally {
@@ -281,7 +293,11 @@ export const WhatsAppIntegrationCard = ({
                     {WEBHOOK_URL}
                   </code>
                   <Button variant="outline" size="sm" onClick={copyWebhookUrl} type="button">
-                    {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
                     <span className="sr-only">Copy webhook URL</span>
                   </Button>
                 </div>
@@ -323,14 +339,16 @@ export const WhatsAppIntegrationCard = ({
                     id="wa-waba-id"
                     type="text"
                     value={config.wabaId}
-                    onChange={(event) => setConfig({ ...config, wabaId: event.target.value.trim() })}
+                    onChange={(event) =>
+                      setConfig({ ...config, wabaId: event.target.value.trim() })
+                    }
                     className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="987654321098765"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    WhatsApp &rarr; API Setup, next to the phone number id. Without it,
-                    approved templates cannot be synced &mdash; so a conversation whose
-                    24-hour reply window has closed cannot be continued at all.
+                    WhatsApp &rarr; API Setup, next to the phone number id. Without it, approved
+                    templates cannot be synced &mdash; so a conversation whose 24-hour reply window
+                    has closed cannot be continued at all.
                   </p>
                 </div>
               </div>
@@ -339,12 +357,10 @@ export const WhatsAppIntegrationCard = ({
                 <label htmlFor="wa-access-token" className="text-sm font-medium">
                   Access Token
                 </label>
-                <input
+                <PasswordInput
                   id="wa-access-token"
-                  type="password"
                   value={config.accessToken}
                   onChange={(event) => setConfig({ ...config, accessToken: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="EAAG..."
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -358,12 +374,10 @@ export const WhatsAppIntegrationCard = ({
                   <label htmlFor="wa-app-secret" className="text-sm font-medium">
                     App Secret
                   </label>
-                  <input
+                  <PasswordInput
                     id="wa-app-secret"
-                    type="password"
                     value={config.appSecret}
                     onChange={(event) => setConfig({ ...config, appSecret: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="From App Settings → Basic"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -375,12 +389,10 @@ export const WhatsAppIntegrationCard = ({
                   <label htmlFor="wa-verify-token" className="text-sm font-medium">
                     Verify Token
                   </label>
-                  <input
+                  <PasswordInput
                     id="wa-verify-token"
-                    type="password"
                     value={config.verifyToken}
                     onChange={(event) => setConfig({ ...config, verifyToken: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="A phrase you choose"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -407,18 +419,20 @@ export const WhatsAppIntegrationCard = ({
                       No active departments. Create one before adding a source.
                     </p>
                   )}
-                  {!deptPicker.loading && deptPicker.departments.length > 0 && !deptPicker.isValid && (
-                    <p className="text-xs text-muted-foreground">
-                      Select at least one department to route messages from this source.
-                    </p>
-                  )}
+                  {!deptPicker.loading &&
+                    deptPicker.departments.length > 0 &&
+                    !deptPicker.isValid && (
+                      <p className="text-xs text-muted-foreground">
+                        Select at least one department to route messages from this source.
+                      </p>
+                    )}
                 </div>
               )}
 
               <p className="text-xs text-muted-foreground">
-                WhatsApp only allows free-form replies within 24 hours of a customer’s last
-                message. Outside that window a conversation can only be continued with a
-                Meta-approved template, which isn’t supported yet.
+                WhatsApp only allows free-form replies within 24 hours of a customer’s last message.
+                Outside that window a conversation can only be continued with a Meta-approved
+                template, which isn’t supported yet.
               </p>
 
               <div className="flex gap-2">
@@ -463,7 +477,9 @@ export const WhatsAppIntegrationCard = ({
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => deleteConfirm && void deleteIntegration(deleteConfirm.id, deleteConfirm.name)}
+                onClick={() =>
+                  deleteConfirm && void deleteIntegration(deleteConfirm.id, deleteConfirm.name)
+                }
                 isLoading={deleting === deleteConfirm.id}
               >
                 Delete

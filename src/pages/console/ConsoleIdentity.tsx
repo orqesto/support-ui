@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
@@ -146,7 +147,12 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
           className="font-mono text-xs"
         />
         <Tooltip content={copied ? 'Copied' : `Copy ${label}`}>
-          <Button type="button" variant="secondary" onClick={() => void copy()} aria-label={`Copy ${label}`}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void copy()}
+            aria-label={`Copy ${label}`}
+          >
             {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
           </Button>
         </Tooltip>
@@ -155,7 +161,13 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
   );
 };
 
-const DomainRow = ({ allianceId, domain }: { allianceId: number | null; domain: AllianceDomain }) => {
+const DomainRow = ({
+  allianceId,
+  domain,
+}: {
+  allianceId: number | null;
+  domain: AllianceDomain;
+}) => {
   const verify = useVerifyDomain(allianceId);
   const remove = useRemoveDomain(allianceId);
   const verified = domain.verifiedAt !== null;
@@ -167,7 +179,9 @@ const DomainRow = ({ allianceId, domain }: { allianceId: number | null; domain: 
         <div className="flex gap-3 justify-between items-center">
           <div className="font-medium text-foreground">{domain.domain}</div>
           <div className="flex gap-2 items-center">
-            <Badge variant={verified ? 'success' : 'secondary'}>{verified ? 'Verified' : 'Pending'}</Badge>
+            <Badge variant={verified ? 'success' : 'secondary'}>
+              {verified ? 'Verified' : 'Pending'}
+            </Badge>
             {!verified && (
               <Button
                 variant="secondary"
@@ -369,25 +383,21 @@ export const ConsoleIdentity = () => {
             OIDC connection
           </CardTitle>
           <CardDescription>
-            Connect an OIDC identity provider once. Members across all workspaces in this alliance whose
-            email domain matches sign in through your provider. The client secret is stored encrypted and is
-            never shown again.
+            Connect an OIDC identity provider once. Members across all workspaces in this alliance
+            whose email domain matches sign in through your provider. The client secret is stored
+            encrypted and is never shown again.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Toggle
-              checked={enabled}
-              onChange={setEnabled}
-              label="Enable SSO for this alliance"
-            />
+            <Toggle checked={enabled} onChange={setEnabled} label="Enable SSO for this alliance" />
 
             {enabled && !hasVerifiedDomain && (
               <Alert variant="warning">
                 <span className="text-sm">
-                  SSO is enabled but no email domain is <strong>verified</strong> yet. Until you verify at
-                  least one domain in the panel below, no users are routed to SSO or provisioned — the
-                  allowed-domains list alone does not authorize sign-in.
+                  SSO is enabled but no email domain is <strong>verified</strong> yet. Until you
+                  verify at least one domain in the panel below, no users are routed to SSO or
+                  provisioned — the allowed-domains list alone does not authorize sign-in.
                 </span>
               </Alert>
             )}
@@ -436,9 +446,8 @@ export const ConsoleIdentity = () => {
             />
 
             <div className="space-y-1">
-              <Input
+              <PasswordInput
                 label="Client Secret"
-                type="password"
                 autoComplete="new-password"
                 placeholder={hasClientSecret ? '•••• (configured)' : 'Enter the client secret'}
                 value={clientSecret}
@@ -490,9 +499,9 @@ export const ConsoleIdentity = () => {
                 label="Allow linking to existing accounts"
               />
               <p className="pl-11 text-xs text-muted-foreground">
-                When on, a member who already has a password login can sign in through your provider (matched
-                by verified email) and their account is linked on first SSO login. Leave off unless you trust
-                your IdP to authenticate existing accounts.
+                When on, a member who already has a password login can sign in through your provider
+                (matched by verified email) and their account is linked on first SSO login. Leave
+                off unless you trust your IdP to authenticate existing accounts.
               </p>
             </div>
 
@@ -556,8 +565,8 @@ export const ConsoleIdentity = () => {
             Verified domains
           </CardTitle>
           <CardDescription>
-            Prove the alliance owns an email domain via a DNS-TXT record so that domain safely governs which
-            alliance a user&apos;s email resolves to at SSO login.
+            Prove the alliance owns an email domain via a DNS-TXT record so that domain safely
+            governs which alliance a user&apos;s email resolves to at SSO login.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -571,7 +580,11 @@ export const ConsoleIdentity = () => {
                 onChange={(event) => setNewDomain(event.target.value)}
               />
             </div>
-            <Button type="submit" isLoading={addDomain.isPending} disabled={addDomain.isPending || !newDomain.trim()}>
+            <Button
+              type="submit"
+              isLoading={addDomain.isPending}
+              disabled={addDomain.isPending || !newDomain.trim()}
+            >
               <Plus className="mr-2 w-4 h-4" />
               Add
             </Button>

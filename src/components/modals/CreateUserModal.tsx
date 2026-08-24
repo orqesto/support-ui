@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { departmentService, type Department } from '@/services/department.service';
@@ -157,9 +158,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           </div>
           <div>
             <h2 className="text-xl font-semibold">Create User</h2>
-            <p className="text-sm text-muted-foreground">
-              Create a new user account directly
-            </p>
+            <p className="text-sm text-muted-foreground">Create a new user account directly</p>
           </div>
         </div>
 
@@ -181,8 +180,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             <label className="block mb-1 text-sm font-medium">
               Password <span className="text-red-500">*</span>
             </label>
-            <Input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimum 8 characters"
@@ -250,7 +248,8 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           ) : (
             <div>
               <label className="block mb-1 text-sm font-medium">
-                Departments {selectedDeptIds.size > 0 && (
+                Departments{' '}
+                {selectedDeptIds.size > 0 && (
                   <span className="text-muted-foreground">({selectedDeptIds.size})</span>
                 )}
               </label>

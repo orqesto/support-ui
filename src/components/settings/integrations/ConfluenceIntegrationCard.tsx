@@ -1,21 +1,16 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ConfluenceDepartmentScope } from '@/components/settings/integrations/ConfluenceDepartmentScope';
-import {
-  parseSpaceKeys,
-  syncMeta,
-} from '@/components/settings/integrations/confluenceCardHelpers';
+import { parseSpaceKeys, syncMeta } from '@/components/settings/integrations/confluenceCardHelpers';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Alert } from '@/components/ui/Alert';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
-import {
-  integrationsService,
-  type ConfluenceConfig,
-} from '@/services/integrations.service';
+import { integrationsService, type ConfluenceConfig } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 
 export const ConfluenceIntegrationCard = ({
@@ -156,7 +151,6 @@ export const ConfluenceIntegrationCard = ({
     }, 4000);
     return () => window.clearInterval(id);
   }, [anySyncing, onRefresh]);
-
 
   // Pause/resume a source. Disabling stops syncing and (via the PATCH handler) soft-deletes
   // its docs so they leave AI answers; re-enabling re-syncs and restores them.
@@ -372,8 +366,8 @@ export const ConfluenceIntegrationCard = ({
 
               {envStatusError && (
                 <Alert variant="warning">
-                  {envStatusError} If this server has a shared Confluence service account, it
-                  cannot be offered right now — enter credentials below, or reload the page with a
+                  {envStatusError} If this server has a shared Confluence service account, it cannot
+                  be offered right now — enter credentials below, or reload the page with a
                   workspace selected and try again.
                 </Alert>
               )}
@@ -463,12 +457,10 @@ export const ConfluenceIntegrationCard = ({
                       <label htmlFor="apiToken" className="text-sm font-medium">
                         API Token
                       </label>
-                      <input
+                      <PasswordInput
                         id="apiToken"
-                        type="password"
                         value={config.apiToken}
                         onChange={(event) => setConfig({ ...config, apiToken: event.target.value })}
-                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                         placeholder="•••••••••"
                       />
                     </div>

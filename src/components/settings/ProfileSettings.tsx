@@ -4,8 +4,8 @@ import { TwoFactorSettings } from './TwoFactorSettings';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Textarea } from '@/components/ui/Textarea';
-import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
@@ -16,24 +16,38 @@ export const ProfileSettings = () => {
 
   const [skillValues, setSkillValues] = useState<Record<string, string[]>>({});
   const [canEditSkills, setCanEditSkills] = useState(false);
-  const [routingKeys, setRoutingKeys] = useState<Array<{ id: number; key: string; description: string | null }>>([]);
+  const [routingKeys, setRoutingKeys] = useState<
+    Array<{ id: number; key: string; description: string | null }>
+  >([]);
   const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user?.id) {
-      void userService.getSelfSkillValues().then(setSkillValues).catch(() => setSkillValues({}));
-      void userService.getSelfCanEditSkills().then(setCanEditSkills).catch(() => setCanEditSkills(false));
+      void userService
+        .getSelfSkillValues()
+        .then(setSkillValues)
+        .catch(() => setSkillValues({}));
+      void userService
+        .getSelfCanEditSkills()
+        .then(setCanEditSkills)
+        .catch(() => setCanEditSkills(false));
     }
   }, [user?.id]);
 
   useEffect(() => {
-    void organizationService.getRoutingKeys().then(setRoutingKeys).catch(() => setRoutingKeys([]));
+    void organizationService
+      .getRoutingKeys()
+      .then(setRoutingKeys)
+      .catch(() => setRoutingKeys([]));
   }, []);
 
   const handleAddValue = (key: string) => {
     const raw = skillInputs[key]?.trim() ?? '';
     if (!raw) return;
-    const newVals = raw.split(',').map((val) => val.trim().toLowerCase()).filter(Boolean);
+    const newVals = raw
+      .split(',')
+      .map((val) => val.trim().toLowerCase())
+      .filter(Boolean);
     const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
     setSkillValues((prev) => ({ ...prev, [key]: merged }));
     setSkillInputs((prev) => ({ ...prev, [key]: '' }));
@@ -92,7 +106,10 @@ export const ProfileSettings = () => {
       return;
     }
     if (passwords.new === passwords.current) {
-      setNotification({ type: 'error', message: 'New password must be different from current password' });
+      setNotification({
+        type: 'error',
+        message: 'New password must be different from current password',
+      });
       return;
     }
 
@@ -281,9 +298,9 @@ export const ProfileSettings = () => {
             >
               Current Password
             </label>
-            <Input
+            <PasswordInput
               id="current-password"
-              type="password"
+              autoComplete="current-password"
               value={passwords.current}
               onChange={(event) => setPasswords({ ...passwords, current: event.target.value })}
               placeholder="Enter current password"
@@ -299,9 +316,8 @@ export const ProfileSettings = () => {
             >
               New Password
             </label>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               value={passwords.new}
               onChange={(event) => setPasswords({ ...passwords, new: event.target.value })}
               placeholder="Enter new password (min 8 characters)"
@@ -318,9 +334,8 @@ export const ProfileSettings = () => {
             >
               Confirm New Password
             </label>
-            <Input
+            <PasswordInput
               id="confirm-password"
-              type="password"
               value={passwords.confirm}
               onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
               placeholder="Confirm new password"

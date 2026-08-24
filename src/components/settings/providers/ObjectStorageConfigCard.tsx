@@ -1,6 +1,7 @@
 import { HardDrive, Save, TestTube2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
@@ -197,8 +198,8 @@ export const ObjectStorageConfigCard = () => {
           Store attachments and knowledge-base files in your own S3-compatible bucket (AWS S3,
           Hetzner Object Storage, MinIO). Leave the endpoint blank for AWS; leave both keys blank to
           use the server's ambient identity (EC2 instance profile / ECS task role / IRSA) — on that
-          path you can also leave the region blank and the SDK infers it from the instance. Without a
-          config here, files use Odly's managed storage.
+          path you can also leave the region blank and the SDK infers it from the instance. Without
+          a config here, files use Odly's managed storage.
         </p>
 
         {!loading && (
@@ -229,8 +230,8 @@ export const ObjectStorageConfigCard = () => {
         ) : mode === 'managed' ? (
           <div className="space-y-3 rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
             <p>
-              Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store them
-              in your own bucket instead.
+              Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store
+              them in your own bucket instead.
             </p>
             {configured && canManage && (
               <Button variant="destructive" size="sm" onClick={handleRemove} isLoading={removing}>
@@ -269,7 +270,9 @@ export const ObjectStorageConfigCard = () => {
                   onChange={(event) => set({ region: event.target.value })}
                   disabled={!canManage}
                   className={inputClass}
-                  placeholder={regionRequired ? 'eu-central-1' : 'eu-central-1 (blank = infer from instance)'}
+                  placeholder={
+                    regionRequired ? 'eu-central-1' : 'eu-central-1 (blank = infer from instance)'
+                  }
                 />
               </div>
               <div>
@@ -323,9 +326,8 @@ export const ObjectStorageConfigCard = () => {
               <label htmlFor="storage-secret-key" className="text-sm font-medium">
                 Secret Access Key
               </label>
-              <input
+              <PasswordInput
                 id="storage-secret-key"
-                type="password"
                 autoComplete="off"
                 value={form.secretAccessKey}
                 onChange={(event) => set({ secretAccessKey: event.target.value })}
@@ -392,7 +394,12 @@ export const ObjectStorageConfigCard = () => {
 
             {/* Test button + result */}
             <div className="space-y-2">
-              <Button variant="outline" onClick={handleTest} isLoading={testing} disabled={!canSubmit || !canManage}>
+              <Button
+                variant="outline"
+                onClick={handleTest}
+                isLoading={testing}
+                disabled={!canSubmit || !canManage}
+              >
                 <TestTube2 className="mr-2 w-4 h-4" />
                 Test Connection
               </Button>
@@ -405,7 +412,8 @@ export const ObjectStorageConfigCard = () => {
                   }`}
                 >
                   <p>
-                    {testResult.ok ? 'Connection OK' : 'Connection failed'} · {testResult.latencyMs}ms
+                    {testResult.ok ? 'Connection OK' : 'Connection failed'} · {testResult.latencyMs}
+                    ms
                   </p>
                   {testResult.error && <p className="mt-1">{testResult.error}</p>}
                 </div>

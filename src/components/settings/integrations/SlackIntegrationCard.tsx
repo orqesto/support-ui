@@ -5,6 +5,7 @@ import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
@@ -174,11 +175,9 @@ export const SlackIntegrationCard = ({
                   <label htmlFor="botToken" className="text-sm font-medium">
                     Bot Token
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={config.botToken}
                     onChange={(event) => setConfig({ ...config, botToken: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="xoxb-..."
                   />
                 </div>
@@ -186,11 +185,11 @@ export const SlackIntegrationCard = ({
                   <label htmlFor="signingSecret" className="text-sm font-medium">
                     Signing Secret
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={config.signingSecret}
-                    onChange={(event) => setConfig({ ...config, signingSecret: event.target.value })}
-                    className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                    onChange={(event) =>
+                      setConfig({ ...config, signingSecret: event.target.value })
+                    }
                     placeholder="•••••••••"
                   />
                 </div>

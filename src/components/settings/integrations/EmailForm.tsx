@@ -1,5 +1,6 @@
 import { TestTube2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { detectImapConfig, isProviderSupported } from '@/utils/imapProviders';
 import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
@@ -109,9 +110,7 @@ export const EmailForm = ({
 
   return (
     <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-      <h4 className="font-medium">
-        {editingId ? 'Edit Email Account' : 'Add New Email Account'}
-      </h4>
+      <h4 className="font-medium">{editingId ? 'Edit Email Account' : 'Add New Email Account'}</h4>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="host" className="text-sm font-medium">
@@ -173,11 +172,9 @@ export const EmailForm = ({
           <label htmlFor="password" className="text-sm font-medium">
             Password / App Password
           </label>
-          <input
-            type="password"
+          <PasswordInput
             value={config.password}
             onChange={(event) => onConfigChange({ ...config, password: event.target.value })}
-            className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
             placeholder="•••••••••"
           />
         </div>
@@ -215,9 +212,7 @@ export const EmailForm = ({
             <ReactSelect
               label="Time Range"
               value={(config.lookbackDays ?? 30).toString()}
-              onChange={(value) =>
-                onConfigChange({ ...config, lookbackDays: parseInt(value) })
-              }
+              onChange={(value) => onConfigChange({ ...config, lookbackDays: parseInt(value) })}
               options={lookbackOptions.map((opt) => ({
                 value: opt.value.toString(),
                 label: opt.label,
@@ -262,17 +257,17 @@ export const EmailForm = ({
               min="1"
               max="2000"
             />
-            <p className="mt-1 text-xs text-muted-foreground">Max results per page on first connect</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Max results per page on first connect
+            </p>
           </div>
 
           {/* SMTP Configuration for Sending Replies */}
           <div className="col-span-2 pt-4 border-t">
-            <h5 className="mb-3 text-sm font-semibold">
-              📤 SMTP Settings (For Sending Replies)
-            </h5>
+            <h5 className="mb-3 text-sm font-semibold">📤 SMTP Settings (For Sending Replies)</h5>
             <p className="mb-3 text-xs text-muted-foreground">
-              Configure SMTP to send replies from this email address. Leave empty to use
-              global SMTP settings.
+              Configure SMTP to send replies from this email address. Leave empty to use global SMTP
+              settings.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -307,11 +302,9 @@ export const EmailForm = ({
               </div>
               <div>
                 <label className="text-sm font-medium">SMTP Password</label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={config.smtp?.password ?? ''}
                   onChange={(event) => setSmtpField({ password: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   placeholder="•••••••••"
                 />
               </div>
@@ -323,9 +316,7 @@ export const EmailForm = ({
                     onChange={(event) => setSmtpField({ secure: event.target.checked })}
                     className="rounded"
                   />
-                  <label className="text-sm">
-                    Use SSL (port 465) instead of TLS (port 587)
-                  </label>
+                  <label className="text-sm">Use SSL (port 465) instead of TLS (port 587)</label>
                 </div>
               </div>
             </div>
@@ -358,8 +349,7 @@ export const EmailForm = ({
       {messageCount !== null && (
         <div className="p-3 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950 dark:border-green-800">
           <p className="text-sm text-green-800 dark:text-green-200">
-            ✅ Found {messageCount} message{messageCount !== 1 ? 's' : ''} matching your
-            criteria
+            ✅ Found {messageCount} message{messageCount !== 1 ? 's' : ''} matching your criteria
           </p>
         </div>
       )}
