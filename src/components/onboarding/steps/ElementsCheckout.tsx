@@ -181,8 +181,8 @@ export const ElementsCheckoutMount = ({
   if (failed) {
     return (
       <Alert variant="warning">
-        We couldn&apos;t load the payment form right now. You can finish setup and add a card
-        later from Billing.
+        We couldn&apos;t load the payment form right now. You can finish setup and sort
+        billing out later from Billing.
       </Alert>
     );
   }

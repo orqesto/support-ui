@@ -236,6 +236,44 @@ describe('adding a card after finishing onboarding without one', () => {
   });
 });
 
+describe('a workspace still on the free plan', () => {
+  /**
+   * This is where "finish without a card" actually lands. The wizard never
+   * applies the plan a visitor arrived with — `?plan=pro` is stored as intent
+   * only — so every managed signup stays on `free`. Offering a card form here
+   * would check out against a plan with no price, which the backend refuses.
+   */
+  it('is pointed at choosing a plan, not at adding a card', async () => {
+    mockLoad(
+      manualSubscription({
+        needsPlanToPay: true,
+        canAddPaymentMethod: false,
+        hasBillingPortal: false,
+      })
+    );
+    render(<SubscriptionPage />);
+
+    await waitFor(() => expect(screen.getByText('Choose a Plan')).toBeInTheDocument());
+    expect(screen.queryByText('Add a Payment Method')).not.toBeInTheDocument();
+  });
+
+  it('never offers both routes at once', async () => {
+    // They are mutually exclusive by construction; showing both would ask the
+    // customer to choose between two things that mean the same to them.
+    mockLoad(
+      manualSubscription({
+        needsPlanToPay: false,
+        canAddPaymentMethod: true,
+        hasBillingPortal: false,
+      })
+    );
+    render(<SubscriptionPage />);
+
+    await waitFor(() => expect(screen.getByText('Add a Payment Method')).toBeInTheDocument());
+    expect(screen.queryByText('Choose a Plan')).not.toBeInTheDocument();
+  });
+});
+
 describe('a Stripe-backed subscription', () => {
   it('keeps the billing portal available alongside the cancel action', async () => {
     mockLoad(manualSubscription({ cancellationRoute: 'stripe', hasBillingPortal: true }));

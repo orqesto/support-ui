@@ -87,7 +87,13 @@ export type WizardCheckoutSession = {
     currency: string;
     billingInterval: string;
   };
-  trialPeriodDays: number;
+  /**
+   * @deprecated The backend stopped sending this once the trial was anchored to
+   * the workspace's real `trialEndsAt`. Kept optional, not deleted, because a
+   * production frontend can still be talking to a backend that predates that
+   * change — see `chargeDate` in PaymentStep, which uses it only in that case.
+   */
+  trialPeriodDays?: number;
   /**
    * When the customer is first charged — the org's REAL trial end, not
    * "today + 14" recomputed here. Null means they are charged on completion,
