@@ -1,5 +1,5 @@
 import type { ElementType } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle,
@@ -18,6 +18,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
@@ -83,8 +84,23 @@ type SubscriptionDetails = {
     currentPeriodEnd: string | null;
     trialEndsAt: string | null;
     cancelAt: string | null;
+    /**
+     * Told to us by the backend rather than derived here — the frontend cannot
+     * see whether a Stripe subscription exists, and guessing produced a
+     * "cancel subscription" card every org could click and none could use.
+     *
+     * Optional: this page can deploy ahead of the backend that sends them, and
+     * the fallbacks below keep the old behaviour rather than white-screening.
+     */
+    canCancel?: boolean;
+    cancellationRoute?: 'stripe' | 'local' | null;
+    hasBillingPortal?: boolean;
   };
 };
+
+/** "8 September 2026" — a last-day-of-access reads better without a clock time. */
+const formatAccessEnd = (value: string): string =>
+  new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
 export const SubscriptionPage = () => {
   const navigate = useNavigate();
@@ -94,6 +110,9 @@ export const SubscriptionPage = () => {
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState(false);
 
   const handleOpenPortal = async () => {
     setPortalLoading(true);
@@ -111,6 +130,40 @@ export const SubscriptionPage = () => {
     }
   };
 
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const result = await subscriptionService.cancelSubscription();
+      // Refetch rather than patching local state: the backend decides the real
+      // end date (Stripe's answer wins over our stored period end), so echoing
+      // an optimistic guess here is how a customer gets told the wrong last day.
+      await refresh();
+      toast.success(
+        `Subscription cancelled. You keep full access until ${formatAccessEnd(result.accessEndsAt)}.`
+      );
+    } catch (err) {
+      logger.error('Failed to cancel subscription:', err);
+      toast.failure('cancel the subscription', err);
+    } finally {
+      setCancelling(false);
+      setConfirmingCancel(false);
+    }
+  };
+
+  const handleResume = async () => {
+    setResuming(true);
+    try {
+      await subscriptionService.resumeSubscription();
+      await refresh();
+      toast.success('Cancellation undone — your subscription continues as normal.');
+    } catch (err) {
+      logger.error('Failed to resume subscription:', err);
+      toast.failure('resume the subscription', err);
+    } finally {
+      setResuming(false);
+    }
+  };
+
   const canManage = user
     ? hasPermission(
         user.role,
@@ -120,27 +173,29 @@ export const SubscriptionPage = () => {
       )
     : false;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [dashboardRes, subRes] = await Promise.all([
-          apiClient.get<{ success: boolean; data: DashboardData }>('/api/subscriptions/dashboard'),
-          apiClient.get<{ success: boolean; data: SubscriptionDetails }>(
-            '/api/subscriptions/current'
-          ),
-        ]);
+  // Named so cancel/resume can re-read the server's answer rather than patching
+  // local state from what they hoped happened.
+  const refresh = useCallback(async () => {
+    try {
+      const [dashboardRes, subRes] = await Promise.all([
+        apiClient.get<{ success: boolean; data: DashboardData }>('/api/subscriptions/dashboard'),
+        apiClient.get<{ success: boolean; data: SubscriptionDetails }>(
+          '/api/subscriptions/current'
+        ),
+      ]);
 
-        setDashboard(dashboardRes.data.data);
-        setSubscriptionDetails(subRes.data.data);
-      } catch (error) {
-        logger.error('Failed to load subscription:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchData();
+      setDashboard(dashboardRes.data.data);
+      setSubscriptionDetails(subRes.data.data);
+    } catch (error) {
+      logger.error('Failed to load subscription:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -248,6 +303,37 @@ export const SubscriptionPage = () => {
             </Button>
           )}
         </div>
+
+        {/* A scheduled cancellation is the single most important thing on this
+            page once it exists — it changes when the product stops working, so
+            it sits above the plan rather than inside the card grid below. */}
+        {subscription.cancelAt && (
+          <Card className="border-amber-500/50">
+            <CardContent className="flex flex-wrap gap-3 justify-between items-center p-4">
+              <div className="flex gap-3 items-start">
+                <AlertTriangle className="mt-0.5 w-5 h-5 text-amber-600" />
+                <div>
+                  <p className="font-medium">
+                    {`Cancelled — your subscription ends on ${formatAccessEnd(subscription.cancelAt)}`}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Nothing changes until then: you keep every feature on your current plan for
+                    the period you have already paid for.
+                  </p>
+                </div>
+              </div>
+              {canManage && (
+                <Button
+                  variant="secondary"
+                  isLoading={resuming}
+                  onClick={() => void handleResume()}
+                >
+                  Keep my subscription
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Current Plan Card */}
         <Card>
@@ -434,15 +520,21 @@ export const SubscriptionPage = () => {
             >
               <CardContent className="p-6">
                 <CreditCard className="mb-3 w-8 h-8 text-green-600" />
-                <h3 className="mb-1 font-semibold">Manage Plan</h3>
+                <h3 className="mb-1 font-semibold">Change Plan</h3>
                 <p className="text-sm text-foreground/70">
-                  Upgrade, downgrade, or cancel your subscription
+                  {/* This navigates to /pricing, which can upgrade and downgrade
+                      but has no cancel — the old copy promised one there. */}
+                  Move to a different plan
                 </p>
               </CardContent>
             </Card>
           )}
 
-          {canManage && (
+          {/* Hidden without a Stripe customer: the endpoint 400s in that case,
+              and until this gate existed the card was shown to every org — all
+              of which are on manually-assigned plans and none of which could
+              open it. Defaults to shown so an older backend behaves as before. */}
+          {canManage && subscription.hasBillingPortal !== false && (
             <Card
               className={`transition-shadow ${portalLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:shadow-md'}`}
               onClick={() => {
@@ -456,12 +548,46 @@ export const SubscriptionPage = () => {
                   {portalLoading ? 'Opening Billing Portal…' : 'Billing & Invoices'}
                 </h3>
                 <p className="text-sm text-foreground/70">
-                  Manage payment methods, view invoices, cancel subscription
+                  Manage payment methods and view invoices
                 </p>
               </CardContent>
             </Card>
           )}
         </div>
+
+        {/* Cancelling is destructive and rarely wanted, so it is the quietest
+            thing on the page — but it IS on the page, which it was not before. */}
+        {canManage && subscription.canCancel && (
+          <div className="pb-2">
+            <Button
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              isLoading={cancelling}
+              onClick={() => setConfirmingCancel(true)}
+            >
+              Cancel subscription
+            </Button>
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={confirmingCancel}
+          onOpenChange={setConfirmingCancel}
+          onConfirm={() => void handleCancel()}
+          variant="danger"
+          title="Cancel this subscription?"
+          description={
+            subscription.currentPeriodEnd
+              ? `Your workspace keeps every feature until ${formatAccessEnd(
+                  subscription.trialEndsAt && subscription.status === 'trialing'
+                    ? subscription.trialEndsAt
+                    : subscription.currentPeriodEnd
+                )}, and nothing is charged after that. You can undo this at any time before then.`
+              : 'Your workspace keeps every feature until the end of the period you have paid for. You can undo this at any time before then.'
+          }
+          confirmText="Cancel subscription"
+          cancelText="Keep it"
+        />
       </div>
     </Layout>
   );

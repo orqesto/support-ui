@@ -19,6 +19,28 @@ const getFeatures = () =>
  * through checkout), or BILLING_PROVIDER != stripe. Caller should surface
  * the message rather than silently retrying.
  */
+/**
+ * Stop the subscription at the end of the paid period.
+ *
+ * Deliberately not the Stripe portal: the backend cancels a Stripe-backed
+ * subscription through Stripe and a manually-assigned one in our own database.
+ * Every production organization today is the second kind, which the portal
+ * cannot serve at all.
+ */
+const cancelSubscription = () =>
+  apiClient
+    .post<{
+      success: boolean;
+      data: { cancelAt: string; route: 'stripe' | 'local'; accessEndsAt: string };
+    }>('/api/subscriptions/cancel')
+    .then((res) => res.data.data);
+
+/** Undo a cancellation that has not taken effect yet. */
+const resumeSubscription = () =>
+  apiClient
+    .post<{ success: boolean; data: { resumed: boolean } }>('/api/subscriptions/resume')
+    .then((res) => res.data.data);
+
 const openCustomerPortal = () =>
   apiClient
     .post<{ success: boolean; data: { url: string } }>('/api/subscriptions/portal')
@@ -92,6 +114,8 @@ const getPlans = () =>
 
 export const subscriptionService = {
   getFeatures,
+  cancelSubscription,
+  resumeSubscription,
   openCustomerPortal,
   getUsage,
   createWizardCheckoutSession,
