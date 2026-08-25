@@ -118,6 +118,34 @@ describe('ActiveSessionsSettings', () => {
     await waitFor(() => expect(assignedHref).toBe('/login'));
   });
 
+  it('SKEW: says nothing alarming when the backend has no session routes yet', async () => {
+    // The frontend deploys on merge; the backend ships on a release tag. Production therefore
+    // runs this component against an API without `/api/auth/sessions` for hours or days, and it
+    // answers 404. Rendering "Request failed with status code 404" to every user for the length
+    // of that window would be a regression caused by shipping in the SAFE order.
+    const notFound = Object.assign(new Error('Request failed with status code 404'), {
+      status: 404,
+    });
+    vi.spyOn(sessionsService, 'list').mockRejectedValue(notFound);
+
+    render(<ActiveSessionsSettings />);
+
+    expect(await screen.findByText(/needs a newer version of the server/)).toBeInTheDocument();
+    expect(screen.queryByText(/Request failed/)).toBeNull();
+    // The button would hit `logout-all`, which is missing on the same backend.
+    expect(screen.queryByRole('button', { name: /Log out everywhere/ })).toBeNull();
+  });
+
+  it('still reports a REAL failure — 404 tolerance must not swallow everything', async () => {
+    const boom = Object.assign(new Error('Database is on fire'), { status: 500 });
+    vi.spyOn(sessionsService, 'list').mockRejectedValue(boom);
+
+    render(<ActiveSessionsSettings />);
+
+    expect(await screen.findByText(/Could not load your signed-in devices|Database is on fire/))
+      .toBeInTheDocument();
+  });
+
   it('says the list is empty rather than implying something is broken', async () => {
     // A session opened before this shipped has no row. "No devices" must not read as an error.
     vi.spyOn(sessionsService, 'list').mockResolvedValue([]);
