@@ -21,6 +21,8 @@ type StorageForm = {
 };
 
 type StorageConfigDisplay = {
+  /** v1.1.248+ only. Absent on an older API, where `null` carried the same meaning. */
+  source?: 'platform' | 'customer';
   endpoint: string | null;
   region: string | null;
   bucket: string | null;
@@ -33,6 +35,23 @@ type StorageConfigDisplay = {
 };
 
 type StorageTestResult = { ok: boolean; latencyMs: number; error?: string };
+
+/**
+ * Is this org on PLATFORM storage rather than its own bucket?
+ *
+ * Three shapes, because this bundle serves against BE before AND after v1.1.248:
+ *   null                      — older API, org on the platform default
+ *   { source: 'platform', … } — v1.1.248+, the same situation stated explicitly
+ *   { …bucket, accessKeyId }  — the org's own config
+ *
+ * Treating the second as BYO renders an empty customer form for an org whose bytes sit in
+ * the platform bucket, and invites an admin to "fix" storage that is fine. That is the exact
+ * regression this guards, and it is why the FE half of this change must ship BEFORE the BE
+ * half — the old bundle cannot read the new shape, but this one reads both.
+ */
+export const isPlatformStorage = (
+  data: { source?: 'platform' | 'customer' } | null | undefined
+): boolean => !data || data.source === 'platform';
 
 const EMPTY_FORM: StorageForm = {
   endpoint: '',
@@ -84,6 +103,8 @@ export const ObjectStorageConfigCard = () => {
   const [removing, setRemoving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<StorageTestResult | null>(null);
+  /** Set only when the API tells us the platform region; null on an older API. */
+  const [platformRegion, setPlatformRegion] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -92,7 +113,14 @@ export const ObjectStorageConfigCard = () => {
         '/api/integrations/storage-config'
       );
       const data = res.data.data;
-      if (data) {
+      // Three shapes, because this bundle must serve against BE before AND after v1.1.248:
+      //   null                       — older API, org on the platform default
+      //   { source: 'platform', … }  — v1.1.248+, same situation stated explicitly
+      //   { …bucket, accessKeyId }   — the org's own config
+      // Treating the second as BYO would render an empty customer form for an org whose
+      // bytes are in the platform bucket, and invite an admin to "fix" storage that is fine.
+      const isPlatform = isPlatformStorage(data);
+      if (data && !isPlatform) {
         setConfigured(true);
         setMode('byo');
         setHasSecret(data.hasSecret);
@@ -111,6 +139,7 @@ export const ObjectStorageConfigCard = () => {
         setConfigured(false);
         setMode('managed');
         setHasSecret(false);
+        setPlatformRegion(data && 'region' in data ? (data.region ?? null) : null);
         setForm(EMPTY_FORM);
       }
     } catch (err) {
@@ -233,6 +262,14 @@ export const ObjectStorageConfigCard = () => {
               Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store
               them in your own bucket instead.
             </p>
+            {platformRegion && (
+              // The region is the one platform detail a customer may actually need — data
+              // residency. The bucket, endpoint and credentials are deliberately not shown:
+              // they identify platform infrastructure and no customer action depends on them.
+              <p>
+                Region: <span className="font-medium text-foreground">{platformRegion}</span>
+              </p>
+            )}
             {configured && canManage && (
               <Button variant="destructive" size="sm" onClick={handleRemove} isLoading={removing}>
                 <Trash2 className="mr-2 w-4 h-4" />
