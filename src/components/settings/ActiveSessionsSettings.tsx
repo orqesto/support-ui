@@ -39,7 +39,7 @@ export const ActiveSessionsSettings = () => {
       setSessions(await sessionsService.list());
     } catch (err: unknown) {
       logger.error('Failed to load active sessions', err);
-      setError(getApiErrorMessage(err, 'Could not load your signed-in devices.'));
+      setError(getApiErrorMessage(err) ?? 'Could not load your signed-in devices.');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export const ActiveSessionsSettings = () => {
       setSessions((current) => current.filter((row) => row.id !== session.id));
     } catch (err: unknown) {
       logger.error('Failed to revoke session', err);
-      setError(getApiErrorMessage(err, 'Could not sign that device out. Please try again.'));
+      setError(getApiErrorMessage(err) ?? 'Could not sign that device out. Please try again.');
     } finally {
       setBusyId(null);
     }

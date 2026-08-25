@@ -10,9 +10,12 @@
  * branches were dead in production, because the fixture, not the app, decided the
  * shape. A test that constructs its own error can only ever prove itself.
  *
- * ⚠ Driving the real handler means the real side effects fire: a 401 calls
- * `logout()` and assigns `window.location.href`, and a 402 arms the subscription
- * gate store. That is faithful, but reset those stores if a test asserts on them.
+ * ⚠ Driving the real handler means the real side effects fire: a 402 arms the
+ * subscription gate store, and a 401 now attempts a session REFRESH before it gives
+ * up — so it issues a real `axios.post` to /api/auth/refresh, and only calls
+ * `logout()` + assigns `window.location.href` once that is refused. That is
+ * faithful, but reset those stores if a test asserts on them, and stub the refresh
+ * if a 401 test should not touch the network.
  */
 import { vi } from 'vitest';
 import type * as ApiClientModule from '@/lib/api-client';
@@ -22,7 +25,7 @@ import type * as ApiClientModule from '@/lib/api-client';
  * `@/lib/api-client` wholesale, and a mocked handler would hand back whatever the
  * test invented — reintroducing the exact problem this helper exists to prevent.
  */
-const realHandler = async (): Promise<(error: unknown) => Promise<never>> => {
+const realHandler = async (): Promise<(error: unknown) => Promise<unknown>> => {
   const actual = await vi.importActual<typeof ApiClientModule>('@/lib/api-client');
   return actual.handleResponseError;
 };
