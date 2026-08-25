@@ -312,7 +312,7 @@ export const PaymentStep = ({
               : `Pay ${formatMoney(session.plan.price, session.plan.currency)} and save card`}
           </Button>
 
-          <Dialog open={formOpen} onOpenChange={setFormOpen} size="lg">
+          <Dialog open={formOpen} onOpenChange={setFormOpen} size="lg" dismissOnOverlayClick={false}>
             <DialogHeader>
               <DialogTitle>{`Start your ${session.plan.displayName} plan`}</DialogTitle>
             </DialogHeader>
