@@ -23,6 +23,7 @@ import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDia
 import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { VAT_NOTE, formatMoney } from '@/lib/money';
 import { toast } from '@/lib/toast';
 import { subscriptionService } from '@/services/subscription.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -370,12 +371,16 @@ export const SubscriptionPage = () => {
               <div>
                 <p className="mb-1 text-sm text-muted-foreground">Price</p>
                 <p className="text-2xl font-bold">
-                  {plan.currency === 'EUR' ? '€' : '$'}
-                  {(plan.price / 100).toFixed(2)}
+                  {formatMoney(plan.price, plan.currency)}
                   <span className="text-sm font-normal text-muted-foreground">
                     /{plan.billingInterval}
                   </span>
                 </p>
+                {/* The payment dialog one click away already says "excl. VAT"; this card
+                    used to disagree with it, on the same screen. */}
+                {plan.price > 0 && (
+                  <p className="text-xs text-muted-foreground">{VAT_NOTE}</p>
+                )}
               </div>
               <div>
                 <p className="mb-1 text-sm text-muted-foreground">
