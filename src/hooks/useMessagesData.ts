@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { COLUMNS } from '@/components/messages/kanbanColumns';
 import { assigneeApiParams } from './assigneeApiParams';
 import { legacyAiStateParam } from './legacyAiStateParam';
 import { negateApiParam } from './negateApiParam';
@@ -120,11 +121,23 @@ export const useMessagesData = ({
         // it fully defines the row set, so we suppress the legacy status→view and
         // threadStatus→processed derivation below (those two dropdowns are replaced
         // by Status+Queue in the list, and their store fields stay at 'all' there).
-        const lifecycle = isKanban ? 'all' : (currentFilters.lifecycle ?? 'all');
+        // A quick-filter chip in list view IS a kanban column. Applying that column's own
+        // `fixedFilters` — the same object MessagesKanbanView spreads into its request — is what
+        // guarantees the chip and the board return the same rows. A chip carrying its own copy
+        // of the predicate would drift from the column within a release, and the two views would
+        // quietly disagree about what "Spam" means.
+        const columnId = isKanban ? 'all' : (currentFilters.columnId ?? 'all');
+        const activeColumn =
+          columnId !== 'all' ? COLUMNS.find((col) => col.id === columnId) : undefined;
+        if (activeColumn) {
+          Object.assign(apiFilters, activeColumn.fixedFilters);
+        }
+
+        const lifecycle = isKanban || activeColumn ? 'all' : (currentFilters.lifecycle ?? 'all');
         if (lifecycle !== 'all') {
           apiFilters.lifecycle = lifecycle;
         }
-        const queue = isKanban ? 'all' : (currentFilters.queue ?? 'all');
+        const queue = isKanban || activeColumn ? 'all' : (currentFilters.queue ?? 'all');
         if (queue !== 'all') {
           apiFilters.queue = queue;
         }
@@ -132,7 +145,9 @@ export const useMessagesData = ({
         if (read !== 'all') {
           apiFilters.read = read;
         }
-        const lifecycleOrQueueActive = lifecycle !== 'all' || queue !== 'all';
+        // An active column also fully defines the set, so the legacy status→view derivation
+        // below must not layer a second, conflicting constraint on top of it.
+        const lifecycleOrQueueActive = lifecycle !== 'all' || queue !== 'all' || !!activeColumn;
 
         // THREAD STATUS (kanban lifecycle: open / in_progress / closed)
         const threadStatus = currentFilters.threadStatus ?? 'all';
