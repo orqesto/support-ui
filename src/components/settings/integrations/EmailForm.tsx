@@ -28,9 +28,13 @@ type EmailConfig = {
   };
 };
 
+// "All messages" is the default and the recommendation, matching Gmail sources, which fetch
+// everything. "Unread only" made the mailbox's read state decide what the product ever saw:
+// anyone opening the inbox from Outlook, webmail or a phone marked a message read, and it was
+// then never ingested at all. It stays available for anyone who deliberately wants that.
 const searchCriteriaOptions = [
-  { value: 'UNSEEN', label: 'Unread only (recommended)' },
-  { value: 'ALL', label: 'All messages' },
+  { value: 'ALL', label: 'All messages (recommended)' },
+  { value: 'UNSEEN', label: 'Unread only' },
   { value: 'SEEN', label: 'Read only' },
   { value: 'FLAGGED', label: 'Flagged/starred only' },
 ];
@@ -210,7 +214,7 @@ export const EmailForm = ({
           <div>
             <ReactSelect
               label="Email Filter"
-              value={config.searchCriteria ?? 'UNSEEN'}
+              value={config.searchCriteria ?? 'ALL'}
               onChange={(value) => onConfigChange({ ...config, searchCriteria: value })}
               options={searchCriteriaOptions}
             />

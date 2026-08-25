@@ -55,7 +55,7 @@ const defaultConfig: EmailConfig = {
   password: '',
   secure: true,
   isKnowledgeBase: false,
-  searchCriteria: 'UNSEEN',
+  searchCriteria: 'ALL',
   maxResults: 500,
   lookbackDays: 30,
   bulkImportDays: 0,
