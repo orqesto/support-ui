@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Spinner } from '@/components/ui/Spinner';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
 import { logger } from '@/lib/logger';
+import { formatMoney } from '@/lib/money';
 import {
   subscriptionService,
   type WizardCheckoutSession,
@@ -78,6 +79,23 @@ export const AddPaymentMethodDialog = ({
     onAdded();
   }, [onAdded]);
 
+  // What submitting actually DOES, in the customer's words.
+  //
+  // `trialEndsAt: null` means Stripe is charging on completion — either no
+  // trial is recorded or too little of one remains for Stripe to accept it.
+  // Saying "save a card, nothing changes" and then taking €500 is the kind of
+  // surprise that becomes a chargeback rather than a support ticket, and
+  // production runs on LIVE Stripe keys.
+  // THREE cases, not two. `null` is the backend saying "Stripe charges on
+  // completion". `undefined` is an older backend that does not report it at all
+  // — treating that as "charged now" would warn about a charge that is not
+  // happening, which is its own kind of lie.
+  const chargedNow = session?.trialEndsAt === null;
+  const billsFrom = typeof session?.trialEndsAt === 'string' ? session.trialEndsAt : null;
+  const priceLabel = session
+    ? formatMoney(session.plan.price, session.plan.currency)
+    : '';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange} size="lg">
       <DialogHeader>
@@ -86,7 +104,9 @@ export const AddPaymentMethodDialog = ({
       <DialogContent>
         {done ? (
           <Alert variant="success">
-            Payment method saved. Nothing about your current plan or trial changes.
+            {chargedNow
+              ? `Payment method saved and ${priceLabel} charged for ${session?.plan.displayName}.`
+              : 'Payment method saved. Nothing about your current plan or trial changes.'}
           </Alert>
         ) : error ? (
           <Alert variant="warning">{error}</Alert>
@@ -95,12 +115,31 @@ export const AddPaymentMethodDialog = ({
             <Spinner />
           </div>
         ) : (
-          <CheckoutSessionForm
+          <>
+            {chargedNow ? (
+              <Alert variant="warning">
+                {`Your trial has ended, so saving a card charges ${priceLabel} for ${session.plan.displayName} now.`}
+              </Alert>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {billsFrom
+                  ? `Nothing is charged today — your ${session.plan.displayName} plan continues on its current terms, and we bill from ${new Date(
+                      billsFrom
+                    ).toLocaleDateString(undefined, {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}.`
+                  : `Nothing is charged today — your ${session.plan.displayName} plan continues on its current terms.`}
+              </p>
+            )}
+            <CheckoutSessionForm
             session={session}
             stripePromise={stripePromise}
             onComplete={handleComplete}
-            submitLabel="Save payment method"
-          />
+              submitLabel={chargedNow ? `Pay ${priceLabel} and save card` : 'Save payment method'}
+            />
+          </>
         )}
       </DialogContent>
     </Dialog>
