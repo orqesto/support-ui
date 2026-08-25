@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Lock, User, Tag, X, PenLine, ShieldCheck } from 'lucide-react';
+import { Lock, User, Tag, X, PenLine, ShieldCheck, MonitorSmartphone } from 'lucide-react';
 import { TwoFactorSettings } from './TwoFactorSettings';
+import { ActiveSessionsSettings } from './ActiveSessionsSettings';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
@@ -357,6 +358,15 @@ export const ProfileSettings = () => {
           Two-Factor Authentication
         </h3>
         <TwoFactorSettings />
+      </div>
+
+      {/* Signed-in devices */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="flex gap-2 items-center mb-4 text-lg font-semibold">
+          <MonitorSmartphone className="w-5 h-5 text-blue-500" />
+          Signed-in devices
+        </h3>
+        <ActiveSessionsSettings />
       </div>
     </div>
   );
