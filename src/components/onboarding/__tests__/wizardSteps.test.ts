@@ -28,6 +28,7 @@ describe('initialWizardPlan', () => {
   it('opens on the plan picked on the marketing site', () => {
     expect(initialWizardPlan('starter')).toBe('starter');
     expect(initialWizardPlan('pro')).toBe('pro');
+    expect(initialWizardPlan('enterprise-cloud')).toBe('enterprise-cloud');
   });
 
   it('falls back to the recommended tier when no plan was carried', () => {
@@ -36,9 +37,9 @@ describe('initialWizardPlan', () => {
 
   it('never opens on free or a sales-assisted tier', () => {
     // These are not sellable through self-serve checkout; the BE refuses them,
-    // so opening a session on one would only produce an error.
+    // so opening a session on one would only produce an error. Enterprise Cloud
+    // is NOT in this set any more — it is sold self-serve like Starter/Pro.
     expect(initialWizardPlan('free')).toBe(DEFAULT_WIZARD_PLAN);
-    expect(initialWizardPlan('enterprise-cloud')).toBe(DEFAULT_WIZARD_PLAN);
     expect(initialWizardPlan('self-hosted')).toBe(DEFAULT_WIZARD_PLAN);
   });
 
