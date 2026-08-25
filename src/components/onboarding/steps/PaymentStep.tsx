@@ -3,6 +3,7 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Check } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
+import { ElementsCheckoutMount } from './ElementsCheckout';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { Spinner } from '@/components/ui/Spinner';
@@ -256,13 +257,27 @@ export const PaymentStep = ({
             {` — nothing is charged today, and you can cancel before then. Prefer to decide later? Skip this step; you can add a card any time from Billing.`}
           </p>
 
-          <EmbeddedCheckoutProvider
-            key={session.clientSecret}
-            stripe={stripePromise}
-            options={{ clientSecret: session.clientSecret, onComplete: handleComplete }}
-          >
-            <EmbeddedCheckout />
-          </EmbeddedCheckoutProvider>
+          {/* `elements` builds the form from our own components and follows the
+              light/dark toggle; `embedded_page` is Stripe's un-themeable iframe,
+              kept as the rollback the backend can select without a deploy. The
+              session decides — see WizardCheckoutSession.uiMode. */}
+          {session.uiMode === 'elements' ? (
+            <ElementsCheckoutMount
+              key={session.clientSecret}
+              stripePromise={stripePromise}
+              clientSecret={session.clientSecret}
+              onComplete={handleComplete}
+              submitLabel={`Start ${session.plan.displayName} trial`}
+            />
+          ) : (
+            <EmbeddedCheckoutProvider
+              key={session.clientSecret}
+              stripe={stripePromise}
+              options={{ clientSecret: session.clientSecret, onComplete: handleComplete }}
+            >
+              <EmbeddedCheckout />
+            </EmbeddedCheckoutProvider>
+          )}
         </>
       )}
     </div>
