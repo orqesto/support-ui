@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import type { SubscriptionPlan } from '@/services/subscription.service';
 
 /**
@@ -162,7 +162,10 @@ describe('PaymentStep plan cards', () => {
 });
 
 describe('which Stripe UI is mounted', () => {
-  it('falls back to the un-themeable iframe when the session says so', async () => {
+  it('keeps the form behind a button rather than in the page', async () => {
+    // Embedded Checkout renders light whatever our theme is and cannot be
+    // styled from here. Inline it was a white slab mid-page; a dialog carries
+    // its own surface, so the same form reads as deliberate.
     createWizardCheckoutSession.mockResolvedValue({
       clientSecret: 'cs_test_secret',
       publishableKey: 'pk_test_123',
@@ -172,7 +175,29 @@ describe('which Stripe UI is mounted', () => {
     });
 
     render(<PaymentStep initialPlan="pro" planWasPreselected />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Add payment method' })).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('stripe-checkout')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add payment method' }));
     await waitFor(() => expect(screen.getByTestId('stripe-checkout')).toBeInTheDocument());
+  });
+
+  it('names the charge on the button when no trial remains', async () => {
+    createWizardCheckoutSession.mockResolvedValue({
+      clientSecret: 'cs_test_secret',
+      publishableKey: 'pk_test_123',
+      uiMode: 'embedded_page',
+      trialEndsAt: null,
+      plan: { displayName: 'Pro', price: 50000, currency: 'EUR', billingInterval: 'month' },
+    });
+
+    render(<PaymentStep initialPlan="pro" planWasPreselected />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Pay €500 and save card/ })).toBeInTheDocument()
+    );
   });
 
   it('mounts the themed Elements form when the session asks for it', async () => {
@@ -185,6 +210,7 @@ describe('which Stripe UI is mounted', () => {
     });
 
     render(<PaymentStep initialPlan="pro" planWasPreselected />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add payment method' }));
     // The iframe path must NOT be mounted — a client secret from an `elements`
     // session fails inside embedded checkout with an opaque Stripe error.
     await waitFor(() => expect(screen.queryByTestId('stripe-checkout')).not.toBeInTheDocument());
@@ -199,6 +225,7 @@ describe('which Stripe UI is mounted', () => {
     });
 
     render(<PaymentStep initialPlan="pro" planWasPreselected />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add payment method' }));
     await waitFor(() => expect(screen.getByTestId('stripe-checkout')).toBeInTheDocument());
   });
 });

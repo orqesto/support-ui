@@ -37,12 +37,24 @@ export const CheckoutSessionForm = ({
   }
 
   return (
-    <EmbeddedCheckoutProvider
-      key={session.clientSecret}
-      stripe={stripePromise}
-      options={{ clientSecret: session.clientSecret, onComplete }}
-    >
-      <EmbeddedCheckout />
-    </EmbeddedCheckoutProvider>
+    /**
+     * Embedded Checkout renders light whatever our theme is, and no CSS of ours
+     * reaches inside the iframe. Left bare on a dark page it reads as a hole;
+     * given its own light surface with our radius and padding it reads as a
+     * payment sheet we chose. The seam is what looked broken, not the colour.
+     *
+     * Deliberately NOT applied to the Elements branch above — that form takes
+     * our theme, and forcing a light panel behind it would undo exactly the
+     * thing it exists for.
+     */
+    <div className="overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+      <EmbeddedCheckoutProvider
+        key={session.clientSecret}
+        stripe={stripePromise}
+        options={{ clientSecret: session.clientSecret, onComplete }}
+      >
+        <EmbeddedCheckout />
+      </EmbeddedCheckoutProvider>
+    </div>
   );
 };

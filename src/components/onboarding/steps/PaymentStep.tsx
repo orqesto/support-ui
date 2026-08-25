@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Check } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ExternalLink } from '@/components/ui/ExternalLink';
@@ -89,6 +91,7 @@ export const PaymentStep = ({
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   // Set when the BE reports the workspace is already subscribed (409).
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
 
@@ -155,6 +158,9 @@ export const PaymentStep = ({
   }, [chosenPlan, onPaidChange]);
 
   const handleComplete = useCallback(() => {
+    // Close first: the success alert replaces this whole step, so leaving the
+    // dialog mounted would stack a confirmation behind a modal.
+    setFormOpen(false);
     setPaid(true);
     onPaidChange?.(true);
   }, [onPaidChange]);
@@ -293,14 +299,32 @@ export const PaymentStep = ({
             )}
           </p>
 
-          {/* Which Stripe UI to mount is decided by the session, not here —
-              see CheckoutSessionForm. */}
-          <CheckoutSessionForm
-            session={session}
-            stripePromise={stripePromise}
-            onComplete={handleComplete}
-            submitLabel={`Start ${session.plan.displayName} trial`}
-          />
+          {/* The form opens in a dialog rather than sitting in the step.
+              Embedded Checkout renders light regardless of our theme and cannot
+              be styled from here, so inline it was a white slab in the middle of
+              a dark page. A modal is expected to carry its own surface, which
+              turns that from a defect into a deliberate payment sheet — and it
+              makes this identical to the Billing page's flow instead of being a
+              second, different way to do the same thing. */}
+          <Button className="w-full" onClick={() => setFormOpen(true)}>
+            {chargeDate(session)
+              ? 'Add payment method'
+              : `Pay ${formatMoney(session.plan.price, session.plan.currency)} and save card`}
+          </Button>
+
+          <Dialog open={formOpen} onOpenChange={setFormOpen} size="lg">
+            <DialogHeader>
+              <DialogTitle>{`Start your ${session.plan.displayName} plan`}</DialogTitle>
+            </DialogHeader>
+            <DialogContent>
+              <CheckoutSessionForm
+                session={session}
+                stripePromise={stripePromise}
+                onComplete={handleComplete}
+                submitLabel={`Start ${session.plan.displayName} trial`}
+              />
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
