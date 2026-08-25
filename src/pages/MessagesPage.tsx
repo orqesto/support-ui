@@ -34,6 +34,7 @@ import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
+import { ListScopeNotice } from '@/components/messages/ListScopeNotice';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
@@ -176,6 +177,7 @@ export const MessagesPage = () => {
   const clearFiltersStore = useMessagesStore((state) => state.clearFilters);
   // Merges, so it is the several-key write the filter bar needs — see handleFilterPatch.
   const patchFilters = useMessagesStore((state) => state.setFilters);
+  const listScope = useMessagesStore((state) => state.listScope);
 
   // Derived up here, not next to the filter counts, because useMessagesData needs it:
   // the list query drops the filters the board cannot honour.
@@ -704,6 +706,24 @@ export const MessagesPage = () => {
                       lifecycle: 'all',
                       queue: 'all',
                     });
+                  }}
+                />
+              )}
+
+              {/* What this view is hiding. Rendered ABOVE the list and outside the
+                  empty-state branch on purpose: "No messages found" while three
+                  thousand sit one filter away is the worst version of the silence
+                  this fixes, so the notice has to survive an empty result. */}
+              {displayMode === 'threads' && !loading && (
+                <ListScopeNotice
+                  scope={listScope}
+                  shown={pagination.total}
+                  onJump={(next) => {
+                    // patchFilters merges, so pass only the delta. The store clears
+                    // the cache AND the stale scope on a filter change — the old count
+                    // describes the old lens, and leaving it up is a smaller version
+                    // of the same lie.
+                    patchFilters(next as typeof filters);
                   }}
                 />
               )}

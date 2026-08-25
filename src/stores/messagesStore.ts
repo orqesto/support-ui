@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDepartmentContextStore } from './departmentContextStore';
-import type { PaginationMeta, MessageThread } from '@/services/message.service';
+import type { PaginationMeta, MessageThread, ListScope } from '@/services/message.service';
 
 export type MessageViewStatus =
   | 'all'
@@ -139,6 +139,12 @@ export type SortingState = {
 type CacheEntry = {
   threads: MessageThread[];
   pagination: PaginationMeta;
+  /**
+   * What the lens is hiding, or `null` for "no information". Deliberately NOT defaulted
+   * to a zeroed object: "we could not tell you" and "nothing is hidden" are different
+   * claims, and collapsing them re-creates the silence this exists to break.
+   */
+  listScope: ListScope | null;
   timestamp: number;
 };
 
@@ -148,8 +154,26 @@ type MessagesState = {
   sorting: SortingState;
   currentPage: number;
 
-  getCached: (page: number) => { threads: MessageThread[]; pagination: PaginationMeta } | null;
-  setMessages: (threads: MessageThread[], pagination: PaginationMeta) => void;
+  /**
+   * What the lens is hiding on the page currently shown, or `null` for "no information".
+   * Deliberately NOT defaulted to a zeroed object: "we could not tell you" and "nothing
+   * is hidden" are different claims, and collapsing them re-creates the silence this
+   * whole feature exists to break.
+   */
+  listScope: ListScope | null;
+
+  getCached: (page: number) => {
+    threads: MessageThread[];
+    pagination: PaginationMeta;
+    listScope: ListScope | null;
+  } | null;
+  setMessages: (
+    threads: MessageThread[],
+    pagination: PaginationMeta,
+    listScope: ListScope | null
+  ) => void;
+  /** Restore the notice for a page served from cache. */
+  setListScope: (listScope: ListScope | null) => void;
   setFilters: (filters: FilterState) => void;
   setSorting: (sorting: SortingState) => void;
   updateFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
@@ -197,6 +221,7 @@ export const useMessagesStore = create<MessagesState>()(
       filters: defaultFilters,
       sorting: { sortBy: 'time', sortOrder: 'desc' },
       currentPage: 1,
+      listScope: null,
 
       getCached: (page: number) => {
         const state = get();
@@ -207,24 +232,35 @@ export const useMessagesStore = create<MessagesState>()(
 
         if (Date.now() - entry.timestamp > 5 * 60 * 1000) return null;
 
-        return { threads: entry.threads, pagination: entry.pagination };
+        return {
+          threads: entry.threads,
+          pagination: entry.pagination,
+          // Older persisted entries predate this field; `?? null` keeps them readable
+          // and, correctly, says "no information" rather than inventing a zero.
+          listScope: entry.listScope ?? null,
+        };
       },
 
-      setMessages: (threads, pagination) => {
+      setMessages: (threads, pagination, listScope) => {
         const state = get();
         const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page);
         set({
           cache: {
             ...state.cache,
-            [cacheKey]: { threads, pagination, timestamp: Date.now() },
+            [cacheKey]: { threads, pagination, listScope, timestamp: Date.now() },
           },
           currentPage: pagination.page,
+          listScope,
         });
       },
 
+      setListScope: (listScope) => set({ listScope }),
+
       setFilters: (filters) => {
         const currentState = get();
-        set({ filters: { ...currentState.filters, ...filters }, cache: {} });
+        // The scope describes the OLD lens, so it must go with the cache. Leaving a
+        // stale count on screen while new rows load is a smaller version of the same lie.
+        set({ filters: { ...currentState.filters, ...filters }, cache: {}, listScope: null });
       },
 
       setSorting: (sorting) => {
