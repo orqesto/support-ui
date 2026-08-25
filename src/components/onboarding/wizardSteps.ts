@@ -29,7 +29,7 @@ export const PAYMENT_STEP_LABEL = 'Payment';
  * allowlist (`PAID_SELF_SERVE_PLAN_NAMES` in config/subscriptions.ts) — the BE
  * refuses a checkout session for anything else, so these must agree.
  */
-export const PAID_PLANS = ['starter', 'pro'];
+export const PAID_PLANS = ['starter', 'pro', 'enterprise-cloud'];
 
 /**
  * Show the payment step wherever billing is actually configured. Self-hosted and
