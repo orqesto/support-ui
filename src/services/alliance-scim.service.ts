@@ -1,7 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL } from '@/lib/config';
 import { getErrorStatus } from '@/lib/errorMessages';
-import type { OrganizationRole } from '@/types/roles';
+import type { OrganizationRole, PermissionOverrides } from '@/types/roles';
 
 /**
  * Thin API layer for the per-ALLIANCE SCIM provisioning surface (05-07, D-05).
@@ -184,6 +184,16 @@ export type WireTarget =
       orgIds?: number[];
       /** Per-org department ids to map onto the backing group (scoped roles only). */
       departmentIdsByOrg?: Record<number, number[]>;
+      /**
+       * Permissions the backing group grants on top of its role — the same { added, removed }
+       * shape the group API takes.
+       *
+       * Optional, and only sent when an admin actually customizes something: the backend that
+       * accepts it here ships separately from this app, and one without it does not fail — it
+       * STRIPS the unknown key and answers 200. So a wire that asked for overrides is read back
+       * afterwards rather than assumed (see SyncedGroupsCard.submitWire).
+       */
+      permissionOverrides?: PermissionOverrides;
     };
 
 /** Result of wiring a synced group — how many already-synced members were reconciled. */

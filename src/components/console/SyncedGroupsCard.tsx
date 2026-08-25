@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
+import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
 import type { DepartmentIdsByOrg } from '@/services/alliance-groups.service';
@@ -21,7 +22,12 @@ import {
 } from '@/hooks/useAllianceProvisioning';
 import type { AllianceOrg } from '@/services/alliance-admin.service';
 import type { SyncedGroup, WireTarget } from '@/services/alliance-scim.service';
-import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
+import {
+  ORGANIZATION_ROLES,
+  overridesEqual,
+  type OrganizationRole,
+  type PermissionOverrides,
+} from '@/types/roles';
 
 /**
  * Synced IdP groups card — the single Approach-1 surface for the alliance Provisioning
@@ -68,6 +74,16 @@ const orgRoleOf = (value: string): OrganizationRole | null => {
     : null;
 };
 
+/**
+ * What we could establish about the permissions a wire ASKED for, after reading the backing
+ * group back. `null` — they landed, or none were asked for.
+ *   'dropped'     — the group came back without them: the server predates the field.
+ *   'unconfirmed' — the group could not be found from its IdP wiring, so this build cannot
+ *                   tell either way. Absent is not empty; saying "dropped" here would be a
+ *                   guess dressed as a finding.
+ */
+type OverridesVerdict = 'dropped' | 'unconfirmed';
+
 /** A grant that needs an explicit confirm before it lands. */
 const privilegedKind = (value: string): 'org_admin' | null =>
   value === 'orgrole:org_admin' ? 'org_admin' : null;
@@ -99,6 +115,9 @@ const SyncedGroupRow = ({
   onToggleOrg,
   deptsByOrg,
   onDeptChange,
+  permissionOverrides,
+  onOverridesChange,
+  overridesVerdict,
   onWire,
   onUnwire,
   wiring,
@@ -113,6 +132,9 @@ const SyncedGroupRow = ({
   onToggleOrg: (orgId: number) => void;
   deptsByOrg: DepartmentIdsByOrg;
   onDeptChange: (orgId: number, deptIds: number[]) => void;
+  permissionOverrides: PermissionOverrides;
+  onOverridesChange: (next: PermissionOverrides) => void;
+  overridesVerdict: OverridesVerdict | null;
   onWire: () => void;
   onUnwire: () => void;
   wiring: boolean;
@@ -143,6 +165,16 @@ const SyncedGroupRow = ({
           </span>
         )}
       </div>
+
+      {overridesVerdict !== null && (
+        <Alert variant="warning">
+          <span className="text-sm">
+            {overridesVerdict === 'dropped'
+              ? 'Access was mapped, but this server did not save the custom permissions — it predates them. Members get the role’s defaults, which may be MORE than you selected. Re-apply them by editing the group once the server is updated.'
+              : 'Access was mapped, but this build cannot confirm the custom permissions were saved. Open the backing group and check its permissions.'}
+          </span>
+        </Alert>
+      )}
 
       {group.externalId === null ? (
         <Alert variant="warning">
@@ -277,6 +309,21 @@ const SyncedGroupRow = ({
             </div>
           )}
 
+          {/* Same control the group editor uses, on the same grant: the backing group this
+              wire mints is authored here and nowhere else, so without it an IdP-wired group
+              could only be finished by opening a second screen. Existing-group targets get
+              no section — that group already carries its own overrides, and re-pointing
+              must not silently rewrite them. */}
+          {selectedOrgRole !== null && (
+            <div className="pt-1">
+              <PermissionOverridesSection
+                role={selectedOrgRole}
+                value={permissionOverrides}
+                onChange={onOverridesChange}
+              />
+            </div>
+          )}
+
           {/* Hidden against a backend that still returns the old alliance-role shape —
               showing "Associate" for a suggestion the server never made would be a
               guess dressed as advice. */}
@@ -306,6 +353,9 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const [orgIdsByGroup, setOrgIdsByGroup] = useState<Record<number, number[]>>({});
   // Per synced group → per workspace → mapped department ids (org-role wires only).
   const [deptsByGroup, setDeptsByGroup] = useState<Record<number, DepartmentIdsByOrg>>({});
+  // Per synced group → permissions the backing group should grant on top of its role.
+  const [overridesByGroup, setOverridesByGroup] = useState<Record<number, PermissionOverrides>>({});
+  const [verdictByGroup, setVerdictByGroup] = useState<Record<number, OverridesVerdict>>({});
   const [adminConfirm, setAdminConfirm] = useState<{
     group: SyncedGroup;
     target: WireTarget;
@@ -368,6 +418,24 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
 
   const deptsFor = (group: SyncedGroup): DepartmentIdsByOrg => deptsByGroup[group.id] ?? {};
 
+  const clearVerdict = (groupId: number) =>
+    setVerdictByGroup((prev) => {
+      if (!(groupId in prev)) return prev;
+      const next = { ...prev };
+      delete next[groupId];
+      return next;
+    });
+
+  const overridesFor = (group: SyncedGroup): PermissionOverrides => overridesByGroup[group.id] ?? {};
+
+  const setOverridesForGroup = (group: SyncedGroup, next: PermissionOverrides) => {
+    setOverridesByGroup((prev) => ({ ...prev, [group.id]: next }));
+    // The warning describes the LAST wire. Editing the selection makes it stale, so clear it
+    // rather than leave a red flag hanging over a choice it was never about.
+    clearVerdict(group.id);
+  };
+
+
   const setDeptsForGroupOrg = (group: SyncedGroup, orgId: number, deptIds: number[]) => {
     setDeptsByGroup((prev) => ({
       ...prev,
@@ -375,9 +443,43 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
     }));
   };
 
-  const submitWire = (group: SyncedGroup, target: WireTarget) => {
+  /**
+   * Wire, then READ BACK the permissions it asked for.
+   *
+   * `permissionOverrides` on the wire endpoint ships separately from this app. A backend
+   * without it does not fail — zod strips the unknown key and answers 200 — so the mapping
+   * succeeds while the customization disappears, and it disappears in the PERMISSIVE
+   * direction: a permission the admin removed stays granted. There is no capability flag to
+   * ask for, so the backing group (matched on its own IdP wiring, not on a name we guessed)
+   * is the only honest confirmation available.
+   */
+  const submitWire = async (group: SyncedGroup, target: WireTarget) => {
     if (!group.externalId) return;
-    wire.mutate({ idpGroupExternalId: group.externalId, target });
+    const requested = target.type === 'newGroup' ? target.permissionOverrides : undefined;
+    try {
+      await wire.mutateAsync({ idpGroupExternalId: group.externalId, target });
+    } catch {
+      return; // the mutation already reported it; nothing was wired, so there is nothing to verify
+    }
+    if (!requested) {
+      clearVerdict(group.id);
+      return;
+    }
+    const fresh = await allianceGroupsQuery.refetch();
+    const backing = (fresh.data ?? []).find(
+      (candidate) => candidate.idpGroup?.externalId === group.externalId
+    );
+    const verdict: OverridesVerdict | null =
+      backing === undefined
+        ? 'unconfirmed'
+        : overridesEqual(backing.permissionOverrides, requested)
+          ? null
+          : 'dropped';
+    if (verdict === null) {
+      clearVerdict(group.id);
+      return;
+    }
+    setVerdictByGroup((prev) => ({ ...prev, [group.id]: verdict }));
   };
 
   const buildTarget = (group: SyncedGroup, value: string): WireTarget | null => {
@@ -396,12 +498,18 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
                 .map((orgId) => [orgId, groupDepts[orgId] ?? []] as const)
                 .filter(([, deptIds]) => deptIds.length > 0)
             );
+      // Only write the key when the admin actually customized something: an untouched form
+      // must be indistinguishable from an old client, so an empty object never overwrites.
+      const overrides = overridesFor(group);
+      const customized =
+        (overrides.added?.length ?? 0) + (overrides.removed?.length ?? 0) > 0;
       return {
         type: 'newGroup',
         name: backingGroupName(group.displayName, orgRole),
         orgRole,
         orgIds,
         departmentIdsByOrg,
+        ...(customized && { permissionOverrides: overrides }),
       };
     }
     return parseSimpleTarget(value);
@@ -416,7 +524,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
       setAdminConfirm({ group, target, kind });
       return;
     }
-    submitWire(group, target);
+    void submitWire(group, target);
   };
 
   const confirmText = 'Grant org admin';
@@ -474,12 +582,18 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               allianceId={allianceId}
               targetOptions={targetOptions}
               selectedValue={selectedValueFor(group)}
-              onSelect={(value) => setSelectedByGroup((prev) => ({ ...prev, [group.id]: value }))}
+              onSelect={(value) => {
+                setSelectedByGroup((prev) => ({ ...prev, [group.id]: value }));
+                clearVerdict(group.id);
+              }}
               activeOrgs={activeOrgs}
               selectedOrgIds={orgIdsFor(group)}
               onToggleOrg={(orgId) => toggleOrgFor(group, orgId)}
               deptsByOrg={deptsFor(group)}
               onDeptChange={(orgId, deptIds) => setDeptsForGroupOrg(group, orgId, deptIds)}
+              permissionOverrides={overridesFor(group)}
+              onOverridesChange={(next) => setOverridesForGroup(group, next)}
+              overridesVerdict={verdictByGroup[group.id] ?? null}
               onWire={() => handleWire(group)}
               onUnwire={() => setUnwireConfirm(group)}
               wiring={wire.isPending || unwire.isPending}
@@ -492,7 +606,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         open={adminConfirm !== null}
         onOpenChange={(open) => !open && setAdminConfirm(null)}
         onConfirm={() => {
-          if (adminConfirm) submitWire(adminConfirm.group, adminConfirm.target);
+          if (adminConfirm) void submitWire(adminConfirm.group, adminConfirm.target);
           setAdminConfirm(null);
         }}
         variant="danger"
