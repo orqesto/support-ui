@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDialog';
 import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
@@ -95,6 +96,13 @@ type SubscriptionDetails = {
     canCancel?: boolean;
     cancellationRoute?: 'stripe' | 'local' | null;
     hasBillingPortal?: boolean;
+    /**
+     * Whether "add a card" is a real action here. Reported by the API because
+     * this page cannot see whether a Stripe subscription exists — the last time
+     * it guessed, it offered every workspace a billing portal none of them
+     * could open.
+     */
+    canAddPaymentMethod?: boolean;
   };
 };
 
@@ -113,6 +121,7 @@ export const SubscriptionPage = () => {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [resuming, setResuming] = useState(false);
+  const [addingPaymentMethod, setAddingPaymentMethod] = useState(false);
 
   const handleOpenPortal = async () => {
     setPortalLoading(true);
@@ -530,6 +539,26 @@ export const SubscriptionPage = () => {
             </Card>
           )}
 
+          {/* Offered when the workspace has no card on file yet — the case the
+              wizard's "finish without a card" path creates. Without this there
+              was NO route to paying for the plan you are already on: the portal
+              needs a Stripe customer, and /pricing disables the button for your
+              current plan. */}
+          {canManage && subscription.canAddPaymentMethod && (
+            <Card
+              className="transition-shadow cursor-pointer hover:shadow-md"
+              onClick={() => setAddingPaymentMethod(true)}
+            >
+              <CardContent className="p-6">
+                <CreditCard className="mb-3 w-8 h-8 text-blue-600" />
+                <h3 className="mb-1 font-semibold">Add a Payment Method</h3>
+                <p className="text-sm text-foreground/70">
+                  Save a card now so your plan continues when the trial ends
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Hidden without a Stripe customer: the endpoint 400s in that case,
               and until this gate existed the card was shown to every org — all
               of which are on manually-assigned plans and none of which could
@@ -548,7 +577,7 @@ export const SubscriptionPage = () => {
                   {portalLoading ? 'Opening Billing Portal…' : 'Billing & Invoices'}
                 </h3>
                 <p className="text-sm text-foreground/70">
-                  Manage payment methods and view invoices
+                  Update your card, view invoices, manage billing details
                 </p>
               </CardContent>
             </Card>
@@ -569,6 +598,13 @@ export const SubscriptionPage = () => {
             </Button>
           </div>
         )}
+
+        <AddPaymentMethodDialog
+          open={addingPaymentMethod}
+          onOpenChange={setAddingPaymentMethod}
+          planName={plan.name}
+          onAdded={() => void refresh()}
+        />
 
         <ConfirmDialog
           open={confirmingCancel}

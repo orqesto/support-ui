@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe-js';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Check } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
-import { ElementsCheckoutMount } from './ElementsCheckout';
+import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { Spinner } from '@/components/ui/Spinner';
@@ -34,10 +33,27 @@ const formatPrice = (amountInCents: number, currency: string) =>
     minimumFractionDigits: 0,
   }).format(amountInCents / 100);
 
-const trialEndDate = (days: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+const formatDay = (value: string | Date) =>
+  new Date(value).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+/**
+ * When the customer is actually charged.
+ *
+ * The backend now reports this, because computing "today + trialPeriodDays"
+ * here was wrong for anyone finishing the wizard after day 0 — it promised a
+ * trial end later than the one the workspace actually has. The fallback keeps
+ * the old (approximate) behaviour against a backend that does not send it yet.
+ */
+const chargeDate = (session: WizardCheckoutSession): string | null => {
+  if (session.trialEndsAt === null) return null;
+  if (session.trialEndsAt) return formatDay(session.trialEndsAt);
+  const approximate = new Date();
+  approximate.setDate(approximate.getDate() + session.trialPeriodDays);
+  return formatDay(approximate);
 };
 
 /**
@@ -154,9 +170,14 @@ export const PaymentStep = ({
   if (paid && session) {
     return (
       <Alert variant="success">
-        {`Card saved for ${session.plan.displayName}. Your trial stays free until ${trialEndDate(
-          session.trialPeriodDays
-        )} — we'll only charge ${formatPrice(session.plan.price, session.plan.currency)} then, and you can cancel any time before.`}
+        {chargeDate(session)
+          ? `Card saved for ${session.plan.displayName}. Your trial stays free until ${chargeDate(
+              session
+            )} — we'll only charge ${formatPrice(session.plan.price, session.plan.currency)} then, and you can cancel any time before.`
+          : `Card saved for ${session.plan.displayName}. Your trial has run out, so ${formatPrice(
+              session.plan.price,
+              session.plan.currency
+            )} is charged now — you can cancel any time.`}
       </Alert>
     );
   }
@@ -251,33 +272,34 @@ export const PaymentStep = ({
         <>
           <p className="text-sm text-muted-foreground">
             {`${session.plan.displayName} · ${formatPrice(session.plan.price, session.plan.currency)}/${session.plan.billingInterval}. `}
-            <span className="font-medium text-foreground">
-              {`Your trial is free until ${trialEndDate(session.trialPeriodDays)}`}
-            </span>
-            {` — nothing is charged today, and you can cancel before then. Prefer to decide later? Skip this step; you can add a card any time from Billing.`}
+            {chargeDate(session) ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {`Your trial is free until ${chargeDate(session)}`}
+                </span>
+                {` — nothing is charged today, and you can cancel before then. Prefer to decide later? Skip this step; you can add a card any time from Billing.`}
+              </>
+            ) : (
+              <>
+                {/* No trial left to promise. Saying "free until <date>" here and
+                    then charging today is the surprise that produces a
+                    chargeback rather than a support ticket. */}
+                <span className="font-medium text-foreground">
+                  {`${formatPrice(session.plan.price, session.plan.currency)} is charged today`}
+                </span>
+                {` — your trial has run out. You can cancel any time.`}
+              </>
+            )}
           </p>
 
-          {/* `elements` builds the form from our own components and follows the
-              light/dark toggle; `embedded_page` is Stripe's un-themeable iframe,
-              kept as the rollback the backend can select without a deploy. The
-              session decides — see WizardCheckoutSession.uiMode. */}
-          {session.uiMode === 'elements' ? (
-            <ElementsCheckoutMount
-              key={session.clientSecret}
-              stripePromise={stripePromise}
-              clientSecret={session.clientSecret}
-              onComplete={handleComplete}
-              submitLabel={`Start ${session.plan.displayName} trial`}
-            />
-          ) : (
-            <EmbeddedCheckoutProvider
-              key={session.clientSecret}
-              stripe={stripePromise}
-              options={{ clientSecret: session.clientSecret, onComplete: handleComplete }}
-            >
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
-          )}
+          {/* Which Stripe UI to mount is decided by the session, not here —
+              see CheckoutSessionForm. */}
+          <CheckoutSessionForm
+            session={session}
+            stripePromise={stripePromise}
+            onComplete={handleComplete}
+            submitLabel={`Start ${session.plan.displayName} trial`}
+          />
         </>
       )}
     </div>

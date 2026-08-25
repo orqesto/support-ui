@@ -192,6 +192,50 @@ describe('a cancellation that is already scheduled', () => {
   });
 });
 
+describe('adding a card after finishing onboarding without one', () => {
+  /**
+   * The wizard's skip path promises "you can add a card any time from Billing".
+   * That was false: no Stripe customer means the portal 400s, and /pricing
+   * disables the button for the plan the workspace is already on, so there was
+   * no route to paying for your current plan — only to switching plans.
+   */
+  it('offers the action to a workspace with no card on file', async () => {
+    mockLoad(manualSubscription({ canAddPaymentMethod: true, hasBillingPortal: false }));
+    render(<SubscriptionPage />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Add a Payment Method')).toBeInTheDocument()
+    );
+  });
+
+  it('does not offer it once a card is on file — that is the portal\'s job', async () => {
+    mockLoad(manualSubscription({ canAddPaymentMethod: false, hasBillingPortal: true }));
+    render(<SubscriptionPage />);
+
+    await waitFor(() => expect(screen.getByText('Billing & Invoices')).toBeInTheDocument());
+    expect(screen.queryByText('Add a Payment Method')).not.toBeInTheDocument();
+  });
+
+  it('leaves a workspace with neither route stranded on nothing, not a dead button', async () => {
+    // Older backend: no fields at all. Better to show the previous behaviour
+    // than to render an action whose endpoint refuses every caller.
+    mockLoad({
+      plan: PLAN,
+      subscription: {
+        status: 'active',
+        currentPeriodStart: '2026-09-01T00:00:00Z',
+        currentPeriodEnd: PERIOD_END,
+        trialEndsAt: null,
+        cancelAt: null,
+      },
+    });
+    render(<SubscriptionPage />);
+
+    await waitFor(() => expect(screen.getByText('Billing & Invoices')).toBeInTheDocument());
+    expect(screen.queryByText('Add a Payment Method')).not.toBeInTheDocument();
+  });
+});
+
 describe('a Stripe-backed subscription', () => {
   it('keeps the billing portal available alongside the cancel action', async () => {
     mockLoad(manualSubscription({ cancellationRoute: 'stripe', hasBillingPortal: true }));
