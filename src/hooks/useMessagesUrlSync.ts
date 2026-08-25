@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { COLUMNS } from '@/components/messages/kanbanColumns';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -134,6 +135,15 @@ export const useMessagesUrlSync = ({
         urlFilters.queue = urlQueue as FilterState['queue'];
       }
 
+      // A quick-filter chip is a real filter, so it belongs in the URL like every other one.
+      // Without this, `setFilters({ ...defaultFilters, ...urlFilters })` below silently resets
+      // the chip to "All" on every URL sync — the selection would survive a click and vanish on
+      // the next navigation, and a shared link would carry the wrong list.
+      const urlColumn = searchParams.get('column');
+      if (urlColumn && COLUMNS.some((col) => col.id === urlColumn)) {
+        urlFilters.columnId = urlColumn;
+      }
+
       const urlRead = searchParams.get('read');
       if (urlRead && (VALID_READ as readonly string[]).includes(urlRead)) {
         urlFilters.read = urlRead as FilterState['read'];
@@ -262,6 +272,7 @@ export const useMessagesUrlSync = ({
     if (filters.lifecycle && filters.lifecycle !== 'all')
       params.set('lifecycle', filters.lifecycle);
     if (filters.queue && filters.queue !== 'all') params.set('queue', filters.queue);
+    if (filters.columnId && filters.columnId !== 'all') params.set('column', filters.columnId);
     if (filters.read && filters.read !== 'all') params.set('read', filters.read);
     if (filters.aiState && filters.aiState !== 'all') params.set('aiState', filters.aiState);
     if (filters.linked && filters.linked !== 'all') params.set('linked', filters.linked);
