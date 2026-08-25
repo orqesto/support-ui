@@ -3,7 +3,13 @@ import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Check } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ExternalLink } from '@/components/ui/ExternalLink';
@@ -315,6 +321,10 @@ export const PaymentStep = ({
           <Dialog open={formOpen} onOpenChange={setFormOpen} size="lg" dismissOnOverlayClick={false}>
             <DialogHeader>
               <DialogTitle>{`Start your ${session.plan.displayName} plan`}</DialogTitle>
+              {/* `DialogClose` is opt-in, and this dialog also disables backdrop dismissal so a
+                  stray click cannot discard a half-entered card. Without an X that left Escape as
+                  the only way out — no visible exit at all on a payment screen. */}
+              <DialogClose onClose={() => setFormOpen(false)} />
             </DialogHeader>
             <DialogContent>
               <CheckoutSessionForm

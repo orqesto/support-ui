@@ -33,6 +33,28 @@ export const Dialog = ({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [open, onOpenChange]);
 
+  /**
+   * Hold the page still while a dialog is open.
+   *
+   * Without this the body scrolls behind the overlay: a wheel gesture aimed at the dialog moves
+   * the page underneath instead, and on a tall dialog — a Stripe checkout especially — the
+   * content the user is reading slides away from them. Every dialog in the app had this, not
+   * just the payment one.
+   *
+   * The previous `overflow` is restored rather than assumed to be `''`, so a dialog opened from
+   * a page that manages its own scrolling does not leave that page permanently unscrollable
+   * after closing. Nested dialogs are safe for the same reason: the inner one restores what the
+   * outer one set, and the outer one restores the page's own value.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return createPortal(
