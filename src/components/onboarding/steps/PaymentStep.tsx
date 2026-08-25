@@ -45,6 +45,13 @@ const formatDay = (value: string | Date) =>
 const chargeDate = (session: WizardCheckoutSession): string | null => {
   if (session.trialEndsAt === null) return null;
   if (session.trialEndsAt) return formatDay(session.trialEndsAt);
+
+  // Only reachable against a backend that predates the trial anchoring. It
+  // sends `trialPeriodDays` and no `trialEndsAt`, and this reproduces its old
+  // (approximate) answer. Guarded rather than assumed: adding `undefined` to a
+  // date yields "Invalid Date", which would be printed at a customer on the
+  // screen that takes money.
+  if (typeof session.trialPeriodDays !== 'number') return null;
   const approximate = new Date();
   approximate.setDate(approximate.getDate() + session.trialPeriodDays);
   return formatDay(approximate);
@@ -138,7 +145,7 @@ export const PaymentStep = ({
         // Never block finishing setup on a billing failure — the step is
         // optional and the org already has a working trial.
         setError(
-          "We couldn't load the payment form right now. You can finish setup and add a card later from Billing."
+          "We couldn't load the payment form right now. You can finish setup and sort billing out later from Billing."
         );
       });
 
@@ -271,7 +278,7 @@ export const PaymentStep = ({
                 <span className="font-medium text-foreground">
                   {`Your trial is free until ${chargeDate(session)}`}
                 </span>
-                {` — nothing is charged today, and you can cancel before then. Prefer to decide later? Skip this step; you can add a card any time from Billing.`}
+                {` — nothing is charged today, and you can cancel before then. Prefer to decide later? Skip this step and set billing up any time from Billing.`}
               </>
             ) : (
               <>

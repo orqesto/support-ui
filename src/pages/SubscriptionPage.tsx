@@ -103,6 +103,12 @@ type SubscriptionDetails = {
      * could open.
      */
     canAddPaymentMethod?: boolean;
+    /**
+     * The workspace is on `free`, so paying means picking a plan first — there
+     * is no card to add yet. This, not `canAddPaymentMethod`, is the state the
+     * onboarding wizard's "finish without a card" actually produces.
+     */
+    needsPlanToPay?: boolean;
   };
 };
 
@@ -539,11 +545,30 @@ export const SubscriptionPage = () => {
             </Card>
           )}
 
-          {/* Offered when the workspace has no card on file yet — the case the
-              wizard's "finish without a card" path creates. Without this there
-              was NO route to paying for the plan you are already on: the portal
-              needs a Stripe customer, and /pricing disables the button for your
-              current plan. */}
+          {/* A free workspace has no plan to put a card against, so the route
+              to paying is choosing one. This is where "finish without a card"
+              actually lands: the wizard never applies the plan a visitor
+              arrived with, so the workspace is on `free` regardless. Offering a
+              card form here would check out against a plan with no price. */}
+          {canManage && subscription.needsPlanToPay && (
+            <Card
+              className="transition-shadow cursor-pointer hover:shadow-md"
+              onClick={() => navigate('/pricing')}
+            >
+              <CardContent className="p-6">
+                <CreditCard className="mb-3 w-8 h-8 text-blue-600" />
+                <h3 className="mb-1 font-semibold">Choose a Plan</h3>
+                <p className="text-sm text-foreground/70">
+                  Pick a plan and add a card to keep working after the trial
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Offered when the workspace is already on a paid plan but has no
+              card. Without this there was no route to paying for the plan you
+              are already on: the portal needs a Stripe customer, and /pricing
+              disables the button for your current plan. */}
           {canManage && subscription.canAddPaymentMethod && (
             <Card
               className="transition-shadow cursor-pointer hover:shadow-md"
