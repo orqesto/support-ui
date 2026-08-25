@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
@@ -12,23 +13,42 @@ export const Dialog = ({
   className,
   size = 'md',
   blur = 'none',
+  dismissOnOverlayClick = true,
 }: DialogProps) => {
+  /**
+   * Escape closes, listened for on the document rather than on the backdrop.
+   *
+   * It used to be a handler on the overlay div, which only fired when that div
+   * itself had focus — so for any dialog the user was actually typing in, and
+   * emphatically for one wrapping a Stripe iframe, Escape did nothing. A dialog
+   * that cannot be dismissed from the keyboard is a trap, and that is doubly
+   * true for one that deliberately ignores backdrop clicks.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onOpenChange(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onOpenChange]);
+
   if (!open) return null;
 
   return createPortal(
     <div className="flex fixed inset-0 z-[60] justify-center items-center">
-      <div
-        role="button"
-        tabIndex={0}
-        className={getDialogOverlayClasses(blur)}
-        onClick={() => onOpenChange(false)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' || event.key === 'Enter') {
-            onOpenChange(false);
-          }
-        }}
-        aria-label="Close dialog"
-      />
+      {dismissOnOverlayClick ? (
+        <button
+          type="button"
+          className={getDialogOverlayClasses(blur)}
+          onClick={() => onOpenChange(false)}
+          aria-label="Close dialog"
+        />
+      ) : (
+        /* Not interactive: a stray click must not discard something the user is
+           part-way through, such as a half-entered card. Escape still closes. */
+        <div className={getDialogOverlayClasses(blur)} />
+      )}
       <div className={cn(getDialogContentClasses(size), className)}>{children}</div>
     </div>,
     document.body
