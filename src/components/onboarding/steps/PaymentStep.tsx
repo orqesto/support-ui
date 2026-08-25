@@ -4,13 +4,16 @@ import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Check } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent } from '@/components/ui/Card';
+import { ExternalLink } from '@/components/ui/ExternalLink';
 import { Spinner } from '@/components/ui/Spinner';
 import {
   subscriptionService,
   type SubscriptionPlan,
   type WizardCheckoutSession,
 } from '@/services/subscription.service';
-import { PAID_PLANS } from '../wizardSteps';
+import { SALES_CONTACT_URL } from '@/lib/config';
+import { PAID_PLANS, SALES_ASSISTED_PLAN } from '../wizardSteps';
+import { formatFeatureAdditions, planFeatureAdditions, planLimitLines } from '../planSummary';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
@@ -61,7 +64,9 @@ export const PaymentStep = ({
   onPaidChange,
 }: PaymentStepProps) => {
   const [chosenPlan, setChosenPlan] = useState(initialPlan);
-  const [plans, setPlans] = useState<SubscriptionPlan[] | null>(null);
+  // The FULL catalog: the sellable tiers are a slice of it, and the
+  // sales-assisted tier is read from it too so its price is never hardcoded.
+  const [catalog, setCatalog] = useState<SubscriptionPlan[] | null>(null);
   const [session, setSession] = useState<WizardCheckoutSession | null>(null);
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,12 +81,12 @@ export const PaymentStep = ({
     subscriptionService
       .getPlans()
       .then((all) => {
-        if (!cancelled) setPlans(all.filter((plan) => PAID_PLANS.includes(plan.name)));
+        if (!cancelled) setCatalog(all);
       })
       .catch((err: unknown) => {
         // Non-fatal: fall back to checking out on the default plan.
         logger.error('Failed to load plans for the onboarding payment step:', err);
-        if (!cancelled) setPlans([]);
+        if (!cancelled) setCatalog([]);
       });
     return () => {
       cancelled = true;
@@ -155,21 +160,28 @@ export const PaymentStep = ({
     );
   }
 
-  const selectable = !planWasPreselected && plans && plans.length > 1;
+  // Plans arrive ordered by price, so a tier's "previous" plan is simply the one
+  // before it — which is what makes the "adds ..." line a delta over the tier below.
+  const sellable = catalog?.filter((plan) => PAID_PLANS.includes(plan.name)) ?? null;
+  const selectable = !planWasPreselected && sellable && sellable.length > 1;
+  const salesAssisted = catalog?.find((plan) => plan.name === SALES_ASSISTED_PLAN);
 
   return (
     <div className="space-y-4">
       {selectable && (
-        /* Three self-serve tiers stack on narrow viewports; the grid tracks the
-           catalog so a deploy missing a tier never renders a hole. */
+        /* Tiers stack on narrow viewports; the grid tracks the catalog so a
+           deploy missing a tier never renders a hole. */
         <div
           className={cn(
             'grid grid-cols-1 gap-3',
-            plans.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+            sellable.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
           )}
         >
-          {plans.map((plan) => {
+          {sellable.map((plan, index) => {
             const active = plan.name === chosenPlan;
+            const additions = formatFeatureAdditions(
+              planFeatureAdditions(plan, sellable[index - 1])
+            );
             return (
               /* Same selectable-card pattern as the AI and Storage steps. */
               <button
@@ -193,12 +205,39 @@ export const PaymentStep = ({
                     <p className="text-sm text-muted-foreground">
                       {`${formatPrice(plan.price, plan.currency)}/${plan.billingInterval}`}
                     </p>
+                    <ul className="space-y-0.5 pt-2 text-xs text-muted-foreground">
+                      {planLimitLines(plan).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                    {additions && <p className="pt-1 text-xs text-foreground/80">{additions}</p>}
                   </CardContent>
                 </Card>
               </button>
             );
           })}
         </div>
+      )}
+
+      {/* The sales-assisted tier is shown but deliberately NOT selectable — it has
+          no Stripe price and provisions a separate single-tenant installation, so
+          a card that looked buyable would be a lie. Its price comes from the same
+          catalog response as the tiers above, so it cannot drift from billing. */}
+      {selectable && salesAssisted && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">
+                {`${salesAssisted.displayName} · ${formatPrice(salesAssisted.price, salesAssisted.currency)}/${salesAssisted.billingInterval}`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Run it on your own infrastructure, with your own AI keys and storage. Set up with
+                us — it is not bought online.
+              </p>
+            </div>
+            <ExternalLink href={SALES_CONTACT_URL}>Talk to us</ExternalLink>
+          </CardContent>
+        </Card>
       )}
 
       {error ? (

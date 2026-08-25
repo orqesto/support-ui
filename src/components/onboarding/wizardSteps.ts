@@ -32,6 +32,14 @@ export const PAYMENT_STEP_LABEL = 'Payment';
 export const PAID_PLANS = ['starter', 'pro', 'enterprise-cloud'];
 
 /**
+ * The one tier that is NOT sold self-serve: a single-tenant installation is not
+ * something Checkout can provision, and it carries no Stripe price. Named here
+ * so the payment step can show it as a "talk to us" card rather than silently
+ * pretending the lineup ends at Enterprise Cloud.
+ */
+export const SALES_ASSISTED_PLAN = 'self-hosted';
+
+/**
  * Show the payment step wherever billing is actually configured. Self-hosted and
  * not-yet-activated boxes have no Stripe to talk to, so they never see it.
  *

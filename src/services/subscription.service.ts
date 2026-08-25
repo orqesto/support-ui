@@ -96,6 +96,31 @@ const createWizardCheckoutSession = (planName: string) =>
     }>('/api/subscriptions/checkout-session', { planName })
     .then((res) => res.data.data);
 
+/** The caps a plan row carries. Every field optional — see SubscriptionPlan. */
+export type PlanLimitValues = {
+  maxUsers: number;
+  maxOrganizations: number;
+  maxIntegrations: number;
+  maxMessagesPerMonth: number;
+  maxAICallsPerMonth: number;
+  maxStorageMb: number;
+  maxAutoRepliesPerMonth: number;
+  maxDepartments: number;
+};
+
+/** Entitlement flags on a plan row. Every field optional — see SubscriptionPlan. */
+export type PlanFeatureFlags = {
+  sso: boolean;
+  scim: boolean;
+  auditLogs: boolean;
+  jiraSync: boolean;
+  aiAutoReply: boolean;
+  advancedAnalytics: boolean;
+  leadQualification: boolean;
+  customWorkflows: boolean;
+  dedicatedOnboarding: boolean;
+};
+
 export type SubscriptionPlan = {
   id: number;
   name: string;
@@ -104,6 +129,15 @@ export type SubscriptionPlan = {
   price: number;
   currency: string;
   billingInterval: string;
+  /**
+   * `limits` and `features` are whole JSON columns and the endpoint selects the
+   * entire plan row, so they are already on the wire. Typed as PARTIAL and
+   * optional anyway: this frontend deploys ahead of the backend, and a card
+   * reading `plan.limits.maxUsers` off an older response would white-screen the
+   * final step of onboarding (FE-app/CLAUDE.md, version skew).
+   */
+  limits?: Partial<PlanLimitValues> | null;
+  features?: Partial<PlanFeatureFlags> | null;
 };
 
 /** Active, non-admin plans for the current org. */
