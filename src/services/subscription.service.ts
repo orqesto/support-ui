@@ -39,8 +39,18 @@ export type OrgUsage = {
 const getUsage = () => apiClient.get<OrgUsage>('/api/usage/current').then((res) => res.data);
 
 export type WizardCheckoutSession = {
-  /** Client secret for Stripe's embedded Checkout, mounted inline in the wizard. */
+  /** Client secret for the Stripe UI named by `uiMode`, mounted inline in the wizard. */
   clientSecret: string;
+  /**
+   * Which Stripe UI this secret drives. Travels WITH the secret rather than
+   * being configured separately here: a secret from an `elements` session fails
+   * at mount inside embedded checkout (and the reverse) with an opaque Stripe
+   * error and no way for the customer to pay.
+   *
+   * Optional — an older backend omits it, and the fallback below keeps the
+   * previous embedded-iframe behaviour rather than rendering nothing.
+   */
+  uiMode?: 'elements' | 'embedded_page';
   /**
    * Returned with the session rather than read from an FE env var, so it can
    * never belong to a different Stripe account/mode than the secret key that

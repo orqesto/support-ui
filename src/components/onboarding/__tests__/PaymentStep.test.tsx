@@ -160,3 +160,45 @@ describe('PaymentStep plan cards', () => {
     await waitFor(() => expect(createWizardCheckoutSession).toHaveBeenCalledWith('enterprise-cloud'));
   });
 });
+
+describe('which Stripe UI is mounted', () => {
+  it('falls back to the un-themeable iframe when the session says so', async () => {
+    createWizardCheckoutSession.mockResolvedValue({
+      clientSecret: 'cs_test_secret',
+      publishableKey: 'pk_test_123',
+      uiMode: 'embedded_page',
+      trialPeriodDays: 14,
+      plan: { displayName: 'Pro', price: 50000, currency: 'EUR', billingInterval: 'month' },
+    });
+
+    render(<PaymentStep initialPlan="pro" planWasPreselected />);
+    await waitFor(() => expect(screen.getByTestId('stripe-checkout')).toBeInTheDocument());
+  });
+
+  it('mounts the themed Elements form when the session asks for it', async () => {
+    createWizardCheckoutSession.mockResolvedValue({
+      clientSecret: 'cs_test_secret',
+      publishableKey: 'pk_test_123',
+      uiMode: 'elements',
+      trialPeriodDays: 14,
+      plan: { displayName: 'Pro', price: 50000, currency: 'EUR', billingInterval: 'month' },
+    });
+
+    render(<PaymentStep initialPlan="pro" planWasPreselected />);
+    // The iframe path must NOT be mounted — a client secret from an `elements`
+    // session fails inside embedded checkout with an opaque Stripe error.
+    await waitFor(() => expect(screen.queryByTestId('stripe-checkout')).not.toBeInTheDocument());
+  });
+
+  it('keeps the iframe for a backend that does not report a mode yet', async () => {
+    createWizardCheckoutSession.mockResolvedValue({
+      clientSecret: 'cs_test_secret',
+      publishableKey: 'pk_test_123',
+      trialPeriodDays: 14,
+      plan: { displayName: 'Pro', price: 50000, currency: 'EUR', billingInterval: 'month' },
+    });
+
+    render(<PaymentStep initialPlan="pro" planWasPreselected />);
+    await waitFor(() => expect(screen.getByTestId('stripe-checkout')).toBeInTheDocument());
+  });
+});
