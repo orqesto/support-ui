@@ -65,6 +65,7 @@ export const useMessagesData = ({
   const filters = useMessagesStore((state) => state.filters);
   const sorting = useMessagesStore((state) => state.sorting);
   const setMessages = useMessagesStore((state) => state.setMessages);
+  const setListScope = useMessagesStore((state) => state.setListScope);
   const clearCache = useMessagesStore((state) => state.clearCache);
   const getCached = useMessagesStore((state) => state.getCached);
   // The checkbox-driven DepartmentSwitcher writes the X-Department-Context CSV
@@ -78,6 +79,10 @@ export const useMessagesData = ({
         if (cached) {
           setThreadsLocal(cached.threads);
           setMessagesPagination(cached.pagination);
+          // Restore the notice with the rows it describes. Without this, paging back
+          // to a cached page drops the "showing 5 of 3,014" line and the list goes
+          // quiet again — which is the exact behaviour being fixed.
+          setListScope(cached.listScope);
           setLoading(false);
           return;
         }
@@ -266,6 +271,12 @@ export const useMessagesData = ({
           apiFilters.search = currentFilters.search.trim();
         }
 
+        // ⛔ LIST VIEW ONLY. The aggregate scans every conversation in the org and is
+        // the slowest of the endpoint's three queries. The board fetches per column and
+        // the dashboard fires ten `(…, 1, 1)` counter calls — none of them render this,
+        // and all of them would pay for it. `isKanban` is the only discriminator here.
+        if (!isKanban) apiFilters.scope = '1';
+
         const currentSorting = useMessagesStore.getState().sorting;
         const response = await messageService.getThreads(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
@@ -276,7 +287,9 @@ export const useMessagesData = ({
         );
 
         if (response.success && response.data) {
-          setMessages(response.data, response.pagination);
+          // `scope` is absent on a stale bundle/older backend and null when the count
+          // could not be taken. Both mean "no information" — never a zeroed object.
+          setMessages(response.data, response.pagination, response.scope ?? null);
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;
@@ -297,7 +310,7 @@ export const useMessagesData = ({
         messagesFetchingRef.current = false;
       }
     },
-    [getCached, setMessages, isKanban]
+    [getCached, setMessages, setListScope, isKanban]
   );
 
   // Fetch on filter/sorting change — resets to page 1.

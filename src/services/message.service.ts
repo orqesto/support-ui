@@ -99,6 +99,39 @@ export type PaginatedResponse<T> = {
   pagination: PaginationMeta;
 };
 
+/**
+ * What the current lens is hiding. `/api/messages/threads` only computes it when asked
+ * (`scope=1`), because the same endpoint doubles as a counter — the dashboard fires ten
+ * calls reading only `pagination.total`, and the board one per column.
+ *
+ * ⛔ `null` means NO INFORMATION — not requested, the aggregate failed, or a view it
+ * cannot describe. It is NOT the same claim as `hidden: 0`, which means the list really
+ * is everything. Render `null` as silence.
+ *
+ * ⚠️ `hiddenBecause` OVERLAPS and must never be summed: a resolved thread mined from the
+ * knowledge base is counted under both `terminal` and `knowledgeBase`. On one real
+ * workspace those two are 2,935 and 2,952 against 3,009 hidden rows.
+ */
+export type ListScope = {
+  withoutLens: number;
+  hidden: number;
+  hiddenBecause: {
+    terminal: number;
+    spam: number;
+    suspicious: number;
+    notAnalysed: number;
+    archived: number;
+    knowledgeBase: number;
+    awaitingOrReplied: number;
+    needsRouting: number;
+    other: number;
+  };
+};
+
+export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
+  scope?: ListScope | null;
+};
+
 export type MessagesMetadata = {
   total: number;
   totalPages: number;
@@ -223,7 +256,7 @@ export const messageService = {
       params.append('sortBy', sortBy);
     }
 
-    const response = await apiClient.get<PaginatedResponse<MessageThread[]>>(
+    const response = await apiClient.get<ThreadsResponse>(
       `/api/messages/threads?${params.toString()}`
     );
     return response.data;
