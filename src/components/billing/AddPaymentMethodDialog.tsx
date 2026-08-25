@@ -97,7 +97,7 @@ export const AddPaymentMethodDialog = ({
     : '';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} size="lg">
+    <Dialog open={open} onOpenChange={onOpenChange} size="lg" dismissOnOverlayClick={false}>
       <DialogHeader>
         <DialogTitle>Add a payment method</DialogTitle>
       </DialogHeader>
