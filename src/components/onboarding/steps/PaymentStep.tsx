@@ -17,7 +17,7 @@ import { SALES_CONTACT_URL } from '@/lib/config';
 import { PAID_PLANS, SALES_ASSISTED_PLAN } from '../wizardSteps';
 import { formatFeatureAdditions, planFeatureAdditions, planLimitLines } from '../planSummary';
 import { logger } from '@/lib/logger';
-import { formatMoney } from '@/lib/money';
+import { formatMoneyExVat } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 interface PaymentStepProps {
@@ -180,8 +180,8 @@ export const PaymentStep = ({
         {chargeDate(session)
           ? `Card saved for ${session.plan.displayName}. Your trial stays free until ${chargeDate(
               session
-            )} — we'll only charge ${formatMoney(session.plan.price, session.plan.currency)} then, and you can cancel any time before.`
-          : `Card saved for ${session.plan.displayName}. Your trial has run out, so ${formatMoney(
+            )} — we'll only charge ${formatMoneyExVat(session.plan.price, session.plan.currency)} then, and you can cancel any time before.`
+          : `Card saved for ${session.plan.displayName}. Your trial has run out, so ${formatMoneyExVat(
               session.plan.price,
               session.plan.currency
             )} is charged now — you can cancel any time.`}
@@ -232,7 +232,7 @@ export const PaymentStep = ({
                       {active && <Check className="ml-auto h-4 w-4 text-primary" />}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {`${formatMoney(plan.price, plan.currency)}/${plan.billingInterval}`}
+                      {`${formatMoneyExVat(plan.price, plan.currency)}/${plan.billingInterval}`}
                     </p>
                     <ul className="space-y-0.5 pt-2 text-xs text-muted-foreground">
                       {planLimitLines(plan).map((line) => (
@@ -257,7 +257,7 @@ export const PaymentStep = ({
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div className="space-y-0.5">
               <p className="text-sm font-medium text-foreground">
-                {`${salesAssisted.displayName} · ${formatMoney(salesAssisted.price, salesAssisted.currency)}/${salesAssisted.billingInterval}`}
+                {`${salesAssisted.displayName} · ${formatMoneyExVat(salesAssisted.price, salesAssisted.currency)}/${salesAssisted.billingInterval}`}
               </p>
               <p className="text-xs text-muted-foreground">
                 Run it on your own infrastructure, with your own AI keys and storage. Set up with
@@ -278,7 +278,7 @@ export const PaymentStep = ({
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {`${session.plan.displayName} · ${formatMoney(session.plan.price, session.plan.currency)}/${session.plan.billingInterval}. `}
+            {`${session.plan.displayName} · ${formatMoneyExVat(session.plan.price, session.plan.currency)}/${session.plan.billingInterval}. `}
             {chargeDate(session) ? (
               <>
                 <span className="font-medium text-foreground">
@@ -292,7 +292,7 @@ export const PaymentStep = ({
                     then charging today is the surprise that produces a
                     chargeback rather than a support ticket. */}
                 <span className="font-medium text-foreground">
-                  {`${formatMoney(session.plan.price, session.plan.currency)} is charged today`}
+                  {`${formatMoneyExVat(session.plan.price, session.plan.currency)} is charged today`}
                 </span>
                 {` — your trial has run out. You can cancel any time.`}
               </>
@@ -309,7 +309,7 @@ export const PaymentStep = ({
           <Button className="w-full" onClick={() => setFormOpen(true)}>
             {chargeDate(session)
               ? 'Add payment method'
-              : `Pay ${formatMoney(session.plan.price, session.plan.currency)} and save card`}
+              : `Pay ${formatMoneyExVat(session.plan.price, session.plan.currency)} and save card`}
           </Button>
 
           <Dialog open={formOpen} onOpenChange={setFormOpen} size="lg" dismissOnOverlayClick={false}>

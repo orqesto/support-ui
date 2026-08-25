@@ -144,7 +144,7 @@ describe('PaymentStep plan cards', () => {
     render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
 
     await waitFor(() =>
-      expect(screen.getByText(/Self-Hosted · €3,000\/month/)).toBeInTheDocument()
+      expect(screen.getByText(/Self-Hosted · €3,000 excl\. VAT\/month/)).toBeInTheDocument()
     );
 
     // It must not be one of the selectable cards: those are buttons that would
@@ -196,7 +196,9 @@ describe('which Stripe UI is mounted', () => {
 
     render(<PaymentStep initialPlan="pro" planWasPreselected />);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Pay €500 and save card/ })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /Pay €500 excl\. VAT and save card/ })
+      ).toBeInTheDocument()
     );
   });
 

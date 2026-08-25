@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Spinner } from '@/components/ui/Spinner';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
 import { logger } from '@/lib/logger';
-import { formatMoney } from '@/lib/money';
+import { formatMoneyExVat } from '@/lib/money';
 import {
   subscriptionService,
   type WizardCheckoutSession,
@@ -93,7 +93,7 @@ export const AddPaymentMethodDialog = ({
   const chargedNow = session?.trialEndsAt === null;
   const billsFrom = typeof session?.trialEndsAt === 'string' ? session.trialEndsAt : null;
   const priceLabel = session
-    ? formatMoney(session.plan.price, session.plan.currency)
+    ? formatMoneyExVat(session.plan.price, session.plan.currency)
     : '';
 
   return (
