@@ -85,17 +85,92 @@ apiClient.interceptors.request.use(
   (error: unknown) => Promise.reject(error instanceof Error ? error : new Error(String(error)))
 );
 
+/** A request we have already retried once after refreshing. Marked so it can never loop. */
+type RetriableConfig = InternalAxiosRequestConfig & { _sessionRetry?: boolean };
+
+/**
+ * Endpoints whose own 401 must NOT be answered by refreshing.
+ *
+ * These are the calls that ESTABLISH or END a session rather than use one. A 401 from
+ * `/api/auth/login` means the password was wrong — refreshing would be an irrelevant round trip
+ * whose failure then signs the user out of a session they never had. `/api/auth/refresh` is
+ * excluded for the obvious reason.
+ *
+ * ⚠️ Deliberately NOT "everything under /api/auth". `2fa/setup`, `2fa/disable`,
+ * `switch-organization` and `my-organizations` are called from inside a live session and MUST be
+ * refreshable like any other request — only the login-time siblings belong here.
+ */
+const SESSION_ESTABLISHING_PATHS = [
+  '/api/auth/refresh',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/signup',
+  '/api/auth/register',
+  '/api/auth/2fa/authenticate',
+  '/api/auth/select-organization',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/check-email',
+  '/api/auth/validate-invitation',
+  '/api/auth/sso/',
+];
+
+const isRefreshable = (url: string | undefined): boolean =>
+  !SESSION_ESTABLISHING_PATHS.some((path) => (url ?? '').startsWith(path));
+
+/**
+ * The refresh currently in flight, shared by everyone who hits a 401 while it runs.
+ *
+ * Single-flight is not an optimisation here, it is the correctness property. The app fires many
+ * requests at once, so an expired access token produces a burst of simultaneous 401s. Letting
+ * each one refresh independently means several rotations of the same refresh token in the same
+ * instant — which the backend correctly reads as token REUSE and answers by revoking the whole
+ * family. Racing to renew the session would be the thing that destroys it.
+ */
+let refreshInFlight: Promise<void> | null = null;
+
+const requestRefresh = async (): Promise<void> => {
+  try {
+    // A bare axios call, not `apiClient` — going through the instance would re-enter this same
+    // interceptor on failure and recurse.
+    await axios.post(`${API_BASE_URL}/api/auth/refresh`, {}, { withCredentials: true });
+  } catch (err) {
+    const status = (err as { response?: { status?: number } } | undefined)?.response?.status;
+    // 409 is NOT a failure. It means another TAB rotated the token moments ago and has already
+    // set the new cookie pair on this browser — cookies are shared, so we hold the fresh session
+    // too and simply need to retry. Treating 409 as terminal is exactly how a multi-tab user
+    // gets signed out for having two tabs open.
+    if (status === 409) return;
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+};
+
+/**
+ * Renew the session if it is not already being renewed, and resolve when it has been.
+ *
+ * Exported because the WebSocket path needs the same guarantee: a handshake rejected for an
+ * expired token must join this queue rather than start a second, competing refresh.
+ */
+export const ensureFreshSession = (): Promise<void> => {
+  refreshInFlight ??= requestRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+};
+
 /**
  * Response error handler. Exported so tests can drive the REAL transformation
  * instead of hand-mirroring it: everything downstream depends on the fact that a
  * failure with a body arrives as a fresh `Error` carrying `status`/`data` and no
  * `.response`, and a hand-written fixture cannot fail when that changes.
  */
-export const handleResponseError = (error: unknown): Promise<never> => {
+export const handleResponseError = async (error: unknown): Promise<unknown> => {
   // Type guard for axios error
   const isAxiosError = (
     err: unknown
-  ): err is { response?: { status?: number; data?: unknown } } =>
+  ): err is { response?: { status?: number; data?: unknown }; config?: RetriableConfig } =>
     typeof err === 'object' && err !== null && 'response' in err;
 
   if (isAxiosError(error) && error.response?.status === 401) {
@@ -106,6 +181,25 @@ export const handleResponseError = (error: unknown): Promise<never> => {
       currentPath === '/signup' ||
       currentPath === '/forgot-password' ||
       currentPath === '/reset-password';
+
+    // Before this, EVERY 401 was terminal: sign the user out and send them to /login. That was
+    // survivable while the access token lasted seven days. It is not survivable now that it
+    // lasts fifteen minutes — the same user would be bounced to the login screen four times an
+    // hour, mid-sentence, with a refresh token in their cookie jar that would have renewed the
+    // session silently.
+    //
+    // So a 401 is now a QUESTION ("is this session actually over?") and only the refresh
+    // endpoint answers it.
+    const original = error.config;
+    if (original && !isOnAuthPage && !original._sessionRetry && isRefreshable(original.url)) {
+      original._sessionRetry = true;
+      try {
+        await ensureFreshSession();
+        return await apiClient.request(original);
+      } catch {
+        // The session really is over. Fall through to the sign-out below.
+      }
+    }
 
     if (!isOnAuthPage) {
       useAuthStore.getState().logout();

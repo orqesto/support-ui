@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { API_BASE_URL } from './config';
+import { ensureFreshSession } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 
 type EventCallback = (data: unknown) => void;
@@ -14,6 +15,24 @@ const eventListeners: Map<string, Set<EventCallback>> = new Map();
 // handler (registered in getSocket) that re-joins org rooms after a reconnect.
 const eventWrappers: Map<string, EventCallback> = new Map();
 const activeOrgRooms: Set<number> = new Set();
+/**
+ * Whether the one-shot "refresh and retry the handshake" recovery has been spent since the last
+ * successful connect. Reset on `connect`, so a long-lived socket can recover from every access-
+ * token expiry it crosses — but a session that is genuinely revoked terminates on the second
+ * refusal instead of looping refresh forever.
+ */
+let authRecoveryUsed = false;
+
+/** Tear the socket down and send the user to the login screen. The terminal path only. */
+const endSessionAndRedirect = () => {
+  socket?.disconnect();
+  socket = null;
+  connectionCount = 0;
+  activeOrgRooms.clear();
+  authRecoveryUsed = false;
+  localStorage.removeItem('auth-storage');
+  window.location.href = '/login';
+};
 
 // Attach the one broadcast listener for `event` to the current socket and remember it so it
 // can be removed precisely later.
@@ -55,6 +74,10 @@ export const getSocket = (): Socket => {
 
     socket.on('connect', () => {
       logger.info('✅ WebSocket connected', socket?.id);
+      // A handshake got through, so whatever was wrong with our credentials is fixed. Arm the
+      // one-shot recovery again for the NEXT expiry — a socket that lives for hours will cross
+      // more than one 15-minute access-token boundary.
+      authRecoveryUsed = false;
       // Re-join all active organization rooms after (re)connect
       for (const orgId of activeOrgRooms) {
         logger.info(`🏢 Re-joining organization room after connect: org-${orgId}`);
@@ -69,18 +92,43 @@ export const getSocket = (): Socket => {
     socket.on('connect_error', (err) => {
       const msg = err?.message ?? '';
       if (
-        msg.includes('Session has been invalidated') ||
-        msg.includes('Invalid or expired token') ||
-        msg.includes('Authentication required')
+        !msg.includes('Session has been invalidated') &&
+        !msg.includes('Invalid or expired token') &&
+        !msg.includes('Authentication required')
       ) {
-        logger.info('🔒 WS auth rejected — clearing session and redirecting to login');
-        socket?.disconnect();
-        socket = null;
-        connectionCount = 0;
-        activeOrgRooms.clear();
-        localStorage.removeItem('auth-storage');
-        window.location.href = '/login';
+        return;
       }
+
+      // ⚠️ A rejected handshake is NOT proof the session is over — it is the same mistake the
+      // api-client used to make with 401s, in the one place nobody looked. The handshake reads
+      // the access cookie, which now lasts fifteen minutes; a socket that drops and reconnects
+      // after that boundary is refused for an EXPIRED token while a perfectly good refresh token
+      // sits in the cookie jar. Signing the user out there would bounce them to /login every
+      // time their laptop woke from sleep.
+      //
+      // So: try to renew once, then reconnect. `ensureFreshSession` is the same single-flight
+      // queue the HTTP path uses, so this cannot race an in-progress refresh into a reuse
+      // detection.
+      if (!authRecoveryUsed) {
+        authRecoveryUsed = true;
+        logger.info('🔒 WS auth rejected — renewing the session before giving up');
+        // Stop the reconnect storm while the refresh is in flight; socket.io would otherwise
+        // retry every second and burn the one recovery attempt on a cookie that has not
+        // changed yet.
+        socket?.disconnect();
+        void ensureFreshSession().then(
+          () => {
+            logger.info('🔓 Session renewed — reconnecting the WebSocket');
+            socket?.connect();
+          },
+          () => endSessionAndRedirect()
+        );
+        return;
+      }
+
+      // Refreshed and still refused: the session really is revoked or expired.
+      logger.info('🔒 WS auth rejected after a refresh — clearing session and redirecting');
+      endSessionAndRedirect();
     });
   }
 
