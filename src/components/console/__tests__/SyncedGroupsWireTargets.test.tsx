@@ -19,13 +19,13 @@ const syncedGroups: SyncedGroup[] = [];
 const unwireMutate = vi.fn();
 vi.mock('@/hooks/useAllianceProvisioning', () => ({
   useAllianceSyncedGroups: () => ({ data: syncedGroups, isLoading: false }),
-  useWireSyncedGroup: () => ({ mutate: vi.fn(), isPending: false }),
+  useWireSyncedGroup: () => ({ mutateAsync: vi.fn().mockResolvedValue({ usersReconciled: 0 }), isPending: false }),
   useResyncAllianceProvisioning: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteAllianceGroupMap: () => ({ mutate: unwireMutate, isPending: false }),
 }));
 
 vi.mock('@/hooks/useAllianceGroups', () => ({
-  useAllianceGroups: () => ({ data: [{ id: 9, name: 'Support EU' }] }),
+  useAllianceGroups: () => ({ data: [{ id: 9, name: 'Support EU' }], refetch: vi.fn() }),
   useOrgDepartments: () => ({ data: [], isLoading: false }),
 }));
 
