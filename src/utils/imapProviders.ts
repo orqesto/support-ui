@@ -133,3 +133,33 @@ export const isProviderSupported = (email: string): boolean => {
  * Get list of supported email providers
  */
 export const getSupportedProviders = (): string[] => Object.keys(IMAP_PROVIDERS).sort();
+
+/** Standard submission port (STARTTLS). */
+export const SUBMISSION_PORT = 587;
+
+export type SmtpDefaults = {
+  host: string;
+  port: number;
+  secure: boolean;
+};
+
+/**
+ * The submission settings a mailbox will be used with when its SMTP block is left empty.
+ *
+ * ⚠️ Mirrors `submissionHostFor` in the backend's `integrationSmtpHelper` — this is a preview of
+ * what the server will actually do, so the two must agree. Only the well-known `imap.`/`imap-`
+ * prefixes are rewritten; every other host is used unchanged, which is right for the many
+ * providers that serve both protocols on one name. Office 365 is the one common provider whose
+ * submission host shares no prefix with its IMAP host.
+ */
+export const deriveSmtpDefaults = (imapHost: string): SmtpDefaults | null => {
+  const host = imapHost.trim().toLowerCase();
+  if (!host) return null;
+
+  let submissionHost = host;
+  if (host === 'outlook.office365.com') submissionHost = 'smtp.office365.com';
+  else if (host.startsWith('imap.')) submissionHost = `smtp.${host.slice('imap.'.length)}`;
+  else if (host.startsWith('imap-')) submissionHost = `smtp-${host.slice('imap-'.length)}`;
+
+  return { host: submissionHost, port: SUBMISSION_PORT, secure: false };
+};
