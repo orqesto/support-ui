@@ -113,7 +113,11 @@ describe('when the trial has run out', () => {
   it('names the charge on the button rather than saying "save"', async () => {
     renderDialog();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Pay €500 and save card/ })).toBeInTheDocument()
+      // The amount is marked net: Stripe adds VAT on top, so a bare "Pay €500" promised a
+      // number the customer would not be charged.
+      expect(
+        screen.getByRole('button', { name: /Pay €500 excl\. VAT and save card/ })
+      ).toBeInTheDocument()
     );
     expect(screen.queryByRole('button', { name: 'Save payment method' })).not.toBeInTheDocument();
   });
