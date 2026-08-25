@@ -38,6 +38,7 @@ import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { ContactsView } from '@/components/messages/ContactsView';
+import { QuickFilterChips } from '@/components/messages/QuickFilterChips';
 import {
   MessagesKanbanView,
   type MessagesKanbanHandle,
@@ -685,6 +686,25 @@ export const MessagesPage = () => {
                   )}
                 </div>
               </div>
+
+              {/* One-click equivalents of the board's columns. List mode only: on the kanban the
+                  columns themselves already are the filter. */}
+              {displayMode === 'threads' && (
+                <QuickFilterChips
+                  value={filters.columnId ?? 'all'}
+                  onChange={(columnId) => {
+                    // Selecting a column supersedes the dropdown filters it overlaps with —
+                    // leaving those set would show a chip while the request carried a different,
+                    // narrower predicate.
+                    patchFilters({
+                      ...filters,
+                      columnId,
+                      lifecycle: 'all',
+                      queue: 'all',
+                    });
+                  }}
+                />
+              )}
 
               {displayMode === 'kanban' ? (
                 <MessagesKanbanView

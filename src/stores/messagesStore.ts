@@ -81,6 +81,17 @@ export type FilterState = {
   lifecycle?: LifecycleFilter;
   /** LIST-view non-lifecycle classification filter. Mutually exclusive with lifecycle. */
   queue?: QueueFilter;
+  /**
+   * A kanban column selected as a one-click filter in list view.
+   *
+   * Holds the COLUMN ID rather than a copy of its predicate, so the list applies the very
+   * `fixedFilters` object the board applies. The two views cannot then disagree about what
+   * "Spam" or "Not Analysed" contains — which they would within a release if the chip row
+   * carried its own mapping table.
+   *
+   * Takes precedence over `lifecycle`/`queue`/`status` while set; 'all' means no column.
+   */
+  columnId?: string;
   /** Per-user read/unread filter (triage queues). 'all' = no filter. */
   read?: 'all' | 'read' | 'unread';
   /**
@@ -153,6 +164,7 @@ export const defaultFilters: FilterState = {
   threadStatus: 'all',
   lifecycle: 'all',
   queue: 'all',
+  columnId: 'all',
   read: 'all',
   priority: 'all',
   assigneeId: 'all',
