@@ -88,6 +88,13 @@ export type WizardCheckoutSession = {
     billingInterval: string;
   };
   trialPeriodDays: number;
+  /**
+   * When the customer is first charged — the org's REAL trial end, not
+   * "today + 14" recomputed here. Null means they are charged on completion,
+   * because no trial is recorded or too little of one remains for Stripe to
+   * accept it. Optional so an older backend still renders.
+   */
+  trialEndsAt?: string | null;
 };
 
 /**
