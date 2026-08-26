@@ -1,4 +1,5 @@
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
+import { fetchThreads } from './threadsQuery';
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
@@ -242,26 +243,14 @@ export const messageService = {
       | 'priority_sla'
       | 'last_client_reply'
       | 'last_our_reply' = 'time'
-  ) => {
-    const params = new URLSearchParams({
-      ...cleanFilters(filters),
-      page: page.toString(),
-      limit: limit.toString(),
-    });
-
-    if (sortOrder) {
-      params.append('sortOrder', sortOrder);
-    }
-
-    if (sortBy !== 'time') {
-      params.append('sortBy', sortBy);
-    }
-
-    const response = await apiClient.get<ThreadsResponse>(
-      `/api/messages/threads?${params.toString()}`
-    );
-    return response.data;
-  },
+  ) =>
+    fetchThreads<ThreadsResponse>({
+      filters: cleanFilters(filters),
+      page,
+      limit,
+      sortOrder,
+      sortBy,
+    }),
 
   getAll: async (
     filters?: Record<string, string>,

@@ -1,7 +1,7 @@
 /**
  * A value list long enough to hide things must be searchable.
  *
- * Measured on a live workspace 2026-08-26: the "Sent to" filter offered 99 addresses —
+ * Measured on a live workspace 2026-08-26: the "Delivered to" filter offered 99 addresses —
  * eleven belonging to the mailbox and eighty-eight customers who had once been cc'd or
  * replied to — inside a 260px scroll window, alphabetical, with no search. Every alias
  * WAS there, so the filter was technically correct and practically unusable.
@@ -26,8 +26,8 @@ const alias = (address: string, ours = false, hint?: string) => ({
 });
 
 const MANY = [
-  alias('info@coresarms.co.uk', true, '257 · delivered'),
-  alias('info@coresarms.de', true, '49 · delivered'),
+  alias('info@coresarms.co.uk', true, '257 · confirmed'),
+  alias('info@coresarms.de', true, '49 · confirmed'),
   ...Array.from({ length: 10 }, (_, index) => alias(`customer${index}@example.com`, false, '1')),
 ];
 
@@ -43,18 +43,18 @@ const open = (aliases = MANY) => {
     />
   );
   fireEvent.mouseDown(screen.getByLabelText(/filter or search/i));
-  fireEvent.click(screen.getByText('Sent to'));
+  fireEvent.click(screen.getByText('Delivered to'));
 };
 
 describe('value panel search', () => {
   it('offers a search box once the list has outgrown scanning', () => {
     open();
-    expect(screen.getByLabelText('Search Sent to')).toBeTruthy();
+    expect(screen.getByLabelText('Search Delivered to')).toBeTruthy();
   });
 
   it('narrows the list to what was typed', () => {
     open();
-    fireEvent.change(screen.getByLabelText('Search Sent to'), { target: { value: 'coresarms' } });
+    fireEvent.change(screen.getByLabelText('Search Delivered to'), { target: { value: 'coresarms' } });
     expect(screen.getByText('info@coresarms.co.uk')).toBeTruthy();
     expect(screen.queryByText('customer0@example.com')).toBeNull();
   });
@@ -62,26 +62,26 @@ describe('value panel search', () => {
   it('matches the middle of an address, not only its start', () => {
     // Someone hunting an alias types the domain, not the local part.
     open();
-    fireEvent.change(screen.getByLabelText('Search Sent to'), { target: { value: '.de' } });
+    fireEvent.change(screen.getByLabelText('Search Delivered to'), { target: { value: '.de' } });
     expect(screen.getByText('info@coresarms.de')).toBeTruthy();
     expect(screen.queryByText('info@coresarms.co.uk')).toBeNull();
   });
 
   it('says so when nothing matches, rather than showing an empty panel', () => {
     open();
-    fireEvent.change(screen.getByLabelText('Search Sent to'), { target: { value: 'zzzz' } });
+    fireEvent.change(screen.getByLabelText('Search Delivered to'), { target: { value: 'zzzz' } });
     expect(screen.getByText(/No address matches/i)).toBeTruthy();
   });
 
   it('shows the provenance hint beside the address', () => {
-    // "257 · delivered" is our own server's record of accepting the mail; a bare count is
+    // "257 · confirmed" is our own server's record of accepting the mail; a bare count is
     // the sender's claim. The distinction is the whole reason the hint exists.
     open();
-    expect(screen.getByText('257 · delivered')).toBeTruthy();
+    expect(screen.getByText('257 · confirmed')).toBeTruthy();
   });
 
   it('does NOT offer search on a short list', () => {
     open([alias('info@coresarms.co.uk', true), alias('info@coresarms.de', true)]);
-    expect(screen.queryByLabelText('Search Sent to')).toBeNull();
+    expect(screen.queryByLabelText('Search Delivered to')).toBeNull();
   });
 });

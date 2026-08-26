@@ -249,12 +249,16 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       kind: 'select',
       options: dynamic.sources,
     },
-    // NOT a date filter, despite the name: the address the mail was delivered to. One
+    // NOT a date filter, despite the key: the address the mail was delivered to. One
     // mailbox answers to info@, sales@ and support@, so `messageSourceId` cannot
-    // separate them. Labelled "Sent to" so it stops reading like a timestamp.
+    // separate them — and the label has to say so, or it reads like a timestamp.
+    //
+    // It was "Sent to", which read as mail WE sent — the opposite of what this selects.
+    // That ambiguity cost a round of confusion about whether the list should be built
+    // from the From header instead. "Delivered to" states the direction outright.
     {
       key: 'receivedAt',
-      label: 'Sent to',
+      label: 'Delivered to',
       group: 'Routing',
       kind: 'select',
       options: dynamic.aliases,
