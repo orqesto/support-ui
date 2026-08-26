@@ -75,6 +75,8 @@ describe('messageService.getReceivedAtOptions', () => {
  */
 describe('describeReceivedAt', () => {
   it('marks an address our own server recorded taking delivery', () => {
+    // Not the word "delivered": the filter itself is labelled "Delivered to", so a row
+    // WITHOUT the mark would read as a bug rather than as the weaker signal it is.
     expect(
       describeReceivedAt({
         address: 'info@acme.com',
@@ -82,7 +84,7 @@ describe('describeReceivedAt', () => {
         conversations: 257,
         deliveredConversations: 257,
       })
-    ).toBe('257 · delivered');
+    ).toBe('257 · confirmed');
   });
 
   it('shows volume alone when the address was only ever named in To/Cc', () => {

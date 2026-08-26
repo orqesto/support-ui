@@ -60,7 +60,10 @@ export const normaliseReceivedAtOptions = (rows: unknown): ReceivedAtOption[] =>
  */
 export const describeReceivedAt = (option: ReceivedAtOption): string | undefined => {
   if (option.conversations <= 0) return undefined;
+  // NOT the word "delivered": the filter is now LABELLED "Delivered to", and a row
+  // without the mark would then read as a bug rather than as a weaker signal. What
+  // separates these two is who says so — our own receiving server, or the sender.
   return option.deliveredConversations > 0
-    ? `${option.conversations} · delivered`
+    ? `${option.conversations} · confirmed`
     : `${option.conversations}`;
 };

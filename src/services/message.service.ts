@@ -243,8 +243,14 @@ export const messageService = {
       | 'last_client_reply'
       | 'last_our_reply' = 'time'
   ) => {
+    // 🔒 `receivedAt` is a CORRESPONDENT'S email address, so it travels in a header
+    // rather than the query string. As a parameter it would end up in the browser
+    // address bar, in browser history, in any shared or saved link, in the `Referer`
+    // of the next click, and in the standard access log, which records the full
+    // request line. A header is in none of those.
+    const { receivedAt, ...rest } = cleanFilters(filters);
     const params = new URLSearchParams({
-      ...cleanFilters(filters),
+      ...rest,
       page: page.toString(),
       limit: limit.toString(),
     });
@@ -258,7 +264,8 @@ export const messageService = {
     }
 
     const response = await apiClient.get<ThreadsResponse>(
-      `/api/messages/threads?${params.toString()}`
+      `/api/messages/threads?${params.toString()}`,
+      receivedAt ? { headers: { 'X-Filter-Received-At': receivedAt } } : undefined
     );
     return response.data;
   },
