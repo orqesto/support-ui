@@ -6,11 +6,19 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
+import { BusinessHoursSettings } from './BusinessHoursSettings';
 import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
 
-type OrgSection = 'details' | 'categories' | 'labels' | 'routing-skills' | 'sla-config' | 'security';
+type OrgSection =
+  | 'details'
+  | 'categories'
+  | 'labels'
+  | 'routing-skills'
+  | 'sla-config'
+  | 'business-hours'
+  | 'security';
 
 const sections = [
   { id: 'details' as OrgSection, label: 'Details', description: 'Workspace name and description' },
@@ -18,12 +26,13 @@ const sections = [
   { id: 'labels' as OrgSection, label: 'Labels', description: 'Custom ticket labels' },
   { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
   { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
+  { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
 ];
 
 // Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from
 // moderators who can otherwise reach the Workspace tab via VIEW_ORGANIZATION_SETTINGS.
-const ADMIN_ONLY_SECTIONS: OrgSection[] = ['sla-config', 'security'];
+const ADMIN_ONLY_SECTIONS: OrgSection[] = ['sla-config', 'business-hours', 'security'];
 
 const KNOWN_ORG_SECTIONS = sections.map((sect) => sect.id);
 const isOrgSection = (value: string): value is OrgSection =>
@@ -40,8 +49,9 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
   const { isAdmin, isOrgAdmin } = usePermissions();
 
   // The "Workspace" tab is reachable by moderators (VIEW_ORGANIZATION_SETTINGS), but SLA
-  // Thresholds and Authentication configure workspace-wide policy (SLA targets, 2FA
-  // enforcement) — admin-only controls. Gate them to org_admin+ / global admin so they
+  // Thresholds, Business Hours and Authentication configure workspace-wide policy (SLA
+  // targets, the working calendar every response metric reads, 2FA enforcement) —
+  // admin-only controls. Gate them to org_admin+ / global admin so they
   // aren't shown to moderators. UX-only; the BE requireOrgAdmin guard is the authority.
   const canManageOrgPolicy = isAdmin || isOrgAdmin;
   const visibleSections = canManageOrgPolicy
@@ -90,6 +100,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'labels' && <LabelsSettings />}
         {active === 'routing-skills' && <RoutingKeysSettings />}
         {active === 'sla-config' && canManageOrgPolicy && <SLAConfigSettings />}
+        {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
         {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
       </Tabs>
     </div>
