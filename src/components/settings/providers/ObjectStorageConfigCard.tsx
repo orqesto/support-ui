@@ -271,10 +271,22 @@ export const ObjectStorageConfigCard = () => {
               </p>
             )}
             {configured && canManage && (
-              <Button variant="destructive" size="sm" onClick={handleRemove} isLoading={removing}>
-                <Trash2 className="mr-2 w-4 h-4" />
-                Remove saved S3 config
-              </Button>
+              /* A saved BYO config can outlive the switch to managed storage. `mode` is
+                 authoritative — files already go to managed storage — so this button is
+                 CLEANUP of unused credentials, not a switch. It read as the opposite: a
+                 destructive "Remove saved S3 config" directly under "Files are stored in
+                 Odly's managed storage" invites the reading that one of the two is lying
+                 about where files actually are. Say what it does and what it doesn't. */
+              <div className="space-y-2">
+                <p className="text-xs">
+                  A saved S3 configuration is still stored. Files already use managed
+                  storage — clearing it only removes the unused credentials.
+                </p>
+                <Button variant="destructive" size="sm" onClick={handleRemove} isLoading={removing}>
+                  <Trash2 className="mr-2 w-4 h-4" />
+                  Clear unused S3 credentials
+                </Button>
+              </div>
             )}
           </div>
         ) : (
