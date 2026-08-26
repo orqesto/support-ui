@@ -33,7 +33,15 @@ export function ThreadMessageItem({
       msg.createdAt)
     : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
 
-  const initials = getInitials(msg.authorEmail ?? '');
+  // Prefer the person when the BE could resolve one: initials of a shared mailbox
+  // are identical for every agent on it, which is the same problem the header below
+  // fixes. `authorName` is null for AI/automated and imported replies — those keep
+  // falling back to the mailbox.
+  // Normalise once: the BE already NULLIFs an empty name, and treating a blank as
+  // absent here means a stray whitespace-only value can never render as a nameless
+  // author or a '?' avatar.
+  const authorName = msg.authorName?.trim() ? msg.authorName.trim() : null;
+  const initials = getInitials(authorName ?? msg.authorEmail ?? '');
   if (isAgent) {
     return (
       <div className="flex flex-row-reverse gap-2">
@@ -42,7 +50,22 @@ export function ThreadMessageItem({
         </div>
         <div className="flex flex-col items-end max-w-[88%]">
           <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-muted-foreground mb-0.5">
-            <span>{msg.authorEmail ?? 'Support'}</span>
+            {/* Who sent this, then what the customer saw it come from. They are
+                different facts: `authorEmail` is the shared mailbox, identical on
+                every agent's reply, so on its own the thread reads as though the
+                mailbox answered itself. Without `authorName` — AI and automated
+                replies, and mail imported from the mailbox rather than sent here —
+                this stays exactly as it was rather than guessing at a person. */}
+            <span className="truncate" title={msg.authorUserEmail ?? undefined}>
+              {authorName ? (
+                <>
+                  <span className="font-semibold text-foreground/75">{authorName}</span>
+                  {msg.authorEmail ? <span> · via {msg.authorEmail}</span> : null}
+                </>
+              ) : (
+                (msg.authorEmail ?? 'Support')
+              )}
+            </span>
             <span className="whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
               {formatWhen(msgTime)}
             </span>

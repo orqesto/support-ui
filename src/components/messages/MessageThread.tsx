@@ -351,8 +351,18 @@ export const MessageThread = ({
                                 <Mail className="w-4 h-4" />
                               </div>
                               <div className="flex-1">
-                                <div className="text-sm font-medium">Support Team</div>
-                                <div className="text-xs text-muted-foreground">Reply</div>
+                                {/* The second place a reply's author is rendered.
+                                    It hardcoded "Support Team", so this view and
+                                    the bubble view disagreed about who answered —
+                                    fix one and the other still lies. Same fallback
+                                    on purpose: no `authorName` means AI, automated
+                                    or imported, which must not be given a name. */}
+                                <div className="text-sm font-medium">
+                                  {reply.authorName?.trim() ? reply.authorName.trim() : 'Support Team'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {reply.authorEmail ? `Reply · via ${reply.authorEmail}` : 'Reply'}
+                                </div>
                               </div>
                             </div>
                             <div className="text-xs whitespace-nowrap text-muted-foreground">
