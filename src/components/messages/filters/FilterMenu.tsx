@@ -1,4 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   GROUP_ORDER,
@@ -53,6 +54,11 @@ const OptionRow = ({
       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: option.dot }} />
     )}
     <span className={`flex-1 truncate ${selected ? 'font-semibold' : ''}`}>{option.label}</span>
+    {option.hint && (
+      <span className="shrink-0 tabular-nums text-[10.5px] text-muted-foreground">
+        {option.hint}
+      </span>
+    )}
     {selected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
   </Button>
 );
@@ -74,6 +80,15 @@ export const optionSelected = (
   if (def.kind === 'date') return !isRangeValue(current) && current === value;
   return current === value;
 };
+
+/**
+ * How many options a value list may hold before it gets a search box.
+ *
+ * Eight is roughly what fits the 260px window without scrolling. Departments, statuses
+ * and priorities stay below it and are unaffected; the addresses list is the one that
+ * blew past it.
+ */
+const SEARCH_THRESHOLD = 8;
 
 /** One filter's values, plus the sub-choice when the parent has one. */
 const ValuePanel = ({
@@ -98,6 +113,23 @@ const ValuePanel = ({
     ? (filters as Record<string, unknown>)[def.sub.key]
     : undefined;
   const range = current && isRangeValue(current) ? rangeFromValue(current) : {};
+
+  // A list this long stops being a menu and becomes a haystack. The "Received at"
+  // filter on a real workspace offers 99 addresses; scrolling a 260px window for one
+  // of them is not a way to find it. Below the threshold a search box is just clutter,
+  // so it appears only when the list has actually outgrown being scanned.
+  const [query, setQuery] = useState('');
+  const searchable = (def.options?.length ?? 0) > SEARCH_THRESHOLD;
+  const options = useMemo(() => {
+    const all = def.options ?? [];
+    const needle = query.trim().toLowerCase();
+    if (!searchable || !needle) return all;
+    return all.filter(
+      (option) =>
+        option.label.toLowerCase().includes(needle) ||
+        option.value.toLowerCase().includes(needle)
+    );
+  }, [def.options, query, searchable]);
 
   return (
     <>
@@ -128,9 +160,31 @@ const ValuePanel = ({
         </p>
       )}
 
+      {searchable && (
+        <div className="px-2 pt-2">
+          <div className="flex gap-1.5 items-center px-2 rounded-md border bg-input border-border focus-within:border-primary">
+            <Search className="w-3 h-3 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              value={query}
+              autoFocus
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`Search ${def.label.toLowerCase()}…`}
+              aria-label={`Search ${def.label}`}
+              className="py-1.5 w-full bg-transparent outline-none text-[12px] placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="overflow-y-auto p-1 max-h-[260px]">
-        {(def.options ?? []).map((option, index) => {
-          const priorSection = def.options?.[index - 1]?.section;
+        {searchable && options.length === 0 && (
+          <p className="px-2 py-3 text-[11.5px] text-center text-muted-foreground">
+            No address matches “{query.trim()}”.
+          </p>
+        )}
+        {options.map((option, index) => {
+          const priorSection = options[index - 1]?.section;
           const showSection = option.section && option.section !== priorSection;
           return (
             <div key={option.value}>
@@ -317,6 +371,10 @@ export const FilterMenu = ({
   if (panelDef) {
     return (
       <ValuePanel
+        // Keyed so switching filters remounts the panel and its search box starts
+        // empty. A stale needle carried across would silently hide options in the
+        // filter you just opened, which reads as "this filter has nothing".
+        key={panelDef.key}
         def={panelDef}
         filters={filters}
         onBack={onBack}

@@ -29,6 +29,9 @@ import type { FilterState } from '@/stores/messagesStore';
 
 const ROW = 'w-full px-4 h-[52px] flex items-center gap-3 text-left border-b border-border/50 rounded-none justify-start font-normal';
 
+/** Mirrors FilterMenu's threshold — see the note there. */
+const OPTION_SEARCH_THRESHOLD = 8;
+
 export const FilterSheet = ({
   open,
   onClose,
@@ -55,6 +58,16 @@ export const FilterSheet = ({
 }) => {
   const [panelKey, setPanelKey] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  // Separate from `query` above, which searches FILTERS. This one searches the VALUES
+  // inside one filter's panel — the "Received at" list runs to 99 addresses on a real
+  // workspace, and a touch drawer is the worst place to hunt through that by scrolling.
+  const [optionQuery, setOptionQuery] = useState('');
+  // Opening a different filter must start with an empty needle. A stale one would
+  // silently hide options in the panel just opened, which reads as "nothing here".
+  const openPanel = (key: string | null) => {
+    setOptionQuery('');
+    setPanelKey(key);
+  };
 
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
   const suggestions = useMemo(
@@ -63,9 +76,20 @@ export const FilterSheet = ({
   );
   const usable = useMemo(() => visibleDefs(defs, isKanban), [defs, isKanban]);
   const panelDef = panelKey ? defs.find((def) => def.key === panelKey) : undefined;
+  const panelSearchable = (panelDef?.options?.length ?? 0) > OPTION_SEARCH_THRESHOLD;
+  const panelOptions = useMemo(() => {
+    const all = panelDef?.options ?? [];
+    const needle = optionQuery.trim().toLowerCase();
+    if (!panelSearchable || !needle) return all;
+    return all.filter(
+      (option) =>
+        option.label.toLowerCase().includes(needle) ||
+        option.value.toLowerCase().includes(needle)
+    );
+  }, [panelDef, optionQuery, panelSearchable]);
 
   const close = () => {
-    setPanelKey(null);
+    openPanel(null);
     setQuery('');
     onClose();
   };
@@ -88,7 +112,7 @@ export const FilterSheet = ({
     }
     // A multi keeps its drill-down open — the whole point is picking more than one, and
     // bouncing back to the filter list after each would make that four taps a value.
-    if (!def.multi) setPanelKey(null);
+    if (!def.multi) openPanel(null);
   };
 
   /** One token off — a patch, because Received is three fields and an inversion goes
@@ -104,7 +128,7 @@ export const FilterSheet = ({
         <div className="flex flex-col h-full">
           <Button
             variant="ghost"
-            onClick={() => setPanelKey(null)}
+            onClick={() => openPanel(null)}
             className="flex gap-1.5 justify-start items-center px-4 h-11 rounded-none border-b shrink-0 border-border/60 text-[13.5px] text-muted-foreground"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -132,8 +156,28 @@ export const FilterSheet = ({
               Pick as many as you like — the list matches any of them.
             </p>
           )}
+          {panelSearchable && (
+            <div className="px-4 py-2 border-b border-border/60 shrink-0">
+              <div className="flex gap-2 items-center px-2.5 rounded-md border bg-input border-border focus-within:border-primary">
+                <Search className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={optionQuery}
+                  onChange={(event) => setOptionQuery(event.target.value)}
+                  placeholder={`Search ${panelDef.label.toLowerCase()}…`}
+                  aria-label={`Search ${panelDef.label}`}
+                  className="py-2 w-full bg-transparent outline-none text-[14px] placeholder:text-muted-foreground"
+                />
+              </div>
+            </div>
+          )}
           <div className="overflow-y-auto flex-1">
-            {(panelDef.options ?? []).map((option) => {
+            {panelSearchable && panelOptions.length === 0 && (
+              <p className="px-4 py-4 text-[13px] text-center text-muted-foreground">
+                No address matches “{optionQuery.trim()}”.
+              </p>
+            )}
+            {panelOptions.map((option) => {
               const on = optionSelected(panelDef, current, option.value);
               return (
                 <Button
@@ -151,6 +195,11 @@ export const FilterSheet = ({
                   <span className={`flex-1 text-[14.5px] truncate ${on ? 'font-semibold' : ''}`}>
                     {option.label}
                   </span>
+                  {option.hint && (
+                    <span className="shrink-0 tabular-nums text-[12px] text-muted-foreground">
+                      {option.hint}
+                    </span>
+                  )}
                   {on && <Check className="w-4 h-4 text-primary shrink-0" />}
                 </Button>
               );
@@ -213,7 +262,7 @@ export const FilterSheet = ({
                 alwaysShowRemove
                 onEdit={() =>
                   (token.def.kind === 'select' || token.def.kind === 'date') &&
-                  setPanelKey(token.def.key)
+                  openPanel(token.def.key)
                 }
                 onRemove={() => remove(token.def)}
               />
@@ -280,7 +329,7 @@ export const FilterSheet = ({
                         setQuery('');
                         return;
                       }
-                      setPanelKey(suggestion.def.key);
+                      openPanel(suggestion.def.key);
                       setQuery('');
                     }}
                     className={ROW}
@@ -333,7 +382,7 @@ export const FilterSheet = ({
                         <Button
                           key={def.key}
                           variant="ghost"
-                          onClick={() => setPanelKey(def.key)}
+                          onClick={() => openPanel(def.key)}
                           className={`${ROW} justify-between`}
                         >
                           <span className="text-[14.5px] shrink-0">{def.label}</span>
