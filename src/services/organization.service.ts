@@ -65,6 +65,27 @@ export type OrgLeadConfig = {
   digestRecipients?: string[];
 };
 
+export type BusinessHoursWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+/** `[open, close]` as `HH:MM` wall-clock in the org's own timezone. */
+export type BusinessHoursRange = [string, string];
+
+export type BusinessHoursConfig = {
+  timezone: string;
+  week: Partial<Record<BusinessHoursWeekday, BusinessHoursRange[]>>;
+  holidays?: string[];
+};
+
+/**
+ * `configured: false` is a real answer, not an error — an org that has never set a calendar
+ * reports wall-clock only. Distinguishing it from "the endpoint is not deployed here" is the
+ * caller's job; see the 404 handling in BusinessHoursSettings.
+ */
+export type BusinessHoursResponse = {
+  configured: boolean;
+  businessHours: BusinessHoursConfig | null;
+};
+
 export const organizationService = {
   getById: async (id: number) => {
     const response = await apiClient.get<ApiResponse<Organization>>(`/api/organizations/${id}`);
@@ -336,6 +357,23 @@ export const organizationService = {
 
   updateSelfEditSkills: async (allowSelfEditSkills: boolean): Promise<void> => {
     await apiClient.patch('/api/organizations/self-edit-skills', { allowSelfEditSkills });
+  },
+
+  getBusinessHours: async (): Promise<BusinessHoursResponse> => {
+    const response = await apiClient.get<ApiResponse<BusinessHoursResponse>>(
+      '/api/organizations/business-hours'
+    );
+    return response.data.data ?? { configured: false, businessHours: null };
+  },
+
+  updateBusinessHours: async (
+    businessHours: BusinessHoursConfig | null
+  ): Promise<BusinessHoursResponse> => {
+    const response = await apiClient.patch<ApiResponse<BusinessHoursResponse>>(
+      '/api/organizations/business-hours',
+      { businessHours }
+    );
+    return response.data.data ?? { configured: businessHours !== null, businessHours };
   },
 
   getSecuritySettings: async (): Promise<{ require2FA: boolean }> => {
