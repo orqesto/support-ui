@@ -96,6 +96,14 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
   if (!msg) return null;
 
   const receivedAt = (msg.metadata as { receivedAt?: string })?.receivedAt ?? msg.createdAt;
+  // The age on a card must be LATEST ACTIVITY, not when the thread started.
+  // `receivedAt` is stamped from the message that CREATED the conversation and never
+  // moves, so a thread answered minutes ago still read "6d" while the list view —
+  // same data, same request — showed the recent reply. On a board sorted newest-first
+  // that is actively misleading: the card that just moved looks like the stalest one.
+  // Mirrors MessageListItem's `thread.lastMessageAt ?? receivedAt` so the two views
+  // cannot disagree again.
+  const activityAt = thread.lastMessageAt ?? receivedAt;
 
   const primaryDept = msg.departmentId
     ? allDepts.find((dept) => dept.id === msg.departmentId)
@@ -221,7 +229,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           )}
         </Button>
         <span className="flex-1" />
-        <span className="whitespace-nowrap shrink-0">{formatAge(receivedAt)}</span>
+        <span className="whitespace-nowrap shrink-0">{formatAge(activityAt)}</span>
       </div>
 
       {/* Sender row — channel icon + bold name */}
