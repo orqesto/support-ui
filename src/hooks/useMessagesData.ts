@@ -322,6 +322,15 @@ export const useMessagesData = ({
     });
   }, [
     filters.messageSourceId,
+    // `columnId` (the quick-filter chips) and `receivedAt` (the "Received at" alias token) belong
+    // here for the same reason every other field does: `fetchMessages` reads them out of the store
+    // when it runs, so if they are not a dependency, changing them updates the store and the
+    // highlighted control and issues no request. Both shipped that way, and both were intermittent
+    // rather than dead — a chip appeared to work whenever the click also reset some other filter,
+    // which is why it read as flakiness. `refetchCoversEveryFilter.test.ts` now fails if a future
+    // field is read by the builder without being listed here.
+    filters.columnId,
+    filters.receivedAt,
     filters.departmentId,
     filters.status,
     filters.threadStatus,
