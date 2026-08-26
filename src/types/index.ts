@@ -148,7 +148,15 @@ export type MessageEvent = {
   content: string;
   channel: ChannelType;
   authorId?: number | null;
+  // The INTEGRATION's address — the From: the customer sees, e.g. info@shop.com.
+  // Shared by every agent on the mailbox, so it never identifies who replied.
   authorEmail?: string | null;
+  // The teammate who actually sent this reply, resolved by the BE from `authorId`
+  // and only for a member of this org. NULL for AI/automated replies and for
+  // anything imported from the mailbox rather than sent through the app — those
+  // must fall back to a non-person label, never to someone's name.
+  authorName?: string | null;
+  authorUserEmail?: string | null;
   parentEventId?: number | null;
   processingError?: string | null;
   sentAt?: string | null;
