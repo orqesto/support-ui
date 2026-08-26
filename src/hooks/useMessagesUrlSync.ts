@@ -286,8 +286,12 @@ export const useMessagesUrlSync = ({
     }
     if (filters.messageSourceId && filters.messageSourceId !== 'all')
       params.set('source', filters.messageSourceId);
-    if (filters.receivedAt && filters.receivedAt !== 'all')
-      params.set('receivedAt', filters.receivedAt);
+    // 🔒 Deliberately NOT written to the URL. This value is a correspondent's email
+    // address; putting it here would leave it in the address bar, in history, and in
+    // every link the user shares or saves. It is still READ below, so a link made
+    // before this change keeps working — the point is that no new one carries PII.
+    // The cost is that this one filter does not survive being copied out of the bar,
+    // which is a smaller price than a third party's address in someone's history.
     if (filters.ageRange && filters.ageRange !== 'all') params.set('ageRange', filters.ageRange);
     if (filters.receivedFrom) params.set('receivedFrom', filters.receivedFrom);
     if (filters.receivedTo) params.set('receivedTo', filters.receivedTo);
