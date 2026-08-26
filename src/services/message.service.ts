@@ -1,4 +1,5 @@
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
+import { fetchThreads } from './threadsQuery';
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
@@ -242,33 +243,14 @@ export const messageService = {
       | 'priority_sla'
       | 'last_client_reply'
       | 'last_our_reply' = 'time'
-  ) => {
-    // 🔒 `receivedAt` is a CORRESPONDENT'S email address, so it travels in a header
-    // rather than the query string. As a parameter it would end up in the browser
-    // address bar, in browser history, in any shared or saved link, in the `Referer`
-    // of the next click, and in the standard access log, which records the full
-    // request line. A header is in none of those.
-    const { receivedAt, ...rest } = cleanFilters(filters);
-    const params = new URLSearchParams({
-      ...rest,
-      page: page.toString(),
-      limit: limit.toString(),
-    });
-
-    if (sortOrder) {
-      params.append('sortOrder', sortOrder);
-    }
-
-    if (sortBy !== 'time') {
-      params.append('sortBy', sortBy);
-    }
-
-    const response = await apiClient.get<ThreadsResponse>(
-      `/api/messages/threads?${params.toString()}`,
-      receivedAt ? { headers: { 'X-Filter-Received-At': receivedAt } } : undefined
-    );
-    return response.data;
-  },
+  ) =>
+    fetchThreads<ThreadsResponse>({
+      filters: cleanFilters(filters),
+      page,
+      limit,
+      sortOrder,
+      sortBy,
+    }),
 
   getAll: async (
     filters?: Record<string, string>,
