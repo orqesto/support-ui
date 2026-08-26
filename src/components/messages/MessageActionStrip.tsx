@@ -18,6 +18,8 @@ export type MessageActionStripProps = {
   message: Message;
   isFiltered: boolean;
   isSuspicious: boolean;
+  /** Spam verdict on a conversation that is not in a triage state — see MessageDetail. */
+  isSpamFlaggedOutsideTriage?: boolean;
   isActive: boolean;
   resolving: boolean;
   hasLinkedTicket?: boolean;
@@ -41,6 +43,7 @@ export function MessageActionStrip({
   message,
   isFiltered,
   isSuspicious,
+  isSpamFlaggedOutsideTriage = false,
   resolving,
   hasLinkedTicket,
   onReopen,
@@ -109,6 +112,34 @@ export function MessageActionStrip({
               <ShieldCheck className="w-3.5 h-3.5" />
             )}
             {classifying ? 'Approving…' : meta.approveLabel}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Spam verdict, but the conversation never entered triage — so none of the branches below
+  // would render and there was no way to say "this is not spam". The verdict still hides it from
+  // the work queue, so without this the conversation is invisible AND uncorrectable.
+  //
+  // Approving here runs the same feedback loop as approving from the Spam column: it contradicts
+  // every rule that contributed to the verdict (so a bad rule accrues the signal that eventually
+  // retires it) and mints a green-flag rule from this message.
+  if (isSpamFlaggedOutsideTriage && onClassify) {
+    return (
+      <div className={strip}>
+        <p className={`${statusLabel} text-red-500`}>
+          Flagged as spam — hidden from the inbox until approved
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="primary"
+            onClick={() => void handleClassify('approve')}
+            disabled={classifying}
+            className={`${btnBase} h-auto`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            {classifying ? 'Updating…' : 'Not Spam — Approve'}
           </Button>
         </div>
       </div>

@@ -404,7 +404,20 @@ export function MessageDetail({
   const isSuspicious =
     !isFiltered &&
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
-  const isActive = !isFiltered && !isSuspicious && message.status !== 'closed';
+  /**
+   * Carries a spam verdict WITHOUT being in one of the triage states that offer a way to undo it.
+   *
+   * `isSpam: true` with `status: 'open'` is reachable, and it is the worst of both: the verdict
+   * hides the conversation from the work queue, the header shows a red SPAM badge, and neither
+   * the action strip nor the ACTIONS menu offered anything to correct it. A real customer sat
+   * behind that state for a month on a client deployment with no button to press.
+   */
+  const isSpamFlaggedOutsideTriage =
+    !isFiltered &&
+    !isSuspicious &&
+    (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
+  const isActive =
+    !isFiltered && !isSuspicious && !isSpamFlaggedOutsideTriage && message.status !== 'closed';
   const ghostVisible = message.status !== 'resolved';
 
   const autoReply = message.metadata?.autoReply as { sent?: boolean } | undefined;
@@ -900,6 +913,7 @@ export function MessageDetail({
         message={message}
         isFiltered={isFiltered}
         isSuspicious={isSuspicious}
+        isSpamFlaggedOutsideTriage={isSpamFlaggedOutsideTriage}
         isActive={isActive}
         resolving={resolving}
         hasLinkedTicket={false}
