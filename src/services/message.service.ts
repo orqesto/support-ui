@@ -1,3 +1,4 @@
+import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
@@ -398,12 +399,15 @@ export const messageService = {
    * 404s in production during that window — and while it does, the filter must
    * simply not offer itself rather than break the filters bar around it.
    */
-  getReceivedAtOptions: async (): Promise<string[]> => {
+  getReceivedAtOptions: async (): Promise<ReceivedAtOption[]> => {
     try {
-      const response = await apiClient.get<ApiResponse<string[]>>(
-        '/api/messages/received-at-options'
+      // `detailed=1` is opt-in on the backend and an older one ignores it, answering
+      // with the plain `string[]` it always did. `normaliseReceivedAtOptions` accepts
+      // both — see the note there on why that is not optional.
+      const response = await apiClient.get<ApiResponse<unknown>>(
+        '/api/messages/received-at-options?detailed=1'
       );
-      return response.data.data ?? [];
+      return normaliseReceivedAtOptions(response.data.data);
     } catch {
       return [];
     }

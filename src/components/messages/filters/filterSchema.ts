@@ -50,6 +50,13 @@ export type FilterOption = {
   dot?: string;
   /** Sub-heading in the value list (message sources group by channel). */
   section?: string;
+  /**
+   * Muted trailing detail — volume, provenance, anything that separates a real option
+   * from a one-off. The "Received at" list uses it to say how many conversations an
+   * address carries and whether our own server recorded it taking delivery, which is
+   * the difference between an alias and a stranger who was once cc'd.
+   */
+  hint?: string;
 };
 
 export type FilterDef = {
