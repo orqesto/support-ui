@@ -1,11 +1,29 @@
 import { BarChart3, TrendingUp, Activity, CheckCircle, Globe, GitBranch, Tag, Timer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import type { MessageStatsData, LabelStatEntry } from '@/services/statistics.service';
+import type {
+  MessageStatsData,
+  LabelStatEntry,
+  BusinessHoursStats,
+} from '@/services/statistics.service';
 
-function formatAvgReply(hours: number | null): string {
-  if (hours === null) return '—';
+function formatAvgReply(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '—';
   if (hours < 1) return `${Math.round(hours * 60)}m`;
   return `${hours.toFixed(1)}h`;
+}
+
+/**
+ * The open-hours figure beside a wall-clock one.
+ *
+ * Renders nothing when the workspace has no calendar. `null` there means "not configured",
+ * NOT "zero open hours" — printing 0h would read as "answered outside hours every time" and
+ * be indistinguishable from a real, terrible number.
+ */
+function OpenHours({ stats, pick }: { stats?: BusinessHoursStats | null; pick: 'avgHours' | 'p50Hours' | 'p90Hours' }) {
+  if (!stats) return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">{formatAvgReply(stats[pick])} open hours</p>
+  );
 }
 
 interface Props {
@@ -30,9 +48,9 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
         ) : msgStats ? (
           <>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Avg First Response</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.firstResponseTime.avgHours)}</p></div><Timer className="w-10 h-10 text-blue-400" /></div></CardContent></Card>
-              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P50 First Response</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.firstResponseTime.p50Hours)}</p></div><Activity className="w-10 h-10 text-green-400" /></div></CardContent></Card>
-              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P90 First Response</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.firstResponseTime.p90Hours)}</p></div><TrendingUp className="w-10 h-10 text-orange-400" /></div></CardContent></Card>
+              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Avg First Response</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.firstResponseTime.avgHours)}</p><OpenHours stats={msgStats.firstResponseTime.businessHours} pick="avgHours" /></div><Timer className="w-10 h-10 text-blue-400" /></div></CardContent></Card>
+              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P50 First Response</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.firstResponseTime.p50Hours)}</p><OpenHours stats={msgStats.firstResponseTime.businessHours} pick="p50Hours" /></div><Activity className="w-10 h-10 text-green-400" /></div></CardContent></Card>
+              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P90 First Response</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.firstResponseTime.p90Hours)}</p><OpenHours stats={msgStats.firstResponseTime.businessHours} pick="p90Hours" /></div><TrendingUp className="w-10 h-10 text-orange-400" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Responded</p><p className="mt-2 text-3xl font-bold">{msgStats.firstResponseTime.totalResponded}</p></div><CheckCircle className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
             </div>
 
@@ -42,6 +60,40 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P90 Resolution</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.p90Hours)}</p></div><TrendingUp className="w-10 h-10 text-orange-400" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Closed Messages</p><p className="mt-2 text-3xl font-bold">{msgStats.resolutionTime.totalClosed}</p></div><CheckCircle className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
             </div>
+
+            {/* Receipt → resolution, human resolutions only.
+              *
+              * ⚠️ Guarded on presence, not on truthiness of a field inside it. The frontend
+              * deploys on push and the backend ships on a tag, so this whole object is absent
+              * in production until the release lands — reaching into it unguarded would
+              * white-screen the entire Statistics page rather than hide one row. */}
+            {msgStats.receiveToResolve ? (
+              <div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Avg Receive → Resolve</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.receiveToResolve.avgHours)}</p><OpenHours stats={msgStats.receiveToResolve.businessHours} pick="avgHours" /></div><Timer className="w-10 h-10 text-purple-400" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P50 Receive → Resolve</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.receiveToResolve.p50Hours)}</p><OpenHours stats={msgStats.receiveToResolve.businessHours} pick="p50Hours" /></div><Activity className="w-10 h-10 text-green-400" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P90 Receive → Resolve</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.receiveToResolve.p90Hours)}</p><OpenHours stats={msgStats.receiveToResolve.businessHours} pick="p90Hours" /></div><TrendingUp className="w-10 h-10 text-orange-400" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Resolved by a person</p><p className="mt-2 text-3xl font-bold">{msgStats.receiveToResolve.totalResolved}</p></div><CheckCircle className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Measured from when the message arrived, not when it was ingested, and counting
+                  only conversations a person resolved.
+                  {msgStats.receiveToResolve.excludedUnknownActor
+                    ? ` ${msgStats.receiveToResolve.excludedUnknownActor} resolved before we recorded who did it are excluded — unknown, not automated.`
+                    : ''}
+                  {msgStats.receiveToResolve.excludedSystemResolved
+                    ? ` ${msgStats.receiveToResolve.excludedSystemResolved} resolved by automation are excluded.`
+                    : ''}
+                  {msgStats.firstResponseTime.estimatedRows
+                    ? ` ${msgStats.firstResponseTime.estimatedRows} response times are estimated from ingestion time, having no recorded arrival time.`
+                    : ''}
+                  {msgStats.meta?.businessHoursTruncated
+                    ? ' Open-hours figures cover the first 5,000 conversations in this window only.'
+                    : ''}
+                </p>
+              </div>
+            ) : null}
+
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Card>

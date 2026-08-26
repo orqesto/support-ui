@@ -95,6 +95,14 @@ export type UserStatEntry = {
   };
 };
 
+/** Open-hours figures. `null` when the workspace has configured no calendar — not zero. */
+export type BusinessHoursStats = {
+  avgHours: number | null;
+  p50Hours: number | null;
+  p90Hours: number | null;
+  total: number;
+};
+
 export type MessageStatsData = {
   resolutionTime: {
     avgHours: number | null;
@@ -107,6 +115,27 @@ export type MessageStatsData = {
     p50Hours: number | null;
     p90Hours: number | null;
     totalResponded: number;
+    /** How many rows had no stored receipt time and fell back to ingestion. */
+    estimatedRows?: number;
+    businessHours?: BusinessHoursStats | null;
+  };
+  /**
+   * Receipt → resolution, counting human resolutions only.
+   *
+   * ⚠️ Optional because the frontend deploys on push and the backend ships on a tag: this
+   * field is absent in production until the release lands, and a component that assumes it
+   * exists white-screens the whole Statistics page.
+   */
+  receiveToResolve?: {
+    avgHours: number | null;
+    p50Hours: number | null;
+    p90Hours: number | null;
+    totalResolved: number;
+    estimatedRows?: number;
+    /** NOT "resolved by automation" — nobody recorded an actor. Counted apart for that reason. */
+    excludedUnknownActor?: number;
+    excludedSystemResolved?: number;
+    businessHours?: BusinessHoursStats | null;
   };
   threadSizeDistribution: Record<string, number>;
   categoryTrends: Array<{
@@ -116,6 +145,7 @@ export type MessageStatsData = {
     count: number;
   }>;
   languageBreakdown: Array<{ language: string; count: number }>;
+  meta?: { businessHoursConfigured?: boolean; businessHoursTruncated?: boolean };
 };
 
 export type LabelStatEntry = {
