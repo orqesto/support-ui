@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { useDepartments } from '@/hooks/useDepartments';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import {
@@ -21,11 +22,61 @@ export const CategoriesSettings = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    keywords: string;
+    /** null = baseline: the category applies in every department. */
+    departmentId: number | null;
+  }>({
     name: '',
     description: '',
     keywords: '',
+    departmentId: null,
   });
+  const { data: allDepts = [] } = useDepartments();
+  const activeDepts = allDepts.filter((dept) => dept.active);
+
+  /**
+   * The picker, shared by the create and edit forms so the two cannot drift.
+   *
+   * Single-select, unlike labels: a category belongs to one department or to none. "All
+   * departments" is not a convenience — it is the baseline scope the API stores as NULL, and
+   * the classifier now treats those as candidates everywhere.
+   */
+  const departmentPicker = (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">Department</p>
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <Button
+          type="button"
+          size="sm"
+          variant={formData.departmentId === null ? 'primary' : 'secondary'}
+          onClick={() => setFormData((prev) => ({ ...prev, departmentId: null }))}
+          className="px-2 py-1 h-auto text-xs rounded-full"
+        >
+          All departments
+        </Button>
+        {activeDepts.map((dept) => (
+          <Button
+            key={dept.id}
+            type="button"
+            size="sm"
+            variant={formData.departmentId === dept.id ? 'primary' : 'secondary'}
+            onClick={() => setFormData((prev) => ({ ...prev, departmentId: dept.id }))}
+            className="px-2 py-1 h-auto text-xs rounded-full"
+          >
+            {dept.name}
+          </Button>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        {formData.departmentId === null
+          ? 'Applies everywhere — messages in any department can be given this category.'
+          : 'Only messages in this department can be given this category.'}
+      </p>
+    </div>
+  );
 
   const fetchCategories = async () => {
     try {
@@ -51,12 +102,13 @@ export const CategoriesSettings = () => {
       name: category.name,
       description: category.description ?? '',
       keywords: category.keywords ?? '',
+      departmentId: category.departmentId,
     });
   };
 
   const handleCreate = () => {
     setIsCreating(true);
-    setFormData({ name: '', description: '', keywords: '' });
+    setFormData({ name: '', description: '', keywords: '', departmentId: null });
   };
 
   const handleSave = async () => {
@@ -69,7 +121,7 @@ export const CategoriesSettings = () => {
       await fetchCategories();
       setEditingCategory(null);
       setIsCreating(false);
-      setFormData({ name: '', description: '', keywords: '' });
+      setFormData({ name: '', description: '', keywords: '', departmentId: null });
     } catch (error) {
       logger.error('Error saving category:', error);
     }
@@ -78,7 +130,7 @@ export const CategoriesSettings = () => {
   const handleCancel = () => {
     setEditingCategory(null);
     setIsCreating(false);
-    setFormData({ name: '', description: '', keywords: '' });
+    setFormData({ name: '', description: '', keywords: '', departmentId: null });
   };
 
   const handleDeleteClick = (category: Category) => {
@@ -164,6 +216,7 @@ export const CategoriesSettings = () => {
                 Keywords help AI categorize tickets automatically
               </p>
             </div>
+            {departmentPicker}
           </div>
           <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-start justify-center sm:justify-start"
           >
@@ -224,6 +277,7 @@ export const CategoriesSettings = () => {
                       rows={3}
                     />
                   </div>
+                  {departmentPicker}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
 
