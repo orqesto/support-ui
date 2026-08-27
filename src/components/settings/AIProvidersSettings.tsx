@@ -404,6 +404,12 @@ export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch
 
       {isManaged && (
         <>
+          {/* Managed mode has no `ai_providers` row, so `hasAnyProvider` is false and this
+              panel — the only thing on the page that says whether the AI actually WORKS —
+              never mounted. "Nothing to configure" is not the same statement as "this is
+              healthy", and an admin opening this tab is asking the second question. The
+              backend reports a platform entry for exactly this case. */}
+          <AIProviderHealthCheck />
           <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
             <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <p className="text-sm text-muted-foreground">
