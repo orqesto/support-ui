@@ -15,6 +15,7 @@ import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPriorityTable';
+import { formatMinutes, responseMetricDetail } from '@/lib/responseMetrics';
 import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
@@ -40,6 +41,8 @@ export const DashboardPage = () => {
     slaBreachCount: 0,
     slaAtRiskCount: 0,
     avgFirstResponseMins: null as number | null,
+    medianFirstResponseMins: null as number | null,
+    firstResponseSampleSize: 0,
     avgFirstResponsePeriodDays: null as number | null,
     resolvedExclKB: 0,
     closedExclKB: 0,
@@ -159,6 +162,8 @@ export const DashboardPage = () => {
         slaBreachCount: slaBreachRes.success ? slaBreachRes.pagination.total : 0,
         slaAtRiskCount: slaAtRiskRes.success ? slaAtRiskRes.pagination.total : 0,
         avgFirstResponseMins: slaSummary?.messages.avgResponseTime ?? null,
+        medianFirstResponseMins: slaSummary?.messages.medianResponseTime ?? null,
+        firstResponseSampleSize: slaSummary?.messages.responseSampleSize ?? 0,
         avgFirstResponsePeriodDays: slaSummary?.messages.avgResponsePeriodDays ?? null,
         resolvedExclKB: resolvedExclKBRes.success ? resolvedExclKBRes.pagination.total : 0,
         closedExclKB: closedExclKBRes.success ? closedExclKBRes.pagination.total : 0,
@@ -349,14 +354,6 @@ export const DashboardPage = () => {
     }
   };
 
-  const formatMinutes = (mins: number | null): string => {
-    if (mins === null) return '—';
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    const rem = mins % 60;
-    return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
-  };
-
   const slaCards = [
     {
       title: 'SLA Breach',
@@ -397,6 +394,14 @@ export const DashboardPage = () => {
               : stats.avgFirstResponsePeriodDays === 30
                 ? 'Last 30 days'
                 : 'Last year',
+      // A mean on its own is the least informative of the three numbers the API returns for
+      // this window. `median 41m · 42 threads` under `5h 5m` says at a glance that one slow
+      // thread is carrying the headline — which is exactly what someone clicking through is
+      // going to go and find out.
+      detail: responseMetricDetail(
+        stats.medianFirstResponseMins,
+        stats.firstResponseSampleSize
+      ) ?? undefined,
       // The one tile of fifteen that showed a number with nowhere to check it. The handler
       // was already written and `isClickable: false` kept it from ever being attached
       // (`DashboardStatCards` does `onClick={card.isClickable ? card.onClick : undefined}`).

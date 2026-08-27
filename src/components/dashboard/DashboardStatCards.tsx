@@ -11,6 +11,12 @@ export interface StatCard {
   bg: string;
   borderColor: string;
   hint: string;
+  /**
+   * An optional second line qualifying the headline — what it is an average of, how far the
+   * middle sits from the mean. Only rendered when supplied, so the other cards keep the
+   * height they have.
+   */
+  detail?: string;
   onClick: () => void;
   isClickable?: boolean;
 }
@@ -52,6 +58,9 @@ export function DashboardSLASection({ cards }: SLASectionProps) {
                   {card.hint}
                   {card.isClickable && <span className="ml-1 opacity-0 transition-opacity group-hover:opacity-100">→</span>}
                 </p>
+                {card.detail && (
+                  <p className="pl-4 text-xs text-muted-foreground/80">{card.detail}</p>
+                )}
               </CardContent>
             </Card>
           );

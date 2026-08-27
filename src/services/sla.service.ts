@@ -4,6 +4,11 @@ import type { SlaBreach } from '@/types/api';
 export type SLASummary = {
   messages: {
     avgResponseTime: number | null;
+    // Both computed by the API over the SAME window as `avgResponseTime`, and both were
+    // declared nowhere and therefore thrown away on arrival. A mean is the least
+    // informative of the three alone — see `@/lib/responseMetrics`.
+    medianResponseTime: number | null;
+    responseSampleSize: number;
     avgResponsePeriodDays: number | null; // = selected window when it has data, null otherwise
     breaches24h: number;
     complianceRate: number | null; // null when no replied messages exist yet
