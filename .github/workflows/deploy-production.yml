@@ -19,6 +19,28 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# ONE group for every frontend deploy, because there is only one host.
+#
+# `staging` and `production` differ by DEPLOY_PATH and NGINX_CONF alone — both rsync to
+# `secrets.SSH_HOST` and both end in `nginx -t && systemctl reload nginx` on that same box.
+# The matrix already serialises the two environments WITHIN a run (`max-parallel: 1`), but
+# nothing serialised two RUNS, so a merge landing while an earlier deploy was still running
+# could reload nginx underneath it. Grouping by ref would not fix it either: a push to
+# `main` deploys staging as well, so it collides with a `staging`-branch push.
+#
+# The standard release path triggers this by itself: `ship:prod` pushes `main` (which
+# deploys production AND staging), then immediately pushes `staging` again to fast-forward
+# it. That is two runs against one host, seconds apart, on every single release.
+#
+# `cancel-in-progress: false` deliberately, matching the backend: killing a deploy midway
+# through an rsync leaves a half-written document root, which is worse than waiting. The
+# cost is that a stuck run blocks the queue behind it — the backend hit exactly that on
+# 2026-08-26 when a GitHub incident left a deploy `queued` with no jobs for an hour. The
+# remedy is to cancel that run, not to make deploys interruptible.
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
 jobs:
   plan:
     name: Resolve deploy targets
@@ -40,8 +62,11 @@ jobs:
           # the drift by construction, instead of relying on someone remembering to
           # re-sync the branch afterwards.
           #
-          # Pushing the `staging` BRANCH still deploys staging only, so a throwaway branch
-          # can still be tried out on staging.odly.ai.
+          # Pushing the `staging` BRANCH deploys staging only. NOTE: `staging` is now the
+          # integration branch that PRs merge into and that `ship:rc` cuts from, so it is no
+          # longer a scratch slot — pushing an experiment there would put it in front of QA
+          # and clobber the release candidate. Use `workflow_dispatch` with
+          # environment=staging to try a branch out instead.
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo 'envs=["${{ github.event.inputs.environment }}"]' >> "$GITHUB_OUTPUT"
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then

@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { LinkifiedText } from '@/lib/linkify';
+import { relayedFromLabel } from '@/lib/relayedFrom';
 import { formatWhen } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import type { MessageEvent } from '@/types';
@@ -254,7 +255,28 @@ export const MessageThread = ({
                             <User className="w-4 h-4" />
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm font-medium">{pair.customerEmail.authorEmail ?? 'Customer'}</div>
+                            {/* Same rule as the ticket-detail bubble: on relayed mail the
+                                envelope names the form provider, so show the person who
+                                actually wrote it AND what it arrived through. Shared
+                                reader — this surface was missed when the bubble was
+                                fixed, and one of the two silently kept showing the
+                                relay. */}
+                            <div className="text-sm font-medium">
+                              {(() => {
+                                const relayed = relayedFromLabel(pair.customerEmail);
+                                return relayed ? (
+                                  <>
+                                    {relayed.name ?? relayed.email}
+                                    <span className="font-normal text-muted-foreground">
+                                      {' '}
+                                      · via {relayed.via}
+                                    </span>
+                                  </>
+                                ) : (
+                                  (pair.customerEmail.authorEmail ?? 'Customer')
+                                );
+                              })()}
+                            </div>
                             {(pair.customerEmail.metadata as { subject?: string })?.subject && (
                               <div className="text-xs truncate text-muted-foreground">
                                 {(pair.customerEmail.metadata as { subject?: string })?.subject}
