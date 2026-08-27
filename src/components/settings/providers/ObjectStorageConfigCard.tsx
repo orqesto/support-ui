@@ -34,6 +34,15 @@ type StorageConfigDisplay = {
   hasSecret: boolean;
 };
 
+type StorageHealth = {
+  ok: boolean;
+  /** Whose backend was probed — the platform's default, or the org's own bucket. */
+  source: 'customer' | 'platform';
+  driver: string;
+  latencyMs: number;
+  error?: string;
+};
+
 type StorageTestResult = { ok: boolean; latencyMs: number; error?: string };
 
 /**
@@ -97,6 +106,14 @@ export const ObjectStorageConfigCard = () => {
   const [form, setForm] = useState<StorageForm>(EMPTY_FORM);
   const [configured, setConfigured] = useState(false);
   const [mode, setMode] = useState<'managed' | 'byo'>('managed');
+  /**
+   * Whether the backend this workspace's files ACTUALLY go to can be written and read
+   * back. The card said where files live and stopped there — an org on the platform
+   * default has no config to submit, so `test-storage` could not answer for it and there
+   * was no way to tell working managed storage from broken managed storage.
+   */
+  const [health, setHealth] = useState<StorageHealth | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
   const [hasSecret, setHasSecret] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -146,6 +163,28 @@ export const ObjectStorageConfigCard = () => {
       toast.failure('Load storage config', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Probed on demand, never on mount. It writes, reads back and deletes a real object, so
+   * it is a side effect on the customer's bucket — cheap, but not something to fire every
+   * time somebody opens a settings tab.
+   */
+  const checkHealth = async () => {
+    setHealthLoading(true);
+    try {
+      const res = await apiClient.get<{ success: boolean; data: StorageHealth }>(
+        '/api/integrations/storage/health'
+      );
+      setHealth(res.data.data);
+    } catch {
+      // An older backend has no such route. Say nothing rather than render a red box for a
+      // deploy skew — this bundle must serve against a BE that predates the endpoint.
+      setHealth(null);
+      toast.error('Storage check is not available on this deployment yet.');
+    } finally {
+      setHealthLoading(false);
     }
   };
 
@@ -262,6 +301,24 @@ export const ObjectStorageConfigCard = () => {
               Files are stored in Odly's managed storage. Switch to “Bring your own S3” to store
               them in your own bucket instead.
             </p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void checkHealth()}
+                disabled={healthLoading}
+              >
+                <TestTube2 className="mr-2 h-4 w-4" />
+                {healthLoading ? 'Checking…' : 'Check storage'}
+              </Button>
+              {health && (
+                <span className={health.ok ? 'text-foreground' : 'text-destructive'}>
+                  {health.ok
+                    ? `Working — wrote and read back in ${health.latencyMs}ms.`
+                    : `Not working: ${health.error ?? 'the check did not complete.'}`}
+                </span>
+              )}
+            </div>
             {platformRegion && (
               // The region is the one platform detail a customer may actually need — data
               // residency. The bucket, endpoint and credentials are deliberately not shown:
