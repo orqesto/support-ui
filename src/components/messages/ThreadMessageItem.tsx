@@ -9,6 +9,14 @@ import { getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 
+/**
+ * `"Orbelli (Shopify)" <mailer@shopify.com>` → `mailer@shopify.com`. Comparing the
+ * bare address is the point: the stored header keeps its display name, and a label
+ * that fired on the raw string would show "X · via X" on ordinary mail.
+ */
+const bareAddress = (value?: string | null): string =>
+  (value?.match(/<([^>]+)>/)?.[1] ?? value ?? '').trim().toLowerCase();
+
 type Props = {
   msg: MessageEvent;
   attachments?: Attachment[];
@@ -42,6 +50,28 @@ export function ThreadMessageItem({
   // author or a '?' avatar.
   const authorName = msg.authorName?.trim() ? msg.authorName.trim() : null;
   const initials = getInitials(authorName ?? msg.authorEmail ?? '');
+
+  /**
+   * Who actually wrote this, when the envelope names a machine.
+   *
+   * A website contact form mails the shop from its own address — `mailer@shopify.com`,
+   * or the shop's own mailbox — and puts the customer only in the body. The BE recovers
+   * that person and stamps `relayedFrom` on the EVENT, per message, because one thread
+   * can hold submissions from several different people.
+   *
+   * ⛔ `authorEmail` is NOT overwritten with the customer, so both facts are shown: who
+   * wrote it, and what it came through. Guarded on the two being DIFFERENT — the history
+   * repair also stamps this key on rows it recovered from the envelope itself, and those
+   * would otherwise render as "someone · via someone".
+   */
+  const envelopeAddress = bareAddress(msg.authorEmail);
+  const stamped = (
+    msg.metadata as { relayedFrom?: { email?: string; name?: string | null } } | null
+  )?.relayedFrom;
+  const relayedFrom =
+    stamped?.email && stamped.email.trim().toLowerCase() !== envelopeAddress
+      ? { email: stamped.email.trim(), name: stamped.name?.trim() ? stamped.name.trim() : null }
+      : null;
   if (isAgent) {
     return (
       <div className="flex flex-row-reverse gap-2">
@@ -124,7 +154,18 @@ export function ThreadMessageItem({
       </div>
       <div className="flex flex-col max-w-[88%]">
         <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-foreground/55 mb-0.5">
-          <span>{msg.authorEmail ?? 'Customer'}</span>
+          <span className="truncate" title={msg.authorEmail ?? undefined}>
+            {relayedFrom ? (
+              <>
+                <span className="font-semibold text-foreground/75">
+                  {relayedFrom.name ?? relayedFrom.email}
+                </span>
+                <span> · via {envelopeAddress || msg.authorEmail}</span>
+              </>
+            ) : (
+              (msg.authorEmail ?? 'Customer')
+            )}
+          </span>
           <span className="whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
             {formatWhen(msgTime)}
           </span>
