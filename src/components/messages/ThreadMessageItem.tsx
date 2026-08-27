@@ -2,20 +2,13 @@ import { useState } from 'react';
 import { Paperclip, User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
+import { relayedFromLabel } from '@/lib/relayedFrom';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
 import { ThreadBubble } from './ThreadBubble';
 import { getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
-
-/**
- * `"Orbelli (Shopify)" <mailer@shopify.com>` → `mailer@shopify.com`. Comparing the
- * bare address is the point: the stored header keeps its display name, and a label
- * that fired on the raw string would show "X · via X" on ordinary mail.
- */
-const bareAddress = (value?: string | null): string =>
-  (value?.match(/<([^>]+)>/)?.[1] ?? value ?? '').trim().toLowerCase();
 
 type Props = {
   msg: MessageEvent;
@@ -64,14 +57,7 @@ export function ThreadMessageItem({
    * repair also stamps this key on rows it recovered from the envelope itself, and those
    * would otherwise render as "someone · via someone".
    */
-  const envelopeAddress = bareAddress(msg.authorEmail);
-  const stamped = (
-    msg.metadata as { relayedFrom?: { email?: string; name?: string | null } } | null
-  )?.relayedFrom;
-  const relayedFrom =
-    stamped?.email && stamped.email.trim().toLowerCase() !== envelopeAddress
-      ? { email: stamped.email.trim(), name: stamped.name?.trim() ? stamped.name.trim() : null }
-      : null;
+  const relayedFrom = relayedFromLabel(msg);
   if (isAgent) {
     return (
       <div className="flex flex-row-reverse gap-2">
@@ -160,7 +146,7 @@ export function ThreadMessageItem({
                 <span className="font-semibold text-foreground/75">
                   {relayedFrom.name ?? relayedFrom.email}
                 </span>
-                <span> · via {envelopeAddress || msg.authorEmail}</span>
+                <span> · via {relayedFrom.via}</span>
               </>
             ) : (
               (msg.authorEmail ?? 'Customer')
