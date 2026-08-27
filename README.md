@@ -25,7 +25,11 @@ npm run ship:staging   # re-deploy staging, SAME version (iterate on fixes)
 npm run ship:prod      # release that exact version to production (app.odly.ai)
 ```
 
-For a coupled FE + BE change (shared API contract), release **FE to prod before BE**.
+Base pull requests on **`staging`** — `main` is production here and deploys on merge.
+
+For a coupled FE + BE change the order depends on direction: **BE first** when it adds a field
+the FE reads, **FE first** when it changes the shape of a field the FE already reads. See
+`RELEASING.md`.
 Host details, rollback, and staging internals live in `../BE-service/DEPLOY.md` and
 `../BE-service/STAGING.md`.
 
