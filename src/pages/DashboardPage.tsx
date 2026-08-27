@@ -14,6 +14,7 @@ import { integrationsService } from '@/services/integrations.service';
 import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
+import { SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPriorityTable';
 import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
@@ -396,8 +397,15 @@ export const DashboardPage = () => {
               : stats.avgFirstResponsePeriodDays === 30
                 ? 'Last 30 days'
                 : 'Last year',
-      onClick: () => navigate('/sla'),
-      isClickable: false,
+      // The one tile of fifteen that showed a number with nowhere to check it. The handler
+      // was already written and `isClickable: false` kept it from ever being attached
+      // (`DashboardStatCards` does `onClick={card.isClickable ? card.onClick : undefined}`).
+      //
+      // The window travels with the link. `/sla` otherwise opens on its own default, and a
+      // drill-down that lands on a different period than the number it came from is worse
+      // than no drill-down — two figures that disagree and nothing saying why.
+      onClick: () => navigate(`/sla?days=${stats.avgFirstResponsePeriodDays ?? SLA_DEFAULT_DAYS}`),
+      isClickable: stats.avgFirstResponseMins !== null,
     },
     {
       title: 'Resolved',
