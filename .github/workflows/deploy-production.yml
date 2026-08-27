@@ -19,6 +19,24 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# ONE group for every frontend deploy, because there is only one host.
+#
+# `staging` and `production` differ by DEPLOY_PATH and NGINX_CONF alone — both rsync to
+# `secrets.SSH_HOST` and both end in `nginx -t && systemctl reload nginx` on that same box.
+# The matrix already serialises the two environments WITHIN a run (`max-parallel: 1`), but
+# nothing serialised two RUNS, so a merge landing while an earlier deploy was still running
+# could reload nginx underneath it. Grouping by ref would not fix it either: a push to
+# `main` deploys staging as well, so it collides with a `staging`-branch push.
+#
+# `cancel-in-progress: false` deliberately, matching the backend: killing a deploy midway
+# through an rsync leaves a half-written document root, which is worse than waiting. The
+# cost is that a stuck run blocks the queue behind it — the backend hit exactly that on
+# 2026-08-26 when a GitHub incident left a deploy `queued` with no jobs for an hour. The
+# remedy is to cancel that run, not to make deploys interruptible.
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
 jobs:
   plan:
     name: Resolve deploy targets
