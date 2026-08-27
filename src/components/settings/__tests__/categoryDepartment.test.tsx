@@ -10,14 +10,22 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 
-const createCategory = vi.fn(async () => ({}));
-const updateCategory = vi.fn(async () => ({}));
-const getCategories = vi.fn(async () => [
+// Typed explicitly: a bare `vi.fn(async () => ({}))` infers a ZERO-parameter signature, so
+// every call site and every `mock.calls[0][0]` is a type error under tsconfig.app.json —
+// which is the config `npm run type-check` uses and `npm run build` does not.
+const createCategory = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({}));
+const updateCategory = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({}));
+const getCategories = vi.fn<(...args: unknown[]) => Promise<unknown[]>>(() => Promise.resolve([
   { id: 7, name: 'Billing Query', description: 'd', keywords: 'k', departmentId: 21, createdAt: '', updatedAt: '' },
-]);
+]));
 
 vi.mock('@/services/settings.service', () => ({
-  settingsService: { getCategories: () => getCategories(), createCategory: (d: unknown) => createCategory(d as never), updateCategory: (id: number, d: unknown) => updateCategory(id as never, d as never), deleteCategory: vi.fn() },
+  settingsService: {
+    getCategories: () => getCategories(),
+    createCategory: (data: unknown) => createCategory(data),
+    updateCategory: (id: number, data: unknown) => updateCategory(id, data),
+    deleteCategory: vi.fn(),
+  },
 }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [
@@ -56,7 +64,7 @@ describe('choosing a category department', () => {
     fireEvent.click(screen.getByText('Billing'));
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(createCategory).toHaveBeenCalled());
-    expect(createCategory.mock.calls[0][0]).toMatchObject({ name: 'Refunds', departmentId: 21 });
+    expect(createCategory.mock.calls[0]?.[0]).toMatchObject({ name: 'Refunds', departmentId: 21 });
   });
 
   it('sends null for baseline rather than omitting the field', async () => {
@@ -68,7 +76,7 @@ describe('choosing a category department', () => {
     fireEvent.click(screen.getByText('All departments'));
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(createCategory).toHaveBeenCalled());
-    const sent = createCategory.mock.calls[0][0] as Record<string, unknown>;
+    const sent = createCategory.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(sent.departmentId).toBeNull();
     expect('departmentId' in sent).toBe(true);
   });
