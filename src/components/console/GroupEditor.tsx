@@ -7,7 +7,6 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
-import { Toggle } from '@/components/ui/Toggle';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -108,20 +107,24 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
     [members, selectedMemberIds]
   );
 
-  const toggleOrg = (orgId: number, checked: boolean) => {
-    setSelectedOrgIds((current) =>
-      checked ? [...current, orgId] : current.filter((existing) => existing !== orgId)
-    );
-    // Drop a deselected org's dept mapping so it can't be re-sent for an org no longer scoped.
-    if (!checked) {
-      setDepartmentIdsByOrg((current) => {
-        if (!(orgId in current)) return current;
-        const next = { ...current };
-        delete next[orgId];
-        return next;
-      });
-    }
+  /**
+   * A group applies to ONE workspace, so choosing one replaces the choice. Kept as a list
+   * because `alliance_group_orgs` is still many-to-many and the rule is "one for now,
+   * plausibly many later" — the backend caps the write at one, and neither side needs a
+   * migration to allow several again.
+   */
+  const selectOrg = (orgId: number | null) => {
+    setSelectedOrgIds(orgId === null ? [] : [orgId]);
+    // Department mappings are keyed by workspace, so anything for the previous one is now
+    // about a workspace this group does not touch.
+    setDepartmentIdsByOrg((current) => {
+      const kept = orgId !== null && orgId in current ? { [orgId]: current[orgId] } : {};
+      return kept;
+    });
   };
+
+  /** The one workspace this group applies to, or null — see `selectOrg`. */
+  const selectedOrgId = selectedOrgIds[0] ?? null;
 
   const setDeptsForOrg = (orgId: number, deptIds: number[]) => {
     setDepartmentIdsByOrg((current) => ({ ...current, [orgId]: deptIds }));
@@ -225,29 +228,36 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
         )}
 
         <div className="space-y-2">
-          <Label>Applies to workspaces</Label>
+          <Label htmlFor="group-workspace">Applies to workspace</Label>
           {orgs.length === 0 ? (
             <p className="text-sm text-muted-foreground">This alliance has no workspaces yet.</p>
           ) : (
             <div className="space-y-2.5">
-              {orgs.map((org) => (
-                <div key={org.id} className="space-y-1.5">
-                  <Toggle
-                    label={`${org.name} (/${org.slug})`}
-                    checked={selectedOrgIds.includes(org.id)}
-                    onChange={(checked) => toggleOrg(org.id, checked)}
-                  />
-                  {selectedOrgIds.includes(org.id) && orgRole !== 'org_admin' && (
-                    <OrgDepartmentPicker
-                      allianceId={allianceId}
-                      orgId={org.id}
-                      orgLabel={`${org.name} (/${org.slug})`}
-                      selected={departmentIdsByOrg[org.id] ?? []}
-                      onChange={(deptIds) => setDeptsForOrg(org.id, deptIds)}
-                    />
-                  )}
-                </div>
-              ))}
+              {/* One workspace per group — see `selectOrg`. Presentation only: the payload
+                  is still `orgIds`, and the backend caps it rather than the schema. */}
+              <Select
+                id="group-workspace"
+                value={selectedOrgId === null ? '' : String(selectedOrgId)}
+                onChange={(event) =>
+                  selectOrg(event.target.value === '' ? null : Number(event.target.value))
+                }
+              >
+                <option value="">Select a workspace…</option>
+                {orgs.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {`${org.name} (/${org.slug})`}
+                  </option>
+                ))}
+              </Select>
+              {selectedOrgId !== null && orgRole !== 'org_admin' && (
+                <OrgDepartmentPicker
+                  allianceId={allianceId}
+                  orgId={selectedOrgId}
+                  orgLabel={orgLabel(selectedOrgId)}
+                  selected={departmentIdsByOrg[selectedOrgId] ?? []}
+                  onChange={(deptIds) => setDeptsForOrg(selectedOrgId, deptIds)}
+                />
+              )}
             </div>
           )}
           {orgRole === 'org_admin' && selectedOrgIds.length > 0 && (

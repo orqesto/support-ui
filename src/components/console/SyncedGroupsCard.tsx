@@ -8,7 +8,6 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
-import { Toggle } from '@/components/ui/Toggle';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
@@ -112,7 +111,7 @@ const SyncedGroupRow = ({
   onSelect,
   activeOrgs,
   selectedOrgIds,
-  onToggleOrg,
+  onSelectOrg,
   deptsByOrg,
   onDeptChange,
   permissionOverrides,
@@ -129,7 +128,7 @@ const SyncedGroupRow = ({
   onSelect: (value: string) => void;
   activeOrgs: AllianceOrg[];
   selectedOrgIds: number[];
-  onToggleOrg: (orgId: number) => void;
+  onSelectOrg: (orgId: number | null) => void;
   deptsByOrg: DepartmentIdsByOrg;
   onDeptChange: (orgId: number, deptIds: number[]) => void;
   permissionOverrides: PermissionOverrides;
@@ -143,6 +142,12 @@ const SyncedGroupRow = ({
   const selectedOrgRole = orgRoleOf(selectedValue);
   const isOrgRole = selectedOrgRole !== null;
   const noWorkspaceSelected = isOrgRole && selectedOrgIds.length === 0;
+  /**
+   * The one workspace this group maps to, or null. Named once rather than indexed at each
+   * use: the list is a storage shape kept for the day several are allowed again, and the
+   * screen only ever speaks about one.
+   */
+  const selectedOrgId = selectedOrgIds[0] ?? null;
   return (
     <Card padding="sm" className="space-y-3">
       <div className="flex flex-wrap gap-2 justify-between items-start">
@@ -269,40 +274,55 @@ const SyncedGroupRow = ({
 
           {isOrgRole && (
             <div className="pt-1">
-              <Label className="mb-1">Workspaces</Label>
+              <Label htmlFor={`wire-workspace-${group.id}`} className="mb-1">
+                Workspace
+              </Label>
               {activeOrgs.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   This alliance has no active workspaces yet.
                 </p>
               ) : (
                 <>
-                  <div className="space-y-2">
+                  {/* One workspace per group. A group spanning two would place people in
+                      two workspaces from one alliance-level decision, under admins who
+                      cannot see each other's — and inside a workspace, placement and extra
+                      permissions are the workspace admin's, per user.
+                      ⛔ Presentation only: the state and the API stay a list, and the
+                      backend caps it at one. Nothing has to be migrated to allow several
+                      again. */}
+                  <Select
+                    id={`wire-workspace-${group.id}`}
+                    value={selectedOrgId === null ? '' : String(selectedOrgId)}
+                    onChange={(event) =>
+                      onSelectOrg(event.target.value === '' ? null : Number(event.target.value))
+                    }
+                  >
+                    <option value="">Select a workspace…</option>
                     {activeOrgs.map((org) => (
-                      <div key={org.id} className="space-y-1.5">
-                        <Toggle
-                          checked={selectedOrgIds.includes(org.id)}
-                          onChange={() => onToggleOrg(org.id)}
-                          label={org.name}
-                        />
-                        {selectedOrgIds.includes(org.id) && selectedOrgRole !== 'org_admin' && (
-                          <OrgDepartmentPicker
-                            allianceId={allianceId}
-                            orgId={org.id}
-                            orgLabel={org.name}
-                            selected={deptsByOrg[org.id] ?? []}
-                            onChange={(deptIds) => onDeptChange(org.id, deptIds)}
-                          />
-                        )}
-                      </div>
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
                     ))}
-                  </div>
+                  </Select>
+                  {selectedOrgId !== null && selectedOrgRole !== 'org_admin' && (
+                    <div className="pt-2">
+                      <OrgDepartmentPicker
+                        allianceId={allianceId}
+                        orgId={selectedOrgId}
+                        orgLabel={
+                          activeOrgs.find((org) => org.id === selectedOrgId)?.name ?? ''
+                        }
+                        selected={deptsByOrg[selectedOrgId] ?? []}
+                        onChange={(deptIds) => onDeptChange(selectedOrgId, deptIds)}
+                      />
+                    </div>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Members get this role in the selected workspaces ({selectedOrgIds.length}{' '}
-                    selected).
+                    Members get this role in this workspace.
                     {selectedOrgRole === 'org_admin'
                       ? ' Org admins get every department.'
-                      : ' Leave a workspace’s departments empty for the role default.'}
-                    {noWorkspaceSelected ? ' Select at least one to map.' : ''}
+                      : ' Leave departments empty for the role default.'}
+                    {noWorkspaceSelected ? ' Choose one to map.' : ''}
                   </p>
                 </>
               )}
@@ -398,21 +418,22 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   // not a silent sweep. Opt in, not opt out.
   const orgIdsFor = (group: SyncedGroup): number[] => orgIdsByGroup[group.id] ?? [];
 
-  const toggleOrgFor = (group: SyncedGroup, orgId: number) => {
-    setOrgIdsByGroup((prev) => {
-      const current = prev[group.id] ?? [];
-      const next = current.includes(orgId)
-        ? current.filter((id) => id !== orgId)
-        : [...current, orgId];
-      return { ...prev, [group.id]: next };
-    });
-    // Drop a deselected workspace's dept mapping so it can't be wired for an unscoped org.
+  /**
+   * A group maps to ONE workspace, so picking one replaces the choice rather than adding
+   * to it. The state stays an array — `alliance_group_orgs` is still many-to-many, and the
+   * rule is "one for now, plausibly many later", so nothing here has to be migrated when
+   * that comes back. The backend enforces the same cap on the write.
+   */
+  const selectOrgFor = (group: SyncedGroup, orgId: number | null) => {
+    setOrgIdsByGroup((prev) => ({ ...prev, [group.id]: orgId === null ? [] : [orgId] }));
+    // Department mappings are keyed by workspace; the previous workspace's are now about a
+    // workspace this group no longer touches, and wiring them would scope a mapping to an
+    // org the grant does not cover.
     setDeptsByGroup((prev) => {
       const forGroup = prev[group.id];
-      if (!forGroup || !(orgId in forGroup)) return prev;
-      const nextForGroup = { ...forGroup };
-      delete nextForGroup[orgId];
-      return { ...prev, [group.id]: nextForGroup };
+      if (!forGroup) return prev;
+      const kept = orgId !== null && orgId in forGroup ? { [orgId]: forGroup[orgId] } : {};
+      return { ...prev, [group.id]: kept };
     });
   };
 
@@ -588,7 +609,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               }}
               activeOrgs={activeOrgs}
               selectedOrgIds={orgIdsFor(group)}
-              onToggleOrg={(orgId) => toggleOrgFor(group, orgId)}
+              onSelectOrg={(orgId) => selectOrgFor(group, orgId)}
               deptsByOrg={deptsFor(group)}
               onDeptChange={(orgId, deptIds) => setDeptsForGroupOrg(group, orgId, deptIds)}
               permissionOverrides={overridesFor(group)}
