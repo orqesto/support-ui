@@ -17,6 +17,17 @@ export type ReceivedAddressRow = {
   declared: boolean;
   /** Attached to a source by either route — the set that drives direction detection. */
   attachedToSourceId: number | null;
+  /** Shares a local part with an address already owned. A hint for sorting, not a verdict. */
+  likelyOurs: boolean;
+  /**
+   * Conversations carrying our OWN server's delivery stamp for this address.
+   *
+   * The only non-heuristic signal in this payload: To and Cc are the sender's account of who
+   * they wrote to, so a cc'd supplier is indistinguishable from an alias, while `Delivered-To`
+   * is written by the receiving server. Zero does not mean "not ours" — the header is absent
+   * on plenty of mail.
+   */
+  deliveredConversations: number;
 };
 
 /**
@@ -439,6 +450,11 @@ export const messageService = {
           configured: row.configured === true,
           declared: row.declared === true,
           attachedToSourceId: row.attachedToSourceId ?? null,
+          // Both of these were being DROPPED here while the backend sent them, so the
+          // panel scored delivery rows as if no evidence existed — the one list that
+          // matters once a workspace has delivery data.
+          likelyOurs: row.likelyOurs === true,
+          deliveredConversations: Number(row.deliveredConversations ?? 0),
         })).filter((row) => row.address.length > 0),
         // Absent on a backend that predates sender candidates — an empty list, not a
         // crash, so the panel simply offers one source instead of two.
