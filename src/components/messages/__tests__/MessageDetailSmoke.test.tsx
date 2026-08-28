@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { Message } from '@/types';
 
 // vi.mock factories are hoisted — no variable references allowed inside them
@@ -78,7 +79,7 @@ describe('MessageDetailSmoke', () => {
 
   it('renders loading state initially', () => {
     render(
-      <MemoryRouter initialEntries={['/messages/42']}>
+      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
         <Routes>
           <Route path="/messages/:id" element={<MessageDetailPage />} />
         </Routes>
@@ -90,7 +91,7 @@ describe('MessageDetailSmoke', () => {
 
   it('renders the page without crashing for a valid message id', () => {
     render(
-      <MemoryRouter initialEntries={['/messages/42']}>
+      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
         <Routes>
           <Route path="/messages/:id" element={<MessageDetailPage />} />
         </Routes>
@@ -102,7 +103,7 @@ describe('MessageDetailSmoke', () => {
 
   it('shows loading text while fetching message', () => {
     render(
-      <MemoryRouter initialEntries={['/messages/42']}>
+      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
         <Routes>
           <Route path="/messages/:id" element={<MessageDetailPage />} />
         </Routes>

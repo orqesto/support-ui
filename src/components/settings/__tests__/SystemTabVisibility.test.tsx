@@ -7,6 +7,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 type MockUser = {
   id: number;
@@ -58,7 +59,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 
 const renderAt = (hash = '/settings') =>
   render(
-    <MemoryRouter initialEntries={[hash]}>
+    <MemoryRouter initialEntries={[hash]} future={ROUTER_FUTURE}>
       <SettingsPage />
     </MemoryRouter>
   );

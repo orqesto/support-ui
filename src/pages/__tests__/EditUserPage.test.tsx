@@ -10,6 +10,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type * as ReactRouterDom from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { EditUserPage } from '@/pages/EditUserPage';
@@ -82,7 +83,7 @@ const renderAt = (path: string, routePath: string, embedded = false) =>
   render(
     // ReactSelect reads the theme, so every render needs the provider.
     <ThemeProvider>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[path]} future={ROUTER_FUTURE}>
         <Routes>
           <Route path={routePath} element={<EditUserPage embedded={embedded} />} />
         </Routes>
