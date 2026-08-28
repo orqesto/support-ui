@@ -109,6 +109,13 @@ export type MessageStatsData = {
     p50Hours: number | null;
     p90Hours: number | null;
     totalClosed: number;
+    /**
+     * Resolved conversations with no close time recorded, which no duration metric can see.
+     *
+     * ⚠️ Optional for the same reason `receiveToResolve` is: the backend ships on a tag and
+     * this frontend deploys on push, so it is absent until the release lands.
+     */
+    excludedNoCloseStamp?: number;
   };
   firstResponseTime: {
     avgHours: number | null;
@@ -135,6 +142,12 @@ export type MessageStatsData = {
     /** NOT "resolved by automation" — nobody recorded an actor. Counted apart for that reason. */
     excludedUnknownActor?: number;
     excludedSystemResolved?: number;
+    /**
+     * Resolved conversations carrying NO close time — excluded from the metric's own exclusion
+     * counts too, because those are filters inside a query that already requires a close time.
+     * This is the number that explains an otherwise unexplained empty panel.
+     */
+    excludedNoCloseStamp?: number;
     businessHours?: BusinessHoursStats | null;
   };
   threadSizeDistribution: Record<string, number>;
