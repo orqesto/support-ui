@@ -149,6 +149,34 @@ describe('InboxSmoke', () => {
     expect(screen.getByText('Test Subject')).toBeTruthy();
   });
 
+  it('marks a spam-log row as having no thread, before it is clicked', () => {
+    // `spamlog_NN` rows are mail a rule rejected BEFORE a conversation existed. They are
+    // listed so they are not invisible, but opening one shows a read-only dialog rather
+    // than the detail pane — MessageDetail loads events/notes/activity by id, which do not
+    // exist for a synthetic negative id. Unmarked, that modal looks like a bug.
+    render(
+      <MemoryRouter>
+        <MessageListItem
+          thread={{ ...mockThread, threadId: 'spamlog_828' }}
+          onOpen={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/blocked · no thread/i)).toBeInTheDocument();
+  });
+
+  it('does not mark an ordinary conversation row', () => {
+    // The control: every other row in the same list must stay unchanged.
+    render(
+      <MemoryRouter>
+        <MessageListItem thread={{ ...mockThread, threadId: 'conv_9563' }} onOpen={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText(/blocked · no thread/i)).toBeNull();
+  });
+
   it('renders multiple messages', () => {
     const onOpen = vi.fn();
     const threads: MessageThread[] = [
