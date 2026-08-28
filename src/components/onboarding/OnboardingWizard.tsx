@@ -7,6 +7,7 @@ import { InviteTeamStep } from './steps/InviteTeamStep';
 import { KbStep } from './steps/KbStep';
 import { PaymentStep } from './steps/PaymentStep';
 import { StorageStep } from './steps/StorageStep';
+import { isConnectedChannel } from '@/components/onboarding/connectedChannel';
 import { SetupReconcileNotice } from './SetupReconcileNotice';
 import { StepIndicator } from './StepIndicator';
 import {
@@ -128,16 +129,11 @@ export const OnboardingWizard = () => {
       .then((res) => {
         if (cancelled) return;
         const list = res.success && res.data ? res.data : [];
-        setChannelsConnected(
-          list.some(
-            (item) =>
-              (item.type === 'gmail' ||
-                item.type === 'email' ||
-                item.type === 'telegram' ||
-                item.type === 'slack') &&
-              !item.isKnowledgeBase
-          )
-        );
+        // Must match ChannelsStep's predicate exactly — this seeds the same gate. A
+        // KB-marked mailbox IS a connected channel (post-cutoff mail is live), and
+        // excluding it blocked "Finish setup" for users who followed the step's own tip
+        // to tick "Use as Knowledge Base source".
+        setChannelsConnected(list.some(isConnectedChannel));
         setChannelsKnown(true);
       })
       .catch((error: unknown) => {
