@@ -66,6 +66,8 @@ type Candidate = {
   configured: boolean;
   attachedElsewhere: boolean;
   likelyOurs: boolean;
+  /** Our own server's delivery stamp. The only signal here a correspondent cannot forge. */
+  deliveredConversations: number;
 };
 
 const ORIGIN_LABEL: Record<Origin, string> = {
@@ -102,6 +104,7 @@ export const SourceAliasEditor = ({
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'volume' | 'address'>('volume');
+  const [showAll, setShowAll] = useState(false);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,7 +128,12 @@ export const SourceAliasEditor = ({
               configured: row.configured,
               attachedElsewhere:
                 row.attachedToSourceId !== null && row.attachedToSourceId !== sourceId,
-              likelyOurs: false,
+              // ⛔ This was hardcoded `false`, so a delivery row could never be badged or
+              // sorted as likely ours — and delivery rows are the ones with real evidence
+              // once a workspace has run the recipients backfill. The backend has scored
+              // them all along; the panel was throwing the score away.
+              likelyOurs: row.likelyOurs,
+              deliveredConversations: row.deliveredConversations,
             }))
           );
           setSenders(
@@ -137,6 +145,9 @@ export const SourceAliasEditor = ({
               configured: false,
               attachedElsewhere: false,
               likelyOurs: row.likelyOurs,
+              // A sender observation is not a delivery observation. Never 'unknown' — the
+              // absence of a stamp is exactly what this number is supposed to say.
+              deliveredConversations: 0,
             }))
           );
           setCoverage(result.coverage);
@@ -189,17 +200,57 @@ export const SourceAliasEditor = ({
           configured: false,
           attachedElsewhere: false,
           likelyOurs: false,
+          deliveredConversations: 0,
         });
       }
     }
     return [...byAddress.values()];
   }, [delivery, senders, manual, selected]);
 
+  /**
+   * Does anything actually suggest this address belongs to THIS mailbox?
+   *
+   * The panel used to render one flat list of delivery addresses AND frequent senders, each
+   * with a toggle — so on a real workspace it offered 98 customers (`messages-noreply@
+   * linkedin.com` among them) as candidate aliases beside the two real addresses, and flagged
+   * none of them. Asking an admin to pick 2 out of 100 is not a list, it is a hazard: adopting
+   * a customer's address makes their mail read as OUTGOING and they disappear from the inbox.
+   *
+   * So the default view is the rows carrying evidence, and everything else is one click away.
+   * The sender list is not dropped — an UNDECLARED alias shows up as requester volume rather
+   * than delivery data, which is exactly how the CoreSarms storefronts hid — but it stops
+   * being the first thing an admin sees.
+   *
+   * ⛔ Same-domain is deliberately NOT evidence. A colleague's own mailbox at our company
+   * (`zhanat.chokin@prefabhome.eu` beside `natalie.antonenko@prefabhome.eu`) is not an alias
+   * of this mailbox, and declaring it would send their mail out of the inbox.
+   */
+  const hasEvidence = useCallback(
+    (entry: Candidate) =>
+      entry.configured ||
+      entry.attachedElsewhere ||
+      entry.origin === 'manual' ||
+      entry.origin === 'declared' ||
+      selected.includes(entry.address) ||
+      entry.likelyOurs ||
+      entry.deliveredConversations > 0,
+    [selected]
+  );
+
+  const unevidencedCount = useMemo(
+    () => candidates.filter((entry) => !hasEvidence(entry)).length,
+    [candidates, hasEvidence]
+  );
+
   const visible = useMemo(() => {
     const needle = normalise(search);
+    // ⛔ Search spans EVERYTHING, always. A quiet alias with one conversation and no delivery
+    // stamp is precisely what someone types an address to find; making them expand the list
+    // first would reintroduce the problem this fixes.
+    const pool = showAll || needle ? candidates : candidates.filter(hasEvidence);
     const filtered = needle
-      ? candidates.filter((entry) => entry.address.includes(needle))
-      : candidates;
+      ? pool.filter((entry) => entry.address.includes(needle))
+      : pool;
     return [...filtered].sort((left, right) => {
       if (sort === 'address') return left.address.localeCompare(right.address);
       // A shared local part leads, THEN volume. Ranking by volume alone buries the
@@ -207,13 +258,19 @@ export const SourceAliasEditor = ({
       // had a single conversation and sat 187th of 286 senders, below every noisy
       // newsletter, while its nine siblings were near the top. Flagged-first puts the
       // whole family together where it can be recognised in one pass.
+      // Proven delivery ahead of the local-part guess, mirroring the backend's own order:
+      // a customer called info@ at their own company matches the guess, our server's
+      // delivery stamp is a fact.
+      const leftDelivered = left.deliveredConversations > 0;
+      const rightDelivered = right.deliveredConversations > 0;
+      if (leftDelivered !== rightDelivered) return leftDelivered ? -1 : 1;
       if (left.likelyOurs !== right.likelyOurs) return left.likelyOurs ? -1 : 1;
       if (right.conversations !== left.conversations) {
         return right.conversations - left.conversations;
       }
       return left.address.localeCompare(right.address);
     });
-  }, [candidates, search, sort]);
+  }, [candidates, search, sort, showAll, hasEvidence]);
 
   const addManual = useCallback(() => {
     const address = normalise(draft);
@@ -236,6 +293,7 @@ export const SourceAliasEditor = ({
           configured: false,
           attachedElsewhere: false,
           likelyOurs: false,
+          deliveredConversations: 0,
         },
       ]);
     }
@@ -383,8 +441,13 @@ export const SourceAliasEditor = ({
                         configured
                       </Badge>
                     )}
-                    {entry.likelyOurs && !entry.configured && (
+                    {entry.deliveredConversations > 0 && !entry.configured && (
                       <Badge variant="success" className="text-[10px]">
+                        delivered to you
+                      </Badge>
+                    )}
+                    {entry.likelyOurs && !entry.configured && entry.deliveredConversations === 0 && (
+                      <Badge variant="secondary" className="text-[10px]">
                         matches your mailbox
                       </Badge>
                     )}
@@ -430,11 +493,25 @@ export const SourceAliasEditor = ({
             search box renders even on a failed read, and silence there would look
             like the filter had broken.
           */}
+          {unevidencedCount > 0 && search === '' && (
+            <button
+              type="button"
+              onClick={() => setShowAll((current) => !current)}
+              className="mt-2 text-xs underline text-muted-foreground hover:text-foreground"
+            >
+              {showAll
+                ? 'Show only addresses with evidence'
+                : `Show ${unevidencedCount} more address${unevidencedCount === 1 ? '' : 'es'} seen in your mail`}
+            </button>
+          )}
+
           {visible.length === 0 && (search !== '' || !(failed || unavailable)) && (
             <p className="py-2 text-xs text-muted-foreground">
               {search
                 ? 'No address matches that search.'
-                : 'No addresses suggested yet — add one by hand above.'}
+                : unevidencedCount > 0
+                  ? 'Nothing here looks like this mailbox. Anything we have seen is under the link below.'
+                  : 'No addresses suggested yet — add one by hand above.'}
             </p>
           )}
 

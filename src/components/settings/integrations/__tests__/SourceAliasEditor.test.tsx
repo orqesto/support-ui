@@ -46,6 +46,15 @@ const row = (address: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+/**
+ * The panel now shows only addresses with evidence; everything else sits behind a
+ * disclosure. Tests about OTHER behaviour still need those rows on screen, and going
+ * through the real control is worth more than a fixture that pretends they are flagged.
+ */
+const showEverything = async () => {
+  fireEvent.click(await screen.findByText(/Show \d+ more address/));
+};
+
 const renderPanel = (declared: string[] = []) =>
   render(
     <SourceAliasEditor
@@ -95,6 +104,7 @@ describe('SourceAliasEditor', () => {
     });
     renderPanel([]);
 
+    await showEverything();
     await screen.findByText('info@shop.es');
     for (const toggle of screen.getAllByRole('switch')) {
       expect(toggle).toHaveAttribute('aria-checked', 'false');
@@ -113,6 +123,7 @@ describe('SourceAliasEditor', () => {
     });
     renderPanel(['a@shop.es']);
 
+    await showEverything();
     await screen.findByText('b@shop.de');
     // Adopt the second one; the already-declared first must survive the save.
     fireEvent.click(screen.getByRole('switch', { name: /b@shop\.de/ }));
@@ -257,6 +268,9 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
     renderPanel([]);
 
     await screen.findByText('info@coresarms.co.uk');
+    // The flagged one leads WITHOUT expanding; the customer is behind the disclosure.
+    expect(screen.queryByText('a.customer@gmail.com')).toBeNull();
+    await showEverything();
     expect(screen.getByText('a.customer@gmail.com')).toBeInTheDocument();
     // Labelled as the weaker signal, and hinted — but still not selected.
     expect(screen.getAllByText(/seen as sender/i).length).toBeGreaterThan(0);
@@ -328,6 +342,7 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
       coverage: { conversations: 931, withDeliveryAddress: 0 },
     });
     renderPanel([]);
+    await showEverything();
     await screen.findByText('info@coresarms.co.uk');
 
     fireEvent.change(screen.getByLabelText('Add an address by hand'), {
@@ -342,6 +357,62 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
       type: 'gmail',
       config: { aliases: ['info@coresarms.co.uk'] },
     });
+  });
+});
+
+describe('SourceAliasEditor — what it puts in front of you', () => {
+  /**
+   * The panel used to render delivery addresses and frequent senders as ONE flat list of
+   * toggles. On a real workspace that meant 2 real addresses beside 98 customers —
+   * `messages-noreply@linkedin.com` among them — none of which it had flagged as ours.
+   * Adopting one of those makes that customer's mail read as outgoing and they leave the
+   * inbox, so the cost of a mis-click here is a customer disappearing.
+   */
+  it('does not offer customers as candidate aliases by default', async () => {
+    getReceivedAddresses.mockResolvedValue({
+      addresses: [row('info@shop.es', { likelyOurs: true, deliveredConversations: 665 })],
+      senderCandidates: [
+        senderRow('messages-noreply@linkedin.com', { conversations: 273 }),
+        senderRow('reports@laima.lv', { conversations: 282 }),
+      ],
+      coverage: { conversations: 3022, withDeliveryAddress: 2393 },
+    });
+    renderPanel([]);
+
+    await screen.findByText('info@shop.es');
+    expect(screen.queryByText('messages-noreply@linkedin.com')).toBeNull();
+    expect(screen.queryByText('reports@laima.lv')).toBeNull();
+
+    // Not dropped — an UNDECLARED alias hides in requester volume, which is how the
+    // CoreSarms storefronts were found. One click away, and counted honestly.
+    await showEverything();
+    expect(screen.getByText('messages-noreply@linkedin.com')).toBeInTheDocument();
+  });
+
+  it('badges the delivery stamp, which is the one signal a correspondent cannot forge', async () => {
+    // Both of these fields were discarded on the way in — `likelyOurs` was hardcoded false
+    // for delivery rows — so this row used to arrive unflagged and unsorted.
+    getReceivedAddresses.mockResolvedValue({
+      addresses: [row('info@shop.es', { likelyOurs: true, deliveredConversations: 665 })],
+      senderCandidates: [],
+      coverage: { conversations: 3022, withDeliveryAddress: 2393 },
+    });
+    renderPanel([]);
+
+    await screen.findByText('info@shop.es');
+    expect(screen.getByText(/delivered to you/i)).toBeInTheDocument();
+  });
+
+  it('says so plainly when nothing looks like this mailbox', async () => {
+    getReceivedAddresses.mockResolvedValue({
+      addresses: [],
+      senderCandidates: [senderRow('a.customer@gmail.com', { conversations: 9 })],
+      coverage: { conversations: 900, withDeliveryAddress: 0 },
+    });
+    renderPanel([]);
+
+    expect(await screen.findByText(/Nothing here looks like this mailbox/i)).toBeInTheDocument();
+    expect(screen.getByText(/Show 1 more address\b/)).toBeInTheDocument();
   });
 });
 
@@ -360,13 +431,15 @@ describe('SourceAliasEditor — search and sort', () => {
   it('filters the list by search', async () => {
     getReceivedAddresses.mockResolvedValue(many);
     renderPanel([]);
-    await screen.findByText('info@coresarms.co.uk');
+    // None of these carry evidence, so none are shown until searched for — and search
+    // must reach them anyway, or a quiet alias becomes unfindable.
+    await screen.findByText(/Show 4 more addresses/);
 
     fireEvent.change(screen.getByPlaceholderText('Search addresses'), {
       target: { value: 'coresarms' },
     });
 
-    expect(screen.getByText('info@coresarms.co.uk')).toBeInTheDocument();
+    expect(await screen.findByText('info@coresarms.co.uk')).toBeInTheDocument();
     expect(screen.queryByText('zeta@other.com')).toBeNull();
   });
 
@@ -375,6 +448,7 @@ describe('SourceAliasEditor — search and sort', () => {
     // silently delete every alias not matching the search box.
     getReceivedAddresses.mockResolvedValue(many);
     renderPanel(['info@coresarms.de']);
+    await showEverything();
     await screen.findByText('info@coresarms.co.uk');
 
     fireEvent.click(screen.getByRole('switch', { name: /info@coresarms\.co\.uk/ }));
@@ -412,6 +486,7 @@ describe('SourceAliasEditor — search and sort', () => {
   it('orders by volume by default and alphabetically on request', async () => {
     getReceivedAddresses.mockResolvedValue(many);
     renderPanel([]);
+    await showEverything();
     await screen.findByText('info@coresarms.co.uk');
 
     // Toggle carries its name on the wrapping <label>, not an aria-label attribute.

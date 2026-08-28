@@ -52,9 +52,39 @@ describe('messageService.getReceivedAddresses', () => {
         configured: true,
         declared: false,
         attachedToSourceId: null,
+        // Absent from this response on purpose: an older backend does not send them, and
+        // the normaliser must supply a defined default rather than leave them undefined —
+        // the panel scores every row on these two.
+        likelyOurs: false,
+        deliveredConversations: 0,
       },
     ]);
     expect(result?.senderCandidates[0]?.likelyOurs).toBe(true);
+  });
+
+  it('carries the delivery evidence the panel scores rows on', async () => {
+    // Both fields were being dropped here while the backend sent them, so a delivery row
+    // arrived at the panel looking exactly like an unflagged stranger.
+    get.mockResolvedValue({
+      data: {
+        data: [
+          {
+            address: 'info@shop.es',
+            conversations: 12,
+            configured: false,
+            likelyOurs: true,
+            deliveredConversations: 665,
+          },
+        ],
+        senderCandidates: [],
+        coverage: { conversations: 100, withDeliveryAddress: 40 },
+      },
+    });
+
+    const result = await messageService.getReceivedAddresses();
+
+    expect(result?.addresses[0]?.likelyOurs).toBe(true);
+    expect(result?.addresses[0]?.deliveredConversations).toBe(665);
   });
 
   it('degrades to null on a real 404 — the backend has not shipped the route', async () => {
