@@ -1,0 +1,65 @@
+# A pull request into `main` is a production deploy.
+#
+# `main` deploys app.odly.ai on push, so merging a PR based on it puts the change in front of
+# users with no QA step. `staging` is the gate. GitHub defaults every PR's base to `main`, so
+# the correct base has to be chosen by hand every time — and within an hour of that convention
+# being written down, two of three PRs went straight to production anyway.
+#
+# ⛔ Ordinary branch protection does NOT solve this. "Require a pull request before merging"
+# blocks direct pushes to `main` — which is exactly how a release ships
+# (`release-current.sh` and `release.sh` both `git push origin main`) — while still allowing a
+# PR based on `main` to merge, which is the thing going wrong. This check is the inverse: it
+# says nothing about pushes and everything about where a PR came from.
+#
+# Make it a REQUIRED status check on `main` for it to block rather than merely complain.
+name: PR Base Guard
+
+on:
+  pull_request:
+    # `edited` matters: it fires when someone retargets the base, which is precisely the
+    # correction this check exists to prompt.
+    types: [opened, reopened, edited, synchronize]
+    branches: [main]
+
+concurrency:
+  group: pr-base-guard-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  from-staging:
+    name: PRs into main must come from staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check where this PR came from
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          if [ "$HEAD_REF" = "staging" ]; then
+            echo "✅ from staging — this is a release promotion."
+            exit 0
+          fi
+
+          # A deliberate, auditable exception. Bootstrapping a change that has to reach the
+          # default branch to take effect at all — a PR template, this workflow — genuinely
+          # cannot route through staging first. Labelling it says so out loud, in a place a
+          # reviewer sees, instead of it looking like the mistake this check is here to catch.
+          case ",$LABELS," in
+            *,direct-to-main,*)
+              echo "⚠️  labelled direct-to-main — allowed, and recorded on the PR."
+              exit 0
+              ;;
+          esac
+
+          echo "::error::This PR targets 'main', which IS production here — merging deploys app.odly.ai immediately."
+          echo ""
+          echo "  Retarget it to 'staging'. On the PR page: Edit (beside the title) → base: staging."
+          echo ""
+          echo "  Changes reach production from staging via 'npm run ship:prod', after QA on"
+          echo "  staging.odly.ai. See RELEASING.md."
+          echo ""
+          echo "  If this genuinely must land on main — something that has no effect until it is"
+          echo "  on the default branch — add the 'direct-to-main' label to say so deliberately."
+          echo ""
+          echo "  head branch was: $HEAD_REF"
+          exit 1

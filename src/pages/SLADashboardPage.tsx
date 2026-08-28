@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
 import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
 import { SLAByPriorityTable, SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPriorityTable';
@@ -16,7 +17,16 @@ const DAYS_OPTIONS = [
 ];
 
 export const SLADashboardPage = () => {
-  const [days, setDays] = useState<number>(SLA_DEFAULT_DAYS);
+  const [searchParams] = useSearchParams();
+  // Arriving from the dashboard's "Avg First Response" tile, which sends the window its
+  // number was computed over. Only a period this page can actually select is honoured —
+  // anything else would leave the selector showing no active button while the charts
+  // displayed a window nobody could see or change.
+  const requested = Number(searchParams.get('days'));
+  const initialDays = DAYS_OPTIONS.some((opt) => opt.value === requested)
+    ? requested
+    : SLA_DEFAULT_DAYS;
+  const [days, setDays] = useState<number>(initialDays);
 
   return (
     <Layout>

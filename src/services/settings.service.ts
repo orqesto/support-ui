@@ -74,6 +74,14 @@ const createCategory = async (data: {
   name: string;
   description?: string;
   keywords?: string;
+  /**
+   * Which department the category belongs to; `null` is baseline — it applies everywhere.
+   *
+   * Declared because omitting it is not neutral: the API falls back to
+   * `bodyDeptId ?? firstDept ?? null`, so leaving it off silently stamps the category with
+   * whichever department the caller happens to be scoped to.
+   */
+  departmentId?: number | null;
 }): Promise<Category> => {
   const response: AxiosResponse<ApiResponse<Category>> = await apiClient.post(
     '/api/settings/categories',
@@ -88,6 +96,8 @@ const updateCategory = async (
     name?: string;
     description?: string;
     keywords?: string;
+    /** `null` is baseline — applies in every department. */
+    departmentId?: number | null;
   }
 ): Promise<Category> => {
   const response: AxiosResponse<ApiResponse<Category>> = await apiClient.put(
