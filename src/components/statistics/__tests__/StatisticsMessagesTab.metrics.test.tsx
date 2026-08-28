@@ -100,3 +100,62 @@ describe('StatisticsMessagesTab — response metrics', () => {
     expect(screen.getByText(/first 5,000 conversations/)).toBeInTheDocument();
   });
 });
+
+/**
+ * The empty panel that was not broken.
+ *
+ * On prod, framehouse has 2,936 resolved conversations and every one carries a NULL `closed_at`,
+ * because ten of the eleven backend paths that resolve a conversation never stamped it. Both
+ * duration metrics require that column, so the page showed six em-dashes, two zeros, and a
+ * footnote whose every number was ALSO zero — the metric's own exclusion counters are filters
+ * inside a query that already requires a close time, so they cannot describe a row that lacks
+ * one. Nothing on screen accounted for the missing 2,936, which is why it read as a broken
+ * feature rather than an honest gap.
+ */
+describe('StatisticsMessagesTab — an empty panel says why it is empty', () => {
+  it('accounts for resolved conversations that carry no close time', () => {
+    renderTab({
+      ...base,
+      resolutionTime: { avgHours: null, p50Hours: null, p90Hours: null, totalClosed: 0, excludedNoCloseStamp: 2936 },
+    });
+
+    // The count is the point: "0 closed" beside a silent 2,936 is the misleading state.
+    expect(screen.getByText(/2,936 resolved conversations have/)).toBeInTheDocument();
+    expect(screen.getByText(/no recorded close time/)).toBeInTheDocument();
+  });
+
+  it('states that nothing qualifies yet, rather than leaving four dashes unexplained', () => {
+    renderTab({
+      ...base,
+      receiveToResolve: {
+        avgHours: null, p50Hours: null, p90Hours: null, totalResolved: 0,
+        excludedUnknownActor: 0, excludedSystemResolved: 0, excludedNoCloseStamp: 2936,
+      },
+    });
+
+    expect(screen.getByText(/Nothing in this window qualifies yet/)).toBeInTheDocument();
+    // ...and it must not be phrased as a zero, which would be a measurement.
+    expect(screen.getByText(/blank rather than zero/)).toBeInTheDocument();
+  });
+
+  it('CONTROL: a healthy workspace is not shown an apology for a problem it does not have', () => {
+    // Without this, wording that always renders would pass every assertion above.
+    renderTab({
+      ...base,
+      receiveToResolve: { avgHours: 30, p50Hours: 24, p90Hours: 70, totalResolved: 9 },
+    });
+
+    expect(screen.queryByText(/no recorded close time/)).toBeNull();
+    expect(screen.queryByText(/Nothing in this window qualifies yet/)).toBeNull();
+  });
+
+  it('CONTROL: stays silent when the backend predates the field entirely', () => {
+    // `excludedNoCloseStamp` is absent until the tag lands. Absent is not zero and not a defect.
+    renderTab({
+      ...base,
+      resolutionTime: { avgHours: null, p50Hours: null, p90Hours: null, totalClosed: 0 },
+    });
+
+    expect(screen.queryByText(/no recorded close time/)).toBeNull();
+  });
+});

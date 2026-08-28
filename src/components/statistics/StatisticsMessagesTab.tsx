@@ -26,6 +26,36 @@ function OpenHours({ stats, pick }: { stats?: BusinessHoursStats | null; pick: '
   );
 }
 
+/**
+ * Why a duration panel is empty, when it is empty for a reason its own numbers cannot show.
+ *
+ * Both duration metrics require a conversation to carry `closed_at`. Ten of the eleven backend
+ * paths that resolve a conversation never stamped it, so the panel can be blank while the team
+ * resolves mail all day: framehouse has 2,936 resolved conversations, every one with a NULL
+ * `closed_at`, and not one of them can appear here.
+ *
+ * ⚠️ The metric's OWN exclusion counters cannot explain that. `excludedUnknownActor` and
+ * `excludedSystemResolved` are FILTER clauses inside a query that already requires a close time,
+ * so for these rows they are zero as well — the footnote printed nothing, and six em-dashes with
+ * no explanation is what sent someone asking why the feature was broken. It was not.
+ *
+ * Renders nothing when the count is absent (backend predating the field) or zero, so a healthy
+ * workspace is never shown an apology for a problem it does not have.
+ */
+function Unmeasurable({ count }: { count?: number }) {
+  if (!count) return null;
+  return (
+    <>
+      {' '}
+      <span className="font-medium text-foreground">
+        {count.toLocaleString()} resolved {count === 1 ? 'conversation has' : 'conversations have'}{' '}
+        no recorded close time
+      </span>{' '}
+      and cannot be measured — most were resolved before we started recording one.
+    </>
+  );
+}
+
 interface Props {
   msgStats: MessageStatsData | null;
   msgLoading: boolean;
@@ -54,11 +84,22 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Responded</p><p className="mt-2 text-3xl font-bold">{msgStats.firstResponseTime.totalResponded}</p></div><CheckCircle className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Avg Resolution</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.avgHours)}</p></div><Timer className="w-10 h-10 text-blue-400" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P50 Resolution</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.p50Hours)}</p></div><Activity className="w-10 h-10 text-green-400" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P90 Resolution</p><p className="mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.p90Hours)}</p></div><TrendingUp className="w-10 h-10 text-orange-400" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Closed Messages</p><p className="mt-2 text-3xl font-bold">{msgStats.resolutionTime.totalClosed}</p></div><CheckCircle className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
+              </div>
+              {/* ⚠️ "Closed Messages: 0" is the most misleading thing on this page — a COUNT reads
+                * as a fact about the team rather than a gap in the data, and this row carried no
+                * footnote at all to say otherwise. */}
+              {msgStats.resolutionTime.excludedNoCloseStamp ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Counts conversations with a recorded close time.
+                  <Unmeasurable count={msgStats.resolutionTime.excludedNoCloseStamp} />
+                </p>
+              ) : null}
             </div>
 
             {/* Receipt → resolution, human resolutions only.
@@ -78,6 +119,10 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
                 <p className="mt-2 text-xs text-muted-foreground">
                   Measured from when the message arrived, not when it was ingested, and counting
                   only conversations a person resolved.
+                  {msgStats.receiveToResolve.totalResolved === 0
+                    ? ' Nothing in this window qualifies yet, so the figures are blank rather than zero.'
+                    : ''}
+                  <Unmeasurable count={msgStats.receiveToResolve.excludedNoCloseStamp} />
                   {msgStats.receiveToResolve.excludedUnknownActor
                     ? ` ${msgStats.receiveToResolve.excludedUnknownActor} resolved before we recorded who did it are excluded — unknown, not automated.`
                     : ''}
