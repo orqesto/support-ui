@@ -13,7 +13,6 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
 import { organizationService, type Organization } from '@/services/organization.service';
-import { listScimGroupMappings } from '@/services/scim.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
@@ -82,14 +81,27 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   const [orgAdminCount, setOrgAdminCount] = useState<number | null>(null);
-  const [orgHasDeptMapping, setOrgHasDeptMapping] = useState(false);
 
-  // D2-01: a SCIM-managed member's role/dept is owned by the IdP. The ROLE control is
-  // always read-only; the DEPARTMENT control only when the org has ≥1 group→department
-  // mapping (D2-01a). Non-SCIM members are unaffected (D2-01b).
+  // D2-01: a SCIM-managed member's ROLE is owned by the IdP, so that control stays
+  // read-only.
+  //
+  // DEPARTMENTS are no longer locked as a whole. They are locked PER DEPARTMENT, from the
+  // real provenance of each row (`provisionedDepartmentIds`) rather than from a guess about
+  // the org. The guess was wrong in the direction that mattered: it came from
+  // `listScimGroupMappings()`, which returns SCIM mappings only, while an ALLIANCE group's
+  // department mapping lives in `alliance_group_orgs.mappedDepartmentIds` and never appeared
+  // there. So an alliance-managed member's departments were editable even when their group
+  // did map departments — and every save wiped the provenance of every row.
+  //
+  // The whole-field lock was also wrong in the other direction: it blocked a workspace admin
+  // from ADDING a department, which is theirs to do and survives the reconcile.
   const isScimManaged = user?.scimManaged === true;
   const roleReadOnly = isScimManaged;
-  const deptReadOnly = isScimManaged && orgHasDeptMapping;
+  // Absent on an older backend ⇒ nothing is marked as coming from the directory.
+  const provisionedDepartmentIds = useMemo(
+    () => user?.provisionedDepartmentIds ?? [],
+    [user?.provisionedDepartmentIds]
+  );
 
   const isEditingSelf = Boolean(currentUser && user && currentUser.id === user.id);
   const canEditRoles = isAdmin || (canManageUsers && !isEditingSelf);
@@ -163,26 +175,6 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   }, []);
 
   // For a SCIM-managed member, learn whether the org maps any group→department (D2-01a).
-  // Only org_admin/global-admin can read the mapping endpoint; any failure leaves
-  // departments editable (fail-open for editability).
-  useEffect(() => {
-    if (!isScimManaged) {
-      setOrgHasDeptMapping(false);
-      return;
-    }
-    let active = true;
-    listScimGroupMappings()
-      .then((groups) => {
-        if (active) setOrgHasDeptMapping(groups.some((grp) => grp.mappedDepartmentIds.length > 0));
-      })
-      .catch(() => {
-        if (active) setOrgHasDeptMapping(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isScimManaged]);
-
   const isDirty = useMemo(() => {
     if (!user) return false;
     return (
@@ -228,9 +220,29 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
     // a role or wipe departments on Save (the server replaces on any provided value — an empty
     // departmentIds array clears all rows). Gating on a real change makes an untouched field a no-op.
     const roleChanged = organizationRole !== (user?.organizationRole ?? 'associate');
+    /*
+     * Send the MANUAL layer only — never the directory's rows.
+     *
+     * `departmentIds` is a full replacement set for the layer a human owns:
+     * `setUserOrganizationDepartments` clears the caller's 'manual' rows, leaves
+     * 'provisioned' ones alone, and CLAIMS anything requested as 'manual' (deliberate — it
+     * is what makes an admin's explicit choice survive the next reconcile).
+     *
+     * That last part is why the directory's departments must be filtered out. They are
+     * rendered as checked, so including them would mean every ordinary save silently
+     * converted every IdP-granted department to human-owned — reintroducing, from the
+     * client, exactly the provenance wipe the server-side fix removed.
+     */
+    const manualSelection = selectedDepartmentIds.filter(
+      (deptId) => !provisionedDepartmentIds.includes(deptId)
+    );
+    const previousManual = (user?.departmentIds ?? []).filter(
+      (deptId) => !provisionedDepartmentIds.includes(deptId)
+    );
+    // Compare like with like: the directory's rows are in neither side, so they can never
+    // make an untouched form look changed.
     const deptsChanged =
-      JSON.stringify([...selectedDepartmentIds].sort()) !==
-      JSON.stringify([...(user?.departmentIds ?? [])].sort());
+      JSON.stringify([...manualSelection].sort()) !== JSON.stringify([...previousManual].sort());
     const overridesChanged =
       JSON.stringify(permissionOverrides) !== JSON.stringify(user?.permissionOverrides ?? {});
     return {
@@ -245,8 +257,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
       // can never fight the IdP's derivation.
       organizationRole:
         canEditRoles && !roleReadOnly && roleChanged ? organizationRole : undefined,
-      departmentIds:
-        canEditRoles && !deptReadOnly && deptsChanged ? selectedDepartmentIds : undefined,
+      departmentIds: canEditRoles && deptsChanged ? manualSelection : undefined,
       permissionOverrides: canEditRoles && overridesChanged ? permissionOverrides : undefined,
     };
   };
@@ -507,7 +518,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                   onConfirmRemoveCatchAll={(deptId) =>
                     setGeneralDeptUnlinkConfirm({ open: true, deptId })
                   }
-                  readOnly={deptReadOnly}
+                  provisionedIds={provisionedDepartmentIds}
                   isGlobalAdmin={globalRole === 'admin'}
                 />
 
