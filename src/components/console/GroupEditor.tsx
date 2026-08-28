@@ -123,6 +123,9 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
     });
   };
 
+  /** The one workspace this group applies to, or null — see `selectOrg`. */
+  const selectedOrgId = selectedOrgIds[0] ?? null;
+
   const setDeptsForOrg = (orgId: number, deptIds: number[]) => {
     setDepartmentIdsByOrg((current) => ({ ...current, [orgId]: deptIds }));
   };
@@ -234,7 +237,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
                   is still `orgIds`, and the backend caps it rather than the schema. */}
               <Select
                 id="group-workspace"
-                value={selectedOrgIds[0] !== undefined ? String(selectedOrgIds[0]) : ''}
+                value={selectedOrgId === null ? '' : String(selectedOrgId)}
                 onChange={(event) =>
                   selectOrg(event.target.value === '' ? null : Number(event.target.value))
                 }
@@ -246,13 +249,13 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
                   </option>
                 ))}
               </Select>
-              {selectedOrgIds[0] !== undefined && orgRole !== 'org_admin' && (
+              {selectedOrgId !== null && orgRole !== 'org_admin' && (
                 <OrgDepartmentPicker
                   allianceId={allianceId}
-                  orgId={selectedOrgIds[0]}
-                  orgLabel={orgLabel(selectedOrgIds[0])}
-                  selected={departmentIdsByOrg[selectedOrgIds[0]] ?? []}
-                  onChange={(deptIds) => setDeptsForOrg(selectedOrgIds[0], deptIds)}
+                  orgId={selectedOrgId}
+                  orgLabel={orgLabel(selectedOrgId)}
+                  selected={departmentIdsByOrg[selectedOrgId] ?? []}
+                  onChange={(deptIds) => setDeptsForOrg(selectedOrgId, deptIds)}
                 />
               )}
             </div>

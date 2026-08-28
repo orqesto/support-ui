@@ -142,6 +142,12 @@ const SyncedGroupRow = ({
   const selectedOrgRole = orgRoleOf(selectedValue);
   const isOrgRole = selectedOrgRole !== null;
   const noWorkspaceSelected = isOrgRole && selectedOrgIds.length === 0;
+  /**
+   * The one workspace this group maps to, or null. Named once rather than indexed at each
+   * use: the list is a storage shape kept for the day several are allowed again, and the
+   * screen only ever speaks about one.
+   */
+  const selectedOrgId = selectedOrgIds[0] ?? null;
   return (
     <Card padding="sm" className="space-y-3">
       <div className="flex flex-wrap gap-2 justify-between items-start">
@@ -286,7 +292,7 @@ const SyncedGroupRow = ({
                       again. */}
                   <Select
                     id={`wire-workspace-${group.id}`}
-                    value={selectedOrgIds[0] !== undefined ? String(selectedOrgIds[0]) : ''}
+                    value={selectedOrgId === null ? '' : String(selectedOrgId)}
                     onChange={(event) =>
                       onSelectOrg(event.target.value === '' ? null : Number(event.target.value))
                     }
@@ -298,16 +304,16 @@ const SyncedGroupRow = ({
                       </option>
                     ))}
                   </Select>
-                  {selectedOrgIds[0] !== undefined && selectedOrgRole !== 'org_admin' && (
+                  {selectedOrgId !== null && selectedOrgRole !== 'org_admin' && (
                     <div className="pt-2">
                       <OrgDepartmentPicker
                         allianceId={allianceId}
-                        orgId={selectedOrgIds[0]}
+                        orgId={selectedOrgId}
                         orgLabel={
-                          activeOrgs.find((org) => org.id === selectedOrgIds[0])?.name ?? ''
+                          activeOrgs.find((org) => org.id === selectedOrgId)?.name ?? ''
                         }
-                        selected={deptsByOrg[selectedOrgIds[0]] ?? []}
-                        onChange={(deptIds) => onDeptChange(selectedOrgIds[0], deptIds)}
+                        selected={deptsByOrg[selectedOrgId] ?? []}
+                        onChange={(deptIds) => onDeptChange(selectedOrgId, deptIds)}
                       />
                     </div>
                   )}
