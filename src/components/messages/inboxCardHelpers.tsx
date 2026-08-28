@@ -69,7 +69,13 @@ export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; class
  * Derived from ONE signal, `lastReplyFromClient` (null→Open, true→In Progress,
  * false→Pending), plus the parked overlay (On-hold) and terminal (Resolved). It
  * ignores the redundant raw `status` sub-values so it can never contradict the
- * flags. Returns null for the Queue axis (filtered/needs_routing) — no work status.
+ * flags. Returns null for the Queue axis (filtered) — no work status.
+ *
+ * `needs_routing` is NOT a Queue value. It is a MARK on an otherwise ordinary thread — every
+ * such row already has a department, so it never meant "unrouted", it means the router wants a
+ * human to confirm. Treating it as a lane removed the thread from the board and left it in a
+ * queue nobody had open, which is how a client came to search for mail that was sitting right
+ * there and conclude it had never arrived. Use `getRoutingBadge` for the mark.
  */
 export const deriveWorkflowStatus = (
   message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> & {
@@ -78,7 +84,7 @@ export const deriveWorkflowStatus = (
 ): WorkflowStatus | null => {
   const { status } = message;
   if (status === 'resolved' || status === 'closed') return 'resolved';
-  if (status === 'filtered' || status === 'needs_routing') return null; // Queue axis
+  if (status === 'filtered') return null; // Queue axis
   if (message.parkedAt) return 'on_hold';
   if (message.lastReplyFromClient === false) return 'pending';
   if (message.lastReplyFromClient === true) return 'in_progress';
@@ -97,6 +103,20 @@ export const getStatusBadge = (
   const wf = deriveWorkflowStatus(message);
   return wf ? WORKFLOW_STATUS_META[wf] : null;
 };
+
+/**
+ * The routing mark — a SEPARATE axis from the work status, not an alternative to it.
+ *
+ * A thread can be awaiting routing and also be open, pending, suspicious or anything else;
+ * those answer different questions. Opening the thread is what completes the routing: the
+ * detail header offers the department picker and refreshes once a department is chosen.
+ */
+export const getRoutingBadge = (message: {
+  status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+}): { label: string; className: string } | null =>
+  message.status === 'needs_routing'
+    ? { label: 'Needs Routing', className: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' }
+    : null;
 
 /** Priority chip for the inbox cards — all four levels. */
 export const getPriorityBadge = (

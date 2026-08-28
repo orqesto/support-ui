@@ -40,6 +40,7 @@ import {
   getInitials,
   getPriorityBadge,
   getSpine,
+  getRoutingBadge,
   getStatusBadge,
   hasAttachments,
 } from './inboxCardHelpers';
@@ -117,6 +118,8 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
   const statusBadge = getStatusBadge(msg);
   /** Synthetic spam_log row (`spamlog_NN`, negative id) — see the chip below. */
   const isBlockedSpamLog = thread.threadId.startsWith('spamlog_');
+  // Separate axis from the work status: a thread can be awaiting routing AND open.
+  const routingBadge = getRoutingBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
 
   // Shared org-wide read/unread (triage queues only): unread = dot + bold; read =
@@ -332,6 +335,18 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${statusBadge.className}`}
             >
               {statusBadge.label}
+            </span>
+          )}
+
+          {/* Says why an otherwise ordinary thread is asking for attention. Without it these
+              rejoin the board looking like any other thread, with nothing indicating that
+              opening one is what assigns its department. */}
+          {routingBadge && (
+            <span
+              className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${routingBadge.className}`}
+              title="Open this thread to choose its department"
+            >
+              {routingBadge.label}
             </span>
           )}
 
