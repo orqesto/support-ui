@@ -116,6 +116,8 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread);
   const statusBadge = getStatusBadge(msg);
+  /** Synthetic spam_log row (`spamlog_NN`, negative id) — see the chip below. */
+  const isBlockedSpamLog = thread.threadId.startsWith('spamlog_');
   // Separate axis from the work status: a thread can be awaiting routing AND open.
   const routingBadge = getRoutingBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
@@ -309,6 +311,24 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
             and the metadata block (chips + reference footer). */}
         <div className="flex flex-wrap gap-1.5 items-center pt-2 mt-1 border-t border-border/60">
           <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
+
+          {/*
+            A spam-log row is NOT a conversation. Mail rejected by a rule before a thread
+            existed is listed here so it is not invisible — that silence is what let a real
+            customer's mail go missing — but it has no events, notes or activity, so opening
+            it shows a read-only dialog instead of the detail pane.
+
+            Without this chip the row is indistinguishable from its neighbours and the dialog
+            reads as a bug: you click expecting a thread and get a modal. Say so first.
+          */}
+          {isBlockedSpamLog && (
+            <span
+              className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+              title="Rejected by a spam rule before it became a conversation — there is no thread to open"
+            >
+              blocked · no thread
+            </span>
+          )}
 
           {statusBadge && (
             <span

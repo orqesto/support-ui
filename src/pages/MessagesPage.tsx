@@ -967,6 +967,16 @@ export const MessagesPage = () => {
           </div>
         </DialogHeader>
         <DialogContent>
+          {/*
+            Why this is a dialog and not the usual detail pane, said on the screen rather
+            than left for the reader to infer from a modal appearing where a thread was
+            expected. There is no conversation behind this row: the mail was rejected
+            before one was created, so there are no events, notes or activity to show.
+          */}
+          <p className="mb-3 text-xs text-muted-foreground">
+            A rule rejected this before it became a conversation, so there is no thread to
+            open — everything captured about it is shown here.
+          </p>
           <div className="mb-3 space-y-0.5 text-sm text-muted-foreground">
             <div>
               <span className="font-medium text-foreground">From:</span>{' '}
