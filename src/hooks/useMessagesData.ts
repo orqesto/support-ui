@@ -3,6 +3,7 @@ import { COLUMNS } from '@/components/messages/kanbanColumns';
 import { assigneeApiParams } from './assigneeApiParams';
 import { legacyAiStateParam } from './legacyAiStateParam';
 import { negateApiParam } from './negateApiParam';
+import { searchIsTheOnlyFilter } from '@/hooks/searchIsTheOnlyFilter';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -166,6 +167,12 @@ export const useMessagesData = ({
           apiFilters.excludeAwaitingResponse = 'true';
         }
 
+        const searchIsTheWholeFilter = searchIsTheOnlyFilter({
+          search: currentFilters.search,
+          threadStatus,
+          lifecycleOrQueueActive,
+        });
+
         // STATUS → view param
         // When threadStatus is active, use view=active (not work_queue) so the status
         // restriction from work_queue doesn't block closed threads.
@@ -174,6 +181,21 @@ export const useMessagesData = ({
         if (lifecycleOrQueueActive) {
           // lifecycle/queue define the set; leave view/showSpam unset so the BE's
           // base (org/dept) scope + the new params are the only status constraints.
+        } else if (status === 'all' && searchIsTheWholeFilter) {
+          // ⛔ No view at all. A typed search is a request for a NAMED thing, not a browse
+          // of the work queue, and `view=work_queue` is a lens: it reaches the BE's view
+          // chain, which runs BEFORE the rule that drops the default lens for an explicit
+          // search — so the bypass the backend already implements never fires, and the
+          // answer comes back narrowed.
+          //
+          // Measured on a client deploy: searching a customer's address returned "No
+          // messages found" over the banner "Showing 0 of 1 — 1 hidden by the current
+          // view", while the same search with no `view` returned the thread. An agent
+          // reads the first as "this mail never arrived".
+          //
+          // Only when the agent picked NOTHING. A chosen status, lifecycle, queue or
+          // column is a deliberate narrowing and still applies — searching inside
+          // "Resolved" must keep meaning that.
         } else if (status === 'all') {
           apiFilters.view = threadStatus !== 'all' ? 'active' : 'work_queue';
         } else if (status === 'active') {
