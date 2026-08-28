@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AtSign, Check, ChevronDown, Hash, Mail, MessageCircle, Send } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { isConnectedChannel } from '@/components/onboarding/connectedChannel';
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 import { GmailIntegrationCard } from '@/components/settings/integrations/GmailIntegrationCard';
 import { SlackIntegrationCard } from '@/components/settings/integrations/SlackIntegrationCard';
@@ -63,15 +64,17 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
       const response = await integrationsService.getAll();
       const list = response.success && response.data ? response.data : [];
       setIntegrations(list);
-      onConnectedChange(
-        list.some(
-          (item) =>
-            (item.type === 'gmail' ||
-              item.type === 'email' ||
-              item.type === 'telegram' ||
-              item.type === 'slack') && !item.isKnowledgeBase
-        )
-      );
+      // ⛔ Deliberately NOT `&& !item.isKnowledgeBase`. A mailbox marked as a Knowledge
+      // Base source is still a connected channel: everything arriving AFTER its cutoff is
+      // live mail, which is exactly how the largest client deployment is configured (one
+      // mailbox, badged both Support and Knowledge Base).
+      //
+      // Excluding them made this step contradict its own instructions. The tip above tells
+      // the user to tick "Use as Knowledge Base source" when adding a mailbox; doing so set
+      // `isKnowledgeBase`, which hid the mailbox from the list, reported "Not connected",
+      // and blocked "Finish setup" on step 6 with "connect a channel" — for a channel they
+      // had just connected. Confirmed on staging: the source existed the whole time.
+      onConnectedChange(list.some(isConnectedChannel));
     } catch (error) {
       logger.error('Failed to fetch integrations:', error);
     } finally {
@@ -83,8 +86,11 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
     void fetchIntegrations();
   }, [fetchIntegrations]);
 
+  // Counts every mailbox on the channel, KB-marked or not — see the note in
+  // fetchIntegrations. A row that says "Not connected" above a mailbox the user just added
+  // is worse than no count at all.
   const countFor = (key: ChannelKey) =>
-    integrations.filter((item) => item.type === key && !item.isKnowledgeBase).length;
+    integrations.filter((item) => item.type === key).length;
 
   const cardProps = {
     integrations,
@@ -103,7 +109,12 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
       case 'gmail':
         return <GmailIntegrationCard {...cardProps} defaultKB={false} />;
       case 'email':
-        return <EmailIntegrationCard {...cardProps} defaultKB={false} />;
+        // No `defaultKB` — the same way Settings mounts it. `defaultKB={false}` made the
+        // card's own list filter to `isKnowledgeBase === false`, so a mailbox added with
+        // the KB box ticked disappeared behind "No email accounts configured" the moment
+        // it was created. The prop's other jobs (the create-form default and the heading)
+        // are unchanged: `undefined` already falls back to false / "Email Accounts (IMAP)".
+        return <EmailIntegrationCard {...cardProps} />;
       case 'telegram':
         return <TelegramIntegrationCard {...cardProps} />;
       case 'slack':
