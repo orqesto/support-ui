@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 
@@ -131,7 +132,7 @@ describe('InboxSmoke', () => {
   it('renders message list item without crashing', () => {
     const onOpen = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE}>
         <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
@@ -142,7 +143,7 @@ describe('InboxSmoke', () => {
   it('renders message subject', () => {
     const onOpen = vi.fn();
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE}>
         <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
@@ -155,7 +156,7 @@ describe('InboxSmoke', () => {
     // than the detail pane — MessageDetail loads events/notes/activity by id, which do not
     // exist for a synthetic negative id. Unmarked, that modal looks like a bug.
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE}>
         <MessageListItem
           thread={{ ...mockThread, threadId: 'spamlog_828' }}
           onOpen={vi.fn()}
@@ -169,7 +170,7 @@ describe('InboxSmoke', () => {
   it('does not mark an ordinary conversation row', () => {
     // The control: every other row in the same list must stay unchanged.
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE}>
         <MessageListItem thread={{ ...mockThread, threadId: 'conv_9563' }} onOpen={vi.fn()} />
       </MemoryRouter>
     );
@@ -185,7 +186,7 @@ describe('InboxSmoke', () => {
     ];
 
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE}>
         <div data-testid="message-list">
           {threads.map((thread) => (
             <MessageListItem key={thread.threadId} thread={thread} onOpen={onOpen} />

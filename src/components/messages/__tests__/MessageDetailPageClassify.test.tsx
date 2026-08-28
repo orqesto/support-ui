@@ -2,6 +2,7 @@ import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 /**
  * The full-page message route has to offer the same reclassification actions as
@@ -64,7 +65,7 @@ import { MessageDetailPage } from '@/pages/MessageDetailPage';
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/messages/42']}>
+    <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
       <Routes>
         <Route path="/messages/:id" element={<MessageDetailPage />} />
       </Routes>

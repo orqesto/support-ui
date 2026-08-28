@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // The guard reads a build-time flag from '@/lib/config' and the caller's global role from
@@ -14,7 +15,7 @@ const renderAt = async (allianceConsoleEnabled: boolean, role: 'admin' | 'user')
   }));
   const { AllianceConsoleRoute } = await import('../AllianceConsoleRoute');
   return render(
-    <MemoryRouter initialEntries={['/console']}>
+    <MemoryRouter initialEntries={['/console']} future={ROUTER_FUTURE}>
       <Routes>
         <Route
           path="/console"

@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { organizationService } from '@/services/organization.service';
 
 /**
@@ -38,7 +39,7 @@ const { WorkspaceShell } = await import('../WorkspaceShell');
 
 const renderAt = (orgId: string) =>
   render(
-    <MemoryRouter initialEntries={[`/console/workspace/${orgId}`]}>
+    <MemoryRouter initialEntries={[`/console/workspace/${orgId}`]} future={ROUTER_FUTURE}>
       <Routes>
         <Route path="/console/workspace/:orgId" element={<WorkspaceShell />} />
       </Routes>

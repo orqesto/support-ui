@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 // Mock authStore before importing the page
 vi.mock('@/stores/authStore', () => ({
@@ -117,7 +118,7 @@ describe('SettingsSmoke', () => {
 
   it('renders the settings page without crashing', () => {
     render(
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -126,7 +127,7 @@ describe('SettingsSmoke', () => {
 
   it('renders the settings title', () => {
     render(
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -135,7 +136,7 @@ describe('SettingsSmoke', () => {
 
   it('renders the settings tabs navigation', () => {
     render(
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -144,7 +145,7 @@ describe('SettingsSmoke', () => {
 
   it('renders the Profile tab', () => {
     render(
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -154,7 +155,7 @@ describe('SettingsSmoke', () => {
 
   it('renders expected tab labels', () => {
     render(
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -168,7 +169,7 @@ describe('SettingsSmoke', () => {
 
   it('does not render System tab for non-admin user', () => {
     render(
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -179,7 +180,7 @@ describe('SettingsSmoke', () => {
 
   it('deep-links to a sub-section via #<tab>/<section>', () => {
     render(
-      <MemoryRouter initialEntries={['/settings#ai/learning']}>
+      <MemoryRouter initialEntries={['/settings#ai/learning']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -189,7 +190,7 @@ describe('SettingsSmoke', () => {
 
   it('passes empty section when hash has no sub-section', () => {
     render(
-      <MemoryRouter initialEntries={['/settings#rules']}>
+      <MemoryRouter initialEntries={['/settings#rules']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -199,7 +200,7 @@ describe('SettingsSmoke', () => {
 
   it('strips ?query inside the hash before passing section down', () => {
     render(
-      <MemoryRouter initialEntries={['/settings#ai/learning?focus=42']}>
+      <MemoryRouter initialEntries={['/settings#ai/learning?focus=42']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -209,7 +210,7 @@ describe('SettingsSmoke', () => {
 
   it('falls back to the default tab when the top-level id is unknown', () => {
     render(
-      <MemoryRouter initialEntries={['/settings#bogus/whatever']}>
+      <MemoryRouter initialEntries={['/settings#bogus/whatever']} future={ROUTER_FUTURE}>
         <SettingsPage />
       </MemoryRouter>
     );

@@ -12,6 +12,7 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const forgotPassword = vi.fn();
@@ -34,7 +35,7 @@ const { ForgotPasswordPage } = await import('@/pages/ForgotPasswordPage');
 
 const renderPage = () =>
   render(
-    <MemoryRouter>
+    <MemoryRouter future={ROUTER_FUTURE}>
       <ForgotPasswordPage />
     </MemoryRouter>
   );

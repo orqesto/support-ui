@@ -23,6 +23,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type * as ReactRouterDom from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { EditUserPage } from '@/pages/EditUserPage';
@@ -122,7 +123,7 @@ vi.mock('@/components/layout/Layout', () => ({
 const renderPage = () =>
   render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={['/users/7/edit']}>
+      <MemoryRouter initialEntries={['/users/7/edit']} future={ROUTER_FUTURE}>
         <Routes>
           <Route path="/users/:id/edit" element={<EditUserPage />} />
         </Routes>
