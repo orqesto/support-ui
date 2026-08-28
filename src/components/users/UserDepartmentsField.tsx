@@ -8,8 +8,14 @@ type UserDepartmentsFieldProps = {
   onChange: (next: number[]) => void;
   /** Ask before dropping the catch-all department — losing it silently hides Info mail. */
   onConfirmRemoveCatchAll: (departmentId: number) => void;
-  /** IdP owns department membership for this member (D2-01a). */
-  readOnly: boolean;
+  /**
+   * Departments the IDENTITY PROVIDER granted. Locked individually rather than locking the
+   * whole field: the workspace admin owns the 'manual' layer and can always ADD, but cannot
+   * revoke a directory grant — the reconcile would simply put it back. Showing these as
+   * ordinary unticked-able checkboxes is what produces the "I removed it and it came back"
+   * report. Defaults to `[]` against a backend that does not send the field yet.
+   */
+  provisionedIds?: number[];
   /** Global admins reach every department; the checklist would be misleading. */
   isGlobalAdmin: boolean;
 };
@@ -19,9 +25,11 @@ export const UserDepartmentsField = ({
   selectedIds,
   onChange,
   onConfirmRemoveCatchAll,
-  readOnly,
+  provisionedIds = [],
   isGlobalAdmin,
 }: UserDepartmentsFieldProps) => {
+  const fromDirectory = (departmentId: number) => provisionedIds.includes(departmentId);
+  const hasDirectoryGrants = departments.some((dept) => fromDirectory(dept.id));
   if (isGlobalAdmin) {
     return (
       <div>
@@ -47,15 +55,22 @@ export const UserDepartmentsField = ({
             // Block ADDING an unserved dept, but still allow UNCHECKING one the user is
             // already in, so an admin can clean up a stale assignment.
             const sourceDisabled = !isDepartmentServed(dept) && !isChecked;
+            const directoryLocked = fromDirectory(dept.id);
+            const disabled = directoryLocked || sourceDisabled;
             return (
               <label
                 key={dept.id}
-                className={`flex gap-2 items-center ${readOnly || sourceDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                className={`flex gap-2 items-center ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                title={
+                  directoryLocked
+                    ? 'Granted by your identity provider. Remove it from the IdP group to take it away.'
+                    : undefined
+                }
               >
                 <input
                   type="checkbox"
                   checked={isChecked}
-                  disabled={readOnly || sourceDisabled}
+                  disabled={disabled}
                   onChange={(event) => {
                     if (event.target.checked) {
                       onChange([...selectedIds, dept.id]);
@@ -72,6 +87,12 @@ export const UserDepartmentsField = ({
                   className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <span className="text-sm">{dept.name}</span>
+                {directoryLocked && (
+                  <span className="inline-flex gap-1 items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground">
+                    <Lock className="w-2.5 h-2.5" />
+                    from directory
+                  </span>
+                )}
                 {isGeneral && (
                   <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground">
                     catch-all
@@ -84,12 +105,10 @@ export const UserDepartmentsField = ({
             );
           })}
       </div>
-      <p
-        className={`flex gap-1 items-center mt-1 text-xs ${readOnly ? 'font-medium text-amber-600' : 'text-muted-foreground'}`}
-      >
-        {readOnly && <Lock className="w-3 h-3" />}
-        {readOnly
-          ? 'Managed by IdP (SCIM) — departments are set by your identity provider group mappings.'
+      <p className="flex gap-1 items-center mt-1 text-xs text-muted-foreground">
+        {hasDirectoryGrants && <Lock className="w-3 h-3 shrink-0" />}
+        {hasDirectoryGrants
+          ? 'You can add departments here; the ones marked “from directory” come from your identity provider and have to be changed there.'
           : 'User can access tickets and messages from selected departments'}
       </p>
     </div>

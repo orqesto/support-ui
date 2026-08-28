@@ -50,6 +50,17 @@ export type User = {
   // re-validates alliance authority server-side on every /api/alliances call).
   allianceMemberships?: { allianceId: number; role: AllianceRole }[];
   departmentIds?: number[]; // ALL department IDs the user belongs to in their current organization
+  /**
+   * The subset of `departmentIds` the IDENTITY PROVIDER granted (Role-Model v2 dual-source:
+   * `user_departments.source = 'provisioned'`). Absent on an older backend, which is why
+   * every reader must default it to `[]` rather than assume it is present.
+   *
+   * These are the departments a workspace admin cannot durably remove: the alliance/SCIM
+   * reconcile clears and relinks only 'provisioned' rows, so unticking one would leave the
+   * row untouched and the member would keep the access. The editor shows them locked and
+   * says why, instead of offering an edit that silently does nothing.
+   */
+  provisionedDepartmentIds?: number[];
   permissionOverrides?: PermissionOverrides; // Wave 5 B per-user overrides on top of org role
   organizationId?: number; // Current organization ID
   organizationSlug?: string; // Slug of the current organization (present in login response)
