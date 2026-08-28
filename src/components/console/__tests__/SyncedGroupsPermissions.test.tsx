@@ -83,7 +83,8 @@ const renderCard = () =>
 /** Select a workspace and customize one permission, then map. */
 const wireWithCustomPermission = async () => {
   const user = userEvent.setup();
-  await user.click(screen.getByLabelText('Acme'));
+  // One workspace per group: chosen from a select now, not toggled on.
+  await user.selectOptions(screen.getByLabelText('Workspace'), 'Acme');
   await user.click(screen.getByRole('button', { name: /Customize permissions/i }));
   await user.click(screen.getByLabelText('View Audit Logs'));
   await user.click(screen.getByRole('button', { name: /Map access/i }));
@@ -130,7 +131,8 @@ describe('SyncedGroupsCard permission overrides', () => {
     renderCard();
     const user = userEvent.setup();
 
-    await user.click(screen.getByLabelText('Acme'));
+    // One workspace per group: chosen from a select now, not toggled on.
+  await user.selectOptions(screen.getByLabelText('Workspace'), 'Acme');
     await user.click(screen.getByRole('button', { name: /Map access/i }));
 
     await waitFor(() => expect(wireMutateAsync).toHaveBeenCalledTimes(1));

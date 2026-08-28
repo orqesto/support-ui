@@ -143,7 +143,7 @@ describe('SyncedGroupsCard wire targets', () => {
     );
     renderCard();
 
-    expect(screen.getByRole('combobox')).toHaveValue('orgrole:org_admin');
+    expect(screen.getByLabelText('Map to')).toHaveValue('orgrole:org_admin');
   });
 
   // CONTROL for the skew: an old backend still sends { mappedRole }. The pill must stay
@@ -157,7 +157,7 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.queryByText(/Suggested:/)).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveValue('orgrole:associate');
+    expect(screen.getByLabelText('Map to')).toHaveValue('orgrole:associate');
   });
 });
 
@@ -179,7 +179,7 @@ describe('a group wired only to a legacy alliance role', () => {
     renderCard();
 
     expect(screen.getByLabelText('Map to')).toBeInTheDocument();
-    expect(screen.getByText('Workspaces')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workspace')).toBeInTheDocument();
     expect(screen.queryByText('Re-point')).not.toBeInTheDocument();
   });
 
@@ -213,16 +213,28 @@ describe('a group wired only to a legacy alliance role', () => {
  * is a visible "select at least one" rather than a silent sweep.
  */
 describe('workspace selection defaults', () => {
+  // The control changed from a toggle list to a single select — a group maps to ONE
+  // workspace — but the invariant is the same one, and for the same reason: a picker that
+  // can hand out ORG ADMIN must not grant anything when you don't look at it.
   it('selects NO workspace until the admin picks one', () => {
     syncedGroups.push(baseGroup());
     renderCard();
-    expect(screen.getByText(/\(0 selected\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Workspace')).toHaveValue('');
   });
 
   it('refuses to wire while nothing is selected, and says so', () => {
     syncedGroups.push(baseGroup());
     renderCard();
     expect(screen.getByRole('button', { name: /Map access/ })).toBeDisabled();
-    expect(screen.getByText(/Select at least one to map/)).toBeInTheDocument();
+    expect(screen.getByText(/Choose one to map/)).toBeInTheDocument();
+  });
+
+  it('offers each workspace once, and no way to pick two', () => {
+    // The cap is a product rule, not a schema one: the backend rejects a second id and the
+    // control simply cannot express it.
+    syncedGroups.push(baseGroup());
+    renderCard();
+    expect(screen.getByLabelText<HTMLSelectElement>('Workspace').multiple).toBe(false);
+    expect(screen.getByRole('option', { name: 'Acme' })).toBeInTheDocument();
   });
 });
