@@ -160,6 +160,58 @@ export type CustomConfig = {
 };
 
 // Base integration type
+/**
+ * Why a mailbox is not being polled right now.
+ *
+ * A source whose connect or run fails is held down for 15m → 30m → 1h and skipped by every
+ * poll in between. That state lives in redis, not in the `message_sources` row, so until
+ * the backend started reporting it there was no way for a card to know — a mailbox that
+ * had been down all evening rendered exactly like a working one.
+ */
+export type SyncHoldReason = 'auth_failed' | 'unreachable' | 'run_failures' | 'unknown';
+
+export type SyncHold = {
+  reason: SyncHoldReason;
+  /** Milliseconds until the next attempt. Null when the backend had no TTL to report. */
+  retryInMs: number | null;
+  since: number | null;
+};
+
+const HOLD_REASONS: readonly SyncHoldReason[] = [
+  'auth_failed',
+  'unreachable',
+  'run_failures',
+  'unknown',
+];
+
+/**
+ * Tolerate both shapes, per the version-skew rule in CLAUDE.md.
+ *
+ * ⚠️ This frontend deploys on a push to `main`; the backend ships on a `vX.Y.Z` tag. So a
+ * build of this file WILL run against a backend that does not send `syncHold` at all, and
+ * against one that sends a reason this build has never heard of.
+ *
+ * ⛔ Undefined means "nothing to report", NOT "healthy" — the caller must render nothing,
+ * because claiming a source is fine is a different claim from having no information.
+ */
+export const normalizeSyncHold = (raw: unknown): SyncHold | null => {
+  if (raw === null || typeof raw !== 'object') return null;
+
+  const { reason, retryInMs, since } = raw as {
+    reason?: unknown;
+    retryInMs?: unknown;
+    since?: unknown;
+  };
+
+  return {
+    reason: HOLD_REASONS.includes(reason as SyncHoldReason)
+      ? (reason as SyncHoldReason)
+      : 'unknown',
+    retryInMs: typeof retryInMs === 'number' && retryInMs > 0 ? retryInMs : null,
+    since: typeof since === 'number' && Number.isFinite(since) ? since : null,
+  };
+};
+
 export type BaseIntegration = {
   id: number;
   organizationId: number;
@@ -203,6 +255,9 @@ export type BaseIntegration = {
   lastSyncedAt?: string | null;
   lastSyncError?: string | null;
   lastSyncedPageCount?: number | null;
+  // Why this source is not currently syncing (email/gmail only). Absent on an older
+  // backend — see normalizeSyncHold. Null means "polling normally".
+  syncHold?: SyncHold | null;
 };
 
 // Type-specific integrations
@@ -340,7 +395,13 @@ export const integrationsService = {
     const response = await apiClient.get<{ success: boolean; data: Integration[] }>(
       '/api/integrations'
     );
-    return { success: response.data.success, data: response.data.data };
+    // Normalised here rather than at the card, so every consumer of this list sees the
+    // same shape whichever backend answered.
+    const data = response.data.data.map((integration) => ({
+      ...integration,
+      syncHold: normalizeSyncHold((integration as { syncHold?: unknown }).syncHold),
+    }));
+    return { success: response.data.success, data };
   },
 
   // Check if ANY organization has enabled email integrations (system-wide)
