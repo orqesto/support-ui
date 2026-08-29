@@ -1,10 +1,18 @@
 import { TestTube2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Toggle } from '@/components/ui/Toggle';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { detectImapConfig, deriveSmtpDefaults, isProviderSupported } from '@/utils/imapProviders';
 import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
+import {
+  emailSourceErrors,
+  hostError,
+  mailboxError,
+  portError,
+} from '@/utils/mailboxValidation';
 import type { Department } from '@/services/department.service';
 
 type EmailConfig = {
@@ -109,6 +117,25 @@ export const EmailForm = ({
   const sendingHost = config.smtp?.host?.trim() ? config.smtp.host : smtpPreview?.host;
   const sendingPort = config.smtp?.port ?? smtpPreview?.port;
 
+  /*
+   * Block both actions while any field is WRONG — distinct from incomplete, which the
+   * presence checks below already cover. Without this the buttons stayed live on a value the
+   * server now rejects, which is the round trip this change exists to remove.
+   *
+   * SMTP is included: it is optional, but a filled-in SMTP host with a scheme prefix is just
+   * as broken as an IMAP one, and replies would fail later instead of here.
+   */
+  const hasFieldErrors =
+    emailSourceErrors({
+      host: config.host,
+      port: Number.isFinite(config.port) ? config.port : '',
+      user: config.user,
+      password: config.password,
+    }).length > 0 ||
+    hostError(config.smtp?.host ?? '') !== null ||
+    portError(config.smtp?.port ?? 587) !== null ||
+    mailboxError(config.smtp?.user ?? '') !== null;
+
   const setSmtpField = (field: Partial<NonNullable<EmailConfig['smtp']>>) => {
     onConfigChange({
       ...config,
@@ -128,37 +155,48 @@ export const EmailForm = ({
       <h4 className="font-medium">{editingId ? 'Edit Email Account' : 'Add New Email Account'}</h4>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="host" className="text-sm font-medium">
-            IMAP Host
-          </label>
-          <input
+          <Input
+            id="host"
+            label="IMAP Host"
             type="text"
             value={config.host}
             onChange={(event) => onConfigChange({ ...config, host: event.target.value })}
-            className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+            error={hostError(config.host) ?? undefined}
             placeholder="imap.gmail.com"
           />
         </div>
         <div>
-          <label htmlFor="port" className="text-sm font-medium">
-            Port
-          </label>
-          <input
+          <Input
+            id="port"
+            label="Port"
             type="number"
-            value={config.port}
-            onChange={(event) => onConfigChange({ ...config, port: parseInt(event.target.value) })}
-            className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+            // `parseInt('')` is NaN, and the old field stored that — a NaN port reached the
+            // API as `null` and the source was saved anyway. Keep an empty box empty.
+            value={Number.isFinite(config.port) ? config.port : ''}
+            onChange={(event) => {
+              const next = event.target.value;
+              onConfigChange({ ...config, port: next === '' ? Number.NaN : Number(next) });
+            }}
+            error={portError(Number.isFinite(config.port) ? config.port : '') ?? undefined}
             placeholder="993"
           />
         </div>
         <div>
-          <label htmlFor="user" className="text-sm font-medium">
-            Email{' '}
+          <div className="flex gap-2 items-center mb-1">
+            <span className="text-sm font-medium">Email</span>
             {isProviderSupported(config.user) && (
               <span className="text-xs text-green-500">✓ Auto-detected</span>
             )}
-          </label>
-          <input
+          </div>
+          {/*
+            ⚠️ This was a raw `<input type="email">`. Browsers only enforce `type="email"` on a
+            NATIVE FORM SUBMIT, and this screen saves from a button handler with no <form>
+            around it — so the attribute validated nothing, and `mailto:support@example.com`
+            was accepted, stored, and used as the source's display name. The check is explicit
+            now, and the server enforces the same rule independently.
+          */}
+          <Input
+            id="user"
             type="email"
             value={config.user}
             onChange={(event) => {
@@ -176,12 +214,14 @@ export const EmailForm = ({
                 onConfigChange({ ...config, user: email });
               }
             }}
-            className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+            error={mailboxError(config.user) ?? undefined}
             placeholder="support@gmail.com"
           />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Supported: Gmail, Outlook, Yahoo, iCloud, and more
-          </p>
+          {mailboxError(config.user) === null && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Supported: Gmail, Outlook, Yahoo, iCloud, and more
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="password" className="text-sm font-medium">
@@ -239,16 +279,14 @@ export const EmailForm = ({
           </div>
 
           <div>
-            <label htmlFor="maxResults" className="text-sm font-medium">
-              Max Results per Sync
-            </label>
-            <input
+            <Input
+              id="maxResults"
+              label="Max Results per Sync"
               type="number"
               value={config.maxResults ?? 500}
               onChange={(event) =>
                 onConfigChange({ ...config, maxResults: parseInt(event.target.value) || 500 })
               }
-              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
               min="1"
               max="1000"
             />
@@ -256,10 +294,9 @@ export const EmailForm = ({
           </div>
 
           <div>
-            <label htmlFor="bulkImportMaxResults" className="text-sm font-medium">
-              Initial Sync Page Size
-            </label>
-            <input
+            <Input
+              id="bulkImportMaxResults"
+              label="Initial Sync Page Size"
               type="number"
               value={config.bulkImportMaxResults ?? 500}
               onChange={(event) =>
@@ -268,7 +305,6 @@ export const EmailForm = ({
                   bulkImportMaxResults: parseInt(event.target.value) || 500,
                 })
               }
-              className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
               min="1"
               max="2000"
             />
@@ -297,32 +333,32 @@ export const EmailForm = ({
             )}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">SMTP Host</label>
-                <input
+                <Input
+                  label="SMTP Host"
                   type="text"
                   value={config.smtp?.host ?? ''}
                   onChange={(event) => setSmtpField({ host: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  error={hostError(config.smtp?.host ?? '') ?? undefined}
                   placeholder={smtpPreview?.host ?? 'smtp.gmail.com or mail.privateemail.com'}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">SMTP Port</label>
-                <input
+                <Input
+                  label="SMTP Port"
                   type="number"
                   value={config.smtp?.port ?? 587}
                   onChange={(event) => setSmtpField({ port: parseInt(event.target.value) || 587 })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  error={portError(config.smtp?.port ?? 587) ?? undefined}
                   placeholder="587 or 465"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">SMTP Username</label>
-                <input
+                <Input
+                  label="SMTP Username"
                   type="email"
                   value={config.smtp?.user ?? ''}
                   onChange={(event) => setSmtpField({ user: event.target.value })}
-                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  error={mailboxError(config.smtp?.user ?? '') ?? undefined}
                   placeholder={config.user || 'Same as email above'}
                 />
               </div>
@@ -335,15 +371,11 @@ export const EmailForm = ({
                 />
               </div>
               <div className="col-span-2">
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.smtp?.secure ?? false}
-                    onChange={(event) => setSmtpField({ secure: event.target.checked })}
-                    className="rounded"
-                  />
-                  <label className="text-sm">Use SSL (port 465) instead of TLS (port 587)</label>
-                </div>
+                <Toggle
+                  checked={config.smtp?.secure ?? false}
+                  onChange={(next) => setSmtpField({ secure: next })}
+                  label="Use SSL (port 465) instead of TLS (port 587)"
+                />
               </div>
             </div>
           </div>
@@ -351,15 +383,11 @@ export const EmailForm = ({
       )}
 
       <div className="flex gap-2 items-center">
-        <input
-          type="checkbox"
+        <Toggle
           checked={config.secure}
-          onChange={(event) => onConfigChange({ ...config, secure: event.target.checked })}
-          className="rounded"
+          onChange={(next) => onConfigChange({ ...config, secure: next })}
+          label="Use SSL/TLS"
         />
-        <label htmlFor="secure" className="text-sm">
-          Use SSL/TLS
-        </label>
       </div>
 
       {/* Same control as Gmail — see SourceKbToggle. Hidden only when a caller still
@@ -411,7 +439,7 @@ export const EmailForm = ({
           variant="outline"
           onClick={onCheckMessagesCount}
           isLoading={checkingCount}
-          disabled={!config.host || !config.user || !config.password || saving}
+          disabled={!config.host || !config.user || !config.password || hasFieldErrors || saving}
         >
           <TestTube2 className="mr-2 w-4 h-4" />
           Check Messages Count
@@ -419,7 +447,9 @@ export const EmailForm = ({
         <Button
           onClick={onSave}
           isLoading={saving}
-          disabled={!config.host || !config.user || !config.password || !deptsValid}
+          disabled={
+            !config.host || !config.user || !config.password || !deptsValid || hasFieldErrors
+          }
         >
           <Save className="mr-2 w-4 h-4" />
           {editingId ? 'Update' : 'Save'} Email
