@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
+import { apiErrorMessage } from '@/lib/apiError';
 import {
   SourceAliasEditor,
   declaredAliases,
@@ -243,10 +244,20 @@ export const EmailIntegrationCard = ({
       }
     } catch (error) {
       logger.error('Failed to save Email integration:', error);
+      /*
+       * Show what the SERVER said. It now refuses an unreachable mailbox and passes the IMAP
+       * probe's own guidance back — the wrong port for the TLS mode, an app-password hint —
+       * and replacing that with "Failed to save Email integration" throws away the only part
+       * an admin can act on.
+       *
+       * 🪤 `apiErrorMessage` reads `err.data`, never `err.response`: the api-client
+       * interceptor builds a fresh Error and copies status/body onto it, so the axios shape
+       * is always undefined by the time a caller sees it.
+       */
       onShowAlert({
         open: true,
-        title: 'Error',
-        description: 'Failed to save Email integration',
+        title: 'Could not save this mailbox',
+        description: apiErrorMessage(error, 'Failed to save Email integration'),
         variant: 'error',
       });
     } finally {
