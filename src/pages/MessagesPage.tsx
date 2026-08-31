@@ -49,6 +49,7 @@ import {
   sortingToPreset,
   presetToSorting,
 } from '@/components/messages/sortPresets';
+import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
@@ -193,13 +194,29 @@ export const MessagesPage = () => {
    */
   const handleScopeJump = useCallback(
     (next: Partial<typeof filters>, needsListView?: boolean) => {
-      if (needsListView) setDisplayMode('threads');
+      if (needsListView) {
+        /**
+         * ⛔ NOT `setDisplayMode('threads')` + `patchFilters(...)`. That was the first
+         * attempt and it silently undid itself on staging: the two produce two PARTIAL,
+         * competing writes to the query string — the mode effect deletes `mode` with a
+         * functional update, while the filters effect rebuilds the params from scratch
+         * and carries `mode` over from a ref. Whichever lands second wins, and the
+         * `[searchParams]` reader then resets the store from whatever survived. Observed
+         * result: the board stayed, and `queue` went back to `all`.
+         *
+         * ONE whole-query navigation instead — the same thing the Notification Center
+         * does for `?queue=spam`, and the case the mode effect's own comment describes:
+         * no `mode` + a list-only filter param means "switch to the list and show it".
+         */
+        navigate(scopeJumpUrl(next));
+        return;
+      }
       // patchFilters merges, so pass only the delta. The store clears the cache AND the
       // stale scope on a filter change — the old count describes the old lens, and
       // leaving it up is a smaller version of the same lie.
       patchFilters(next as typeof filters);
     },
-    [patchFilters]
+    [navigate, patchFilters]
   );
 
   const urlSyncedRef = useRef(false);
