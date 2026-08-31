@@ -7,7 +7,7 @@ import { searchIsTheOnlyFilter } from '@/hooks/searchIsTheOnlyFilter';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
-import { useMessagesStore } from '@/stores/messagesStore';
+import { messagesCacheKey, useMessagesStore } from '@/stores/messagesStore';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
 
 type MessagesDataReturn = {
@@ -67,6 +67,16 @@ export const useMessagesData = ({
    * more correct request was the one thrown away.
    */
   const supersededPageRef = useRef<number | null>(null);
+  /**
+   * The CURRENT `fetchMessages`, for the superseded re-issue to call.
+   *
+   * A `useCallback` closure captures `isKanban` from the render that made it. The retry
+   * runs after an await, by which time that value is exactly what has changed — so
+   * calling the closure re-sends the request the retry exists to replace.
+   */
+  const fetchMessagesRef = useRef<((page?: number, force?: boolean) => Promise<void>) | null>(
+    null
+  );
   // After the first successful fetch, subsequent refetches keep the list
   // visible — flipping `loading` would swap the rows for skeleton cards on
   // every filter change, which reads as a blink.
@@ -84,8 +94,22 @@ export const useMessagesData = ({
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
+      /**
+       * ONE snapshot, taken before anything is decided, and used for all three of: the
+       * cache lookup, the request, and the key the response is filed under.
+       *
+       * Reading the store again later means reading a DIFFERENT state — filters move
+       * while a request is in flight, and that is exactly when this matters. The response
+       * was previously stored against whatever the filters had become, so the board's
+       * `queue`-stripped result landed under a key that named the queue.
+       */
+      const snapshot = useMessagesStore.getState();
+      const currentFilters = snapshot.filters;
+      const currentSorting = snapshot.sorting;
+      const cacheKey = messagesCacheKey(currentFilters, currentSorting, page, isKanban);
+
       if (!force) {
-        const cached = getCached(page, isKanban);
+        const cached = getCached(cacheKey);
         if (cached) {
           setThreadsLocal(cached.threads);
           setMessagesPagination(cached.pagination);
@@ -127,7 +151,6 @@ export const useMessagesData = ({
       }
       try {
         const apiFilters: Record<string, string> = {};
-        const currentFilters = useMessagesStore.getState().filters;
 
         // SOURCE
         if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
@@ -325,7 +348,6 @@ export const useMessagesData = ({
         // and all of them would pay for it. `isKanban` is the only discriminator here.
         if (!isKanban) apiFilters.scope = '1';
 
-        const currentSorting = useMessagesStore.getState().sorting;
         const response = await messageService.getThreads(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
           page,
@@ -337,7 +359,7 @@ export const useMessagesData = ({
         if (response.success && response.data) {
           // `scope` is absent on a stale bundle/older backend and null when the count
           // could not be taken. Both mean "no information" — never a zeroed object.
-          setMessages(response.data, response.pagination, response.scope ?? null, isKanban);
+          setMessages(response.data, response.pagination, response.scope ?? null, cacheKey);
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;
@@ -359,10 +381,17 @@ export const useMessagesData = ({
         // A request arrived while this one was in flight and was held rather than
         // dropped. Issue it now that the slot is free — it was built from newer
         // parameters, so its answer supersedes the one just applied.
+        //
+        // ⛔ Through the REF, never `fetchMessages` directly. This closure was created
+        // with the `isKanban` of the render that started the in-flight request, and that
+        // is precisely the value that has since changed. Re-issuing through the closure
+        // repeated the OLD request shape — the board's, with `queue` stripped — and then
+        // found it in the cache, so the retry cost no request and changed nothing. That
+        // is why this looked like a dead end with a silent network.
         const superseded = supersededPageRef.current;
         supersededPageRef.current = null;
         if (superseded !== null) {
-          void fetchMessages(superseded).catch((error) => {
+          void fetchMessagesRef.current?.(superseded).catch((error) => {
             logger.error('Failed to fetch messages:', error);
           });
         }
@@ -370,6 +399,10 @@ export const useMessagesData = ({
     },
     [getCached, setMessages, setListScope, isKanban]
   );
+
+  // Keep the ref pointing at the latest closure, so a superseded re-issue runs with the
+  // CURRENT `isKanban` rather than the one that produced the request it is replacing.
+  fetchMessagesRef.current = fetchMessages;
 
   // Fetch on filter/sorting change — resets to page 1.
   // fetchMessages reads filters/sorting from store directly to avoid stale closure without listing them as deps

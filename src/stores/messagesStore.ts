@@ -184,11 +184,20 @@ type MessagesState = {
    */
   listScope: ListScope | null;
 
-  /** `isKanban` is part of the cache identity — see `getCacheKey`. Not optional on purpose. */
-  getCached: (
-    page: number,
-    isKanban: boolean
-  ) => {
+  /**
+   * Both take the key as a STRING, computed by the caller with `messagesCacheKey`.
+   *
+   * ⛔ They used to derive it themselves from `get().filters` — which is the store's state
+   * NOW, not the state the request was built from. When filters changed while a request
+   * was in flight, the response was filed under the wrong key: the kanban's list query
+   * (which deliberately strips `queue`) returned 16 rows and they were stored under a key
+   * claiming `queue=outbound_echo`. Every later reader of that key was then handed rows
+   * that answered a different question.
+   *
+   * The caller snapshots the filters it builds the request from and derives the key from
+   * that snapshot, so an entry is always labelled with what was actually asked.
+   */
+  getCached: (cacheKey: string) => {
     threads: MessageThread[];
     pagination: PaginationMeta;
     listScope: ListScope | null;
@@ -197,7 +206,7 @@ type MessagesState = {
     threads: MessageThread[],
     pagination: PaginationMeta,
     listScope: ListScope | null,
-    isKanban: boolean
+    cacheKey: string
   ) => void;
   /** Restore the notice for a page served from cache. */
   setListScope: (listScope: ListScope | null) => void;
@@ -233,7 +242,7 @@ export const defaultFilters: FilterState = {
   hasAttachments: false,
 };
 
-const getCacheKey = (
+export const messagesCacheKey = (
   filters: FilterState,
   sorting: SortingState,
   page: number,
@@ -269,9 +278,8 @@ export const useMessagesStore = create<MessagesState>()(
       currentPage: 1,
       listScope: null,
 
-      getCached: (page: number, isKanban: boolean) => {
+      getCached: (cacheKey: string) => {
         const state = get();
-        const cacheKey = getCacheKey(state.filters, state.sorting, page, isKanban);
         const entry = state.cache[cacheKey];
 
         if (!entry) return null;
@@ -287,9 +295,8 @@ export const useMessagesStore = create<MessagesState>()(
         };
       },
 
-      setMessages: (threads, pagination, listScope, isKanban) => {
+      setMessages: (threads, pagination, listScope, cacheKey) => {
         const state = get();
-        const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page, isKanban);
         set({
           cache: {
             ...state.cache,

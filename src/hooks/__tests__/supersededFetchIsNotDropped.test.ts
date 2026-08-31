@@ -49,7 +49,20 @@ describe('a superseded fetch is held, not dropped', () => {
     const body = finallyBlock?.[1] ?? '';
     expect(body).toContain('messagesFetchingRef.current = false');
     expect(body).toMatch(/supersededPageRef\.current/);
-    expect(body).toMatch(/fetchMessages\(superseded\)/);
+    expect(body).toMatch(/fetchMessagesRef\.current\?\.\(superseded\)/);
+  });
+
+  it('re-issues through the REF, not the captured closure', () => {
+    /**
+     * The whole point of the retry is that `isKanban` has changed. A `useCallback`
+     * closure captures the value from the render that created it, so calling
+     * `fetchMessages(...)` directly re-sends the request the retry exists to replace —
+     * and then finds it in the cache, so it costs no request and changes nothing.
+     * That is exactly how this fix failed the first time.
+     */
+    const finallyBlock = code.match(/\} finally \{([\s\S]*?)\n {6}\}/);
+    const body = finallyBlock?.[1] ?? '';
+    expect(body).not.toMatch(/[^.]\bfetchMessages\(superseded\)/);
   });
 
   it('clears the held page before re-issuing, so it cannot loop forever', () => {
@@ -57,7 +70,7 @@ describe('a superseded fetch is held, not dropped', () => {
     const finallyBlock = code.match(/\} finally \{([\s\S]*?)\n {6}\}/);
     const body = finallyBlock?.[1] ?? '';
     const clearAt = body.indexOf('supersededPageRef.current = null');
-    const callAt = body.indexOf('fetchMessages(superseded)');
+    const callAt = body.indexOf('fetchMessagesRef.current?.(superseded)');
     expect(clearAt).toBeGreaterThan(-1);
     expect(callAt).toBeGreaterThan(clearAt);
   });
