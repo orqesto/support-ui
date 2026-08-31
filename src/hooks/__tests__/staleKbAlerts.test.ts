@@ -109,6 +109,9 @@ describe('useStaleKbAlerts', () => {
     get.mockRejectedValue(new Error('network'));
     await act(async () => {
       result.current.refresh();
+      // Let the rejected fetch settle inside act, so any state update it might make is
+      // flushed before the assertion. The point is that it makes none.
+      await Promise.resolve();
     });
     rerender();
 
