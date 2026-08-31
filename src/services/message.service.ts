@@ -137,6 +137,11 @@ export type ListScope = {
     knowledgeBase: number;
     awaitingOrReplied: number;
     needsRouting: number;
+    /**
+     * Own sent mail with no inbound parent. Optional: an older backend does not send it,
+     * and a missing count must read as "unknown", never as 0 — see `ListScopeNotice`.
+     */
+    orphanOutgoing?: number;
     other: number;
   };
 };

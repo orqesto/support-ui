@@ -24,8 +24,16 @@ type Props = {
   scope: ListScope | null;
   /** `pagination.total` — how many the current lens matched. */
   shown: number;
-  /** Applies the lens that shows a hidden category. */
-  onJump: (filters: Partial<FilterState>) => void;
+  /**
+   * Applies the lens that shows a hidden category.
+   *
+   * `needsListView` marks a category the KANBAN cannot display at all — the caller has to
+   * leave the board as well as change the filter, or the click would set a filter and
+   * appear to do nothing. Only `outbound_echo` is in that position today.
+   */
+  onJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
+  /** Wording for where the rows are hidden from. The board hides more than the list does. */
+  surface?: 'list' | 'board';
 };
 
 /**
@@ -38,6 +46,8 @@ const REASONS: Array<{
   key: keyof ListScope['hiddenBecause'];
   label: string;
   filters?: Partial<FilterState>;
+  /** The board has no column for these — jumping must also leave the board. */
+  needsListView?: boolean;
 }> = [
   { key: 'terminal', label: 'resolved or closed', filters: { lifecycle: 'resolved', queue: 'all' } },
   { key: 'knowledgeBase', label: 'from the knowledge base' },
@@ -47,19 +57,30 @@ const REASONS: Array<{
   { key: 'suspicious', label: 'suspicious', filters: { queue: 'suspicious', lifecycle: 'all' } },
   { key: 'notAnalysed', label: 'not yet reviewed', filters: { queue: 'not_analysed', lifecycle: 'all' } },
   { key: 'archived', label: 'auto-archived', filters: { queue: 'archived', lifecycle: 'all' } },
+  {
+    // Was the largest identifiable share of `other`, where it rendered as a number with
+    // nothing to click. It now has both a name and the only lens that reaches it.
+    key: 'orphanOutgoing',
+    label: 'outbound echoes',
+    filters: { queue: 'outbound_echo', lifecycle: 'all' },
+    needsListView: true,
+  },
   { key: 'other', label: 'hidden by this view' },
 ];
 
-export const ListScopeNotice = ({ scope, shown, onJump }: Props) => {
+export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Props) => {
   // No information, or nothing hidden. In both cases the honest thing is silence:
   // the pagination line already states the count, and inventing a reassurance here
   // would be the same species of claim the component was written to stop.
   if (!scope || scope.hidden <= 0) return null;
 
+  // ⛔ `?? 0` would be wrong here: a bucket the backend does not send yet is UNKNOWN, and
+  // the filter below drops it either way. Coalescing first and asserting later is how a
+  // "0 outbound echoes" would eventually get rendered as a fact. Absent stays absent.
   const present = REASONS.map((reason) => ({
     ...reason,
     count: scope.hiddenBecause[reason.key],
-  })).filter((reason) => reason.count > 0);
+  })).filter((reason): reason is typeof reason & { count: number } => (reason.count ?? 0) > 0);
 
   return (
     <div
@@ -70,7 +91,8 @@ export const ListScopeNotice = ({ scope, shown, onJump }: Props) => {
       <span>
         Showing <strong className="text-foreground">{shown.toLocaleString()}</strong> of{' '}
         <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
-        {scope.hidden.toLocaleString()} hidden by the current view
+        {scope.hidden.toLocaleString()}{' '}
+        {surface === 'board' ? 'not shown on this board' : 'hidden by the current view'}
       </span>
       {present.length > 0 && <span aria-hidden="true">·</span>}
       {present.map((reason) =>
@@ -79,7 +101,7 @@ export const ListScopeNotice = ({ scope, shown, onJump }: Props) => {
             key={reason.key}
             type="button"
             className="underline rounded underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => onJump(reason.filters as Partial<FilterState>)}
+            onClick={() => onJump(reason.filters as Partial<FilterState>, reason.needsListView)}
           >
             {reason.count.toLocaleString()} {reason.label}
           </button>

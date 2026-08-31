@@ -113,6 +113,10 @@ const QUEUE: FilterOption[] = [
   { value: 'archived', label: 'Archived' },
   { value: 'suspicious', label: 'Suspicious' },
   { value: 'spam', label: 'Spam' },
+  // Our own sent mail ingestion could not pair with an inbound parent. Offered here
+  // because it is the only way to reach those rows: no kanban column matches them, and
+  // every other queue excludes them by name. See `ListScopeNotice`.
+  { value: 'outbound_echo', label: 'Outbound Echo' },
 ];
 
 const READ: FilterOption[] = [

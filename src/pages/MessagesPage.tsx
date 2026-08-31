@@ -183,6 +183,25 @@ export const MessagesPage = () => {
   // the list query drops the filters the board cannot honour.
   const isKanban = displayMode === 'kanban';
 
+  /**
+   * Jump to the lens holding a category the current surface hides. Shared by both scope
+   * notices so the list and the board cannot drift on what a chip does.
+   *
+   * `needsListView` is set for categories NO kanban column can display. Setting the filter
+   * without leaving the board would apply it and change nothing visible — a link that
+   * appears broken, which is worse than a plain number. Today that is `outbound_echo`.
+   */
+  const handleScopeJump = useCallback(
+    (next: Partial<typeof filters>, needsListView?: boolean) => {
+      if (needsListView) setDisplayMode('threads');
+      // patchFilters merges, so pass only the delta. The store clears the cache AND the
+      // stale scope on a filter change — the old count describes the old lens, and
+      // leaving it up is a smaller version of the same lie.
+      patchFilters(next as typeof filters);
+    },
+    [patchFilters]
+  );
+
   const urlSyncedRef = useRef(false);
   // Holds the URL form of the last-fetched conv id (either the numeric id as a
   // string or a publicId like 'SUP-42') — see useMessagesUrlSync for the dedup
@@ -718,13 +737,7 @@ export const MessagesPage = () => {
                 <ListScopeNotice
                   scope={listScope}
                   shown={pagination.total}
-                  onJump={(next) => {
-                    // patchFilters merges, so pass only the delta. The store clears
-                    // the cache AND the stale scope on a filter change — the old count
-                    // describes the old lens, and leaving it up is a smaller version
-                    // of the same lie.
-                    patchFilters(next as typeof filters);
-                  }}
+                  onJump={handleScopeJump}
                 />
               )}
 
@@ -734,6 +747,7 @@ export const MessagesPage = () => {
                   filters={filters}
                   onOpen={handleOpenThread}
                   refreshKey={kanbanRefreshKey}
+                  onScopeJump={handleScopeJump}
                 />
               ) : displayMode === 'contacts' ? (
                 <ContactsView
