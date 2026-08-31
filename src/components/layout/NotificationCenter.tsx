@@ -11,6 +11,7 @@ import {
   Lightbulb,
   GitBranch,
   BrainCircuit,
+  FileClock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ import {
 import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifications';
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
+import { useStaleKbAlerts } from '@/hooks/useStaleKbAlerts';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
 // SLA breaches (itemized), the Suspicious/Spam arrival queues + needs-routing depth
@@ -32,6 +34,28 @@ import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
 
 const PANEL_PEEK_LIMIT = 5;
 
+/**
+ * ⚠️ The default arm is load-bearing, not defensive padding. The bell's kind filter is
+ * deliberately fail-OPEN (a real breach must never be hidden by a denylist), so any kind
+ * without its own surface lands here — `ai_provider_down` and `mailbox_address_undeclared`
+ * do today. With no default this returned `undefined` and the row rendered as an amber
+ * breach with a blank label: worse than either showing it properly or not showing it,
+ * because a blank row tells the reader nothing AND looks like a bug.
+ */
+/**
+ * "8 months" beats "247 days" for a threshold measured in months — the reader is deciding
+ * whether a document is old enough to look at, not counting days.
+ */
+const formatStaleAge = (days: number): string => {
+  const months = Math.floor(days / 30);
+  if (months >= 12) {
+    const years = Math.floor(months / 12);
+    return years === 1 ? 'over a year' : `over ${years} years`;
+  }
+  if (months >= 1) return `${months} month${months === 1 ? '' : 's'}`;
+  return `${days} day${days === 1 ? '' : 's'}`;
+};
+
 const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
     case 'message':
@@ -40,6 +64,8 @@ const typeLabel = (type: SLABreachNotification['type']): string => {
       return 'Ticket — First Response';
     case 'ticket_resolution':
       return 'Ticket — Resolution';
+    default:
+      return 'Notification';
   }
 };
 
@@ -175,6 +201,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const navigate = useNavigate();
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
   const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
+  const { alerts: staleKbAlerts, dismiss: dismissStaleKbAlert } = useStaleKbAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -200,14 +227,24 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasSla = sla.notifications.length > 0;
   const hasLearning = learningNotes.length > 0 || learningSuggestions.length > 0;
   const hasAiAlerts = aiAlerts.length > 0;
+  const hasStaleKb = staleKbAlerts.length > 0;
   // Counted in the badge: unlike a queue depth, this is a fault, and it must not be
   // possible to have a silently degraded AI and an unbadged bell.
+  // ⛔ Stale KB documents are deliberately NOT in the badge. Nothing is broken and nothing
+  // is urgent: the documents are still serving, and a workspace that bulk-imported a
+  // Confluence space can legitimately carry dozens for months. Badging them would leave the
+  // bell permanently lit, which costs the badge its meaning for the faults above that are
+  // urgent. Same reasoning as needs_routing and the queue depths.
   const badgeCount = sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
-    (hasQueues ? 1 : 0) + (hasSla ? 1 : 0) + (hasLearning ? 1 : 0) + (hasAiAlerts ? 1 : 0);
+    (hasQueues ? 1 : 0) +
+    (hasSla ? 1 : 0) +
+    (hasLearning ? 1 : 0) +
+    (hasAiAlerts ? 1 : 0) +
+    (hasStaleKb ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
-  const isEmpty = !hasQueues && !hasSla && !hasLearning && !hasAiAlerts;
+  const isEmpty = !hasQueues && !hasSla && !hasLearning && !hasAiAlerts && !hasStaleKb;
 
   // Close when clicking outside
   useEffect(() => {
@@ -376,6 +413,51 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                           onClick={() => dismissAiAlert(alert.id)}
                           aria-label="Dismiss this alert"
                           title="Dismiss — it returns if the provider is still failing"
+                          className="p-1 h-auto text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Knowledge base — last, because it is the only section here that is not a
+                    fault. The documents are still serving; this is a nudge to look, and it
+                    disables nothing. */}
+                {hasStaleKb && (
+                  <>
+                    {showSectionLabels && <SectionLabel>Knowledge base</SectionLabel>}
+                    {staleKbAlerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
+                      >
+                        <FileClock className="mt-0.5 w-4 h-4 shrink-0 text-amber-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium break-words text-foreground">{alert.title}</p>
+                          <p className="mt-0.5 text-muted-foreground">
+                            Not updated in {formatStaleAge(alert.staleForDays)}
+                            {alert.source === 'confluence' ? ' · from Confluence' : ''}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setOpen(false);
+                              navigate(`/knowledge-base?id=${alert.documentId}#documentation`);
+                            }}
+                            className="px-0 mt-1 h-auto text-xs text-primary hover:bg-transparent hover:underline"
+                          >
+                            Review document
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => dismissStaleKbAlert(alert.id)}
+                          aria-label="Dismiss this alert"
+                          title="Dismiss — it returns while the document is still unchanged"
                           className="p-1 h-auto text-muted-foreground hover:text-foreground"
                         >
                           <X className="w-3.5 h-3.5" />
