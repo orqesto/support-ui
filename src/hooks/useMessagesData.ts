@@ -58,6 +58,15 @@ export const useMessagesData = ({
     hasMore: false,
   });
   const messagesFetchingRef = useRef(false);
+  /**
+   * The page a fetch asked for while another was in flight, or null.
+   *
+   * The in-flight guard used to return silently, which is only correct if the two calls
+   * would produce the SAME request. They often would not — a filter change and the
+   * board→list flip land a beat apart and each changes what gets sent — so the newer,
+   * more correct request was the one thrown away.
+   */
+  const supersededPageRef = useRef<number | null>(null);
   // After the first successful fetch, subsequent refetches keep the list
   // visible — flipping `loading` would swap the rows for skeleton cards on
   // every filter change, which reads as a blink.
@@ -90,6 +99,23 @@ export const useMessagesData = ({
       }
 
       if (messagesFetchingRef.current && !force) {
+        /**
+         * ⛔ Do NOT just drop it. The in-flight request was built from parameters that
+         * have since CHANGED, so its answer is already stale when it lands — and nothing
+         * asks again, because this return is silent.
+         *
+         * That is what survived two other fixes on the way to this one. Jumping from the
+         * board to the list changes two things a beat apart (the filter, then the
+         * board→list flip that stops the request builder zeroing `queue`). The first
+         * fired a request; the second arrived while it was in flight and was discarded
+         * here. The list then showed the BOARD's rows — 16 unrelated threads under a
+         * notice promising 10 — with no second request on the wire to explain it.
+         *
+         * Remember the page instead and re-issue once the in-flight one settles. If
+         * nothing really changed, the re-run hits the cache and costs no request, so this
+         * terminates.
+         */
+        supersededPageRef.current = page;
         return;
       }
 
@@ -330,6 +356,16 @@ export const useMessagesData = ({
         setLoading(false);
         setRefreshing(false);
         messagesFetchingRef.current = false;
+        // A request arrived while this one was in flight and was held rather than
+        // dropped. Issue it now that the slot is free — it was built from newer
+        // parameters, so its answer supersedes the one just applied.
+        const superseded = supersededPageRef.current;
+        supersededPageRef.current = null;
+        if (superseded !== null) {
+          void fetchMessages(superseded).catch((error) => {
+            logger.error('Failed to fetch messages:', error);
+          });
+        }
       }
     },
     [getCached, setMessages, setListScope, isKanban]
