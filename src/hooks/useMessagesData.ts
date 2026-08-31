@@ -377,6 +377,14 @@ export const useMessagesData = ({
     sorting.sortBy,
     sorting.sortOrder,
     selectedDeptKey,
+    // Read by the request builder in five places — it ZEROES `lifecycle`, `queue`, `read`
+    // and `columnId`, and withholds `scope=1` — so leaving it out is the same defect as an
+    // unlisted filter field, one level up: switching board→list keeps whatever the BOARD's
+    // request returned. Observed on staging: the scope notice's "10 outbound echoes" chip
+    // landed on the list with the token rendered and 16 rows — the pre-jump result set,
+    // because `queue` had already changed while `isKanban` was still true and nothing
+    // triggered a second fetch once it flipped.
+    isKanban,
   ]);
 
 

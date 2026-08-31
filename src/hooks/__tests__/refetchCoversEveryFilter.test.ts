@@ -72,4 +72,27 @@ describe('refetch covers every filter the request reads', () => {
     expect(deps.has('columnId')).toBe(true); // the quick-filter chips
     expect(deps.has('receivedAt')).toBe(true); // the "Received at" alias token
   });
+
+  it('covers isKanban, which the builder reads but the filter scan cannot see', () => {
+    /**
+     * ⚠️ The scan above only finds `currentFilters.*`. `isKanban` is a PROP, so it was
+     * invisible to it — and the builder reads it in five places, where it zeroes
+     * `lifecycle`, `queue`, `read` and `columnId` and withholds `scope=1`. Same defect
+     * class, one level up, and it reached staging: the scope notice's "10 outbound echoes"
+     * chip navigated to the list correctly, the token rendered, and the rows were the 16
+     * from the BOARD's request — `queue` had changed while `isKanban` was still true, and
+     * nothing re-fetched once it flipped.
+     *
+     * Asserted by name because a general "every identifier the builder reads" scan would
+     * match locals and imports and be noise. If another prop starts steering the request,
+     * add it here.
+     */
+    const effect = source.match(
+      /useEffect\(\(\) => \{\s*if \(!urlSyncedRef\.current\) return;\s*fetchMessages\(1\)[\s\S]*?\}, \[([\s\S]*?)\]\);/
+    );
+    expect(effect).not.toBeNull();
+    // Control: the builder really does read it, so this is not asserting against nothing.
+    expect(source.includes('isKanban ?')).toBe(true);
+    expect(/^\s*isKanban,\s*$/m.test(effect?.[1] ?? '')).toBe(true);
+  });
 });
