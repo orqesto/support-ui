@@ -20,12 +20,12 @@ import { renderHook, waitFor, act } from '@testing-library/react';
  * this test exists to stop repeating.
  */
 
-const get = vi.fn();
-const patch = vi.fn(() => Promise.resolve({ data: {} }));
+const get = vi.fn<(url: string) => Promise<unknown>>();
+const patch = vi.fn<(url: string) => Promise<unknown>>(() => Promise.resolve({ data: {} }));
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
-    get: (...args: unknown[]) => get(...args) as unknown,
-    patch: (...args: unknown[]) => patch(...args) as unknown,
+    get: (url: string) => get(url),
+    patch: (url: string) => patch(url),
   },
 }));
 vi.mock('@/lib/socketManager', () => ({
