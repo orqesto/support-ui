@@ -47,6 +47,8 @@ const storageWithBucket = (bucket: string): Storage => ({
 });
 
 const bucketInput = () => screen.getByPlaceholderText<HTMLInputElement>('my-bucket');
+/** The card opens read-only; the form exists only in the editing state. */
+const openEditor = () => fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
 
 afterEach(cleanup);
 
@@ -62,6 +64,7 @@ afterEach(cleanup);
 describe('DefaultStorageCard re-seeds from stored config', () => {
   it('shows what the server stored, not what was typed, once the stored config changes', () => {
     const { rerender } = render(<DefaultStorageCard storage={storageWithBucket('odly')} />);
+    openEditor();
     expect(bucketInput().value).toBe('odly');
 
     fireEvent.change(bucketInput(), { target: { value: 'typed-but-never-stored' } });
@@ -75,6 +78,7 @@ describe('DefaultStorageCard re-seeds from stored config', () => {
 
   it('does not discard an in-progress edit on an unchanged background refetch', () => {
     const { rerender } = render(<DefaultStorageCard storage={storageWithBucket('odly')} />);
+    openEditor();
 
     fireEvent.change(bucketInput(), { target: { value: 'still-editing' } });
 
@@ -87,29 +91,44 @@ describe('DefaultStorageCard re-seeds from stored config', () => {
 
 /**
  * The probe result is the last thing on screen; Save is a separate control below it.
- * A tested-but-unsaved config must not present the same green as a stored one.
+ * A tested-but-unsaved config must not present the same green as a stored one — and a
+ * save returns the card to the read-only view, which is a stronger confirmation than a
+ * badge because the values shown afterwards were re-read rather than typed.
  */
 describe('DefaultStorageCard distinguishes tested from saved', () => {
-  it('says a passing probe is not saved yet, then confirms the save', () => {
+  it('qualifies a passing probe while editing, and plainly when the config is stored', () => {
     render(<DefaultStorageCard storage={storageWithBucket('odly')} />);
 
+    // Stored: the probe tested the live config, so the green needs no caveat.
+    fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
+    expect(screen.getByText(/connection ok/i).textContent).not.toMatch(/not saved yet/i);
+
+    openEditor();
     fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
     expect(screen.getByText(/not saved yet/i)).toBeTruthy();
-    expect(screen.queryByText('Saved')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: /save storage default/i }));
-    expect(screen.getByText('Saved')).toBeTruthy();
-    expect(screen.queryByText(/not saved yet/i)).toBeNull();
   });
 
-  it('drops the saved confirmation as soon as the config is edited again', () => {
+  it('returns to the read-only view on save — the mode change IS the confirmation', () => {
     render(<DefaultStorageCard storage={storageWithBucket('odly')} />);
+    openEditor();
     fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
+
     fireEvent.click(screen.getByRole('button', { name: /save storage default/i }));
-    expect(screen.getByText('Saved')).toBeTruthy();
 
-    fireEvent.change(bucketInput(), { target: { value: 'changed-again' } });
+    // The form is gone and the summary is back, so what is on screen came from the server.
+    expect(screen.queryByPlaceholderText('my-bucket')).toBeNull();
+    expect(screen.getByRole('button', { name: /^edit$/i })).toBeTruthy();
+  });
 
-    expect(screen.queryByText('Saved')).toBeNull();
+  it('discards the draft on cancel and shows the stored config again', () => {
+    render(<DefaultStorageCard storage={storageWithBucket('odly')} />);
+    openEditor();
+    fireEvent.change(bucketInput(), { target: { value: 'abandoned-draft' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(screen.queryByPlaceholderText('my-bucket')).toBeNull();
+
+    openEditor();
+    expect(bucketInput().value).toBe('odly');
   });
 });
