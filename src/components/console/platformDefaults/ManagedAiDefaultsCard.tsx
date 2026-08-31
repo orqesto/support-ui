@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Bot } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -63,6 +64,37 @@ const OTHER = '__other__';
 const prefill = (field: { value: string | number | null; source: string }): string =>
   field.source === 'db' && field.value !== null ? String(field.value) : '';
 
+const seedModels = (ai: Ai): Record<ModelKey, string> => ({
+  defaultModel: prefill(ai.defaultModel),
+  strongModel: prefill(ai.strongModel),
+  visionModel: prefill(ai.visionModel),
+});
+
+const seedCosts = (ai: Ai): Record<CostKey, string> => ({
+  defaultCostPer1k: prefill(ai.defaultCostPer1k),
+  strongCostPer1k: prefill(ai.strongCostPer1k),
+  visionCostPer1k: prefill(ai.visionCostPer1k),
+});
+
+const seedBedrock = (ai: Ai) => ({
+  region: ai.bedrockRegion.value ?? '',
+  roleArn: ai.bedrockRoleArn.value ?? '',
+  externalId: ai.bedrockExternalId.value ?? '',
+  inferenceProfileArn: ai.bedrockInferenceProfileArn.value ?? '',
+});
+
+/** Identity of the STORED defaults; the prop's reference changes on every refetch. */
+const storedAiSnapshot = (ai: Ai): string =>
+  JSON.stringify([
+    ai.provider.value ?? 'openai',
+    seedModels(ai),
+    seedCosts(ai),
+    ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '',
+    ai.organization.value ?? '',
+    seedBedrock(ai),
+    ai.bedrockUseInstanceProfile.value ?? false,
+  ]);
+
 export const ManagedAiDefaultsCard = ({
   ai,
   secrets,
@@ -71,24 +103,11 @@ export const ManagedAiDefaultsCard = ({
   secrets: PlatformSettings['secrets'];
 }) => {
   const [provider, setProvider] = useState<AIProvider>(ai.provider.value ?? 'openai');
-  const [models, setModels] = useState<Record<ModelKey, string>>(() => ({
-    defaultModel: prefill(ai.defaultModel),
-    strongModel: prefill(ai.strongModel),
-    visionModel: prefill(ai.visionModel),
-  }));
-  const [costs, setCosts] = useState<Record<CostKey, string>>(() => ({
-    defaultCostPer1k: prefill(ai.defaultCostPer1k),
-    strongCostPer1k: prefill(ai.strongCostPer1k),
-    visionCostPer1k: prefill(ai.visionCostPer1k),
-  }));
+  const [models, setModels] = useState<Record<ModelKey, string>>(() => seedModels(ai));
+  const [costs, setCosts] = useState<Record<CostKey, string>>(() => seedCosts(ai));
   const [baseUrl, setBaseUrl] = useState(ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '');
   const [organization, setOrganization] = useState(ai.organization.value ?? '');
-  const [bedrock, setBedrock] = useState({
-    region: ai.bedrockRegion.value ?? '',
-    roleArn: ai.bedrockRoleArn.value ?? '',
-    externalId: ai.bedrockExternalId.value ?? '',
-    inferenceProfileArn: ai.bedrockInferenceProfileArn.value ?? '',
-  });
+  const [bedrock, setBedrock] = useState(() => seedBedrock(ai));
   const [useInstanceProfile, setUseInstanceProfile] = useState(
     ai.bedrockUseInstanceProfile.value ?? false
   );
@@ -99,6 +118,31 @@ export const ManagedAiDefaultsCard = ({
     strongModel: false,
     visionModel: false,
   });
+
+  /**
+   * Re-seed whenever the STORED defaults change — after our own save, or another
+   * operator's.
+   *
+   * The state above is seeded by `useState` initialisers, which run only on mount.
+   * `useUpdatePlatformAi` invalidates on success, so `ai` refetches and the source
+   * badges update, but every input kept whatever was typed — so a value the server
+   * normalised, rejected, or never stored stayed on screen looking saved.
+   *
+   * Keyed on the serialised STORED values, so an identical background refetch is a
+   * no-op and never interrupts an edit in progress.
+   */
+  const stored = storedAiSnapshot(ai);
+  const [seededFrom, setSeededFrom] = useState(stored);
+  if (seededFrom !== stored) {
+    setSeededFrom(stored);
+    setProvider(ai.provider.value ?? 'openai');
+    setModels(seedModels(ai));
+    setCosts(seedCosts(ai));
+    setBaseUrl(ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '');
+    setOrganization(ai.organization.value ?? '');
+    setBedrock(seedBedrock(ai));
+    setUseInstanceProfile(ai.bedrockUseInstanceProfile.value ?? false);
+  }
 
   const update = useUpdatePlatformAi();
   const setSecret = useSetPlatformSecret();
@@ -116,6 +160,24 @@ export const ManagedAiDefaultsCard = ({
   // the dropdown immediately shows the credential that provider will use.
   const keySlot = AI_KEY_SLOT_BY_PROVIDER[provider];
   const keyStatus = keySlot ? secrets[keySlot] : null;
+
+  /**
+   * "Saved" must disappear the moment the draft diverges again. This card edits
+   * through many setters with no single choke point, so the flag is DERIVED from
+   * the draft rather than cleared by hand in each handler — one that is impossible
+   * to forget when a field is added later.
+   */
+  const draft = JSON.stringify([
+    provider,
+    models,
+    costs,
+    baseUrl,
+    organization,
+    bedrock,
+    useInstanceProfile,
+  ]);
+  const [savedDraft, setSavedDraft] = useState<string | null>(null);
+  const saved = savedDraft === draft;
 
   const save = () => {
     const input: ManagedAiInput = { provider };
@@ -140,7 +202,7 @@ export const ManagedAiDefaultsCard = ({
       }
       input.bedrockUseInstanceProfile = useInstanceProfile;
     }
-    update.mutate(input);
+    update.mutate(input, { onSuccess: () => setSavedDraft(draft) });
   };
 
   const renderModelPicker = (modelKey: ModelKey, visionOnly: boolean) => {
@@ -367,7 +429,12 @@ export const ManagedAiDefaultsCard = ({
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex gap-3 justify-end items-center">
+          {saved && (
+            <Badge variant="success" size="sm">
+              Saved
+            </Badge>
+          )}
           <Button onClick={save} isLoading={update.isPending}>
             Save AI defaults
           </Button>

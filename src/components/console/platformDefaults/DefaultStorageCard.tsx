@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { HardDrive, TestTube2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -70,27 +71,78 @@ const initialMode = (storage: Storage): Mode => {
   return 's3';
 };
 
+/** The stored values this form mirrors, seeded into local state. */
+const seedText = (storage: Storage): Record<TextKey, string> => ({
+  endpoint: storage.endpoint.value ?? '',
+  region: storage.region.value ?? '',
+  bucket: storage.bucket.value ?? '',
+  prefix: storage.prefix.value ?? '',
+  roleArn: storage.roleArn.value ?? '',
+  externalId: storage.externalId.value ?? '',
+});
+
+/**
+ * Identity of the STORED config. Re-seeding is keyed on this rather than on the
+ * prop object, whose reference changes on every refetch.
+ */
+const storedSnapshot = (storage: Storage): string =>
+  JSON.stringify([
+    storage.driver.value,
+    seedText(storage),
+    storage.forcePathStyle.value ?? false,
+  ]);
+
 export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   const [mode, setMode] = useState<Mode>(() => initialMode(storage));
-  const [text, setText] = useState<Record<TextKey, string>>(() => ({
-    endpoint: storage.endpoint.value ?? '',
-    region: storage.region.value ?? '',
-    bucket: storage.bucket.value ?? '',
-    prefix: storage.prefix.value ?? '',
-    roleArn: storage.roleArn.value ?? '',
-    externalId: storage.externalId.value ?? '',
-  }));
+  const [text, setText] = useState<Record<TextKey, string>>(() => seedText(storage));
   const [forcePathStyle, setForcePathStyle] = useState<boolean>(storage.forcePathStyle.value ?? false);
   // A successful test is required before Save can persist an S3 target; any edit
   // to the config invalidates it (the green must reflect the config being saved).
   const [testResult, setTestResult] = useState<StorageTestResult | null>(null);
+
+  /**
+   * Re-seed whenever the STORED config changes — after our own save, or after
+   * another operator's.
+   *
+   * The state hooks above are seeded by `useState` INITIALISERS, which run only
+   * on mount. `useUpdatePlatformStorage` invalidates on success, so `storage`
+   * refetches and the source badges update, but the inputs kept whatever was
+   * typed. A value the server normalised, rejected, or never stored therefore
+   * stayed on screen looking saved — the form could show something that was not
+   * the config. Seeding from the snapshot makes it show what IS stored.
+   *
+   * Keyed on the serialised STORED values, so the refetches React Query issues
+   * on window focus are a no-op unless the config genuinely changed, and never
+   * interrupt an edit in progress.
+   */
+  const snapshot = storedSnapshot(storage);
+  const [seededFrom, setSeededFrom] = useState(snapshot);
+  if (seededFrom !== snapshot) {
+    setSeededFrom(snapshot);
+    setMode(initialMode(storage));
+    setText(seedText(storage));
+    setForcePathStyle(storage.forcePathStyle.value ?? false);
+    // The green belonged to the config as it was BEFORE this change.
+    setTestResult(null);
+  }
 
   const update = useUpdatePlatformStorage();
   const test = useTestPlatformStorage();
   const setSecret = useSetPlatformSecret();
   const clearSecret = useClearPlatformSecret();
 
-  const invalidateTest = () => setTestResult(null);
+  /**
+   * A successful probe is the last thing on screen and reads like completion, but
+   * Save sits below it and is a separate click — so a tested-but-unsaved config
+   * looked identical to a stored one. The probe result now says so explicitly,
+   * and a save replaces it with its own confirmation.
+   */
+  const [saved, setSaved] = useState(false);
+
+  const invalidateTest = () => {
+    setTestResult(null);
+    setSaved(false);
+  };
   const setTextField = (key: TextKey, value: string) => {
     setText((prev) => ({ ...prev, [key]: value }));
     invalidateTest();
@@ -126,7 +178,14 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
     });
   };
 
-  const save = () => update.mutate(payload());
+  const save = () =>
+    update.mutate(payload(), {
+      onSuccess: () => {
+        setSaved(true);
+        // The probe described the config as a candidate; it is now the stored one.
+        setTestResult(null);
+      },
+    });
 
   const isS3 = mode !== 'local';
   const saveDisabled = isS3 && !testResult?.ok;
@@ -268,7 +327,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
               {testResult && (
                 <span className={`text-sm ${testResult.ok ? 'text-success' : 'text-danger'}`}>
                   {testResult.ok
-                    ? `Connection OK · ${testResult.latencyMs}ms`
+                    ? `Connection OK · ${testResult.latencyMs}ms — not saved yet`
                     : `Failed: ${testResult.error ?? 'unknown error'}`}
                 </span>
               )}
@@ -283,7 +342,12 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
           </Alert>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex gap-3 justify-end items-center">
+          {saved && (
+            <Badge variant="success" size="sm">
+              Saved
+            </Badge>
+          )}
           <Button onClick={save} isLoading={update.isPending} disabled={saveDisabled}>
             Save storage default
           </Button>
