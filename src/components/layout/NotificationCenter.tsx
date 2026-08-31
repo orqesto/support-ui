@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, X, AlertTriangle, Clock, ShieldAlert, Ban, Wand2, Lightbulb, GitBranch } from 'lucide-react';
+import {
+  Bell,
+  X,
+  AlertTriangle,
+  Clock,
+  ShieldAlert,
+  Ban,
+  Wand2,
+  Lightbulb,
+  GitBranch,
+  BrainCircuit,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import {
@@ -9,6 +20,7 @@ import {
 } from '@/hooks/useSLANotifications';
 import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifications';
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
+import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
 // SLA breaches (itemized), the Suspicious/Spam arrival queues + needs-routing depth
@@ -162,6 +174,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
+  const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -186,11 +199,15 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
 
   const hasSla = sla.notifications.length > 0;
   const hasLearning = learningNotes.length > 0 || learningSuggestions.length > 0;
-  const badgeCount = sla.unreadCount + arrivalTotal + learningUnread;
+  const hasAiAlerts = aiAlerts.length > 0;
+  // Counted in the badge: unlike a queue depth, this is a fault, and it must not be
+  // possible to have a silently degraded AI and an unbadged bell.
+  const badgeCount = sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
-  const sectionCount = (hasQueues ? 1 : 0) + (hasSla ? 1 : 0) + (hasLearning ? 1 : 0);
+  const sectionCount =
+    (hasQueues ? 1 : 0) + (hasSla ? 1 : 0) + (hasLearning ? 1 : 0) + (hasAiAlerts ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
-  const isEmpty = !hasQueues && !hasSla && !hasLearning;
+  const isEmpty = !hasQueues && !hasSla && !hasLearning && !hasAiAlerts;
 
   // Close when clicking outside
   useEffect(() => {
@@ -318,6 +335,56 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
               <p className="py-6 text-sm text-center text-muted-foreground">No notifications</p>
             ) : (
               <>
+                {/* AI provider down — first, because it changes how everything below was
+                    produced. While it stands, analysis is still running but on the local
+                    embedding fallback, so answers keep arriving and keep getting worse. */}
+                {hasAiAlerts && (
+                  <>
+                    {showSectionLabels && <SectionLabel>AI</SectionLabel>}
+                    {aiAlerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className="flex gap-3 items-start p-3 text-sm rounded-lg border border-destructive/40 bg-destructive/10"
+                      >
+                        <BrainCircuit className="mt-0.5 w-4 h-4 shrink-0 text-destructive" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground">
+                            {alert.provider} is not answering
+                          </p>
+                          <p className="mt-0.5 break-words text-muted-foreground">{alert.reason}</p>
+                          {alert.degradedTo === 'local_embeddings' && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Messages are still being analysed, but on the weaker built-in
+                              model until this is fixed.
+                            </p>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setOpen(false);
+                              navigate('/settings#integrations');
+                            }}
+                            className="px-0 mt-1 h-auto text-xs text-primary hover:bg-transparent hover:underline"
+                          >
+                            Check AI settings
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => dismissAiAlert(alert.id)}
+                          aria-label="Dismiss this alert"
+                          title="Dismiss — it returns if the provider is still failing"
+                          className="p-1 h-auto text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </>
+                )}
+
                 {/* Queues (Suspicious/Spam arrivals + needs-routing depth) */}
                 {hasQueues && (
                   <>
