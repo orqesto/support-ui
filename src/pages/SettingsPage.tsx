@@ -134,7 +134,13 @@ export const SettingsPage = () => {
   // is empty in that case). Split on the first `/` for the section.
   const rawHash = location.hash.replace('#', '');
   const hashWithoutQuery = rawHash.split('?')[0];
-  const [hashTab, ...hashRest] = hashWithoutQuery.split('/');
+  // `?tab=<id>` is the shape people reach for (and the one the docs and several
+  // external links use); only `#<tab>` used to work, so those links silently landed
+  // on the default tab. Accept both, with the hash winning when both are present
+  // because it is the form this page writes back on every tab change.
+  const queryTab = new URLSearchParams(location.search).get('tab') ?? '';
+  const [hashTabRaw, ...hashRest] = hashWithoutQuery.split('/');
+  const hashTab = hashTabRaw || queryTab;
   const hashSection = hashRest.join('/');
 
   const ctx: SettingsTabContext = { isGlobalAdmin, isOrgAdmin, section: hashSection };

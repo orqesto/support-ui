@@ -129,6 +129,8 @@ export const CreateOrganizationModal = ({
             <h2 className="text-xl font-semibold">Create Workspace</h2>
           </div>
           <Button
+            aria-label="Close"
+            title="Close"
             variant="ghost"
             size="sm"
             onClick={onClose}

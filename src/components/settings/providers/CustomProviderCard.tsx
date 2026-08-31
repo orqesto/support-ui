@@ -129,14 +129,14 @@ export const CustomProviderCard = ({
           <div className="space-y-2">
             {integrations.map((integration) => (
               <div key={integration.id} className="rounded-lg border">
-                <div className="flex items-center justify-between p-3">
+                <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-sm font-medium truncate">{integration.name}</span>
                     <span className="text-xs text-muted-foreground truncate">
                       {(integration.config as CustomConfig).baseUrl}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1 shrink-0">
                     <label className="inline-flex relative items-center cursor-pointer mr-2">
                       <input
                         type="checkbox"
@@ -155,6 +155,7 @@ export const CustomProviderCard = ({
                       <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
                     </label>
                     <Button
+                      aria-label="Show or hide models"
                       variant="ghost"
                       size="sm"
                       onClick={() => onToggleModels(integration.id)}
@@ -166,6 +167,8 @@ export const CustomProviderCard = ({
                       )}
                     </Button>
                     <Button
+                      aria-label="Test provider connection"
+                      title="Test provider connection"
                       variant="outline"
                       size="sm"
                       onClick={() => onTest(integration.id, integration.name, integration.type)}
@@ -173,6 +176,8 @@ export const CustomProviderCard = ({
                       <TestTube2 className="w-4 h-4" />
                     </Button>
                     <Button
+                      aria-label="Edit provider"
+                      title="Edit provider"
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(integration)}
@@ -181,6 +186,8 @@ export const CustomProviderCard = ({
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button
+                      aria-label="Delete provider"
+                      title="Delete provider"
                       variant="outline"
                       size="sm"
                       onClick={() => onDelete(integration.id, integration.name, integration.type)}

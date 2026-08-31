@@ -177,6 +177,7 @@ function TicketKanbanCard({
 
       {/* distance:8 activation means short taps still fire onClick without starting a drag */}
       <Button type="button" variant="ghost" onClick={() => onOpen(ticket)} className="w-full text-left justify-start p-3 h-auto rounded-none font-normal hover:bg-transparent">
+        aria-label="Open ticket"
         <TicketCardContent ticket={ticket} />
       </Button>
     </div>

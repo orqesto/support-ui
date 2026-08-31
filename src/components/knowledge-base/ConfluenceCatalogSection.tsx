@@ -556,6 +556,7 @@ const IntegrationCatalog = ({
             void refresh().finally(() => setRefreshing(false));
           }}
           title="Refresh"
+          aria-label="Refresh"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
         </Button>

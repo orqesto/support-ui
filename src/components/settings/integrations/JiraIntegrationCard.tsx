@@ -119,11 +119,11 @@ export const JiraIntegrationCard = ({
               {jiraIntegrations.map((integration) => (
                 <div
                   key={integration.id}
-                  className="flex justify-between items-center p-3 rounded-lg border"
+                  className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center"
                 >
-                  <div className="flex gap-3 items-center">
+                  <div className="flex flex-1 gap-3 items-center min-w-0">
                     <div
-                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
                     <div>
                       <div className="flex items-center gap-2">
@@ -140,12 +140,12 @@ export const JiraIntegrationCard = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs break-all text-muted-foreground">
                         {(integration.config as JiraConfig).apiUrl ?? 'Not configured'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 shrink-0">
                     {!integration.isDefault && (
                       <Button
                         variant="outline"
@@ -153,11 +153,14 @@ export const JiraIntegrationCard = ({
                         onClick={() => handleSetDefault(integration.id, integration.name)}
                         isLoading={settingDefault === integration.id}
                         title="Set as default for this department"
+                        aria-label="Set as default for this department"
                       >
                         <Star className="w-4 h-4" />
                       </Button>
                     )}
                     <Button
+                      aria-label="Edit this Jira source"
+                      title="Edit this Jira source"
                       variant="outline"
                       size="sm"
                       onClick={() => loadForEdit(integration.id, integration.config as JiraConfig)}

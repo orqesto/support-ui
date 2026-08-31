@@ -149,6 +149,7 @@ export const ScrollButtons = ({
             variant="outline"
             className="p-0 w-10 h-10 border-2 shadow-lg backdrop-blur-sm transition-all duration-300 bg-background/80 hover:scale-110"
             title="Scroll to top"
+            aria-label="Scroll to top"
           >
             <ArrowUp className="w-4 h-4" />
           </Button>
@@ -160,6 +161,7 @@ export const ScrollButtons = ({
             variant="outline"
             className="p-0 w-10 h-10 border-2 shadow-lg backdrop-blur-sm transition-all duration-300 bg-background/80 hover:scale-110"
             title="Scroll to bottom"
+            aria-label="Scroll to bottom"
           >
             <ArrowDown className="w-4 h-4" />
           </Button>

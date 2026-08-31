@@ -434,6 +434,8 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                           </Button>
                           {canEditComment(comment) && (
                             <Button
+                              aria-label="Remove attachment"
+                              title="Remove attachment"
                               variant="ghost"
                               size="sm"
                               onClick={() => confirmDeleteAttachment(attachment.id)}
@@ -494,6 +496,8 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                 <span className="flex-1 text-sm truncate">{file.name}</span>
                 <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                 <Button
+                  aria-label="Remove file"
+                  title="Remove file"
                   onClick={() => handleRemoveFile(index)}
                   className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
                   disabled={isSubmitting}

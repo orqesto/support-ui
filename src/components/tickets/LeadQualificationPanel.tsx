@@ -238,6 +238,7 @@ export const LeadQualificationPanel = ({
               onClick={startEdit}
               className="p-1 w-auto h-auto rounded hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600"
               title="Edit qualification data"
+              aria-label="Edit qualification data"
             >
               <Pencil className="w-3.5 h-3.5" />
             </Button>
@@ -250,6 +251,7 @@ export const LeadQualificationPanel = ({
                 disabled={saving}
                 className="p-1 w-auto h-auto rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600"
                 title="Save changes"
+                aria-label="Save changes"
               >
                 <Check className="w-3.5 h-3.5" />
               </Button>
@@ -260,6 +262,7 @@ export const LeadQualificationPanel = ({
                 disabled={saving}
                 className="p-1 w-auto h-auto rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
                 title="Cancel"
+                aria-label="Cancel"
               >
                 <X className="w-3.5 h-3.5" />
               </Button>

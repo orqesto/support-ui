@@ -213,6 +213,8 @@ export const RoutingKeysSettings = () => {
                 )}
               </div>
               <Button
+                aria-label="Delete routing key"
+                title="Delete routing key"
                 size="sm"
                 variant="ghost"
                 className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"

@@ -288,6 +288,7 @@ export const PromptsSettings = () => {
                   
                   <div className="flex gap-2 justify-end">
                   <Button
+                    aria-label="Activate or deactivate this prompt"
                       size="sm"
                       variant="outline"
                       onClick={() => toggleActive(prompt)}

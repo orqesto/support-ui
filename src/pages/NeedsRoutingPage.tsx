@@ -214,18 +214,18 @@ export const NeedsRoutingPage = () => {
               Messages the routing engine couldn't assign to a department
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <label
               className="flex items-center gap-2 text-sm cursor-pointer select-none text-muted-foreground"
               title="When on, routing a message also creates a content→department rule so similar messages route automatically next time"
             >
               <input
                 type="checkbox"
-                className="rounded border-border"
+                className="rounded border-border shrink-0"
                 checked={createRule}
                 onChange={(event) => setCreateRule(event.target.checked)}
               />
-              Create routing rule
+              <span className="whitespace-nowrap">Create routing rule</span>
             </label>
             <Button variant="outline" onClick={() => void load(page)} disabled={isLoading}>
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -385,6 +385,7 @@ export const NeedsRoutingPage = () => {
                             variant="outline"
                             onClick={() => void handleMarkSpam(msg.id)}
                             disabled={spamId === msg.id || routingId === msg.id}
+                            aria-label="Mark as spam"
                             title="Mark as spam"
                           >
                             {spamId === msg.id ? '…' : (
@@ -398,6 +399,7 @@ export const NeedsRoutingPage = () => {
                             size="sm"
                             onClick={() => void handleRoute(msg.id)}
                             disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
+                            aria-label="Route to the selected department"
                           >
                             {routingId === msg.id ? 'Routing…' : (
                               <>
@@ -428,7 +430,7 @@ export const NeedsRoutingPage = () => {
                     </div>
                     {/* Action row — each control stops propagation individually so triaging
                         in place doesn't bubble up to the Card's open-thread handler. */}
-                    <div className="flex gap-2 items-end">
+                    <div className="flex flex-wrap gap-2 items-end">
                       <Select
                         value={selectedDept[msg.id] ?? ''}
                         onClick={(ev) => ev.stopPropagation()}
@@ -454,8 +456,17 @@ export const NeedsRoutingPage = () => {
                           void handleRoute(msg.id);
                         }}
                         disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
+                        aria-label="Route to the selected department"
+                        title="Route to the selected department"
                       >
-                        {routingId === msg.id ? '…' : <ArrowRight className="w-4 h-4" />}
+                        {routingId === msg.id ? (
+                          '…'
+                        ) : (
+                          <>
+                            <ArrowRight className="mr-1 w-4 h-4" />
+                            Route
+                          </>
+                        )}
                       </Button>
                       <Button
                         size="sm"
@@ -465,9 +476,17 @@ export const NeedsRoutingPage = () => {
                           void handleMarkSpam(msg.id);
                         }}
                         disabled={spamId === msg.id || routingId === msg.id}
+                        aria-label="Mark as spam"
                         title="Mark as spam"
                       >
-                        {spamId === msg.id ? '…' : <Ban className="w-4 h-4" />}
+                        {spamId === msg.id ? (
+                          '…'
+                        ) : (
+                          <>
+                            <Ban className="mr-1 w-4 h-4" />
+                            Spam
+                          </>
+                        )}
                       </Button>
                     </div>
                   </CardContent>

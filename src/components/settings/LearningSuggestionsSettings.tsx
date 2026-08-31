@@ -622,10 +622,12 @@ export const LearningSuggestionsSettings = () => {
                               onClick={() => void handleDecline(suggestion.id)}
                               disabled={isActing}
                               title="Decline"
+                              aria-label="Decline"
                             >
                               <X className="w-4 h-4" />
                             </Button>
                             <Button
+                              aria-label="Accept this suggestion"
                               size="sm"
                               onClick={() => void handleAccept(suggestion.id)}
                               disabled={isActing}

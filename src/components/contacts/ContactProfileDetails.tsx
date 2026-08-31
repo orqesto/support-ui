@@ -138,7 +138,7 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
               className="inline-flex gap-1.5 items-center pl-2 pr-1.5 h-6 rounded-full text-[11.5px] font-medium"
               style={{ background: `${safeCssColor(label.color)}1f`, color: safeCssColor(label.color) }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ background: safeCssColor(label.color) }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: safeCssColor(label.color) }} />
               {label.name}
               <Button type="button" variant="ghost" size="icon" aria-label="Remove label" className="p-0 w-auto h-auto hover:bg-transparent" onClick={() => props.onRemoveLabel(label.id)}>
                 <X className="w-2.5 h-2.5" />
@@ -351,6 +351,8 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
             }}
           />
           <Button
+            aria-label="Link this email address to a contact"
+            title="Link this email address to a contact"
             size="sm"
             variant="secondary"
             onClick={props.onLinkEmail}

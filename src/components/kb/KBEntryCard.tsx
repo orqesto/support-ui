@@ -112,16 +112,19 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
             View
           </Button>
           {!entry.approved && !entry.hidden && (
-            <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Approve">
+            <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Approve"
+  aria-label="Approve">
               <CheckCircle className="w-4 h-4" />
             </Button>
           )}
           {!entry.hidden ? (
-            <Button size="sm" variant="outline" onClick={() => onHide(entry.id)} title="Hide">
+            <Button size="sm" variant="outline" onClick={() => onHide(entry.id)} title="Hide"
+  aria-label="Hide">
               <EyeOff className="w-4 h-4" />
             </Button>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Unhide">
+            <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Unhide"
+  aria-label="Unhide">
               <Eye className="w-4 h-4" />
             </Button>
           )}
@@ -130,6 +133,7 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
             variant="outline"
             onClick={() => onDelete(entry)}
             title="Delete"
+            aria-label="Delete"
             className="text-red-600 hover:text-red-700"
           >
             <Trash2 className="w-4 h-4" />

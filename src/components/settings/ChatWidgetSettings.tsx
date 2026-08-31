@@ -169,6 +169,7 @@ export const ChatWidgetSettings = () => {
                   </div>
                 </div>
                 <Button
+                  aria-label="Enable or pause this widget"
                   variant="ghost"
                   size="sm"
                   onClick={() => handleToggle(widget)}
@@ -212,6 +213,7 @@ export const ChatWidgetSettings = () => {
                 <Code className="h-4 w-4 text-muted-foreground" />
                 <code className="flex-1 truncate text-xs font-mono">{widget.widgetKey}</code>
                 <Button
+                  aria-label="Copy widget key"
                   variant="ghost"
                   size="sm"
                   onClick={() => handleCopyKey(widget)}
@@ -236,9 +238,13 @@ export const ChatWidgetSettings = () => {
                   Embed Code
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setEditingWidget(widget)}>
+                  aria-label="Edit widget"
+                  title="Edit widget"
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button
+                  aria-label="Delete widget"
+                  title="Delete widget"
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDeleteClick(widget)}

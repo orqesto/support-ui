@@ -200,6 +200,8 @@ export const InviteUserModal = ({
             <h2 className="text-xl font-semibold">Invite User</h2>
           </div>
           <Button
+            aria-label="Close"
+            title="Close"
             variant="ghost"
             size="sm"
             onClick={onClose}

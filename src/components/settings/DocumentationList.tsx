@@ -390,11 +390,13 @@ export const DocumentationList = ({
                     size="sm"
                     onClick={() => onViewContent(doc)}
                     title="View content"
+                    aria-label="View content"
                   >
                     <Eye className="w-4 h-4" />
                   </Button>
                 )}
                 <Button
+                  aria-label="Enable or pause this source"
                   variant="ghost"
                   size="sm"
                   onClick={() => onToggleEnabled(doc)}
@@ -414,11 +416,13 @@ export const DocumentationList = ({
                       window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
                     }}
                     title="Download file"
+                    aria-label="Download file"
                   >
                     <Download className="w-4 h-4" />
                   </Button>
                 )}
                 <Button
+                  aria-label="Delete document"
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteClick(doc.id)}

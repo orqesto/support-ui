@@ -344,6 +344,8 @@ export const LeadQualificationSettings = () => {
                   Required
                 </label>
                 <Button
+                  aria-label="Remove field"
+                  title="Remove field"
                   size="sm"
                   variant="ghost"
                   onClick={() => removeField(field.key)}
@@ -478,6 +480,8 @@ export const LeadQualificationSettings = () => {
                   </span>
                 </label>
                 <Button
+                  aria-label="Remove category"
+                  title="Remove category"
                   size="sm"
                   variant="ghost"
                   onClick={() => removeCategory(cat.key)}

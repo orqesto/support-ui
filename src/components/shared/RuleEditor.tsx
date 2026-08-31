@@ -434,6 +434,7 @@ export function RuleEditor<
                       <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
                         <div className="flex gap-1 justify-end">
                           <Button
+                            aria-label="Edit rule"
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(rule)}
@@ -443,6 +444,7 @@ export function RuleEditor<
                             <Edit2 className="w-4 h-4" />
                           </Button>
                           <Button
+                            aria-label="Delete rule"
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteClick(rule)}
@@ -500,6 +502,7 @@ export function RuleEditor<
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <Button
+                        aria-label="Edit rule"
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(rule)}
@@ -509,6 +512,7 @@ export function RuleEditor<
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label="Delete rule"
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteClick(rule)}

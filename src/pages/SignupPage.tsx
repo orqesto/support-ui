@@ -162,7 +162,7 @@ export const SignupPage = () => {
 
   if (success) {
     return (
-      <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="flex justify-center items-center mx-auto mb-4 w-16 h-16 bg-green-100 rounded-full">
@@ -189,7 +189,7 @@ export const SignupPage = () => {
 
   if (isValidatingToken) {
     return (
-      <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
@@ -201,7 +201,7 @@ export const SignupPage = () => {
   }
 
   return (
-    <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+    <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Create your account</CardTitle>

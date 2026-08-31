@@ -117,20 +117,20 @@ export const OpenAIProviderCard = ({
           <div className="space-y-2">
             {integrations.map((integration) => (
               <div key={integration.id} className="rounded-lg border">
-                <div className="flex justify-between items-center p-3">
-                  <div className="flex gap-3 items-center">
+                <div className="flex flex-col gap-3 p-3 sm:flex-row sm:justify-between sm:items-center">
+                  <div className="flex flex-1 gap-3 items-center min-w-0">
                     <div
-                      className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                     />
-                    <div>
-                      <p className="font-medium">{integration.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium break-words">{integration.name}</p>
                       <p className="text-xs text-muted-foreground">
                         Chat:{' '}
                         {(integration.config as { defaultChatModel?: string }).defaultChatModel}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 items-center">
+                  <div className="flex flex-wrap gap-2 items-center shrink-0">
                     {/* Enable/Disable Toggle */}
                     <div className="flex gap-2 items-center">
                       <span className="text-xs text-muted-foreground">
@@ -158,6 +158,7 @@ export const OpenAIProviderCard = ({
                       </label>
                     </div>
                     <Button
+                      aria-label="Show or hide models"
                       variant="ghost"
                       size="sm"
                       onClick={() => onToggleModels(integration.id)}
@@ -169,6 +170,8 @@ export const OpenAIProviderCard = ({
                       )}
                     </Button>
                     <Button
+                      aria-label="Edit provider"
+                      title="Edit provider"
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(integration)}
@@ -187,6 +190,8 @@ export const OpenAIProviderCard = ({
                       Poke
                     </Button>
                     <Button
+                      aria-label="Delete provider"
+                      title="Delete provider"
                       variant="outline"
                       size="sm"
                       onClick={() => onDelete(integration.id, integration.name, integration.type)}

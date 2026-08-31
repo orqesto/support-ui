@@ -390,7 +390,7 @@ export const LoginPage = () => {
               : handleSetup2faVerify;
 
   return (
-    <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+    <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Welcome back</CardTitle>

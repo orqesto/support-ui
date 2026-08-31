@@ -14,6 +14,7 @@ import { useBackendVersion } from './hooks/useBackendVersion';
 import { DashboardPage } from './pages/DashboardPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
+import NotFoundPage from './pages/NotFoundPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
@@ -656,15 +657,7 @@ const AppRoutes = () => {
           gates non-admins) instead of dropping to a 404. */}
       <Route path="/admin" element={<Navigate to="/console/platform" replace />} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route
-        path="*"
-        element={
-          <div style={{ padding: '2rem', textAlign: 'center' }}>
-            <h1>404 - Page Not Found</h1>
-            <p>The page you requested does not exist.</p>
-          </div>
-        }
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 };
