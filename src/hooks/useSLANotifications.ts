@@ -66,7 +66,15 @@ type NotificationRow = Notification;
 // `sla_breach` WS event carry every kind, so without this guard an arrival row renders
 // as an amber "breach" with no breach info. Exclude by kind. Fail-open: a missing/unknown
 // kind still shows, so a real breach can never be hidden by this filter.
-const NON_SLA_BELL_KINDS = new Set(['suspicious_arrival', 'spam_arrival', 'ai_provider_down']);
+// `kb_document_stale` joins them for the same reason `ai_provider_down` did: it has its own
+// surface (useStaleKbAlerts + the Knowledge base section) and is not a breach of anything,
+// so leaving it to the fail-open filter would render it as an amber SLA row.
+const NON_SLA_BELL_KINDS = new Set([
+  'suspicious_arrival',
+  'spam_arrival',
+  'ai_provider_down',
+  'kb_document_stale',
+]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
 
