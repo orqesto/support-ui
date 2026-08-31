@@ -76,7 +76,7 @@ export const useMessagesData = ({
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
       if (!force) {
-        const cached = getCached(page);
+        const cached = getCached(page, isKanban);
         if (cached) {
           setThreadsLocal(cached.threads);
           setMessagesPagination(cached.pagination);
@@ -311,7 +311,7 @@ export const useMessagesData = ({
         if (response.success && response.data) {
           // `scope` is absent on a stale bundle/older backend and null when the count
           // could not be taken. Both mean "no information" — never a zeroed object.
-          setMessages(response.data, response.pagination, response.scope ?? null);
+          setMessages(response.data, response.pagination, response.scope ?? null, isKanban);
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;

@@ -184,7 +184,11 @@ type MessagesState = {
    */
   listScope: ListScope | null;
 
-  getCached: (page: number) => {
+  /** `isKanban` is part of the cache identity — see `getCacheKey`. Not optional on purpose. */
+  getCached: (
+    page: number,
+    isKanban: boolean
+  ) => {
     threads: MessageThread[];
     pagination: PaginationMeta;
     listScope: ListScope | null;
@@ -192,7 +196,8 @@ type MessagesState = {
   setMessages: (
     threads: MessageThread[],
     pagination: PaginationMeta,
-    listScope: ListScope | null
+    listScope: ListScope | null,
+    isKanban: boolean
   ) => void;
   /** Restore the notice for a page served from cache. */
   setListScope: (listScope: ListScope | null) => void;
@@ -228,12 +233,31 @@ export const defaultFilters: FilterState = {
   hasAttachments: false,
 };
 
-const getCacheKey = (filters: FilterState, sorting: SortingState, page: number): string => {
+const getCacheKey = (
+  filters: FilterState,
+  sorting: SortingState,
+  page: number,
+  /**
+   * ⚠️ Load-bearing, for the same reason `deptCtx` is.
+   *
+   * On the board, `useMessagesData` deliberately sends a DIFFERENT request than the
+   * filters describe — it zeroes `lifecycle`, `queue`, `read` and `columnId`, because the
+   * columns hard-set their own and the shared query only feeds the header count. Caching
+   * that response under the UNMODIFIED filters poisons the entry: the board stored 16
+   * `view=work_queue` rows under a key saying `queue=outbound_echo`, and the list view
+   * then read them straight back.
+   *
+   * That is what made the scope notice say "10 outbound echoes" and land on 16 unrelated
+   * threads. There was no second request to watch, which is what made it look like a
+   * backend disagreement — the network was silent because the cache answered.
+   */
+  isKanban: boolean
+): string => {
   // Include the checkbox-driven X-Department-Context selection in the key — otherwise
   // changing the DepartmentSwitcher selection short-circuits to a stale cached page
   // (filter dropdown unchanged → same key → cache hit → no re-fetch).
   const deptCtx = useDepartmentContextStore.getState().getSelectedDeptIds().join(',');
-  return JSON.stringify({ filters, sorting, page, deptCtx });
+  return JSON.stringify({ filters, sorting, page, deptCtx, isKanban });
 };
 
 export const useMessagesStore = create<MessagesState>()(
@@ -245,9 +269,9 @@ export const useMessagesStore = create<MessagesState>()(
       currentPage: 1,
       listScope: null,
 
-      getCached: (page: number) => {
+      getCached: (page: number, isKanban: boolean) => {
         const state = get();
-        const cacheKey = getCacheKey(state.filters, state.sorting, page);
+        const cacheKey = getCacheKey(state.filters, state.sorting, page, isKanban);
         const entry = state.cache[cacheKey];
 
         if (!entry) return null;
@@ -263,9 +287,9 @@ export const useMessagesStore = create<MessagesState>()(
         };
       },
 
-      setMessages: (threads, pagination, listScope) => {
+      setMessages: (threads, pagination, listScope, isKanban) => {
         const state = get();
-        const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page);
+        const cacheKey = getCacheKey(state.filters, state.sorting, pagination.page, isKanban);
         set({
           cache: {
             ...state.cache,
