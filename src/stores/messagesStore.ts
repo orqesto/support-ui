@@ -38,7 +38,29 @@ export type LifecycleFilter =
 
 // LIST-view non-lifecycle classification dropdown. Mutually exclusive with
 // `lifecycle` in the FE.
-export type QueueFilter = 'all' | 'not_analysed' | 'archived' | 'suspicious' | 'spam' | 'needs_routing';
+/**
+ * ⚠️ ONE list, because there were two and they had to agree.
+ *
+ * `useMessagesUrlSync` kept its own `VALID_QUEUES` allowlist. A value in the type but not
+ * in that array survives being set and is then wiped by the next URL sync — the filter
+ * applies, the list changes, and a beat later it resets to "all" on its own. Deriving the
+ * type from the array is what makes adding a queue a one-line change that cannot half-land.
+ *
+ * `outbound_echo` is the odd member: not a queue anyone works, but the ONLY lens that
+ * reaches our own sent mail with no inbound parent. Those rows match no kanban column and
+ * no other queue, so without it the scope notice could count them and offer nowhere to go.
+ */
+export const QUEUE_FILTERS = [
+  'all',
+  'not_analysed',
+  'archived',
+  'suspicious',
+  'spam',
+  'needs_routing',
+  'outbound_echo',
+] as const;
+
+export type QueueFilter = (typeof QUEUE_FILTERS)[number];
 
 export type AiStateFilter =
   | 'all'

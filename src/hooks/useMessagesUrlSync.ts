@@ -4,7 +4,12 @@ import { logger } from '@/lib/logger';
 import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services/message.service';
-import { useMessagesStore, defaultFilters, type FilterState } from '@/stores/messagesStore';
+import {
+  useMessagesStore,
+  defaultFilters,
+  QUEUE_FILTERS,
+  type FilterState,
+} from '@/stores/messagesStore';
 import type { Message } from '@/types';
 
 export const VALID_STATUSES = [
@@ -34,7 +39,9 @@ export const VALID_LIFECYCLES = [
   'resolved',
   'closed',
 ] as const;
-export const VALID_QUEUES = ['all', 'not_analysed', 'archived', 'suspicious', 'spam', 'needs_routing'] as const;
+// Re-exported, NOT redeclared. A local copy of this list silently reset any queue value it
+// had not been taught about — the filter applied, then the next URL sync wiped it.
+export const VALID_QUEUES = QUEUE_FILTERS;
 export const VALID_READ = ['all', 'read', 'unread'] as const;
 export const VALID_AI_STATES = [
   'all',

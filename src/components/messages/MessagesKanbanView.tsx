@@ -32,7 +32,8 @@ import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { legacyAiStateParam } from '@/hooks/legacyAiStateParam';
 import { negateApiParam } from '@/hooks/negateApiParam';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
-import { messageService, type MessageThread } from '@/services/message.service';
+import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
+import { ListScopeNotice } from './ListScopeNotice';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
@@ -310,6 +311,12 @@ type MessagesKanbanViewProps = {
   filters: FilterState;
   onOpen: (thread: MessageThread) => void;
   refreshKey?: number;
+  /**
+   * Applies the lens holding a category the board cannot show. `needsListView` marks the
+   * ones with no column at all — the caller must leave the board too, or the click sets a
+   * filter and visibly does nothing, which is worse than not offering the link.
+   */
+  onScopeJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
 };
 
 export type MessagesKanbanHandle = {
@@ -393,7 +400,7 @@ const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }
 };
 
 export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanbanViewProps>(
-  ({ filters, onOpen, refreshKey }, ref) => {
+  ({ filters, onOpen, refreshKey, onScopeJump }, ref) => {
   const queryClient = useQueryClient();
   // Which axis's columns are shown. Lifecycle = the work board; Triage = the
   // pre-lifecycle classification queues. (Option A: separate tabs.)
@@ -529,6 +536,69 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     };
   }, []);
 
+  /**
+   * What this board CANNOT show, in numbers.
+   *
+   * The board fires one query per column and renders what comes back. Nothing ever asked
+   * the complementary question, so a conversation matching none of the nine columns was
+   * simply absent while the filter bar above it counted the row — `1–2 of 2` over a single
+   * card, with nothing saying the other one had no lane. `view=board` is that question:
+   * the union of the nine, so `pagination.total` is what the board holds and `scope.hidden`
+   * is what it leaves out, broken down by reason.
+   *
+   * 🪤 It CANNOT be derived by summing the column totals. Three reasons, each enough on its
+   * own: `boardCount` deliberately omits the hideable columns; the sum is only valid if all
+   * nine predicates are disjoint, which is an assumption no code here checks; and the
+   * columns resolve independently, so mid-load the sum is short and the notice would flash
+   * a number that is briefly a lie. One server-side answer has none of those problems.
+   *
+   * ⚠️ Costs one aggregate over the org per filter change — the same query the list view
+   * pays for, and the reason `useMessagesData` withholds `scope=1` from the board. It is
+   * requested with `limit=1` so only the count comes back, never rows.
+   */
+  const [boardScope, setBoardScope] = useState<{ scope: ListScope; shown: number } | null>(null);
+
+  const loadBoardScope = useCallback(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await messageService.getThreads(
+          { ...sharedFiltersRef.current, view: 'board', scope: '1' },
+          1,
+          1
+        );
+        if (cancelled || !res.success) return;
+        /**
+         * ⛔ FEATURE-DETECT, not an optional nicety. This repo deploys on merge while the
+         * backend ships on a tag, so this bundle WILL run against a backend that predates
+         * `view=board` — and an unknown view is not rejected there, it is dropped
+         * (`requestedView` returns undefined for anything unrecognised). The request then
+         * answers with the DEFAULT list lens, and we would render its count above the
+         * kanban as though it described the board: a confidently wrong number, which is
+         * the precise failure this notice exists to remove.
+         *
+         * `orphanOutgoing` is added by the same backend change as `view=board`, so its
+         * presence is the signal that the answer means what we think. `scope` absent or
+         * null already means "no information"; so does an old shape.
+         */
+        const usable = res.scope && res.scope.hiddenBecause.orphanOutgoing !== undefined;
+        setBoardScope(
+          usable ? { scope: res.scope as ListScope, shown: res.pagination.total } : null
+        );
+      } catch (err) {
+        // Non-fatal: the notice is informational, the board is not. Clear it rather than
+        // leaving a stale count describing the previous filter.
+        if (!cancelled) {
+          logger.error('Failed to fetch board scope:', err);
+          setBoardScope(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Optimistic single-card move — pull the card out of whichever column currently
   // holds it and drop it into the destination column, all in local state. No column
   // refetch (unlike bumpKanban), so the acting agent sees the card jump the instant
@@ -584,8 +654,11 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     // Same triggers as the columns themselves, so the unread badge can never drift
     // out of step with the totals beside it.
     cancels.push(loadTriageUnread());
+    // Same triggers again: a scope count describing the PREVIOUS filter is worse than
+    // none, because it reads as a fact about what is on screen now.
+    cancels.push(loadBoardScope());
     return () => cancels.forEach((cancel) => cancel());
-  }, [filterKey, refreshKey, selectedDeptKey, loadColumn, loadTriageUnread]);
+  }, [filterKey, refreshKey, selectedDeptKey, loadColumn, loadTriageUnread, loadBoardScope]);
 
   // When ONE column's sort changes, reload only that column (diff vs the previous
   // snapshot). Avoids refetching all seven columns on a single per-column change.
@@ -787,6 +860,17 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <div className="space-y-3 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+        {/* What the board is NOT showing. Above the tabs, and outside any empty-state
+            branch, for the same reason the list's copy is: an empty board while rows sit
+            one lens away is the worst version of the silence this removes. */}
+        {boardScope && (
+          <ListScopeNotice
+            scope={boardScope.scope}
+            shown={boardScope.shown}
+            surface="board"
+            onJump={onScopeJump}
+          />
+        )}
         {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
             On the Board, chips on the right show/hide the reference columns
             (On-hold, Resolved) so agents can focus on Open/In Progress/Pending. */}

@@ -74,11 +74,13 @@ describe('ListScopeNotice', () => {
     const onJump = vi.fn();
     render(<ListScopeNotice scope={framehouse} shown={5} onJump={onJump} />);
 
+    // The trailing `undefined` is the `needsListView` flag: these categories DO have a
+    // kanban column, so the jump must not also throw the user off the board.
     fireEvent.click(screen.getByText('2,935 resolved or closed'));
-    expect(onJump).toHaveBeenCalledWith({ lifecycle: 'resolved', queue: 'all' });
+    expect(onJump).toHaveBeenCalledWith({ lifecycle: 'resolved', queue: 'all' }, undefined);
 
     fireEvent.click(screen.getByText('40 spam'));
-    expect(onJump).toHaveBeenCalledWith({ queue: 'spam', lifecycle: 'all' });
+    expect(onJump).toHaveBeenCalledWith({ queue: 'spam', lifecycle: 'all' }, undefined);
   });
 
   it('does not offer a jump for rows no single lens holds', () => {
@@ -91,5 +93,41 @@ describe('ListScopeNotice', () => {
     render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} />);
     const label = screen.getByText('3 hidden by this view');
     expect(label.tagName).not.toBe('BUTTON');
+  });
+
+  it('outbound echoes are a LINK, and one that also leaves the board', () => {
+    // These rows match no kanban column and no other queue, so before `outbound_echo`
+    // existed they fell into `other` and rendered as an unclickable number — counted by
+    // the product and reachable from nowhere in it.
+    const withEchoes: ListScope = {
+      ...framehouse,
+      hiddenBecause: { ...framehouse.hiddenBecause, orphanOutgoing: 3 },
+    };
+    const onJump = vi.fn();
+    render(<ListScopeNotice scope={withEchoes} shown={5} onJump={onJump} surface="board" />);
+
+    const chip = screen.getByText('3 outbound echoes');
+    expect(chip.tagName).toBe('BUTTON');
+    fireEvent.click(chip);
+    // The second argument is what tells the page to leave the kanban. Without it the
+    // click sets a filter the board cannot honour and visibly does nothing.
+    expect(onJump).toHaveBeenCalledWith({ queue: 'outbound_echo', lifecycle: 'all' }, true);
+  });
+
+  it('treats a missing bucket as unknown, not as zero', () => {
+    // An older backend does not send `orphanOutgoing` at all. `?? 0` here would be the
+    // start of rendering "0 outbound echoes" as a fact about a deployment that never
+    // counted them.
+    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    const text = screen.getByTestId('list-scope-notice').textContent ?? '';
+    expect(text).toContain('3,009 hidden'); // control
+    expect(text).not.toContain('outbound echoes');
+  });
+
+  it('says "not shown on this board" on the kanban, where more is missing', () => {
+    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} surface="board" />);
+    expect(screen.getByTestId('list-scope-notice').textContent).toContain(
+      'not shown on this board'
+    );
   });
 });
