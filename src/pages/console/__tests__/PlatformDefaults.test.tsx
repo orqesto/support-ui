@@ -92,10 +92,15 @@ describe('PlatformDefaults', () => {
     expect(screen.getByText(/····ABCD/)).toBeInTheDocument();
   });
 
+  /** The storage card opens read-only; its form only exists in the editing state. */
+  const openStorageEditor = () =>
+    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+
   it('offers local disk LAST and labels it a fallback', () => {
     // Ordering is the point: a managed platform should land on S3, not on the
     // node-local disk that dies with the container.
     render(<PlatformDefaults />);
+    openStorageEditor();
     const options = screen
       .getAllByRole('option')
       .map((option) => option.textContent ?? '')
@@ -107,6 +112,7 @@ describe('PlatformDefaults', () => {
 
   it('offers the environment S3 target only when the environment provides one', () => {
     render(<PlatformDefaults />);
+    openStorageEditor();
     expect(screen.queryByText(/use the environment/i)).not.toBeInTheDocument();
     cleanup();
 
@@ -115,6 +121,7 @@ describe('PlatformDefaults', () => {
       storage: { ...SAMPLE.storage, envS3Configured: true },
     };
     render(<PlatformDefaults />);
+    openStorageEditor();
     expect(screen.getByText(/use the environment/i)).toBeInTheDocument();
   });
 
@@ -134,6 +141,7 @@ describe('PlatformDefaults', () => {
 
   it('gates S3 Save behind a successful connection test', () => {
     render(<PlatformDefaults />);
+    openStorageEditor();
     expect(screen.getByText(/Run a successful connection test/i)).toBeInTheDocument();
     const save = screen.getByRole('button', { name: /save storage default/i });
     expect(save).toBeDisabled();

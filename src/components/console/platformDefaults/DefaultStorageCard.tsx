@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { HardDrive, TestTube2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfigCard } from '@/components/ui/ConfigCard';
+import type { ConfigSummaryRow } from '@/components/ui/ConfigCard';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
@@ -16,9 +16,11 @@ import {
 } from '@/hooks/usePlatformSettings';
 import type {
   DefaultStorageInput,
+  FieldSource,
   PlatformSettings,
   StorageTestResult,
 } from '@/services/platformSettings.service';
+import { useConfigCardState } from '@/hooks/useConfigCardState';
 import { SecretField } from './SecretField';
 import { SourceBadge } from './SourceBadge';
 
@@ -70,6 +72,14 @@ const initialMode = (storage: Storage): Mode => {
   if (!consoleConfigured && storage.envS3Configured) return 's3-env';
   return 's3';
 };
+
+/**
+ * Provenance as a readable phrase. The read-only view has room the editable one does
+ * not, so where a value resolves from becomes a sentence fragment rather than a chip.
+ * `default` earns no phrase: storage has no built-in fallback, so it means "not set".
+ */
+const sourceNote = (source: FieldSource): string | undefined =>
+  source === 'db' ? 'from console' : source === 'env' ? 'from environment' : undefined;
 
 /** The stored values this form mirrors, seeded into local state. */
 const seedText = (storage: Storage): Record<TextKey, string> => ({
@@ -131,18 +141,24 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   const setSecret = useSetPlatformSecret();
   const clearSecret = useClearPlatformSecret();
 
-  /**
-   * A successful probe is the last thing on screen and reads like completion, but
-   * Save sits below it and is a separate click — so a tested-but-unsaved config
-   * looked identical to a stored one. The probe result now says so explicitly,
-   * and a save replaces it with its own confirmation.
-   */
-  const [saved, setSaved] = useState(false);
+  const invalidateTest = () => setTestResult(null);
 
-  const invalidateTest = () => {
+  /** Discard the draft: put every field back to what the server holds. */
+  const resetDraft = () => {
+    setMode(initialMode(storage));
+    setText(seedText(storage));
+    setForcePathStyle(storage.forcePathStyle.value ?? false);
     setTestResult(null);
-    setSaved(false);
   };
+
+  /**
+   * `stored` and `empty` are derived from whether the console holds a row, so the
+   * read-only view can only ever render server data. Saving returns the card to it,
+   * and that mode change is the confirmation — stronger than a badge, because the
+   * values on screen afterwards were re-read rather than typed.
+   */
+  const consoleConfigured = storage.driver.source === 'db';
+  const card = useConfigCardState({ configured: consoleConfigured, onCancel: resetDraft });
   const setTextField = (key: TextKey, value: string) => {
     setText((prev) => ({ ...prev, [key]: value }));
     invalidateTest();
@@ -181,7 +197,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   const save = () =>
     update.mutate(payload(), {
       onSuccess: () => {
-        setSaved(true);
+        card.confirmSaved();
         // The probe described the config as a candidate; it is now the stored one.
         setTestResult(null);
       },
@@ -195,19 +211,100 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   const envS3NotYetEffective =
     storage.envS3Configured && storage.effectiveDriver === 'local' && storage.driver.source !== 'db';
 
+  /** The read-only view: what the platform is using, and where each value comes from. */
+  const summary: ConfigSummaryRow[] = [
+    {
+      label: 'Backend',
+      value:
+        storage.effectiveDriver === 's3' ? 'S3 / compatible' : 'Local disk (single node)',
+      source: sourceNote(storage.driver.source),
+    },
+    ...(storage.effectiveDriver === 's3'
+      ? TEXT_FIELDS.map(({ key, label }) => ({
+          label: label.replace(' (optional)', ''),
+          value: storage[key].value ?? '',
+          source: sourceNote(storage[key].source),
+          placeholder: key === 'endpoint' ? 'AWS (default)' : 'Not set',
+        }))
+      : []),
+    ...(storage.effectiveDriver === 's3'
+      ? [
+          {
+            label: 'Path-style',
+            value: storage.forcePathStyle.value ? 'Forced' : 'Off',
+            source: sourceNote(storage.forcePathStyle.source),
+          },
+          {
+            label: 'Access key',
+            value: storage.accessKeyId.configured
+              ? `····${storage.accessKeyId.last4 ?? ''}`
+              : '',
+            source: storage.accessKeyId.configured
+              ? sourceNote(storage.accessKeyId.source === 'db' ? 'db' : 'env')
+              : undefined,
+            placeholder: 'Ambient identity (instance profile / role)',
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex gap-2 items-center">
-          <HardDrive className="w-5 h-5 text-primary" />
-          Default Storage
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Where the platform stores attachments by default (workspaces can still override
-          per-tenant). Credentials are stored encrypted; test an S3 target before saving.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <ConfigCard
+      title="Default Storage"
+      icon={<HardDrive className="w-5 h-5 text-primary" />}
+      description="Where the platform stores attachments by default (workspaces can still override per-tenant). Credentials are stored encrypted; test an S3 target before saving."
+      state={card.state}
+      summary={summary}
+      emptyNote={
+        <>
+          No storage default is set in the console, so attachments follow the environment
+          {storage.envS3Configured ? " (which provides an S3 target)" : ' (local disk)'}. Configure
+          one here to pin it.
+        </>
+      }
+      onConfigure={card.startEditing}
+      onEdit={card.startEditing}
+      onCancel={card.cancelEditing}
+      onSave={save}
+      saveDisabled={saveDisabled}
+      saving={update.isPending}
+      configureLabel="Configure storage"
+      saveLabel="Save storage default"
+      extraActions={
+        isS3 && (
+          <Button variant="outline" onClick={runTest} isLoading={test.isPending}>
+            <TestTube2 className="mr-2 w-4 h-4" />
+            Test connection
+          </Button>
+        )
+      }
+      note={
+        <>
+          {envS3NotYetEffective && card.state !== 'editing' && (
+            <Alert variant="info">
+              S3 settings were found in the environment, but attachments are still being written to
+              local disk. Configure and save to switch the platform over.
+            </Alert>
+          )}
+          {testResult && (
+            <p className={`text-sm ${testResult.ok ? 'text-success' : 'text-danger'}`}>
+              {testResult.ok
+                ? `Connection OK · ${testResult.latencyMs}ms${
+                    card.isEditing ? ' — not saved yet' : ''
+                  }`
+                : `Failed: ${testResult.error ?? 'unknown error'}`}
+            </p>
+          )}
+          {card.isEditing && saveDisabled && (
+            <Alert variant="info">
+              Run a successful connection test before saving an S3 target — the probe writes, reads
+              back, and deletes a small object, so a passing test means uploads will work.
+            </Alert>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-5">
         <div>
           <div className="flex gap-2 items-center mb-2">
             <Label className="mb-0">Storage backend</Label>
@@ -235,13 +332,6 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
             single-node self-hosted install.
           </p>
         </div>
-
-        {envS3NotYetEffective && (
-          <Alert variant="info">
-            S3 settings were found in the environment, but attachments are still being written to
-            local disk. Test the connection and save to switch the platform over.
-          </Alert>
-        )}
 
         {mode === 's3-env' && (
           <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
@@ -294,65 +384,31 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
         )}
 
         {isS3 && (
-          <>
-            <div className="pt-4 space-y-4 border-t border-border">
-              <SecretField
-                label="Access key ID"
-                status={storage.accessKeyId}
-                onSave={(value) => setSecret.mutate({ key: 'storage.s3_access_key_id', value })}
-                onClear={() => clearSecret.mutate('storage.s3_access_key_id')}
-                saving={setSecret.isPending}
-                clearing={clearSecret.isPending}
-              />
-              <SecretField
-                label="Secret access key"
-                status={storage.secretAccessKey}
-                onSave={(value) => setSecret.mutate({ key: 'storage.s3_secret_access_key', value })}
-                onClear={() => clearSecret.mutate('storage.s3_secret_access_key')}
-                saving={setSecret.isPending}
-                clearing={clearSecret.isPending}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave both blank to use an assumed role (above) or the server&apos;s own AWS
-                identity — an EC2 instance profile, ECS task role, or IRSA. A custom endpoint has
-                no ambient identity to fall back on, so it always needs keys.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-center">
-              <Button variant="outline" onClick={runTest} isLoading={test.isPending}>
-                <TestTube2 className="mr-2 w-4 h-4" />
-                Test connection
-              </Button>
-              {testResult && (
-                <span className={`text-sm ${testResult.ok ? 'text-success' : 'text-danger'}`}>
-                  {testResult.ok
-                    ? `Connection OK · ${testResult.latencyMs}ms — not saved yet`
-                    : `Failed: ${testResult.error ?? 'unknown error'}`}
-                </span>
-              )}
-            </div>
-          </>
+          <div className="pt-4 space-y-4 border-t border-border">
+            <SecretField
+              label="Access key ID"
+              status={storage.accessKeyId}
+              onSave={(value) => setSecret.mutate({ key: 'storage.s3_access_key_id', value })}
+              onClear={() => clearSecret.mutate('storage.s3_access_key_id')}
+              saving={setSecret.isPending}
+              clearing={clearSecret.isPending}
+            />
+            <SecretField
+              label="Secret access key"
+              status={storage.secretAccessKey}
+              onSave={(value) => setSecret.mutate({ key: 'storage.s3_secret_access_key', value })}
+              onClear={() => clearSecret.mutate('storage.s3_secret_access_key')}
+              saving={setSecret.isPending}
+              clearing={clearSecret.isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave both blank to use an assumed role (above) or the server&apos;s own AWS identity
+              — an EC2 instance profile, ECS task role, or IRSA. A custom endpoint has no ambient
+              identity to fall back on, so it always needs keys.
+            </p>
+          </div>
         )}
-
-        {saveDisabled && (
-          <Alert variant="info">
-            Run a successful connection test before saving an S3 target — the probe writes, reads
-            back, and deletes a small object, so a passing test means uploads will work.
-          </Alert>
-        )}
-
-        <div className="flex gap-3 justify-end items-center">
-          {saved && (
-            <Badge variant="success" size="sm">
-              Saved
-            </Badge>
-          )}
-          <Button onClick={save} isLoading={update.isPending} disabled={saveDisabled}>
-            Save storage default
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </ConfigCard>
   );
 };
