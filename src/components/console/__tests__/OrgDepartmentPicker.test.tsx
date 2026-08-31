@@ -14,6 +14,15 @@ const withDepartments = (data: Array<{ id: number; name: string }>, isLoading = 
 const switchFor = (name: string): HTMLButtonElement =>
   screen.getByText(name).closest('label')!.querySelector('[role="switch"]') as HTMLButtonElement;
 
+/** The picker is collapsed by default, so open it before asserting on its contents. */
+const disclosure = (): HTMLElement => screen.getByRole('button', { name: /departments/i });
+
+const renderOpen = (ui: React.ReactElement) => {
+  const result = render(ui);
+  fireEvent.click(disclosure());
+  return result;
+};
+
 afterEach(() => {
   cleanup();
   mockHook.mockReset();
@@ -24,10 +33,62 @@ const DEPTS = [
   { id: 4, name: 'Billing' },
 ];
 
+describe('OrgDepartmentPicker — collapsed by default', () => {
+  // Scoping a group to departments is the exception; the usual answer is "leave it
+  // empty for the role default". Opening a row of toggles on every workspace made that
+  // rare decision compete with the common ones (which role, which workspace), so this
+  // matches PermissionOverridesSection's "Customize permissions" disclosure.
+  it('hides the toggles until the disclosure is opened', () => {
+    withDepartments(DEPTS);
+    render(
+      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+    );
+
+    expect(screen.queryByRole('switch')).toBeNull();
+    // The workspace is still named while collapsed — the label IS the disclosure.
+    expect(disclosure()).toHaveTextContent(/Acme — departments/);
+    expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens and closes on click', () => {
+    withDepartments(DEPTS);
+    render(
+      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+    );
+
+    fireEvent.click(disclosure());
+    expect(screen.getAllByRole('switch')).toHaveLength(2);
+    expect(disclosure()).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(disclosure());
+    expect(screen.queryByRole('switch')).toBeNull();
+  });
+
+  it('⛔ collapsing must hide the CONTROL, never the STATE — a scoped group says so while collapsed', () => {
+    withDepartments(DEPTS);
+    render(
+      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 4]} onChange={vi.fn()} />
+    );
+
+    // Without this badge, an admin editing an already-scoped group would see a closed
+    // section and reasonably conclude the group had no department restrictions at all.
+    expect(disclosure()).toHaveTextContent('2');
+  });
+
+  it('shows no badge when nothing is selected, so "empty" is not dressed up as a setting', () => {
+    withDepartments(DEPTS);
+    render(
+      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+    );
+
+    expect(disclosure()).not.toHaveTextContent(/\d/);
+  });
+});
+
 describe('OrgDepartmentPicker', () => {
   it('renders each department, reflecting which are selected via aria-checked', () => {
     withDepartments(DEPTS);
-    render(
+    renderOpen(
       <OrgDepartmentPicker
         allianceId={7}
         orgId={42}
@@ -46,7 +107,7 @@ describe('OrgDepartmentPicker', () => {
   it('adds a department to the selection when an unchecked one is toggled', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
-    render(
+    renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3]} onChange={onChange} />
     );
 
@@ -58,7 +119,7 @@ describe('OrgDepartmentPicker', () => {
   it('removes a department from the selection when a checked one is toggled off', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
-    render(
+    renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 4]} onChange={onChange} />
     );
 
@@ -68,7 +129,7 @@ describe('OrgDepartmentPicker', () => {
 
   it('shows the role-default hint (no toggles) when the org has no departments', () => {
     withDepartments([]);
-    render(
+    renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
     );
 
@@ -78,7 +139,7 @@ describe('OrgDepartmentPicker', () => {
 
   it('shows a loading affordance and no toggles while departments are loading', () => {
     withDepartments([], true);
-    render(
+    renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
     );
 
@@ -89,7 +150,7 @@ describe('OrgDepartmentPicker', () => {
   it('disables the toggles and blocks changes when disabled', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
-    render(
+    renderOpen(
       <OrgDepartmentPicker
         allianceId={7}
         orgId={42}
