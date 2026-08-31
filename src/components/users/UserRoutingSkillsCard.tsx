@@ -95,6 +95,8 @@ export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
                     >
                       {val}
                       <Button
+                        aria-label="Remove value"
+                        title="Remove value"
                         type="button"
                         variant="ghost"
                         size="icon"

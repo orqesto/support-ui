@@ -417,7 +417,7 @@ export const SCIMConfigSettings = () => {
               {tokens.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No tokens yet.</p>
               ) : (
-                <div className="overflow-hidden rounded-md border border-border">
+                <div className="overflow-x-auto rounded-md border border-border">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
                       <tr className="text-left text-muted-foreground">

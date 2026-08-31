@@ -245,6 +245,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={() => editor.chain().focus().toggleBold().run()}
               className={cn('h-8 w-8 p-0', editor.isActive('bold') && 'bg-accent')}
               title="Bold"
+              aria-label="Bold"
             >
               <Bold className="h-4 w-4" />
             </Button>
@@ -256,6 +257,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={() => editor.chain().focus().toggleItalic().run()}
               className={cn('h-8 w-8 p-0', editor.isActive('italic') && 'bg-accent')}
               title="Italic"
+              aria-label="Italic"
             >
               <Italic className="h-4 w-4" />
             </Button>
@@ -267,6 +269,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={() => editor.chain().focus().toggleCode().run()}
               className={cn('h-8 w-8 p-0', editor.isActive('code') && 'bg-accent')}
               title="Code"
+              aria-label="Code"
             >
               <Code className="h-4 w-4" />
             </Button>
@@ -280,6 +283,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               className={cn('h-8 w-8 p-0', editor.isActive('bulletList') && 'bg-accent')}
               title="Bullet List"
+              aria-label="Bullet List"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -291,6 +295,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
               className={cn('h-8 w-8 p-0', editor.isActive('orderedList') && 'bg-accent')}
               title="Numbered List"
+              aria-label="Numbered List"
             >
               <ListOrdered className="h-4 w-4" />
             </Button>
@@ -302,6 +307,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
               className={cn('h-8 w-8 p-0', editor.isActive('blockquote') && 'bg-accent')}
               title="Quote"
+              aria-label="Quote"
             >
               <Quote className="h-4 w-4" />
             </Button>
@@ -315,6 +321,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               onClick={openLinkInput}
               className={cn('h-8 w-8 p-0', editor.isActive('link') && 'bg-accent')}
               title="Add Link"
+              aria-label="Add Link"
             >
               <LinkIcon className="h-4 w-4" />
             </Button>
@@ -329,6 +336,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               disabled={!editor.can().undo()}
               className="h-8 w-8 p-0"
               title="Undo"
+              aria-label="Undo"
             >
               <Undo className="h-4 w-4" />
             </Button>
@@ -341,6 +349,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               disabled={!editor.can().redo()}
               className="h-8 w-8 p-0"
               title="Redo"
+              aria-label="Redo"
             >
               <Redo className="h-4 w-4" />
             </Button>

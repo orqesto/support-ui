@@ -239,6 +239,8 @@ export const LabelsSettings = () => {
               </div>
               <div className="flex gap-1">
                 <Button
+                  aria-label="Edit label"
+                  title="Edit label"
                   size="sm"
                   variant="ghost"
                   onClick={() => handleEdit(label)}
@@ -247,6 +249,8 @@ export const LabelsSettings = () => {
                   <Edit2 className="w-3.5 h-3.5" />
                 </Button>
                 <Button
+                  aria-label="Delete label"
+                  title="Delete label"
                   size="sm"
                   variant="ghost"
                   onClick={() => { setLabelToDelete(label); setDeleteDialogOpen(true); }}

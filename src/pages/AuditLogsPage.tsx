@@ -217,6 +217,8 @@ export const AuditLogsPage = () => {
               </p>
             </div>
             <Button onClick={handleRefresh} disabled={refreshing} variant="outline" size="sm">
+              aria-label="Refresh the audit log"
+              title="Refresh the audit log"
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>

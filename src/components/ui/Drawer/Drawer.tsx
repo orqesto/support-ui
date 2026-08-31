@@ -28,6 +28,8 @@ export const Drawer = ({
         <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
           <h2 className="text-lg font-semibold">{title}</h2>
           <Button variant="outline" size="sm" onClick={onClose} className="p-0 w-8 h-8">
+            aria-label="Close"
+            title="Close"
             <X className="w-4 h-4" />
           </Button>
         </div>

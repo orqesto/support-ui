@@ -150,6 +150,7 @@ export const KBTableView = ({
                     variant="ghost"
                     onClick={() => onView(entry)}
                     title="View details"
+                    aria-label="View details"
                   >
                     <Maximize2 className="w-4 h-4" />
                   </Button>
@@ -159,6 +160,7 @@ export const KBTableView = ({
                       variant="outline"
                       onClick={() => onApprove(entry.id)}
                       title="Approve"
+                      aria-label="Approve"
                     >
                       <CheckCircle className="w-4 h-4" />
                     </Button>
@@ -169,6 +171,7 @@ export const KBTableView = ({
                       variant="outline"
                       onClick={() => onHide(entry.id)}
                       title="Hide"
+                      aria-label="Hide"
                     >
                       <EyeOff className="w-4 h-4" />
                     </Button>
@@ -178,6 +181,7 @@ export const KBTableView = ({
                       variant="outline"
                       onClick={() => onApprove(entry.id)}
                       title="Unhide"
+                      aria-label="Unhide"
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
@@ -187,6 +191,7 @@ export const KBTableView = ({
                     variant="outline"
                     onClick={() => onDelete(entry)}
                     title="Delete"
+                    aria-label="Delete"
                     className="text-red-600 hover:text-red-700"
                   >
                     <Trash2 className="w-4 h-4" />

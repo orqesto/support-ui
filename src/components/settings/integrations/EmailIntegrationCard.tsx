@@ -355,26 +355,26 @@ export const EmailIntegrationCard = ({
             <div className="space-y-2">
               {emailIntegrations.map((integration) => (
                 <div key={integration.id}>
-                  <div className="flex justify-between items-center p-3 rounded-lg border">
-                    <div className="flex gap-3 items-center">
+                  <div className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center">
+                    <div className="flex flex-1 gap-3 items-center min-w-0">
                       <div
-                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                       />
-                      <div>
-                        <div className="flex gap-2 items-center">
-                          <p className="font-medium">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <p className="font-medium break-all">
                             {(integration.config as { email?: EmailConfig }).email?.user ??
                               integration.name}
                           </p>
                           <SourceRowBadges source={integration} />
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs break-all text-muted-foreground">
                           {(integration.config as { email?: EmailConfig }).email?.host ??
                             'Not configured'}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
@@ -389,10 +389,13 @@ export const EmailIntegrationCard = ({
                           setBulkImportDaysInput('7');
                         }}
                         title="Bulk import historical emails"
+                        aria-label="Bulk import historical emails"
                       >
                         <Calendar className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label="Edit this mailbox"
+                        title="Edit this mailbox"
                         variant="outline"
                         size="sm"
                         onClick={() =>
@@ -422,6 +425,7 @@ export const EmailIntegrationCard = ({
                         size="sm"
                         onClick={() => setEditAliases(integration.id)}
                         title="Mailbox addresses"
+                        aria-label="Mailbox addresses"
                       >
                         <AtSign className="w-4 h-4" />
                       </Button>
@@ -430,6 +434,7 @@ export const EmailIntegrationCard = ({
                         size="sm"
                         onClick={() => setEditDepts(integration.id)}
                         title="Assign departments"
+                        aria-label="Assign departments"
                       >
                         <Building2 className="w-4 h-4" />
                       </Button>
@@ -438,6 +443,7 @@ export const EmailIntegrationCard = ({
                         size="sm"
                         onClick={() => setEditAckReply(integration.id)}
                         title="Auto-reply template"
+                        aria-label="Auto-reply template"
                       >
                         <MessageSquareReply className="w-4 h-4" />
                       </Button>

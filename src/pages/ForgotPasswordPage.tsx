@@ -63,7 +63,7 @@ export const ForgotPasswordPage = () => {
 
   if (success) {
     return (
-      <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+      <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl">Check your email</CardTitle>
@@ -91,7 +91,7 @@ export const ForgotPasswordPage = () => {
   }
 
   return (
-    <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+    <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Forgot password?</CardTitle>
@@ -100,7 +100,7 @@ export const ForgotPasswordPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <Input
               label="Email"
               type="email"

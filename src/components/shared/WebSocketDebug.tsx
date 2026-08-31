@@ -50,6 +50,7 @@ export const WebSocketDebug = () => {
                   onClick={() => setIsOpen(false)}
                   className="p-1 rounded transition-colors hover:bg-blue-700"
                   title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-4 h-4" />
                 </Button>

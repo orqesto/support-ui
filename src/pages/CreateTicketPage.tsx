@@ -412,6 +412,8 @@ export const CreateTicketPage = () => {
                           {formatFileSize(file.size)}
                         </span>
                         <Button
+                          aria-label="Remove file"
+                          title="Remove file"
                           type="button"
                           variant="ghost"
                           size="sm"

@@ -170,6 +170,8 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                     disabled={saving[key]}
                   />
                   <Button
+                    aria-label="Add value"
+                    title="Add value"
                     size="sm"
                     variant="outline"
                     className="h-7 px-2"

@@ -225,6 +225,8 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
           }}
         />
         <Button
+          aria-label="Add note"
+          title="Add note"
           size="sm"
           onClick={handleAddNote}
           disabled={!newNote.trim() || isSubmitting}

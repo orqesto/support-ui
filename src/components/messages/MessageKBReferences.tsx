@@ -125,6 +125,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
                 size="sm"
                 onClick={() => window.open(`/knowledge-base?id=${ref.id}`, '_blank', 'noopener,noreferrer')}
                 title="View in Knowledge Base"
+                aria-label="View in Knowledge Base"
                 className="flex-shrink-0"
               >
                 <ExternalLink className="w-4 h-4" />

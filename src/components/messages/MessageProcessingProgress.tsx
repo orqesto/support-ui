@@ -365,6 +365,7 @@ export const MessageProcessingProgress = ({
         </div>
         <div className="flex gap-1 items-center">
           <Button
+            aria-label="Show or hide processing details"
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
@@ -373,6 +374,7 @@ export const MessageProcessingProgress = ({
             {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
           </Button>
           <Button
+            aria-label="Dismiss"
             variant="ghost"
             size="sm"
             onClick={() => {

@@ -118,7 +118,7 @@ export const SLAConfigSettings = () => {
       {/* Ticket SLA */}
       <div>
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Ticket SLA</p>
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
@@ -168,7 +168,7 @@ export const SLAConfigSettings = () => {
       {/* Message SLA */}
       <div>
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Message SLA</p>
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">

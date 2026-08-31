@@ -57,6 +57,7 @@ export const WebSocketStatus = () => {
                 onClick={() => setIsExpanded(false)}
                 className="p-1 h-auto text-white rounded transition-colors hover:bg-white/20 hover:text-white"
                 title="Close"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </Button>

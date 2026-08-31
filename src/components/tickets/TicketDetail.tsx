@@ -232,7 +232,8 @@ export const TicketDetail = ({
             </span>
             {showFullPageButton && !isFullPage && (
               <Link to={`/tickets/${ticket.id}`}>
-                <Button variant="ghost" size="sm" title="Open in full page">
+                <Button variant="ghost" size="sm" title="Open in full page"
+  aria-label="Open in full page">
                   <Maximize2 className="w-4 h-4" />
                 </Button>
               </Link>
@@ -304,6 +305,7 @@ export const TicketDetail = ({
                   {label.name}
                   {hasManageLabels && (
                     <Button
+                      aria-label="Remove label"
                       variant="ghost"
                       size="icon"
                       onClick={() => handleToggleLabel(label)}
@@ -322,6 +324,7 @@ export const TicketDetail = ({
                   className="h-6 px-1.5 text-xs"
                   onClick={() => setShowLabelPicker((val) => !val)}
                   title="Add label"
+                  aria-label="Add label"
                 >
                   <Tag className="w-3 h-3 mr-1" />
                   <Plus className="w-3 h-3" />
@@ -467,6 +470,7 @@ export const TicketDetail = ({
                 variant="ghost"
                 size="sm"
                 title="Edit description"
+                aria-label="Edit description"
                 onClick={() => setEditingDescription(true)}
               >
                 <Pencil className="w-3.5 h-3.5" />

@@ -27,6 +27,8 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
           <h2 className="text-xl font-bold">Spam Log Details</h2>
         </div>
         <Button size="sm" variant="ghost" onClick={onClose}>
+          aria-label="Close"
+          title="Close"
           <X className="w-4 h-4" />
         </Button>
       </div>

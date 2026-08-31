@@ -245,17 +245,17 @@ export const ConfluenceIntegrationCard = ({
                 return (
                   <div
                     key={integration.id}
-                    className="flex justify-between items-center p-3 rounded-lg border"
+                    className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center"
                   >
-                    <div className="flex gap-3 items-center">
+                    <div className="flex flex-1 gap-3 items-center min-w-0">
                       <div
-                        className={`w-2 h-2 rounded-full ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
                       />
-                      <div>
-                        <p className="font-medium">
+                      <div className="min-w-0">
+                        <p className="font-medium break-words">
                           {cfg.spaceKeys?.length ? cfg.spaceKeys.join(', ') : integration.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs break-all text-muted-foreground">
                           {cfg.baseUrl ?? 'Not configured'}
                         </p>
                         {(() => {
@@ -264,7 +264,7 @@ export const ConfluenceIntegrationCard = ({
                         })()}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 shrink-0">
                       <Button
                         variant="outline"
                         size="sm"

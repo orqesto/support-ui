@@ -53,7 +53,7 @@ export const ResetPasswordPage = () => {
 
   if (!token) {
     return (
-      <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+      <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl">Invalid Link</CardTitle>
@@ -71,7 +71,7 @@ export const ResetPasswordPage = () => {
 
   if (success) {
     return (
-      <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+      <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl">Password Reset Successful</CardTitle>
@@ -95,7 +95,7 @@ export const ResetPasswordPage = () => {
   }
 
   return (
-    <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+    <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Reset your password</CardTitle>

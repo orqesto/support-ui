@@ -83,7 +83,7 @@ export const VersionStatus = () => {
         title={`${driftLabel[drift]} · click for details`}
         className="gap-1.5 px-1.5 py-1 h-auto rounded text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent"
       >
-        <span className={`inline-block w-2 h-2 rounded-full ${dotColor[drift]}`} aria-hidden />
+        <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${dotColor[drift]}`} aria-hidden />
         <span className="font-mono">v{be?.version ?? feVersion}</span>
       </Button>
       {open && pos && createPortal(
@@ -95,7 +95,7 @@ export const VersionStatus = () => {
           className="fixed z-50 w-[220px] rounded-md border border-border bg-background shadow-lg p-3 text-[11px]"
         >
           <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
-            <span className={`inline-block w-2 h-2 rounded-full ${dotColor[drift]}`} aria-hidden />
+            <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${dotColor[drift]}`} aria-hidden />
             <span className="text-foreground font-medium">{driftLabel[drift]}</span>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-muted-foreground">

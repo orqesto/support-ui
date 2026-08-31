@@ -116,7 +116,7 @@ export const ConsoleGroups = () => {
       ) : (
         <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
           <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
-            <div className="overflow-y-auto flex-1 min-h-0">
+            <div className="overflow-auto flex-1 min-h-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">

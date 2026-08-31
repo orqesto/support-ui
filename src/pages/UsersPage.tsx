@@ -344,7 +344,8 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       id: 'skills',
       header: 'Skills',
       cell: (user) => (
-        <Button size="sm" variant="outline" onClick={() => setSkillsUser(user)} title="Manage skills">
+        <Button size="sm" variant="outline" onClick={() => setSkillsUser(user)} title="Manage skills"
+  aria-label="Manage skills">
           <Tag className="w-4 h-4" />
         </Button>
       ),
@@ -361,11 +362,15 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       <div className="flex gap-2 justify-end">
         {canEdit && (
           <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
+            aria-label="Edit user"
+            title="Edit user"
             <Edit2 className="w-4 h-4" />
           </Button>
         )}
         {canRemove && (
           <Button
+            aria-label="Delete user"
+            title="Delete user"
             size="sm"
             variant="outline"
             onClick={() => handleDeleteUser(user)}
@@ -397,6 +402,8 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             <div className="flex gap-2">
               {canManageUser(user) && (
                 <Button
+                  aria-label="Edit user"
+                  title="Edit user"
                   size="sm"
                   variant="outline"
                   className="flex-shrink-0"
@@ -411,11 +418,14 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 className="flex-shrink-0"
                 onClick={() => setSkillsUser(user)}
                 title="Manage skills"
+                aria-label="Manage skills"
               >
                 <Tag className="w-4 h-4" />
               </Button>
               {canDeleteUser(user) && (
                 <Button
+                  aria-label="Delete user"
+                  title="Delete user"
                   size="sm"
                   variant="outline"
                   className="flex-shrink-0 text-red-600 hover:text-red-700 hover:border-red-300"

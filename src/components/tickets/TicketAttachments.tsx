@@ -267,7 +267,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
       {/* Table */}
       {attachments.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <tr>
@@ -329,6 +329,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           onClick={() => void handleDownload(attachment, true)}
                           className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           title="View"
+                          aria-label="View"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -337,6 +338,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                         onClick={() => void handleDownload(attachment)}
                         className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         title="Download"
+                        aria-label="Download"
                       >
                         <Download className="w-4 h-4" />
                       </Button>
@@ -350,6 +352,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           }
                           className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Delete"
+                          aria-label="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
