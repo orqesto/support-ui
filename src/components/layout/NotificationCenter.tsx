@@ -23,6 +23,7 @@ import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifica
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
 import { useStaleKbAlerts } from '@/hooks/useStaleKbAlerts';
+import { formatStaleAge } from '@/lib/kbStaleness';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
 // SLA breaches (itemized), the Suspicious/Spam arrival queues + needs-routing depth
@@ -42,20 +43,6 @@ const PANEL_PEEK_LIMIT = 5;
  * breach with a blank label: worse than either showing it properly or not showing it,
  * because a blank row tells the reader nothing AND looks like a bug.
  */
-/**
- * "8 months" beats "247 days" for a threshold measured in months — the reader is deciding
- * whether a document is old enough to look at, not counting days.
- */
-const formatStaleAge = (days: number): string => {
-  const months = Math.floor(days / 30);
-  if (months >= 12) {
-    const years = Math.floor(months / 12);
-    return years === 1 ? 'over a year' : `over ${years} years`;
-  }
-  if (months >= 1) return `${months} month${months === 1 ? '' : 's'}`;
-  return `${days} day${days === 1 ? '' : 's'}`;
-};
-
 const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
     case 'message':
@@ -445,7 +432,13 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             size="sm"
                             onClick={() => {
                               setOpen(false);
-                              navigate(`/knowledge-base?id=${alert.documentId}#documentation`);
+                              // `docId`, NOT `id`. `?id=` is read by KnowledgeBasePage and passed to
+                              // kbService.getById — the knowledge_base ENTRY id space, which a
+                              // documentation id collides with: the link popped "Entry Not Found",
+                              // or opened an unrelated entry that happened to share the number.
+                              // `?docId=` is the documentation tab's own param and already
+                              // scrolls the row into view and rings it.
+                              navigate(`/knowledge-base?docId=${alert.documentId}#documentation`);
                             }}
                             className="px-0 mt-1 h-auto text-xs text-primary hover:bg-transparent hover:underline"
                           >

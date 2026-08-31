@@ -6,6 +6,7 @@ import {
   Clock,
   BookOpen,
   BarChart3,
+  FileClock,
   Globe,
   Lock,
   FileCode,
@@ -24,6 +25,7 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { daysSince, formatStaleAge, isStale, KB_STALE_AFTER_DAYS } from '@/lib/kbStaleness';
 import { formatDate } from '@/lib/utils';
 import type {
   Documentation,
@@ -347,6 +349,28 @@ export const DocumentationList = ({
                     <span>Uploaded {formatDate(doc.createdAt)}</span>
                     {doc.lastReferencedAt && (
                       <span>Last used {formatDate(doc.lastReferencedAt)}</span>
+                    )}
+                    {/*
+                      The same fact the notification carries, said where the document lives.
+                      A notification can be dismissed, arrive while nobody is looking, or
+                      never be seen by the person who later opens this list — and then
+                      nothing on screen distinguishes a document maintained last week from
+                      one abandoned two years ago. `updatedAt` is the CONTENT clock (an
+                      unchanged Confluence page is skipped before any write), so this does
+                      not light up merely because a sync ran.
+
+                      ⛔ Informational only. Nothing here disables or hides the document;
+                      an unchanged document may be perfectly correct and only a person can
+                      tell.
+                    */}
+                    {isStale(doc.updatedAt) && (
+                      <span
+                        className="inline-flex gap-1 items-center font-medium text-amber-600 dark:text-amber-400"
+                        title={`Last changed ${formatDate(doc.updatedAt)}. Documents unchanged for ${KB_STALE_AFTER_DAYS} days are flagged for review — nothing is disabled.`}
+                      >
+                        <FileClock className="w-3 h-3" />
+                        Not updated in {formatStaleAge(daysSince(doc.updatedAt) ?? 0)}
+                      </span>
                     )}
                   </div>
 
