@@ -4,7 +4,13 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 // Typed so the mock's return isn't `any` — the repo lints tests too, and
 // @typescript-eslint/no-unsafe-return rejects an untyped vi.fn() passthrough.
 const composeReply =
-  vi.fn<(...args: unknown[]) => Promise<{ data: { text: string | null; language?: string } }>>();
+  vi.fn<
+    (
+      ...args: unknown[]
+    ) => Promise<{
+      data: { text: string | null; language?: string; groundedInKb?: boolean };
+    }>
+  >();
 const translateText =
   vi.fn<(...args: unknown[]) => Promise<{ data: { translated: { content: string } } }>>();
 
@@ -385,6 +391,52 @@ describe('ComposerAiActions', () => {
       aiConfigured.value = false;
       render(<ComposerAiActions messageId={42} composer="" setComposer={setComposer} />);
       expect(screen.queryByTitle('Draft this reply with AI')).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * The backend has always sent `groundedInKb: false` for a draft written without a
+   * retrieved passage, and this component ignored it — so a draft backed by nothing
+   * looked exactly like an answer from the knowledge base. The two ungrounded modes
+   * need DIFFERENT wording because the agent's next move differs: a guided draft
+   * carries their own facts, a generate draft answers nothing at all.
+   */
+  describe('says when a draft is not backed by the knowledge base', () => {
+    it('generate with an empty KB warns that it does not answer the question', async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'Thanks for your message. We will come back to you.', groundedInKb: false },
+      });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(await screen.findByText(/without answering it/i)).toBeInTheDocument();
+      expect(screen.getByText(/Add the answer before sending/i)).toBeInTheDocument();
+    });
+
+    it("guided says the draft came from the agent's own facts, not the KB", async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'Ihr Paket ist im Zoll.', language: 'de', groundedInKb: false },
+      });
+      openPanel('');
+      fireEvent.change(screen.getByPlaceholderText(/leave empty and I'll answer/i), {
+        target: { value: 'parcel is at the border' },
+      });
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(await screen.findByText(/from what you said/i)).toBeInTheDocument();
+      expect(screen.queryByText(/without answering it/i)).not.toBeInTheDocument();
+    });
+
+    it('CONTROL: a KB-grounded draft carries no caution at all', async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'Your parcel is at the border.', language: 'en' },
+      });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(await screen.findByText('Your parcel is at the border.')).toBeInTheDocument();
+      expect(screen.queryByText(/knowledge base/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/from what you said/i)).not.toBeInTheDocument();
     });
   });
 });
