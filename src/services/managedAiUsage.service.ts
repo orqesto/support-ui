@@ -38,7 +38,17 @@ export interface ManagedAiOrgUsage {
 export interface ManagedAiUsage {
   /** Managed workspaces, busiest first. Present but all-zero when nobody spent in range. */
   orgs: ManagedAiOrgUsage[];
-  totals: { byTier: ManagedAiTierStat[]; managedOrgCount: number };
+  totals: {
+    byTier: ManagedAiTierStat[];
+    managedOrgCount: number;
+    /**
+     * The daily TOKEN ceiling — the only guard that counts tokens rather than round-trips.
+     * `tokenCeilingIsDefault` says whether an operator chose this number or is relying on
+     * the built-in; 0 is a real opt-out, not "unset".
+     */
+    tokenCeilingPerOrgPerDay?: number;
+    tokenCeilingIsDefault?: boolean;
+  };
 }
 
 export interface ManagedAiUsageMeta {

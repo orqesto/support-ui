@@ -115,7 +115,7 @@ export const PlatformAiSpend = () => {
 
       {usage && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Tokens</span>
@@ -149,6 +149,29 @@ export const PlatformAiSpend = () => {
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Managed workspaces</span>
                 <span className="text-2xl font-semibold">{usage.totals.managedOrgCount}</span>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col gap-1 p-4">
+                <span className="text-xs text-muted-foreground">Daily token ceiling</span>
+                {/* A cap nobody can see is not meaningfully different from no cap: the
+                    2026-08-28 burn spent 20.8M tokens while the CALL ceiling read 8% used. */}
+                <span className="text-2xl font-semibold">
+                  {usage.totals.tokenCeilingPerOrgPerDay === undefined
+                    ? '—'
+                    : usage.totals.tokenCeilingPerOrgPerDay === 0
+                      ? 'none'
+                      : formatTokens(usage.totals.tokenCeilingPerOrgPerDay)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {usage.totals.tokenCeilingPerOrgPerDay === undefined
+                    ? 'this backend does not report one'
+                    : usage.totals.tokenCeilingPerOrgPerDay === 0
+                      ? 'the budget is switched off, per workspace per day'
+                      : usage.totals.tokenCeilingIsDefault
+                        ? 'per workspace per day — platform default, not configured'
+                        : 'per workspace per day — configured'}
+                </span>
               </CardContent>
             </Card>
           </div>
