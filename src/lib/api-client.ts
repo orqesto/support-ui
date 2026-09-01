@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
 import { logger } from '@/lib/logger';
+import { noteSessionRenewed } from '@/lib/sessionClock';
 import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
@@ -135,14 +136,28 @@ const requestRefresh = async (): Promise<void> => {
   try {
     // A bare axios call, not `apiClient` — going through the instance would re-enter this same
     // interceptor on failure and recurse.
-    await axios.post(`${API_BASE_URL}/api/auth/refresh`, {}, { withCredentials: true });
+    const response = await axios.post<{ data?: { expiresIn?: string } }>(
+      `${API_BASE_URL}/api/auth/refresh`,
+      {},
+      { withCredentials: true }
+    );
+    // The server states the lifetime of the token it just minted. Reporting it is what lets the
+    // renewal scheduler run AHEAD of expiry instead of waiting for something to hit a 401 —
+    // and it is the only source that is right on every deployment, since ACCESS_TOKEN_TTL is
+    // an operator's choice.
+    noteSessionRenewed(response.data?.data?.expiresIn);
   } catch (err) {
     const status = (err as { response?: { status?: number } } | undefined)?.response?.status;
     // 409 is NOT a failure. It means another TAB rotated the token moments ago and has already
     // set the new cookie pair on this browser — cookies are shared, so we hold the fresh session
     // too and simply need to retry. Treating 409 as terminal is exactly how a multi-tab user
     // gets signed out for having two tabs open.
-    if (status === 409) return;
+    if (status === 409) {
+      // The cookies ARE fresh, we just did not mint them, so the schedule must move too. No
+      // lifetime to learn: the winning tab holds that response.
+      noteSessionRenewed();
+      return;
+    }
     throw err instanceof Error ? err : new Error(String(err));
   }
 };

@@ -20,6 +20,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 import { apiClient, ensureFreshSession, handleResponseError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
+import { clearSessionClock, getAccessTtlMs, onSessionRenewed } from '@/lib/sessionClock';
 
 /** A realistic axios failure, shaped the way the interceptor actually receives one. */
 const failure = (status: number, url: string, data: unknown = { error: 'nope' }) =>
@@ -125,6 +126,30 @@ describe('a 401 is a question, not a verdict', () => {
     expect(replay).not.toHaveBeenCalled();
     expect(logout).toHaveBeenCalledTimes(1);
     expect(assignedHref).toBe('/login');
+  });
+
+  it('LEARNS the lifetime the server reports, so renewal can run ahead of the next expiry', async () => {
+    // The wiring most likely to rot silently: if this stops being read, renewal falls back to a
+    // guess and the 401 bursts come back — with every test above still green.
+    vi.spyOn(axios, 'post').mockResolvedValue({ data: { data: { expiresIn: '8h' } } });
+    clearSessionClock();
+
+    await ensureFreshSession();
+
+    expect(getAccessTtlMs()).toBe(8 * 60 * 60 * 1000);
+  });
+
+  it('still moves the renewal clock on a 409, where there is no lifetime to learn', async () => {
+    // The other tab holds that response; our cookies are just as fresh, so the schedule has to
+    // advance or this tab keeps its old, already-passed due time.
+    vi.spyOn(axios, 'post').mockRejectedValue(rejection(409));
+    const renewed = vi.fn();
+    const stop = onSessionRenewed(renewed);
+
+    await ensureFreshSession();
+    stop();
+
+    expect(renewed).toHaveBeenCalledTimes(1);
   });
 
   it('never retries the same request twice, however the replay fails', async () => {
