@@ -615,7 +615,8 @@ export function MessageDetail({
       // them into HTML so the editor holds editable rich text and the customer
       // receives formatted output instead of literal "**bold**" / "- " runs.
       // Shared with the composer's AI actions via answerToEditorHtml.
-      setComposer(answerToEditorHtml(answer));
+      const applied = answerToEditorHtml(answer);
+      setComposer(applied);
       setComposerMode('reply');
       // Expand the (initially collapsed) reply editor + focus it so the agent
       // sees the populated suggested answer immediately, instead of having to
@@ -623,12 +624,24 @@ export function MessageDetail({
       // React mounts the reply editor — if the user was in 'note' mode, the
       // reply ref is null until the conditional render swap settles.
       setTimeout(() => richEditorRef.current?.focus(), 0);
-      // Suggested answers arrive from the similar-messages dialog / KB. Record
-      // the source so the send is stamped as AI-drafted rather than reported as
-      // the agent's own writing.
-      setAiSource(source || 'suggested_answer');
+      // Suggested answers arrive from the similar-messages dialog / KB. Record the
+      // source, so the send is stamped as AI-drafted rather than reported as the
+      // agent's own writing — AND the draft itself, exactly as it was applied to
+      // the editor.
+      //
+      // This used to set the source alone. A send then said "AI-drafted" and
+      // carried nothing to compare the sent text against: recordReplyStyleEditEvent
+      // returns early on a missing draft, so every reply an agent started from the
+      // KB taught reply_style nothing while looking, in every stat we have, exactly
+      // like the ones that did. Routed through handleAiSourceChange rather than the
+      // two setters so there is ONE place that can set a source without a draft.
+      //
+      // No `mode`: that field is which compose mode wrote the text, and nothing
+      // composed this — it came out of the KB. The provenance travels separately,
+      // as suggestedAnswerSource on the send.
+      handleAiSourceChange(source || 'suggested_answer', { text: applied });
     },
-    []
+    [handleAiSourceChange]
   );
 
   const handleReject = useCallback(async () => {
