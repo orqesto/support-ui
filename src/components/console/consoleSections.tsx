@@ -14,6 +14,7 @@ import {
   Package,
   ServerCog,
   SlidersHorizontal,
+  ToggleLeft,
   MailOpen,
   type LucideIcon,
 } from 'lucide-react';
@@ -107,6 +108,9 @@ const PlatformSystem = lazy(() =>
 const PlatformDefaults = lazy(() =>
   import('@/pages/console/PlatformDefaults').then((mod) => ({ default: mod.PlatformDefaults }))
 );
+const PlatformFeatureFlags = lazy(() =>
+  import('@/pages/console/PlatformFeatureFlags').then((mod) => ({ default: mod.PlatformFeatureFlags }))
+);
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
@@ -142,6 +146,9 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
   { id: 'defaults', label: 'Platform Defaults', icon: SlidersHorizontal, path: 'defaults', element: PlatformDefaults },
+  // Next to Platform Defaults on purpose: both answer "why is the product behaving
+  // this way for this tenant", one through settings and one through flags.
+  { id: 'feature-flags', label: 'Feature Flags', icon: ToggleLeft, path: 'feature-flags', element: PlatformFeatureFlags },
   { id: 'email-templates', label: 'Email Templates', icon: MailOpen, path: 'email-templates', element: PlatformEmailTemplates },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformAudit },
 ];
