@@ -9,6 +9,7 @@ import {
   ScrollText,
   Settings,
   Network,
+  Coins,
   CreditCard,
   Package,
   ServerCog,
@@ -111,6 +112,9 @@ const PlatformAudit = lazy(() =>
 );
 // System-wide email templates (invitation / verification / password-reset). Global-admin
 // scoped, so it lives in the platform console rather than the main app nav.
+const PlatformAiSpend = lazy(() =>
+  import('@/pages/console/PlatformAiSpend').then((mod) => ({ default: mod.PlatformAiSpend }))
+);
 const PlatformEmailTemplates = lazy(() =>
   import('@/pages/EmailTemplatesPage').then((mod) => ({ default: mod.EmailTemplates }))
 );
@@ -125,6 +129,7 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: PlatformOrganizations },
   { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformUsers },
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
+  { id: 'ai-spend', label: 'AI Spend', icon: Coins, path: 'ai-spend', element: PlatformAiSpend },
   {
     id: 'billing',
     label: 'Plans & Pricing',
