@@ -21,6 +21,13 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    optimizeDeps: {
+      // Pre-bundle deps that are only reached through lazy routes. Without this Vite
+      // discovers them mid-session, re-optimizes, and the open tab ends up mixing two
+      // dep-optimizer passes — recharts gets a second React copy and every hook throws
+      // "Cannot read properties of null (reading 'useContext')".
+      include: ['react', 'react-dom', 'react-dom/client', 'recharts'],
+    },
     server: {
       port: 5173,
       proxy: {
