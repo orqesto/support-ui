@@ -28,6 +28,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
@@ -219,6 +220,22 @@ export const MessagesPage = () => {
     [navigate, patchFilters]
   );
 
+  /**
+   * The org code that makes an id in the address bar shareable.
+   *
+   * ⛔ The copy-link button already passed this (`KanbanCard`, `MessageListItem`,
+   * `MessageDetailHeader`) while every URL-SYNC writer here omitted it — so the button
+   * produced `ORB-MKT-170` and the address bar produced a bare `MKT-170`. People copy the
+   * address bar. That is the ambiguous form: public ids are unique per ORG and the counter
+   * is per department, so `INF` and `SUP` each exist in six workspaces on prod and 54 ids
+   * already resolve in more than one.
+   *
+   * 🔑 The coded form is not just clearer, it FAILS SAFE: `resolveConvIdFromParam` strips a
+   * MATCHING `{code}-` and returns null for a non-matching one, so a link opened in the
+   * wrong workspace 404s instead of opening a different real conversation.
+   */
+  const orgCode = useCurrentOrgCode();
+
   const urlSyncedRef = useRef(false);
   // Holds the URL form of the last-fetched conv id (either the numeric id as a
   // string or a publicId like 'SUP-42') — see useMessagesUrlSync for the dedup
@@ -319,13 +336,13 @@ export const MessagesPage = () => {
           // returned by getById, so it is optional here and falls back to the
           // thread's value below.
           const messageToShow: Message = res.data;
-          fetchedMessageIdRef.current = getConvUrlId(messageToShow);
+          fetchedMessageIdRef.current = getConvUrlId(messageToShow, orgCode);
           setSelectedMessage({
             ...messageToShow,
             lastReplyFromClient: messageToShow.lastReplyFromClient ?? thread.lastReplyFromClient,
           });
           const params = new URLSearchParams(searchParams);
-          params.set('id', getConvUrlId(messageToShow));
+          params.set('id', getConvUrlId(messageToShow, orgCode));
           setSearchParams(params);
           return;
         }
@@ -334,10 +351,10 @@ export const MessagesPage = () => {
       }
       const fallback = thread.latestIncomingMessage ?? thread.latestMessage;
       if (fallback) {
-        fetchedMessageIdRef.current = getConvUrlId(fallback);
+        fetchedMessageIdRef.current = getConvUrlId(fallback, orgCode);
         setSelectedMessage(fallback);
         const params = new URLSearchParams(searchParams);
-        params.set('id', getConvUrlId(fallback));
+        params.set('id', getConvUrlId(fallback, orgCode));
         setSearchParams(params);
       }
     },
@@ -384,7 +401,7 @@ export const MessagesPage = () => {
         setSelectedMessage(response.data);
 
         const params = new URLSearchParams(searchParams);
-        params.set('id', getConvUrlId(response.data));
+        params.set('id', getConvUrlId(response.data, orgCode));
         setSearchParams(params);
       }
     } catch (error: unknown) {
@@ -815,7 +832,7 @@ export const MessagesPage = () => {
                   onOpenMessage={(msg) => {
                     setSelectedMessage(msg);
                     const params = new URLSearchParams(searchParams);
-                    params.set('id', getConvUrlId(msg));
+                    params.set('id', getConvUrlId(msg, orgCode));
                     setSearchParams(params);
                   }}
                 />
