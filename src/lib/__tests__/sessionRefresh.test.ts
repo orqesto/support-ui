@@ -17,8 +17,13 @@
  *     tabs open — the exact bug the backend's 409 exists to prevent.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import axios from 'axios';
-import { apiClient, ensureFreshSession, handleResponseError } from '@/lib/api-client';
+import axios, { type AxiosResponse } from 'axios';
+import {
+  apiClient,
+  ensureFreshSession,
+  handleResponseError,
+  noteSessionFromResponse,
+} from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import {
   clearSessionClock,
@@ -26,6 +31,10 @@ import {
   getAccessTtlMs,
   onSessionRenewed,
 } from '@/lib/sessionClock';
+
+/** The success shape the interceptor receives; only `data` matters to what is under test. */
+const asResponse = (body: unknown): AxiosResponse =>
+  ({ data: body, status: 200, statusText: 'OK', headers: {}, config: {} }) as AxiosResponse;
 
 /** A realistic axios failure, shaped the way the interceptor actually receives one. */
 const failure = (status: number, url: string, data: unknown = { error: 'nope' }) =>
@@ -139,19 +148,27 @@ describe('a 401 is a question, not a verdict', () => {
     // side of the wire, so a new sign-in path cannot forget.
     clearSessionClock();
 
-    await apiClient.interceptors.response.handlers[0].fulfilled({
-      data: { success: true, data: { auth: { expiresIn: '30m' }, user: { id: 1 } } },
-    });
+    noteSessionFromResponse(
+      asResponse({ success: true, data: { auth: { expiresIn: '30m' }, user: { id: 1 } } })
+    );
 
     expect(getAccessTtlMs()).toBe(30 * 60 * 1000);
   });
 
+  it('is actually INSTALLED as the success interceptor, not merely exported', () => {
+    // Without this the test above would keep passing while the wiring was gone — it drives the
+    // function directly, so "does it work" and "does it run" are two different questions.
+    const { handlers } = apiClient.interceptors.response as unknown as {
+      handlers: { fulfilled?: unknown }[];
+    };
+    expect(handlers.some((handler) => handler.fulfilled === noteSessionFromResponse)).toBe(true);
+  });
+
   it('ignores a response that carries no session, and never throws on an odd body (control)', () => {
     clearSessionClock();
-    const fulfilled = apiClient.interceptors.response.handlers[0].fulfilled;
 
     for (const body of [undefined, null, 'text', { data: null }, { data: { auth: {} } }]) {
-      expect(() => fulfilled({ data: body })).not.toThrow();
+      expect(() => noteSessionFromResponse(asResponse(body))).not.toThrow();
     }
     expect(getAccessTtlMs()).toBe(FALLBACK_ACCESS_TTL_MS);
   });

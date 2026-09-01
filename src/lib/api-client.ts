@@ -264,8 +264,11 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
  * `data.auth.expiresIn` (and, for native clients, the tokens beside it). Reading it HERE rather
  * than in each auth service keeps "a session just started" in ONE place on this side too; six
  * services each remembering to record it is the drift `establishSession` exists to prevent.
+ *
+ * Exported for the test, which drives THIS function rather than reaching into axios's handler
+ * array — a private shape that type-checks differently under the app tsconfig than the loose one.
  */
-const noteSessionFromResponse = (response: AxiosResponse): AxiosResponse => {
+export const noteSessionFromResponse = (response: AxiosResponse): AxiosResponse => {
   const body = response.data as { data?: { auth?: { expiresIn?: unknown } } } | undefined;
   const expiresIn = body?.data?.auth?.expiresIn;
   if (typeof expiresIn === 'string') noteSessionIssued(expiresIn);
