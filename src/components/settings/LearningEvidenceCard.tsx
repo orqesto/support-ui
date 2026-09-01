@@ -19,10 +19,15 @@ import { learningService, type DomainEvidence, type LearningEvidence } from '@/s
  * What it makes possible is telling those two apart.
  */
 
+// Keep in step with the domains the endpoint returns. A key missing here falls back
+// to the raw domain string, which renders as `kb_quality` — legible to us, meaningless
+// to an operator. That is exactly what happened when spam was added on the backend
+// after this file was written.
 const DOMAIN_TITLES: Record<string, string> = {
   reply_style: 'Reply Style',
   kb_quality: 'KB Quality',
   routing: 'Routing',
+  spam: 'Spam',
 };
 
 const EvidenceRow = ({ evidence }: { evidence: DomainEvidence }) => (

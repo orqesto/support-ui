@@ -46,6 +46,13 @@ const evidence = (over: Partial<LearningEvidence> = {}): LearningEvidence => ({
       lastAt: '2026-07-01T00:00:00Z',
       note: '0 routing corrections in the last 90 days',
     },
+    {
+      domain: 'spam',
+      unit: 'learned spam rules',
+      count: 0,
+      lastAt: null,
+      note: '0 spam corrections in the last 90 days (seeded rules are not counted above)',
+    },
   ],
   ...over,
 });
@@ -63,6 +70,15 @@ describe('LearningEvidenceCard', () => {
     expect(screen.getByText('edited AI drafts')).toBeInTheDocument();
     expect(screen.getByText('documents with a quality signal')).toBeInTheDocument();
     expect(screen.getByText('learned routing rules')).toBeInTheDocument();
+    expect(screen.getByText('learned spam rules')).toBeInTheDocument();
+  });
+
+  it('titles every domain the endpoint returns, never a raw key', async () => {
+    // A domain added on the backend after this file was written renders as `spam`
+    // rather than "Spam" unless the map keeps up — which is what happened.
+    render(<LearningEvidenceCard />);
+    expect(await screen.findByText('Spam')).toBeInTheDocument();
+    expect(screen.queryByText('spam')).not.toBeInTheDocument();
   });
 
   it('explains a zero instead of leaving it to be diagnosed', async () => {
