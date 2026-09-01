@@ -96,9 +96,9 @@ LoginPage.tsx
 | Cookie            | BE sets `jwt` as `httpOnly; Secure; SameSite=Strict` — present on every cross-origin request automatically                                                                                                                                                        |
 | localStorage      | `auth-storage` (Zustand `persist`) stores `{ user, isAuthenticated, selectedOrganizationId }`. Token intentionally **not** persisted to localStorage (see BE_OVERVIEW known-deferred M-02)                                                                        |
 | Request header    | `apiClient` request interceptor reads `selectedOrganizationId` from the Zustand store and sets `X-Organization-Context: <id>` on every outgoing request. **No `Authorization: Bearer` header is added** — authentication relies entirely on the `httpOnly` cookie |
-| 401 response      | Response interceptor calls `useAuthStore.getState().logout()`, clears `sessionStorage`, redirects to `/login`                                                                                                                                                     |
+| 401 response      | Response interceptor refreshes the session (single-flight) and **retries the request once**; only if that refresh fails does it `logout()`, clear `sessionStorage` and redirect to `/login`. Login/refresh/logout are excluded — a 401 there is a bad credential |
 | WS auth           | Socket.IO connection uses `withCredentials: true` — the `httpOnly` cookie is forwarded to the BE WS handshake                                                                                                                                                     |
-| WS auth rejection | `socketManager.ts` `connect_error` handler: if BE rejects with "Session has been invalidated" / "Invalid or expired token" / "Authentication required" → clears `auth-storage` from localStorage and redirects to `/login`                                        |
+| WS auth rejection | `socketManager.ts` `connect_error` handler: on "Session has been invalidated" / "Invalid or expired token" / "Authentication required" it disconnects, renews **once** via `ensureFreshSession`, then reconnects; it clears `auth-storage` and redirects to `/login` only if that fails or the retry is refused |
 
 ### Auth store (`FE-app/src/stores/authStore.ts`)
 
@@ -114,7 +114,7 @@ Routes in `App.tsx` are wrapped in an `<AuthGuard>` / `<ProtectedRoute>` compone
 
 ### Token invalidation (jwtVersion)
 
-BE `authenticate` middleware and WS handshake check `jwtVersion` in the JWT against `users.jwt_version` in DB (Redis-cached 60 s TTL). Mismatch on any request → 401 → FE interceptor triggers logout flow.
+BE `authenticate` middleware and WS handshake check `jwtVersion` in the JWT against `users.jwt_version` in DB (Redis-cached 60 s TTL). Mismatch on any request → 401 → the FE interceptor attempts one refresh first; when that is refused too, the logout flow runs.
 
 ### Other auth endpoints (FE callers)
 
@@ -147,7 +147,7 @@ BE `authenticate` middleware and WS handshake check `jwtVersion` in the JWT agai
   3. Logs a warning if no org context is set
 - **No `Authorization: Bearer` header** — the interceptor does not read or forward a token string. All API authentication relies on the `httpOnly` cookie sent automatically by the browser.
 - **Response interceptor**:
-  - On HTTP 401 (and not already on an auth page) → `useAuthStore.logout()` + `sessionStorage.clear()` + redirect `/login`
+  - On HTTP 401 → refresh via the shared single-flight `ensureFreshSession()` and replay the original request once (`_sessionRetry`). Only when that refresh fails, and not already on an auth page, → `useAuthStore.logout()` + `sessionStorage.clear()` + redirect `/login`
   - On 5xx errors: replaces internal details with a generic "A server error occurred" message
   - On 4xx errors: extracts `error`/`message` from response body into an `Error` with `.status` and `.data`
 

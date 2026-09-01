@@ -200,7 +200,7 @@ On page reload, `App.tsx` detects that the persisted user has no `role` (intenti
   - Reads `selectedOrganizationId` directly from `useAuthStore.getState()` (not via `localStorage.parse`) and attaches `X-Organization-Context` header
   - Logs a warning when no org context is set
 - **Response interceptor:**
-  - On 401 (when not already on an auth page): calls `logout()`, clears `sessionStorage`, redirects to `/login`
+  - On 401: refreshes the session single-flight and replays the request once; only when that refresh fails (and not already on an auth page) does it call `logout()`, clear `sessionStorage` and redirect to `/login` — see *Token Refresh / Expiry*
   - On 5xx: replaces the error message with a generic "A server error occurred" string to avoid leaking internal details
   - On 4xx: passes the `error` or `message` field from the response body through to the caller
   - Attaches `.status` and `.data` fields to the thrown `Error` object
@@ -303,7 +303,12 @@ On `connect_error` with messages containing "Session has been invalidated", "Inv
 
 ### Token Refresh / Expiry
 
-No explicit token-refresh flow. On 401, `apiClient`'s response interceptor calls `logout()` and redirects to `/login`. The socket manager also redirects on auth-related `connect_error` events.
+Access tokens are short-lived — 15 minutes on prod, though the lifetime is an operator's choice — and are renewed by rotation against `POST /api/auth/refresh`, which reads the refresh cookie and answers with the new token's `expiresIn`.
+
+- **Proactive (`sessionRenewal.ts` + `sessionClock.ts`).** The clock remembers the lifetime the server reported and when the token was minted, across reloads; the scheduler renews ~60 s before expiry, never tighter than 30 s, with 10% jitter so open tabs do not all rotate in the same instant. The lifetime is **learned, never assumed** — `FALLBACK_ACCESS_TTL_MS` applies for one cycle only, until the server states its own. A renewal that fails does **not** sign anyone out: the 401 path owns that decision, because it knows a real request just failed.
+- **Reactive backstop (`api-client.ts`).** On 401 the response interceptor refreshes and **retries the original request once** (`_sessionRetry`), and signs the user out only if that refresh itself fails. Session-establishing paths (`/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`) are excluded — a 401 there means the credentials were wrong, not that a session expired.
+- **Single-flight.** Every refresh shares one in-flight promise. Two rotations of the same refresh token read as REUSE at the backend and revoke the whole family; a **409 is success**, meaning another tab rotated moments ago and the fresh cookies are already here.
+- **Sockets.** `socketManager` handles an auth-related `connect_error` the same way: disconnect to stop the reconnect storm, renew once through the same single-flight `ensureFreshSession`, then reconnect. It redirects to `/login` only if that renewal fails, or if the handshake is refused again after it.
 
 ### Gmail OAuth Flow
 
