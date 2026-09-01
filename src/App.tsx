@@ -8,13 +8,14 @@ import { FeatureGate } from './components/common/FeatureGate';
 import { useRolePermissionMatrix } from '@/hooks/useRolePermissionMatrix';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LegacyWorkspaceRedirect } from './components/layout/LegacyWorkspaceRedirect';
+import { WorkspaceGate } from './components/layout/WorkspaceGate';
 import { Button } from './components/ui/Button';
 import { useBackendVersion } from './hooks/useBackendVersion';
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
-import NotFoundPage from './pages/NotFoundPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
@@ -266,128 +267,6 @@ const AppRoutes = () => {
       {/* Preview / demo of the tracking page with mock data (no conv id / token).
           Useful for design review, screenshots, customer-facing demos. */}
       <Route path="/track/:orgSlug/:deptSlug" element={<TrackingPage />} />
-      <Route
-        path="/dashboard"
-        element={
-          <PrivateRoute>
-            <DashboardPage />
-          </PrivateRoute>
-        }
-      />
-      {/* Onboarding wizard — full page, deliberately outside Layout so it can
-          never stack with SubscriptionGateOverlay. */}
-      <Route
-        path="/onboarding"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <OnboardingPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/messages"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <MessagesPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/messages/:id"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <MessageDetailPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/knowledge-base"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <KnowledgeBasePage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/tickets"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <TicketsPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/tickets/create"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <CreateTicketPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/tickets/edit/:id"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <EditTicketPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/tickets/:id"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <TicketDetailPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/statistics"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <StatisticsPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/sla"
-        element={
-          <PrivateRoute>
-            <ProtectedRoute requiredPermission={Permission.VIEW_STATISTICS}>
-              <Suspense fallback={<LoadingFallback />}>
-                <SLADashboardPage />
-              </Suspense>
-            </ProtectedRoute>
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <SettingsPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
       {/* Alliance admin console (Phase 5). `/console` resolves the caller's first
           administered alliance; `/console/alliance/:id` mounts the AdminShell
           (own chrome) behind the alliance-admin route guard, with one child route
@@ -518,8 +397,140 @@ const AppRoutes = () => {
           }
         />
       </Route>
+      {/* ── Workspace-scoped app ──────────────────────────────────────────────
+          Every authenticated screen lives under `/w/:slug` so a shared link says
+          WHICH workspace it belongs to. Before this, `?id=MKT-170` resolved against
+          the recipient's last-used workspace — and because public ids are unique per
+          org (counter is per department), the same id exists in several workspaces:
+          `INF` and `SUP` each appear in six on prod, and 54 ids already resolve in
+          more than one. So the wrong workspace did not 404, it opened a different
+          real conversation. WorkspaceGate resolves the slug, checks membership, and
+          points the store at the URL rather than the other way round. */}
+      <Route path="/w/:slug" element={<WorkspaceGate />}>
       <Route
-        path="/users/:id/edit"
+        path="dashboard"
+        element={
+          <PrivateRoute>
+            <DashboardPage />
+          </PrivateRoute>
+        }
+      />
+      {/* Onboarding wizard — full page, deliberately outside Layout so it can
+          never stack with SubscriptionGateOverlay. */}
+      <Route
+        path="onboarding"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <OnboardingPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="messages"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <MessagesPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="messages/:id"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <MessageDetailPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="knowledge-base"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <KnowledgeBasePage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="tickets"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <TicketsPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="tickets/create"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <CreateTicketPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="tickets/edit/:id"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <EditTicketPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="tickets/:id"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <TicketDetailPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="statistics"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <StatisticsPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="sla"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_STATISTICS}>
+              <Suspense fallback={<LoadingFallback />}>
+                <SLADashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="settings"
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <SettingsPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="users/:id/edit"
         element={
           <PrivateRoute>
             {/* Same gate as /users, its only entry point — editing a member is one of the
@@ -533,7 +544,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/users"
+        path="users"
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_USERS}>
@@ -553,17 +564,17 @@ const AppRoutes = () => {
           nav tab was retired. Redirect the old route so bookmarks/links don't 404.
           The destination (Settings) enforces its own view/edit permissions. */}
       <Route
-        path="/organization"
+        path="organization"
         element={<Navigate to="/settings#organization/details" replace />}
       />
       {/* Email Templates moved into the platform console (Platform › Email Templates).
           Redirect the old route; the console gates non-admins to a clean access state. */}
       <Route
-        path="/email-templates"
+        path="email-templates"
         element={<Navigate to="/console/platform/email-templates" replace />}
       />
       <Route
-        path="/audit-logs"
+        path="audit-logs"
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_AUDIT_LOGS}>
@@ -579,7 +590,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/subscription"
+        path="subscription"
         element={
           <PrivateRoute>
             <BillingRoute>
@@ -593,7 +604,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/pricing"
+        path="pricing"
         element={
           <PrivateRoute>
             <BillingRoute>
@@ -605,7 +616,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/usage-stats"
+        path="usage-stats"
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_USAGE_STATS}>
@@ -617,7 +628,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/billing"
+        path="billing"
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_BILLING}>
@@ -632,11 +643,11 @@ const AppRoutes = () => {
       />
       {/* Deleted Messages folded into Settings › System (sub-tab). Redirect the old route. */}
       <Route
-        path="/deleted-messages"
+        path="deleted-messages"
         element={<Navigate to="/settings#system/deleted" replace />}
       />
       <Route
-        path="/needs-routing"
+        path="needs-routing"
         element={
           <PrivateRoute>
             <ProtectedRoute requiredPermission={Permission.VIEW_MESSAGES}>
@@ -649,15 +660,20 @@ const AppRoutes = () => {
       />
       {/* Orphaned Outbound folded into Settings › System (sub-tab). Redirect the old route. */}
       <Route
-        path="/orphaned-outbound"
+        path="orphaned-outbound"
         element={<Navigate to="/settings#system/orphaned" replace />}
       />
+      </Route>
       {/* P3: the old '/admin' dashboard was removed; its Plans/Usage tabs now live in
           the platform console. Redirect any lingering '/admin' link there (the console
           gates non-admins) instead of dropping to a 404. */}
       <Route path="/admin" element={<Navigate to="/console/platform" replace />} />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route path="*" element={<NotFoundPage />} />
+      {/* Root has no workspace yet; the redirect resolves one and lands on it. */}
+      <Route path="/" element={<LegacyWorkspaceRedirect />} />
+      {/* Pre-workspace URLs — bookmarks, links in email, anything this app emitted
+          before the slug existed — are rewritten onto the current workspace instead
+          of 404ing. See LegacyWorkspaceRedirect for what that can and cannot fix. */}
+      <Route path="*" element={<LegacyWorkspaceRedirect />} />
     </Routes>
   );
 };
