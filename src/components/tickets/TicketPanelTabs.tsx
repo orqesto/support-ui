@@ -7,6 +7,7 @@ import { TicketAttachments } from './TicketAttachments';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
 import { getConvUrlId } from '@/lib/messageHelpers';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 
 type Tab = 'comments' | 'attachments' | 'messages';
 
@@ -25,6 +26,9 @@ export function TicketPanelTabs({
 }: TicketPanelTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('comments');
   const [commentCount, setCommentCount] = useState(0);
+  // Same reason as the copy-link buttons: a conversation link that carries the org code
+  // 404s in the wrong workspace instead of resolving to a different conversation.
+  const orgCode = useCurrentOrgCode();
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'comments', label: 'Comments', badge: commentCount > 0 ? commentCount : undefined },
@@ -108,7 +112,7 @@ export function TicketPanelTabs({
                 return (
                   <Link
                     key={root.id}
-                    to={`/messages?id=${getConvUrlId(root)}`}
+                    to={`/messages?id=${getConvUrlId(root, orgCode)}`}
                     className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
                   >
                     <div className="p-2 rounded bg-blue-500/10 flex-shrink-0">
