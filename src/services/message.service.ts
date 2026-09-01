@@ -631,6 +631,22 @@ export const messageService = {
         // false when the org has no AI/LLM provider — the endpoint still returns
         // 200 with search-results so the FE can show the similar-message fallback.
         aiConfigured?: boolean;
+        /**
+         * WHY there is no written answer. Absent when one was generated.
+         *
+         * ⛔ `aiConfigured` does not answer this — it reports whether a provider is set up,
+         * so it is `true` for a call that ran and failed. The four failures (empty KB, no
+         * provider, model returned nothing, generator threw) used to be indistinguishable
+         * to this client, which is how a starved token budget presented as an empty
+         * knowledge base on prod.
+         */
+        reason?:
+          | 'no-ai-provider'
+          | 'no-sources'
+          | 'sources-unusable'
+          | 'generation-empty'
+          | 'generation-failed'
+          | 'search-failed';
       }>
     >(`/api/messages/${id}/suggested-answer`);
     return response.data;
