@@ -1,7 +1,7 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios';
+import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
 import { logger } from '@/lib/logger';
-import { noteSessionRenewed } from '@/lib/sessionClock';
+import { noteSessionIssued, noteSessionRenewed } from '@/lib/sessionClock';
 import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
@@ -258,5 +258,19 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
   return Promise.reject(error instanceof Error ? error : new Error(String(error)));
 };
 
+/**
+ * Every sign-in path — password, org picker, workspace switch, signup auto-login, 2FA — answers
+ * through the BE's `establishSession`, which reports the access-token lifetime as
+ * `data.auth.expiresIn` (and, for native clients, the tokens beside it). Reading it HERE rather
+ * than in each auth service keeps "a session just started" in ONE place on this side too; six
+ * services each remembering to record it is the drift `establishSession` exists to prevent.
+ */
+const noteSessionFromResponse = (response: AxiosResponse): AxiosResponse => {
+  const body = response.data as { data?: { auth?: { expiresIn?: unknown } } } | undefined;
+  const expiresIn = body?.data?.auth?.expiresIn;
+  if (typeof expiresIn === 'string') noteSessionIssued(expiresIn);
+  return response;
+};
+
 // Response interceptor to handle errors
-apiClient.interceptors.response.use((response) => response, handleResponseError);
+apiClient.interceptors.response.use(noteSessionFromResponse, handleResponseError);

@@ -83,9 +83,28 @@ const stampIssuedAt = (): void => {
   }
 };
 
-/** A fresh access token exists and we did not mint it here — a sign-in, typically. */
-export const noteSessionIssued = (): void => {
+/**
+ * A fresh access token exists that this module did not mint — a sign-in, typically.
+ *
+ * `expiresIn` comes from the sign-in response (`data.auth.expiresIn`, written by the BE's
+ * `establishSession`), so the very first schedule of a session is exact instead of using the
+ * conservative fallback until the first renewal.
+ */
+export const noteSessionIssued = (expiresIn?: unknown): void => {
   stampIssuedAt();
+  rememberTtl(expiresIn);
+  listeners.forEach((listener) => listener());
+};
+
+const rememberTtl = (expiresIn: unknown): void => {
+  const ms = parseDuration(expiresIn);
+  if (ms === null) return;
+  learnedTtlMs = ms;
+  try {
+    window.localStorage.setItem(TTL_KEY, String(ms));
+  } catch {
+    // Nothing to do — `learnedTtlMs` still serves this tab for as long as it lives.
+  }
 };
 
 type Listener = () => void;
@@ -107,15 +126,7 @@ export const onSessionRenewed = (listener: Listener): (() => void) => {
  */
 export const noteSessionRenewed = (expiresIn?: unknown): void => {
   stampIssuedAt();
-  const ms = parseDuration(expiresIn);
-  if (ms !== null) {
-    learnedTtlMs = ms;
-    try {
-      window.localStorage.setItem(TTL_KEY, String(ms));
-    } catch {
-      // Nothing to do — `learnedTtlMs` still serves this tab for as long as it lives.
-    }
-  }
+  rememberTtl(expiresIn);
   listeners.forEach((listener) => listener());
 };
 

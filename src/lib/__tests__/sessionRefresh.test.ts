@@ -20,7 +20,12 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 import { apiClient, ensureFreshSession, handleResponseError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
-import { clearSessionClock, getAccessTtlMs, onSessionRenewed } from '@/lib/sessionClock';
+import {
+  clearSessionClock,
+  FALLBACK_ACCESS_TTL_MS,
+  getAccessTtlMs,
+  onSessionRenewed,
+} from '@/lib/sessionClock';
 
 /** A realistic axios failure, shaped the way the interceptor actually receives one. */
 const failure = (status: number, url: string, data: unknown = { error: 'nope' }) =>
@@ -126,6 +131,29 @@ describe('a 401 is a question, not a verdict', () => {
     expect(replay).not.toHaveBeenCalled();
     expect(logout).toHaveBeenCalledTimes(1);
     expect(assignedHref).toBe('/login');
+  });
+
+  it('learns the lifetime at SIGN-IN too, so the first cycle is exact and not a fallback', async () => {
+    // The BE reports it from `establishSession` on every sign-in path. Reading it in the
+    // response interceptor rather than in six auth services is deliberate: one place on each
+    // side of the wire, so a new sign-in path cannot forget.
+    clearSessionClock();
+
+    await apiClient.interceptors.response.handlers[0].fulfilled({
+      data: { success: true, data: { auth: { expiresIn: '30m' }, user: { id: 1 } } },
+    });
+
+    expect(getAccessTtlMs()).toBe(30 * 60 * 1000);
+  });
+
+  it('ignores a response that carries no session, and never throws on an odd body (control)', () => {
+    clearSessionClock();
+    const fulfilled = apiClient.interceptors.response.handlers[0].fulfilled;
+
+    for (const body of [undefined, null, 'text', { data: null }, { data: { auth: {} } }]) {
+      expect(() => fulfilled({ data: body })).not.toThrow();
+    }
+    expect(getAccessTtlMs()).toBe(FALLBACK_ACCESS_TTL_MS);
   });
 
   it('LEARNS the lifetime the server reports, so renewal can run ahead of the next expiry', async () => {
