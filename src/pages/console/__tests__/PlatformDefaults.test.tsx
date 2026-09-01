@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import type { PlatformSettings, SecretStatus } from '@/services/platformSettings.service';
 
 const UNSET: SecretStatus = { configured: false, source: 'none', last4: null };
@@ -80,21 +80,43 @@ beforeEach(() => {
 });
 
 describe('PlatformDefaults', () => {
-  it('renders both cards with source badges and secret status', () => {
+  it('renders both cards with secret status, and says where each value came from', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Managed AI Defaults')).toBeInTheDocument();
     expect(screen.getByText('Default Storage')).toBeInTheDocument();
-    expect(screen.getAllByText('Console').length).toBeGreaterThan(0); // db-sourced fields
-    expect(screen.getAllByText('Environment').length).toBeGreaterThan(0); // env-sourced fields
-    // Unset secrets (AI key + S3 secret) show a "Not set" badge.
+    // Unset secrets (AI key + S3 secret) show a "Not set" badge in every state.
     expect(screen.getAllByText('Not set').length).toBeGreaterThanOrEqual(2);
     // An env-set access key shows its masked last4, never the value.
     expect(screen.getByText(/····ABCD/)).toBeInTheDocument();
+    // Provenance survives the read-only view — "gpt-5-custom, set here" and
+    // "gpt-4o-mini, from environment" are different facts, and only one of them is
+    // undone by clearing this form.
+    const ai = within(cardFor('Managed AI Defaults'));
+    expect(ai.getAllByText(/set here/i).length).toBeGreaterThan(0);
+    expect(ai.getAllByText(/from environment/i).length).toBeGreaterThan(0);
   });
 
-  /** The storage card opens read-only; its form only exists in the editing state. */
-  const openStorageEditor = () =>
-    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+  it('keeps the source badges on the fields once the editor is open', () => {
+    render(<PlatformDefaults />);
+    openAiEditor();
+    expect(screen.getAllByText('Console').length).toBeGreaterThan(0); // db-sourced fields
+    expect(screen.getAllByText('Environment').length).toBeGreaterThan(0); // env-sourced fields
+  });
+
+  /**
+   * Both cards open read-only; each form exists only in that card's editing state. With more
+   * than one ConfigCard on the screen "the Edit button" is ambiguous, so each is addressed
+   * through its own card rather than by document order.
+   */
+  const cardFor = (title: string): HTMLElement => {
+    const card = document.querySelector<HTMLElement>(`[data-config-card="${title}"]`);
+    if (!card) throw new Error(`no ConfigCard titled ${title}`);
+    return card;
+  };
+  const openEditor = (title: string) =>
+    fireEvent.click(within(cardFor(title)).getByRole('button', { name: /^(edit|configure)/i }));
+  const openStorageEditor = () => openEditor('Default Storage');
+  const openAiEditor = () => openEditor('Managed AI Defaults');
 
   it('offers local disk LAST and labels it a fallback', () => {
     // Ordering is the point: a managed platform should land on S3, not on the
@@ -151,18 +173,51 @@ describe('PlatformDefaults', () => {
 
   it('lists every supported AI provider', () => {
     render(<PlatformDefaults />);
+    openAiEditor();
     const providerLabels = screen.getAllByRole('option').map((option) => option.textContent ?? '');
-    ['OpenAI', 'Anthropic', 'DeepSeek', 'Perplexity', 'Qwen', 'Ollama', 'Bedrock', 'Custom'].forEach(
-      (name) => {
-        expect(providerLabels.some((label) => label.includes(name))).toBe(true);
-      }
-    );
+    [
+      'OpenAI',
+      'Anthropic',
+      'DeepSeek',
+      'Perplexity',
+      'Qwen',
+      'Ollama',
+      'Bedrock',
+      'Custom',
+    ].forEach((name) => {
+      expect(providerLabels.some((label) => label.includes(name))).toBe(true);
+    });
   });
 
   it('does not offer a base URL field for a hosted provider', () => {
     // Repointing a hosted provider is exactly the SSRF hole managed traffic is
     // kept out of, so the endpoint is shown as fixed rather than editable.
     render(<PlatformDefaults />);
+    openAiEditor();
     expect(screen.getByText(/endpoint is fixed for hosted providers/i)).toBeInTheDocument();
+  });
+  it('opens read-only, so a typed draft can never be mistaken for stored config', () => {
+    render(<PlatformDefaults />);
+    const ai = within(cardFor('Managed AI Defaults'));
+    // Nothing to type into until you say you are editing.
+    expect(ai.queryByRole('combobox')).not.toBeInTheDocument();
+    openAiEditor();
+    expect(ai.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('discards the draft on Cancel and returns to what the server holds', () => {
+    render(<PlatformDefaults />);
+    openAiEditor();
+    const ai = within(cardFor('Managed AI Defaults'));
+    const provider = ai.getByRole<HTMLSelectElement>('combobox');
+    fireEvent.change(provider, { target: { value: 'anthropic' } });
+    expect(provider.value).toBe('anthropic');
+
+    fireEvent.click(ai.getByRole('button', { name: /^cancel$/i }));
+    openAiEditor();
+    // Re-opened on the stored provider, not on the abandoned draft.
+    expect(
+      within(cardFor('Managed AI Defaults')).getByRole<HTMLSelectElement>('combobox').value
+    ).toBe('openai');
   });
 });

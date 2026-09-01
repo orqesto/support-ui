@@ -65,7 +65,7 @@ export const ConfigCard = ({
   editLabel = 'Edit',
   saveLabel = 'Save',
 }: ConfigCardProps) => (
-  <Card>
+  <Card data-config-card={title}>
     <CardHeader>
       <CardTitle className="flex gap-2 items-center text-xl">
         {icon}
