@@ -29,9 +29,11 @@ const clearFlag =
 // Replaced wholesale rather than spread over the real module: the only runtime
 // export the page uses is `featureFlagAdminService`, and `AdminFeatureFlag` is a
 // type import, which is erased before this ever runs.
+const listAdmin = vi.fn(() => Promise.resolve({ organizationId: null, flags }));
+
 vi.mock('@/services/featureFlags.service', () => ({
   featureFlagAdminService: {
-    listAdmin: () => Promise.resolve({ organizationId: null, flags }),
+    listAdmin: () => listAdmin(),
     setFlag,
     clearFlag,
   },
@@ -68,6 +70,8 @@ beforeEach(() => {
   flags = [flag()];
   setFlag.mockClear();
   clearFlag.mockClear();
+  listAdmin.mockClear();
+  listAdmin.mockImplementation(() => Promise.resolve({ organizationId: null, flags }));
 });
 
 describe('PlatformFeatureFlags', () => {
@@ -136,6 +140,23 @@ describe('PlatformFeatureFlags', () => {
     renderPage();
     const row = await rowFor('learning.breadth_downweight');
     expect(within(row).getByRole('button', { name: /clear override/i })).toBeDisabled();
+  });
+
+  it('a 404 from the list reads as version skew, not as a broken console', async () => {
+    // FE main deploys on push while the backend ships on its own train, so this page
+    // can reach production before its endpoints do. "Retry" cannot help there, and a
+    // red failure box reports a deploy-order fact as a fault in the workspace.
+    listAdmin.mockRejectedValueOnce(Object.assign(new Error('Not Found'), { status: 404 }));
+    renderPage();
+    expect(await screen.findByText(/newer backend/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+  });
+
+  it('a real failure still offers a retry', async () => {
+    // The control: the skew message must not swallow every error.
+    listAdmin.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+    renderPage();
+    expect(await screen.findByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 
   it('surfaces a write failure instead of silently reverting to the old value', async () => {
