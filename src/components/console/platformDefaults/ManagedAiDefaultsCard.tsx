@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Bot } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfigCard, type ConfigSummaryRow } from '@/components/ui/ConfigCard';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
@@ -14,9 +12,15 @@ import {
   usePlatformAiModels,
   useUpdatePlatformAi,
 } from '@/hooks/usePlatformSettings';
+import { useConfigCardState } from '@/hooks/useConfigCardState';
 import { AI_KEY_SLOT_BY_PROVIDER } from '@/services/platformSettings.service';
 import type { ManagedAiInput, PlatformSettings } from '@/services/platformSettings.service';
-import { AI_PROVIDER_TYPES, BEDROCK_REGIONS, type AIModel, type AIProvider } from '@/types/aiProviders';
+import {
+  AI_PROVIDER_TYPES,
+  BEDROCK_REGIONS,
+  type AIModel,
+  type AIProvider,
+} from '@/types/aiProviders';
 import { SecretField } from './SecretField';
 import { SourceBadge } from './SourceBadge';
 
@@ -105,7 +109,9 @@ export const ManagedAiDefaultsCard = ({
   const [provider, setProvider] = useState<AIProvider>(ai.provider.value ?? 'openai');
   const [models, setModels] = useState<Record<ModelKey, string>>(() => seedModels(ai));
   const [costs, setCosts] = useState<Record<CostKey, string>>(() => seedCosts(ai));
-  const [baseUrl, setBaseUrl] = useState(ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '');
+  const [baseUrl, setBaseUrl] = useState(
+    ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : ''
+  );
   const [organization, setOrganization] = useState(ai.organization.value ?? '');
   const [bedrock, setBedrock] = useState(() => seedBedrock(ai));
   const [useInstanceProfile, setUseInstanceProfile] = useState(
@@ -132,9 +138,9 @@ export const ManagedAiDefaultsCard = ({
    * no-op and never interrupts an edit in progress.
    */
   const stored = storedAiSnapshot(ai);
-  const [seededFrom, setSeededFrom] = useState(stored);
-  if (seededFrom !== stored) {
-    setSeededFrom(stored);
+
+  /** Drop every draft field back to what the server holds. */
+  const reseed = () => {
     setProvider(ai.provider.value ?? 'openai');
     setModels(seedModels(ai));
     setCosts(seedCosts(ai));
@@ -142,7 +148,38 @@ export const ManagedAiDefaultsCard = ({
     setOrganization(ai.organization.value ?? '');
     setBedrock(seedBedrock(ai));
     setUseInstanceProfile(ai.bedrockUseInstanceProfile.value ?? false);
+  };
+
+  const [seededFrom, setSeededFrom] = useState(stored);
+  if (seededFrom !== stored) {
+    setSeededFrom(stored);
+    reseed();
   }
+
+  /**
+   * Console-held config, i.e. what an admin actually stored HERE. `source` is 'db' only for a
+   * console override; 'env' and 'default' are the platform answering for itself. So an
+   * env-configured platform reads as `empty` on purpose — there is nothing on this screen to
+   * edit back to, and saying "stored" about a value this form never wrote is the exact
+   * confusion the three-state card exists to remove.
+   */
+  const OVERRIDABLE = [
+    'provider',
+    'defaultModel',
+    'strongModel',
+    'visionModel',
+    'defaultCostPer1k',
+    'strongCostPer1k',
+    'visionCostPer1k',
+    'baseUrl',
+    'organization',
+    'bedrockRegion',
+    'bedrockRoleArn',
+    'bedrockExternalId',
+    'bedrockInferenceProfileArn',
+    'bedrockUseInstanceProfile',
+  ] as const;
+  const configured = OVERRIDABLE.some((key) => ai[key].source === 'db');
 
   const update = useUpdatePlatformAi();
   const setSecret = useSetPlatformSecret();
@@ -162,22 +199,11 @@ export const ManagedAiDefaultsCard = ({
   const keyStatus = keySlot ? secrets[keySlot] : null;
 
   /**
-   * "Saved" must disappear the moment the draft diverges again. This card edits
-   * through many setters with no single choke point, so the flag is DERIVED from
-   * the draft rather than cleared by hand in each handler — one that is impossible
-   * to forget when a field is added later.
+   * The card's own three states replace the old derived "Saved" badge: saving leaves
+   * `editing` and lands on the read-only view rendered from server data, so what you
+   * see afterwards IS the stored config rather than a claim about it.
    */
-  const draft = JSON.stringify([
-    provider,
-    models,
-    costs,
-    baseUrl,
-    organization,
-    bedrock,
-    useInstanceProfile,
-  ]);
-  const [savedDraft, setSavedDraft] = useState<string | null>(null);
-  const saved = savedDraft === draft;
+  const card = useConfigCardState({ configured, onCancel: reseed });
 
   const save = () => {
     const input: ManagedAiInput = { provider };
@@ -202,7 +228,7 @@ export const ManagedAiDefaultsCard = ({
       }
       input.bedrockUseInstanceProfile = useInstanceProfile;
     }
-    update.mutate(input, { onSuccess: () => setSavedDraft(draft) });
+    update.mutate(input, { onSuccess: () => card.confirmSaved() });
   };
 
   const renderModelPicker = (modelKey: ModelKey, visionOnly: boolean) => {
@@ -246,20 +272,89 @@ export const ManagedAiDefaultsCard = ({
     );
   };
 
+  /**
+   * The read-only view. Only console overrides are listed as values; anything the platform is
+   * answering for itself says so through `source`, because "gpt-5-mini (from environment)" and
+   * "gpt-5-mini (set here)" are different facts and only one of them is undone by clearing
+   * this form.
+   */
+  const sourcePhrase = (source: string): string =>
+    source === 'db' ? 'set here' : source === 'env' ? 'from environment' : 'platform default';
+
+  const row = (
+    label: string,
+    field: { value: string | number | null; source: string }
+  ): ConfigSummaryRow => ({
+    label,
+    value: field.value === null || field.value === '' ? undefined : String(field.value),
+    source: sourcePhrase(field.source),
+    placeholder: 'not set',
+  });
+
+  const summary: ConfigSummaryRow[] = [
+    row('Provider', {
+      value: PROVIDER_LABELS[ai.provider.value ?? 'openai'],
+      source: ai.provider.source,
+    }),
+    ...TIERS.map((tier) => row(tier.label, ai[tier.modelKey])),
+    ...TIERS.map((tier) => row(`${tier.label} cost / 1k`, ai[tier.costKey])),
+    ...(baseUrlEditable ? [row('Base URL', ai.baseUrl)] : []),
+    {
+      label: 'API key',
+      value: keyStatus?.configured ? `stored ····${keyStatus.last4 ?? ''}` : undefined,
+      source: keyStatus?.configured ? sourcePhrase(keyStatus.source) : undefined,
+      placeholder: 'none stored',
+    },
+  ];
+
+  /** Credentials stay reachable in every state — you may need a key BEFORE configuring anything. */
+  const credentials = (
+    <>
+      {keySlot && keyStatus && (
+        <div className="pt-4 border-t border-border">
+          <SecretField
+            label={`${PROVIDER_LABELS[provider]} API key`}
+            status={keyStatus}
+            onSave={(value) => setSecret.mutate({ key: keySlot, value })}
+            onClear={() => clearSecret.mutate(keySlot)}
+            saving={setSecret.isPending}
+            clearing={clearSecret.isPending}
+          />
+          {provider !== (ai.provider.value ?? 'openai') && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Storing a key here is safe before you switch — managed traffic keeps using{' '}
+              {PROVIDER_LABELS[ai.provider.value ?? 'openai']} until you save the provider change.
+            </p>
+          )}
+        </div>
+      )}
+
+      {isOllama && (
+        <Alert variant="info">
+          Ollama needs no API key — set the base URL above and make sure the platform can reach it.
+        </Alert>
+      )}
+    </>
+  );
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex gap-2 items-center">
-          <Bot className="w-5 h-5 text-primary" />
-          Managed AI Defaults
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          The provider, models, and cost-per-1k-token rates the platform uses to serve
-          managed-mode workspaces. Leave a model blank to fall back to the environment or the
-          built-in default for that provider.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <ConfigCard
+      title="Managed AI Defaults"
+      icon={<Bot className="w-5 h-5 text-primary" />}
+      description="The provider, models, and cost-per-1k-token rates the platform uses to serve managed-mode workspaces. Leave a model blank to fall back to the environment or the built-in default for that provider."
+      state={card.state}
+      summary={summary}
+      emptyNote="Nothing is overridden here, so managed workspaces run on the environment's provider and models at the built-in rates. Usage reporting prices them at whatever those rates say."
+      note={credentials}
+      onConfigure={card.startEditing}
+      onEdit={card.startEditing}
+      onCancel={card.cancelEditing}
+      onSave={save}
+      saving={update.isPending}
+      configureLabel="Configure AI defaults"
+      saveLabel="Save AI defaults"
+    >
+      <div className="space-y-5">
         <div>
           <div className="flex gap-2 items-center mb-2">
             <Label className="mb-0">Provider</Label>
@@ -295,7 +390,9 @@ export const ManagedAiDefaultsCard = ({
             <Input
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder={isOllama ? 'http://ollama.internal:11434/v1' : 'https://llm.example.com/v1'}
+              placeholder={
+                isOllama ? 'http://ollama.internal:11434/v1' : 'https://llm.example.com/v1'
+              }
             />
             <p className="mt-1 text-xs text-muted-foreground">
               {isOllama
@@ -359,7 +456,9 @@ export const ManagedAiDefaultsCard = ({
               <Label>Region</Label>
               <Select
                 value={bedrock.region}
-                onChange={(event) => setBedrock((prev) => ({ ...prev, region: event.target.value }))}
+                onChange={(event) =>
+                  setBedrock((prev) => ({ ...prev, region: event.target.value }))
+                }
               >
                 <option value="">Select a region…</option>
                 {BEDROCK_REGIONS.map((region) => (
@@ -428,44 +527,7 @@ export const ManagedAiDefaultsCard = ({
             </p>
           </div>
         )}
-
-        <div className="flex gap-3 justify-end items-center">
-          {saved && (
-            <Badge variant="success" size="sm">
-              Saved
-            </Badge>
-          )}
-          <Button onClick={save} isLoading={update.isPending}>
-            Save AI defaults
-          </Button>
-        </div>
-
-        {keySlot && keyStatus && (
-          <div className="pt-4 border-t border-border">
-            <SecretField
-              label={`${PROVIDER_LABELS[provider]} API key`}
-              status={keyStatus}
-              onSave={(value) => setSecret.mutate({ key: keySlot, value })}
-              onClear={() => clearSecret.mutate(keySlot)}
-              saving={setSecret.isPending}
-              clearing={clearSecret.isPending}
-            />
-            {provider !== (ai.provider.value ?? 'openai') && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Storing a key here is safe before you switch — managed traffic keeps using{' '}
-                {PROVIDER_LABELS[ai.provider.value ?? 'openai']} until you save the provider change.
-              </p>
-            )}
-          </div>
-        )}
-
-        {isOllama && (
-          <Alert variant="info">
-            Ollama needs no API key — set the base URL above and make sure the platform can reach
-            it.
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </ConfigCard>
   );
 };

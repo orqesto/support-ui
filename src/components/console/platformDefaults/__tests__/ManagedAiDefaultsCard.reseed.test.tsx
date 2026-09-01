@@ -57,38 +57,64 @@ const SECRETS = {
 
 const orgInput = () => screen.getByPlaceholderText<HTMLInputElement>(/^org-/);
 
+/** The card opens read-only now; the form only exists in the editing state. */
+const openEditor = () =>
+  fireEvent.click(screen.getByRole('button', { name: /^(edit|configure)/i }));
+
 afterEach(cleanup);
 
 /**
  * Same defect as DefaultStorageCard: state seeded by `useState` initialisers that
  * run only on mount, so a refetch updated the badges while the inputs kept what had
- * been typed. This card has no single edit choke point, so its "Saved" flag is
- * derived from the draft — these tests pin that it clears itself on the next edit.
+ * been typed. The re-seed test below still pins that, unchanged.
+ *
+ * ⚠️ The second test was rewritten deliberately, not deleted to make a change pass. It
+ * used to assert a derived "Saved" badge that cleared itself on the next keystroke. The
+ * card now sits on `ConfigCard`, where saving LEAVES the editing state and lands on a
+ * read-only view rendered from server data — a stronger guarantee than a badge, because
+ * what you are looking at afterwards IS the stored config rather than a claim about it.
+ * If the badge ever comes back, this test should go back with it.
  */
 describe('ManagedAiDefaultsCard save state', () => {
   it('shows what the server stored once the stored defaults change', () => {
     const { rerender } = render(
       <ManagedAiDefaultsCard ai={aiWithOrganization('org-original')} secrets={SECRETS} />
     );
+    openEditor();
     expect(orgInput().value).toBe('org-original');
 
     fireEvent.change(orgInput(), { target: { value: 'org-typed-but-never-stored' } });
     expect(orgInput().value).toBe('org-typed-but-never-stored');
 
-    rerender(<ManagedAiDefaultsCard ai={aiWithOrganization('org-from-server')} secrets={SECRETS} />);
+    rerender(
+      <ManagedAiDefaultsCard ai={aiWithOrganization('org-from-server')} secrets={SECRETS} />
+    );
 
     expect(orgInput().value).toBe('org-from-server');
   });
 
-  it('confirms a save, then drops the confirmation on the next edit', () => {
+  it('answers a save with the stored config, not with a claim that it saved', () => {
     render(<ManagedAiDefaultsCard ai={aiWithOrganization('org-original')} secrets={SECRETS} />);
-    expect(screen.queryByText('Saved')).toBeNull();
+    openEditor();
 
     fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
-    expect(screen.getByText('Saved')).toBeTruthy();
 
-    fireEvent.change(orgInput(), { target: { value: 'org-changed-again' } });
+    // Back to read-only: the form is gone, and what remains is rendered from `ai`.
+    expect(screen.queryByPlaceholderText(/^org-/)).toBeNull();
+    expect(screen.getByRole('button', { name: /^edit$/i })).toBeTruthy();
+    expect(saveMutation.mutate).toHaveBeenCalled();
+  });
 
-    expect(screen.queryByText('Saved')).toBeNull();
+  it('CONTROL: a failed save keeps you in the editor with your draft', () => {
+    // The mutation that does not call onSuccess stands in for a rejected save. Landing on
+    // the read-only view then would say "stored" about something the server refused.
+    saveMutation.mutate.mockImplementationOnce(() => undefined);
+    render(<ManagedAiDefaultsCard ai={aiWithOrganization('org-original')} secrets={SECRETS} />);
+    openEditor();
+    fireEvent.change(orgInput(), { target: { value: 'org-typed' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
+
+    expect(orgInput().value).toBe('org-typed');
   });
 });
