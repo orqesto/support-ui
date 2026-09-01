@@ -10,6 +10,9 @@ import { Pagination } from '@/components/ui/Pagination';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { ALL_SOURCES, MessageSourceFilter } from '@/components/messages/MessageSourceFilter';
+import { RoutingBarScorecard } from '@/components/routing/RoutingBarScorecard';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { useDepartments } from '@/hooks/useDepartments';
 import { apiClient } from '@/lib/api-client';
 import { messageService } from '@/services/message.service';
@@ -43,6 +46,10 @@ export const NeedsRoutingPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: departments = [] } = useDepartments();
+  // Same gate the replay endpoint enforces, so a non-admin never renders a card that can
+  // only 403.
+  const { hasPermission } = usePermissions();
+  const canTuneRouting = hasPermission(Permission.MANAGE_ORGANIZATION);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [total, setTotal] = useState(0);
@@ -249,6 +256,8 @@ export const NeedsRoutingPage = () => {
           </div>
         )}
 
+        {canTuneRouting && <RoutingBarScorecard />}
+
         {/* Filters + sort. Always rendered (even when the list is empty) so an active
             filter can always be changed or cleared. */}
         <div className="flex flex-wrap items-center gap-2">
@@ -292,7 +301,9 @@ export const NeedsRoutingPage = () => {
               <GitBranch className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
               {hasActiveFilters ? (
                 <>
-                  <p className="text-muted-foreground font-medium">No messages match your filters</p>
+                  <p className="text-muted-foreground font-medium">
+                    No messages match your filters
+                  </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Try a different source or search term.
                   </p>
@@ -312,7 +323,9 @@ export const NeedsRoutingPage = () => {
           </Card>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">{total} message{total === 1 ? '' : 's'} awaiting assignment</p>
+            <p className="text-sm text-muted-foreground">
+              {total} message{total === 1 ? '' : 's'} awaiting assignment
+            </p>
 
             {/* Desktop table */}
             <div className="hidden lg:block overflow-x-auto rounded-lg border">
@@ -389,7 +402,9 @@ export const NeedsRoutingPage = () => {
                             aria-label="Mark as spam"
                             title="Mark as spam"
                           >
-                            {spamId === msg.id ? '…' : (
+                            {spamId === msg.id ? (
+                              '…'
+                            ) : (
                               <>
                                 <Ban className="w-3.5 h-3.5 mr-1" />
                                 Spam
@@ -399,10 +414,14 @@ export const NeedsRoutingPage = () => {
                           <Button
                             size="sm"
                             onClick={() => void handleRoute(msg.id)}
-                            disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
+                            disabled={
+                              !selectedDept[msg.id] || routingId === msg.id || spamId === msg.id
+                            }
                             aria-label="Route to the selected department"
                           >
-                            {routingId === msg.id ? 'Routing…' : (
+                            {routingId === msg.id ? (
+                              'Routing…'
+                            ) : (
                               <>
                                 <ArrowRight className="w-3.5 h-3.5 mr-1" />
                                 Route
@@ -420,14 +439,20 @@ export const NeedsRoutingPage = () => {
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {messages.map((msg) => (
-                <Card key={msg.id} className="cursor-pointer" onClick={() => navigate(`/messages/${msg.id}`)}>
+                <Card
+                  key={msg.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/messages/${msg.id}`)}
+                >
                   <CardContent className="p-4 space-y-3">
                     <div>
                       <p className="text-sm font-medium">{msg.sender}</p>
                       <p className="text-sm text-left text-muted-foreground hover:underline truncate w-full">
                         {msg.subject ?? '(no subject)'}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{formatDate(msg.createdAt)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatDate(msg.createdAt)}
+                      </p>
                     </div>
                     {/* Action row — each control stops propagation individually so triaging
                         in place doesn't bubble up to the Card's open-thread handler. */}
@@ -456,7 +481,9 @@ export const NeedsRoutingPage = () => {
                           ev.stopPropagation();
                           void handleRoute(msg.id);
                         }}
-                        disabled={!selectedDept[msg.id] || routingId === msg.id || spamId === msg.id}
+                        disabled={
+                          !selectedDept[msg.id] || routingId === msg.id || spamId === msg.id
+                        }
                         aria-label="Route to the selected department"
                         title="Route to the selected department"
                       >

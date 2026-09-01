@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
+import { WhyParked } from '@/components/messages/WhyParked';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
@@ -147,7 +148,6 @@ export function HeaderMetaStrip({
 
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-2 pb-3 border-t border-border/40">
-
       {/* Department (resolved by smart routing; admins can re-route inline) */}
       <div className="flex items-center gap-2 min-w-0">
         <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Department</span>
@@ -222,6 +222,7 @@ export function HeaderMetaStrip({
             )}
           </Button>
         )}
+        {needsRouting && <WhyParked conversationId={message.id} />}
       </div>
 
       <span className="text-border/60 select-none px-1">·</span>
@@ -306,75 +307,78 @@ export function HeaderMetaStrip({
                   <Plus className="w-2.5 h-2.5" />
                 </Button>
 
-                {showLabelPicker && pickerPos && createPortal(
-                  (() => {
-                    const trimmed = labelQuery.trim();
-                    const lower = trimmed.toLowerCase();
-                    const filtered = trimmed
-                      ? allLabels.filter((label) => label.name.toLowerCase().includes(lower))
-                      : allLabels;
-                    const exact = trimmed && allLabels.some(
-                      (label) => label.name.toLowerCase() === lower
-                    );
-                    const showCreate = !!onCreateLabel && trimmed.length > 0 && !exact;
-                    return (
-                      <div
-                        data-label-picker
-                        style={{ top: pickerPos.top, left: pickerPos.left, width: 200 }}
-                        className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
-                      >
-                        <input
-                          type="text"
-                          value={labelQuery}
-                          onChange={(ev) => setLabelQuery(ev.target.value)}
-                          placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
-                          autoFocus
-                          className="w-full px-2 py-1 mb-1 text-xs bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
-                        />
-                        {filtered.map((label) => {
-                          const assigned = messageLabels.some((lbl) => lbl.id === label.id);
-                          return (
+                {showLabelPicker &&
+                  pickerPos &&
+                  createPortal(
+                    (() => {
+                      const trimmed = labelQuery.trim();
+                      const lower = trimmed.toLowerCase();
+                      const filtered = trimmed
+                        ? allLabels.filter((label) => label.name.toLowerCase().includes(lower))
+                        : allLabels;
+                      const exact =
+                        trimmed && allLabels.some((label) => label.name.toLowerCase() === lower);
+                      const showCreate = !!onCreateLabel && trimmed.length > 0 && !exact;
+                      return (
+                        <div
+                          data-label-picker
+                          style={{ top: pickerPos.top, left: pickerPos.left, width: 200 }}
+                          className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
+                        >
+                          <input
+                            type="text"
+                            value={labelQuery}
+                            onChange={(ev) => setLabelQuery(ev.target.value)}
+                            placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
+                            autoFocus
+                            className="w-full px-2 py-1 mb-1 text-xs bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          {filtered.map((label) => {
+                            const assigned = messageLabels.some((lbl) => lbl.id === label.id);
+                            return (
+                              <Button
+                                key={label.id}
+                                variant="ghost"
+                                onClick={() => onToggleLabel(label)}
+                                className="w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left"
+                              >
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
+                                  style={{ backgroundColor: safeCssColor(label.color) }}
+                                />
+                                <span className="flex-1 text-foreground">{label.name}</span>
+                                {assigned && (
+                                  <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                )}
+                              </Button>
+                            );
+                          })}
+                          {showCreate && (
                             <Button
-                              key={label.id}
                               variant="ghost"
-                              onClick={() => onToggleLabel(label)}
-                              className="w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left"
+                              onClick={() => void onCreateLabel?.(trimmed)}
+                              className="w-full flex justify-start items-center gap-2 px-2 py-1.5 mt-1 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left border-t border-border"
                             >
-                              <span
-                                className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
-                                style={{ backgroundColor: safeCssColor(label.color) }}
-                              />
-                              <span className="flex-1 text-foreground">{label.name}</span>
-                              {assigned && <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                              <Plus className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                              <span className="flex-1 text-foreground">
+                                Create &quot;{trimmed}&quot;
+                              </span>
                             </Button>
-                          );
-                        })}
-                        {showCreate && (
-                          <Button
-                            variant="ghost"
-                            onClick={() => void onCreateLabel?.(trimmed)}
-                            className="w-full flex justify-start items-center gap-2 px-2 py-1.5 mt-1 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left border-t border-border"
-                          >
-                            <Plus className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
-                            <span className="flex-1 text-foreground">
-                              Create &quot;{trimmed}&quot;
-                            </span>
-                          </Button>
-                        )}
-                        {filtered.length === 0 && !showCreate && (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            {allLabels.length === 0
-                              ? onCreateLabel
-                                ? 'No labels yet — type a name to create one.'
-                                : 'No labels yet.'
-                              : 'No labels match.'}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })(),
-                  document.body
-                )}
+                          )}
+                          {filtered.length === 0 && !showCreate && (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                              {allLabels.length === 0
+                                ? onCreateLabel
+                                  ? 'No labels yet — type a name to create one.'
+                                  : 'No labels yet.'
+                                : 'No labels match.'}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })(),
+                    document.body
+                  )}
               </div>
             )}
           </div>
