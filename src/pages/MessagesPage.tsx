@@ -29,6 +29,7 @@ import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message } from '@/types';
@@ -65,6 +66,14 @@ const LIST_ONLY_FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAt
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  /**
+   * A link somebody sent you should land where it belongs. An id that names its workspace
+   * (`ORB-MKT-170`) switches to that workspace instead of 404ing against the current one;
+   * a bare `MKT-170` is left alone, because it names no workspace and guessing is how a
+   * link opens the wrong conversation.
+   */
+  useSharedLinkWorkspace(searchParams.get('id'));
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
