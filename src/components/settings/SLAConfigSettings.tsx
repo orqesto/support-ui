@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api-client';
 // Centralised SLA config shape (generated backend contract) — was a component-local
 // duplicate.
 import type { SlaConfigEntry as SLAEntry } from '@/types/api';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type EditState = {
   firstResponseMinutes: string;
@@ -50,7 +51,7 @@ export const SLAConfigSettings = () => {
         });
         setEdits(init);
       })
-      .catch(() => setError('Failed to load SLA configuration'));
+      .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to load SLA configuration'));
   }, []);
 
   const setField = (type: string, key: string, field: keyof EditState, value: string) => {
@@ -96,7 +97,7 @@ export const SLAConfigSettings = () => {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       })
-      .catch(() => setError('Failed to save SLA configuration'))
+      .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to save SLA configuration'))
       .finally(() => setSaving(false));
   };
 

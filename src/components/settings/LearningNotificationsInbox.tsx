@@ -15,6 +15,7 @@ import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
   learningService,
   type LearningAutoActionType,
@@ -127,7 +128,7 @@ export const LearningNotificationsInbox = () => {
       setPage(0);
     } catch (err) {
       logger.error('Failed to load learning notifications:', err);
-      setError('Failed to load notifications. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load notifications. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -150,7 +151,8 @@ export const LearningNotificationsInbox = () => {
     } catch (err) {
       logger.error('Failed to undo learning notification:', err);
       setError(
-        'Undo failed. The action may already have been undone, or the 30-day window may have expired.'
+        getApiErrorMessage(err) ??
+          'Undo failed. The action may already have been undone, or the 30-day window may have expired.'
       );
     } finally {
       setUndoingId(null);

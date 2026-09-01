@@ -24,6 +24,7 @@ import {
 } from '@/services/scim.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 /**
  * org_admin SCIM 2.0 provisioning card.
@@ -114,7 +115,7 @@ export const SCIMConfigSettings = () => {
       .catch((err: unknown) => {
         if (!active) return;
         logger.error('Failed to load SCIM config', err);
-        setError('Failed to load SCIM configuration.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load SCIM configuration.');
       })
       .finally(() => {
         if (active) setLoading(false);

@@ -9,6 +9,7 @@ import {
   type LeadCategoryConfig,
 } from '@/services/organization.service';
 import { useDepartments } from '@/hooks/useDepartments';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 // Dept list now derives from useDepartments() so any default dept (incl. Marketing
 // added 2026-06-19) and any org-custom dept the admin created surfaces here without
@@ -72,7 +73,9 @@ export const LeadQualificationSettings = () => {
         setConfig(cfg);
         setRecipientsInput((cfg.digestRecipients ?? []).join(', '));
       })
-      .catch(() => setError('Failed to load lead qualification settings'))
+      .catch((err) =>
+        setError(getApiErrorMessage(err) ?? 'Failed to load lead qualification settings')
+      )
       .finally(() => setLoading(false));
   }, []);
 

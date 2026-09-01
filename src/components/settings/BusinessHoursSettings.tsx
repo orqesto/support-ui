@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Toggle } from '@/components/ui/Toggle';
 import { usePermissions } from '@/hooks/usePermissions';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import {
   organizationService,
@@ -151,11 +152,12 @@ export const BusinessHoursSettings = () => {
       );
     } catch (err: unknown) {
       logger.error('Failed to save business hours', err);
-      const status = (err as { status?: number } | undefined)?.status;
+      // 🪤 The status was read off a hand-written cast. `getErrorStatus` is the one
+      // reader that knows the api-client rebuilds the error without `.response`.
       setError(
-        status === 403
+        getErrorStatus(err) === 403
           ? 'You do not have permission to change business hours.'
-          : 'Failed to save business hours. Please try again.'
+          : (getApiErrorMessage(err) ?? 'Failed to save business hours. Please try again.')
       );
     } finally {
       setSaving(false);

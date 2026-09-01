@@ -8,6 +8,7 @@ import {
   type SavedViewSource,
 } from './savedViews';
 import type { FilterState } from '@/stores/messagesStore';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 /**
  * The user's own saved views, and the two ways of writing them.
@@ -70,7 +71,10 @@ export const useSavedViews = (): {
         setError('');
       } catch (err) {
         logger.error('Saved views: could not save', err);
-        setError(`“${name}” could not be saved. Your other views are unaffected.`);
+        setError(
+          getApiErrorMessage(err) ??
+            `“${name}” could not be saved. Your other views are unaffected.`
+        );
       }
     },
     [source, views]
@@ -92,7 +96,7 @@ export const useSavedViews = (): {
         // The row is still there, so the pill has to be too — removing it from the list
         // would show a delete that did not happen and come back on the next load.
         logger.error('Saved views: could not delete', err);
-        setError(`“${view.name}” could not be deleted.`);
+        setError(getApiErrorMessage(err) ?? `“${view.name}” could not be deleted.`);
       }
     },
     [source, views]

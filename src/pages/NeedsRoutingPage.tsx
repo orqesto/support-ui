@@ -16,6 +16,7 @@ import { messageService } from '@/services/message.service';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 const PAGE_SIZE = 50;
 
@@ -90,7 +91,7 @@ export const NeedsRoutingPage = () => {
         setTotal(response.data.pagination?.total ?? response.data.data.length);
       } catch (err) {
         logger.error('Failed to load needs_routing queue:', err);
-        setError('Failed to load the routing queue. Please try again.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load the routing queue. Please try again.');
       } finally {
         setIsLoading(false);
       }

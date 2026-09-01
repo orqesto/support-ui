@@ -6,6 +6,7 @@ import { organizationService, type Organization } from '@/services/organization.
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 export const OrganizationSwitcher = () => {
   const user = useAuthStore((state) => state.user);
@@ -76,7 +77,7 @@ export const OrganizationSwitcher = () => {
         await authService.switchOrganization(orgId);
       } catch (error) {
         logger.error('Failed to switch workspace:', error);
-        toast.error('Could not switch workspace');
+        toast.error(getApiErrorMessage(error) ?? 'Could not switch workspace');
         return; // Stay put rather than reloading into a workspace we were refused.
       }
     }

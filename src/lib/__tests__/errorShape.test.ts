@@ -162,3 +162,115 @@ describe('no call site reads the axios error shape directly', () => {
     expect(/response\?: \{|['"]response['"] in /.test('const status = getErrorStatus(err);')).toBe(false);
   });
 });
+
+/**
+ * The second source guard, and the one this file was extended for.
+ *
+ * Reading the error shape correctly is worthless if the handler then throws the
+ * error away. The AI composer panel did exactly that: it branched on 429/403 and
+ * answered everything else with "The assistant is unavailable right now", so a 409
+ * "This conversation has no customer message to answer" — a sentence the backend
+ * wrote for the agent to read — became an outage message on a thread where the call
+ * could never succeed. An audit found 45 more sinks of the same shape across 25
+ * files: load failures, save failures, undo, workspace switch, KB queueing.
+ *
+ * The rule: a handler that shows copy for a FAILED API CALL must be able to show
+ * what the backend said. `getApiErrorMessage` is the safe reader (it withholds 5xx
+ * bodies, proven above), `formatError` wraps it, and reading `.message` off the
+ * error works because the interceptor puts the 4xx body there. Branching on
+ * `getErrorStatus` alone does NOT count — that is precisely the pattern that
+ * produced the bug.
+ */
+describe('no handler hides what the backend said', () => {
+  /** Deliberate exceptions. Each one is a decision, not an oversight. */
+  const ALLOWED = new Map<string, string>([
+    [
+      'src/pages/LoginPage.tsx',
+      'Credential enumeration: a failed password must not say WHY. The one case worth ' +
+        'distinguishing (unverified email, 403 after the password was checked) is branched ' +
+        'before the generic line.',
+    ],
+    [
+      'src/components/onboarding/steps/ElementsCheckout.tsx',
+      'The throw comes from the Stripe SDK, not our API — there is no envelope to read. ' +
+        'Stripe’s own error.message is already surfaced on the two paths above it.',
+    ],
+  ]);
+
+  const SINK =
+    /\b(?:toast\.error|toast\.warning|setError|setErrorMessage|setFormError|setStatusMessage|showError|setSubmitError|setApiError)\s*\(/;
+  /** Ways a handler can put the backend's own words on screen. */
+  const READS_THE_ERROR =
+    /getApiErrorMessage\(|formatError\(|messageOf\(|describeError\(|instanceof Error|\.message\b/;
+
+  /** Index of the character closing the group that opens at `start`. */
+  const closes = (src: string, start: number, open: string, close: string): number => {
+    let depth = 0;
+    for (let at = start; at < src.length; at++) {
+      if (src[at] === open) depth++;
+      else if (src[at] === close && --depth === 0) return at;
+    }
+    return src.length - 1;
+  };
+
+  /** Every failure-handling block in a file: catch (e) {…}, .catch(…), onError: …. */
+  const handlerBlocks = (src: string): string[] => {
+    const blocks: string[] = [];
+    for (const match of src.matchAll(/\bcatch\s*\([^)]*\)\s*\{/g)) {
+      const brace = match.index + match[0].length - 1;
+      blocks.push(src.slice(brace, closes(src, brace, '{', '}') + 1));
+    }
+    for (const match of src.matchAll(/\.catch\s*\(/g)) {
+      const paren = match.index + match[0].length - 1;
+      blocks.push(src.slice(paren, closes(src, paren, '(', ')') + 1));
+    }
+    for (const match of src.matchAll(/\bonError\s*:\s*/g)) {
+      const brace = src.indexOf('{', match.index + match[0].length);
+      if (brace !== -1 && brace - match.index < 120)
+        blocks.push(src.slice(brace, closes(src, brace, '{', '}') + 1));
+    }
+    return blocks;
+  };
+
+  const walkSrc = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) return entry.name === '__tests__' ? [] : walkSrc(full);
+      return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [full] : [];
+    });
+
+  const offenders = (): string[] =>
+    walkSrc('src')
+      .filter((file) => !ALLOWED.has(file.replace(/\\/g, '/')))
+      .filter((file) =>
+        handlerBlocks(readFileSync(file, 'utf-8')).some(
+          (block) => SINK.test(block) && !READS_THE_ERROR.test(block)
+        )
+      );
+
+  it('every failure handler that shows copy can show the backend’s reason', () => {
+    expect(offenders()).toEqual([]);
+  });
+
+  it('the guard detects the pattern it exists to stop (control)', () => {
+    const swallowed = `try { await save(); } catch (err) {
+      logger.error('nope', err);
+      setError('Failed to save. Please try again.');
+    }`;
+    const statusOnly = `try { await save(); } catch (err) {
+      setError(getErrorStatus(err) === 403 ? 'Not allowed.' : 'Failed to save.');
+    }`;
+    const repaired = `try { await save(); } catch (err) {
+      setError(getApiErrorMessage(err) ?? 'Failed to save. Please try again.');
+    }`;
+    const blocksOf = (source: string) => handlerBlocks(source);
+    const flags = (source: string) =>
+      blocksOf(source).some((block) => SINK.test(block) && !READS_THE_ERROR.test(block));
+
+    expect(blocksOf(swallowed)).toHaveLength(1);
+    expect(flags(swallowed)).toBe(true);
+    // Branching on the status is NOT reading the message — the original defect.
+    expect(flags(statusOnly)).toBe(true);
+    expect(flags(repaired)).toBe(false);
+  });
+});

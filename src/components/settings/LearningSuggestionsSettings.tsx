@@ -13,6 +13,7 @@ import {
 import { logger } from '@/lib/logger';
 import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 const DOMAIN_LABELS: Record<string, string> = {
   routing: 'Routing',
@@ -197,7 +198,7 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
         setScannedCount(response.scannedCount);
       } catch (err) {
         logger.error('Failed to load suggestion evidence:', err);
-        setError('Failed to load evidence');
+        setError(getApiErrorMessage(err) ?? 'Failed to load evidence');
       } finally {
         setLoading(false);
       }
@@ -458,7 +459,7 @@ export const LearningSuggestionsSettings = () => {
       setSuggestions(rows);
     } catch (err) {
       logger.error('Failed to load learning suggestions:', err);
-      setError('Failed to load suggestions. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load suggestions. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -481,7 +482,7 @@ export const LearningSuggestionsSettings = () => {
       setSuggestions((prev) => prev.filter((row) => row.id !== id));
     } catch (err) {
       logger.error('Failed to accept suggestion:', err);
-      setError('Failed to accept the suggestion. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to accept the suggestion. Please try again.');
     } finally {
       setActingId(null);
     }
@@ -494,7 +495,7 @@ export const LearningSuggestionsSettings = () => {
       setSuggestions((prev) => prev.filter((row) => row.id !== id));
     } catch (err) {
       logger.error('Failed to decline suggestion:', err);
-      setError('Failed to decline the suggestion. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to decline the suggestion. Please try again.');
     } finally {
       setActingId(null);
     }
@@ -512,7 +513,7 @@ export const LearningSuggestionsSettings = () => {
       setSuggestions((prev) => prev.filter((row) => row.id !== suggestion.id));
     } catch (err) {
       logger.error('Failed to refine rule:', err);
-      setError('Failed to refine the rule. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to refine the rule. Please try again.');
     } finally {
       setActingId(null);
     }

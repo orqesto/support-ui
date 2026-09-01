@@ -13,6 +13,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { organizationService } from '@/services/organization.service';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 /* eslint-disable max-lines -- single cohesive component; splitting would
    require threading 6+ pieces of state through child props or context. */
@@ -93,7 +94,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       } catch (err) {
         if (cancelled) return;
         logger.error('Failed to load auto-reply settings:', err);
-        setError('Failed to load auto-reply settings.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load auto-reply settings.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -154,7 +155,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       } catch (err) {
         orgRef.current = previous;
         logger.error('Failed to save org auto-reply:', err);
-        setError('Failed to save the default. Please try again.');
+        setError(getApiErrorMessage(err) ?? 'Failed to save the default. Please try again.');
         onShowAlert({
           open: true,
           title: 'Save failed',
@@ -191,7 +192,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         } else {
           perDeptRef.current = { ...perDeptRef.current, [key]: previous };
         }
-        setError('Failed to save the override. Please try again.');
+        setError(getApiErrorMessage(err) ?? 'Failed to save the override. Please try again.');
         onShowAlert({
           open: true,
           title: 'Save failed',
@@ -240,7 +241,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       .catch((err: unknown) => {
         logger.error(`Failed to reset dept ${deptId} auto-reply:`, err);
         perDeptRef.current = { ...perDeptRef.current, [key]: previous };
-        setError('Failed to reset the override. Please try again.');
+        setError(getApiErrorMessage(err) ?? 'Failed to reset the override. Please try again.');
       })
       .finally(() => setSavingScope(null));
   };

@@ -19,6 +19,7 @@ import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { organizationService } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type OrgRow = Awaited<ReturnType<typeof organizationService.getAll>>['data'][number];
 
@@ -68,7 +69,7 @@ export const PlatformOrganizations = () => {
       setTotal(result.pagination.total);
     } catch (error) {
       logger.error('Failed to fetch organizations', error);
-      toast.error('Could not load workspaces');
+      toast.error(getApiErrorMessage(error) ?? 'Could not load workspaces');
     } finally {
       setLoading(false);
     }

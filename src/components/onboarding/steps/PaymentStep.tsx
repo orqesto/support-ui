@@ -25,6 +25,7 @@ import { formatFeatureAdditions, planFeatureAdditions, planLimitLines } from '..
 import { logger } from '@/lib/logger';
 import { formatMoneyExVat } from '@/lib/money';
 import { cn } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 interface PaymentStepProps {
   /** Plan to open on — from the marketing site, or the recommended default. */
@@ -154,7 +155,8 @@ export const PaymentStep = ({
         // Never block finishing setup on a billing failure — the step is
         // optional and the org already has a working trial.
         setError(
-          "We couldn't load the payment form right now. You can finish setup and sort billing out later from Billing."
+          getApiErrorMessage(err) ??
+            "We couldn't load the payment form right now. You can finish setup and sort billing out later from Billing."
         );
       });
 
