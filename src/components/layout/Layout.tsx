@@ -35,6 +35,7 @@ import { apiClient } from '@/lib/api-client';
 import { ALLIANCE_CONSOLE_ENABLED } from '@/lib/config';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
+import { WorkspaceBanner } from './WorkspaceBanner';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { useTicketsCount } from '@/hooks/useTicketsCount';
@@ -691,6 +692,7 @@ export const Layout = ({ children }: LayoutProps) => {
             fixed mobile header and `pt-16` are built around.
           */}
           <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
+            <WorkspaceBanner />
             <LicenseExpiryBanner />
             <ResumeSetupBanner />
             <TrialBanner />

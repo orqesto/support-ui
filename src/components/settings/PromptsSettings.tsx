@@ -55,7 +55,12 @@ export const PromptsSettings = () => {
   const handleSave = async () => {
     try {
       if (editingPrompt) {
-        await settingsService.updatePromptTemplate(editingPrompt.id, formData);
+        // Wording only. `active` belongs to the row toggle (`toggleActive`), never to a
+        // text edit: sending it here means saving a typo fix can also flip a
+        // customer-facing template on or off as a side effect. 2026-08-16, prod.
+        const { active: _activeOwnedByTheToggle, ...wording } = formData;
+        void _activeOwnedByTheToggle;
+        await settingsService.updatePromptTemplate(editingPrompt.id, wording);
       } else if (isCreating) {
         await settingsService.createPromptTemplate(formData);
       }
@@ -223,7 +228,9 @@ export const PromptsSettings = () => {
                     <input
                       type="text"
                       value={formData.description}
-                      onChange={(event) => setFormData({ ...formData, description: event.target.value })}
+                      onChange={(event) =>
+                        setFormData({ ...formData, description: event.target.value })
+                      }
                       disabled={editingPrompt?.type === 'system'}
                       className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
                     />
@@ -242,18 +249,6 @@ export const PromptsSettings = () => {
                       Characters: {formData.prompt.length}
                     </p>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      id={`active-${prompt.id}`}
-                      checked={formData.active}
-                      onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
-                      className="rounded"
-                    />
-                    <label htmlFor={`active-${prompt.id}`} className="text-sm font-medium">
-                      Active
-                    </label>
-                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSave}>
@@ -270,10 +265,14 @@ export const PromptsSettings = () => {
               <>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
-                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2">
                       <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
                       <div className="flex gap-2 items-center flex-wrap">
-                        <DepartmentBadge departmentId={prompt.departmentId} size="sm" nullVariant="baseline" />
+                        <DepartmentBadge
+                          departmentId={prompt.departmentId}
+                          size="sm"
+                          nullVariant="baseline"
+                        />
                         {prompt.type === 'system' && <Badge variant="default">System</Badge>}
                         <Badge variant={prompt.active ? 'success' : 'default'}>
                           {prompt.active ? 'Active' : 'Inactive'}
@@ -285,10 +284,9 @@ export const PromptsSettings = () => {
                     )}
                   </div>
 
-                  
                   <div className="flex gap-2 justify-end">
-                  <Button
-                    aria-label="Activate or deactivate this prompt"
+                    <Button
+                      aria-label="Activate or deactivate this prompt"
                       size="sm"
                       variant="outline"
                       onClick={() => toggleActive(prompt)}
