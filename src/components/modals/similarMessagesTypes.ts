@@ -10,6 +10,18 @@ export type SimilarMessage = {
   repliedAt?: string | null;
   repliedBy?: number | null;
   source: 'documentation' | 'message';
+  /**
+   * True when `directReply` is RAW SOURCE TEXT rather than an answer somebody wrote to a
+   * customer — i.e. the source carried no `answer` and the chunk's own body was used.
+   *
+   * ⛔ This is a safety flag, not a formatting hint. Documentation chunks are written for
+   * US: orbelli's top-ranked chunk on prod (0.91 "Very Similar") opens with
+   * "OPEN COMPLIANCE ITEM — escalate, do not improvise … escalate immediately to
+   * info@orbelli.com … Owner: marketing + compliance". Inserting that into a reply puts
+   * internal escalation instructions in front of a customer, and until this flag existed
+   * the UI offered it under the same "Use This Answer" button as a written reply.
+   */
+  isRawSourceText?: boolean;
   documentationId?: number;
   parentDocId?: number;
   documentTitle?: string;
@@ -71,6 +83,9 @@ export const toSimilarMessages = (sources: SuggestedAnswerSource[]): SimilarMess
     subject: source.title ?? null,
     sender: source.metadata?.sender as string | undefined,
     directReply: source.answer ?? source.content,
+    // The fallback above is where raw documentation becomes a "reply". Record that it
+    // happened so the UI can say so instead of presenting the two as equivalent.
+    isRawSourceText: source.answer === null || source.answer === undefined,
     similarity: source.similarity,
     repliedAt: source.metadata?.repliedAt as string | null | undefined,
     source: isDocLike(source.type) ? 'documentation' : 'message',

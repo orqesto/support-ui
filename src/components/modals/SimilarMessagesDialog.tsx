@@ -3,24 +3,7 @@
 // renderer out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { useState, useEffect } from 'react';
-import {
-  Search,
-  Check,
-  TrendingUp,
-  Clock,
-  User,
-  BookOpen,
-  MessageCircle,
-  ExternalLink,
-  FileText,
-  ChevronDown,
-  ChevronUp,
-  Quote,
-  Globe,
-  Sparkles,
-  Languages,
-  Loader2,
-} from 'lucide-react';
+import { AlertTriangle, BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -57,6 +40,25 @@ type SimilarMessagesDialogProps = {
   preloadedTitle?: string;
 };
 
+/**
+ * What to tell the agent when no reply was written. Keyed by the backend's `reason`.
+ *
+ * 🔑 Each line names WHOSE PROBLEM IT IS, because that decides what the agent does next: a
+ * content gap means write the answer, a failure on our side means try again rather than
+ * assume the knowledge base is empty. They used to share one silence.
+ */
+const NO_ANSWER_COPY: Record<string, string> = {
+  'no-sources': 'Nothing in the knowledge base matched this message, so no reply was drafted.',
+  'sources-unusable':
+    'The matches below are references, not answers — none of them could be turned into a reply.',
+  'generation-empty':
+    'The assistant was asked but returned nothing. This is a fault on our side, not an empty knowledge base — try again, and report it if it keeps happening.',
+  'generation-failed':
+    'The assistant could not be reached, so no reply was drafted. The sources below are still valid — try again shortly.',
+  'search-failed': 'The search itself failed, so nothing below is a complete picture. Try again.',
+  default: 'No reply was drafted for this message.',
+};
+
 export const SimilarMessagesDialog = ({
   messageId,
   open,
@@ -73,6 +75,13 @@ export const SimilarMessagesDialog = ({
   const [aiMode, setAiMode] = useState<'ai-generated' | 'search-results' | null>(null);
   // null = unknown (preloaded sources / not yet fetched); false = org has no provider.
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
+  /**
+   * WHY there is no written answer. `aiConfigured` cannot carry this: it reports whether a
+   * provider exists, so it is true for a call that ran and failed. Without the distinction
+   * an empty knowledge base and a model that returned nothing looked identical here — which
+   * is exactly how a starved token budget presented as "the KB has nothing" on prod.
+   */
+  const [noAnswerReason, setNoAnswerReason] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
   const [useAiResponse, setUseAiResponse] = useState(false);
@@ -94,14 +103,24 @@ export const SimilarMessagesDialog = ({
       return;
     }
     if (open && messageId) {
+      // ⛔ EVERY RUN OF THIS EFFECT SPENDS MONEY — it is a billed AI generation, not a read.
+      // It had no guard at all, so StrictMode's double-invoke fired two generations per
+      // open in dev, and in production a re-open or a changed prop identity started a
+      // second one whose LATE response overwrote the fresh one. Observed on 2026-09-01:
+      // twin requests 1ms apart that disagreed — one 'ai-generated', one 'search-results'.
+      let current = true;
+
       const fetchSuggestedAnswer = async () => {
         setLoading(true);
         try {
           const response = await messageService.getSuggestedAnswer(messageId);
+          // A superseded run must not paint over the current one.
+          if (!current) return;
 
           // Set AI mode and response
           setAiMode(response.data?.mode ?? null);
           setAiConfigured(response.data?.aiConfigured ?? true);
+          setNoAnswerReason(response.data?.reason ?? null);
           setAiResponse(response.data?.aiResponse?.text ?? null);
           setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
           // Convert sources to similar messages format for backward compatibility
@@ -110,19 +129,35 @@ export const SimilarMessagesDialog = ({
 
           setSimilarMessages(converted);
         } catch (error) {
+          if (!current) return;
           logger.error('Failed to fetch suggested answer:', error);
           setSimilarMessages([]);
           setAiMode(null);
           setAiConfigured(null);
+          setNoAnswerReason(null);
           setAiResponse(null);
         } finally {
-          setLoading(false);
+          if (current) setLoading(false);
         }
       };
 
       void fetchSuggestedAnswer();
+      return () => {
+        current = false;
+      };
     }
+    return undefined;
   }, [open, messageId, preloadedSources]);
+
+  /**
+   * Is the highlighted row raw source text rather than an authored reply? Drives both the
+   * caution and the button wording — a documentation chunk and a reply an agent actually
+   * sent are not the same artefact and must not be offered as though they were.
+   */
+  const selectedIsRawSource =
+    !useAiResponse &&
+    selectedIndex !== null &&
+    similarMessages[selectedIndex]?.isRawSourceText === true;
 
   const handleUseAnswer = async (forceText?: string) => {
     // If AI response is selected
@@ -232,6 +267,16 @@ export const SimilarMessagesDialog = ({
                 AI suggestions need a provider — showing similar messages instead. Connect an AI
                 provider in Settings to get suggested replies.
               </span>
+            </div>
+          )}
+
+          {/* Why there is no written answer. Distinct from the banner above: that one is an
+              admin task (no provider), these are a content gap or our own failure — and
+              conflating them is what made a starved token budget read as an empty KB. */}
+          {!loading && aiConfigured !== false && noAnswerReason && (
+            <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+              <Sparkles className="flex-shrink-0 mt-0.5 w-4 h-4" />
+              <span>{NO_ANSWER_COPY[noAnswerReason] ?? NO_ANSWER_COPY.default}</span>
             </div>
           )}
 
@@ -694,6 +739,21 @@ export const SimilarMessagesDialog = ({
           )}
         </div>
 
+        {/* ⛔ The selected row is documentation, not a reply somebody sent a customer.
+            Inserting it verbatim is a real path for internal content to reach a customer —
+            orbelli's top-ranked chunk on prod begins "OPEN COMPLIANCE ITEM — escalate, do
+            not improvise". The insert is still allowed (agents legitimately paste a passage
+            and edit it); what is removed is the false equivalence with a written answer. */}
+        {selectedIsRawSource && (
+          <div className="flex gap-2 items-start px-6 pt-3 text-[13px] text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="flex-shrink-0 mt-0.5 w-4 h-4" />
+            <span>
+              This is raw documentation written for agents, not a reply to a customer. It may
+              contain internal notes — read it before sending.
+            </span>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancel
@@ -707,7 +767,9 @@ export const SimilarMessagesDialog = ({
               ? showTranslation && translatedAiResponse
                 ? 'Use Translated Response'
                 : 'Use AI Response'
-              : 'Use This Answer'}
+              : selectedIsRawSource
+                ? 'Insert source text'
+                : 'Use This Answer'}
           </Button>
         </DialogFooter>
       </DialogContent>
