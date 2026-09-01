@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type KBReference = {
   id: number;
@@ -41,7 +42,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
         }
       } catch (err) {
         logger.error('Failed to load KB references:', err);
-        setError('Failed to load KB references');
+        setError(getApiErrorMessage(err) ?? 'Failed to load KB references');
       } finally {
         setLoading(false);
       }

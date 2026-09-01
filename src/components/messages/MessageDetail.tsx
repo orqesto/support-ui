@@ -49,6 +49,7 @@ import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
   toGhostOption,
   answerToEditorHtml,
@@ -579,7 +580,7 @@ export function MessageDetail({
       } catch (err) {
         setReadState(!next);
         logger.error('Failed to update read state:', err);
-        toast.error('Could not update read state');
+        toast.error(getApiErrorMessage(err) ?? 'Could not update read state');
       }
     },
     [message.id, onReadChanged]

@@ -5,6 +5,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 export const SecuritySettings = () => {
   const { isAdmin, isOrgAdmin } = usePermissions();
@@ -37,7 +38,7 @@ export const SecuritySettings = () => {
       setSuccess('Security settings saved.');
     } catch (err: unknown) {
       logger.error('Failed to save security settings', err);
-      setError('Failed to save settings. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to save settings. Please try again.');
     } finally {
       setSaving(false);
     }

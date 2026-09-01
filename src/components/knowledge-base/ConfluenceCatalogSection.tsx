@@ -8,6 +8,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { documentationService } from '@/services/documentation.service';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
   integrationsService,
   type ConfluenceFolderNode,
@@ -216,8 +217,11 @@ const IntegrationCatalog = ({
   const processPage = (page: ConfluencePageNode) => {
     setError(null);
     setPending((prev) => new Set(prev).add(page.id));
-    integrationsService.processConfluencePage(integration.id, page.id).catch(() => {
-      setError(`Could not queue “${page.title}” for the Knowledge Base.`);
+    integrationsService.processConfluencePage(integration.id, page.id).catch((err) => {
+      setError(
+        getApiErrorMessage(err) ??
+          `Could not queue “${page.title}” for the Knowledge Base.`
+      );
       setPending((prev) => {
         const next = new Set(prev);
         next.delete(page.id);
@@ -242,7 +246,11 @@ const IntegrationCatalog = ({
         );
         onKbChange?.();
       })
-      .catch(() => setError(`Could not remove “${page.title}” from the Knowledge Base.`))
+      .catch((err) =>
+        setError(
+          getApiErrorMessage(err) ?? `Could not remove “${page.title}” from the Knowledge Base.`
+        )
+      )
       .finally(() =>
         setRemoving((prev) => {
           const next = new Set(prev);
@@ -277,8 +285,11 @@ const IntegrationCatalog = ({
         .processConfluenceFolder(integration.id, folder.id)
         .then(() => refresh())
         .then(() => onKbChange?.())
-        .catch(() => {
-          setError(`Could not add “${folder.title}” to the Knowledge Base.`);
+        .catch((err) => {
+          setError(
+            getApiErrorMessage(err) ??
+              `Could not add “${folder.title}” to the Knowledge Base.`
+          );
           setFolderSelected(folder.id, false);
         })
     );
@@ -293,8 +304,11 @@ const IntegrationCatalog = ({
         .removeConfluenceFolder(integration.id, folder.id)
         .then(() => refresh())
         .then(() => onKbChange?.())
-        .catch(() => {
-          setError(`Could not remove “${folder.title}” from the selection.`);
+        .catch((err) => {
+          setError(
+            getApiErrorMessage(err) ??
+              `Could not remove “${folder.title}” from the selection.`
+          );
           setFolderSelected(folder.id, true);
         })
     );

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type AdminPlan = {
   id: number;
@@ -40,7 +41,7 @@ export const StripePriceMapping = () => {
       setError(null);
     } catch (err) {
       logger.error('Failed to load plans', err);
-      setError('Failed to load plans.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load plans.');
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,10 @@ export const StripePriceMapping = () => {
       await load();
     } catch (err) {
       logger.error('Failed to save stripe price id', err);
-      setError('Save failed — the value must be a Stripe price id (price_…) or empty.');
+      setError(
+        getApiErrorMessage(err) ??
+          'Save failed — the value must be a Stripe price id (price_…) or empty.'
+      );
     } finally {
       setSavingId(null);
     }

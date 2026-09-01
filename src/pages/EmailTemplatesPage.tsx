@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type TemplateType = 'invitation' | 'verification' | 'password_reset';
 
@@ -58,7 +59,10 @@ export const EmailTemplates = () => {
       setSelectedTemplate(templateType);
     } catch (err) {
       logger.error('Error loading template preview:', err);
-      setError('Failed to load template preview. Please make sure you are logged in as an admin.');
+      setError(
+        getApiErrorMessage(err) ??
+          'Failed to load template preview. Please make sure you are logged in as an admin.'
+      );
     } finally {
       setIsLoadingPreview(false);
     }
@@ -82,7 +86,7 @@ export const EmailTemplates = () => {
       setIsEditing(true);
     } catch (err) {
       logger.error('Error loading template content:', err);
-      setError('Failed to load template content for editing.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load template content for editing.');
     } finally {
       setIsLoadingContent(false);
     }

@@ -4,6 +4,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { formatMoneyExVat } from '@/lib/money';
 import {
@@ -62,10 +63,13 @@ export const AddPaymentMethodDialog = ({
       .catch((err: unknown) => {
         if (cancelled) return;
         logger.error('Failed to create a checkout session for adding a card:', err);
+        // 🪤 The status came off a hand-written cast; `getErrorStatus` is the reader
+        // that knows the interceptor rebuilds the error without `.response`.
         setError(
-          (err as { status?: number } | null)?.status === 409
+          getErrorStatus(err) === 409
             ? 'This workspace already has a payment method on file. Use Billing & Invoices to change it.'
-            : "We couldn't open the payment form right now. Please try again in a moment."
+            : (getApiErrorMessage(err) ??
+              "We couldn't open the payment form right now. Please try again in a moment.")
         );
       });
 

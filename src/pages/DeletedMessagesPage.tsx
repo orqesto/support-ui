@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type DeletedMessage = {
   id: number;
@@ -62,7 +63,7 @@ export const DeletedMessages = () => {
       setTotal(response.data.data.count);
     } catch (err) {
       logger.error('Error fetching deleted messages:', err);
-      setError('Failed to load deleted messages.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load deleted messages.');
     } finally {
       setIsLoading(false);
     }

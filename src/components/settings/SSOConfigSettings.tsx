@@ -17,6 +17,7 @@ import {
 import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 /**
  * org_admin SSO (OIDC) config card.
@@ -172,7 +173,7 @@ export const SSOConfigSettings = () => {
       .catch((err: unknown) => {
         if (!active) return;
         logger.error('Failed to load SSO config', err);
-        setError('Failed to load SSO configuration.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load SSO configuration.');
       })
       .finally(() => {
         if (active) setLoading(false);

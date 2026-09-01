@@ -13,6 +13,7 @@ import { twoFactorService } from '@/services/twoFactor.service';
 import { resolveOrgByEmail, startAllianceSsoUrl, startSsoUrl } from '@/services/sso.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type Step = 'email' | 'password' | 'selectOrg' | 'ssoSlug' | 'totp' | 'setup2fa';
 
@@ -231,7 +232,10 @@ export const LoginPage = () => {
       setInfo('No SSO is configured for this email domain — sign in with your password.');
     } catch (err) {
       logger.warn('SSO resolve failed', err);
-      setError('Could not start SSO. Please try again or use your password.');
+      setError(
+        getApiErrorMessage(err) ??
+          'Could not start SSO. Please try again or use your password.'
+      );
     } finally {
       setIsLoading(false);
     }

@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 const PAGE_SIZE = 50;
 
@@ -44,7 +45,10 @@ export const OrphanedOutbound = () => {
       setTotal(response.data.pagination?.total ?? response.data.data.length);
     } catch (err) {
       logger.error('Failed to load orphaned outbound:', err);
-      setError('Failed to load orphaned outbound messages. Please try again.');
+      setError(
+        getApiErrorMessage(err) ??
+          'Failed to load orphaned outbound messages. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +81,7 @@ export const OrphanedOutbound = () => {
       }
     } catch (err) {
       logger.error('Failed to reprocess orphaned message:', err);
-      setError('Failed to reprocess the message. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to reprocess the message. Please try again.');
     } finally {
       setReprocessingId(null);
     }

@@ -17,6 +17,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { statisticsService, type TokenUsageData } from '@/services/statistics.service';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
 
@@ -56,7 +57,7 @@ export const TokenUsageTab = ({ days }: { days: number }) => {
       .catch((err) => {
         if (cancelled) return;
         logger.error('Failed to load token usage:', err);
-        setError('Failed to load token usage.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load token usage.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

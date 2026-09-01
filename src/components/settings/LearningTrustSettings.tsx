@@ -11,6 +11,7 @@ import {
   type TrustState,
 } from '@/services/learning.service';
 import { useAuthStore } from '@/stores/authStore';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 
 type ModeDef = {
   id: TrustMode;
@@ -145,7 +146,7 @@ export const LearningTrustSettings = () => {
       setState(next);
     } catch (err) {
       logger.error('Failed to load learning trust state:', err);
-      setError('Failed to load trust state. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load trust state. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -167,7 +168,7 @@ export const LearningTrustSettings = () => {
       setRunSummary(summary);
     } catch (err) {
       logger.error('Failed to run learning engine:', err);
-      setError('Failed to run the engine. See server logs for details.');
+      setError(getApiErrorMessage(err) ?? 'Failed to run the engine. See server logs for details.');
     } finally {
       setRunning(false);
     }
@@ -182,7 +183,7 @@ export const LearningTrustSettings = () => {
       setState(next);
     } catch (err) {
       logger.error('Failed to set trust mode:', err);
-      setError('Failed to update trust mode. Please try again.');
+      setError(getApiErrorMessage(err) ?? 'Failed to update trust mode. Please try again.');
     } finally {
       setSavingMode(null);
     }
