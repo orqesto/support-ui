@@ -6,7 +6,12 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
-import { getErrorStatus } from '@/lib/errorMessages';
+import {
+  AI_NOT_CONFIGURED_MESSAGE,
+  getApiErrorMessage,
+  getErrorStatus,
+  isAiNotConfiguredError,
+} from '@/lib/errorMessages';
 import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, MONO } from './messageDetailConstants';
 
@@ -57,6 +62,15 @@ type Props = {
 };
 
 const MAX_INSTRUCTIONS = 2000;
+/**
+ * The only 409 compose-reply issues: the thread has no inbound turn to answer —
+ * it opens with our own outbound mail, or the customer's side is missing. Generate
+ * and guided have nothing to ground a draft in, but POLISH still works (it needs
+ * only the agent's own draft), so name that way out. The bare backend sentence is
+ * true and still reads as a dead end.
+ */
+const NO_INBOUND_GUIDANCE =
+  'Write the reply yourself below, then use “Make it customer-ready”.';
 /** Language the agent reads; a draft in anything else offers a translation. */
 const AGENT_LANGUAGE = 'en';
 const OWN_TEXT_PREVIEW_CHARS = 160;
@@ -88,11 +102,38 @@ export function ComposerAiActions({
   const ownText = stripHtml(composer).trim();
   const hasOwnText = !isBlankRichText(composer);
 
+  /**
+   * Nothing here ever edits the composer on a failure, but the agent cannot see
+   * that — say so whenever there IS text of theirs at stake (the polish path).
+   */
+  const withTextReassurance = (message: string): string =>
+    hasOwnText && !/unchanged/i.test(message) ? `${message} Your text is unchanged.` : message;
+
+  /**
+   * What went wrong, in the agent's words.
+   *
+   * 🪤 This used to map STATUS ONLY, so every 4xx the endpoint writes for a human to
+   * read — "This conversation has no customer message to answer" (409, a thread that
+   * opens with our own outbound mail), "guided mode requires instructions" (400),
+   * "Message not found" (404) — was replaced by "the assistant is unavailable". That
+   * reads as an outage, so the agent retries a call that CANNOT succeed on this
+   * thread, and the one sentence that would have told them why was already in the
+   * response body. The BE's 4xx copy is the message; keep the generic line for the
+   * cases that really are "we could not reach the model" (5xx, network drop).
+   *
+   * `getApiErrorMessage` returns nothing for a 5xx on purpose — a server body can
+   * carry a stack frame or a SQL fragment — so passing it through cannot leak one.
+   * The 429/403 lines stay AHEAD of it: those two are contracts we tuned copy for,
+   * and their BE wording is longer than this panel has room for.
+   */
   const describeError = (err: unknown): string => {
     const status = getErrorStatus(err);
+    if (isAiNotConfiguredError(err)) return AI_NOT_CONFIGURED_MESSAGE;
     if (status === 429) return 'AI limit reached for now — try again shortly.';
     if (status === 403)
       return 'No AI provider is connected for this workspace. An admin can add one in Settings.';
+    const beMessage = getApiErrorMessage(err);
+    if (beMessage) return withTextReassurance(beMessage);
     return 'The assistant is unavailable right now. Your text is unchanged.';
   };
 
@@ -120,7 +161,9 @@ export function ComposerAiActions({
       setDraft({ text, language: response.data?.language, mode });
     } catch (err) {
       logger.error('Compose-reply failed:', err);
-      setError(describeError(err));
+      const message = describeError(err);
+      const noInbound = getErrorStatus(err) === 409 && mode !== 'polish';
+      setError(noInbound ? `${message} ${NO_INBOUND_GUIDANCE}` : message);
     } finally {
       setBusy(false);
     }

@@ -311,6 +311,67 @@ describe('ComposerAiActions', () => {
       expect(await screen.findByText(/No AI provider is connected/i)).toBeInTheDocument();
     });
 
+    // 🪤 The whole reason this block exists: the panel mapped STATUS ONLY, so a 409
+    // the backend wrote for a human ("no customer message to answer") arrived as
+    // "the assistant is unavailable" — an outage message for a thread that can never
+    // be drafted from. Assert the BACKEND SENTENCE, not just "some error showed".
+    it('a 4xx the backend explained is shown in the backend’s own words', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(409, { error: 'This conversation has no customer message to answer' })
+      );
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(
+        await screen.findByText(/This conversation has no customer message to answer/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/assistant is unavailable/i)).not.toBeInTheDocument();
+    });
+
+    it('the no-inbound 409 names the way out instead of ending at a dead end', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(409, { error: 'This conversation has no customer message to answer' })
+      );
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(await screen.findByText(/Make it customer-ready/i)).toBeInTheDocument();
+    });
+
+    it('a 400 about the request itself is shown, not masked as an outage', async () => {
+      composeReply.mockRejectedValue(await apiError(400, { error: 'polish mode requires a draft' }));
+      openPanel('<p>note</p>');
+      fireEvent.click(screen.getByText('Make it customer-ready'));
+
+      // The agent's own text is at stake on this path, so the reassurance is added
+      // to a backend sentence that does not carry one.
+      expect(await screen.findByText(/polish mode requires a draft/i)).toBeInTheDocument();
+      expect(await screen.findByText(/text is unchanged/i)).toBeInTheDocument();
+    });
+
+    // The masking is deliberate: a 5xx body can carry a stack frame or SQL, so the
+    // generic line is the RIGHT answer there — and the only place it should appear.
+    it('a 5xx keeps the generic line — server bodies are never shown', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(500, { error: 'relation "conversations" does not exist' })
+      );
+      openPanel('<p>note</p>');
+      fireEvent.click(screen.getByText('Make it customer-ready'));
+
+      expect(await screen.findByText(/assistant is unavailable/i)).toBeInTheDocument();
+      expect(screen.queryByText(/relation "conversations"/i)).not.toBeInTheDocument();
+    });
+
+    it('the no-provider contract wins over whatever the body says', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(503, { code: 'AI_NOT_CONFIGURED', error: 'AI is not configured' })
+      );
+      openPanel('<p>note</p>');
+      fireEvent.click(screen.getByText('Make it customer-ready'));
+
+      expect(await screen.findByText(/connect a provider in Settings/i)).toBeInTheDocument();
+    });
+
     it('an empty result explains itself instead of blanking the composer', async () => {
       composeReply.mockResolvedValue({ data: { text: null } });
       openPanel('');
