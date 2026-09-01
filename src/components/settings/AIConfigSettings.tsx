@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AutoReplyConfiguration } from './AutoReplyConfiguration';
 import { LeadQualificationSettings } from './LeadQualificationSettings';
 import { LearningNotificationsInbox } from './LearningNotificationsInbox';
+import { LearningEvidenceCard } from './LearningEvidenceCard';
 import { LearningSuggestionsSettings } from './LearningSuggestionsSettings';
 import { LearningTrustSettings } from './LearningTrustSettings';
 import { PromptsSettings } from './PromptsSettings';
@@ -123,6 +124,10 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
         {active === 'auto-reply' && <AutoReplyConfiguration onShowAlert={setAlertDialog} />}
         {active === 'learning' && (
           <div className="space-y-6">
+            {/* Above the suggestion list on purpose: the first question anyone asks
+                here is "is it learning?", and an empty list answers it ambiguously —
+                no suggestions can mean no signal, or signal that produced nothing. */}
+            <LearningEvidenceCard />
             <LearningSuggestionsSettings />
             <LearningNotificationsInbox />
           </div>

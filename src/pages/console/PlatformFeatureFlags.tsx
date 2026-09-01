@@ -10,6 +10,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { featureFlagAdminService, type AdminFeatureFlag } from '@/services/featureFlags.service';
 import { organizationService } from '@/services/organization.service';
 
@@ -153,6 +154,13 @@ export const PlatformFeatureFlags = () => {
 
   const busy = setMutation.isPending || clearMutation.isPending;
 
+  // A 404 from the list endpoint means this build of the console is ahead of the
+  // backend it is talking to — the routes simply are not there yet. Read through
+  // `getErrorStatus`, never `err.response.status`: the api-client interceptor rebuilds
+  // a failure as a fresh Error carrying `status` and no `.response`, so the obvious
+  // spelling compiles, type-checks and never matches.
+  const backendTooOld = flagsQuery.isError && getErrorStatus(flagsQuery.error) === 404;
+
   const grouped = useMemo(() => {
     const flags = flagsQuery.data?.flags ?? [];
     const byGroup = new Map<string, AdminFeatureFlag[]>();
@@ -197,6 +205,15 @@ export const PlatformFeatureFlags = () => {
 
       {flagsQuery.isLoading ? (
         <ConsoleLoading />
+      ) : backendTooOld ? (
+        // Version skew, not a fault. The frontend deploys on a push to main while the
+        // backend ships on its own train, so this page can reach production before the
+        // endpoints it calls do. A 404 here means exactly that, and "Retry" cannot help —
+        // saying so beats a red error that reads like a broken console.
+        <Alert variant="warning">
+          Feature flags need a newer backend than this environment is running. The endpoints arrive
+          with the next backend release; nothing is wrong with this workspace.
+        </Alert>
       ) : flagsQuery.isError ? (
         <Alert variant="danger">
           <div className="space-y-3">

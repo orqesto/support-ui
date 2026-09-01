@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorStatus } from '@/lib/errorMessages';
 
 // Keep in sync with `src/shared/learning/learningService.ts` on the BE.
 // Missing entries here cause silent type widening at the API boundary:
@@ -10,6 +11,29 @@ import { apiClient } from '@/lib/api-client';
 // spam is 'partial'). The RESERVED group has no producer/consumer at all — the
 // API accepts them for forward-compat, but they never emit a suggestion, so the
 // UI never renders them. Do not present them as active learning.
+
+/**
+ * Per-domain evidence counts — how much signal a domain is actually receiving.
+ * See `GET /api/learning/evidence`. Reports the INPUT, not health: a domain with
+ * nothing arriving and a domain drowning in signal that produces nothing are
+ * different problems, and neither used to be visible outside the database.
+ */
+export interface DomainEvidence {
+  domain: string;
+  /** What is being counted, so the number is never read as the wrong thing. */
+  unit: string;
+  count: number;
+  lastAt: string | null;
+  threshold?: { met: boolean; describe: string };
+  note?: string;
+}
+
+export interface LearningEvidence {
+  organizationId: number;
+  windowDays: number;
+  domains: DomainEvidence[];
+}
+
 export type LearningDomain =
   // Registered in the engine (functional status varies — see BE engine/types.ts):
   | 'routing' // live
@@ -100,6 +124,27 @@ export type SuggestionEvidenceResponse = {
 };
 
 export const learningService = {
+  /**
+   * How much signal each learning domain is receiving for this workspace.
+   *
+   * Returns null when the backend does not have the route yet, rather than
+   * throwing: the frontend deploys on a push to main while the backend ships on
+   * its own train, so this call can reach production before the endpoint does.
+   * A missing panel is the right outcome there — an error box would report a
+   * version skew as a fault in the workspace.
+   */
+  async getEvidence(): Promise<LearningEvidence | null> {
+    try {
+      const response = await apiClient.get<{ success: boolean; data: LearningEvidence }>(
+        '/api/learning/evidence'
+      );
+      return response.data.data ?? null;
+    } catch (err) {
+      if (getErrorStatus(err) === 404) return null;
+      throw err;
+    }
+  },
+
   async listSuggestions(domain?: LearningDomain): Promise<LearningSuggestion[]> {
     const params: Record<string, string> = {};
     if (domain) params.domain = domain;
