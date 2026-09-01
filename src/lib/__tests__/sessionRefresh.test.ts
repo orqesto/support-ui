@@ -142,7 +142,7 @@ describe('a 401 is a question, not a verdict', () => {
     expect(assignedHref).toBe('/login');
   });
 
-  it('learns the lifetime at SIGN-IN too, so the first cycle is exact and not a fallback', async () => {
+  it('learns the lifetime at SIGN-IN too, so the first cycle is exact and not a fallback', () => {
     // The BE reports it from `establishSession` on every sign-in path. Reading it in the
     // response interceptor rather than in six auth services is deliberate: one place on each
     // side of the wire, so a new sign-in path cannot forget.
