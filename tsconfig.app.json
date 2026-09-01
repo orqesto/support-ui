@@ -15,8 +15,9 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Path aliases */
-    "baseUrl": ".",
+    /* Path aliases — no "baseUrl": deprecated in TS 6, removed in TS 7. Since TS 4.1
+       "paths" resolves relative to this file's directory, and the target below is
+       already written relative ("./src/*"), so nothing else changes. */
     "paths": {
       "@/*": ["./src/*"]
     },
