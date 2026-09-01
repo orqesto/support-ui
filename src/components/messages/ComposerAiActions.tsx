@@ -40,7 +40,13 @@ type Mode = 'generate' | 'guided' | 'polish';
  */
 export const composerAiSource = (mode: Mode): string => `ai_compose_${mode}`;
 
-type Draft = { text: string; language?: string; mode: Mode };
+/**
+ * `groundedInKb: false` means the backend wrote this WITHOUT a retrieved passage —
+ * guided from the agent's own facts, generate from the thread alone. The field has
+ * existed since the guided fallback shipped and nothing rendered it, so an
+ * ungrounded draft was indistinguishable from a KB-backed answer.
+ */
+type Draft = { text: string; language?: string; mode: Mode; groundedInKb?: boolean };
 
 type Props = {
   messageId: number;
@@ -158,7 +164,12 @@ export function ComposerAiActions({
         );
         return;
       }
-      setDraft({ text, language: response.data?.language, mode });
+      setDraft({
+        text,
+        language: response.data?.language,
+        mode,
+        groundedInKb: response.data?.groundedInKb,
+      });
     } catch (err) {
       logger.error('Compose-reply failed:', err);
       const message = describeError(err);
@@ -324,6 +335,20 @@ export function ComposerAiActions({
               <div className="overflow-y-auto p-2 max-h-44 text-[13px] leading-relaxed whitespace-pre-wrap rounded border border-border bg-muted/30">
                 {showTranslation && translation ? translation : draft.text}
               </div>
+
+              {/*
+                Say it out loud when nothing backed this draft. The two ungrounded modes
+                fail differently and the agent's next move differs with them: a guided
+                draft carries the agent's OWN facts and is ready to send, while a generate
+                draft with an empty KB answers nothing and must not be sent as if it did.
+              */}
+              {draft.groundedInKb === false && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                  {draft.mode === 'guided'
+                    ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
+                    : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
+                </p>
+              )}
               {showTranslation && (
                 <p className="text-[11px] text-muted-foreground">
                   Translation is for checking — the {draft.language?.toUpperCase()} version is what
