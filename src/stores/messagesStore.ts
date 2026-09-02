@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDepartmentContextStore } from './departmentContextStore';
+import { identityScope } from '@/stores/identityScope';
 import type { PaginationMeta, MessageThread, ListScope } from '@/services/message.service';
 
 export type MessageViewStatus =
@@ -266,7 +267,7 @@ export const messagesCacheKey = (
   // changing the DepartmentSwitcher selection short-circuits to a stale cached page
   // (filter dropdown unchanged → same key → cache hit → no re-fetch).
   const deptCtx = useDepartmentContextStore.getState().getSelectedDeptIds().join(',');
-  return JSON.stringify({ filters, sorting, page, deptCtx, isKanban });
+  return JSON.stringify({ ...identityScope(), filters, sorting, page, deptCtx, isKanban });
 };
 
 export const useMessagesStore = create<MessagesState>()(
