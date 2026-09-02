@@ -204,3 +204,55 @@ describe('ListScopeNotice — board surface', () => {
     expect(text).toContain('2,904 from the knowledge base');
   });
 });
+
+/**
+ * THE REPORTED CONFUSION, and the reason the numbers looked broken.
+ *
+ * "Showing 53 of 72 — 19 hidden by the current view · 27 waiting on a reply · 11 awaiting
+ * routing" — one sentence, one separator, so the chips read as a decomposition of the 19
+ * and 27-of-19 read as nonsense. The counts were right: each chip is the size of its whole
+ * bucket, deliberately, so it matches the list the click opens. It was the SENTENCE that
+ * claimed something they never said, and a reader went and changed the SQL before an
+ * integration test stopped them.
+ */
+describe('a chip is a destination, not a share of the hidden count', () => {
+  const scope = {
+    withoutLens: 72,
+    hidden: 19,
+    hiddenBecause: {
+      terminal: 0,
+      spam: 0,
+      suspicious: 4,
+      notAnalysed: 0,
+      archived: 4,
+      knowledgeBase: 0,
+      awaitingOrReplied: 27,
+      needsRouting: 11,
+      orphanOutgoing: 0,
+      other: 6,
+    },
+  } as never;
+
+  it('labels the clickable counts as somewhere to go', () => {
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+
+    expect(screen.getByText(/Jump to/)).toBeTruthy();
+  });
+
+  it('still renders a bucket LARGER than the hidden count, because that is correct', () => {
+    // ⛔ Not a bug and must never be "fixed" by clamping: 27 is how many rows that lens
+    // holds, which is what the click lands on.
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: '27 waiting on a reply' })).toBeTruthy();
+  });
+
+  it('keeps `other` in the sentence, since it IS a share of the hidden count', () => {
+    // CONTROL for the split: `other` counts hidden rows no bucket claims, so it is the one
+    // entry that genuinely decomposes `hidden` and must not move behind "Jump to".
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+
+    const other = screen.getByText('6 hidden by this view');
+    expect(other.tagName).not.toBe('BUTTON');
+  });
+});
