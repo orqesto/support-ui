@@ -14,7 +14,17 @@
  *
  * ⚠️ The reasons OVERLAP and are never summed. A resolved thread mined from the KB is
  * counted under both; on that workspace the two are 2,935 and 2,952 against 3,009 hidden.
- * Each chip answers "how many of the hidden are also this", one question at a time.
+ *
+ * ⛔ AND EACH CHIP IS THE SIZE OF ITS WHOLE BUCKET, not its overlap with `hidden`. The
+ * backend does that deliberately so a chip's number equals the list the click opens
+ * (`lensScope.ts`); intersecting would make the chip say 8 and the destination show 27.
+ *
+ * 🪤 Which is why the WORDING here has to keep them apart. This rendered
+ * "19 hidden by the current view · 27 waiting on a reply · 11 awaiting routing" — one
+ * sentence, one separator, so the chips read as a breakdown of the 19 and the whole line
+ * read as broken arithmetic. It was reported as a bug, and a reader went and "fixed" the
+ * SQL before an integration test stopped them. The counts were right; the sentence was
+ * claiming something they never said. They are now labelled as somewhere to GO.
  */
 import { EyeOff } from 'lucide-react';
 import type { ListScope } from '@/services/message.service';
@@ -107,6 +117,14 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
     // `false || x` falls through to x. Compared explicitly so the operand is a boolean.
     .filter((reason) => !isBoard || reason.needsListView === true || reason.key === 'other');
 
+  /**
+   * Two different claims, so two different places on the line. `other` is a subset of
+   * `hidden` and belongs in the sentence; the rest are lens totals and belong behind
+   * "Jump to", where a number larger than `hidden` is exactly what a reader should expect.
+   */
+  const subsets = present.filter((reason) => reason.key === 'other');
+  const destinations = present.filter((reason) => reason.key !== 'other');
+
   return (
     <div
       className="flex flex-wrap gap-x-2 gap-y-1 items-center px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground"
@@ -136,8 +154,23 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
           {scope.hidden.toLocaleString()} hidden by the current view
         </span>
       )}
-      {present.length > 0 && <span aria-hidden="true">·</span>}
-      {present.map((reason) =>
+      {/*
+        `other` is the one entry that genuinely decomposes `hidden` — it counts hidden rows
+        no bucket claims — so it stays attached to the sentence. Everything else is a
+        destination and moves behind the label below.
+      */}
+      {subsets.length > 0 && <span aria-hidden="true">·</span>}
+      {subsets.map((reason) => (
+        <span key={reason.key}>
+          {reason.count.toLocaleString()} {reason.label}
+        </span>
+      ))}
+      {destinations.length > 0 && (
+        <span className="ml-1">
+          Jump to<span aria-hidden="true">:</span>
+        </span>
+      )}
+      {destinations.map((reason) =>
         reason.filters ? (
           <button
             key={reason.key}
