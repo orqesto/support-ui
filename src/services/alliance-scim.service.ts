@@ -341,12 +341,33 @@ export const allianceScimService = {
     return res.data.data;
   },
 
-  /** Manual "Re-sync now": reconcile every currently-synced member (no cron exists). */
-  resync: async (allianceId: number): Promise<{ usersReconciled: number }> => {
-    const res = await apiClient.post<{ data: { usersReconciled: number } }>(
-      `${base(allianceId)}/scim/resync`,
-      {}
+  /**
+   * Remove one synced IdP group outright — not its mapping, the group.
+   *
+   * ⚠️ This does not reach the identity provider; nothing on our side can. If the IdP
+   * still has the group in scope, its next push recreates it. The confirm dialog says so.
+   */
+  removeSyncedGroup: async (
+    allianceId: number,
+    groupId: number
+  ): Promise<{ removed: string }> => {
+    const res = await apiClient.delete<{ data: { removed: string } }>(
+      `${base(allianceId)}/scim/synced-groups/${groupId}`
     );
+    return res.data.data;
+  },
+
+  /**
+   * Manual "Re-sync now": reconcile every currently-synced member (no cron exists) AND
+   * drop the groups the IdP has gone silent about — `groupsRemoved` is what the button
+   * could never report before, because it only ever re-read local rows.
+   */
+  resync: async (
+    allianceId: number
+  ): Promise<{ usersReconciled: number; groupsRemoved: number; removedNames: string[] }> => {
+    const res = await apiClient.post<{
+      data: { usersReconciled: number; groupsRemoved: number; removedNames: string[] };
+    }>(`${base(allianceId)}/scim/resync`, {});
     return res.data.data;
   },
 };

@@ -244,13 +244,35 @@ export const useWireSyncedGroup = (allianceId: number | null) => {
   });
 };
 
+export const useRemoveSyncedGroup = (allianceId: number | null) => {
+  const invalidate = useProvisioningWriteInvalidator(allianceId);
+  return useMutation({
+    mutationFn: (groupId: number) =>
+      allianceScimService.removeSyncedGroup(allianceId as number, groupId),
+    onSuccess: (result) => {
+      invalidate();
+      toast.success(`Removed ${result.removed}`);
+    },
+    // A 409 here is the "still wired" refusal, and its message says what to do about it —
+    // so surface the server's text rather than a generic fallback.
+    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not remove the group')),
+  });
+};
+
 export const useResyncAllianceProvisioning = (allianceId: number | null) => {
   const invalidate = useProvisioningWriteInvalidator(allianceId);
   return useMutation({
     mutationFn: () => allianceScimService.resync(allianceId as number),
     onSuccess: (result) => {
       invalidate();
-      toast.success(`Re-synced ${result.usersReconciled} member(s)`);
+      // Say what actually happened. This used to report only the member count, which is
+      // why clicking it to clear an abandoned group looked like a success that changed
+      // nothing — the removal half did not exist.
+      toast.success(
+        result.groupsRemoved > 0
+          ? `Re-synced ${result.usersReconciled} member(s) · removed ${result.groupsRemoved} abandoned group(s)`
+          : `Re-synced ${result.usersReconciled} member(s)`
+      );
     },
     onError: (error: unknown) => toast.error(errorMessage(error, 'Could not re-sync provisioning')),
   });

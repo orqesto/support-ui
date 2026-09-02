@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Users, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
+import { Users, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,7 @@ import type { DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
   useDeleteAllianceGroupMap,
+  useRemoveSyncedGroup,
   useResyncAllianceProvisioning,
   useWireSyncedGroup,
 } from '@/hooks/useAllianceProvisioning';
@@ -100,6 +101,7 @@ const SyncedGroupRow = ({
   onDeptChange,
   onWire,
   onUnwire,
+  onRemove,
   wiring,
 }: {
   group: SyncedGroup;
@@ -114,6 +116,7 @@ const SyncedGroupRow = ({
   onDeptChange: (orgId: number, deptIds: number[]) => void;
   onWire: () => void;
   onUnwire: () => void;
+  onRemove: () => void;
   wiring: boolean;
 }) => {
   const wired = group.wiredRole !== null || group.wiredGroup !== null;
@@ -135,7 +138,26 @@ const SyncedGroupRow = ({
             {group.externalId ?? 'no external id from IdP'}
           </p>
         </div>
-        <Badge variant={wired ? 'success' : 'secondary'}>{wiredLabel(group)}</Badge>
+        <div className="flex gap-2 items-center">
+          <Badge variant={wired ? 'success' : 'secondary'}>{wiredLabel(group)}</Badge>
+          {/* Only for an UNWIRED group. A wired one grants access, and dropping it here
+              would withdraw that access with nothing on screen saying so — Unwire first,
+              which is the reversible step that explains itself. The backend refuses it
+              too (409), so this is not the only thing standing between the two. */}
+          {!wired && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRemove}
+              disabled={wiring}
+              aria-label={`Remove ${group.displayName}`}
+            >
+              <Trash2 className="mr-1 w-4 h-4" />
+              Remove
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="text-sm text-muted-foreground">
@@ -320,6 +342,8 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const wire = useWireSyncedGroup(allianceId);
   const unwire = useDeleteAllianceGroupMap(allianceId);
   const [unwireConfirm, setUnwireConfirm] = useState<SyncedGroup | null>(null);
+  const remove = useRemoveSyncedGroup(allianceId);
+  const [removeConfirm, setRemoveConfirm] = useState<SyncedGroup | null>(null);
   const resync = useResyncAllianceProvisioning(allianceId);
 
   const [selectedByGroup, setSelectedByGroup] = useState<Record<number, string>>({});
@@ -517,6 +541,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               onDeptChange={(orgId, deptIds) => setDeptsForGroupOrg(group, orgId, deptIds)}
               onWire={() => handleWire(group)}
               onUnwire={() => setUnwireConfirm(group)}
+              onRemove={() => setRemoveConfirm(group)}
               wiring={wire.isPending || unwire.isPending}
             />
           ))
@@ -534,6 +559,26 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         confirmText={confirmText}
         title={confirmTitle}
         description={confirmDescription}
+      />
+
+      {/* Removing drops the GROUP itself. ⚠️ It does NOT reach the identity provider —
+          nothing on our side can, SCIM only flows inward — so if the IdP still has the
+          group in scope its next push brings it straight back. Saying that here is the
+          whole point of the dialog: a group that reappears is not a failed delete, and
+          an admin who is not told will read it as one and file a bug. */}
+      <ConfirmDialog
+        open={removeConfirm !== null}
+        onOpenChange={(open) => !open && setRemoveConfirm(null)}
+        onConfirm={() => {
+          const groupId = removeConfirm?.id;
+          setRemoveConfirm(null);
+          if (groupId !== undefined) remove.mutate(groupId);
+        }}
+        variant="danger"
+        confirmText="Remove"
+        cancelText="Keep it"
+        title={removeConfirm ? `Remove ${removeConfirm.displayName}?` : ''}
+        description="It grants nothing, so nobody loses access. This does not change your identity provider — if it still pushes this group, the group comes back. Remove it there too to keep it gone."
       />
 
       {/* Unwiring removes only the MAPPING. The backing group keeps its role, workspaces

@@ -121,3 +121,15 @@ export const clearScimGroupMapping = async (groupId: number): Promise<ScimGroupM
   const result = await apiClient.delete(`${BASE}/groups/${groupId}/mapping`);
   return (result.data as { data: { group: ScimGroupMapping } }).data.group;
 };
+
+/**
+ * DELETE the GROUP itself, not its mapping — for a group the IdP pushed by mistake.
+ *
+ * 409 while it is still mapped: clear the mapping first, which is the step that says the
+ * access is being withdrawn. ⚠️ Does not reach the IdP; if the provider still has the
+ * group in scope, its next push recreates it.
+ */
+export const removeScimGroup = async (groupId: number): Promise<{ removed: string }> => {
+  const result = await apiClient.delete(`${BASE}/groups/${groupId}`);
+  return (result.data as { data: { removed: string } }).data;
+};

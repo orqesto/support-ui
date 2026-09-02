@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Users, Copy, Check, Trash2, KeyRound } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button, IconButton } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -18,6 +19,7 @@ import {
   listScimGroupMappings,
   setScimGroupMapping,
   clearScimGroupMapping,
+  removeScimGroup,
   type ScimTokenMeta,
   type ScimGroupMapping,
   type OrgRole,
@@ -78,6 +80,7 @@ export const SCIMConfigSettings = () => {
   const [groups, setGroups] = useState<ScimGroupMapping[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [savingGroupId, setSavingGroupId] = useState<number | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState<ScimGroupMapping | null>(null);
 
   // Resolve alliance membership first. On error, fail open to the editable tab.
   useEffect(() => {
@@ -213,6 +216,30 @@ export const SCIMConfigSettings = () => {
     } catch (err: unknown) {
       logger.error('Failed to save group mapping', err);
       setError(err instanceof Error ? err.message : 'Failed to save the group mapping.');
+    } finally {
+      setSavingGroupId(null);
+    }
+  };
+
+  /**
+   * Remove a synced group outright. Offered ONLY for an unmapped group: a mapped one
+   * grants a role and departments, and dropping it here would withdraw that silently.
+   * The backend refuses that case with a 409 whose message says to clear the mapping
+   * first, so this is not the only thing keeping the two apart.
+   *
+   * ⚠️ Nothing here reaches the IdP. If the provider still pushes this group it will
+   * reappear — which is why the confirm says so rather than letting it look like a
+   * removal that did not work.
+   */
+  const onRemoveGroup = async (group: ScimGroupMapping) => {
+    setSavingGroupId(group.id);
+    setError(null);
+    try {
+      await removeScimGroup(group.id);
+      setGroups((prev) => prev.filter((row) => row.id !== group.id));
+    } catch (err) {
+      logger.error('Failed to remove synced group', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove the group.');
     } finally {
       setSavingGroupId(null);
     }
@@ -480,9 +507,22 @@ export const SCIMConfigSettings = () => {
                             {group.memberCount} member{group.memberCount === 1 ? '' : 's'}
                           </div>
                         </div>
-                        {savingGroupId === group.id && (
-                          <span className="text-xs text-muted-foreground">Saving…</span>
-                        )}
+                        <div className="flex gap-2 items-center">
+                          {savingGroupId === group.id && (
+                            <span className="text-xs text-muted-foreground">Saving…</span>
+                          )}
+                          {group.mappedRole === null && group.mappedDepartmentIds.length === 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={savingGroupId === group.id}
+                              onClick={() => setRemoveConfirm(group)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                       <div>
@@ -531,6 +571,24 @@ export const SCIMConfigSettings = () => {
             </div>
           </div>
         )}
+
+        {/* ⚠️ Says plainly that this does not touch the IdP. A group that reappears on the
+            next push is the provider still pushing it, not a removal that failed — an
+            admin who is not told that reads it as a bug. */}
+        <ConfirmDialog
+          open={removeConfirm !== null}
+          onOpenChange={(open) => !open && setRemoveConfirm(null)}
+          onConfirm={() => {
+            const group = removeConfirm;
+            setRemoveConfirm(null);
+            if (group) void onRemoveGroup(group);
+          }}
+          variant="danger"
+          confirmText="Remove"
+          cancelText="Keep it"
+          title={removeConfirm ? `Remove ${removeConfirm.displayName}?` : ''}
+          description="It maps to nothing, so nobody loses access. This does not change your identity provider — if it still pushes this group, the group comes back. Remove it there too to keep it gone."
+        />
       </CardContent>
     </Card>
   );
