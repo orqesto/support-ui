@@ -279,15 +279,32 @@ export function renderMarkdown(raw: string): string {
  * server and learns nothing about who read it or when. It is the reason `img` can be allowed
  * at all — see `messageHtmlController` for the guards on the other end.
  *
- * Sources that are not absolute http(s) — `cid:` inline parts, `data:` URIs, relative paths —
- * are left alone; the sanitizer drops them, which is the right outcome for markup we cannot
- * fetch on the reader's behalf anyway.
+ * `cid:` parts are rewritten too — those are images the mail carried with it, served from the
+ * attachment row rather than fetched from anywhere. Sources that are neither (`data:` URIs,
+ * relative paths) are left alone; the sanitizer drops them, which is the right outcome for
+ * markup we cannot serve on the reader's behalf.
  */
 export function proxyRemoteImages(html: string, eventId: number, apiBaseUrl: string): string {
   return html.replace(
     /(<img\b[^>]*?\bsrc\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
     (whole, prefix: string, _q: string, dq?: string, sq?: string, bare?: string) => {
       const src = (dq ?? sq ?? bare ?? '').trim();
+
+      // An image the mail CARRIED with it. The bytes are already ours (stored as an attachment
+      // at ingest), so this reaches the same endpoint with `cid` instead of `src` — one URL
+      // shape for the console to produce and one prefix for the sanitizer to allow.
+      //
+      // ⚠️ Only mail ingested after the Content-ID began being stored can resolve; older
+      // messages 404 and the image stays missing. The mapping was deleted at ingest and cannot
+      // be rebuilt from filenames — on production only 14 of 69 cid references matched a stored
+      // filename, so guessing the rest would render the WRONG image.
+      if (/^cid:/i.test(src)) {
+        const cid = src.slice(4).trim();
+        if (cid.length === 0) return whole;
+        const inline = `${apiBaseUrl}/api/messages/events/${eventId}/image?cid=${encodeURIComponent(cid)}`;
+        return `${prefix}"${inline}"`;
+      }
+
       if (!/^https?:\/\//i.test(src)) return whole;
       const proxied = `${apiBaseUrl}/api/messages/events/${eventId}/image?src=${encodeURIComponent(src)}`;
       return `${prefix}"${proxied}"`;
