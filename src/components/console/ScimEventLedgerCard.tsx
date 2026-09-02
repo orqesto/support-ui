@@ -24,6 +24,7 @@ const EVENT_LABEL: Record<string, string> = {
   role_elevated: 'Role elevated',
   role_de_elevated: 'Role lowered',
   group_wired: 'Group access wired',
+  group_pruned: 'IdP group dropped (provider stopped pushing it)',
   resync: 'Re-synced',
   provision_rejected: 'Provisioning rejected',
   seat_cap_rejected: 'Seat cap reached',
