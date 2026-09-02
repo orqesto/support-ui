@@ -1,5 +1,5 @@
 echo "→ FE typecheck"
-npx tsc --noEmit || exit 1
+npm run type-check || exit 1
 
 echo "→ FE lint"
 npx eslint src || exit 1
