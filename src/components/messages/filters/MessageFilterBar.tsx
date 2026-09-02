@@ -132,6 +132,16 @@ export const MessageFilterBar = ({
   // cannot, and deep paging is exactly when that matters.
   const rangeStart = (pagination.page - 1) * pagination.limit + 1;
   const rangeEnd = Math.min(pagination.page * pagination.limit, total);
+  /**
+   * ⛔ The board has no range to report. Its columns page INDEPENDENTLY (20 at a time
+   * each), so "1–50" describes no state the agent can be in — and the count beside it was
+   * the LIST's, from a query the board never ran. On a real workspace that rendered
+   * "1–50 of 53" above a board whose own badge said 64: `view=work_queue` pins
+   * `status IN ACTIVE_STATUSES`, which omits `needs_routing`, while the board's Open lane
+   * includes those 11 threads and shows them badged "Needs routing". Two counts, one
+   * screen, nothing saying they answered different questions.
+   */
+  const hasRange = !isKanban;
 
   return (
     <Card>
@@ -238,12 +248,18 @@ export const MessageFilterBar = ({
         <div className="flex gap-3 justify-between items-center">
           <span className="text-[12.5px] text-muted-foreground tabular-nums">
             {total > 0 ? (
-              <>
-                <b className="font-semibold text-foreground/70">
-                  {rangeStart}–{rangeEnd}
-                </b>{' '}
-                of {total}
-              </>
+              hasRange ? (
+                <>
+                  <b className="font-semibold text-foreground/70">
+                    {rangeStart}–{rangeEnd}
+                  </b>{' '}
+                  of {total}
+                </>
+              ) : (
+                <>
+                  <b className="font-semibold text-foreground/70">{total}</b> on this board
+                </>
+              )
             ) : (
               'No messages'
             )}

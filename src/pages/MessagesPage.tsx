@@ -121,6 +121,8 @@ export const MessagesPage = () => {
     );
   }, [displayMode, setSearchParams]);
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
+  /** What the board says it is holding — see the `pagination` prop on MessageFilterBar. */
+  const [boardTotal, setBoardTotal] = useState(0);
   const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
   // Imperative handle to the Kanban view for optimistic single-card moves, plus the
   // threadId of the currently-open conversation (captured on open) so we know which
@@ -710,7 +712,19 @@ export const MessagesPage = () => {
                   filters={filters}
                   activeFilterCount={activeFilterCount}
                   clearableFilterCount={clearableFilterCount}
-                  pagination={displayMode === 'contacts' ? contactsPagination : pagination}
+                  /**
+                   * ⛔ Each surface reports ITS OWN count. Contacts already did; the board
+                   * did not, so the header showed the LIST's total above a board running a
+                   * different query — "1–50 of 53" over a board whose own badge said 64,
+                   * the 11 needs-routing threads being the difference.
+                   */
+                  pagination={
+                    displayMode === 'contacts'
+                      ? contactsPagination
+                      : displayMode === 'kanban'
+                        ? { page: 1, limit: boardTotal, total: boardTotal }
+                        : pagination
+                  }
                   onFilterChange={handleFilterChange}
                   onFilterPatch={handleFilterPatch}
                   onCommitSearch={handleCommitSearch}
@@ -805,6 +819,7 @@ export const MessagesPage = () => {
                   onOpen={handleOpenThread}
                   refreshKey={kanbanRefreshKey}
                   onScopeJump={handleScopeJump}
+                  onTotalChange={setBoardTotal}
                 />
               ) : displayMode === 'contacts' ? (
                 <ContactsView

@@ -317,6 +317,12 @@ type MessagesKanbanViewProps = {
    * filter and visibly does nothing, which is worse than not offering the link.
    */
   onScopeJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
+  /**
+   * How many threads the VISIBLE lanes hold, reported up so the page header can describe
+   * the board instead of the list. Fires on tab switch and lane toggle as well as on
+   * data, because all three change what the agent is actually looking at.
+   */
+  onTotalChange?: (total: number) => void;
 };
 
 export type MessagesKanbanHandle = {
@@ -400,7 +406,7 @@ const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }
 };
 
 export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanbanViewProps>(
-  ({ filters, onOpen, refreshKey, onScopeJump }, ref) => {
+  ({ filters, onOpen, refreshKey, onScopeJump, onTotalChange }, ref) => {
   const queryClient = useQueryClient();
   // Which axis's columns are shown. Lifecycle = the work board; Triage = the
   // pre-lifecycle classification queues. (Option A: separate tabs.)
@@ -833,6 +839,22 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   const visibleColumns = COLUMNS.filter(
     (col) => col.axis === activeTab && !hiddenCols.has(col.id)
   );
+
+  /**
+   * The count the page header shows while the board is on screen.
+   *
+   * ⛔ Sum of the VISIBLE columns, not a fixed set. It has to follow the axis tab and the
+   * lane toggles, or the header goes back to describing a question the screen is not
+   * asking — which is the whole defect this reports away from.
+   */
+  const visibleTotal = visibleColumns.reduce(
+    (sum, col) => sum + (colStates[col.id]?.total ?? 0),
+    0
+  );
+  useEffect(() => {
+    onTotalChange?.(visibleTotal);
+  }, [visibleTotal, onTotalChange]);
+
   // Triage-tab count badges: UNREAD first (what still needs a human's eyes), then
   // the all-items total. Both loaded even while the lifecycle board is showing, so
   // the badges stay live.
