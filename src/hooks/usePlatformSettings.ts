@@ -49,8 +49,16 @@ export const useUpdatePlatformStorage = () => {
 export const useSetPlatformSecret = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, value }: { key: PlatformSecretKey; value: string }) =>
-      platformSettingsService.setSecret(key, value),
+    mutationFn: ({
+      key,
+      value,
+      force,
+    }: {
+      key: PlatformSecretKey;
+      value: string;
+      /** Store a credential the provider refused — see `setSecret`. */
+      force?: boolean;
+    }) => platformSettingsService.setSecret(key, value, { force }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 };

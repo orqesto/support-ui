@@ -346,7 +346,9 @@ export const ManagedAiDefaultsCard = ({
           <SecretField
             label={`${PROVIDER_LABELS[provider]} API key`}
             status={keyStatus}
-            onSave={(value) => setSecret.mutate({ key: keySlot, value })}
+            onSave={(value, options) =>
+              setSecret.mutateAsync({ key: keySlot, value, force: options?.force })
+            }
             onClear={() => clearSecret.mutate(keySlot)}
             saving={setSecret.isPending}
             clearing={clearSecret.isPending}
@@ -559,7 +561,13 @@ export const ManagedAiDefaultsCard = ({
             <SecretField
               label="AWS access key ID"
               status={ai.bedrockAccessKeyId}
-              onSave={(value) => setSecret.mutate({ key: 'ai.bedrock_access_key_id', value })}
+              onSave={(value, options) =>
+                setSecret.mutateAsync({
+                  key: 'ai.bedrock_access_key_id',
+                  value,
+                  force: options?.force,
+                })
+              }
               onClear={() => clearSecret.mutate('ai.bedrock_access_key_id')}
               saving={setSecret.isPending}
               clearing={clearSecret.isPending}
@@ -567,7 +575,13 @@ export const ManagedAiDefaultsCard = ({
             <SecretField
               label="AWS secret access key"
               status={ai.bedrockSecretAccessKey}
-              onSave={(value) => setSecret.mutate({ key: 'ai.bedrock_secret_access_key', value })}
+              onSave={(value, options) =>
+                setSecret.mutateAsync({
+                  key: 'ai.bedrock_secret_access_key',
+                  value,
+                  force: options?.force,
+                })
+              }
               onClear={() => clearSecret.mutate('ai.bedrock_secret_access_key')}
               saving={setSecret.isPending}
               clearing={clearSecret.isPending}

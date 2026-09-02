@@ -96,16 +96,14 @@ const seedText = (storage: Storage): Record<TextKey, string> => ({
  * prop object, whose reference changes on every refetch.
  */
 const storedSnapshot = (storage: Storage): string =>
-  JSON.stringify([
-    storage.driver.value,
-    seedText(storage),
-    storage.forcePathStyle.value ?? false,
-  ]);
+  JSON.stringify([storage.driver.value, seedText(storage), storage.forcePathStyle.value ?? false]);
 
 export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   const [mode, setMode] = useState<Mode>(() => initialMode(storage));
   const [text, setText] = useState<Record<TextKey, string>>(() => seedText(storage));
-  const [forcePathStyle, setForcePathStyle] = useState<boolean>(storage.forcePathStyle.value ?? false);
+  const [forcePathStyle, setForcePathStyle] = useState<boolean>(
+    storage.forcePathStyle.value ?? false
+  );
   // A successful test is required before Save can persist an S3 target; any edit
   // to the config invalidates it (the green must reflect the config being saved).
   const [testResult, setTestResult] = useState<StorageTestResult | null>(null);
@@ -209,14 +207,15 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   // bucket, but nothing moves until it's saved — say so rather than letting the
   // dropdown imply files are already going there.
   const envS3NotYetEffective =
-    storage.envS3Configured && storage.effectiveDriver === 'local' && storage.driver.source !== 'db';
+    storage.envS3Configured &&
+    storage.effectiveDriver === 'local' &&
+    storage.driver.source !== 'db';
 
   /** The read-only view: what the platform is using, and where each value comes from. */
   const summary: ConfigSummaryRow[] = [
     {
       label: 'Backend',
-      value:
-        storage.effectiveDriver === 's3' ? 'S3 / compatible' : 'Local disk (single node)',
+      value: storage.effectiveDriver === 's3' ? 'S3 / compatible' : 'Local disk (single node)',
       source: sourceNote(storage.driver.source),
     },
     ...(storage.effectiveDriver === 's3'
@@ -236,9 +235,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
           },
           {
             label: 'Access key',
-            value: storage.accessKeyId.configured
-              ? `····${storage.accessKeyId.last4 ?? ''}`
-              : '',
+            value: storage.accessKeyId.configured ? `····${storage.accessKeyId.last4 ?? ''}` : '',
             source: storage.accessKeyId.configured
               ? sourceNote(storage.accessKeyId.source === 'db' ? 'db' : 'env')
               : undefined,
@@ -258,7 +255,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
       emptyNote={
         <>
           No storage default is set in the console, so attachments follow the environment
-          {storage.envS3Configured ? " (which provides an S3 target)" : ' (local disk)'}. Configure
+          {storage.envS3Configured ? ' (which provides an S3 target)' : ' (local disk)'}. Configure
           one here to pin it.
         </>
       }
@@ -328,8 +325,8 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
           </Select>
           <p className="mt-2 text-xs text-muted-foreground">
             Local disk keeps files on the container&apos;s own filesystem: it is lost on a rebuild
-            and cannot be shared across replicas. Use it only for local development or a
-            single-node self-hosted install.
+            and cannot be shared across replicas. Use it only for local development or a single-node
+            self-hosted install.
           </p>
         </div>
 
@@ -388,7 +385,13 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
             <SecretField
               label="Access key ID"
               status={storage.accessKeyId}
-              onSave={(value) => setSecret.mutate({ key: 'storage.s3_access_key_id', value })}
+              onSave={(value, options) =>
+                setSecret.mutateAsync({
+                  key: 'storage.s3_access_key_id',
+                  value,
+                  force: options?.force,
+                })
+              }
               onClear={() => clearSecret.mutate('storage.s3_access_key_id')}
               saving={setSecret.isPending}
               clearing={clearSecret.isPending}
@@ -396,7 +399,13 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
             <SecretField
               label="Secret access key"
               status={storage.secretAccessKey}
-              onSave={(value) => setSecret.mutate({ key: 'storage.s3_secret_access_key', value })}
+              onSave={(value, options) =>
+                setSecret.mutateAsync({
+                  key: 'storage.s3_secret_access_key',
+                  value,
+                  force: options?.force,
+                })
+              }
               onClear={() => clearSecret.mutate('storage.s3_secret_access_key')}
               saving={setSecret.isPending}
               clearing={clearSecret.isPending}
