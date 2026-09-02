@@ -344,6 +344,28 @@ export function splitAtQuote(
   // divider (--- / ___), a forwarded-header block, or the first `>`-quoted line.
   const idx = content.search(/\n-{3,}|\n_{3,}|\nOn .{5,}wrote:|\n-{2,} ?Forwarded|\nFrom: .{2,}\n|\n\s*>[ >]/);
   if (idx > 50) return { main: content.slice(0, idx).trimEnd(), quote: content.slice(idx) };
+
+  // Every marker above is anchored to a newline, so a body that HAS no newline can
+  // never split — and one class of message arrives exactly that way. Mail with no
+  // usable text/plain part is stored as its HTML run through the ingestion
+  // tag-stripper, which turns each tag into a space and then collapses `\s+` to a
+  // single space (imapEmailProcessor.ts / gmailMessageParser.ts). The line structure
+  // is gone before the FE ever sees it, so the reply, our previous answer and the
+  // customer's own first mail render as one wall of text with no `show quoted` at all
+  // (COR-SUP-2108). Re-run the same markers unanchored — but ONLY for that case: in a
+  // body that still has line structure a mid-line "wrote:" is prose, not a quote.
+  if (!content.includes('\n')) {
+    // Bounded and lazy (`{5,300}?`, no nested quantifier) so a long body cannot
+    // backtrack. The lookahead requires a four-digit year inside the attribution —
+    // Gmail, Apple Mail, Outlook, Yahoo and our own quote header all carry one, and
+    // prose like "the returns policy you wrote: refunds within 30 days" does not. A
+    // bare `\d` there is not enough: that sentence would split on its own "30".
+    const inline = content.match(
+      /\bOn (?=[^\n]{0,300}\d{4})[^\n]{5,300}?wrote:|-{2,} ?Forwarded message|-{2,} ?Original Message|\bFrom: *\S+@\S+/i
+    );
+    if (inline?.index !== undefined && inline.index > 50)
+      return { main: content.slice(0, inline.index).trimEnd(), quote: content.slice(inline.index) };
+  }
   return { main: content, quote: null };
 }
 
