@@ -40,6 +40,20 @@ const sumCost = (tiers: ManagedAiTierStat[]): number | null => {
 const tokensFor = (org: ManagedAiOrgUsage, tier: ManagedAiTier): number =>
   org.byTier.find((entry) => entry.tier === tier)?.totalTokens ?? 0;
 
+/** `2026-09` → `September 2026`. Returns the raw value if it is not a month key. */
+const formatMonth = (month: string): string => {
+  const [year, monthIndex] = month.split('-').map(Number);
+  if (!year || !monthIndex) return month;
+  return new Date(Date.UTC(year, monthIndex - 1, 1)).toLocaleString(undefined, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+};
+
+/** First day of a `YYYY-MM` key, UTC — the instant the cap counter last reset. */
+const monthStart = (month: string): Date => new Date(`${month}-01T00:00:00.000Z`);
+
 /** A cap bar. Amber past 75%, red past 90% — the point is to notice before it bites. */
 const CallCap = ({ calls }: { calls: ManagedAiOrgUsage['calls'] }) => {
   if (!calls) return <span className="text-muted-foreground">unknown</span>;
@@ -81,6 +95,22 @@ export const PlatformAiSpend = () => {
     usage?.totals.byTier
       .filter((tier) => tier.costEstimate === null)
       .reduce((sum, tier) => sum + tier.totalTokens, 0) ?? 0;
+
+  /**
+   * The cap column is on a different clock from every column beside it: tokens answer the
+   * `days` selector above, the cap is a calendar-month counter that resets on the 1st.
+   * Undefined against an API that predates the field — the column then renders exactly as
+   * it always did rather than claiming a window it does not know.
+   */
+  const capMonth = usage?.orgs.find((org) => org.calls?.month)?.calls?.month;
+  /**
+   * Only worth saying when the two windows genuinely disagree. On 2026-09-02 with a 30-day
+   * range they did: 21M tokens burned on 08-28 sat beside `0 / 96,000 calls`, both correct,
+   * together reading as "nothing is being spent".
+   */
+  const capWindowIsShorter = Boolean(
+    capMonth && data?.meta.from && new Date(data.meta.from) < monthStart(capMonth)
+  );
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
@@ -200,7 +230,14 @@ export const PlatformAiSpend = () => {
                           {TIER_LABEL[tier]}
                         </th>
                       ))}
-                      <th className="px-3 py-2 font-medium">Monthly cap</th>
+                      <th className="px-3 py-2 font-medium">
+                        Monthly cap
+                        {capMonth && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            · {formatMonth(capMonth)}
+                          </span>
+                        )}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -237,6 +274,13 @@ export const PlatformAiSpend = () => {
                 </table>
               )}
             </CardContent>
+            {capWindowIsShorter && capMonth && (
+              <p className="px-3 py-2 text-xs border-t text-muted-foreground border-border">
+                The cap column counts {formatMonth(capMonth)} only — it resets on the 1st and
+                does not follow the range above, so a workspace can show heavy token spend
+                beside a nearly untouched cap.
+              </p>
+            )}
           </Card>
         </>
       )}

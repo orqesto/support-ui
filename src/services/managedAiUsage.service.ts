@@ -29,8 +29,16 @@ export interface ManagedAiTierStat {
 export interface ManagedAiOrgUsage {
   organizationId: number;
   name: string;
-  /** Monthly AI-call cap consumption. Null when the org's limits could not be read. */
-  calls: { used: number; limit: number; remaining: number } | null;
+  /**
+   * Monthly AI-call cap consumption. Null when the org's limits could not be read.
+   *
+   * ⚠️ `month` (`YYYY-MM`) is the window this counter actually covers, and it is NOT the
+   * `days` window the token columns answer: the cap is a calendar-month counter that
+   * resets on the 1st. Optional because it arrives with the backend change that adds it —
+   * an older API omits it, and the column must stay readable rather than render
+   * `undefined`.
+   */
+  calls: { used: number; limit: number; remaining: number; month?: string } | null;
   totalTokens: number;
   byTier: ManagedAiTierStat[];
 }

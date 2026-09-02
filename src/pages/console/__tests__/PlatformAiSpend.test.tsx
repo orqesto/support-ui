@@ -108,6 +108,60 @@ describe('Platform → AI Spend', () => {
     expect(screen.getByText('unknown')).toBeInTheDocument();
   });
 
+  /**
+   * The cap column runs on a calendar month and resets on the 1st; every column beside it
+   * answers the 7/30/90 selector. Staging 2026-09-02 showed 21,095,737 tokens next to
+   * `0 / 96,000 calls` — both right, and together they read as "nothing is being spent"
+   * three days after the burn this page exists to surface.
+   */
+  describe('the cap column names its own window', () => {
+    const withMonth = (month?: string): ManagedAiUsageResult => {
+      const base = result();
+      base.usage.orgs[0].calls = { used: 0, limit: 96000, remaining: 96000, ...(month ? { month } : {}) };
+      return base;
+    };
+
+    it('labels the cap column header with the month it counts', async () => {
+      get.mockResolvedValue(withMonth('2026-09'));
+      renderPage();
+
+      // Scoped to the header: the footnote below names the month too, so a bare
+      // text query matches twice and proves nothing about where the label landed.
+      const header = await screen.findByRole('columnheader', { name: /Monthly cap/ });
+      expect(within(header).getByText(/September 2026/)).toBeInTheDocument();
+    });
+
+    it('says the windows disagree when the range starts before the cap reset', async () => {
+      // meta.from is 2026-08-02; the cap counts September only.
+      get.mockResolvedValue(withMonth('2026-09'));
+      renderPage();
+
+      expect(
+        await screen.findByText(/resets on the 1st and does not follow the range above/)
+      ).toBeInTheDocument();
+    });
+
+    it('stays silent when the range sits inside the cap month', async () => {
+      const inMonth = withMonth('2026-08');
+      inMonth.meta = { from: '2026-08-10T00:00:00.000Z', to: '2026-08-20T00:00:00.000Z', days: 10 };
+      get.mockResolvedValue(inMonth);
+      renderPage();
+
+      expect(await screen.findByText('framehouse')).toBeInTheDocument();
+      expect(screen.queryByText(/does not follow the range above/)).not.toBeInTheDocument();
+    });
+
+    it('renders exactly as before against an API that does not send the month', async () => {
+      // The backend half ships first, but this bundle can reach a prod that lacks it.
+      get.mockResolvedValue(withMonth(undefined));
+      renderPage();
+
+      expect(await screen.findByText('0 / 96,000 calls')).toBeInTheDocument();
+      expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/does not follow the range above/)).not.toBeInTheDocument();
+    });
+  });
+
   it('never prices an unpriced tier at zero', async () => {
     get.mockResolvedValue(
       result({
