@@ -74,13 +74,38 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
   // would be the same species of claim the component was written to stop.
   if (!scope || scope.hidden <= 0) return null;
 
+  const isBoard = surface === 'board';
+
   // ⛔ `?? 0` would be wrong here: a bucket the backend does not send yet is UNKNOWN, and
   // the filter below drops it either way. Coalescing first and asserting later is how a
   // "0 outbound echoes" would eventually get rendered as a fact. Absent stays absent.
   const present = REASONS.map((reason) => ({
     ...reason,
     count: scope.hiddenBecause[reason.key],
-  })).filter((reason): reason is typeof reason & { count: number } => (reason.count ?? 0) > 0);
+  }))
+    .filter((reason): reason is typeof reason & { count: number } => (reason.count ?? 0) > 0)
+    /**
+     * ⛔ ON THE BOARD, MOST OF THESE ARE NOT REASONS — THEY ARE LANES.
+     *
+     * `boardLanePredicate` ORs nine columns INCLUDING resolved, and applies no KB
+     * exclusion at all, so terminal / suspicious / notAnalysed / archived / spam /
+     * awaitingOrReplied rows are all ON the board, and `needs_routing` rides along as a
+     * mark rather than being excluded. Listing them under "not shown on this board"
+     * told the agent the board was hiding the very rows it was displaying.
+     *
+     * Observed on staging org 21: "Showing 2,880 of 2,910 — 30 not shown on this board ·
+     * 2,864 resolved or closed · 2,904 from the knowledge base". The 2,864 are counted
+     * INSIDE the 2,880 and cited as a reason for exclusion in the same sentence.
+     *
+     * 🔑 The board's own `needsListView` flag already encodes "this bucket has no column
+     * here", so it is the filter — not a second list to keep in sync with the first.
+     * `other` survives because it is BY DEFINITION the rows no lane claims, and on the
+     * board it is the only honest entry: it is what `hidden` counts.
+     */
+    // ⛔ `??` is not interchangeable here and the lint rule's suggestion would be a bug:
+    // `needsListView` is `boolean | undefined`, and `false ?? x` yields false where
+    // `false || x` falls through to x. Compared explicitly so the operand is a boolean.
+    .filter((reason) => !isBoard || reason.needsListView === true || reason.key === 'other');
 
   return (
     <div
@@ -88,12 +113,29 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
       data-testid="list-scope-notice"
     >
       <EyeOff className="w-4 h-4 shrink-0" aria-hidden="true" />
-      <span>
-        Showing <strong className="text-foreground">{shown.toLocaleString()}</strong> of{' '}
-        <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
-        {scope.hidden.toLocaleString()}{' '}
-        {surface === 'board' ? 'not shown on this board' : 'hidden by the current view'}
-      </span>
+      {/**
+       * ⛔ The board does NOT say "Showing N". `shown` there is the board query's total
+       * across all nine lanes, while the screen renders only the columns the agent has
+       * toggled on — 2,880 claimed against 14 cards actually visible on staging org 21.
+       * Neither number is wrong; "Showing" was. The board's honest claim is about
+       * COVERAGE — which rows it has a lane for — and that holds whatever is collapsed.
+       */}
+      {isBoard ? (
+        <span>
+          This board has a lane for{' '}
+          <strong className="text-foreground">
+            {(scope.withoutLens - scope.hidden).toLocaleString()}
+          </strong>{' '}
+          of <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
+          {scope.hidden.toLocaleString()} have none
+        </span>
+      ) : (
+        <span>
+          Showing <strong className="text-foreground">{shown.toLocaleString()}</strong> of{' '}
+          <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
+          {scope.hidden.toLocaleString()} hidden by the current view
+        </span>
+      )}
       {present.length > 0 && <span aria-hidden="true">·</span>}
       {present.map((reason) =>
         reason.filters ? (

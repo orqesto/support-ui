@@ -124,10 +124,83 @@ describe('ListScopeNotice', () => {
     expect(text).not.toContain('outbound echoes');
   });
 
-  it('says "not shown on this board" on the kanban, where more is missing', () => {
-    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} surface="board" />);
-    expect(screen.getByTestId('list-scope-notice').textContent).toContain(
-      'not shown on this board'
-    );
+  it('does not say "Showing N" on the kanban, where N is not what is on screen', () => {
+    // Was: asserted the board said "not shown on this board". That wording is gone, and
+    // the reason it is gone matters more than the phrase — see the block below.
+    const text =
+      render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} surface="board" />) &&
+      (screen.getByTestId('list-scope-notice').textContent ?? '');
+    expect(text).toContain('has a lane for');
+    expect(text).not.toContain('Showing');
+  });
+});
+
+/**
+ * The board is not the list, and the notice used to pretend it was.
+ *
+ * Observed on staging org 21: "Showing 2,880 of 2,910 — 30 not shown on this board ·
+ * 2,864 resolved or closed · 2,904 from the knowledge base · 4 awaiting routing".
+ * Two independent falsehoods in one line:
+ *   1. the 2,864 resolved are counted INSIDE the 2,880 and cited as a reason for exclusion;
+ *   2. the board rendered 14 cards at the time — the resolved lane is behind a toggle that
+ *      is off by default, so "Showing 2,880" described a screen nobody was looking at.
+ */
+describe('ListScopeNotice — board surface', () => {
+  // A KB-mined workspace: everything is in a bucket the BOARD has a lane for.
+  const org21: ListScope = {
+    withoutLens: 2910,
+    hidden: 30,
+    hiddenBecause: {
+      terminal: 2864,
+      knowledgeBase: 2904,
+      needsRouting: 4,
+      archived: 2,
+      spam: 0,
+      suspicious: 0,
+      notAnalysed: 0,
+      awaitingOrReplied: 0,
+      orphanOutgoing: 7,
+      other: 23,
+    },
+  } as unknown as ListScope;
+
+  const boardText = () => {
+    render(<ListScopeNotice scope={org21} shown={2880} onJump={vi.fn()} surface="board" />);
+    return screen.getByTestId('list-scope-notice').textContent ?? '';
+  };
+
+  it('does not cite buckets the board has a lane for', () => {
+    const text = boardText();
+    // boardLanePredicate ORs nine lanes INCLUDING resolved, and applies no KB exclusion.
+    expect(text).not.toContain('resolved or closed');
+    expect(text).not.toContain('from the knowledge base');
+    expect(text).not.toContain('awaiting routing');
+    expect(text).not.toContain('auto-archived');
+  });
+
+  it('still cites what the board genuinely cannot display', () => {
+    // The control for the test above: if the filter were simply dropping everything, this
+    // would pass vacuously. `orphanOutgoing` carries needsListView, `other` is the residue.
+    const text = boardText();
+    expect(text).toContain('7 outbound echoes');
+    expect(text).toContain('23 hidden by this view');
+  });
+
+  it('states coverage rather than a count of what is on screen', () => {
+    // 2,910 − 30 = 2,880 rows have a lane. That claim holds whichever columns are
+    // collapsed, which is exactly why it replaced "Showing".
+    const text = boardText(); // 🪤 calling boardText() twice renders twice, and
+    expect(text).toContain('2,880'); //    getByTestId then fails on TWO matches.
+    expect(text).toContain('30 have none');
+  });
+
+  it('leaves the LIST surface untouched — every reason still shown', () => {
+    // Scope control. The same scope on the list must still name all four, because on the
+    // list they really are the reasons rows are missing.
+    render(<ListScopeNotice scope={org21} shown={0} onJump={vi.fn()} />);
+    const text = screen.getByTestId('list-scope-notice').textContent ?? '';
+    expect(text).toContain('Showing');
+    expect(text).toContain('2,864 resolved or closed');
+    expect(text).toContain('2,904 from the knowledge base');
   });
 });
