@@ -42,6 +42,7 @@ import { MessageDetail } from '@/components/messages/MessageDetail';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { ContactsView } from '@/components/messages/ContactsView';
 import { QuickFilterChips } from '@/components/messages/QuickFilterChips';
+import { quickFilterWouldChange } from '@/components/messages/quickFilterPatch';
 import {
   MessagesKanbanView,
   type MessagesKanbanHandle,
@@ -759,6 +760,19 @@ export const MessagesPage = () => {
                 <QuickFilterChips
                   value={filters.columnId ?? 'all'}
                   onChange={(columnId) => {
+                    // A second click on All must change nothing. It used to re-patch
+                    // `lifecycle`/`queue` to 'all' on every click, and those are not neutral on
+                    // the backend: `messageFilters` skips the default terminal/passive exclusion
+                    // while a SPECIFIC lifecycle or queue is set, and re-applies it for 'all'.
+                    // So clicking the already-lit chip re-imposed an exclusion a lens had lifted
+                    // and rows disappeared — on one workspace, 16 of 72.
+                    //
+                    // The guard is on the RESULTING state, not on which chip is lit. `All` also
+                    // renders lit whenever no column is selected, including while a dropdown is
+                    // still narrowing; skipping on "lit" alone would remove the only control that
+                    // clears those. Nothing is written only when nothing would change.
+                    if (!quickFilterWouldChange(filters, columnId)) return;
+
                     // Selecting a column supersedes the dropdown filters it overlaps with —
                     // leaving those set would show a chip while the request carried a different,
                     // narrower predicate.
