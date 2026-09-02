@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { relayedFromLabel } from '@/lib/relayedFrom';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
+import { useMessageHtml } from '@/hooks/useMessageHtml';
 import { ThreadBubble } from './ThreadBubble';
 import { getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
@@ -22,6 +23,18 @@ export function ThreadMessageItem({
   onOpenAttachment,
 }: Props) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+
+  /**
+   * The sender's original markup, so an order confirmation renders as the table it was
+   * written as instead of the `| Discount: | -16.50 |` text alternative, and its tracking
+   * link is clickable.
+   *
+   * ⛔ Skipped when the agent has asked for a TRANSLATION: that comes back as plain text, and
+   * quietly showing the untranslated original instead would be worse than an ugly table.
+   * Also skipped for outbound, where the console already holds what we sent.
+   */
+  const wantsHtml = msg.type === 'inbound' && translatedContent === null;
+  const { data: originalHtml } = useMessageHtml(msg.id, wantsHtml);
 
   const isAgent =
     msg.type !== 'inbound' ||
@@ -95,7 +108,12 @@ export function ThreadMessageItem({
           <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed">
             <div className="flex items-start gap-1.5">
               <div className="flex-1 min-w-0 break-words">
-                <ThreadBubble content={translatedContent ?? msg.content} isAgent={true} />
+                <ThreadBubble
+                  content={translatedContent ?? msg.content}
+                  isAgent={true}
+                  html={originalHtml}
+                  eventId={msg.id}
+                />
               </div>
               <div className="flex-shrink-0 mt-0.5">
                 <TranslateButton
@@ -171,7 +189,12 @@ export function ThreadMessageItem({
         <div className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground">
           <div className="flex items-start gap-1.5">
             <div className="flex-1 min-w-0 break-words">
-              <ThreadBubble content={translatedContent ?? msg.content} isAgent={false} />
+              <ThreadBubble
+                content={translatedContent ?? msg.content}
+                isAgent={false}
+                html={originalHtml}
+                eventId={msg.id}
+              />
             </div>
             <div className="flex-shrink-0 mt-0.5">
               <TranslateButton
