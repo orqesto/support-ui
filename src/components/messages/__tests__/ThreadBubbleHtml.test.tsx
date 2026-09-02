@@ -44,8 +44,18 @@ describe('proxyRemoteImages', () => {
     expect(out.match(/api\/messages\/events\/7\/image/g)).toHaveLength(2);
   });
 
-  it('leaves cid:, data: and relative sources alone — the sanitizer drops them', () => {
-    const html = '<img src="cid:logo@1"><img src="data:image/png;base64,AA"><img src="/rel.png">';
+  it('rewrites a cid: part to the same endpoint, so one prefix covers both kinds', () => {
+    const out = proxyRemoteImages('<img src="cid:logo@corp.example">', 12, 'https://api.test');
+    expect(out).toContain('https://api.test/api/messages/events/12/image?cid=logo%40corp.example');
+  });
+
+  it('leaves data: and relative sources alone — the sanitizer drops them', () => {
+    const html = '<img src="data:image/png;base64,AA"><img src="/rel.png">';
+    expect(proxyRemoteImages(html, 1, 'https://api.test')).toBe(html);
+  });
+
+  it('ignores an empty cid rather than emitting a request for nothing', () => {
+    const html = '<img src="cid:">';
     expect(proxyRemoteImages(html, 1, 'https://api.test')).toBe(html);
   });
 });
@@ -86,6 +96,17 @@ describe('ThreadBubble with the original HTML', () => {
     expect(img).not.toBeNull();
     expect(img?.getAttribute('src')).toContain(`${API_BASE_URL}/api/messages/events/99/image`);
     expect(img?.getAttribute('src')).not.toContain('tracker.example.test/open.gif?id=abc&');
+  });
+
+  it('renders an inline cid image through the endpoint the sanitizer trusts', () => {
+    // The whole reason cid goes to the same URL shape: the DOMPurify hook only keeps an <img>
+    // whose src starts with our /api/messages/events/ prefix. A separate attachment URL would
+    // have been stripped by the very backstop that protects remote images.
+    const { container } = render(
+      <ThreadBubble content="" isAgent={false} html='<img src="cid:logo@corp.example">' eventId={12} />
+    );
+    const img = container.querySelector('img');
+    expect(img?.getAttribute('src')).toContain('/api/messages/events/12/image?cid=');
   });
 
   it('⛔ BACKSTOP: strips an img the rewrite missed, rather than letting it beacon', () => {
