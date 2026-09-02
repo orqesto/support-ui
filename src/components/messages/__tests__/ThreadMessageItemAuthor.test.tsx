@@ -17,6 +17,14 @@ import { render, screen, cleanup } from '@testing-library/react';
 import type { MessageEvent } from '@/types';
 import { ThreadMessageItem } from '../ThreadMessageItem';
 
+// ThreadMessageItem now fetches the sender's original HTML so an order confirmation renders
+// as the table it was written as. That is a react-query hook, and these suites render the
+// component bare — stubbed rather than wrapped in a provider, because none of them is about
+// the body: they assert the header, the author and the timestamp around it.
+vi.mock('@/hooks/useMessageHtml', () => ({
+  useMessageHtml: () => ({ data: null, isLoading: false }),
+}));
+
 vi.mock('@/components/shared/TranslateButton', () => ({
   TranslateButton: () => null,
 }));

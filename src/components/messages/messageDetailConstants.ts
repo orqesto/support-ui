@@ -147,23 +147,65 @@ export const THREAD_SANITIZE = {
     'tr',
     'td',
     'th',
+    // Only ever reaches the DOM already rewritten to our proxy by `proxyRemoteImages`;
+    // `width`/`height` come along so an order banner keeps its proportions.
+    'img',
   ],
-  ALLOWED_ATTR: ['href', 'target', 'rel'],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'width', 'height'],
   FORBID_ATTR: ['style', 'class', 'id'],
   ALLOWED_URI_REGEXP: /^https?:/i,
 };
 
 /**
- * DOMPurify hook config that forces rel="noopener noreferrer" on target="_blank" anchors.
- * Pass as the second argument to DOMPurify.sanitize alongside a config object.
+ * Force every surviving link to open in a new tab, with `rel="noopener noreferrer"`.
+ *
+ * 🪤 This used to read `if (target === '_blank') setAttribute('rel', …)` — a condition that
+ * could NEVER be true. `ALLOWED_URI_REGEXP: /^https?:/i` below is applied by DOMPurify to
+ * attribute values generally, not just to href, so `target="_blank"` and
+ * `rel="noopener noreferrer"` are BOTH stripped before any hook runs: `_blank` does not
+ * match `^https?:`. The hook then looked for an attribute the sanitizer had just removed.
+ * Proven by sanitizing the same anchor with and only with that one config key.
+ *
+ * So the attributes are SET here rather than checked. By this point the node has already
+ * survived the sanitizer, meaning its href passed the http(s) restriction — which is
+ * exactly the anchor we want opening in a new tab and unable to reach `window.opener`.
  */
 let noopenerHookRegistered = false;
 export function addNoopenerHook(DOMPurify: typeof DOMPurifyType): void {
   if (noopenerHookRegistered) return;
   noopenerHookRegistered = true;
   DOMPurify.addHook('afterSanitizeAttributes', (node: Element) => {
-    if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
-      node.setAttribute('rel', 'noopener noreferrer');
+    if (node.tagName !== 'A' || !node.hasAttribute('href')) return;
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  });
+}
+
+/**
+ * Last line of defence: strip any `<img>` whose src is not OUR proxy.
+ *
+ * ⛔ `proxyRemoteImages` rewrites sources with a regex over sender-controlled markup, and a
+ * regex over hostile HTML is a thing that can be wrong. If one slips past it, the sanitizer
+ * would happily keep it — `ALLOWED_URI_REGEXP` admits any https URL — and the browser would
+ * fetch it straight from the sender, which is the read-receipt leak the proxy exists to
+ * prevent. This checks the DOM node AFTER parsing, where there is no quoting or entity
+ * trickery left to hide behind, so a rewrite miss degrades to a missing image rather than to
+ * a silent beacon.
+ */
+let proxiedImageHookPrefix: string | null = null;
+export function addProxiedImagesOnlyHook(DOMPurify: typeof DOMPurifyType, apiBaseUrl: string): void {
+  const prefix = `${apiBaseUrl}/api/messages/events/`;
+  // The prefix can change between environments; re-registering with a new one must replace
+  // the closure rather than stack a second hook.
+  if (proxiedImageHookPrefix === prefix) return;
+  const first = proxiedImageHookPrefix === null;
+  proxiedImageHookPrefix = prefix;
+  if (!first) return;
+  DOMPurify.addHook('afterSanitizeAttributes', (node: Element) => {
+    if (node.tagName !== 'IMG') return;
+    const src = node.getAttribute('src') ?? '';
+    if (!proxiedImageHookPrefix || !src.startsWith(proxiedImageHookPrefix)) {
+      node.remove();
     }
   });
 }
@@ -211,7 +253,46 @@ export function renderMarkdown(raw: string): string {
     .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
     .replace(/_([^_\n]+)_/g, '<em>$1</em>')
     .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    // Autolink bare URLs. A plain-text mail is the ONLY place a tracking link can appear
+    // without markup, and until now the text branch allowed no anchors at all — so the
+    // link a customer was told to click was, in the console, unclickable text. Runs after
+    // escaping (so `&` is already `&amp;`) and before newlines become <br>, and stops at
+    // the trailing punctuation that ends a sentence rather than swallowing it into the URL.
+    .replace(
+      /\bhttps?:\/\/[^\s<>"']+/g,
+      (url) => {
+        const trimmed = url.replace(/[.,;:!?)\]]+$/, '');
+        const tail = url.slice(trimmed.length);
+        return `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${trimmed}</a>${tail}`;
+      }
+    )
     .replace(/\n/g, '<br>');
+}
+
+/**
+ * Point every remote `<img>` at our own proxy, so opening a thread never touches the
+ * sender's server.
+ *
+ * ⛔ This is a PRIVACY control, not plumbing. A remote image in an email is a read receipt:
+ * loading it directly tells whoever mailed us the exact moment an agent opened the message,
+ * from the agent's IP. Routed through the backend, the sender sees one request from our
+ * server and learns nothing about who read it or when. It is the reason `img` can be allowed
+ * at all — see `messageHtmlController` for the guards on the other end.
+ *
+ * Sources that are not absolute http(s) — `cid:` inline parts, `data:` URIs, relative paths —
+ * are left alone; the sanitizer drops them, which is the right outcome for markup we cannot
+ * fetch on the reader's behalf anyway.
+ */
+export function proxyRemoteImages(html: string, eventId: number, apiBaseUrl: string): string {
+  return html.replace(
+    /(<img\b[^>]*?\bsrc\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    (whole, prefix: string, _q: string, dq?: string, sq?: string, bare?: string) => {
+      const src = (dq ?? sq ?? bare ?? '').trim();
+      if (!/^https?:\/\//i.test(src)) return whole;
+      const proxied = `${apiBaseUrl}/api/messages/events/${eventId}/image?src=${encodeURIComponent(src)}`;
+      return `${prefix}"${proxied}"`;
+    }
+  );
 }
 
 // Converts a suggested/AI answer (generated as plain text with markdown-ish
