@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Mail,
   CheckCircle,
@@ -66,21 +66,41 @@ export const MessageProcessingProgress = ({
   const WIDGET_HEIGHT = 200; // Approximate height per widget
   const STACK_OFFSET = WIDGET_HEIGHT + 16; // Offset between stacked widgets
 
+  /**
+   * Bottom-right, stacking UPWARD — not top-right.
+   *
+   * The old default was `yPos: 16`, which put a 320px-wide floating panel across the top of
+   * whatever page was open. On Messages that is exactly where "Compose" lives, so a sync
+   * that found nothing sat on top of the page's primary action until the agent dragged or
+   * dismissed it. A transient progress readout must never land on a control.
+   */
+  const defaultPosition = (): Position => ({
+    xPos: window.innerWidth - 336,
+    yPos: Math.max(16, window.innerHeight - WIDGET_HEIGHT - 16 - index * STACK_OFFSET),
+  });
+
   const [position, setPosition] = useState<Position>(() => {
     // On mobile, ignore saved position
     if (isMobile) {
       return { xPos: 0, yPos: 0 };
     }
-    const saved = localStorage.getItem(`emailProcessingWidget_${safeKey}_position`);
+    /**
+     * ⛔ A NEW STORAGE KEY, deliberately. The position effect below wrote on MOUNT, not on
+     * drag, so the old top-right default was persisted for every agent the first time they
+     * loaded the page — changing the default alone would have fixed nobody. Reading a fresh
+     * key retires those auto-saved values without having to guess which of them a human
+     * actually chose; the effect now only writes after a real drag, so anything under this
+     * key IS a deliberate placement.
+     */
+    const saved = localStorage.getItem(`emailProcessingWidget_${safeKey}_position_v2`);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as Position;
-        return parsed;
+        return JSON.parse(saved) as Position;
       } catch {
-        return { xPos: window.innerWidth - 336, yPos: 16 + index * STACK_OFFSET };
+        return defaultPosition();
       }
     }
-    return { xPos: window.innerWidth - 336, yPos: 16 + index * STACK_OFFSET };
+    return defaultPosition();
   });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ xPos: 0, yPos: 0 });
@@ -172,10 +192,20 @@ export const MessageProcessingProgress = ({
           ? 'Analyzing'
           : 'Processing';
 
-  // Save position to localStorage with session-specific key
-  useEffect(() => {
-    localStorage.setItem(`emailProcessingWidget_${safeKey}_position`, JSON.stringify(position));
-  }, [position, safeKey, session.sessionKey]);
+  /**
+   * ⛔ Persist a DRAGGED position only. This used to be an effect on `position`, which runs
+   * on mount — so the computed default was written to storage before the agent had touched
+   * anything, and every later default change was overridden by a value nobody chose.
+   */
+  const rememberPosition = useCallback(
+    (next: Position) => {
+      localStorage.setItem(
+        `emailProcessingWidget_${safeKey}_position_v2`,
+        JSON.stringify(next)
+      );
+    },
+    [safeKey]
+  );
 
   // Drag handlers (desktop only)
   const handleMouseDown = (event: React.MouseEvent) => {
@@ -211,6 +241,12 @@ export const MessageProcessingProgress = ({
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      // The drag is over and this placement was chosen by a person — the only moment a
+      // position is worth remembering.
+      setPosition((current) => {
+        rememberPosition(current);
+        return current;
+      });
     };
 
     if (isDragging) {
@@ -222,7 +258,7 @@ export const MessageProcessingProgress = ({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragOffset]);
+  }, [isDragging, dragOffset, rememberPosition]);
 
   // Auto-expand and reopen when processing completes with results
   useEffect(() => {
