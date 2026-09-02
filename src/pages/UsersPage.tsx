@@ -361,9 +361,13 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     return (
       <div className="flex gap-2 justify-end">
         {canEdit && (
-          <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
+          <Button
             aria-label="Edit user"
             title="Edit user"
+            size="sm"
+            variant="outline"
+            onClick={() => handleEditUser(user)}
+          >
             <Edit2 className="w-4 h-4" />
           </Button>
         )}

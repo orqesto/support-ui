@@ -176,8 +176,13 @@ function TicketKanbanCard({
       <GripVertical className="absolute top-2 right-2 w-3.5 h-3.5 text-muted-foreground/30 hover:text-muted-foreground/70 pointer-events-none" />
 
       {/* distance:8 activation means short taps still fire onClick without starting a drag */}
-      <Button type="button" variant="ghost" onClick={() => onOpen(ticket)} className="w-full text-left justify-start p-3 h-auto rounded-none font-normal hover:bg-transparent">
+      <Button
         aria-label="Open ticket"
+        type="button"
+        variant="ghost"
+        onClick={() => onOpen(ticket)}
+        className="w-full text-left justify-start p-3 h-auto rounded-none font-normal hover:bg-transparent"
+      >
         <TicketCardContent ticket={ticket} />
       </Button>
     </div>
