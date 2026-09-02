@@ -237,9 +237,13 @@ export const ChatWidgetSettings = () => {
                   <Code className="mr-2 h-4 w-4" />
                   Embed Code
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditingWidget(widget)}>
+                <Button
                   aria-label="Edit widget"
                   title="Edit widget"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingWidget(widget)}
+                >
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button

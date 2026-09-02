@@ -26,9 +26,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
           <ShieldX className="w-6 h-6 text-red-600" />
           <h2 className="text-xl font-bold">Spam Log Details</h2>
         </div>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          aria-label="Close"
-          title="Close"
+        <Button aria-label="Close" title="Close" size="sm" variant="ghost" onClick={onClose}>
           <X className="w-4 h-4" />
         </Button>
       </div>

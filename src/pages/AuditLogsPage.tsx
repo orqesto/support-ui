@@ -216,9 +216,14 @@ export const AuditLogsPage = () => {
                 View system activity and changes ({totalCount} total)
               </p>
             </div>
-            <Button onClick={handleRefresh} disabled={refreshing} variant="outline" size="sm">
+            <Button
               aria-label="Refresh the audit log"
               title="Refresh the audit log"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              variant="outline"
+              size="sm"
+            >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
