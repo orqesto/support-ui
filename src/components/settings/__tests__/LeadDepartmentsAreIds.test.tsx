@@ -18,7 +18,10 @@ import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LeadQualificationSettings } from '../LeadQualificationSettings';
 
-const updateLeadConfig = vi.fn(() => Promise.resolve({}));
+// Typed parameter, not `vi.fn(() => …)`: with no parameter vitest infers a ZERO-arg mock, so
+// the call below is a 1-arg call on a 0-arg signature and `mock.calls` types as the empty
+// tuple `[]` — which makes `calls[0][0]` a type error rather than a runtime one.
+const updateLeadConfig = vi.fn((_data: unknown) => Promise.resolve({}));
 let storedDepartments: (number | string)[] = [];
 
 vi.mock('@/services/organization.service', () => ({
