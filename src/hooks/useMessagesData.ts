@@ -246,7 +246,35 @@ export const useMessagesData = ({
           // column is a deliberate narrowing and still applies — searching inside
           // "Resolved" must keep meaning that.
         } else if (status === 'all') {
-          apiFilters.view = threadStatus !== 'all' ? 'active' : 'work_queue';
+          /**
+           * The pill says "All". It must ask for all.
+           *
+           * It used to send `view=work_queue`, which is a real lens and a narrow one: it pins
+           * `status IN (new, open, pending, awaiting_response, client_replied)` and drops spam,
+           * suspicious and knowledge-base mail. On a client workspace that rendered
+           * `1–50 of 0` beside a kanban showing 2,880 of the same 2,910 threads, because the
+           * board applies neither a terminal filter nor a KB one. Two views of one mailbox
+           * disagreeing by 2,880 rows, with the narrower one labelled "All".
+           *
+           * ⛔ NOT `view=all` — the API refuses that with a 400, deliberately, because it used
+           * to be accepted and silently narrowed. `view=active&processed=all` is the widening
+           * the backend sanctions, and its own 400 body names it.
+           *
+           * 🪤 `processed=all` was DISCARDED by the backend parser until BE #634: it had no
+           * arm in the `processed` chain and fell through to `undefined`, which made it
+           * indistinguishable from a typo. Sending it before that shipped would have made this
+           * list NARROWER, not wider — `view=active` without the pin skip returns fewer rows
+           * than `view=work_queue`. Requires BE >= the release carrying #634 and #635.
+           *
+           * What this does NOT widen, deliberately: knowledge-base mail stays excluded unless
+           * it is live work (BE `NOT_ARCHIVED_KB`), and spam/suspicious keep their own chips.
+           * `ListScopeNotice` reports whatever remains hidden, so the list still says when it
+           * is a subset.
+           */
+          apiFilters.view = 'active';
+          if (threadStatus === 'all') {
+            apiFilters.processed = 'all';
+          }
         } else if (status === 'active') {
           apiFilters.view = 'active';
         } else if (status === 'awaiting_response') {
