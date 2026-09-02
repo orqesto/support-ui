@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDepartmentContextStore } from './departmentContextStore';
+import { identityScope } from '@/stores/identityScope';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 
 type TicketFilters = {
@@ -61,12 +62,12 @@ const defaultSorting: TicketSorting = {
   sortOrder: 'desc',
 };
 
-const getCacheKey = (filters: TicketFilters, sorting: TicketSorting, page: number): string => {
+export const ticketsCacheKey = (filters: TicketFilters, sorting: TicketSorting, page: number): string => {
   // Include the checkbox-driven X-Department-Context selection in the key —
   // otherwise changing the DepartmentSwitcher selection short-circuits to a
   // stale cached page (same bug pattern fixed in messagesStore).
   const deptCtx = useDepartmentContextStore.getState().getSelectedDeptIds().join(',');
-  return JSON.stringify({ filters, sorting, page, deptCtx });
+  return JSON.stringify({ ...identityScope(), filters, sorting, page, deptCtx });
 };
 
 export const useTicketsStore = create<TicketsState>()(
@@ -93,7 +94,7 @@ export const useTicketsStore = create<TicketsState>()(
 
       setTickets: (tickets, pagination) => {
         const { filters, sorting, cache } = get();
-        const cacheKey = getCacheKey(filters, sorting, pagination.page);
+        const cacheKey = ticketsCacheKey(filters, sorting, pagination.page);
 
         const newCache = new Map(cache);
         newCache.set(cacheKey, {
@@ -109,7 +110,7 @@ export const useTicketsStore = create<TicketsState>()(
 
       getCached: (page) => {
         const { filters, sorting, cache } = get();
-        const cacheKey = getCacheKey(filters, sorting, page);
+        const cacheKey = ticketsCacheKey(filters, sorting, page);
         const cached = cache.get(cacheKey);
 
         if (!cached) {
