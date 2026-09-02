@@ -14,13 +14,18 @@
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import type { PlatformSettings } from '@/services/platformSettings.service';
+// Type-only namespace import: an inline `typeof import(...)` is banned by
+// consistent-type-imports, and this gives `importOriginal` its module type without a value
+// import of a module this file mocks. `PlatformSettings` comes off the same namespace so the
+// module is imported exactly once (import/no-duplicates).
+import type * as platformSettingsModule from '@/services/platformSettings.service';
+
+type PlatformSettings = platformSettingsModule.PlatformSettings;
 
 const testManagedAi = vi.fn();
 
-type PlatformSettingsModule = typeof import('@/services/platformSettings.service');
 vi.mock('@/services/platformSettings.service', async (importOriginal) => {
-  const actual = await importOriginal<PlatformSettingsModule>();
+  const actual = await importOriginal<typeof platformSettingsModule>();
   return {
     ...actual,
     platformSettingsService: { ...actual.platformSettingsService, testManagedAi },
