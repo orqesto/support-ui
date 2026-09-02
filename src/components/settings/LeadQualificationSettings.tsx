@@ -23,7 +23,9 @@ const inputCls =
 const labelCls = 'block text-xs font-medium text-muted-foreground mb-1';
 
 const DEFAULT_CONFIG: OrgLeadConfig = {
-  departments: ['sales'],
+  // Empty, not ['sales']: the opt-in is now a list of department IDs, and this component
+  // cannot know an id before `useDepartments()` resolves. The server sends the real default.
+  departments: [],
   requiredContactFields: ['name', 'email'],
   autoMarkNewSenders: false,
   qualificationFields: [],
@@ -32,13 +34,22 @@ const DEFAULT_CONFIG: OrgLeadConfig = {
 
 export const LeadQualificationSettings = () => {
   const { data: depts } = useDepartments();
-  const deptSlugs = (depts ?? [])
+  const activeDepts = (depts ?? [])
     .filter((dept) => dept.active)
-    .map((dept) => dept.slug)
-    .sort();
-  const deptLabels = new Map(
-    (depts ?? []).map((dept) => [dept.slug, dept.name] as const)
-  );
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  /**
+   * The opt-in is stored as department IDs (support-service#623). It used to be written as
+   * SLUGS while the backend gate compared them against a numeric `departmentId`, so
+   * `['sales'].includes(57)` was false and lead qualification never ran for anyone —
+   * measured on prod as `is_lead` true on 0 of 8,363 conversations.
+   *
+   * Reading stays tolerant of a slug on purpose. A workspace can load this page after the
+   * new UI ships but before its row is migrated, and a checkbox that reads as unchecked
+   * invites the operator to "fix" it by saving — which would wipe the opt-in they still have.
+   */
+  const isEnabled = (dept: { id: number; slug: string }): boolean =>
+    config.departments.some((entry) => entry === dept.id || entry === dept.slug);
 
   const [config, setConfig] = useState<OrgLeadConfig>(DEFAULT_CONFIG);
   // Digest recipients are edited as a raw comma-separated string; parsed to an
@@ -98,13 +109,17 @@ export const LeadQualificationSettings = () => {
     }
   };
 
-  const toggleDept = (dept: string) => {
-    setConfig((cfg) => ({
-      ...cfg,
-      departments: cfg.departments.includes(dept)
-        ? cfg.departments.filter((dep) => dep !== dept)
-        : [...cfg.departments, dept],
-    }));
+  /** Writes IDS, and drops any legacy slug for the same department as it goes. */
+  const toggleDept = (dept: { id: number; slug: string }) => {
+    setConfig((cfg) => {
+      const withoutDept = cfg.departments.filter(
+        (entry) => entry !== dept.id && entry !== dept.slug
+      );
+      return {
+        ...cfg,
+        departments: isEnabled(dept) ? withoutDept : [...withoutDept, dept.id],
+      };
+    });
   };
 
   const toggleContactField = (field: OrgLeadConfig['requiredContactFields'][number]) => {
@@ -236,18 +251,18 @@ export const LeadQualificationSettings = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {deptSlugs.length === 0 ? (
+          {activeDepts.length === 0 ? (
             <span className="text-xs text-muted-foreground italic">No active departments.</span>
           ) : (
-            deptSlugs.map((dept) => (
-              <label key={dept} className="flex items-center gap-2 cursor-pointer select-none">
+            activeDepts.map((dept) => (
+              <label key={dept.id} className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={config.departments.includes(dept)}
+                  checked={isEnabled(dept)}
                   onChange={() => toggleDept(dept)}
                   className="rounded"
                 />
-                <span className="text-sm">{deptLabels.get(dept) ?? dept}</span>
+                <span className="text-sm">{dept.name}</span>
               </label>
             ))
           )}

@@ -53,7 +53,12 @@ export type LeadCategoryConfig = {
 };
 
 export type OrgLeadConfig = {
-  departments: string[];
+  /**
+   * Department IDs. `string` is tolerated only for a row not yet migrated off the old slug
+   * form — the UI writes ids, and the backend normalises anything it is sent
+   * (support-service#623).
+   */
+  departments: (number | string)[];
   requiredContactFields: ('name' | 'email' | 'phone' | 'company')[];
   autoMarkNewSenders: boolean;
   qualificationFields: LeadQualificationFieldConfig[];
