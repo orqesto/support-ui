@@ -14,7 +14,28 @@ export type ResolvedField<T> = { value: T | null; source: FieldSource };
 export type StorageFieldSource = FieldSource;
 export type ResolvedStorageField<T> = ResolvedField<T>;
 export type SecretSource = 'db' | 'env' | 'none';
-export type SecretStatus = { configured: boolean; source: SecretSource; last4: string | null };
+export type SecretStatus = {
+  configured: boolean;
+  source: SecretSource;
+  last4: string | null;
+  /**
+   * A row IS stored for this key and is NOT what resolves — its ciphertext would not decrypt,
+   * so traffic falls through to the environment. Absent unless that is the case, and absent
+   * entirely on a backend older than the fix that made the status resolve rather than read a
+   * column.
+   */
+  storedValueUnusable?: boolean;
+};
+
+/**
+ * What the backend established about a credential BEFORE storing it.
+ *
+ * `checked: false` is not a pass — it means nothing was proven (Bedrock, half an S3 key pair,
+ * an unreachable provider). Rendering it as success is the exact habit that let an autofilled
+ * key sit in the console looking configured for four hours.
+ */
+export type SecretVerification = { checked: boolean; ok: boolean; reason?: string };
+export type SecretSaveResult = SecretStatus & { verification?: SecretVerification };
 
 export type PlatformSecretKey =
   | 'ai.openai_api_key'
@@ -255,9 +276,24 @@ export const platformSettingsService = {
     await apiClient.patch(`${BASE}/storage`, input);
   },
 
-  /** Store (encrypt) a platform secret. Value is never returned back. */
-  setSecret: async (key: PlatformSecretKey, value: string): Promise<void> => {
-    await apiClient.patch(`${BASE}/secret`, { key, value });
+  /**
+   * Store (encrypt) a platform secret. The value is never returned back.
+   *
+   * The backend checks the credential against its provider first and answers 400 with
+   * `PLATFORM_SECRET_REJECTED` if it is refused — nothing is stored. `force` re-sends past
+   * that, which an admin needs when the provider itself is down.
+   */
+  setSecret: async (
+    key: PlatformSecretKey,
+    value: string,
+    options?: { force?: boolean }
+  ): Promise<SecretSaveResult> => {
+    const res = await apiClient.patch<{ data: SecretSaveResult }>(`${BASE}/secret`, {
+      key,
+      value,
+      ...(options?.force ? { force: true } : {}),
+    });
+    return res.data.data;
   },
 
   /** Remove a platform secret's DB row so resolution falls back to env. */
