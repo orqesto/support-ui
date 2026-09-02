@@ -143,6 +143,19 @@ const ALL_SECRET_KEYS: PlatformSecretKey[] = [
  * from the provider name so a rename on either side is a type error here, not a
  * silently wrong key slot at runtime.
  */
+/**
+ * The answer to "does the managed AI key work". `ok: false` with a `reason` is a SUCCESSFUL
+ * response — the provider's own words ("Incorrect API key provided", "model does not exist")
+ * are what tell an admin which thing to go and fix.
+ */
+export type ManagedAiTestResult = {
+  ok: boolean;
+  provider?: string;
+  model?: string;
+  latencyMs?: number;
+  reason?: string;
+};
+
 export const AI_KEY_SLOT_BY_PROVIDER: Record<AIProvider, PlatformSecretKey | null> = {
   openai: 'ai.openai_api_key',
   anthropic: 'ai.anthropic_api_key',
@@ -255,6 +268,18 @@ export const platformSettingsService = {
   /** Probe the proposed storage config + resolved (DB→env) creds before saving. */
   testStorage: async (input: DefaultStorageInput): Promise<StorageTestResult> => {
     const res = await apiClient.post<{ data: StorageTestResult }>(`${BASE}/storage/test`, input);
+    return res.data.data;
+  },
+
+  /**
+   * Ask the managed AI provider to answer, with the key that is STORED.
+   *
+   * ⚠️ Takes no input, unlike `testStorage`. The key lives in `platform_secrets` and is never
+   * sent to the browser, so there is nothing a draft could contribute — this tests what
+   * managed workspaces will actually run on, which is the only useful question.
+   */
+  testManagedAi: async (): Promise<ManagedAiTestResult> => {
+    const res = await apiClient.post<{ data: ManagedAiTestResult }>(`${BASE}/ai/test`, {});
     return res.data.data;
   },
 };

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Bot } from 'lucide-react';
+import { Bot, TestTube2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { ConfigCard, type ConfigSummaryRow } from '@/components/ui/ConfigCard';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -13,8 +14,13 @@ import {
   useUpdatePlatformAi,
 } from '@/hooks/usePlatformSettings';
 import { useConfigCardState } from '@/hooks/useConfigCardState';
-import { AI_KEY_SLOT_BY_PROVIDER } from '@/services/platformSettings.service';
-import type { ManagedAiInput, PlatformSettings } from '@/services/platformSettings.service';
+import {
+  AI_KEY_SLOT_BY_PROVIDER,
+  platformSettingsService,
+  type ManagedAiTestResult,
+  type ManagedAiInput,
+  type PlatformSettings,
+} from '@/services/platformSettings.service';
 import {
   AI_PROVIDER_TYPES,
   BEDROCK_REGIONS,
@@ -205,6 +211,31 @@ export const ManagedAiDefaultsCard = ({
    */
   const card = useConfigCardState({ configured, onCancel: reseed });
 
+  /**
+   * Prove the stored key answers.
+   *
+   * ⛔ Saving already succeeds when the key is wrong — the card goes green on a typo and the
+   * first sign of trouble is managed workspaces silently failing to get replies. This is the
+   * PLATFORM key: one bad value breaks every managed workspace at once.
+   *
+   * Cleared whenever the provider changes, because a result that outlives the thing it
+   * describes is worse than no result — "Connection OK" under a provider it never tested is
+   * the kind of green nobody re-checks.
+   */
+  const [aiTest, setAiTest] = useState<ManagedAiTestResult | null>(null);
+  const [testing, setTesting] = useState(false);
+  const runAiTest = async () => {
+    setTesting(true);
+    setAiTest(null);
+    try {
+      setAiTest(await platformSettingsService.testManagedAi());
+    } catch (err) {
+      setAiTest({ ok: false, reason: err instanceof Error ? err.message : 'Test failed' });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const save = () => {
     const input: ManagedAiInput = { provider };
     (Object.keys(models) as ModelKey[]).forEach((key) => {
@@ -345,7 +376,24 @@ export const ManagedAiDefaultsCard = ({
       state={card.state}
       summary={summary}
       emptyNote="Nothing is overridden here, so managed workspaces run on the environment's provider and models at the built-in rates. Usage reporting prices them at whatever those rates say."
-      note={credentials}
+      note={
+        <>
+          {credentials}
+          {aiTest && (
+            <p className={`text-sm ${aiTest.ok ? 'text-success' : 'text-danger'}`}>
+              {aiTest.ok
+                ? `${aiTest.provider} answered with ${aiTest.model} · ${aiTest.latencyMs}ms`
+                : `Not working: ${aiTest.reason ?? 'unknown error'}`}
+            </p>
+          )}
+        </>
+      }
+      extraActions={
+        <Button variant="outline" onClick={() => void runAiTest()} isLoading={testing}>
+          <TestTube2 className="mr-2 w-4 h-4" />
+          Test connection
+        </Button>
+      }
       onConfigure={card.startEditing}
       onEdit={card.startEditing}
       onCancel={card.cancelEditing}
@@ -365,6 +413,9 @@ export const ManagedAiDefaultsCard = ({
             onChange={(event) => {
               setProvider(event.target.value as AIProvider);
               setFreeText({ defaultModel: false, strongModel: false, visionModel: false });
+              // A result that outlives what it describes is worse than none: "openai answered"
+              // still sitting there under a freshly-selected Bedrock reads as a pass.
+              setAiTest(null);
             }}
           >
             {AI_PROVIDER_TYPES.map((type) => (
