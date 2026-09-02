@@ -212,34 +212,6 @@ const SyncedGroupRow = ({
               </span>
             </Alert>
           )}
-          <div className="flex flex-wrap gap-3 items-end pt-1">
-            <div className="flex-1 min-w-[14rem]">
-              <Label htmlFor={`wire-target-${group.id}`} className="mb-1">
-                Map to
-              </Label>
-              <Select
-                id={`wire-target-${group.id}`}
-                value={selectedValue}
-                onChange={(event) => onSelect(event.target.value)}
-              >
-                {targetOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button
-              type="button"
-              onClick={onWire}
-              isLoading={wiring}
-              disabled={wiring || noWorkspaceSelected}
-            >
-              <ShieldCheck className="mr-2 w-4 h-4" />
-              Map access
-            </Button>
-          </div>
-
           {isOrgRole && (
             <div className="pt-1">
               <Label htmlFor={`wire-workspace-${group.id}`} className="mb-1">
@@ -296,6 +268,34 @@ const SyncedGroupRow = ({
               )}
             </div>
           )}
+
+          <div className="flex flex-wrap gap-3 items-end pt-1">
+            <div className="flex-1 min-w-[14rem]">
+              <Label htmlFor={`wire-target-${group.id}`} className="mb-1">
+                Map to
+              </Label>
+              <Select
+                id={`wire-target-${group.id}`}
+                value={selectedValue}
+                onChange={(event) => onSelect(event.target.value)}
+              >
+                {targetOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              type="button"
+              onClick={onWire}
+              isLoading={wiring}
+              disabled={wiring || noWorkspaceSelected}
+            >
+              <ShieldCheck className="mr-2 w-4 h-4" />
+              Map access
+            </Button>
+          </div>
 
           {/* Hidden against a backend that still returns the old alliance-role shape —
               showing "Associate" for a suggestion the server never made would be a
