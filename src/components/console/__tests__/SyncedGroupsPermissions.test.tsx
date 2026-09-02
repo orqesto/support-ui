@@ -39,6 +39,7 @@ vi.mock('@/hooks/useAllianceProvisioning', () => ({
   useWireSyncedGroup: () => ({ mutateAsync: wireMutateAsync, isPending: false }),
   useResyncAllianceProvisioning: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteAllianceGroupMap: () => ({ mutate: vi.fn(), isPending: false }),
+  useRemoveSyncedGroup: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/useAllianceGroups', () => ({
