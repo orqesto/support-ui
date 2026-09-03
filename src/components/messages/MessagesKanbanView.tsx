@@ -885,22 +885,15 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <div className="space-y-3 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
-        {/* What the board is NOT showing. Above the tabs, and outside any empty-state
-            branch, for the same reason the list's copy is: an empty board while rows sit
-            one lens away is the worst version of the silence this removes. */}
-        {boardScope && (
-          <ListScopeNotice
-            scope={boardScope.scope}
-            shown={boardScope.shown}
-            surface="board"
-            onJump={onScopeJump}
-          />
-        )}
         {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
             On the Board, chips on the right show/hide the reference columns
-            (On-hold, Resolved) so agents can focus on Open/In Progress/Pending. */}
+            (On-hold, Resolved) so agents can focus on Open/In Progress/Pending.
+            The scope notice — what the board has NO lane for — sits on this same row,
+            after the tabs: it used to be a card of its own above them, and that row
+            came straight out of the lanes' height. Still outside any empty-state branch,
+            because an empty board while rows sit one lens away is the silence it removes. */}
         <div className="flex flex-wrap gap-2 justify-between items-center">
-          <div className="flex gap-1 items-center">
+          <div className="flex flex-wrap gap-1 items-center">
             {(['lifecycle', 'triage'] as const).map((axis) => {
               const isActive = activeTab === axis;
               const count = axis === 'lifecycle' ? boardCount : triageCount;
@@ -957,6 +950,16 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                 </Button>
               );
             })}
+            {boardScope && (
+              <div className="ml-2">
+                <ListScopeNotice
+                  scope={boardScope.scope}
+                  shown={boardScope.shown}
+                  surface="board"
+                  onJump={onScopeJump}
+                />
+              </div>
+            )}
           </div>
 
           {activeTab === 'lifecycle' && (

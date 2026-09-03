@@ -186,6 +186,18 @@ describe('ListScopeNotice — board surface', () => {
     expect(text).toContain('23 hidden by this view');
   });
 
+  it('is a caption on the board, not a card — the card row cost the lanes 52px', () => {
+    render(<ListScopeNotice scope={org21} shown={2880} onJump={vi.fn()} surface="board" />);
+    const cls = screen.getByTestId('list-scope-notice').className;
+    expect(cls).not.toMatch(/\bborder\b|rounded-md|py-2|mb-3/);
+    expect(cls).toMatch(/text-xs/);
+  });
+
+  it('keeps the card chrome on the list, where it is not above a bounded board', () => {
+    render(<ListScopeNotice scope={org21} shown={5} onJump={vi.fn()} />);
+    expect(screen.getByTestId('list-scope-notice').className).toMatch(/\bborder\b/);
+  });
+
   it('states coverage rather than a count of what is on screen', () => {
     // 2,910 − 30 = 2,880 rows have a lane. That claim holds whichever columns are
     // collapsed, which is exactly why it replaced "Showing".
