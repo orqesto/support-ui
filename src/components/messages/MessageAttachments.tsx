@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import {
+  AttachmentPreviewDialog,
+  isPreviewable,
+} from '@/components/shared/AttachmentPreviewDialog';
 import { apiClient } from '@/lib/api-client';
 import { API_BASE_URL } from '@/lib/config';
 import type { Attachment } from '@/types/ai';
@@ -42,6 +46,7 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
   const [attachments, setAttachments] = useState<Attachment[]>(preloadedAttachments ?? []);
   const [loading, setLoading] = useState(!preloadedAttachments);
   const [activeHighlight, setActiveHighlight] = useState<number | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -76,22 +81,17 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
     return () => clearTimeout(timer);
   }, [highlightId]);
 
-  const handleDownload = async (att: Attachment, inline = false) => {
+  const handleDownload = async (att: Attachment) => {
     try {
       const response = await apiClient.get(`/api/attachments/${att.id}/download`, {
         responseType: 'blob',
       });
       const url = URL.createObjectURL(response.data as Blob);
-      if (inline) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-      } else {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = att.originalFilename;
-        anchor.click();
-        URL.revokeObjectURL(url);
-      }
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = att.originalFilename;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       logger.error('Failed to download attachment:', err);
       setAlertDialog({
@@ -138,7 +138,19 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
 
           {/* Name + meta */}
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium truncate leading-tight">{att.originalFilename}</p>
+            {isPreviewable(att.mimeType) ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewAttachment(att)}
+                title="Preview"
+                className="block p-0 w-full h-auto text-left text-[11px] font-medium truncate leading-tight hover:underline"
+              >
+                {att.originalFilename}
+              </Button>
+            ) : (
+              <p className="text-[11px] font-medium truncate leading-tight">{att.originalFilename}</p>
+            )}
             <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
               {formatFileSize(att.size)}
               <span className="text-border">·</span>
@@ -154,13 +166,13 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
 
           {/* Actions — visible on hover */}
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            {isImage(att.mimeType) && (
+            {isPreviewable(att.mimeType) && (
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="View"
-                onClick={() => void handleDownload(att, true)}
-                title="View"
+                aria-label="Preview"
+                onClick={() => setPreviewAttachment(att)}
+                title="Preview"
                 className="p-1 w-auto h-auto rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
                 <Eye className="w-3.5 h-3.5" />
@@ -179,6 +191,11 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
           </div>
         </div>
       ))}
+
+      <AttachmentPreviewDialog
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+      />
 
       <AlertDialog
         open={alertDialog.open}
