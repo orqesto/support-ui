@@ -171,8 +171,29 @@ export const allianceAdminService = {
    * in the alliance, and survives IdP sync until reactivated. NOT a hard removal — full
    * offboarding stays the IdP's job. (DELETE is repurposed; the BE soft-deactivates.)
    */
-  deactivateMember: async (allianceId: number, userId: number): Promise<void> => {
-    await apiClient.delete(`${BASE}/${allianceId}/members/${userId}`);
+  /**
+   * Deactivate, optionally handing the member's open tickets to a named colleague.
+   * Returns the handover counts — `skippedNoAccess` is tickets left unassigned because the
+   * colleague has no active membership of that workspace, and the UI must SAY that.
+   */
+  deactivateMember: async (
+    allianceId: number,
+    userId: number,
+    reassignToUserId?: number | null
+  ): Promise<{ reassigned: number; skippedNoAccess: number }> => {
+    const res = await apiClient.delete<{
+      data?: { reassigned?: number; skippedNoAccess?: number };
+    }>(`${BASE}/${allianceId}/members/${userId}`, {
+      // A DELETE with a body is unusual but is the existing route's contract (one optional
+      // field did not justify a second endpoint). Axios carries it via `data`.
+      ...(reassignToUserId !== null && reassignToUserId !== undefined
+        ? { data: { reassignToUserId } }
+        : {}),
+    });
+    return {
+      reassigned: res.data?.data?.reassigned ?? 0,
+      skippedNoAccess: res.data?.data?.skippedNoAccess ?? 0,
+    };
   },
 
   /** Lift the hold and hand the member back to normal IdP-driven reconciliation. */

@@ -99,6 +99,8 @@ export const ConsoleMembers = () => {
   const addMember = useAddMember(numericId);
 
   const [deactivateTarget, setDeactivateTarget] = useState<AllianceMember | null>(null);
+  // '' = "leave the tickets unassigned" — the pre-existing behaviour, and the default.
+  const [handoverUserId, setHandoverUserId] = useState('');
   const [reactivateTarget, setReactivateTarget] = useState<AllianceMember | null>(null);
   const [roleChange, setRoleChange] = useState<{
     member: AllianceMember;
@@ -149,14 +151,30 @@ export const ConsoleMembers = () => {
     if (!deactivateTarget) {
       return;
     }
-    deactivateMember.mutate(deactivateTarget.userId, {
-      onSuccess: () => {
-        toast.success(`Deactivated ${deactivateTarget.name || 'member'}`);
-        setDeactivateTarget(null);
-      },
-      onError: (error: unknown) =>
-        toast.error(error instanceof Error ? error.message : 'Could not deactivate member'),
-    });
+    const reassignToUserId = handoverUserId === '' ? null : Number(handoverUserId);
+    deactivateMember.mutate(
+      { userId: deactivateTarget.userId, reassignToUserId },
+      {
+        onSuccess: ({ reassigned, skippedNoAccess }) => {
+          const name = deactivateTarget.name || 'member';
+          // The skipped count must reach the admin: they chose a colleague, and a bare
+          // "Deactivated" would read as "everything moved" when some of it did not.
+          if (skippedNoAccess > 0) {
+            toast.warning(
+              `Deactivated ${name} — ${reassigned} ticket(s) handed over, ${skippedNoAccess} left unassigned (the colleague has no access to that workspace)`
+            );
+          } else if (reassignToUserId !== null) {
+            toast.success(`Deactivated ${name} — ${reassigned} ticket(s) handed over`);
+          } else {
+            toast.success(`Deactivated ${name}`);
+          }
+          setDeactivateTarget(null);
+          setHandoverUserId('');
+        },
+        onError: (error: unknown) =>
+          toast.error(error instanceof Error ? error.message : 'Could not deactivate member'),
+      }
+    );
   };
 
   const handleReactivate = () => {
@@ -421,19 +439,74 @@ export const ConsoleMembers = () => {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
+      {/* Not a ConfirmDialog: the offboarding needs an input — WHO takes over the tickets.
+          Default is "leave unassigned", the pre-existing behaviour, so an admin in a hurry
+          changes nothing. Asked for by the customer in as many words: the departing member's
+          tickets have to be re-mapped to another user, not dropped into limbo. */}
+      <Dialog
         open={deactivateTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
             setDeactivateTarget(null);
+            setHandoverUserId('');
           }
         }}
-        onConfirm={handleDeactivate}
-        variant="danger"
-        confirmText="Deactivate member"
-        title={`Deactivate ${deactivateTarget?.name || 'this member'}?`}
-        description="They will be blocked from logging in to every workspace in this alliance — their sessions are revoked and open tickets reassigned. This stays in effect even if your identity provider still lists them as active, until you reactivate them here. Full removal is done in your IdP."
-      />
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate {deactivateTarget?.name || 'this member'}?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              They will be blocked from logging in to every workspace in this alliance — their
+              sessions are revoked. This stays in effect even if your identity provider still lists
+              them as active, until you reactivate them here. Full removal is done in your IdP.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="handover-user">Hand their open tickets to</Label>
+              <Select
+                id="handover-user"
+                value={handoverUserId}
+                onChange={(event) => setHandoverUserId(event.target.value)}
+              >
+                <option value="">Nobody — leave them unassigned</option>
+                {(members ?? [])
+                  .filter(
+                    (member) =>
+                      member.active !== false && member.userId !== deactivateTarget?.userId
+                  )
+                  .map((member) => (
+                    <option key={member.userId} value={String(member.userId)}>
+                      {member.name || member.email || `User #${member.userId}`}
+                    </option>
+                  ))}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Tickets in workspaces the colleague cannot access stay unassigned — you’ll be told
+                how many.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeactivateTarget(null);
+                  setHandoverUserId('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeactivate}
+                disabled={deactivateMember.isPending}
+              >
+                {deactivateMember.isPending ? 'Deactivating…' : 'Deactivate member'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={reactivateTarget !== null}
