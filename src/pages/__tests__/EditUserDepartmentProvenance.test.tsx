@@ -147,16 +147,25 @@ const save = async () => {
 };
 
 /**
- * Click a department checkbox and WAIT for the click to stick.
+ * Wait until the fetched member has been SEEDED into the form — not merely rendered.
  *
- * ⛔ This wait is the fix for a CI-only flake that failed twice in one day on unrelated PRs
- * (#321, #322): the page re-seeds `selectedDepartmentIds` from the fetched user in an effect,
- * and under CI load that effect can land AFTER a bare `fireEvent.click` — silently wiping the
- * click. `deptsChanged` then computes false and the submit posts `departmentIds: undefined`,
- * which reads as "expected [2,3], received undefined" in a test that never touched the race.
- * Asserting the checkbox state before saving pins the click against the re-seed.
+ * ⛔ This is the root of a CI-only flake that hit three unrelated PRs (#321, #322, #327).
+ * `loadUser` sets `user` and `loading=false` in one batch, so the form (and every
+ * department checkbox, all UNCHECKED) can be in the DOM before the `[user]` effect that
+ * seeds `selectedDepartmentIds` has run. Under CI load a `fireEvent.click` (or a name
+ * change) landing in that gap is silently wiped by the seed. `findByText('Spare Dept')`
+ * only proves the render; 'Manual Dept' being CHECKED proves the seed, because nothing but
+ * the seed checks it. An earlier fix (#324) waited for the click to stick, which merely
+ * turned the wipe into a timeout — the click was already gone.
  */
+const seeded = async () => {
+  await screen.findByText('Manual Dept');
+  await waitFor(() => expect(checkboxFor('Manual Dept').checked).toBe(true));
+};
+
+/** Click a department checkbox after the seed has landed, and wait for the click to stick. */
 const toggleDept = async (label: string, expected: boolean) => {
+  await seeded();
   fireEvent.click(checkboxFor(label));
   await waitFor(() => expect(checkboxFor(label).checked).toBe(expected));
 };
@@ -171,7 +180,7 @@ afterEach(cleanup);
 describe('department provenance in the member editor', () => {
   it('locks a directory-granted department and says where it came from', async () => {
     renderPage();
-    await screen.findByText('Directory Dept');
+    await seeded();
 
     expect(checkboxFor('Directory Dept').checked).toBe(true);
     expect(checkboxFor('Directory Dept').disabled).toBe(true);
@@ -186,7 +195,7 @@ describe('department provenance in the member editor', () => {
    */
   it('leaves the rest of the field editable for the same IdP-managed member', async () => {
     renderPage();
-    await screen.findByText('Manual Dept');
+    await seeded();
 
     expect(checkboxFor('Manual Dept').disabled).toBe(false);
     expect(checkboxFor('Spare Dept').disabled).toBe(false);
@@ -199,7 +208,7 @@ describe('department provenance in the member editor', () => {
    */
   it('never posts a directory-granted department, even though it renders checked', async () => {
     renderPage();
-    await screen.findByText('Spare Dept');
+    await seeded();
 
     await toggleDept('Spare Dept', true);
     const payload = await save();
@@ -216,7 +225,7 @@ describe('department provenance in the member editor', () => {
    */
   it('sends no departmentIds when the departments were not touched', async () => {
     renderPage();
-    await screen.findByText('Directory Dept');
+    await seeded();
 
     fireEvent.change(screen.getByDisplayValue('Ada'), { target: { value: 'Adalovelace' } });
     const payload = await save();
@@ -227,7 +236,7 @@ describe('department provenance in the member editor', () => {
 
   it('removing a manual department posts the narrowed manual set', async () => {
     renderPage();
-    await screen.findByText('Manual Dept');
+    await seeded();
 
     await toggleDept('Manual Dept', false);
     const payload = await save();
@@ -247,7 +256,7 @@ describe('department provenance in the member editor', () => {
   it('degrades to an unlocked field when the backend does not send provenance', async () => {
     fetchedUser = { ...baseUser, provisionedDepartmentIds: undefined };
     renderPage();
-    await screen.findByText('Directory Dept');
+    await seeded();
 
     expect(checkboxFor('Directory Dept').disabled).toBe(false);
     expect(screen.queryByText('from directory')).not.toBeInTheDocument();

@@ -112,8 +112,7 @@ export const MessageFilterBar = ({
       // `received` is a control, not a field — snapshot the three it stands for. Reading
       // filters['received'] would have stored `undefined` and saved a view with a
       // Received token that does nothing.
-      const keys: string[] =
-        token.def.kind === 'date' ? [...RECEIVED_KEYS] : [token.def.key];
+      const keys: string[] = token.def.kind === 'date' ? [...RECEIVED_KEYS] : [token.def.key];
       if (token.def.sub) keys.push(token.def.sub.key);
       for (const key of keys) snapshot[key] = (filters as Record<string, unknown>)[key];
     }
@@ -145,7 +144,9 @@ export const MessageFilterBar = ({
 
   return (
     <Card>
-      <CardContent className="p-3 space-y-2.5 sm:p-4">
+      {/* p-3 at every width — the sm:p-4 step-up bought nothing but height on the one
+          page where vertical space is the working area (kanban under this bar). */}
+      <CardContent className="p-3 space-y-2.5">
         {/* ── saved views ─────────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-1.5 items-center">
           {views.map((view) => {
@@ -188,9 +189,7 @@ export const MessageFilterBar = ({
             {viewSource === 'local' && userViews.length > 0 && ' · on this device only'}
           </span>
         </div>
-        {viewError && (
-          <p className="text-[12px] text-amber-600 dark:text-amber-400">{viewError}</p>
-        )}
+        {viewError && <p className="text-[12px] text-amber-600 dark:text-amber-400">{viewError}</p>}
 
         {/* ── desktop: the token bar ──────────────────────────────────── */}
         <div className="hidden md:block">
