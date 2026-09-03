@@ -150,3 +150,35 @@ describe('ThreadBubble plain-text branch', () => {
     expect(screen.queryByRole('link')).toBeNull();
   });
 });
+
+describe('ThreadBubble wide-content containment (ORB-SUP-1358)', () => {
+  // The typography plugin is not installed, so `prose` is inert and these arbitrary
+  // variants are the ONLY thing stopping browser defaults: an unwrapped <pre> (how a
+  // Shopify contact-form relay ships the body) or a natural-width <img>/<table> used
+  // to overflow the bubble and turn the whole thread panel into a sideways scroller.
+  it('keeps a <pre> body and carries the classes that make it wrap', () => {
+    cleanup();
+    const { container } = render(
+      <ThreadBubble
+        content=""
+        isAgent={false}
+        html="<pre>You have received a new message from your online store contact form with one very long unbroken line that must wrap</pre>"
+        eventId={3}
+      />
+    );
+    expect(container.querySelector('pre')).not.toBeNull();
+    const wrapper = container.querySelector('pre')?.parentElement;
+    expect(wrapper?.className).toContain('[&_pre]:whitespace-pre-wrap');
+  });
+
+  it('carries the classes that cap images and let a wide table scroll inside its own bubble', () => {
+    cleanup();
+    const { container } = render(
+      <ThreadBubble content={PIPES} isAgent={false} html={ORDER_HTML} eventId={4} />
+    );
+    const wrapper = container.querySelector('table')?.parentElement;
+    expect(wrapper?.className).toContain('[&_table]:overflow-x-auto');
+    expect(wrapper?.className).toContain('[&_table]:max-w-full');
+    expect(wrapper?.className).toContain('[&_img]:max-w-full');
+  });
+});

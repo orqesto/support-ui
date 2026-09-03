@@ -803,8 +803,13 @@ export function MessageDetail({
         onRefresh={handleContactChanged}
       />
 
-      {/* Thread view — visible when no panel tab is open */}
-      <div className={`flex-1 min-h-0 overflow-y-auto ${panelOpen ? 'hidden' : ''}`}>
+      {/* Thread view — visible when no panel tab is open.
+          ⛔ overflow-x-hidden is deliberate: `overflow-y-auto` alone makes the browser
+          compute overflow-x as `auto` too (CSS couples the axes), so one over-wide
+          message — an unwrapped <pre> body, a fixed-width email table — turned the
+          WHOLE thread into a sideways-scrolling pane that clipped every message
+          (ORB-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
+      <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${panelOpen ? 'hidden' : ''}`}>
         <div className="px-4 py-3 space-y-3">
           {threadLoading && sortedThread.length === 0 && (
             <div className="py-8 text-sm text-center text-muted-foreground">
