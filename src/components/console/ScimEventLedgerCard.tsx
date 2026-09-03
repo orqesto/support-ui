@@ -1,9 +1,14 @@
-import { Activity, AlertTriangle, ArrowRight, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Activity, AlertTriangle, ArrowRight, ShieldAlert, UserCog } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAllianceScimEvents } from '@/hooks/useAllianceProvisioning';
+import { usePermissions } from '@/hooks/usePermissions';
+import { platformService } from '@/services/platform.service';
 import type { AllianceScimEvent, AllianceScimTelemetry } from '@/services/alliance-scim.service';
 
 /**
@@ -53,8 +58,40 @@ const eventReason = (event: AllianceScimEvent): string | null => {
   return typeof reason === 'string' ? reason : null;
 };
 
-const EventRow = ({ event }: { event: AllianceScimEvent }) => {
+/**
+ * Is this rejection the one a platform-admin role causes, and can it be acted on here?
+ *
+ * ⛔ Matched on the REASON the backend wrote, not on the event type: `provision_rejected`
+ * covers every refusal (uniqueness, seat cap), and only this one is resolved by a role change.
+ * The backend owns the sentence; this reads the two words it is keyed on.
+ *
+ * `targetUserId` is required because the remedy has to name an account — rejection rows
+ * recorded before support-service#642 carry `null`, and those simply get no button rather than
+ * a broken one.
+ */
+export const platformAdminBlock = (
+  event: AllianceScimEvent
+): { userId: number; email: string } | null => {
+  if (event.eventType !== 'provision_rejected') return null;
+  const reason = event.detail?.reason;
+  if (typeof reason !== 'string' || !reason.includes('platform administrator')) return null;
+  if (typeof event.targetUserId !== 'number' || event.targetUserId <= 0) return null;
+  return { userId: event.targetUserId, email: event.targetEmail ?? `user #${event.targetUserId}` };
+};
+
+const EventRow = ({
+  event,
+  onResolveAdminBlock,
+}: {
+  event: AllianceScimEvent;
+  onResolveAdminBlock: (target: { userId: number; email: string }) => void;
+}) => {
+  const { isAdmin } = usePermissions();
   const warn = event.severity === 'warning';
+  // The remedy the message already names, offered where the failure is READ. Without it the
+  // operator is told to go to another screen and find an account by hand — which is how one
+  // customer's account stayed blocked for 17 days across 39 rejected pushes.
+  const adminBlock = isAdmin ? platformAdminBlock(event) : null;
   const before = roleShort(event.beforeRole);
   const after = roleShort(event.afterRole);
   const showTransition = before !== null && after !== null && before !== after;
@@ -80,6 +117,17 @@ const EventRow = ({ event }: { event: AllianceScimEvent }) => {
         </span>
       </div>
       {reason && <p className="mt-1 text-xs text-muted-foreground">{reason}</p>}
+      {adminBlock && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-2"
+          onClick={() => onResolveAdminBlock(adminBlock)}
+        >
+          <UserCog className="mr-1.5 w-3.5 h-3.5" />
+          Change platform role to User
+        </Button>
+      )}
     </li>
   );
 };
@@ -92,6 +140,11 @@ export const ScimEventLedgerCard = ({
   telemetry?: AllianceScimTelemetry;
 }) => {
   const query = useAllianceScimEvents(allianceId);
+  const [adminBlockTarget, setAdminBlockTarget] = useState<{
+    userId: number;
+    email: string;
+  } | null>(null);
+  const [resolving, setResolving] = useState(false);
   const pages = query.data?.pages ?? [];
   const available = pages.length === 0 ? true : pages[0].available;
   const events = pages.flatMap((page) => page.events);
@@ -149,7 +202,7 @@ export const ScimEventLedgerCard = ({
           <>
             <ul className="rounded-md border border-border">
               {events.map((event) => (
-                <EventRow key={event.id} event={event} />
+                <EventRow key={event.id} event={event} onResolveAdminBlock={setAdminBlockTarget} />
               ))}
             </ul>
             {query.hasNextPage && (
@@ -168,6 +221,45 @@ export const ScimEventLedgerCard = ({
           </>
         )}
       </CardContent>
+      {/*
+        Demoting a platform admin is a real change with a blast radius, so it is confirmed and
+        the consequence is spelled out — including the part the button CANNOT do, which is
+        re-run the IdP's push. Saying "now re-push" is what makes this a remedy rather than a
+        half-step the operator has to guess the end of.
+      */}
+      <ConfirmDialog
+        open={adminBlockTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setAdminBlockTarget(null);
+        }}
+        title="Change platform role to User?"
+        description={
+          adminBlockTarget
+            ? `${adminBlockTarget.email} is a platform administrator, which is why your identity provider cannot provision them. Changing their platform role to User lets SCIM manage the account. They keep their workspace access; they lose platform-wide administration. Re-push from your IdP afterwards — this does not retry it for you.`
+            : ''
+        }
+        confirmText={resolving ? 'Changing…' : 'Change to User'}
+        onConfirm={() => {
+          if (!adminBlockTarget || resolving) return;
+          setResolving(true);
+          void (async () => {
+            try {
+              await platformService.updateUserRole(adminBlockTarget.userId, 'user');
+              toast.success(
+                `${adminBlockTarget.email} is now a User. Re-push them from your IdP to provision them.`
+              );
+              setAdminBlockTarget(null);
+              await query.refetch();
+            } catch (error) {
+              toast.error(
+                error instanceof Error ? error.message : 'Could not change the platform role.'
+              );
+            } finally {
+              setResolving(false);
+            }
+          })();
+        }}
+      />
     </Card>
   );
 };

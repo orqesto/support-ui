@@ -14,6 +14,7 @@ import {
   ChevronUp,
   Tag,
   Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
@@ -147,13 +148,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     organizationId: number,
     senderIntegrationId?: number
   ) => {
-    await invitationService.invite(
-      email,
-      role,
-      departmentIds,
-      organizationId,
-      senderIntegrationId
-    );
+    await invitationService.invite(email, role, departmentIds, organizationId, senderIntegrationId);
     // Optionally refresh users list or show a success message
   };
 
@@ -183,7 +178,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   // WorkspaceShell established and act on the caller's home workspace instead.
   const handleEditUser = (user: User) => {
     navigate(
-      embedded && orgId ? `/console/workspace/${orgId}/users/${user.id}/edit` : `/users/${user.id}/edit`
+      embedded && orgId
+        ? `/console/workspace/${orgId}/users/${user.id}/edit`
+        : `/users/${user.id}/edit`
     );
   };
 
@@ -279,6 +276,24 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       </Badge>
     ) : null;
 
+  /**
+   * A platform admin cannot be provisioned by SCIM at all (the connector refuses to take over
+   * a platform-admin account), and nothing said so until the IdP had already failed. One
+   * customer pushed the same account 39 times over 17 days before anyone connected the two.
+   *
+   * ⛔ Shown only to a global admin: it names a platform-wide tier and a remedy only they can
+   * apply, and to everyone else it is an unexplained warning about someone else's account.
+   */
+  const idpBlockedBadge = (user: User) =>
+    isAdmin && user.role === 'admin' ? (
+      <Tooltip content="Your identity provider cannot provision or manage this account while it is a platform administrator. Change their platform role to User in the platform console to let SCIM manage them.">
+        <Badge variant="secondary" className="flex gap-1 items-center text-xs">
+          <ShieldAlert className="w-3 h-3" />
+          Not IdP-manageable
+        </Badge>
+      </Tooltip>
+    ) : null;
+
   // Desktop columns (< xl falls back to the mobile card list below via renderCard).
   const columns: ColumnDef<User>[] = [
     {
@@ -318,6 +333,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             <span className="text-sm text-gray-400">—</span>
           )}
           {scimBadge(user)}
+          {idpBlockedBadge(user)}
         </div>
       ),
     },
@@ -345,8 +361,13 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       id: 'skills',
       header: 'Skills',
       cell: (user) => (
-        <Button size="sm" variant="outline" onClick={() => setSkillsUser(user)} title="Manage skills"
-  aria-label="Manage skills">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setSkillsUser(user)}
+          title="Manage skills"
+          aria-label="Manage skills"
+        >
           <Tag className="w-4 h-4" />
         </Button>
       ),
@@ -489,6 +510,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 <Badge variant="secondary">{roleDisplayNames[user.organizationRole]}</Badge>
               )}
               {scimBadge(user)}
+              {idpBlockedBadge(user)}
               {deptBadges(user)}
             </div>
             <div className="flex flex-col gap-1 text-xs text-gray-500">
@@ -610,7 +632,6 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             )}
           </CardContent>
         </Card>
-
       </div>
 
       {/* Create User Modal */}
