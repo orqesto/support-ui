@@ -25,7 +25,11 @@ import {
   useReactivateMember,
 } from '@/hooks/useAllianceAdmin';
 import { roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
-import type { AllianceCandidateUser, AllianceMember } from '@/services/alliance-admin.service';
+import type {
+  AllianceCandidateUser,
+  AllianceMember,
+  EffectiveRole,
+} from '@/services/alliance-admin.service';
 
 /** "Jane Doe — jane@acme.com" (falls back to email when no name is set). */
 const userOptionLabel = (user: AllianceCandidateUser): string => {
@@ -61,6 +65,22 @@ const toValue = (power: AllianceRole | null): AlliancePowerValue =>
 const POWER_OPTIONS: AlliancePowerValue[] = [NO_POWER, 'alliance_admin'];
 
 /**
+ * What the Effective-roles column has to say about one member.
+ *
+ * Exported and pure so the distinction can be pinned in a test: a dash must mean ONLY "never
+ * had access here". Access that was taken away has to say so — otherwise an IdP group removal
+ * that WORKED is indistinguishable from one that did nothing, because the membership row is
+ * untouched either way and the column simply went blank.
+ */
+export const accessSummary = (
+  member: Pick<AllianceMember, 'effectiveRoles'> & { revokedRoles?: EffectiveRole[] }
+): { granted: EffectiveRole[]; revoked: EffectiveRole[]; neverHadAccess: boolean } => {
+  const granted = member.effectiveRoles ?? [];
+  const revoked = member.revokedRoles ?? [];
+  return { granted, revoked, neverHadAccess: granted.length === 0 && revoked.length === 0 };
+};
+
+/**
  * Members screen (SPEC §8.3): each member's alliance_role (editable) and the
  * per-org roles the reconciler materialized for them (chips). Members are
  * DEACTIVATED (a durable, IdP-sync-proof hold that blocks login), never hard-
@@ -80,9 +100,10 @@ export const ConsoleMembers = () => {
 
   const [deactivateTarget, setDeactivateTarget] = useState<AllianceMember | null>(null);
   const [reactivateTarget, setReactivateTarget] = useState<AllianceMember | null>(null);
-  const [roleChange, setRoleChange] = useState<{ member: AllianceMember; newRole: AllianceRole | null } | null>(
-    null
-  );
+  const [roleChange, setRoleChange] = useState<{
+    member: AllianceMember;
+    newRole: AllianceRole | null;
+  } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userSearch, setUserSearch] = useState('');
@@ -102,7 +123,6 @@ export const ConsoleMembers = () => {
       })),
     [candidatesQuery.data]
   );
-
 
   // An alliance-role change applies across EVERY org in the alliance (admin ⇒
   // org_admin everywhere, agent ⇒ associate), so it's confirmed rather than applied
@@ -237,18 +257,34 @@ export const ConsoleMembers = () => {
     {
       id: 'effectiveRoles',
       header: 'Effective roles',
-      cell: (member) =>
-        member.effectiveRoles.length === 0 ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
+      cell: (member) => {
+        const { granted, revoked, neverHadAccess } = accessSummary(member);
+        if (neverHadAccess) {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        return (
           <div className="flex flex-wrap gap-1.5">
-            {member.effectiveRoles.map((role) => (
+            {granted.map((role) => (
               <Badge key={role.orgId} variant="secondary">
                 {orgRoleLabel(role.role)} in {role.orgName}
               </Badge>
             ))}
+            {revoked.map((role) => (
+              <Tooltip
+                key={`revoked-${role.orgId}`}
+                content={`${orgRoleLabel(role.role)} in ${role.orgName} was removed — most often by taking them out of the mapped group in your identity provider.`}
+              >
+                <Badge
+                  variant="secondary"
+                  className="text-muted-foreground line-through opacity-70"
+                >
+                  {orgRoleLabel(role.role)} in {role.orgName}
+                </Badge>
+              </Tooltip>
+            ))}
           </div>
-        ),
+        );
+      },
     },
   ];
 
@@ -422,7 +458,9 @@ export const ConsoleMembers = () => {
         }}
         onConfirm={handleChangeRole}
         variant={roleChange?.newRole === 'alliance_admin' ? 'danger' : 'warning'}
-        confirmText={roleChange?.newRole === 'alliance_admin' ? 'Grant alliance admin' : 'Change to agent'}
+        confirmText={
+          roleChange?.newRole === 'alliance_admin' ? 'Grant alliance admin' : 'Change to agent'
+        }
         title={
           roleChange?.newRole === 'alliance_admin'
             ? `Make ${roleChange?.member.name || 'this member'} an alliance admin?`

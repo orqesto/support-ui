@@ -18,7 +18,13 @@ export type AllianceOverview = {
 
 export type MyAlliance = { id: number; name: string; slug: string; orgCount: number };
 
-export type AllianceOrg = { id: number; name: string; slug: string; active: boolean; memberCount: number };
+export type AllianceOrg = {
+  id: number;
+  name: string;
+  slug: string;
+  active: boolean;
+  memberCount: number;
+};
 export type AttachableOrg = { id: number; name: string; slug: string };
 /** A user the add-member picker can offer — already in one of the alliance's workspaces. */
 export type AllianceCandidateUser = {
@@ -36,6 +42,16 @@ export type AllianceMember = {
   // null = an alliance member holding no alliance power (BE mig 0089).
   allianceRole: AllianceRole | null;
   effectiveRoles: EffectiveRole[];
+  /**
+   * Workspace access this member USED to hold. Optional for backward-compat with a backend
+   * that predates the field — absent simply renders nothing, never a false "revoked".
+   *
+   * ⛔ Why it exists: an empty `effectiveRoles` used to mean two opposite things, "never had
+   * access" and "access revoked", and nothing distinguished them. A group removal in the IdP
+   * revokes the workspace grant but leaves `active` alone, so a removal that WORKED looked
+   * exactly like one that did nothing.
+   */
+  revokedRoles?: EffectiveRole[];
   /** false ⇒ deactivated (no active workspace access, cannot log in). Optional for
    *  backward-compat with a backend that predates the field — treat absent as active. */
   active?: boolean;
@@ -74,7 +90,9 @@ export const allianceAdminService = {
   },
 
   listAttachableOrgs: async (allianceId: number): Promise<AttachableOrg[]> => {
-    const res = await apiClient.get<{ data: AttachableOrg[] }>(`${BASE}/${allianceId}/attachable-orgs`);
+    const res = await apiClient.get<{ data: AttachableOrg[] }>(
+      `${BASE}/${allianceId}/attachable-orgs`
+    );
     return res.data.data;
   },
 
@@ -126,10 +144,9 @@ export const allianceAdminService = {
   },
 
   listMembersEffective: async (allianceId: number): Promise<AllianceMember[]> => {
-    const res = await apiClient.get<{ data: AllianceMember[] }>(
-      `${BASE}/${allianceId}/members`,
-      { params: { effective: '1' } }
-    );
+    const res = await apiClient.get<{ data: AllianceMember[] }>(`${BASE}/${allianceId}/members`, {
+      params: { effective: '1' },
+    });
     return res.data.data;
   },
 
