@@ -52,7 +52,18 @@ export function ThreadBubble({
   // URL) wraps instead of overflowing the bubble — overflow-wrap isn't inherited,
   // so the wrapper's break-words doesn't reach this nested prose div. Without it
   // the narrow side-panel preview clips the real content off-screen.
-  const base = 'prose prose-sm max-w-none break-words [overflow-wrap:anywhere] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0';
+  //
+  // ⛔ The `[&_pre]`/`[&_img]`/`[&_table]` rules are load-bearing, not cosmetic. The
+  // typography plugin is NOT installed — `prose` classes are inert — so a sender's
+  // original markup renders with browser defaults: `<pre>` never wraps (a Shopify
+  // contact-form relay wraps the whole body in one), an `<img>`/`<table>` lays out at
+  // its natural size. Any of those wider than the bubble used to propagate up to the
+  // thread panel, whose `overflow-y-auto` implicitly makes overflow-x scrollable —
+  // the entire thread then scrolled sideways, clipping every message (ORB-SUP-1358).
+  // Wide tables instead scroll inside their own bubble.
+  const base =
+    'prose prose-sm max-w-none break-words [overflow-wrap:anywhere] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 ' +
+    '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto';
   const prose = isAgent ? `${base} prose-invert dark:prose-invert` : base;
 
   const renderHtml = (html: string) => (

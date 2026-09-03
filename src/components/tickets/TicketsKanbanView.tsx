@@ -170,7 +170,7 @@ function TicketKanbanCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`min-w-[240px] md:min-w-0 shrink-0 md:shrink relative rounded-md border bg-card shadow-sm transition-all cursor-grab active:cursor-grabbing touch-manipulation select-none ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-primary/40'}`}
+      className={`min-w-[240px] xl:min-w-0 shrink-0 xl:shrink relative rounded-md border bg-card shadow-sm transition-all cursor-grab active:cursor-grabbing touch-manipulation select-none ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-primary/40'}`}
     >
       {/* Grip hint — always visible, stronger on hover */}
       <GripVertical className="absolute top-2 right-2 w-3.5 h-3.5 text-muted-foreground/30 hover:text-muted-foreground/70 pointer-events-none" />
@@ -204,7 +204,7 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden md:min-w-[240px] md:max-w-[300px] md:flex-1 transition-colors ${isOver ? 'bg-muted/60' : 'bg-muted/30'}`}
+      className={`flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden xl:min-w-[240px] xl:max-w-[300px] xl:flex-1 transition-colors ${isOver ? 'bg-muted/60' : 'bg-muted/30'}`}
       style={{ borderTopColor: col.accentColor }}
     >
       {/* Column header */}
@@ -219,12 +219,12 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
       </div>
 
       {/* Cards */}
-      <div className="flex flex-row overflow-x-auto gap-2 p-2 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:flex-1 md:max-h-[calc(100vh-280px)]">
+      <div className="flex flex-row overflow-x-auto gap-2 p-2 xl:flex-col xl:overflow-x-hidden xl:overflow-y-auto xl:flex-1 xl:max-h-[calc(100vh-280px)]">
         {state.loading && state.tickets.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
             <div
               key={idx}
-              className="min-w-[240px] md:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+              className="min-w-[240px] xl:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
             >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
@@ -234,7 +234,7 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
           <div
             className={`py-4 px-3 flex-1 rounded-md transition-colors ${isOver ? 'bg-muted/40 border-2 border-dashed border-border' : ''}`}
           >
-            <p className="text-xs text-muted-foreground md:text-center">{col.emptyText}</p>
+            <p className="text-xs text-muted-foreground xl:text-center">{col.emptyText}</p>
           </div>
         ) : (
           <>
@@ -250,7 +250,7 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
                 size="sm"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="gap-1 justify-center items-center shrink-0 px-3 py-2 h-auto text-xs text-muted-foreground hover:text-foreground md:w-full"
+                className="gap-1 justify-center items-center shrink-0 px-3 py-2 h-auto text-xs text-muted-foreground hover:text-foreground xl:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
@@ -490,7 +490,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
       onDragStart={handleDragStart}
       onDragEnd={(event) => void handleDragEnd(event)}
     >
-      <div className="flex flex-col gap-4 md:flex-row md:gap-3 md:overflow-x-auto md:pb-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:gap-3 xl:overflow-x-auto xl:pb-4">
         {COLUMNS.map((col) => (
           <KanbanColumn
             key={col.id}

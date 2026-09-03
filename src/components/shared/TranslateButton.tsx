@@ -101,6 +101,10 @@ export const TranslateButton = ({
       : [{ value: 'en', label: 'English' }];
 
   const handleToggle = () => {
+    // One translation at a time: with the dropdown re-openable mid-flight, a second
+    // language could be fired while the first was pending, and whichever request
+    // RESOLVED last won — not whichever the agent clicked last.
+    if (isTranslating) return;
     if (!isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       setDropdownPos({
@@ -127,7 +131,7 @@ export const TranslateButton = ({
           variant="ghost"
           size="icon"
           onClick={handleToggle}
-          disabled={!aiConfigured}
+          disabled={!aiConfigured || isTranslating}
           title={aiConfigured ? 'Translate' : 'AI translation needs a provider'}
           aria-label="Translate"
           className={`${
