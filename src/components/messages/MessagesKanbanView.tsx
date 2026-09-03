@@ -993,7 +993,9 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
         {activeTab === 'triage' && <ApproveDropZone activeDragColId={activeDragColId} />}
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3 xl:pb-4">
+        {/* No pb under the lanes: the 16px it reserved sat on top of the page frame's own
+            16px, and overlay scrollbars need no room of their own. */}
+        <div className="flex flex-col gap-4 xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3">
           {visibleColumns.map((col) => (
             <KanbanColumn
               key={col.id}
