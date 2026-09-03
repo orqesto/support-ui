@@ -127,10 +127,18 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
 
   return (
     <div
-      className="flex flex-wrap gap-x-2 gap-y-1 items-center px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground"
+      className={
+        isBoard
+          ? // On the board this is a caption on the Board/Triage row, not a card of its own:
+            // the row it used to occupy (52px with its gap) came straight out of the lanes,
+            // on the one screen where lane height IS the working area. Same sentence,
+            // same jump link, no chrome.
+            'flex flex-wrap gap-x-1.5 gap-y-0.5 items-center text-xs text-muted-foreground'
+          : 'flex flex-wrap gap-x-2 gap-y-1 items-center px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground'
+      }
       data-testid="list-scope-notice"
     >
-      <EyeOff className="w-4 h-4 shrink-0" aria-hidden="true" />
+      <EyeOff className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'} aria-hidden="true" />
       {/**
        * ⛔ The board does NOT say "Showing N". `shown` there is the board query's total
        * across all nine lanes, while the screen renders only the columns the agent has

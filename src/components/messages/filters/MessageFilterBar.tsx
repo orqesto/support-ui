@@ -143,11 +143,14 @@ export const MessageFilterBar = ({
   const hasRange = !isKanban;
 
   return (
-    <Card>
-      {/* p-3 at every width — the sm:p-4 step-up bought nothing but height on the one
-          page where vertical space is the working area (kanban under this bar). */}
-      <CardContent className="p-3 space-y-2.5">
-        {/* ── saved views ─────────────────────────────────────────────── */}
+    <Card padding="none">
+      {/* ONE layer of padding. The Card's default p-4 plus this content's own p-3 stacked
+          to 28px on every side — measured, not guessed — on the one page where vertical
+          space is the working area (kanban under this bar). */}
+      <CardContent padding="none" className="p-2.5 space-y-2">
+        {/* ── saved views · count · actions — one row ──
+            The count and the Save/Clear actions used to have a row of their own under
+            the token bar (20px + gap). They fit at the right end of the pills row. */}
         <div className="flex flex-wrap gap-1.5 items-center">
           {views.map((view) => {
             const on = viewIsActive(view, filters);
@@ -188,6 +191,66 @@ export const MessageFilterBar = ({
                 where this frontend is live and the endpoint is not — not a setting. */}
             {viewSource === 'local' && userViews.length > 0 && ' · on this device only'}
           </span>
+          <div className="flex gap-3 items-center ml-auto">
+            <span className="text-[12.5px] text-muted-foreground tabular-nums">
+              {total > 0 ? (
+                hasRange ? (
+                  <>
+                    <b className="font-semibold text-foreground/70">
+                      {rangeStart}–{rangeEnd}
+                    </b>{' '}
+                    of {total}
+                  </>
+                ) : (
+                  <>
+                    <b className="font-semibold text-foreground/70">{total}</b> on this board
+                  </>
+                )
+              ) : (
+                'No messages'
+              )}
+            </span>
+            <div className="flex gap-2 items-center">
+              {namingView ? (
+                <span className="flex gap-1 items-center">
+                  <input
+                    autoFocus
+                    value={viewName}
+                    onChange={(event) => setViewName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') saveCurrentView();
+                      if (event.key === 'Escape') setNamingView(false);
+                    }}
+                    placeholder="View name"
+                    aria-label="Name this view"
+                    className="px-2 h-8 rounded-md border outline-none w-[130px] text-[13px] bg-input border-border"
+                  />
+                  <Button onClick={saveCurrentView} className="h-8 px-2.5 text-[13px]">
+                    Save
+                  </Button>
+                </span>
+              ) : (
+                activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setNamingView(true)}
+                    className="h-8 px-2.5 rounded-md border text-[13px] border-input hover:bg-accent"
+                  >
+                    Save as view
+                  </Button>
+                )
+              )}
+              {clearableFilterCount > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={onClearFilters}
+                  className="h-8 px-2.5 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-red-600 dark:hover:text-red-400"
+                >
+                  Clear all
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
         {viewError && <p className="text-[12px] text-amber-600 dark:text-amber-400">{viewError}</p>}
 
@@ -241,68 +304,6 @@ export const MessageFilterBar = ({
               ))}
             </div>
           )}
-        </div>
-
-        {/* ── count + actions ─────────────────────────────────────────── */}
-        <div className="flex gap-3 justify-between items-center">
-          <span className="text-[12.5px] text-muted-foreground tabular-nums">
-            {total > 0 ? (
-              hasRange ? (
-                <>
-                  <b className="font-semibold text-foreground/70">
-                    {rangeStart}–{rangeEnd}
-                  </b>{' '}
-                  of {total}
-                </>
-              ) : (
-                <>
-                  <b className="font-semibold text-foreground/70">{total}</b> on this board
-                </>
-              )
-            ) : (
-              'No messages'
-            )}
-          </span>
-          <div className="flex gap-2 items-center">
-            {namingView ? (
-              <span className="flex gap-1 items-center">
-                <input
-                  autoFocus
-                  value={viewName}
-                  onChange={(event) => setViewName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') saveCurrentView();
-                    if (event.key === 'Escape') setNamingView(false);
-                  }}
-                  placeholder="View name"
-                  aria-label="Name this view"
-                  className="px-2 h-8 rounded-md border outline-none w-[130px] text-[13px] bg-input border-border"
-                />
-                <Button onClick={saveCurrentView} className="h-8 px-2.5 text-[13px]">
-                  Save
-                </Button>
-              </span>
-            ) : (
-              activeFilterCount > 0 && (
-                <Button
-                  variant="ghost"
-                  onClick={() => setNamingView(true)}
-                  className="h-8 px-2.5 rounded-md border text-[13px] border-input hover:bg-accent"
-                >
-                  Save as view
-                </Button>
-              )
-            )}
-            {clearableFilterCount > 0 && (
-              <Button
-                variant="ghost"
-                onClick={onClearFilters}
-                className="h-8 px-2.5 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-red-600 dark:hover:text-red-400"
-              >
-                Clear all
-              </Button>
-            )}
-          </div>
         </div>
       </CardContent>
 
