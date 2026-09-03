@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Mail, PenSquare, RefreshCw } from 'lucide-react';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -162,9 +163,21 @@ export const MessagesPage = () => {
   const [spamPreview, setSpamPreview] = useState<MessageThread | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
 
+  // On a phone the detail is a page, not this panel — see the hook. Declared before the
+  // body-scroll lock so the lock can skip the phone, where locking the body is exactly what
+  // killed pull-to-refresh.
+  const isPhone = usePhoneOpensMessageAsPage(selectedMessage, () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('id');
+    setSearchParams(params, { replace: true });
+    selectedThreadIdRef.current = null;
+    fetchedMessageIdRef.current = null;
+    setSelectedMessage(null);
+  });
+
   // Lock body scroll while the detail panel is open + notify Layout to hide header
   useEffect(() => {
-    if (selectedMessage) {
+    if (selectedMessage && !isPhone) {
       document.body.style.overflow = 'hidden';
       window.dispatchEvent(new CustomEvent('detail-panel-change', { detail: { open: true } }));
     } else {
@@ -174,7 +187,7 @@ export const MessagesPage = () => {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [selectedMessage]);
+  }, [selectedMessage, isPhone]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -665,18 +678,23 @@ export const MessagesPage = () => {
     <Layout>
       <div className="flex overflow-hidden flex-1 min-h-0">
         {/* ── List panel ─────────────────────────────────── */}
-        {/* Kanban fills the viewport on md+ (no page scroll; columns scroll
-            internally); list view and mobile keep the normal page scroll. */}
+        {/* Kanban fills the viewport from xl up (no page scroll; the lanes scroll
+            internally); list view, mobile and every width below xl keep the normal panel
+            scroll.
+            ⛔ xl, not lg — it MUST match the breakpoint where MessagesKanbanView puts the
+            lanes side by side (`xl:flex-row`). Between lg and xl the lanes STACK, and with
+            this box already overflow-hidden the stack was clipped: on a 1276px window
+            "Pending" started at 860px in an 806px viewport and nothing could scroll to it. */}
         <div
           className={`flex-1 min-w-0 ${
-            isKanban ? 'overflow-y-auto lg:overflow-hidden lg:flex lg:flex-col' : 'overflow-y-auto'
+            isKanban ? 'overflow-y-auto xl:overflow-hidden xl:flex xl:flex-col' : 'overflow-y-auto'
           }`}
         >
           <div
             className={`px-4 mx-auto space-y-3 w-full ${
               // Full page width (app-wide convention — every page is full width now;
               // the kanban also needs the flex-column chain for its bounded height).
-              isKanban ? 'lg:flex lg:flex-col lg:flex-1 lg:min-h-0' : ''
+              isKanban ? 'xl:flex xl:flex-col xl:flex-1 xl:min-h-0' : ''
             }`}
           >
             {/* Header — no own margin: the container's space-y already separates the
@@ -931,7 +949,7 @@ export const MessagesPage = () => {
         {/* end list panel inner container */}
 
         {/* ── Modal overlay ─────────────────────────────────────────── */}
-        {selectedMessage && (
+        {selectedMessage && !isPhone && (
           <>
             {/* Backdrop — dims the list, click to close. Route through the panel's
                 prompt-aware close so an unread triage thread still asks "Mark as
