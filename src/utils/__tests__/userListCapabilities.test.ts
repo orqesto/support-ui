@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getUserRowCapabilities,
+  IDP_MANAGED_REMOVE_REASON,
   type CapabilityActor,
   type CapabilityTarget,
 } from '../userListCapabilities';
@@ -67,6 +68,41 @@ describe('getUserRowCapabilities — workspace scope', () => {
     const caps = getUserRowCapabilities('workspace', orgAdmin, managedTarget);
     expect(caps.canRemove).toBe(false); // managed → not hard-removable
     expect(caps.canEdit).toBe(true); // still openable (role/dept are locked in the modal)
+  });
+
+  /**
+   * "Where is the delete button?" — the actual customer report. The rule was right and
+   * completely invisible: the row rendered `{canRemove && …}`, so the control vanished and
+   * the backend's 409, which names the remedy, could never be reached to be read.
+   */
+  it('says WHY an IdP-managed member cannot be removed, and names the remedy', () => {
+    const managedTarget: CapabilityTarget = { userId: 70, globalRole: 'user', scimManaged: true };
+    const caps = getUserRowCapabilities('workspace', orgAdmin, managedTarget);
+
+    expect(caps.removeBlockedReason).toBe(IDP_MANAGED_REMOVE_REASON);
+    // Both remedies, in the words the backend uses for the same rule.
+    expect(caps.removeBlockedReason).toContain('deactivate them here');
+    expect(caps.removeBlockedReason).toContain('remove them in your IdP');
+  });
+
+  /**
+   * ⛔ The reason is about a RULE, not a permission. An actor who could not remove this
+   * person anyway must not be told about SCIM — that is a lecture about a button they were
+   * never getting, on every row.
+   */
+  it('stays silent when the actor could not have removed them regardless', () => {
+    const managedTarget: CapabilityTarget = { userId: 70, globalRole: 'user', scimManaged: true };
+    const caps = getUserRowCapabilities('workspace', orgAdminNoDelete, managedTarget);
+
+    expect(caps.canRemove).toBe(false);
+    expect(caps.removeBlockedReason).toBeUndefined();
+  });
+
+  it('leaves the reason unset for a member nobody is blocking', () => {
+    const caps = getUserRowCapabilities('workspace', orgAdmin, normalTarget);
+
+    expect(caps.canRemove).toBe(true);
+    expect(caps.removeBlockedReason).toBeUndefined();
   });
 
   it('forbids an org admin from managing or removing a GLOBAL admin', () => {
