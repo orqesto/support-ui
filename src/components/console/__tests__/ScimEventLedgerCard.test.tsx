@@ -118,7 +118,16 @@ describe('ScimEventLedgerCard', () => {
             outcome: 'rejected',
             afterRole: null,
             targetEmail: 'smith@taconet.info',
-            detail: { reason: 'This account cannot be provisioned by SCIM.' },
+            // The BE's real string: the reason has to NAME the cause and the remedy —
+            // the old 'This account cannot be provisioned by SCIM.' rendered fine and
+            // told the admin reading it nothing at all.
+            detail: {
+              reason:
+                'smith@taconet.info is a platform administrator in Odly, and SCIM never ' +
+                'takes over a platform-admin account. Provision this person from a ' +
+                'different email address, or change their platform role to User in the ' +
+                'platform console (Console → Users) and re-push from your IdP.',
+            },
           }),
         ],
         nextCursor: null,
@@ -127,7 +136,39 @@ describe('ScimEventLedgerCard', () => {
     render(<ScimEventLedgerCard allianceId={1} />);
     expect(screen.getByText('Provisioning rejected')).toBeInTheDocument();
     expect(screen.getByText('smith@taconet.info')).toBeInTheDocument();
-    expect(screen.getByText(/cannot be provisioned by SCIM/i)).toBeInTheDocument();
+    expect(screen.getByText(/platform administrator/i)).toBeInTheDocument();
+    expect(screen.getByText(/platform role to User/i)).toBeInTheDocument();
+  });
+
+  it('labels a skipped group member instead of showing the raw event type', () => {
+    // `eventLabel` falls back to the bare type string, so an unlabelled BE event reaches
+    // the admin as 'group_member_skipped'. This is the test that keeps the two in step.
+    eventsReturn = query([
+      {
+        available: true,
+        events: [
+          event({
+            id: 4,
+            eventType: 'group_member_skipped',
+            severity: 'warning',
+            outcome: 'skipped',
+            afterRole: null,
+            targetEmail: 'jerry@taconet.info',
+            detail: {
+              skipped: 1,
+              reason:
+                'The IdP listed these members, but they are not provisioned into this ' +
+                'alliance, so they were left out of the group.',
+            },
+          }),
+        ],
+        nextCursor: null,
+      },
+    ]);
+    render(<ScimEventLedgerCard allianceId={1} />);
+    expect(screen.getByText('Group members skipped')).toBeInTheDocument();
+    expect(screen.queryByText('group_member_skipped')).not.toBeInTheDocument();
+    expect(screen.getByText(/not provisioned into this alliance/i)).toBeInTheDocument();
   });
 
   it('shows the empty state when the endpoint is available but has no events', () => {

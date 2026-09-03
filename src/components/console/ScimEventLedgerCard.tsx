@@ -26,6 +26,10 @@ const EVENT_LABEL: Record<string, string> = {
   group_wired: 'Group access wired',
   group_pruned: 'IdP group dropped (provider stopped pushing it)',
   resync: 'Re-synced',
+  // Members the IdP named in a group push that are not provisioned into this alliance,
+  // so they were left out of the group. Without a label this renders as the raw event
+  // type (`eventLabel` falls back to the string), so it ships with the BE that emits it.
+  group_member_skipped: 'Group members skipped',
   provision_rejected: 'Provisioning rejected',
   seat_cap_rejected: 'Seat cap reached',
   last_admin_removed: 'Last admin removed',
