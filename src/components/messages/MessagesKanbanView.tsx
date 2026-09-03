@@ -196,10 +196,13 @@ const KanbanColumn = ({
     <div
       ref={isDroppable ? setNodeRef : undefined}
       className={cn(
-        // lg:h-full: the column fills the flex-bounded board height (set by the
+        // xl:h-full: the column fills the flex-bounded board height (set by the
         // page → kanban-root → column-row chain), so every column is uniform full
         // height; the cards body below flex-fills + scrolls inside it. No page scroll.
-        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden lg:min-w-[260px] lg:flex-1 lg:h-full transition-colors',
+        // Trello mode starts at xl (was lg): on smaller windows the per-column
+        // scroll forced people to scroll each lane separately, so below xl the
+        // columns stack and the page scrolls naturally instead.
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden xl:min-w-[260px] xl:flex-1 xl:h-full transition-colors',
         isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
       )}
       style={{ borderTopColor: col.accentColor }}
@@ -243,24 +246,24 @@ const KanbanColumn = ({
       </div>
 
       {/* Cards */}
-      <div className="flex flex-row overflow-x-auto gap-2 p-2 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:flex-1 lg:min-h-0">
+      <div className="flex flex-row overflow-x-auto gap-2 p-2 xl:flex-col xl:overflow-x-hidden xl:overflow-y-auto xl:flex-1 xl:min-h-0">
         {state.loading && state.threads.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
             <div
               key={idx}
-              className="min-w-[260px] lg:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+              className="min-w-[260px] xl:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
             >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
           ))
         ) : state.threads.length === 0 ? (
-          <p className="px-3 py-4 text-xs text-muted-foreground lg:text-center">{col.emptyText}</p>
+          <p className="px-3 py-4 text-xs text-muted-foreground xl:text-center">{col.emptyText}</p>
         ) : (
           <>
             {state.threads.map((thread) =>
               isDraggable && !thread.threadId.startsWith('spamlog_') ? (
-                <div key={thread.threadId} className="min-w-[260px] lg:min-w-0 shrink-0 lg:shrink">
+                <div key={thread.threadId} className="min-w-[260px] xl:min-w-0 shrink-0 xl:shrink">
                   <DraggableMessageCard
                     thread={thread}
                     colId={col.id}
@@ -271,7 +274,7 @@ const KanbanColumn = ({
               ) : (
                 <div
                   key={thread.threadId}
-                  className="min-w-[260px] lg:min-w-0 shrink-0 lg:shrink"
+                  className="min-w-[260px] xl:min-w-0 shrink-0 xl:shrink"
                   title={
                     thread.threadId.startsWith('spamlog_')
                       ? 'Rule-blocked — cannot be moved'
@@ -294,7 +297,7 @@ const KanbanColumn = ({
                 variant="ghost"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 lg:w-full"
+                className="flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 xl:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
@@ -881,7 +884,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       onDragStart={handleDragStart}
       onDragEnd={(event) => void handleDragEnd(event)}
     >
-      <div className="space-y-3 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+      <div className="space-y-3 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
         {/* What the board is NOT showing. Above the tabs, and outside any empty-state
             branch, for the same reason the list's copy is: an empty board while rows sit
             one lens away is the worst version of the silence this removes. */}
@@ -990,7 +993,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
         {activeTab === 'triage' && <ApproveDropZone activeDragColId={activeDragColId} />}
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-x-auto lg:gap-3 lg:pb-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3 xl:pb-4">
           {visibleColumns.map((col) => (
             <KanbanColumn
               key={col.id}
