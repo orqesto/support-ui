@@ -28,11 +28,18 @@ vi.mock('@/lib/api-client', () => ({
     patch: (url: string) => patch(url),
   },
 }));
+/** A stand-in socket whose subscriptions the tests can read and fire. */
+const socketState = vi.hoisted(() => ({ connected: null as unknown }));
+const handlers = vi.hoisted(() => new Map<string, () => void>());
 vi.mock('@/lib/socketManager', () => ({
-  getSocket: () => null,
+  getSocket: () => socketState.connected,
   releaseSocket: () => {},
-  subscribeToEvent: () => {},
-  unsubscribeFromEvent: () => {},
+  subscribeToEvent: (event: string, handler: () => void) => {
+    handlers.set(event, handler);
+  },
+  unsubscribeFromEvent: (event: string) => {
+    handlers.delete(event);
+  },
 }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
@@ -64,6 +71,8 @@ const respond = (notifications: unknown[]) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  socketState.connected = null;
+  handlers.clear();
 });
 
 describe('useAiProviderAlerts', () => {
@@ -103,6 +112,31 @@ describe('useAiProviderAlerts', () => {
       return Promise.resolve();
     });
     expect(result.current.alerts).toHaveLength(1);
+  });
+
+  /**
+   * ⛔ The END of an outage is an event too. The backend deletes the row the moment the
+   * provider answers again; listening only for `notification:new` left a fixed provider's red
+   * card on screen until the admin happened to reload — a smaller copy of the staleness this
+   * alert exists to report. Observed on taco 2026-09-03 as a red "bedrock is not answering"
+   * beside a Test Connection that had just passed.
+   */
+  it('refetches when the backend says an alert was resolved', async () => {
+    socketState.connected = {};
+    respond([row()]);
+    const { result } = renderHook(() => useAiProviderAlerts());
+    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+
+    expect(handlers.has('notification:new')).toBe(true);
+    expect(handlers.has('notification:resolved')).toBe(true);
+
+    respond([]);
+    await act(() => {
+      handlers.get('notification:resolved')?.();
+      return Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.alerts).toHaveLength(0));
   });
 
   it('dismisses optimistically and tells the server', async () => {

@@ -375,6 +375,17 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                           <p className="font-medium text-foreground">
                             {alert.provider} is not answering
                           </p>
+                          {/*
+                            ⛔ WHEN IT STARTED, not just what it said. The backend has always
+                            sent `since` and the hook has always parsed it; the card threw it
+                            away, so a card raised three days ago read exactly like one raised
+                            a minute ago. On taco that produced the whole confusion: a red
+                            "bedrock is not answering" beside a Test Connection that had just
+                            passed, and no way to tell which was current.
+                          */}
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Failing since {formatRelativeTime(alert.since)}
+                          </p>
                           <p className="mt-0.5 break-words text-muted-foreground">{alert.reason}</p>
                           {alert.degradedTo === 'local_embeddings' && (
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -399,7 +410,12 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                           size="sm"
                           onClick={() => dismissAiAlert(alert.id)}
                           aria-label="Dismiss this alert"
-                          title="Dismiss — it returns if the provider is still failing"
+                          // ⛔ The old copy — "it returns if the provider is still failing" —
+                          // promised something the backend never did: the alert publishes
+                          // only on the working→failing transition, so nothing re-raises it
+                          // while one outage continues. What is true, and now enforced, is
+                          // that a NEW outage after a recovery comes back.
+                          title="Dismiss — hides this outage; a new one is shown again"
                           className="p-1 h-auto text-muted-foreground hover:text-foreground"
                         >
                           <X className="w-3.5 h-3.5" />
