@@ -111,7 +111,7 @@ export function ThreadMessageItem({
                 <ThreadBubble
                   content={translatedContent ?? msg.content}
                   isAgent={true}
-                  html={originalHtml}
+                  html={translatedContent === null ? originalHtml : null}
                   eventId={msg.id}
                 />
               </div>
@@ -192,7 +192,7 @@ export function ThreadMessageItem({
               <ThreadBubble
                 content={translatedContent ?? msg.content}
                 isAgent={false}
-                html={originalHtml}
+                html={translatedContent === null ? originalHtml : null}
                 eventId={msg.id}
               />
             </div>
