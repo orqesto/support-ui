@@ -17,7 +17,50 @@ type CleanupResponse = {
   clearedKeys?: number;
 };
 
+/** One membership a global admin holds in a customer workspace — the invariant violation. */
+export type StrayAdminMembership = {
+  membershipId: number;
+  userId: number;
+  userEmail: string;
+  organizationId: number;
+  organizationName: string;
+  active: boolean;
+};
+
+export type GlobalAdminMembershipCleanup = {
+  memberships: StrayAdminMembership[];
+  found: number;
+  removed: number;
+  applied: boolean;
+  note?: string;
+};
+
 const systemService = {
+  /**
+   * Global admins holding memberships in customer workspaces — the platform invariant that a
+   * global admin belongs only to the internal system org. Read-only.
+   */
+  listGlobalAdminMemberships: async (organizationId?: number) => {
+    const response = await apiClient.get<
+      ApiResponse<{ memberships: StrayAdminMembership[]; total: number }>
+    >('/api/system/global-admin-memberships', {
+      ...(organizationId ? { params: { organizationId } } : {}),
+    });
+    return response.data;
+  },
+
+  /**
+   * Remove them. ⛔ DRY-RUN unless `apply` is true — the backend requires exactly boolean
+   * true, and this deletes rows across organisations.
+   */
+  cleanupGlobalAdminMemberships: async (apply: boolean, organizationId?: number) => {
+    const response = await apiClient.post<ApiResponse<GlobalAdminMembershipCleanup>>(
+      '/api/system/cleanup-global-admin-memberships',
+      { apply, ...(organizationId ? { organizationId } : {}) }
+    );
+    return response.data;
+  },
+
   /**
    * Stop all processing queues
    */
@@ -96,7 +139,10 @@ const systemService = {
   },
 
   cleanupSpamLog: async (days = 90) => {
-    const response = await apiClient.delete<ApiResponse<{ deletedCount: number }>>('/api/spam-logs/cleanup', { params: { days } });
+    const response = await apiClient.delete<ApiResponse<{ deletedCount: number }>>(
+      '/api/spam-logs/cleanup',
+      { params: { days } }
+    );
     return response.data;
   },
 };
