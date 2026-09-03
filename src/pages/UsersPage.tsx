@@ -147,13 +147,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     organizationId: number,
     senderIntegrationId?: number
   ) => {
-    await invitationService.invite(
-      email,
-      role,
-      departmentIds,
-      organizationId,
-      senderIntegrationId
-    );
+    await invitationService.invite(email, role, departmentIds, organizationId, senderIntegrationId);
     // Optionally refresh users list or show a success message
   };
 
@@ -183,7 +177,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   // WorkspaceShell established and act on the caller's home workspace instead.
   const handleEditUser = (user: User) => {
     navigate(
-      embedded && orgId ? `/console/workspace/${orgId}/users/${user.id}/edit` : `/users/${user.id}/edit`
+      embedded && orgId
+        ? `/console/workspace/${orgId}/users/${user.id}/edit`
+        : `/users/${user.id}/edit`
     );
   };
 
@@ -229,8 +225,6 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       setDeleteDialog({ open: false, user: null });
     }
   };
-
-  const canDeleteUser = (user: User) => rowCapabilities(user).canRemove;
 
   if (!canViewUsers) {
     return (
@@ -345,8 +339,13 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       id: 'skills',
       header: 'Skills',
       cell: (user) => (
-        <Button size="sm" variant="outline" onClick={() => setSkillsUser(user)} title="Manage skills"
-  aria-label="Manage skills">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setSkillsUser(user)}
+          title="Manage skills"
+          aria-label="Manage skills"
+        >
           <Tag className="w-4 h-4" />
         </Button>
       ),
@@ -415,97 +414,104 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
 
   // Mobile (< xl) card — DataTable stacks one per row (divide-y). Mirrors the desktop columns
   // but folds Skills into the action group, as the previous responsive layout did.
-  const renderUserCard = (user: User) => (
-    <div className="p-4 transition-colors hover:bg-accent">
-      <div className="flex gap-3 items-start">
-        <div className="flex flex-shrink-0 justify-center items-center w-12 h-12 text-sm font-medium rounded-full bg-primary text-primary-foreground">
-          {initials(user)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex gap-2 justify-between items-start mb-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold truncate">
-                {user.firstName} {user.lastName}
-              </h3>
-              <p className="text-sm truncate text-muted-foreground">{user.email}</p>
-            </div>
-            <div className="flex gap-2">
-              {canManageUser(user) && (
+  const renderUserCard = (user: User) => {
+    // Resolved ONCE per card: this was recomputing the whole capability set three times per
+    // row, and a row's answer must not be able to differ between the three reads.
+    const caps = rowCapabilities(user);
+    return (
+      <div className="p-4 transition-colors hover:bg-accent">
+        <div className="flex gap-3 items-start">
+          <div className="flex flex-shrink-0 justify-center items-center w-12 h-12 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+            {initials(user)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex gap-2 justify-between items-start mb-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold truncate">
+                  {user.firstName} {user.lastName}
+                </h3>
+                <p className="text-sm truncate text-muted-foreground">{user.email}</p>
+              </div>
+              <div className="flex gap-2">
+                {canManageUser(user) && (
+                  <Button
+                    aria-label="Edit user"
+                    title="Edit user"
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0"
+                    onClick={() => handleEditUser(user)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button
-                  aria-label="Edit user"
-                  title="Edit user"
                   size="sm"
                   variant="outline"
                   className="flex-shrink-0"
-                  onClick={() => handleEditUser(user)}
+                  onClick={() => setSkillsUser(user)}
+                  title="Manage skills"
+                  aria-label="Manage skills"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Tag className="w-4 h-4" />
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-shrink-0"
-                onClick={() => setSkillsUser(user)}
-                title="Manage skills"
-                aria-label="Manage skills"
-              >
-                <Tag className="w-4 h-4" />
-              </Button>
-              {canDeleteUser(user) && (
-                <Button
-                  aria-label="Delete user"
-                  title="Delete user"
-                  size="sm"
-                  variant="outline"
-                  className="flex-shrink-0 text-red-600 hover:text-red-700 hover:border-red-300"
-                  onClick={() => handleDeleteUser(user)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
-              {/* Same rule as the desktop row: blocked is shown and explained, never hidden. */}
-              {!canDeleteUser(user) && rowCapabilities(user).removeBlockedReason && (
-                <Button
-                  aria-label="Delete user — managed by your identity provider"
-                  aria-disabled
-                  title={rowCapabilities(user).removeBlockedReason}
-                  size="sm"
-                  variant="outline"
-                  className="flex-shrink-0 opacity-50 cursor-not-allowed"
-                  onClick={(event) => event.preventDefault()}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
+                {caps.canRemove && (
+                  <Button
+                    aria-label="Delete user"
+                    title="Delete user"
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0 text-red-600 hover:text-red-700 hover:border-red-300"
+                    onClick={() => handleDeleteUser(user)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+                {/* Same rule as the desktop row: blocked is shown and explained, never hidden. */}
+                {!caps.canRemove && caps.removeBlockedReason && (
+                  <Tooltip content={caps.removeBlockedReason}>
+                    <Button
+                      aria-label="Delete user — managed by your identity provider"
+                      aria-disabled
+                      title={caps.removeBlockedReason}
+                      size="sm"
+                      variant="outline"
+                      className="flex-shrink-0 opacity-50 cursor-not-allowed"
+                      onClick={(event) => event.preventDefault()}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </Tooltip>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                {roleDisplayNames[user.role]}
-              </Badge>
-              {user.organizationRole && (
-                <Badge variant="secondary">{roleDisplayNames[user.organizationRole]}</Badge>
-              )}
-              {scimBadge(user)}
-              {deptBadges(user)}
-            </div>
-            <div className="flex flex-col gap-1 text-xs text-gray-500">
-              {user.position && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                  {roleDisplayNames[user.role]}
+                </Badge>
+                {user.organizationRole && (
+                  <Badge variant="secondary">{roleDisplayNames[user.organizationRole]}</Badge>
+                )}
+                {scimBadge(user)}
+                {deptBadges(user)}
+              </div>
+              <div className="flex flex-col gap-1 text-xs text-gray-500">
+                {user.position && (
+                  <div>
+                    <span className="font-medium">Position:</span> {user.position}
+                  </div>
+                )}
                 <div>
-                  <span className="font-medium">Position:</span> {user.position}
+                  <span className="font-medium">Joined:</span> {formatDate(user.createdAt)}
                 </div>
-              )}
-              <div>
-                <span className="font-medium">Joined:</span> {formatDate(user.createdAt)}
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Wrap>
@@ -610,7 +616,6 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             )}
           </CardContent>
         </Card>
-
       </div>
 
       {/* Create User Modal */}

@@ -132,6 +132,14 @@ const workspaceCapabilities = (
 
   // IdP-managed members must not be hard-removed here — removal is the IdP's job and the
   // BE 409s on it. Deactivate them via the alliance console (or in the IdP) instead.
+  //
+  // ⚠️ Tier asymmetry, PRE-EXISTING and deliberately not changed here: the backend's guard
+  // sits inside `if (!isGlobalAdmin)` (`userController.deleteUser`), so a GLOBAL admin's
+  // delete would actually be permitted — this surface blocks them anyway and always has.
+  // The reason text stays accurate for both tiers because it does not claim the server
+  // refuses: what it says is that the next SCIM sync undoes the removal, which is true of a
+  // re-provisioned account as much as of a re-created membership. Aligning the two (or not)
+  // is a product decision about hard-deleting a synced account, not a rendering fix.
   // The reason rides along ONLY when the block is what changed the answer: an actor who
   // could not remove this person anyway learns nothing from being told about SCIM.
   let removeBlockedReason: string | undefined;
