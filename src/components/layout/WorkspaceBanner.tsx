@@ -18,6 +18,9 @@ import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
  * Shown only to users who can actually switch workspaces — `OrganizationSwitcher` renders
  * for global admins alone, so for everyone else there is exactly one workspace, no
  * ambiguity to resolve, and a permanent banner would be noise.
+ *
+ * Kept to one slim line: it sits above the kanban, where every pixel of height is
+ * working area, so it has the padding of a caption, not of a card.
  */
 export const WorkspaceBanner = () => {
   const isGlobalAdmin = useAuthStore((state) => state.user?.role === 'admin');
@@ -28,7 +31,7 @@ export const WorkspaceBanner = () => {
   return (
     <div
       data-testid="workspace-banner"
-      className="flex gap-2 items-center px-3 py-1.5 mb-2 text-xs rounded-md border border-border bg-muted/40 text-muted-foreground"
+      className="flex gap-2 items-center px-2.5 py-0.5 mb-1.5 text-[11.5px] rounded-md border border-border bg-muted/40 text-muted-foreground"
     >
       <Building2 className="w-3.5 h-3.5 shrink-0" />
       <span>

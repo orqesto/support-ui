@@ -49,10 +49,7 @@ export const FilterTokenBar = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
-  const suggestions = useMemo(
-    () => suggestionsFor(defs, query, isKanban),
-    [defs, query, isKanban]
-  );
+  const suggestions = useMemo(() => suggestionsFor(defs, query, isKanban), [defs, query, isKanban]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -100,10 +97,17 @@ export const FilterTokenBar = ({
       if (def.kind === 'date') {
         // A bucket and an explicit range are alternatives, so choosing one drops the
         // other. Both would be honoured by the API — as an intersection nobody asked for.
-        onFilterPatch({ ageRange: value as FilterState['ageRange'], receivedFrom: undefined, receivedTo: undefined });
+        onFilterPatch({
+          ageRange: value as FilterState['ageRange'],
+          receivedFrom: undefined,
+          receivedTo: undefined,
+        });
       } else if (def.multi) {
         // Toggle, not replace: a second pick on a multi means "and this one too".
-        onFilterChange(def.key, toggleCsvValue((filters as Record<string, unknown>)[def.key], value));
+        onFilterChange(
+          def.key,
+          toggleCsvValue((filters as Record<string, unknown>)[def.key], value)
+        );
       } else {
         onFilterChange(def.key, value);
       }
@@ -214,7 +218,7 @@ export const FilterTokenBar = ({
         }}
         // Dark mode drops to --background rather than --input: the bar sits ON a card,
         // and --input there is barely distinguishable from it.
-        className={`flex flex-wrap gap-1.5 items-center p-1.5 rounded-md border cursor-text min-h-[46px] transition-colors bg-input dark:bg-background ${
+        className={`flex flex-wrap gap-1.5 items-center p-1.5 rounded-md border cursor-text min-h-[40px] transition-colors bg-input dark:bg-background ${
           open
             ? 'border-primary ring-2 ring-primary/10'
             : 'border-border hover:border-accent-foreground dark:hover:border-primary/50'
