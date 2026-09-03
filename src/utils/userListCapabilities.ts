@@ -70,7 +70,30 @@ export interface RowCapabilities {
   removeKind: RemoveKind;
   /** May change this user's GLOBAL role (`users.role`) — platform scope only. */
   canChangeGlobalRole: boolean;
+  /**
+   * Why Remove is unavailable, when the answer is a RULE rather than a missing permission.
+   *
+   * ⛔ Set only when the actor would otherwise have been allowed to remove this person. An
+   * actor who simply lacks DELETE_USERS still sees nothing — telling them why a button they
+   * were never going to get is missing is noise.
+   *
+   * It exists because omitting the control silently is what produced "where is the delete
+   * button?". The backend's refusal (`userController.deleteUser`, 409) says exactly what to
+   * do instead — and no one could ever see it, because the UI removed the button before a
+   * request could be made. This carries that same sentence to the person looking for it.
+   */
+  removeBlockedReason?: string;
 }
+
+/**
+ * Kept verbatim in step with the backend's 409 (`userController`: "This member is managed by
+ * your identity provider — deactivate them here, or remove them in your IdP."). Two surfaces
+ * describing one rule in two different ways is how an admin ends up believing they are
+ * different rules.
+ */
+export const IDP_MANAGED_REMOVE_REASON =
+  'This member is managed by your identity provider — deactivate them here, or remove them ' +
+  'in your IdP. Removing them in Odly would be undone by the next SCIM sync.';
 
 const workspaceCapabilities = (
   actor: CapabilityActor,
@@ -109,7 +132,11 @@ const workspaceCapabilities = (
 
   // IdP-managed members must not be hard-removed here — removal is the IdP's job and the
   // BE 409s on it. Deactivate them via the alliance console (or in the IdP) instead.
+  // The reason rides along ONLY when the block is what changed the answer: an actor who
+  // could not remove this person anyway learns nothing from being told about SCIM.
+  let removeBlockedReason: string | undefined;
   if (target.scimManaged) {
+    if (canRemove) removeBlockedReason = IDP_MANAGED_REMOVE_REASON;
     canRemove = false;
   }
 
@@ -118,7 +145,14 @@ const workspaceCapabilities = (
   // all workspaces, while an org admin removes only this workspace's membership.
   const removeKind: RemoveKind = actor.isGlobalAdmin ? 'account' : 'membership';
 
-  return { isSelf, canEdit, canRemove, removeKind, canChangeGlobalRole: false };
+  return {
+    isSelf,
+    canEdit,
+    canRemove,
+    removeKind,
+    canChangeGlobalRole: false,
+    removeBlockedReason,
+  };
 };
 
 const platformCapabilities = (actor: CapabilityActor, isSelf: boolean): RowCapabilities => ({

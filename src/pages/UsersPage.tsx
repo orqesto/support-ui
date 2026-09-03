@@ -34,6 +34,7 @@ import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import type { OrganizationRole } from '@/types/roles';
 import { getUserRowCapabilities } from '@/utils/userListCapabilities';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
@@ -353,9 +354,14 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   ];
 
   const rowActions = (user: User) => {
-    const canEdit = canManageUser(user);
-    const canRemove = canDeleteUser(user);
-    if (!canEdit && !canRemove) {
+    const caps = rowCapabilities(user);
+    const canEdit = caps.canEdit;
+    const canRemove = caps.canRemove;
+    // A blocked Remove still renders — as a disabled control that says why. Omitting it is
+    // what made the rule invisible: the backend's 409 explains the remedy and never reaches
+    // anyone, because no request is ever made.
+    const blockedReason = caps.removeBlockedReason;
+    if (!canEdit && !canRemove && !blockedReason) {
       return <span className="text-sm text-gray-400">—</span>;
     }
     return (
@@ -382,6 +388,26 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
           >
             <Trash2 className="w-4 h-4" />
           </Button>
+        )}
+        {!canRemove && blockedReason && (
+          <Tooltip content={blockedReason}>
+            {/*
+              `aria-disabled`, not `disabled`: a disabled button swallows pointer events in
+              every browser, so the tooltip explaining it would never open — the button would
+              be present and still say nothing. `title` covers the touch case.
+            */}
+            <Button
+              aria-label="Delete user — managed by your identity provider"
+              aria-disabled
+              title={blockedReason}
+              size="sm"
+              variant="outline"
+              onClick={(event) => event.preventDefault()}
+              className="opacity-50 cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </Tooltip>
         )}
       </div>
     );
@@ -434,6 +460,20 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                   variant="outline"
                   className="flex-shrink-0 text-red-600 hover:text-red-700 hover:border-red-300"
                   onClick={() => handleDeleteUser(user)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+              {/* Same rule as the desktop row: blocked is shown and explained, never hidden. */}
+              {!canDeleteUser(user) && rowCapabilities(user).removeBlockedReason && (
+                <Button
+                  aria-label="Delete user — managed by your identity provider"
+                  aria-disabled
+                  title={rowCapabilities(user).removeBlockedReason}
+                  size="sm"
+                  variant="outline"
+                  className="flex-shrink-0 opacity-50 cursor-not-allowed"
+                  onClick={(event) => event.preventDefault()}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
