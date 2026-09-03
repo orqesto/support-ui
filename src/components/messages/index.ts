@@ -6,4 +6,3 @@ export { KanbanCard } from './KanbanCard';
 export { MessagesKanbanView } from './MessagesKanbanView';
 export { MessageListItem } from './MessageListItem';
 export { MessageProcessingProgress } from './MessageProcessingProgress';
-export { MessageThread } from './MessageThread';

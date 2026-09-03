@@ -10,6 +10,10 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import { commentsService, type Attachment } from '@/services/comments.service';
+import {
+  AttachmentPreviewDialog,
+  isPreviewable,
+} from '@/components/shared/AttachmentPreviewDialog';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 
@@ -19,6 +23,7 @@ type TicketAttachmentsProps = {
 
 export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -160,7 +165,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     }
   };
 
-  const handleDownload = async (attachment: Attachment, inline = false) => {
+  const handleDownload = async (attachment: Attachment) => {
     try {
       const isJira = attachment.externalId && attachment.url.startsWith('http');
       const path = isJira
@@ -168,17 +173,11 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         : `/api/attachments/${attachment.id}/download`;
       const response = await apiClient.get(path, { responseType: 'blob' });
       const url = URL.createObjectURL(response.data as Blob);
-      if (inline) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        // Delay revoke so the new tab has time to load the blob
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-      } else {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = attachment.originalFilename;
-        anchor.click();
-        URL.revokeObjectURL(url);
-      }
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = attachment.originalFilename;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
       logger.error('Failed to download attachment:', error);
       toast.failure('download attachment', error);
@@ -324,12 +323,12 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-end items-center">
-                      {isImage(attachment.mimeType) && (
+                      {isPreviewable(attachment.mimeType) && (
                         <Button
-                          onClick={() => void handleDownload(attachment, true)}
+                          onClick={() => setPreviewAttachment(attachment)}
                           className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                          title="View"
-                          aria-label="View"
+                          title="Preview"
+                          aria-label="Preview"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -398,6 +397,16 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
           </div>
         </div>
       </Dialog>
+
+      <AttachmentPreviewDialog
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        downloadPath={
+          previewAttachment && previewAttachment.externalId && previewAttachment.url.startsWith('http')
+            ? `/api/attachments/jira/${previewAttachment.id}/download`
+            : undefined
+        }
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
-import {
+import { Eye,
   MessageSquare,
   Send,
   Edit2,
@@ -32,7 +32,11 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import { formatDate } from '@/lib/utils';
-import { commentsService, type Comment } from '@/services/comments.service';
+import {
+  AttachmentPreviewDialog,
+  isPreviewable,
+} from '@/components/shared/AttachmentPreviewDialog';
+import { commentsService, type Attachment, type Comment } from '@/services/comments.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
@@ -45,6 +49,7 @@ type TicketCommentsProps = {
 
 export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketCommentsProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -416,6 +421,18 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                               {formatFileSize(attachment.size)}
                             </p>
                           </div>
+                          {isPreviewable(attachment.mimeType) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Preview attachment"
+                              title="Preview"
+                              onClick={() => setPreviewAttachment(attachment)}
+                              className="p-1 w-auto h-auto rounded hover:bg-accent"
+                            >
+                              <Eye className="w-4 h-4 text-gray-600" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -606,6 +623,11 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           </Button>
         </DialogFooter>
       </Dialog>
+
+      <AttachmentPreviewDialog
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+      />
     </div>
   );
 };

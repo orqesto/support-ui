@@ -20,6 +20,7 @@ import {
   PowerOff,
   Square,
 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
 import { useState } from 'react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Button } from '@/components/ui/Button';
@@ -437,7 +438,10 @@ export const DocumentationList = ({
                     size="sm"
                     onClick={() => {
                       const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
-                      window.open(`/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
+                      // Absolute API origin: a relative /api/... resolves against the FE host,
+                      // and on deployments where the console and the API live on different
+                      // subdomains that returns the SPA's index.html, not the file.
+                      window.open(`${API_BASE_URL}/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
                     }}
                     title="Download file"
                     aria-label="Download file"
