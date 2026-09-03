@@ -85,15 +85,29 @@ export const useAiProviderAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const onNew = () => fetchAlerts();
-    subscribeToEvent('notification:new', onNew);
+    const onChange = () => fetchAlerts();
+    subscribeToEvent('notification:new', onChange);
+    // The end of an outage is an event too. The backend deletes the row the moment the
+    // provider answers again; without listening for that, a fixed provider kept its red card
+    // on screen until the admin happened to reload — which is a smaller version of the exact
+    // staleness this alert is supposed to be reporting on.
+    subscribeToEvent('notification:resolved', onChange);
     return () => {
-      unsubscribeFromEvent('notification:new', onNew);
+      unsubscribeFromEvent('notification:new', onChange);
+      unsubscribeFromEvent('notification:resolved', onChange);
       releaseSocket();
     };
   }, [fetchAlerts]);
 
-  /** Dismiss the row. The backend re-raises it if the provider is still failing. */
+  /**
+   * Hide the row for THIS outage.
+   *
+   * ⛔ Not "it comes back while the provider is still failing" — it does not, and the tooltip
+   * that said so was wrong on two counts: the backend publishes only on the working→failing
+   * transition, and the bus keeps a dismissed row dismissed for the same severity. What does
+   * bring it back is a NEW outage after a recovery, which the backend now re-surfaces
+   * explicitly. Recovery deletes the row outright, so nothing lingers either way.
+   */
   const dismiss = useCallback((id: number) => {
     setAlerts((current) => current.filter((alert) => alert.id !== id));
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
