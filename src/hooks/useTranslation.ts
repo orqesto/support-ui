@@ -66,90 +66,15 @@ export const useTranslation = () => {
     }
   };
 
-  const streamMessageTranslation = (
-    messageId: number,
-    targetLanguage: string,
-    onChunk: (field: 'content' | 'subject', text: string) => void,
-    onComplete?: () => void,
-    onError?: (error: string) => void
-  ) => {
-    setIsTranslating(true);
-    setError(null);
-
-    let mounted = true;
-    const controller = new AbortController();
-
-    type SSEData =
-      | { type: 'start'; sourceLang: string; targetLanguage: string }
-      | { type: 'chunk'; field: 'content' | 'subject'; text: string }
-      | { type: 'done' }
-      | { type: 'error'; error: string };
-
-    const run = async () => {
-      try {
-        const response = await fetch(`/api/translation/messages/${messageId}/stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ targetLanguage }),
-          signal: controller.signal,
-          credentials: 'include',
-        });
-
-        if (!response.ok || !response.body) {
-          throw new Error(`Server error: ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue;
-            const raw = line.slice(5).trim();
-            if (!raw) continue;
-            const data = JSON.parse(raw) as SSEData;
-            if (data.type === 'chunk') {
-              onChunk(data.field, data.text);
-            } else if (data.type === 'done') {
-              if (mounted) setIsTranslating(false);
-              onComplete?.();
-              return;
-            } else if (data.type === 'error') {
-              const errMsg = data.error || 'Translation failed';
-              if (mounted) { setIsTranslating(false); setError(errMsg); }
-              onError?.(errMsg);
-              return;
-            }
-          }
-        }
-
-        if (mounted) setIsTranslating(false);
-      } catch (err) {
-        if ((err as { name?: string }).name === 'AbortError') return;
-        const errorMessage = err instanceof Error ? err.message : 'Stream failed';
-        if (mounted) { setError(errorMessage); setIsTranslating(false); }
-        onError?.(errorMessage);
-      }
-    };
-
-    void run();
-
-    return () => {
-      mounted = false;
-      controller.abort();
-      setIsTranslating(false);
-    };
-  };
-
+  // ⛔ A streaming variant (`streamMessageTranslation`) used to live here. It was never
+  // called from anywhere, and it could never have worked when it was: it bypassed
+  // `apiClient` with a raw fetch to a RELATIVE `/api/...` URL, and every deployed FE
+  // serves the API from a different origin — the request would have hit the SPA host and
+  // received index.html. Removed rather than fixed so nobody wires up a silent failure;
+  // the BE `/messages/:id/stream` endpoint still exists if streaming is ever wanted,
+  // in which case go through API_BASE_URL and the auth handling apiClient provides.
   return {
     translateMessage,
-    streamMessageTranslation,
     translateTicket,
     isTranslating,
     error,
