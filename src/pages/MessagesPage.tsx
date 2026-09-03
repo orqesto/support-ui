@@ -63,7 +63,14 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 // ignores these, so arriving via a filter-bearing link (dashboard cards, or the
 // Notification Center's Spam/Suspicious queue rows → ?queue=spam) must force the
 // list ("threads") view — otherwise the click looks like a no-op on Kanban.
-const LIST_ONLY_FILTER_PARAMS = ['status', 'threadStatus', 'slaBreached', 'slaAtRisk', 'queue', 'read'];
+const LIST_ONLY_FILTER_PARAMS = [
+  'status',
+  'threadStatus',
+  'slaBreached',
+  'slaAtRisk',
+  'queue',
+  'read',
+];
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -103,7 +110,8 @@ export const MessagesPage = () => {
     // No explicit ?mode= but a list-only filter arrived (e.g. Notification Center
     // "Spam"/"Suspicious" → ?queue=spam while already on Kanban): switch to the
     // list view so the queue is actually shown instead of a silent no-op.
-    else if (LIST_ONLY_FILTER_PARAMS.some((key) => searchParams.get(key))) setDisplayMode('threads');
+    else if (LIST_ONLY_FILTER_PARAMS.some((key) => searchParams.get(key)))
+      setDisplayMode('threads');
   }, [searchParams]);
   useEffect(() => {
     localStorage.setItem('messages_view_mode', displayMode);
@@ -505,7 +513,8 @@ export const MessagesPage = () => {
     setDeleting(true);
     try {
       await messageService.delete(messageToDelete.id);
-      clearCache(); void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      clearCache();
+      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       setDeleteDialogOpen(false);
       setMessageToDelete(null);
       setSelectedMessage(null);
@@ -664,14 +673,15 @@ export const MessagesPage = () => {
           }`}
         >
           <div
-            className={`px-4 mx-auto space-y-4 w-full ${
+            className={`px-4 mx-auto space-y-3 w-full ${
               // Full page width (app-wide convention — every page is full width now;
               // the kanban also needs the flex-column chain for its bounded height).
               isKanban ? 'lg:flex lg:flex-col lg:flex-1 lg:min-h-0' : ''
             }`}
           >
-            {/* Header */}
-            <div className="mb-6">
+            {/* Header — no own margin: the container's space-y already separates the
+                blocks, and mb-6 STACKED on top of it was costing 24px of kanban height. */}
+            <div>
               <PageHeader
                 title="Messages"
                 description="Manage and process incoming messages"
@@ -684,21 +694,13 @@ export const MessagesPage = () => {
                       </Button>
                     </PermissionGuard>
                     <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
-                      <Button
-                        onClick={handleSyncEmails}
-                        disabled={refreshing}
-                        variant="outline"
-                      >
-                        <RefreshCw
-                          className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
-                        />
+                      <Button onClick={handleSyncEmails} disabled={refreshing} variant="outline">
+                        <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                         Sync New
                       </Button>
                     </PermissionGuard>
                     <Button onClick={handleRefresh} disabled={refreshing}>
-                      <RefreshCw
-                        className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
-                      />
+                      <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                       Refresh
                     </Button>
                   </>
@@ -707,7 +709,7 @@ export const MessagesPage = () => {
             </div>
 
             <>
-              <div className="mb-6">
+              <div>
                 <MessageFilterBar
                   filters={filters}
                   activeFilterCount={activeFilterCount}
@@ -1045,7 +1047,11 @@ export const MessagesPage = () => {
         variant={alertDialog.variant}
       />
 
-      <Dialog open={spamPreview !== null} onOpenChange={(open) => !open && setSpamPreview(null)} size="lg">
+      <Dialog
+        open={spamPreview !== null}
+        onOpenChange={(open) => !open && setSpamPreview(null)}
+        size="lg"
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle>{spamPreview?.latestMessage?.subject || '(no subject)'}</DialogTitle>
@@ -1060,8 +1066,8 @@ export const MessagesPage = () => {
             before one was created, so there are no events, notes or activity to show.
           */}
           <p className="mb-3 text-xs text-muted-foreground">
-            A rule rejected this before it became a conversation, so there is no thread to
-            open — everything captured about it is shown here.
+            A rule rejected this before it became a conversation, so there is no thread to open —
+            everything captured about it is shown here.
           </p>
           <div className="mb-3 space-y-0.5 text-sm text-muted-foreground">
             <div>
