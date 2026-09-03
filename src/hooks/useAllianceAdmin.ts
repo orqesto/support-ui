@@ -56,7 +56,8 @@ export const useAllianceMemberCandidates = (
 ) =>
   useQuery({
     queryKey: ['alliance', allianceId, 'member-candidates', search],
-    queryFn: () => allianceAdminService.listMemberCandidates(allianceId as number, search || undefined),
+    queryFn: () =>
+      allianceAdminService.listMemberCandidates(allianceId as number, search || undefined),
     enabled: allianceId !== null && enabled,
     refetchOnWindowFocus: false,
   });
@@ -135,8 +136,12 @@ export const useChangeMemberRole = (allianceId: number | null) => {
 export const useDeactivateMember = (allianceId: number | null) => {
   const invalidate = useAllianceListInvalidator(allianceId, 'members');
   return useMutation({
-    mutationFn: (userId: number) =>
-      allianceAdminService.deactivateMember(allianceId as number, userId),
+    mutationFn: (input: { userId: number; reassignToUserId?: number | null }) =>
+      allianceAdminService.deactivateMember(
+        allianceId as number,
+        input.userId,
+        input.reassignToUserId ?? null
+      ),
     onSuccess: invalidate,
   });
 };

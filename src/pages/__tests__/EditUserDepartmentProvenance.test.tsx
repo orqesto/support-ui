@@ -146,6 +146,21 @@ const save = async () => {
   return updateSpy.mock.calls[0][1] as Record<string, unknown>;
 };
 
+/**
+ * Click a department checkbox and WAIT for the click to stick.
+ *
+ * ⛔ This wait is the fix for a CI-only flake that failed twice in one day on unrelated PRs
+ * (#321, #322): the page re-seeds `selectedDepartmentIds` from the fetched user in an effect,
+ * and under CI load that effect can land AFTER a bare `fireEvent.click` — silently wiping the
+ * click. `deptsChanged` then computes false and the submit posts `departmentIds: undefined`,
+ * which reads as "expected [2,3], received undefined" in a test that never touched the race.
+ * Asserting the checkbox state before saving pins the click against the re-seed.
+ */
+const toggleDept = async (label: string, expected: boolean) => {
+  fireEvent.click(checkboxFor(label));
+  await waitFor(() => expect(checkboxFor(label).checked).toBe(expected));
+};
+
 beforeEach(() => {
   fetchedUser = { ...baseUser };
   navigateSpy.mockReset();
@@ -186,7 +201,7 @@ describe('department provenance in the member editor', () => {
     renderPage();
     await screen.findByText('Spare Dept');
 
-    fireEvent.click(checkboxFor('Spare Dept'));
+    await toggleDept('Spare Dept', true);
     const payload = await save();
 
     expect(payload.departmentIds).toEqual([DEPT_MANUAL, DEPT_SPARE]);
@@ -214,7 +229,7 @@ describe('department provenance in the member editor', () => {
     renderPage();
     await screen.findByText('Manual Dept');
 
-    fireEvent.click(checkboxFor('Manual Dept'));
+    await toggleDept('Manual Dept', false);
     const payload = await save();
 
     expect(payload.departmentIds).toEqual([]);
