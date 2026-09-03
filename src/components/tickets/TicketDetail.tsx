@@ -509,7 +509,7 @@ export const TicketDetail = ({
           </div>
         ) : (
           <div
-            className="max-w-none break-words prose prose-sm text-sm leading-relaxed"
+            className="max-w-none break-words [overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap prose prose-sm text-sm leading-relaxed"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedDescription ?? ticket.description ?? '', { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'h4'], ALLOWED_ATTR: ['href', 'target', 'rel'], ALLOWED_URI_REGEXP: /^https?:/i }) }}
           />
         )}
