@@ -13,7 +13,10 @@ import { logger } from '@/lib/logger';
 type TranslateButtonProps = {
   messageId?: number;
   ticketId?: number;
-  onTranslated: (content: string, subject?: string) => void;
+  /** Free text with no stored id — an AI draft. Used when neither id is given. */
+  text?: string;
+  /** `language` is the code the agent picked, for callers that label the result. */
+  onTranslated: (content: string, subject?: string, language?: string) => void;
   onCleared: () => void;
   buttonClassName?: string;
   spinnerClassName?: string;
@@ -23,6 +26,7 @@ type TranslateButtonProps = {
 export const TranslateButton = ({
   messageId,
   ticketId,
+  text,
   onTranslated,
   onCleared,
   buttonClassName,
@@ -36,7 +40,7 @@ export const TranslateButton = ({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { translateMessage, translateTicket, isTranslating } = useTranslation();
+  const { translateMessage, translateTicket, translateText, isTranslating } = useTranslation();
   const { languages, fetchLanguages } = useSupportedLanguages();
   const { aiConfigured } = useAiConfigured();
   const { theme } = useTheme();
@@ -70,10 +74,13 @@ export const TranslateButton = ({
     try {
       if (messageId) {
         const result = await translateMessage(messageId, language);
-        onTranslated(result.translated.content, result.translated.subject);
+        onTranslated(result.translated.content, result.translated.subject, language);
       } else if (ticketId) {
         const result = await translateTicket(ticketId, language);
-        onTranslated(result.translated.description ?? '', result.translated.title);
+        onTranslated(result.translated.description ?? '', result.translated.title, language);
+      } else if (text !== undefined) {
+        const result = await translateText(text, language);
+        onTranslated(result.translated.content, undefined, language);
       }
       setHasTranslation(true);
     } catch (err) {

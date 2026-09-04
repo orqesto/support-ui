@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Sparkles, Undo2, X, Languages } from 'lucide-react';
+import { Sparkles, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
+import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
@@ -77,8 +78,13 @@ const MAX_INSTRUCTIONS = 2000;
  */
 const NO_INBOUND_GUIDANCE =
   'Write the reply yourself below, then use “Make it customer-ready”.';
-/** Language the agent reads; a draft in anything else offers a translation. */
-const AGENT_LANGUAGE = 'en';
+/**
+ * ⛔ There is no "agent language" constant here any more. The first version hardcoded
+ * English and offered one "Show in English" toggle only when the draft was NOT English —
+ * so a customer who writes English produced a draft with no translation control at all,
+ * and an agent who reads Swedish had nothing. Every message and ticket already has a
+ * language dropdown (TranslateButton); the draft gets the same one.
+ */
 const OWN_TEXT_PREVIEW_CHARS = 160;
 
 export function ComposerAiActions({
@@ -96,9 +102,10 @@ export function ComposerAiActions({
   // Set when the agent picks "write a new reply instead" while their own text is
   // still in the composer — that text is kept until they accept a draft.
   const [startFresh, setStartFresh] = useState(false);
-  const [translation, setTranslation] = useState<string | null>(null);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [translating, setTranslating] = useState(false);
+  // The draft rendered in the language the agent picked; null shows the original.
+  const [translation, setTranslation] = useState<{ content: string; language?: string } | null>(
+    null
+  );
   // The agent's text as it was BEFORE we replaced it. Undo must always be
   // available — an AI rewrite that destroys what someone typed is the one
   // failure that makes people stop trusting the feature.
@@ -147,7 +154,6 @@ export function ComposerAiActions({
     setBusy(true);
     setError(null);
     setTranslation(null);
-    setShowTranslation(false);
     try {
       const response = await messageService.composeReply(messageId, {
         mode,
@@ -205,7 +211,6 @@ export function ComposerAiActions({
   const discard = () => {
     setDraft(null);
     setTranslation(null);
-    setShowTranslation(false);
   };
 
   const undo = () => {
@@ -214,34 +219,6 @@ export function ComposerAiActions({
     setPrevious(null);
     // The agent's own text is back in the composer — this reply is theirs again.
     onApplied?.(null);
-  };
-
-  const toggleTranslation = async () => {
-    if (!draft) return;
-    if (showTranslation) {
-      setShowTranslation(false);
-      return;
-    }
-    if (translation) {
-      setShowTranslation(true);
-      return;
-    }
-    setTranslating(true);
-    try {
-      const response = await messageService.translateText(draft.text, AGENT_LANGUAGE);
-      const content = response.data?.translated?.content;
-      if (!content) {
-        setError('Could not translate this draft.');
-        return;
-      }
-      setTranslation(content);
-      setShowTranslation(true);
-    } catch (err) {
-      logger.error('Draft translation failed:', err);
-      setError(describeError(err));
-    } finally {
-      setTranslating(false);
-    }
   };
 
   const closePanel = () => {
@@ -255,7 +232,6 @@ export function ComposerAiActions({
   // end. Stay mounted only while an undo is still pending.
   if (!aiConfigured && previous === null) return null;
 
-  const canTranslate = !!draft?.language && draft.language !== AGENT_LANGUAGE;
   const showOwnTextView = !busy && !draft && hasOwnText && !startFresh;
   const showWriteView = !busy && !draft && (!hasOwnText || startFresh);
 
@@ -318,22 +294,22 @@ export function ComposerAiActions({
                   Draft
                   {draft.language ? ` — ${draft.language.toUpperCase()} (customer's language)` : ''}
                 </span>
-                {canTranslate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void toggleTranslation()}
-                    disabled={translating}
-                    className="flex items-center gap-1 px-1.5 py-0.5 h-auto text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    {translating ? <Spinner size={11} /> : <Languages className="w-3 h-3" />}
-                    {showTranslation ? 'Show original' : 'Show in English'}
-                  </Button>
-                )}
+                {/*
+                  Always offered, whatever language the draft is in — keyed on the text so
+                  a new draft (Try again) arrives untranslated with a reset control.
+                */}
+                <TranslateButton
+                  key={draft.text}
+                  text={draft.text}
+                  onTranslated={(content, _subject, language) =>
+                    setTranslation({ content, language })
+                  }
+                  onCleared={() => setTranslation(null)}
+                />
               </div>
 
               <div className="overflow-y-auto p-2 max-h-44 text-[13px] leading-relaxed whitespace-pre-wrap rounded border border-border bg-muted/30">
-                {showTranslation && translation ? translation : draft.text}
+                {translation ? translation.content : draft.text}
               </div>
 
               {/*
@@ -349,10 +325,11 @@ export function ComposerAiActions({
                     : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
                 </p>
               )}
-              {showTranslation && (
+              {translation && (
                 <p className="text-[11px] text-muted-foreground">
-                  Translation is for checking — the {draft.language?.toUpperCase()} version is what
-                  gets used.
+                  Translated{translation.language ? ` to ${translation.language.toUpperCase()}` : ''}{' '}
+                  for checking — the {draft.language ? draft.language.toUpperCase() : 'original'}{' '}
+                  version is what gets used.
                 </p>
               )}
 

@@ -11,13 +11,31 @@ const composeReply =
       data: { text: string | null; language?: string; groundedInKb?: boolean };
     }>
   >();
-const translateText =
-  vi.fn<(...args: unknown[]) => Promise<{ data: { translated: { content: string } } }>>();
 
 vi.mock('@/services/message.service', () => ({
   messageService: {
     composeReply: (...args: unknown[]) => composeReply(...args),
-    translateText: (...args: unknown[]) => translateText(...args),
+  },
+}));
+
+// The real dropdown is exercised in shared/__tests__/TranslateButton.test.tsx. Here it
+// only has to hand back a translation and a clear, and record which text it was given.
+const translateButtonTexts: (string | undefined)[] = [];
+vi.mock('@/components/shared/TranslateButton', () => ({
+  TranslateButton: (props: {
+    text?: string;
+    onTranslated: (content: string, subject?: string, language?: string) => void;
+    onCleared: () => void;
+  }) => {
+    translateButtonTexts.push(props.text);
+    return (
+      <>
+        <button onClick={() => props.onTranslated('Your parcel is at customs.', undefined, 'en')}>
+          mock-translate
+        </button>
+        <button onClick={props.onCleared}>mock-show-original</button>
+      </>
+    );
   },
 }));
 
@@ -52,6 +70,7 @@ const openPanel = (composer = '') => {
 describe('ComposerAiActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    translateButtonTexts.length = 0;
     aiConfigured.value = true;
     composeReply.mockResolvedValue({
       data: { text: 'Your parcel is at the border.', language: 'en' },
@@ -261,30 +280,48 @@ describe('ComposerAiActions', () => {
     });
   });
 
-  describe('reading a draft written in the customer language', () => {
-    it('offers a translation when the draft is not in the agent language', async () => {
+  describe('reading a draft — the same language dropdown every message has', () => {
+    it('hands the draft text to the translate control and shows what comes back', async () => {
       composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
-      translateText.mockResolvedValue({
-        data: { translated: { content: 'Your parcel is at customs.' } },
-      });
-
       openPanel('');
       fireEvent.click(screen.getByText('Write reply'));
 
       expect(await screen.findByText(/DE \(customer's language\)/)).toBeInTheDocument();
-      fireEvent.click(screen.getByText('Show in English'));
+      expect(translateButtonTexts.at(-1)).toBe('Ihr Paket ist im Zoll.');
+      fireEvent.click(screen.getByText('mock-translate'));
 
       expect(await screen.findByText('Your parcel is at customs.')).toBeInTheDocument();
-      expect(translateText).toHaveBeenCalledWith('Ihr Paket ist im Zoll.', 'en');
       // The original stays authoritative — the translation is only for checking.
-      expect(screen.getByText(/version is what/i)).toBeInTheDocument();
+      expect(screen.getByText(/the DE version is what gets used/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('mock-show-original'));
+      expect(screen.getByText('Ihr Paket ist im Zoll.')).toBeInTheDocument();
+      expect(screen.queryByText('Your parcel is at customs.')).not.toBeInTheDocument();
     });
 
-    it('does not offer a translation when the draft is already in the agent language', async () => {
+    it('offers the control on an ENGLISH draft too — the agent may not read English', async () => {
+      // The shipped version hid its "Show in English" toggle whenever the draft was
+      // English (a customer who writes English), so an agent who reads Swedish had no
+      // translation at all. Same dropdown as every message: always there.
       openPanel('');
       fireEvent.click(screen.getByText('Write reply'));
-      await screen.findByText('Use it');
-      expect(screen.queryByText('Show in English')).not.toBeInTheDocument();
+      await screen.findByText(/EN \(customer's language\)/);
+      expect(screen.getByText('mock-translate')).toBeInTheDocument();
+    });
+
+    it('a new draft arrives untranslated', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('mock-translate'));
+      await screen.findByText('Your parcel is at customs.');
+
+      composeReply.mockResolvedValue({
+        data: { text: 'Ihr Paket ist unterwegs.', language: 'de' },
+      });
+      fireEvent.click(screen.getByText('Try again'));
+      expect(await screen.findByText('Ihr Paket ist unterwegs.')).toBeInTheDocument();
+      expect(screen.queryByText('Your parcel is at customs.')).not.toBeInTheDocument();
     });
   });
 

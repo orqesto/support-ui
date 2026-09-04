@@ -66,6 +66,30 @@ export const useTranslation = () => {
     }
   };
 
+  /**
+   * Free text that is not stored anywhere — an AI draft the agent is reading before it
+   * goes into the composer. Same response shape as the two above so TranslateButton can
+   * offer the ONE language dropdown on every surface instead of a fixed target.
+   */
+  const translateText = async (text: string, targetLanguage: string) => {
+    setIsTranslating(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.post<{ success: boolean; data: TranslationResponse }>(
+        '/api/translation/text/translate',
+        { text, targetLanguage }
+      );
+      return response.data.data;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Translation failed';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   // ⛔ A streaming variant (`streamMessageTranslation`) used to live here. It was never
   // called from anywhere, and it could never have worked when it was: it bypassed
   // `apiClient` with a raw fetch to a RELATIVE `/api/...` URL, and every deployed FE
@@ -76,6 +100,7 @@ export const useTranslation = () => {
   return {
     translateMessage,
     translateTicket,
+    translateText,
     isTranslating,
     error,
   };
